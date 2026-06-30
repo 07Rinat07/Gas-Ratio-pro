@@ -3,9 +3,17 @@
 ## Структура проекта
 
 ```text
+ai/
+  assistant.py            Сбор контекста и вызов provider
+  factory.py              Выбор provider по config/ai.json
+  knowledge_base.py       Поиск по локальной документации
+  ollama_client.py        Локальный Ollama provider
+  provider.py             Provider contract
+  settings.py             Загрузка config/ai.json
 app/
   streamlit_app.py        Streamlit UI
 config/
+  ai.json                 Конфигурация локального AI-помощника
   palettes.json           Внешняя конфигурация Pixler/ternary палеток
 core/
   calculations.py         Расчетное ядро
@@ -101,10 +109,10 @@ git status --short
 
 Если добавляется AI-функциональность, нужно:
 
-- начать с provider interface и fake provider для тестов;
+- начинать с provider interface, offline provider и fake provider для тестов;
 - не подключать облачные API без явного разрешения;
 - не логировать полные пользовательские таблицы и сырые данные;
-- обновить `docs/ai_agent_plan.md` или создать отдельную AI-документацию;
+- обновить `docs/ai_usage.md` и `docs/ai_agent_plan.md`;
 - покрыть prompt contract и отказоустойчивость тестами.
 
 ## Тестовая стратегия

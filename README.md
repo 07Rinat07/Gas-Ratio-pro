@@ -68,6 +68,7 @@ examples/sample_gas_data.csv
 - Pixler palette, ternary palette и depth tracks.
 - Настройка Pixler/ternary палеток через `config/palettes.json`.
 - Локальное диагностическое логирование в `logs/app.log`.
+- Локальный ИИ-помощник по документации в offline-first режиме.
 - Экспорт расчетной таблицы в CSV.
 - Pytest-набор для проверки расчетов, mapping, импорта, примера данных, палеток и логирования.
 
@@ -79,7 +80,7 @@ examples/sample_gas_data.csv
 - Формула `Ch` требует подтверждения по корпоративной методике.
 - Границы зон Pixler/ternary в текущем конфиге являются черновыми и должны быть
   заменены на подтвержденные корпоративные линии.
-- LAS importer, PDF/PNG/SVG отчеты и локальный ИИ-помощник планируются в следующих версиях.
+- LAS importer, PDF/PNG/SVG отчеты и полноценно обученный локальный ИИ-помощник планируются в следующих версиях.
 
 ## Карта документации
 
@@ -89,6 +90,7 @@ examples/sample_gas_data.csv
 - [Формулы](docs/formulas.md)
 - [Конфигурация палеток](docs/palettes.md)
 - [Логирование](docs/logging.md)
+- [Локальный ИИ-помощник](docs/ai_usage.md)
 - [План локального ИИ-помощника](docs/ai_agent_plan.md)
 - [Архитектура и разработка](docs/development.md)
 - [Troubleshooting](docs/troubleshooting.md)

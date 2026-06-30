@@ -10,6 +10,9 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from ai.assistant import LocalAssistant
+from ai.factory import build_provider
+from ai.settings import load_ai_settings
 from core.calculations import CH_WARNING, calculate_gas_ratios
 from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summarize_interpretation
 from core.logging_config import configure_logging, safe_log_value
@@ -82,6 +85,58 @@ def _interval_label(df: pd.DataFrame, index: int) -> str:
     return f"{index}: depth={depth} | {interpretation}"
 
 
+def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
+    st.subheader("Локальный ИИ-помощник")
+
+    try:
+        ai_settings = load_ai_settings()
+        provider = build_provider(ai_settings)
+    except Exception:
+        logger.exception("ai_settings_load_failed")
+        st.error("Не удалось загрузить конфигурацию ИИ-помощника. Проверьте config/ai.json.")
+        st.caption("Подробности записаны в logs/app.log.")
+        return
+
+    st.caption(
+        "Помощник работает offline-first: `offline-docs` не требует интернета, "
+        "а `ollama` обращается только к локальному серверу. Полная таблица не передается."
+    )
+    st.caption(f"AI provider: {ai_settings.provider}")
+
+    question = st.text_area(
+        "Вопрос по данным, формулам, предупреждениям или выбранному интервалу",
+        placeholder="Например: почему Bh стал NaN или какие колонки нужны для расчета Wh?",
+        key="local_ai_question",
+        height=90,
+    )
+
+    if not st.button("Спросить помощника", key="local_ai_submit"):
+        return
+
+    if not question.strip():
+        st.warning("Введите вопрос для локального помощника.")
+        return
+
+    assistant = LocalAssistant(provider=provider)
+    interval_row = selected_row if ai_settings.privacy.send_selected_interval_only else None
+    logger.info(
+        "ai_question_received provider=%s chars=%d has_interval=%s",
+        safe_log_value(ai_settings.provider),
+        len(question),
+        interval_row is not None,
+    )
+    answer = assistant.answer(question, interval_row=interval_row)
+    logger.info(
+        "ai_answer_generated provider=%s sources=%d",
+        safe_log_value(answer.provider_name),
+        len(answer.sources),
+    )
+
+    st.markdown(answer.answer)
+    if answer.sources:
+        st.caption("Источники: " + ", ".join(answer.sources))
+
+
 def main() -> None:
     st.set_page_config(page_title="Gas Ratio Interpreter v0.3", layout="wide")
     st.title("Gas Ratio Interpreter v0.3")
@@ -109,6 +164,7 @@ def main() -> None:
 
     if uploaded_file is None:
         st.info("Загрузите CSV, XLSX или XLSM файл с газовыми данными.")
+        _render_ai_assistant(logger)
         return
 
     suffix = Path(uploaded_file.name).suffix.lower()
@@ -256,6 +312,8 @@ def main() -> None:
 
     selected_row = calculated_df.loc[selected_index]
     logger.info("interval_selected index=%s", safe_log_value(selected_index))
+
+    _render_ai_assistant(logger, selected_row)
 
     st.subheader("Pixler + ternary")
     left, right = st.columns(2)

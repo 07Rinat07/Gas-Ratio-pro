@@ -12,6 +12,7 @@
 - Тесты логирования и палеточного конфига.
 - Документация `docs/palettes.md`, `docs/logging.md` и `docs/ai_agent_plan.md`.
 - План локального бесплатного ИИ-помощника на базе локального runtime и RAG.
+- Offline-first AI skeleton: локальная knowledge base, provider contract, Ollama provider и Streamlit-блок помощника.
 
 ## v0.3
 
