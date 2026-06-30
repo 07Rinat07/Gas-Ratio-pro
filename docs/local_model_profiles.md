@@ -3,8 +3,8 @@
 Этот документ помогает заранее подготовить бесплатный локальный AI runtime,
 чтобы помощник продолжал работать на рабочих компьютерах без интернета.
 
-Проект ничего не скачивает автоматически. Каталог профилей только подсказывает,
-какую модель выбрать, и дает проверяемые команды для установки через Ollama.
+Проект ничего не скачивает автоматически. Каталог профилей подсказывает,
+какую модель выбрать, а скачивание запускается только явно через `python scripts/setup_local_agent.py --profile <id> --download`.
 
 ## Где хранятся профили
 
@@ -49,7 +49,7 @@ python scripts/ai_models.py --json
 
 1. Установить Ollama на рабочий компьютер.
 2. Пока интернет доступен, выбрать профиль.
-3. Скачать модель командой из `python scripts/ai_models.py --profile <id>`.
+3. Скачать модель командой `python scripts/setup_local_agent.py --profile <id> --download`.
 4. Проверить список локальных моделей.
 5. Указать точное имя модели в `config/ai.json`.
 6. Запустить preflight.
@@ -58,9 +58,8 @@ python scripts/ai_models.py --json
 
 ```powershell
 python scripts/ai_models.py --profile balanced
-python scripts/ai_config.py ollama --profile balanced
-ollama pull qwen3:4b
-ollama list
+python scripts/setup_local_agent.py --profile balanced
+python scripts/setup_local_agent.py --profile balanced --download
 ```
 
 После загрузки модели можно включить provider командой:
@@ -112,6 +111,7 @@ python scripts/ai_config.py offline-docs --write
 
 ```powershell
 python -m pytest tests/test_ai_model_profiles.py tests/test_preflight.py
+python scripts/setup_local_agent.py --profile balanced
 python scripts/preflight.py
 ```
 

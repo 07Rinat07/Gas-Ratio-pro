@@ -25,6 +25,7 @@ def _copy_required_fixture_tree(tmp_path: Path) -> Path:
         "docs/data_format.md",
         "docs/formulas.md",
         "docs/knowledge_base.md",
+        "docs/local_ai_agent.md",
         "docs/local_model_profiles.md",
         "docs/logging.md",
         "docs/palettes.md",
@@ -36,6 +37,7 @@ def _copy_required_fixture_tree(tmp_path: Path) -> Path:
         "scripts/ai_models.py",
         "scripts/evaluate_ai.py",
         "scripts/knowledge_base.py",
+        "scripts/setup_local_agent.py",
     ):
         source = source_root / relative
         target = root / relative

@@ -41,11 +41,11 @@
     {
       "id": "ollama_offline_preparation",
       "question": "Что делать, если на работе пропадет интернет, а AI-помощник нужен?",
-      "answer": "Базовый provider offline-docs работает без интернета и без модели. Для более сильного локального помощника установите Ollama и заранее скачайте выбранную модель, например из профиля balanced. Затем укажите точное имя модели в config/ai.json и проверьте python scripts/preflight.py.",
+      "answer": "Базовый provider offline-docs работает без интернета и без модели. Для более сильного локального помощника установите Ollama и заранее скачайте выбранную модель, например из профиля balanced. Удобный путь: python scripts/setup_local_agent.py --profile balanced --download, затем --write-config, проверка config/ai.json и python scripts/preflight.py.",
       "status": "approved",
       "priority": 10,
       "topics": ["ai", "ollama", "offline-docs", "offline", "models", "preflight"],
-      "sources": ["docs/ai_usage.md", "docs/local_model_profiles.md"],
+      "sources": ["docs/ai_usage.md", "docs/local_model_profiles.md", "docs/local_ai_agent.md"],
       "safety_notes": [
         "Не использовать внешние облачные API без явного разрешения.",
         "Не передавать полные пользовательские таблицы локальной модели без отдельного решения по приватности."

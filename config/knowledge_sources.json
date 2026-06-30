@@ -59,6 +59,14 @@
       "description": "Профили локальных моделей и команды подготовки без интернета."
     },
     {
+      "path": "docs/local_ai_agent.md",
+      "title": "Локальный AI-агент",
+      "status": "approved",
+      "priority": 7,
+      "topics": ["ai", "agent", "ollama", "download", "rag", "evaluation", "offline"],
+      "description": "Runbook подготовки локального AI-агента, скачивания модели и проверки RAG-обучения."
+    },
+    {
       "path": "docs/logging.md",
       "title": "Логирование",
       "status": "approved",

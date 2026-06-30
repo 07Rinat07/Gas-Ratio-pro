@@ -8,6 +8,7 @@ ai/
   config_writer.py        Безопасная запись config/ai.json
   evaluation.py           Локальная проверка качества AI/RAG
   factory.py              Выбор provider по config/ai.json
+  local_agent_setup.py    Подготовка локального AI-агента
   knowledge_base.py       Поиск по локальной документации
   knowledge_manifest.py   Загрузка manifest источников RAG
   knowledge_qa.py         Загрузка проверяемых Q/A-примеров
@@ -53,6 +54,7 @@ scripts/
   ai_models.py            Просмотр профилей локальных AI-моделей
   evaluate_ai.py          Проверка качества AI/RAG
   knowledge_base.py       Проверка manifest и поиска локальной базы знаний
+  setup_local_agent.py    Подготовка локального AI-агента и скачивание модели
   preflight.py            Проверка окружения перед запуском
 tests/
   test_*.py               Pytest-набор
@@ -131,7 +133,7 @@ git status --short
 - начинать с provider interface, offline provider и fake provider для тестов;
 - не подключать облачные API без явного разрешения;
 - не логировать полные пользовательские таблицы и сырые данные;
-- обновить `docs/ai_usage.md`, `docs/knowledge_base.md`, `docs/local_model_profiles.md` и `docs/ai_agent_plan.md`;
+- обновить `docs/ai_usage.md`, `docs/knowledge_base.md`, `docs/local_ai_agent.md`, `docs/local_model_profiles.md` и `docs/ai_agent_plan.md`;
 - покрыть prompt contract, профильные конфиги, Q/A-каталог, evaluation-кейсы и отказоустойчивость тестами.
 
 ## Тестовая стратегия

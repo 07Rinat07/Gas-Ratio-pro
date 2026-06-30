@@ -97,6 +97,7 @@ examples/sample_gas_data.csv
 - [Логирование](docs/logging.md)
 - [Локальный ИИ-помощник](docs/ai_usage.md)
 - [Локальная база знаний AI-помощника](docs/knowledge_base.md)
+- [Локальный AI-агент](docs/local_ai_agent.md)
 - [Проверка качества AI-помощника](docs/ai_evaluation.md)
 - [Профили локальных AI-моделей](docs/local_model_profiles.md)
 - [План локального ИИ-помощника](docs/ai_agent_plan.md)
@@ -119,6 +120,9 @@ python scripts/ai_models.py
 
 # Просмотр/настройка AI-provider
 python scripts/ai_config.py status
+
+# План подготовки локального AI-агента
+python scripts/setup_local_agent.py --profile balanced
 
 # Проверка локальной базы знаний AI-помощника
 python scripts/knowledge_base.py

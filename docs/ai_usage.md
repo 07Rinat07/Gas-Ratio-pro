@@ -73,11 +73,12 @@ python scripts/ai_config.py status
 ```powershell
 python scripts/ai_models.py
 python scripts/ai_models.py --profile balanced
+python scripts/setup_local_agent.py --profile balanced
 python scripts/ai_config.py ollama --profile balanced
 python scripts/ai_config.py ollama --profile balanced --write
 ```
 
-Подробный чеклист: `docs/local_model_profiles.md`.
+Подробный чеклист: `docs/local_ai_agent.md` и `docs/local_model_profiles.md`.
 
 Чтобы использовать локальную модель, нужно:
 
@@ -126,7 +127,7 @@ python scripts/preflight.py
 
 1. Установите Ollama там, где будет запускаться проект.
 2. Пока интернет доступен, выберите профиль через `python scripts/ai_models.py`.
-3. Скачайте выбранную модель, например `ollama pull qwen3:4b`.
+3. Скачайте выбранную модель через `python scripts/setup_local_agent.py --profile balanced --download`.
 4. Проверьте локальный список моделей командой `ollama list`.
 5. Укажите точное имя модели в `config/ai.json`.
 6. Запустите приложение и убедитесь, что статус Ollama стал готовым.
