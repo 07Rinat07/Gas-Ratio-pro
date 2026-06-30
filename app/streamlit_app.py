@@ -12,11 +12,13 @@ if str(ROOT_DIR) not in sys.path:
 
 from core.calculations import CH_WARNING, calculate_gas_ratios
 from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summarize_interpretation
+from core.logging_config import configure_logging, safe_log_value
 from core.models import CalculationConfig, STANDARD_FIELDS
 from importers.csv_importer import load_csv_sheets
 from importers.excel_importer import load_excel_sheets
 from importers.header_detector import detect_header_row, prepare_dataframe_with_header
 from mapping.mapper import apply_mapping, auto_map_columns
+from palettes.config import load_palette_config
 from palettes.depth_tracks import (
     build_depth_gas_tracks,
     build_depth_pixler_tracks,
@@ -85,6 +87,21 @@ def main() -> None:
     st.title("Gas Ratio Interpreter v0.3")
     st.caption(INTERPRETATION_NOTE)
 
+    logger = configure_logging()
+    logger.info("streamlit_app_started")
+
+    try:
+        palette_config = load_palette_config()
+    except Exception:
+        logger.exception("palette_config_load_failed")
+        st.error("Не удалось загрузить конфигурацию палеток. Проверьте config/palettes.json.")
+        st.caption("Подробности записаны в logs/app.log.")
+        return
+
+    st.sidebar.subheader("Палетки")
+    st.sidebar.caption(f"Config: {palette_config.version}")
+    st.sidebar.info(palette_config.notice)
+
     uploaded_file = st.file_uploader(
         "Загрузка файла",
         type=["csv", "xlsx", "xlsm"],
@@ -95,32 +112,55 @@ def main() -> None:
         return
 
     suffix = Path(uploaded_file.name).suffix.lower()
+    logger.info(
+        "file_upload_received extension=%s size=%s",
+        safe_log_value(suffix),
+        safe_log_value(getattr(uploaded_file, "size", "unknown")),
+    )
+
     if suffix not in SUPPORTED_EXTENSIONS:
+        logger.warning("unsupported_file_extension extension=%s", safe_log_value(suffix))
         st.error("Формат файла не поддерживается в v0.3.")
         return
 
     try:
         sheets = _load_raw_sheets(uploaded_file)
-    except Exception as exc:
+        logger.info("file_read_success extension=%s sheet_count=%d", safe_log_value(suffix), len(sheets))
+    except Exception:
+        logger.exception("file_read_failed extension=%s", safe_log_value(suffix))
         st.error("Не удалось прочитать файл. Проверьте формат и доступность данных.")
-        st.caption(str(exc))
+        st.caption("Подробности записаны в logs/app.log.")
         return
 
     if not sheets:
+        logger.warning("file_read_empty extension=%s", safe_log_value(suffix))
         st.error("Файл прочитан, но листы или строки данных не найдены.")
         return
 
     sheet_name = st.selectbox("Выбор листа", options=list(sheets.keys()))
     raw_df = sheets[sheet_name]
+    logger.info(
+        "sheet_selected sheet=%s rows=%d columns=%d",
+        safe_log_value(sheet_name),
+        len(raw_df),
+        len(raw_df.columns),
+    )
 
     st.subheader("Предпросмотр первых 20 строк")
     st.dataframe(raw_df.head(20), use_container_width=True)
 
     if raw_df.empty:
+        logger.warning("selected_sheet_empty sheet=%s", safe_log_value(sheet_name))
         st.error("Выбранный лист пустой.")
         return
 
     detected_header = detect_header_row(raw_df)
+    logger.info(
+        "header_detected sheet=%s row=%d score=%d",
+        safe_log_value(sheet_name),
+        detected_header.header_row,
+        detected_header.score,
+    )
     header_row = st.number_input(
         "Строка заголовков",
         min_value=0,
@@ -131,7 +171,14 @@ def main() -> None:
     )
 
     prepared_df = prepare_dataframe_with_header(raw_df, int(header_row))
+    logger.info(
+        "header_applied row=%d rows=%d columns=%d",
+        int(header_row),
+        len(prepared_df),
+        len(prepared_df.columns),
+    )
     if prepared_df.empty:
+        logger.warning("prepared_dataframe_empty header_row=%d", int(header_row))
         st.error("После выбора строки заголовков не осталось строк данных.")
         return
 
@@ -139,9 +186,19 @@ def main() -> None:
     st.dataframe(prepared_df.head(20), use_container_width=True)
 
     mapping_result = auto_map_columns(prepared_df.columns)
+    logger.info(
+        "auto_mapping_completed mapped=%s unmapped_count=%d",
+        safe_log_value(",".join(sorted(mapping_result.mapping.keys()))),
+        len(mapping_result.unmapped_columns),
+    )
     manual_mapping = _build_mapping_controls(prepared_df, mapping_result.mapping)
 
     prepared = apply_mapping(prepared_df, manual_mapping)
+    logger.info(
+        "manual_mapping_applied mapped=%s warning_count=%d",
+        safe_log_value(",".join(sorted(manual_mapping.keys()))),
+        len(prepared.warnings),
+    )
     ch_mode = st.radio(
         "Режим Ch",
         options=["A", "reserved"],
@@ -151,6 +208,12 @@ def main() -> None:
 
     calculation = calculate_gas_ratios(prepared.data, CalculationConfig(ch_mode=ch_mode))
     calculated_df = add_interpretation(calculation.data)
+    logger.info(
+        "calculation_completed rows=%d ch_mode=%s warning_count=%d",
+        len(calculated_df),
+        safe_log_value(ch_mode),
+        len(calculation.warnings),
+    )
 
     warnings = list(mapping_result.warnings) + list(prepared.warnings) + list(calculation.warnings)
     warnings = list(dict.fromkeys(warnings))
@@ -164,6 +227,7 @@ def main() -> None:
     st.info(CH_WARNING)
 
     if calculated_df.empty:
+        logger.warning("calculated_dataframe_empty")
         st.error("Нет расчетных данных для отображения.")
         return
 
@@ -176,6 +240,7 @@ def main() -> None:
         if not pd.isna(index)
     ]
     if not interval_indices:
+        logger.warning("interval_list_empty")
         st.error("Не найдено ни одного интервала для выбора.")
         return
 
@@ -185,15 +250,23 @@ def main() -> None:
         format_func=lambda index: _interval_label(calculated_df, index),
     )
     if selected_index not in calculated_df.index:
+        logger.warning("selected_interval_missing index=%s", safe_log_value(selected_index))
         st.error("Выбранный интервал не найден.")
         return
 
     selected_row = calculated_df.loc[selected_index]
+    logger.info("interval_selected index=%s", safe_log_value(selected_index))
 
     st.subheader("Pixler + ternary")
     left, right = st.columns(2)
-    left.plotly_chart(build_pixler_palette(selected_row), use_container_width=True)
-    right.plotly_chart(build_ternary_palette(selected_row), use_container_width=True)
+    left.plotly_chart(
+        build_pixler_palette(selected_row, zones=palette_config.pixler_zones),
+        use_container_width=True,
+    )
+    right.plotly_chart(
+        build_ternary_palette(selected_row, regions=palette_config.ternary_regions),
+        use_container_width=True,
+    )
 
     st.subheader("Графики по глубине")
     tab_gas, tab_ratios, tab_pixler = st.tabs(["C1-C5", "Wh/Bh/Ch", "Pixler ratios"])

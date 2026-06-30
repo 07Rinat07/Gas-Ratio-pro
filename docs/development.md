@@ -5,9 +5,12 @@
 ```text
 app/
   streamlit_app.py        Streamlit UI
+config/
+  palettes.json           Внешняя конфигурация Pixler/ternary палеток
 core/
   calculations.py         Расчетное ядро
   interpretation.py       Правила предварительной классификации
+  logging_config.py       Настройка локального логирования
   models.py               Dataclass-модели и стандартные поля
 importers/
   csv_importer.py         Чтение CSV
@@ -17,13 +20,17 @@ mapping/
   curve_aliases.py        Алиасы кривых
   mapper.py               Авто/manual mapping
 palettes/
-  config.py               Настройки палеток
+  config.py               Загрузчик и валидация палеточного конфига
   pixler.py               Pixler palette
   ternary.py              Ternary palette
   depth_tracks.py         Графики по глубине
 reports/
   export_csv.py           CSV export
   export_xlsx.py          XLSX export helper
+logs/
+  app.log                 Локальный runtime-лог, не коммитится
+examples/
+  sample_gas_data.csv     Демо-файл для проверки приложения
 tests/
   test_*.py               Pytest-набор
 docs/
@@ -39,6 +46,9 @@ docs/
 - Импорт не должен зависеть от порядка колонок.
 - Деление на 0 должно возвращать `NaN`, а не падение приложения.
 - Новые формулы добавляются только после подтверждения источника или методики.
+- Границы палеток меняются через `config/palettes.json`, а не через UI-код.
+- Новая фича должна иметь тесты, документацию и запись в `CHANGELOG.md`.
+- Ошибки workflow должны логироваться в `logs/app.log` без записи сырых таблиц.
 
 ## Локальная разработка
 
@@ -70,10 +80,41 @@ git status --short
 - обновить `docs/data_format.md`;
 - при необходимости обновить `mapping/curve_aliases.py`.
 
+Если меняются палетки или их конфиг, нужно:
+
+- обновить `config/palettes.json`;
+- обновить `docs/palettes.md`;
+- добавить или обновить тесты в `tests/test_palette_config.py`;
+- отметить изменение в `CHANGELOG.md`.
+
+Если меняется логирование, нужно:
+
+- обновить `core/logging_config.py` или места вызова логгера;
+- добавить или обновить тесты в `tests/test_logging_config.py`;
+- обновить `docs/logging.md`;
+- убедиться, что сырые данные файлов не попадают в лог.
+
 Если меняется UI, нужно:
 
 - обновить `docs/user_guide.md`;
 - проверить запуск Streamlit вручную.
+
+Если добавляется AI-функциональность, нужно:
+
+- начать с provider interface и fake provider для тестов;
+- не подключать облачные API без явного разрешения;
+- не логировать полные пользовательские таблицы и сырые данные;
+- обновить `docs/ai_agent_plan.md` или создать отдельную AI-документацию;
+- покрыть prompt contract и отказоустойчивость тестами.
+
+## Тестовая стратегия
+
+Минимум для каждой фичи:
+
+- unit-тест на расчетную или сервисную логику;
+- тест на ошибочный/пустой вход;
+- тест на пользовательский пример, если фича влияет на workflow;
+- обновление документации, чтобы фичу можно было проверить вручную.
 
 ## Версионирование
 
@@ -85,4 +126,5 @@ git status --short
 - v0.5: отчеты PDF/PNG/SVG и печатные планшеты;
 - v0.6: LAS importer;
 - v0.7: структура проектов;
+- v0.8: локальный ИИ-помощник по документации и интерпретации;
 - v1.0: коммерческая MVP.

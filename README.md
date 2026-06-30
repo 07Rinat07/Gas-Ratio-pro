@@ -66,8 +66,10 @@ examples/sample_gas_data.csv
 - Расчет `Wh`, `Bh`, `BAR2`, Pixler ratios, ternary ratios и настраиваемого `Ch`.
 - Предварительная инженерная классификация интервалов.
 - Pixler palette, ternary palette и depth tracks.
+- Настройка Pixler/ternary палеток через `config/palettes.json`.
+- Локальное диагностическое логирование в `logs/app.log`.
 - Экспорт расчетной таблицы в CSV.
-- Pytest-набор для проверки расчетов, mapping и импорта.
+- Pytest-набор для проверки расчетов, mapping, импорта, примера данных, палеток и логирования.
 
 ## Важные ограничения
 
@@ -75,9 +77,9 @@ examples/sample_gas_data.csv
 - Результат требует проверки по ГИС, литологии, буровому контексту, фону,
   СПО, наращиваниям и рециркуляции.
 - Формула `Ch` требует подтверждения по корпоративной методике.
-- Границы зон Pixler в v0.3 вынесены в конфиг и должны быть заменены на
-  подтвержденные корпоративные линии.
-- LAS importer, PDF/PNG/SVG отчеты и структура проектов планируются в следующих версиях.
+- Границы зон Pixler/ternary в текущем конфиге являются черновыми и должны быть
+  заменены на подтвержденные корпоративные линии.
+- LAS importer, PDF/PNG/SVG отчеты и локальный ИИ-помощник планируются в следующих версиях.
 
 ## Карта документации
 
@@ -85,6 +87,9 @@ examples/sample_gas_data.csv
 - [Руководство пользователя](docs/user_guide.md)
 - [Формат входных данных](docs/data_format.md)
 - [Формулы](docs/formulas.md)
+- [Конфигурация палеток](docs/palettes.md)
+- [Логирование](docs/logging.md)
+- [План локального ИИ-помощника](docs/ai_agent_plan.md)
 - [Архитектура и разработка](docs/development.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Правила ведения документации](docs/documentation_policy.md)
@@ -98,6 +103,9 @@ python -m pytest
 
 # Запуск приложения
 streamlit run app/streamlit_app.py
+
+# Просмотр последних строк лога
+Get-Content logs/app.log -Tail 80
 
 # Проверка текущего git-состояния
 git status --short
