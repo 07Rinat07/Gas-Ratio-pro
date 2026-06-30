@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ai.health import HttpGet, check_ai_runtime_status
+from ai.knowledge_base import DocumentationKnowledgeBase
+from ai.knowledge_manifest import load_knowledge_source_manifest
 from ai.model_profiles import load_ai_model_profile_catalog
 from ai.settings import load_ai_settings
 from palettes.config import load_palette_config
@@ -17,13 +19,16 @@ REQUIRED_PROJECT_FILES: tuple[str, ...] = (
     "app/streamlit_app.py",
     "config/ai.json",
     "config/ai_model_profiles.json",
+    "config/knowledge_sources.json",
     "config/palettes.json",
+    "docs/knowledge_base.md",
     "docs/local_model_profiles.md",
     "docs/formulas.md",
     "docs/user_guide.md",
     "examples/sample_gas_data.csv",
     "requirements.txt",
     "scripts/ai_models.py",
+    "scripts/knowledge_base.py",
 )
 
 
@@ -145,6 +150,31 @@ def _check_ai_model_profiles(root: Path) -> PreflightCheck:
     )
 
 
+def _check_knowledge_sources(root: Path) -> PreflightCheck:
+    try:
+        manifest = load_knowledge_source_manifest(root / "config" / "knowledge_sources.json", root=root)
+        chunks = DocumentationKnowledgeBase(root=root, manifest=manifest).load_chunks()
+    except Exception as exc:
+        return PreflightCheck(
+            name="knowledge_sources",
+            status="error",
+            message=f"Ошибка config/knowledge_sources.json: {exc}",
+        )
+
+    if not chunks:
+        return PreflightCheck(
+            name="knowledge_sources",
+            status="error",
+            message="База знаний не содержит markdown-блоков.",
+        )
+
+    return PreflightCheck(
+        name="knowledge_sources",
+        status="ok",
+        message=f"База знаний загружена: {len(manifest.sources)} источников, {len(chunks)} блоков.",
+    )
+
+
 def _check_ai_config(root: Path, http_get: HttpGet | None) -> PreflightCheck:
     try:
         settings = load_ai_settings(root / "config" / "ai.json")
@@ -199,6 +229,7 @@ def run_preflight(
         _check_runtime_modules(),
         _check_palette_config(resolved_root),
         _check_ai_model_profiles(resolved_root),
+        _check_knowledge_sources(resolved_root),
         _check_ai_config(resolved_root, http_get=http_get),
         _check_logs_dir(resolved_root),
     )

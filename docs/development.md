@@ -7,6 +7,7 @@ ai/
   assistant.py            Сбор контекста и вызов provider
   factory.py              Выбор provider по config/ai.json
   knowledge_base.py       Поиск по локальной документации
+  knowledge_manifest.py   Загрузка manifest источников RAG
   model_profiles.py       Загрузка и валидация профилей локальных моделей
   ollama_client.py        Локальный Ollama provider
   provider.py             Provider contract
@@ -16,6 +17,7 @@ app/
 config/
   ai.json                 Конфигурация локального AI-помощника
   ai_model_profiles.json  Профили рекомендуемых локальных AI-моделей
+  knowledge_sources.json  Manifest локальной базы знаний AI-помощника
   palettes.json           Внешняя конфигурация Pixler/ternary палеток
 core/
   calculations.py         Расчетное ядро
@@ -43,6 +45,7 @@ examples/
   sample_gas_data.csv     Демо-файл для проверки приложения
 scripts/
   ai_models.py            Просмотр профилей локальных AI-моделей
+  knowledge_base.py       Проверка manifest и поиска локальной базы знаний
   preflight.py            Проверка окружения перед запуском
 tests/
   test_*.py               Pytest-набор
@@ -70,6 +73,7 @@ cd C:\OSPanel\home\gas-ratio-pro
 .\.venv\Scripts\Activate.ps1
 python -m pytest
 python scripts/preflight.py
+python scripts/knowledge_base.py
 streamlit run app/streamlit_app.py
 ```
 
@@ -119,7 +123,7 @@ git status --short
 - начинать с provider interface, offline provider и fake provider для тестов;
 - не подключать облачные API без явного разрешения;
 - не логировать полные пользовательские таблицы и сырые данные;
-- обновить `docs/ai_usage.md`, `docs/local_model_profiles.md` и `docs/ai_agent_plan.md`;
+- обновить `docs/ai_usage.md`, `docs/knowledge_base.md`, `docs/local_model_profiles.md` и `docs/ai_agent_plan.md`;
 - покрыть prompt contract, профильные конфиги и отказоустойчивость тестами.
 
 ## Тестовая стратегия

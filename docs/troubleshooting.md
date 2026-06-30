@@ -12,7 +12,7 @@ python scripts/preflight.py --json
 
 - не активировано виртуальное окружение;
 - не установлены зависимости из `requirements.txt`;
-- поврежден `config/ai.json`, `config/ai_model_profiles.json` или `config/palettes.json`;
+- поврежден `config/ai.json`, `config/ai_model_profiles.json`, `config/knowledge_sources.json` или `config/palettes.json`;
 - папка `logs` недоступна для записи;
 - выбран provider `ollama`, но локальная модель не указана или не найдена.
 
@@ -123,6 +123,23 @@ python -m pytest -vv
 
 Сначала исправляйте расчетные тесты, затем import/mapping тесты. Если тест
 падает после изменения формулы, проверьте `docs/formulas.md` и источник методики.
+
+## Локальная база знаний AI-помощника не проходит проверку
+
+Проверьте manifest и поиск:
+
+```powershell
+python scripts/knowledge_base.py --json
+python scripts/knowledge_base.py --query "Как считается Wh?"
+python -m pytest tests/test_knowledge_manifest.py
+```
+
+Типовые причины:
+
+- путь в `config/knowledge_sources.json` указывает на отсутствующий файл;
+- путь абсолютный или содержит `..`;
+- повторяется один и тот же `path`;
+- источник добавлен без topics или description.
 
 ## Профили локальных AI-моделей не проходят проверку
 

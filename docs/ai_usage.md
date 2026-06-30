@@ -14,6 +14,23 @@ offline-docs
 Он не обращается к интернету и не требует локальной модели. Ответ строится по
 локальной документации из `docs/` и безопасному контексту выбранного интервала.
 
+## Локальная база знаний
+
+Список документов, доступных помощнику, хранится в:
+
+```text
+config/knowledge_sources.json
+```
+
+Проверить manifest и поиск можно командами:
+
+```powershell
+python scripts/knowledge_base.py
+python scripts/knowledge_base.py --query "Как считается Wh?"
+```
+
+Подробности описаны в `docs/knowledge_base.md`.
+
 ## Конфигурация
 
 Файл:
@@ -137,5 +154,6 @@ python scripts/preflight.py
 ```powershell
 python -m pytest tests/test_ai_assistant.py tests/test_ai_model_profiles.py
 python scripts/ai_models.py --profile balanced
+python scripts/knowledge_base.py --query "Как считается Wh?"
 streamlit run app/streamlit_app.py
 ```

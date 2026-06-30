@@ -23,6 +23,19 @@ def test_knowledge_base_finds_formula_docs():
     assert "docs/formulas.md" in sources
 
 
+def test_knowledge_base_uses_manifest_metadata_for_ai_topics():
+    kb = DocumentationKnowledgeBase()
+
+    results = kb.search("Как подготовить ollama модель без интернета?")
+
+    assert results
+    assert results[0].chunk.source in {
+        "docs/ai_usage.md",
+        "docs/local_model_profiles.md",
+        "docs/troubleshooting.md",
+    }
+    assert "ollama" in results[0].chunk.topics
+
 def test_local_assistant_answer_contains_disclaimer_and_sources():
     assistant = LocalAssistant()
 

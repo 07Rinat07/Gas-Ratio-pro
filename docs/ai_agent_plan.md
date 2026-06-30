@@ -10,14 +10,15 @@
 Сейчас реализован offline-first skeleton:
 
 - `offline-docs` provider работает без интернета и без модели;
-- локальная knowledge base ищет ответы по `docs/`;
+- локальная knowledge base ищет ответы по manifest `config/knowledge_sources.json`;
+- CLI `python scripts/knowledge_base.py` показывает источники и результаты поиска;
 - `ollama` provider готов для локального `localhost` runtime;
 - Streamlit показывает блок `Локальный ИИ-помощник`;
 - полная таблица и сырые строки файла не передаются помощнику;
 - тесты покрывают settings, provider contract, disclaimer и безопасный контекст интервала.
 
-Следующий шаг: выбрать локальную модель, заранее скачать ее на рабочих машинах и
-включить provider `ollama` в `config/ai.json`.
+Следующий шаг: добавить экспертно проверенные Q/A-примеры в локальную базу знаний, затем проверить качество ответов на выбранной Ollama-модели.
+
 ## Важный принцип
 
 Сначала делаем помощника как RAG/knowledge assistant по документации проекта,
@@ -84,6 +85,7 @@ ai/
   ollama_client.py         локальный клиент Ollama
   prompts.py               системные и пользовательские шаблоны
   knowledge_base.py        индекс локальной документации
+  knowledge_manifest.py    manifest источников RAG
   assistant.py             сбор контекста и вызов provider
 tests/
   test_ai_*.py             unit-тесты на prompt/context/provider contract

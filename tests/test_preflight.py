@@ -16,13 +16,21 @@ def _copy_required_fixture_tree(tmp_path: Path) -> Path:
         "app/streamlit_app.py",
         "config/ai.json",
         "config/ai_model_profiles.json",
+        "config/knowledge_sources.json",
         "config/palettes.json",
-        "docs/local_model_profiles.md",
+        "docs/ai_usage.md",
+        "docs/data_format.md",
         "docs/formulas.md",
+        "docs/knowledge_base.md",
+        "docs/local_model_profiles.md",
+        "docs/logging.md",
+        "docs/palettes.md",
+        "docs/troubleshooting.md",
         "docs/user_guide.md",
         "examples/sample_gas_data.csv",
         "requirements.txt",
         "scripts/ai_models.py",
+        "scripts/knowledge_base.py",
     ):
         source = source_root / relative
         target = root / relative
@@ -44,6 +52,7 @@ def test_preflight_passes_for_offline_docs_fixture(tmp_path):
         "dependencies",
         "palette_config",
         "ai_model_profiles",
+        "knowledge_sources",
         "ai_runtime",
         "logs",
     }
@@ -62,6 +71,21 @@ def test_preflight_reports_invalid_ai_model_profiles(tmp_path):
     assert not report.ok
     assert profiles_check.status == "error"
     assert "profiles" in profiles_check.message
+
+
+def test_preflight_reports_invalid_knowledge_sources(tmp_path):
+    root = _copy_required_fixture_tree(tmp_path)
+    (root / "config" / "knowledge_sources.json").write_text(
+        json.dumps({"version": "bad", "default_limit": 4, "sources": []}),
+        encoding="utf-8",
+    )
+
+    report = run_preflight(root)
+    sources_check = next(check for check in report.checks if check.name == "knowledge_sources")
+
+    assert not report.ok
+    assert sources_check.status == "error"
+    assert "sources" in sources_check.message
 
 
 def test_preflight_reports_invalid_ai_config(tmp_path):

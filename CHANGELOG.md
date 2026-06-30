@@ -16,6 +16,7 @@
 - AI runtime readiness check для offline-docs/Ollama и отображение статуса в UI.
 - Preflight-команда `python scripts/preflight.py` для проверки окружения перед запуском.
 - Каталог профилей локальных AI-моделей, CLI `python scripts/ai_models.py` и preflight-валидация профилей.
+- Manifest локальной RAG-базы знаний, CLI `python scripts/knowledge_base.py` и preflight-валидация источников.
 
 ## v0.3
 

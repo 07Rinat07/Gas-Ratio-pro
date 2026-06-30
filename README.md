@@ -71,6 +71,7 @@ examples/sample_gas_data.csv
 - Локальное диагностическое логирование в `logs/app.log`.
 - Локальный ИИ-помощник по документации в offline-first режиме.
 - Каталог профилей локальных AI-моделей для подготовки работы без интернета.
+- Manifest локальной RAG-базы знаний для проверяемых ответов AI-помощника.
 - Экспорт расчетной таблицы в CSV.
 - Pytest-набор для проверки расчетов, mapping, импорта, примера данных, палеток и логирования.
 
@@ -93,6 +94,7 @@ examples/sample_gas_data.csv
 - [Конфигурация палеток](docs/palettes.md)
 - [Логирование](docs/logging.md)
 - [Локальный ИИ-помощник](docs/ai_usage.md)
+- [Локальная база знаний AI-помощника](docs/knowledge_base.md)
 - [Профили локальных AI-моделей](docs/local_model_profiles.md)
 - [План локального ИИ-помощника](docs/ai_agent_plan.md)
 - [Архитектура и разработка](docs/development.md)
@@ -111,6 +113,9 @@ python scripts/preflight.py
 
 # Просмотр профилей локальных AI-моделей
 python scripts/ai_models.py
+
+# Проверка локальной базы знаний AI-помощника
+python scripts/knowledge_base.py
 
 # Запуск приложения
 streamlit run app/streamlit_app.py

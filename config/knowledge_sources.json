@@ -1,0 +1,70 @@
+{
+  "version": "2026-07-01",
+  "default_limit": 4,
+  "sources": [
+    {
+      "path": "docs/formulas.md",
+      "title": "Формулы и расчетные коэффициенты",
+      "status": "approved",
+      "priority": 10,
+      "topics": ["formulas", "wh", "bh", "bar2", "pixler", "ternary", "ch"],
+      "description": "Подтвержденная документация по формулам и ограничениям расчетов."
+    },
+    {
+      "path": "docs/data_format.md",
+      "title": "Формат входных данных",
+      "status": "approved",
+      "priority": 9,
+      "topics": ["import", "csv", "xlsx", "headers", "mapping", "columns"],
+      "description": "Требования к CSV/XLSX, заголовкам и сопоставлению колонок."
+    },
+    {
+      "path": "docs/user_guide.md",
+      "title": "Руководство пользователя",
+      "status": "approved",
+      "priority": 8,
+      "topics": ["ui", "workflow", "streamlit", "interval", "export"],
+      "description": "Пошаговая работа пользователя в интерфейсе приложения."
+    },
+    {
+      "path": "docs/troubleshooting.md",
+      "title": "Troubleshooting",
+      "status": "approved",
+      "priority": 8,
+      "topics": ["errors", "preflight", "ollama", "nan", "logs"],
+      "description": "Типовые проблемы запуска, импорта, расчетов и локального AI."
+    },
+    {
+      "path": "docs/palettes.md",
+      "title": "Палетки Pixler и ternary",
+      "status": "draft",
+      "priority": 7,
+      "topics": ["pixler", "ternary", "palette", "regions", "config"],
+      "description": "Описание палеток и черновых зон, требующих корпоративного подтверждения."
+    },
+    {
+      "path": "docs/ai_usage.md",
+      "title": "Локальный AI-помощник",
+      "status": "approved",
+      "priority": 7,
+      "topics": ["ai", "offline-docs", "ollama", "privacy", "provider"],
+      "description": "Правила использования локального помощника и приватности данных."
+    },
+    {
+      "path": "docs/local_model_profiles.md",
+      "title": "Профили локальных AI-моделей",
+      "status": "approved",
+      "priority": 6,
+      "topics": ["ai", "ollama", "models", "offline", "qwen", "llama", "gemma"],
+      "description": "Профили локальных моделей и команды подготовки без интернета."
+    },
+    {
+      "path": "docs/logging.md",
+      "title": "Логирование",
+      "status": "approved",
+      "priority": 6,
+      "topics": ["logging", "diagnostics", "privacy", "errors"],
+      "description": "Как работает локальное диагностическое логирование без сырых таблиц."
+    }
+  ]
+}
