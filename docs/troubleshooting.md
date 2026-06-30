@@ -12,7 +12,7 @@ python scripts/preflight.py --json
 
 - не активировано виртуальное окружение;
 - не установлены зависимости из `requirements.txt`;
-- поврежден `config/ai.json`, `config/ai_model_profiles.json`, `config/knowledge_sources.json` или `config/palettes.json`;
+- поврежден `config/ai.json`, `config/ai_model_profiles.json`, `config/knowledge_qa.json`, `config/knowledge_sources.json` или `config/palettes.json`;
 - папка `logs` недоступна для записи;
 - выбран provider `ollama`, но локальная модель не указана или не найдена.
 
@@ -131,7 +131,8 @@ python -m pytest -vv
 ```powershell
 python scripts/knowledge_base.py --json
 python scripts/knowledge_base.py --query "Как считается Wh?"
-python -m pytest tests/test_knowledge_manifest.py
+python scripts/knowledge_base.py --query "Почему Wh стал NaN из-за C2?"
+python -m pytest tests/test_knowledge_manifest.py tests/test_knowledge_qa.py
 ```
 
 Типовые причины:
@@ -139,7 +140,9 @@ python -m pytest tests/test_knowledge_manifest.py
 - путь в `config/knowledge_sources.json` указывает на отсутствующий файл;
 - путь абсолютный или содержит `..`;
 - повторяется один и тот же `path`;
-- источник добавлен без topics или description.
+- источник добавлен без topics или description;
+- Q/A-пример ссылается на отсутствующий документ;
+- повторяется один и тот же `id` Q/A-примера.
 
 ## Профили локальных AI-моделей не проходят проверку
 

@@ -10,6 +10,7 @@ from ai.knowledge_manifest import (
     knowledge_source_map,
     load_knowledge_source_manifest,
 )
+from ai.knowledge_qa import KnowledgeQaCatalog, KnowledgeQaExample, load_knowledge_qa_catalog
 
 
 DEFAULT_DOC_FILES: tuple[str, ...] = (
@@ -133,16 +134,41 @@ def _split_markdown_sections(
     return [chunk for chunk in chunks if chunk.text]
 
 
+def _qa_example_to_chunk(example: KnowledgeQaExample) -> KnowledgeChunk:
+    safety_notes = "\n".join(f"- {note}" for note in example.safety_notes)
+    text = "\n".join(
+        (
+            f"Вопрос: {example.question}",
+            f"Проверенный ответ: {example.answer}",
+            "Источники: " + ", ".join(example.sources),
+            "Ограничения и безопасность:",
+            safety_notes,
+        )
+    )
+    return KnowledgeChunk(
+        source=f"config/knowledge_qa.json#{example.id}",
+        title=f"Q/A: {example.question}",
+        text=text,
+        status=example.status,
+        priority=example.priority,
+        topics=example.topics,
+    )
+
+
 class DocumentationKnowledgeBase:
     def __init__(
         self,
         root: str | Path | None = None,
         doc_files: tuple[str, ...] | None = None,
         manifest: KnowledgeSourceManifest | None = None,
+        qa_catalog: KnowledgeQaCatalog | None = None,
+        include_qa_examples: bool = True,
     ) -> None:
         self.root = Path(root) if root is not None else project_root()
         self.doc_files = doc_files
         self.manifest = manifest
+        self.qa_catalog = qa_catalog
+        self.include_qa_examples = include_qa_examples
         self._chunks: tuple[KnowledgeChunk, ...] | None = None
 
     def _resolve_sources(self) -> tuple[tuple[str, ...], dict[str, KnowledgeSource]]:
@@ -151,6 +177,13 @@ class DocumentationKnowledgeBase:
 
         manifest = self.manifest or load_knowledge_source_manifest(root=self.root)
         return tuple(source.path for source in manifest.sources), knowledge_source_map(manifest)
+
+    def _load_qa_chunks(self) -> tuple[KnowledgeChunk, ...]:
+        if self.doc_files is not None or not self.include_qa_examples:
+            return ()
+
+        catalog = self.qa_catalog or load_knowledge_qa_catalog(root=self.root)
+        return tuple(_qa_example_to_chunk(example) for example in catalog.examples)
 
     def load_chunks(self) -> tuple[KnowledgeChunk, ...]:
         if self._chunks is not None:
@@ -165,6 +198,7 @@ class DocumentationKnowledgeBase:
             text = path.read_text(encoding="utf-8")
             chunks.extend(_split_markdown_sections(relative_path, text, metadata_by_path.get(relative_path)))
 
+        chunks.extend(self._load_qa_chunks())
         self._chunks = tuple(chunks)
         return self._chunks
 
@@ -185,6 +219,8 @@ class DocumentationKnowledgeBase:
             score += 3 * len(matched_tokens & DOMAIN_TOKENS)
             if chunk.source == "docs/formulas.md" and matched_tokens & DOMAIN_TOKENS:
                 score += 3
+            if chunk.source.startswith("config/knowledge_qa.json#") and matched_tokens:
+                score += 4
             if score > 0:
                 results.append(SearchResult(chunk=chunk, score=score))
 

@@ -1,0 +1,67 @@
+{
+  "version": "2026-07-01",
+  "examples": [
+    {
+      "id": "wh_nan_missing_components",
+      "question": "Почему Wh, Bh или BAR2 могут стать NaN?",
+      "answer": "Чаще всего NaN появляется из-за деления на 0 или отсутствующих газовых компонентов. Приложение специально возвращает NaN вместо падения, чтобы инженер увидел проблемное место. Проверьте C1, C2, C3, iC4, nC4, iC5, nC5, сумму ΣC и корректность mapping колонок.",
+      "status": "approved",
+      "priority": 12,
+      "topics": ["wh", "bh", "bar2", "nan", "division", "components", "mapping"],
+      "sources": ["docs/formulas.md", "docs/data_format.md"],
+      "safety_notes": [
+        "Не заменять NaN нулем без проверки первичных данных.",
+        "Не делать окончательное заключение без ГИС, литологии и бурового контекста."
+      ]
+    },
+    {
+      "id": "mapping_columns_not_found",
+      "question": "Что делать, если приложение не сопоставило колонки?",
+      "answer": "Проверьте строку заголовков, выберите ее вручную при необходимости и исправьте mapping в интерфейсе. Если название колонки часто встречается, добавьте алиас в mapping/curve_aliases.py и покройте его тестом. Фиксированный порядок колонок не требуется.",
+      "status": "approved",
+      "priority": 11,
+      "topics": ["mapping", "headers", "columns", "csv", "xlsx", "aliases"],
+      "sources": ["docs/data_format.md", "docs/user_guide.md"],
+      "safety_notes": [
+        "Не менять исходные данные молча: пользователь должен видеть, какие колонки сопоставлены."
+      ]
+    },
+    {
+      "id": "ch_formula_warning",
+      "question": "Почему приложение предупреждает про формулу Ch?",
+      "answer": "В текущей версии Ch доступен как режим A, но формула не зафиксирована как единственно верная и требует подтверждения по корпоративной методике. Используйте Ch как вспомогательную подсказку, а не как основание для окончательной интерпретации.",
+      "status": "approved",
+      "priority": 11,
+      "topics": ["ch", "formula", "warning", "methodology"],
+      "sources": ["docs/formulas.md"],
+      "safety_notes": [
+        "До подтверждения методики не использовать Ch как окончательный критерий."
+      ]
+    },
+    {
+      "id": "ollama_offline_preparation",
+      "question": "Что делать, если на работе пропадет интернет, а AI-помощник нужен?",
+      "answer": "Базовый provider offline-docs работает без интернета и без модели. Для более сильного локального помощника установите Ollama и заранее скачайте выбранную модель, например из профиля balanced. Затем укажите точное имя модели в config/ai.json и проверьте python scripts/preflight.py.",
+      "status": "approved",
+      "priority": 10,
+      "topics": ["ai", "ollama", "offline-docs", "offline", "models", "preflight"],
+      "sources": ["docs/ai_usage.md", "docs/local_model_profiles.md"],
+      "safety_notes": [
+        "Не использовать внешние облачные API без явного разрешения.",
+        "Не передавать полные пользовательские таблицы локальной модели без отдельного решения по приватности."
+      ]
+    },
+    {
+      "id": "palette_boundaries_are_draft",
+      "question": "Можно ли считать зоны Pixler и ternary подтвержденной методикой?",
+      "answer": "Нет. Текущие зоны Pixler и ternary вынесены в config/palettes.json как черновые визуальные границы. Перед production-использованием их нужно заменить на утвержденные корпоративные линии или области.",
+      "status": "approved",
+      "priority": 10,
+      "topics": ["pixler", "ternary", "palette", "regions", "draft", "methodology"],
+      "sources": ["docs/palettes.md"],
+      "safety_notes": [
+        "Не использовать черновые зоны как окончательное геологическое заключение."
+      ]
+    }
+  ]
+}

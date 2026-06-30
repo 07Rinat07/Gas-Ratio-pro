@@ -30,11 +30,23 @@ def test_knowledge_base_uses_manifest_metadata_for_ai_topics():
 
     assert results
     assert results[0].chunk.source in {
+        "config/knowledge_qa.json#ollama_offline_preparation",
         "docs/ai_usage.md",
         "docs/local_model_profiles.md",
         "docs/troubleshooting.md",
     }
     assert "ollama" in results[0].chunk.topics
+
+
+def test_knowledge_base_uses_qa_examples_for_common_questions():
+    kb = DocumentationKnowledgeBase()
+
+    context, sources = kb.build_context("Почему Wh стал NaN из-за C2?")
+
+    assert "Проверенный ответ" in context
+    assert "config/knowledge_qa.json#wh_nan_missing_components" in sources
+    assert "Не заменять NaN нулем" in context
+
 
 def test_local_assistant_answer_contains_disclaimer_and_sources():
     assistant = LocalAssistant()

@@ -8,6 +8,7 @@ ai/
   factory.py              Выбор provider по config/ai.json
   knowledge_base.py       Поиск по локальной документации
   knowledge_manifest.py   Загрузка manifest источников RAG
+  knowledge_qa.py         Загрузка проверяемых Q/A-примеров
   model_profiles.py       Загрузка и валидация профилей локальных моделей
   ollama_client.py        Локальный Ollama provider
   provider.py             Provider contract
@@ -17,6 +18,7 @@ app/
 config/
   ai.json                 Конфигурация локального AI-помощника
   ai_model_profiles.json  Профили рекомендуемых локальных AI-моделей
+  knowledge_qa.json       Проверяемые Q/A-примеры AI-помощника
   knowledge_sources.json  Manifest локальной базы знаний AI-помощника
   palettes.json           Внешняя конфигурация Pixler/ternary палеток
 core/
@@ -124,7 +126,7 @@ git status --short
 - не подключать облачные API без явного разрешения;
 - не логировать полные пользовательские таблицы и сырые данные;
 - обновить `docs/ai_usage.md`, `docs/knowledge_base.md`, `docs/local_model_profiles.md` и `docs/ai_agent_plan.md`;
-- покрыть prompt contract, профильные конфиги и отказоустойчивость тестами.
+- покрыть prompt contract, профильные конфиги, Q/A-каталог и отказоустойчивость тестами.
 
 ## Тестовая стратегия
 

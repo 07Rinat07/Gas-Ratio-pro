@@ -12,6 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from ai.knowledge_base import DocumentationKnowledgeBase  # noqa: E402
 from ai.knowledge_manifest import KnowledgeSource, load_knowledge_source_manifest  # noqa: E402
+from ai.knowledge_qa import KnowledgeQaExample, load_knowledge_qa_catalog  # noqa: E402
 
 
 def _source_to_dict(source: KnowledgeSource) -> dict:
@@ -22,6 +23,19 @@ def _source_to_dict(source: KnowledgeSource) -> dict:
         "priority": source.priority,
         "topics": list(source.topics),
         "description": source.description,
+    }
+
+
+def _qa_to_dict(example: KnowledgeQaExample) -> dict:
+    return {
+        "id": example.id,
+        "question": example.question,
+        "answer": example.answer,
+        "status": example.status,
+        "priority": example.priority,
+        "topics": list(example.topics),
+        "sources": list(example.sources),
+        "safety_notes": list(example.safety_notes),
     }
 
 
@@ -37,7 +51,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     manifest = load_knowledge_source_manifest(root=PROJECT_ROOT)
-    knowledge_base = DocumentationKnowledgeBase(root=PROJECT_ROOT, manifest=manifest)
+    qa_catalog = load_knowledge_qa_catalog(root=PROJECT_ROOT)
+    knowledge_base = DocumentationKnowledgeBase(
+        root=PROJECT_ROOT,
+        manifest=manifest,
+        qa_catalog=qa_catalog,
+    )
 
     if args.query:
         results = knowledge_base.search(args.query, limit=manifest.default_limit)
@@ -74,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
                     "version": manifest.version,
                     "default_limit": manifest.default_limit,
                     "sources": [_source_to_dict(source) for source in manifest.sources],
+                    "qa_version": qa_catalog.version,
+                    "qa_examples": [_qa_to_dict(example) for example in qa_catalog.examples],
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -84,12 +105,18 @@ def main(argv: list[str] | None = None) -> int:
     chunks = knowledge_base.load_chunks()
     print(f"Local knowledge base manifest ({manifest.version})")
     print(f"Sources: {len(manifest.sources)}")
+    print(f"Q/A examples: {len(qa_catalog.examples)}")
     print(f"Chunks: {len(chunks)}")
     print("")
     for source in manifest.sources:
         print(f"- {source.path} [{source.status}, priority={source.priority}]")
         print(f"  {source.title}")
         print(f"  topics: {', '.join(source.topics)}")
+    print("")
+    print("Q/A examples:")
+    for example in qa_catalog.examples:
+        print(f"- {example.id} [{example.status}, priority={example.priority}]")
+        print(f"  {example.question}")
     return 0
 
 

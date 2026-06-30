@@ -16,6 +16,7 @@ def _copy_required_fixture_tree(tmp_path: Path) -> Path:
         "app/streamlit_app.py",
         "config/ai.json",
         "config/ai_model_profiles.json",
+        "config/knowledge_qa.json",
         "config/knowledge_sources.json",
         "config/palettes.json",
         "docs/ai_usage.md",
@@ -53,6 +54,7 @@ def test_preflight_passes_for_offline_docs_fixture(tmp_path):
         "palette_config",
         "ai_model_profiles",
         "knowledge_sources",
+        "knowledge_qa",
         "ai_runtime",
         "logs",
     }
@@ -86,6 +88,21 @@ def test_preflight_reports_invalid_knowledge_sources(tmp_path):
     assert not report.ok
     assert sources_check.status == "error"
     assert "sources" in sources_check.message
+
+
+def test_preflight_reports_invalid_knowledge_qa(tmp_path):
+    root = _copy_required_fixture_tree(tmp_path)
+    (root / "config" / "knowledge_qa.json").write_text(
+        json.dumps({"version": "bad", "examples": []}),
+        encoding="utf-8",
+    )
+
+    report = run_preflight(root)
+    qa_check = next(check for check in report.checks if check.name == "knowledge_qa")
+
+    assert not report.ok
+    assert qa_check.status == "error"
+    assert "examples" in qa_check.message
 
 
 def test_preflight_reports_invalid_ai_config(tmp_path):

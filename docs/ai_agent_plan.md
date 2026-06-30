@@ -11,13 +11,14 @@
 
 - `offline-docs` provider работает без интернета и без модели;
 - локальная knowledge base ищет ответы по manifest `config/knowledge_sources.json`;
-- CLI `python scripts/knowledge_base.py` показывает источники и результаты поиска;
+- CLI `python scripts/knowledge_base.py` показывает источники, Q/A-примеры и результаты поиска;
+- `config/knowledge_qa.json` содержит первые проверяемые Q/A-примеры для типовых вопросов;
 - `ollama` provider готов для локального `localhost` runtime;
 - Streamlit показывает блок `Локальный ИИ-помощник`;
 - полная таблица и сырые строки файла не передаются помощнику;
 - тесты покрывают settings, provider contract, disclaimer и безопасный контекст интервала.
 
-Следующий шаг: добавить экспертно проверенные Q/A-примеры в локальную базу знаний, затем проверить качество ответов на выбранной Ollama-модели.
+Следующий шаг: проверить качество Q/A-ответов на выбранной Ollama-модели и расширить набор примеров после инженерной проверки.
 
 ## Важный принцип
 
@@ -86,6 +87,7 @@ ai/
   prompts.py               системные и пользовательские шаблоны
   knowledge_base.py        индекс локальной документации
   knowledge_manifest.py    manifest источников RAG
+  knowledge_qa.py          Q/A-примеры локальной базы знаний
   assistant.py             сбор контекста и вызов provider
 tests/
   test_ai_*.py             unit-тесты на prompt/context/provider contract

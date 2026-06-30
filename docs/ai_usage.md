@@ -16,10 +16,11 @@ offline-docs
 
 ## Локальная база знаний
 
-Список документов, доступных помощнику, хранится в:
+Список документов и Q/A-примеров, доступных помощнику, хранится в:
 
 ```text
 config/knowledge_sources.json
+config/knowledge_qa.json
 ```
 
 Проверить manifest и поиск можно командами:
@@ -27,6 +28,7 @@ config/knowledge_sources.json
 ```powershell
 python scripts/knowledge_base.py
 python scripts/knowledge_base.py --query "Как считается Wh?"
+python scripts/knowledge_base.py --query "Почему Wh стал NaN из-за C2?"
 ```
 
 Подробности описаны в `docs/knowledge_base.md`.
@@ -155,5 +157,6 @@ python scripts/preflight.py
 python -m pytest tests/test_ai_assistant.py tests/test_ai_model_profiles.py
 python scripts/ai_models.py --profile balanced
 python scripts/knowledge_base.py --query "Как считается Wh?"
+python scripts/knowledge_base.py --query "Почему Wh стал NaN из-за C2?"
 streamlit run app/streamlit_app.py
 ```
