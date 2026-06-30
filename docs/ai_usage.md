@@ -43,6 +43,12 @@ python scripts/evaluate_ai.py --provider-mode configured
 config/ai.json
 ```
 
+Посмотреть текущий provider:
+
+```powershell
+python scripts/ai_config.py status
+```
+
 Пример:
 
 ```json
@@ -67,6 +73,8 @@ config/ai.json
 ```powershell
 python scripts/ai_models.py
 python scripts/ai_models.py --profile balanced
+python scripts/ai_config.py ollama --profile balanced
+python scripts/ai_config.py ollama --profile balanced --write
 ```
 
 Подробный чеклист: `docs/local_model_profiles.md`.
@@ -110,7 +118,7 @@ python scripts/preflight.py
 
 В блоке `Локальный ИИ-помощник` приложение показывает статус provider:
 
-- `offline-docs` готов всегда и не требует интернета;
+- `offline-docs` готов всегда и не требует интернета; вернуть этот режим можно командой `python scripts/ai_config.py offline-docs --write`;
 - `ollama` готов только если локальный сервис отвечает и указанная модель найдена;
 - если модель не указана или не загружена, приложение покажет понятное предупреждение.
 

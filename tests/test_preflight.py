@@ -32,6 +32,7 @@ def _copy_required_fixture_tree(tmp_path: Path) -> Path:
         "docs/user_guide.md",
         "examples/sample_gas_data.csv",
         "requirements.txt",
+        "scripts/ai_config.py",
         "scripts/ai_models.py",
         "scripts/evaluate_ai.py",
         "scripts/knowledge_base.py",

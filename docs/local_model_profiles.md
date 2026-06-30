@@ -58,11 +58,18 @@ python scripts/ai_models.py --json
 
 ```powershell
 python scripts/ai_models.py --profile balanced
+python scripts/ai_config.py ollama --profile balanced
 ollama pull qwen3:4b
 ollama list
 ```
 
-После загрузки модели настройте `config/ai.json`:
+После загрузки модели можно включить provider командой:
+
+```powershell
+python scripts/ai_config.py ollama --profile balanced --write
+```
+
+Она запишет такой `config/ai.json`:
 
 ```json
 {
@@ -88,8 +95,13 @@ streamlit run app/streamlit_app.py
 ```
 
 Если модель не найдена или Ollama не запущен, preflight и UI покажут понятное
-сообщение. Для слабых машин можно вернуть provider `offline-docs`; он работает
-без модели и без интернета.
+сообщение. Для слабых машин можно вернуть provider `offline-docs`:
+
+```powershell
+python scripts/ai_config.py offline-docs --write
+```
+
+Он работает без модели и без интернета.
 
 ## Как обновлять каталог
 

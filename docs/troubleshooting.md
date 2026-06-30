@@ -167,6 +167,7 @@ python -m pytest tests/test_ai_model_profiles.py
 Если в UI показано, что Ollama недоступен или модель не найдена:
 
 ```powershell
+python scripts/ai_config.py status
 python scripts/ai_models.py --profile balanced
 ollama list
 ```

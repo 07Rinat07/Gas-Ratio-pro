@@ -117,6 +117,9 @@ python scripts/preflight.py
 # Просмотр профилей локальных AI-моделей
 python scripts/ai_models.py
 
+# Просмотр/настройка AI-provider
+python scripts/ai_config.py status
+
 # Проверка локальной базы знаний AI-помощника
 python scripts/knowledge_base.py
 

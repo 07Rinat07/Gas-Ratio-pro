@@ -5,6 +5,7 @@
 ```text
 ai/
   assistant.py            Сбор контекста и вызов provider
+  config_writer.py        Безопасная запись config/ai.json
   evaluation.py           Локальная проверка качества AI/RAG
   factory.py              Выбор provider по config/ai.json
   knowledge_base.py       Поиск по локальной документации
@@ -48,6 +49,7 @@ logs/
 examples/
   sample_gas_data.csv     Демо-файл для проверки приложения
 scripts/
+  ai_config.py            Просмотр и переключение AI-provider
   ai_models.py            Просмотр профилей локальных AI-моделей
   evaluate_ai.py          Проверка качества AI/RAG
   knowledge_base.py       Проверка manifest и поиска локальной базы знаний

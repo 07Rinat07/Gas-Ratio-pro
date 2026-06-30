@@ -32,6 +32,7 @@ REQUIRED_PROJECT_FILES: tuple[str, ...] = (
     "docs/user_guide.md",
     "examples/sample_gas_data.csv",
     "requirements.txt",
+    "scripts/ai_config.py",
     "scripts/ai_models.py",
     "scripts/evaluate_ai.py",
     "scripts/knowledge_base.py",

@@ -20,6 +20,7 @@
 - Q/A-каталог `config/knowledge_qa.json` для типовых вопросов локального AI-помощника.
 - AI evaluation-кейсы `config/ai_eval_cases.json` и CLI `python scripts/evaluate_ai.py` для проверки RAG/safety качества.
 - Режим `python scripts/evaluate_ai.py --provider-mode configured` для проверки provider из `config/ai.json`.
+- CLI `python scripts/ai_config.py` для безопасного просмотра и переключения AI-provider.
 
 ## v0.3
 
