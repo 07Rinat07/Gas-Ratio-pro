@@ -13,6 +13,7 @@
 - Документация `docs/palettes.md`, `docs/logging.md` и `docs/ai_agent_plan.md`.
 - План локального бесплатного ИИ-помощника на базе локального runtime и RAG.
 - Offline-first AI skeleton: локальная knowledge base, provider contract, Ollama provider и Streamlit-блок помощника.
+- AI runtime readiness check для offline-docs/Ollama и отображение статуса в UI.
 
 ## v0.3
 

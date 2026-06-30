@@ -12,6 +12,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from ai.assistant import LocalAssistant
 from ai.factory import build_provider
+from ai.health import check_ai_runtime_status
 from ai.settings import load_ai_settings
 from core.calculations import CH_WARNING, calculate_gas_ratios
 from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summarize_interpretation
@@ -101,7 +102,14 @@ def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
         "Помощник работает offline-first: `offline-docs` не требует интернета, "
         "а `ollama` обращается только к локальному серверу. Полная таблица не передается."
     )
+    status = check_ai_runtime_status(ai_settings)
     st.caption(f"AI provider: {ai_settings.provider}")
+    if status.ready:
+        st.success(status.message)
+    else:
+        st.warning(status.message)
+    if status.available_models:
+        st.caption("Локальные модели: " + ", ".join(status.available_models))
 
     question = st.text_area(
         "Вопрос по данным, формулам, предупреждениям или выбранному интервалу",
@@ -120,8 +128,9 @@ def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
     assistant = LocalAssistant(provider=provider)
     interval_row = selected_row if ai_settings.privacy.send_selected_interval_only else None
     logger.info(
-        "ai_question_received provider=%s chars=%d has_interval=%s",
+        "ai_question_received provider=%s ready=%s chars=%d has_interval=%s",
         safe_log_value(ai_settings.provider),
+        status.ready,
         len(question),
         interval_row is not None,
     )
