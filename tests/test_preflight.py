@@ -15,10 +15,12 @@ def _copy_required_fixture_tree(tmp_path: Path) -> Path:
     for relative in (
         "app/streamlit_app.py",
         "config/ai.json",
+        "config/ai_eval_cases.json",
         "config/ai_model_profiles.json",
         "config/knowledge_qa.json",
         "config/knowledge_sources.json",
         "config/palettes.json",
+        "docs/ai_evaluation.md",
         "docs/ai_usage.md",
         "docs/data_format.md",
         "docs/formulas.md",
@@ -31,6 +33,7 @@ def _copy_required_fixture_tree(tmp_path: Path) -> Path:
         "examples/sample_gas_data.csv",
         "requirements.txt",
         "scripts/ai_models.py",
+        "scripts/evaluate_ai.py",
         "scripts/knowledge_base.py",
     ):
         source = source_root / relative
@@ -55,6 +58,7 @@ def test_preflight_passes_for_offline_docs_fixture(tmp_path):
         "ai_model_profiles",
         "knowledge_sources",
         "knowledge_qa",
+        "ai_evaluation",
         "ai_runtime",
         "logs",
     }
@@ -103,6 +107,34 @@ def test_preflight_reports_invalid_knowledge_qa(tmp_path):
     assert not report.ok
     assert qa_check.status == "error"
     assert "examples" in qa_check.message
+
+
+def test_preflight_reports_failed_ai_evaluation(tmp_path):
+    root = _copy_required_fixture_tree(tmp_path)
+    (root / "config" / "ai_eval_cases.json").write_text(
+        json.dumps(
+            {
+                "version": "bad",
+                "cases": [
+                    {
+                        "id": "bad_case",
+                        "question": "Как считается Wh?",
+                        "expected_sources": ["docs/data_format.md"],
+                        "required_context_terms": ["term-that-does-not-exist"],
+                        "required_answer_terms": ["Локальный помощник"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = run_preflight(root)
+    eval_check = next(check for check in report.checks if check.name == "ai_evaluation")
+
+    assert not report.ok
+    assert eval_check.status == "error"
+    assert "bad_case" in eval_check.message
 
 
 def test_preflight_reports_invalid_ai_config(tmp_path):

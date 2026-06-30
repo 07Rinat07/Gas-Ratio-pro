@@ -18,6 +18,7 @@
 - Каталог профилей локальных AI-моделей, CLI `python scripts/ai_models.py` и preflight-валидация профилей.
 - Manifest локальной RAG-базы знаний, CLI `python scripts/knowledge_base.py` и preflight-валидация источников.
 - Q/A-каталог `config/knowledge_qa.json` для типовых вопросов локального AI-помощника.
+- AI evaluation-кейсы `config/ai_eval_cases.json` и CLI `python scripts/evaluate_ai.py` для проверки RAG/safety качества.
 
 ## v0.3
 

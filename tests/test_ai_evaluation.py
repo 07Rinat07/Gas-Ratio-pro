@@ -1,0 +1,104 @@
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from ai.evaluation import load_ai_eval_catalog, run_ai_evaluation
+
+
+def test_default_ai_eval_catalog_loads():
+    catalog = load_ai_eval_catalog()
+
+    assert catalog.version
+    assert len(catalog.cases) >= 3
+    assert "wh_nan_quality" in {case.id for case in catalog.cases}
+
+
+def test_default_ai_evaluation_passes():
+    report = run_ai_evaluation()
+
+    assert report.ok
+    assert report.results
+    assert all(result.sources for result in report.results)
+
+
+def test_ai_eval_catalog_rejects_duplicate_ids(tmp_path):
+    path = tmp_path / "ai_eval_cases.json"
+    path.write_text(
+        json.dumps(
+            {
+                "version": "test",
+                "cases": [
+                    {
+                        "id": "same",
+                        "question": "Question?",
+                        "expected_sources": ["docs/formulas.md"],
+                        "required_context_terms": ["Wh"],
+                        "required_answer_terms": ["Локальный помощник"],
+                    },
+                    {
+                        "id": "same",
+                        "question": "Question again?",
+                        "expected_sources": ["docs/formulas.md"],
+                        "required_context_terms": ["Wh"],
+                        "required_answer_terms": ["Локальный помощник"],
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Duplicate"):
+        load_ai_eval_catalog(path, require_existing_sources=False)
+
+
+def test_ai_eval_catalog_reports_missing_expected_source(tmp_path):
+    path = tmp_path / "ai_eval_cases.json"
+    path.write_text(
+        json.dumps(
+            {
+                "version": "test",
+                "cases": [
+                    {
+                        "id": "missing",
+                        "question": "Question?",
+                        "expected_sources": ["docs/missing.md"],
+                        "required_context_terms": ["Wh"],
+                        "required_answer_terms": ["Локальный помощник"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="not found"):
+        load_ai_eval_catalog(path)
+
+
+def test_ai_evaluation_reports_failed_case(tmp_path):
+    path = tmp_path / "ai_eval_cases.json"
+    path.write_text(
+        json.dumps(
+            {
+                "version": "test",
+                "cases": [
+                    {
+                        "id": "wrong_source",
+                        "question": "Как считается Wh?",
+                        "expected_sources": ["docs/data_format.md"],
+                        "required_context_terms": ["term-that-does-not-exist"],
+                        "required_answer_terms": ["Локальный помощник"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = run_ai_evaluation(path=path)
+
+    assert not report.ok
+    assert report.results[0].failures

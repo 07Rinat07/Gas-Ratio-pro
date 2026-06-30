@@ -58,6 +58,20 @@ STOP_WORDS = {
     "это",
 }
 
+WORKFLOW_TOKENS = {
+    "aliases",
+    "headers",
+    "mapping",
+    "алиас",
+    "алиасы",
+    "заголовки",
+    "заголовков",
+    "колонки",
+    "колонок",
+    "сопоставило",
+    "сопоставить",
+}
+
 DOMAIN_TOKENS = {
     "wh",
     "bh",
@@ -217,6 +231,7 @@ class DocumentationKnowledgeBase:
             if score > 0:
                 score += chunk.priority
             score += 3 * len(matched_tokens & DOMAIN_TOKENS)
+            score += 4 * len(matched_tokens & WORKFLOW_TOKENS)
             if chunk.source == "docs/formulas.md" and matched_tokens & DOMAIN_TOKENS:
                 score += 3
             if chunk.source.startswith("config/knowledge_qa.json#") and matched_tokens:

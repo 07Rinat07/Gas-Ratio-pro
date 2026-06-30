@@ -83,6 +83,7 @@ python -m pytest
 ```powershell
 python scripts/preflight.py
 python scripts/knowledge_base.py
+python scripts/evaluate_ai.py
 ```
 
 Если нужно получить JSON для диагностики:

@@ -5,6 +5,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from ai.evaluation import run_ai_evaluation
 from ai.health import HttpGet, check_ai_runtime_status
 from ai.knowledge_base import DocumentationKnowledgeBase
 from ai.knowledge_manifest import load_knowledge_source_manifest
@@ -19,10 +20,12 @@ RUNTIME_MODULES: tuple[str, ...] = ("pandas", "numpy", "streamlit", "plotly", "o
 REQUIRED_PROJECT_FILES: tuple[str, ...] = (
     "app/streamlit_app.py",
     "config/ai.json",
+    "config/ai_eval_cases.json",
     "config/ai_model_profiles.json",
     "config/knowledge_qa.json",
     "config/knowledge_sources.json",
     "config/palettes.json",
+    "docs/ai_evaluation.md",
     "docs/knowledge_base.md",
     "docs/local_model_profiles.md",
     "docs/formulas.md",
@@ -30,6 +33,7 @@ REQUIRED_PROJECT_FILES: tuple[str, ...] = (
     "examples/sample_gas_data.csv",
     "requirements.txt",
     "scripts/ai_models.py",
+    "scripts/evaluate_ai.py",
     "scripts/knowledge_base.py",
 )
 
@@ -198,6 +202,31 @@ def _check_knowledge_qa(root: Path) -> PreflightCheck:
     )
 
 
+def _check_ai_evaluation(root: Path) -> PreflightCheck:
+    try:
+        report = run_ai_evaluation(root=root)
+    except Exception as exc:
+        return PreflightCheck(
+            name="ai_evaluation",
+            status="error",
+            message=f"Ошибка config/ai_eval_cases.json: {exc}",
+        )
+
+    if not report.ok:
+        failed_ids = ", ".join(result.case_id for result in report.results if not result.passed)
+        return PreflightCheck(
+            name="ai_evaluation",
+            status="error",
+            message=f"AI evaluation не прошел: {failed_ids}.",
+        )
+
+    return PreflightCheck(
+        name="ai_evaluation",
+        status="ok",
+        message=f"AI evaluation пройден: {len(report.results)} кейсов.",
+    )
+
+
 def _check_ai_config(root: Path, http_get: HttpGet | None) -> PreflightCheck:
     try:
         settings = load_ai_settings(root / "config" / "ai.json")
@@ -254,6 +283,7 @@ def run_preflight(
         _check_ai_model_profiles(resolved_root),
         _check_knowledge_sources(resolved_root),
         _check_knowledge_qa(resolved_root),
+        _check_ai_evaluation(resolved_root),
         _check_ai_config(resolved_root, http_get=http_get),
         _check_logs_dir(resolved_root),
     )

@@ -73,6 +73,7 @@ examples/sample_gas_data.csv
 - Каталог профилей локальных AI-моделей для подготовки работы без интернета.
 - Manifest локальной RAG-базы знаний для проверяемых ответов AI-помощника.
 - Проверяемые Q/A-примеры для частых вопросов AI-помощника.
+- Локальная AI evaluation-команда для проверки RAG и safety-контракта.
 - Экспорт расчетной таблицы в CSV.
 - Pytest-набор для проверки расчетов, mapping, импорта, примера данных, палеток и логирования.
 
@@ -96,6 +97,7 @@ examples/sample_gas_data.csv
 - [Логирование](docs/logging.md)
 - [Локальный ИИ-помощник](docs/ai_usage.md)
 - [Локальная база знаний AI-помощника](docs/knowledge_base.md)
+- [Проверка качества AI-помощника](docs/ai_evaluation.md)
 - [Профили локальных AI-моделей](docs/local_model_profiles.md)
 - [План локального ИИ-помощника](docs/ai_agent_plan.md)
 - [Архитектура и разработка](docs/development.md)
@@ -117,6 +119,9 @@ python scripts/ai_models.py
 
 # Проверка локальной базы знаний AI-помощника
 python scripts/knowledge_base.py
+
+# Проверка качества AI-помощника
+python scripts/evaluate_ai.py
 
 # Запуск приложения
 streamlit run app/streamlit_app.py

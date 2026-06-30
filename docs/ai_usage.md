@@ -29,9 +29,10 @@ config/knowledge_qa.json
 python scripts/knowledge_base.py
 python scripts/knowledge_base.py --query "Как считается Wh?"
 python scripts/knowledge_base.py --query "Почему Wh стал NaN из-за C2?"
+python scripts/evaluate_ai.py
 ```
 
-Подробности описаны в `docs/knowledge_base.md`.
+Подробности описаны в `docs/knowledge_base.md` и `docs/ai_evaluation.md`.
 
 ## Конфигурация
 

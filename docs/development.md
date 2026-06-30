@@ -5,6 +5,7 @@
 ```text
 ai/
   assistant.py            Сбор контекста и вызов provider
+  evaluation.py           Локальная проверка качества AI/RAG
   factory.py              Выбор provider по config/ai.json
   knowledge_base.py       Поиск по локальной документации
   knowledge_manifest.py   Загрузка manifest источников RAG
@@ -17,6 +18,7 @@ app/
   streamlit_app.py        Streamlit UI
 config/
   ai.json                 Конфигурация локального AI-помощника
+  ai_eval_cases.json      Кейсы проверки качества AI-помощника
   ai_model_profiles.json  Профили рекомендуемых локальных AI-моделей
   knowledge_qa.json       Проверяемые Q/A-примеры AI-помощника
   knowledge_sources.json  Manifest локальной базы знаний AI-помощника
@@ -47,6 +49,7 @@ examples/
   sample_gas_data.csv     Демо-файл для проверки приложения
 scripts/
   ai_models.py            Просмотр профилей локальных AI-моделей
+  evaluate_ai.py          Проверка качества AI/RAG
   knowledge_base.py       Проверка manifest и поиска локальной базы знаний
   preflight.py            Проверка окружения перед запуском
 tests/
@@ -76,6 +79,7 @@ cd C:\OSPanel\home\gas-ratio-pro
 python -m pytest
 python scripts/preflight.py
 python scripts/knowledge_base.py
+python scripts/evaluate_ai.py
 streamlit run app/streamlit_app.py
 ```
 
@@ -126,7 +130,7 @@ git status --short
 - не подключать облачные API без явного разрешения;
 - не логировать полные пользовательские таблицы и сырые данные;
 - обновить `docs/ai_usage.md`, `docs/knowledge_base.md`, `docs/local_model_profiles.md` и `docs/ai_agent_plan.md`;
-- покрыть prompt contract, профильные конфиги, Q/A-каталог и отказоустойчивость тестами.
+- покрыть prompt contract, профильные конфиги, Q/A-каталог, evaluation-кейсы и отказоустойчивость тестами.
 
 ## Тестовая стратегия
 

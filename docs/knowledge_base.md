@@ -58,6 +58,7 @@ python scripts/knowledge_base.py
 python scripts/knowledge_base.py --query "Как считается Wh?"
 python scripts/knowledge_base.py --query "Почему Wh стал NaN из-за C2?"
 python scripts/knowledge_base.py --json
+python scripts/evaluate_ai.py
 ```
 
 Общая проверка проекта:
@@ -75,7 +76,8 @@ python scripts/preflight.py
 5. Запустить тесты:
 
 ```powershell
-python -m pytest tests/test_knowledge_manifest.py tests/test_knowledge_qa.py tests/test_ai_assistant.py
+python -m pytest tests/test_knowledge_manifest.py tests/test_knowledge_qa.py tests/test_ai_assistant.py tests/test_ai_evaluation.py
+python scripts/evaluate_ai.py
 python scripts/preflight.py
 ```
 

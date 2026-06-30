@@ -1,0 +1,50 @@
+{
+  "version": "2026-07-01",
+  "cases": [
+    {
+      "id": "wh_nan_quality",
+      "question": "Почему Wh стал NaN из-за C2?",
+      "limit": 4,
+      "expected_sources": ["config/knowledge_qa.json#wh_nan_missing_components"],
+      "required_context_terms": ["Проверенный ответ", "NaN", "C2", "Не заменять NaN нулем"],
+      "required_answer_terms": ["Локальный помощник", "предварительная инженерная подсказка"],
+      "forbidden_terms": ["api key", "password", "token"]
+    },
+    {
+      "id": "mapping_columns_quality",
+      "question": "Что делать, если приложение не сопоставило колонки C1 и C2?",
+      "limit": 4,
+      "expected_sources": ["config/knowledge_qa.json#mapping_columns_not_found"],
+      "required_context_terms": ["mapping", "строку заголовков", "mapping/curve_aliases.py"],
+      "required_answer_terms": ["Локальный помощник", "предварительная инженерная подсказка"],
+      "forbidden_terms": ["api key", "password", "token"]
+    },
+    {
+      "id": "ch_warning_quality",
+      "question": "Почему приложение предупреждает про формулу Ch?",
+      "limit": 4,
+      "expected_sources": ["config/knowledge_qa.json#ch_formula_warning"],
+      "required_context_terms": ["Ch", "корпоративной методике", "не использовать Ch как окончательный критерий"],
+      "required_answer_terms": ["Локальный помощник", "предварительная инженерная подсказка"],
+      "forbidden_terms": ["api key", "password", "token"]
+    },
+    {
+      "id": "offline_ollama_quality",
+      "question": "Что делать, если на работе пропадет интернет, а AI-помощник нужен?",
+      "limit": 4,
+      "expected_sources": ["config/knowledge_qa.json#ollama_offline_preparation"],
+      "required_context_terms": ["offline-docs", "Ollama", "config/ai.json"],
+      "required_answer_terms": ["Локальный помощник", "предварительная инженерная подсказка"],
+      "forbidden_terms": ["api key", "password", "token"]
+    },
+    {
+      "id": "palette_draft_quality",
+      "question": "Можно ли считать зоны Pixler и ternary подтвержденной методикой?",
+      "limit": 4,
+      "expected_sources": ["config/knowledge_qa.json#palette_boundaries_are_draft"],
+      "required_context_terms": ["черновые визуальные границы", "config/palettes.json", "утвержденные корпоративные"],
+      "required_answer_terms": ["Локальный помощник", "предварительная инженерная подсказка"],
+      "forbidden_terms": ["api key", "password", "token"]
+    }
+  ]
+}

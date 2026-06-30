@@ -12,7 +12,7 @@ python scripts/preflight.py --json
 
 - не активировано виртуальное окружение;
 - не установлены зависимости из `requirements.txt`;
-- поврежден `config/ai.json`, `config/ai_model_profiles.json`, `config/knowledge_qa.json`, `config/knowledge_sources.json` или `config/palettes.json`;
+- поврежден `config/ai.json`, `config/ai_eval_cases.json`, `config/ai_model_profiles.json`, `config/knowledge_qa.json`, `config/knowledge_sources.json` или `config/palettes.json`;
 - папка `logs` недоступна для записи;
 - выбран provider `ollama`, но локальная модель не указана или не найдена.
 
@@ -132,7 +132,8 @@ python -m pytest -vv
 python scripts/knowledge_base.py --json
 python scripts/knowledge_base.py --query "Как считается Wh?"
 python scripts/knowledge_base.py --query "Почему Wh стал NaN из-за C2?"
-python -m pytest tests/test_knowledge_manifest.py tests/test_knowledge_qa.py
+python -m pytest tests/test_knowledge_manifest.py tests/test_knowledge_qa.py tests/test_ai_evaluation.py
+python scripts/evaluate_ai.py
 ```
 
 Типовые причины:
@@ -142,7 +143,8 @@ python -m pytest tests/test_knowledge_manifest.py tests/test_knowledge_qa.py
 - повторяется один и тот же `path`;
 - источник добавлен без topics или description;
 - Q/A-пример ссылается на отсутствующий документ;
-- повторяется один и тот же `id` Q/A-примера.
+- повторяется один и тот же `id` Q/A-примера;
+- `config/ai_eval_cases.json` ожидает источник, который больше не попадает в RAG-контекст.
 
 ## Профили локальных AI-моделей не проходят проверку
 
