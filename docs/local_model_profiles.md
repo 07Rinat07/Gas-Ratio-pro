@@ -83,6 +83,7 @@ ollama list
 
 ```powershell
 python scripts/preflight.py
+python scripts/evaluate_ai.py --provider-mode configured
 streamlit run app/streamlit_app.py
 ```
 

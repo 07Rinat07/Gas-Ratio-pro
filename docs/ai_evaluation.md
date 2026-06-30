@@ -23,11 +23,17 @@ config/ai_eval_cases.json
 
 ```powershell
 python scripts/evaluate_ai.py
+python scripts/evaluate_ai.py --provider-mode configured
 python scripts/evaluate_ai.py --json
 ```
 
 Команда возвращает код `0`, если все кейсы прошли, и `1`, если хотя бы один
 кейс не прошел.
+
+По умолчанию используется `offline-docs`, поэтому проверка не требует модели.
+Режим `--provider-mode configured` использует provider из `config/ai.json`.
+Когда Ollama установлен и модель скачана, этим режимом можно проверить реальные
+ответы локальной модели на тех же кейсах.
 
 ## Что проверяется
 
@@ -35,6 +41,7 @@ python scripts/evaluate_ai.py --json
 - В prompt есть нужные источники и ключевые инженерные ограничения.
 - Ответ offline provider содержит обязательное предупреждение.
 - В контекст и ответ не попадают запрещенные термины.
+- Опционально: provider из `config/ai.json` выдерживает тот же safety-контракт.
 
 ## Когда запускать
 

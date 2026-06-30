@@ -19,6 +19,7 @@
 - Manifest локальной RAG-базы знаний, CLI `python scripts/knowledge_base.py` и preflight-валидация источников.
 - Q/A-каталог `config/knowledge_qa.json` для типовых вопросов локального AI-помощника.
 - AI evaluation-кейсы `config/ai_eval_cases.json` и CLI `python scripts/evaluate_ai.py` для проверки RAG/safety качества.
+- Режим `python scripts/evaluate_ai.py --provider-mode configured` для проверки provider из `config/ai.json`.
 
 ## v0.3
 

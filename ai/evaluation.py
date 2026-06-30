@@ -5,8 +5,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ai.assistant import LocalAssistant
+from ai.factory import build_provider
 from ai.knowledge_base import DocumentationKnowledgeBase
 from ai.knowledge_qa import load_knowledge_qa_catalog
+from ai.settings import load_ai_settings
+
+
+AI_EVAL_PROVIDER_MODES = {"offline-docs", "configured"}
 
 
 @dataclass(frozen=True)
@@ -39,6 +44,7 @@ class AiEvalCaseResult:
 @dataclass(frozen=True)
 class AiEvalReport:
     version: str
+    provider_mode: str
     results: tuple[AiEvalCaseResult, ...]
 
     @property
@@ -48,6 +54,7 @@ class AiEvalReport:
     def as_dict(self) -> dict:
         return {
             "version": self.version,
+            "provider_mode": self.provider_mode,
             "ok": self.ok,
             "results": [
                 {
@@ -206,15 +213,29 @@ def _evaluate_case(case: AiEvalCase, assistant: LocalAssistant) -> AiEvalCaseRes
     )
 
 
+def _build_assistant(root: Path, provider_mode: str) -> LocalAssistant:
+    provider = None
+    if provider_mode == "configured":
+        settings = load_ai_settings(root / "config" / "ai.json")
+        provider = build_provider(settings)
+    return LocalAssistant(
+        knowledge_base=DocumentationKnowledgeBase(root=root),
+        provider=provider,
+    )
+
+
 def run_ai_evaluation(
     root: str | Path | None = None,
     path: str | Path | None = None,
     assistant: LocalAssistant | None = None,
+    provider_mode: str = "offline-docs",
 ) -> AiEvalReport:
     resolved_root = Path(root) if root is not None else _project_root()
+    if provider_mode not in AI_EVAL_PROVIDER_MODES:
+        allowed = ", ".join(sorted(AI_EVAL_PROVIDER_MODES))
+        raise ValueError(f"Unsupported AI evaluation provider mode: {provider_mode}. Allowed: {allowed}.")
+
     catalog = load_ai_eval_catalog(path=path, root=resolved_root)
-    resolved_assistant = assistant or LocalAssistant(
-        knowledge_base=DocumentationKnowledgeBase(root=resolved_root)
-    )
+    resolved_assistant = assistant or _build_assistant(resolved_root, provider_mode)
     results = tuple(_evaluate_case(case, resolved_assistant) for case in catalog.cases)
-    return AiEvalReport(version=catalog.version, results=results)
+    return AiEvalReport(version=catalog.version, provider_mode=provider_mode, results=results)

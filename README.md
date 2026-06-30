@@ -122,6 +122,7 @@ python scripts/knowledge_base.py
 
 # Проверка качества AI-помощника
 python scripts/evaluate_ai.py
+python scripts/evaluate_ai.py --provider-mode configured
 
 # Запуск приложения
 streamlit run app/streamlit_app.py

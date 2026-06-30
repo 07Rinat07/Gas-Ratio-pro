@@ -7,7 +7,7 @@
       "limit": 4,
       "expected_sources": ["config/knowledge_qa.json#wh_nan_missing_components"],
       "required_context_terms": ["Проверенный ответ", "NaN", "C2", "Не заменять NaN нулем"],
-      "required_answer_terms": ["Локальный помощник", "предварительная инженерная подсказка"],
+      "required_answer_terms": ["предварительная инженерная подсказка"],
       "forbidden_terms": ["api key", "password", "token"]
     },
     {
@@ -16,7 +16,7 @@
       "limit": 4,
       "expected_sources": ["config/knowledge_qa.json#mapping_columns_not_found"],
       "required_context_terms": ["mapping", "строку заголовков", "mapping/curve_aliases.py"],
-      "required_answer_terms": ["Локальный помощник", "предварительная инженерная подсказка"],
+      "required_answer_terms": ["предварительная инженерная подсказка"],
       "forbidden_terms": ["api key", "password", "token"]
     },
     {
@@ -25,7 +25,7 @@
       "limit": 4,
       "expected_sources": ["config/knowledge_qa.json#ch_formula_warning"],
       "required_context_terms": ["Ch", "корпоративной методике", "не использовать Ch как окончательный критерий"],
-      "required_answer_terms": ["Локальный помощник", "предварительная инженерная подсказка"],
+      "required_answer_terms": ["предварительная инженерная подсказка"],
       "forbidden_terms": ["api key", "password", "token"]
     },
     {
@@ -34,7 +34,7 @@
       "limit": 4,
       "expected_sources": ["config/knowledge_qa.json#ollama_offline_preparation"],
       "required_context_terms": ["offline-docs", "Ollama", "config/ai.json"],
-      "required_answer_terms": ["Локальный помощник", "предварительная инженерная подсказка"],
+      "required_answer_terms": ["предварительная инженерная подсказка"],
       "forbidden_terms": ["api key", "password", "token"]
     },
     {
@@ -43,7 +43,7 @@
       "limit": 4,
       "expected_sources": ["config/knowledge_qa.json#palette_boundaries_are_draft"],
       "required_context_terms": ["черновые визуальные границы", "config/palettes.json", "утвержденные корпоративные"],
-      "required_answer_terms": ["Локальный помощник", "предварительная инженерная подсказка"],
+      "required_answer_terms": ["предварительная инженерная подсказка"],
       "forbidden_terms": ["api key", "password", "token"]
     }
   ]

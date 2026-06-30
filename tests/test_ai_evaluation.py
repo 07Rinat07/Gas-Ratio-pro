@@ -19,8 +19,22 @@ def test_default_ai_evaluation_passes():
     report = run_ai_evaluation()
 
     assert report.ok
+    assert report.provider_mode == "offline-docs"
     assert report.results
     assert all(result.sources for result in report.results)
+
+
+def test_configured_provider_mode_uses_ai_settings():
+    report = run_ai_evaluation(provider_mode="configured")
+
+    assert report.ok
+    assert report.provider_mode == "configured"
+    assert {result.provider_name for result in report.results} == {"offline-docs"}
+
+
+def test_unknown_provider_mode_is_rejected():
+    with pytest.raises(ValueError, match="Unsupported AI evaluation provider mode"):
+        run_ai_evaluation(provider_mode="cloud")
 
 
 def test_ai_eval_catalog_rejects_duplicate_ids(tmp_path):
@@ -35,14 +49,14 @@ def test_ai_eval_catalog_rejects_duplicate_ids(tmp_path):
                         "question": "Question?",
                         "expected_sources": ["docs/formulas.md"],
                         "required_context_terms": ["Wh"],
-                        "required_answer_terms": ["Локальный помощник"],
+                        "required_answer_terms": ["предварительная инженерная подсказка"],
                     },
                     {
                         "id": "same",
                         "question": "Question again?",
                         "expected_sources": ["docs/formulas.md"],
                         "required_context_terms": ["Wh"],
-                        "required_answer_terms": ["Локальный помощник"],
+                        "required_answer_terms": ["предварительная инженерная подсказка"],
                     },
                 ],
             }
@@ -66,7 +80,7 @@ def test_ai_eval_catalog_reports_missing_expected_source(tmp_path):
                         "question": "Question?",
                         "expected_sources": ["docs/missing.md"],
                         "required_context_terms": ["Wh"],
-                        "required_answer_terms": ["Локальный помощник"],
+                        "required_answer_terms": ["предварительная инженерная подсказка"],
                     }
                 ],
             }
@@ -90,7 +104,7 @@ def test_ai_evaluation_reports_failed_case(tmp_path):
                         "question": "Как считается Wh?",
                         "expected_sources": ["docs/data_format.md"],
                         "required_context_terms": ["term-that-does-not-exist"],
-                        "required_answer_terms": ["Локальный помощник"],
+                        "required_answer_terms": ["предварительная инженерная подсказка"],
                     }
                 ],
             }
