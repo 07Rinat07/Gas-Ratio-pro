@@ -25,6 +25,7 @@ python -m venv .venv
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 python -m pytest
+python scripts/preflight.py
 streamlit run app/streamlit_app.py
 ```
 
@@ -102,6 +103,9 @@ examples/sample_gas_data.csv
 ```powershell
 # Запуск тестов
 python -m pytest
+
+# Проверка готовности окружения
+python scripts/preflight.py
 
 # Запуск приложения
 streamlit run app/streamlit_app.py

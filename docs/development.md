@@ -39,6 +39,8 @@ logs/
   app.log                 Локальный runtime-лог, не коммитится
 examples/
   sample_gas_data.csv     Демо-файл для проверки приложения
+scripts/
+  preflight.py            Проверка окружения перед запуском
 tests/
   test_*.py               Pytest-набор
 docs/
@@ -64,6 +66,7 @@ docs/
 cd C:\OSPanel\home\gas-ratio-pro
 .\.venv\Scripts\Activate.ps1
 python -m pytest
+python scripts/preflight.py
 streamlit run app/streamlit_app.py
 ```
 

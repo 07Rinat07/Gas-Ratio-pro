@@ -1,3 +1,18 @@
+## Preflight показывает FAILED
+
+Запустите подробную проверку:
+
+```powershell
+python scripts/preflight.py --json
+```
+
+Типовые причины:
+
+- не активировано виртуальное окружение;
+- не установлены зависимости из `requirements.txt`;
+- поврежден `config/ai.json` или `config/palettes.json`;
+- папка `logs` недоступна для записи;
+- выбран provider `ollama`, но локальная модель не указана или не найдена.
 # Troubleshooting
 
 ## Где смотреть подробности ошибки
