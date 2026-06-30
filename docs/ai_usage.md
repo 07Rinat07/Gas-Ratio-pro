@@ -41,6 +41,15 @@ config/ai.json
 
 ## Локальная модель через Ollama
 
+Перед настройкой модели посмотрите проверяемые профили:
+
+```powershell
+python scripts/ai_models.py
+python scripts/ai_models.py --profile balanced
+```
+
+Подробный чеклист: `docs/local_model_profiles.md`.
+
 Чтобы использовать локальную модель, нужно:
 
 1. Установить Ollama на рабочий компьютер.
@@ -48,15 +57,20 @@ config/ai.json
 3. Проверить, что Ollama работает локально.
 4. Указать имя модели в `config/ai.json`.
 5. Поменять provider на `ollama`.
+6. Запустить `python scripts/preflight.py`.
 
 Пример:
 
 ```json
 {
   "provider": "ollama",
+  "privacy": {
+    "send_full_table": false,
+    "send_selected_interval_only": true
+  },
   "ollama": {
     "base_url": "http://localhost:11434",
-    "model": "your-local-model",
+    "model": "qwen3:4b",
     "timeout_seconds": 60
   }
 }
@@ -82,10 +96,12 @@ python scripts/preflight.py
 Для подготовки рабочих машин заранее:
 
 1. Установите Ollama там, где будет запускаться проект.
-2. Пока интернет доступен, скачайте выбранную модель.
-3. Проверьте локальный список моделей командой `ollama list`.
-4. Укажите точное имя модели в `config/ai.json`.
-5. Запустите приложение и убедитесь, что статус Ollama стал готовым.
+2. Пока интернет доступен, выберите профиль через `python scripts/ai_models.py`.
+3. Скачайте выбранную модель, например `ollama pull qwen3:4b`.
+4. Проверьте локальный список моделей командой `ollama list`.
+5. Укажите точное имя модели в `config/ai.json`.
+6. Запустите приложение и убедитесь, что статус Ollama стал готовым.
+
 ## Что передается помощнику
 
 В текущей реализации:
@@ -119,6 +135,7 @@ python scripts/preflight.py
 ## Проверка
 
 ```powershell
-python -m pytest tests/test_ai_assistant.py
+python -m pytest tests/test_ai_assistant.py tests/test_ai_model_profiles.py
+python scripts/ai_models.py --profile balanced
 streamlit run app/streamlit_app.py
 ```

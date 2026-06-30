@@ -15,11 +15,14 @@ def _copy_required_fixture_tree(tmp_path: Path) -> Path:
     for relative in (
         "app/streamlit_app.py",
         "config/ai.json",
+        "config/ai_model_profiles.json",
         "config/palettes.json",
+        "docs/local_model_profiles.md",
         "docs/formulas.md",
         "docs/user_guide.md",
         "examples/sample_gas_data.csv",
         "requirements.txt",
+        "scripts/ai_models.py",
     ):
         source = source_root / relative
         target = root / relative
@@ -40,9 +43,25 @@ def test_preflight_passes_for_offline_docs_fixture(tmp_path):
         "project_files",
         "dependencies",
         "palette_config",
+        "ai_model_profiles",
         "ai_runtime",
         "logs",
     }
+
+
+def test_preflight_reports_invalid_ai_model_profiles(tmp_path):
+    root = _copy_required_fixture_tree(tmp_path)
+    (root / "config" / "ai_model_profiles.json").write_text(
+        json.dumps({"version": "bad", "source": "bad", "source_urls": [], "profiles": []}),
+        encoding="utf-8",
+    )
+
+    report = run_preflight(root)
+    profiles_check = next(check for check in report.checks if check.name == "ai_model_profiles")
+
+    assert not report.ok
+    assert profiles_check.status == "error"
+    assert "profiles" in profiles_check.message
 
 
 def test_preflight_reports_invalid_ai_config(tmp_path):

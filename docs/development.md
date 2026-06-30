@@ -7,6 +7,7 @@ ai/
   assistant.py            Сбор контекста и вызов provider
   factory.py              Выбор provider по config/ai.json
   knowledge_base.py       Поиск по локальной документации
+  model_profiles.py       Загрузка и валидация профилей локальных моделей
   ollama_client.py        Локальный Ollama provider
   provider.py             Provider contract
   settings.py             Загрузка config/ai.json
@@ -14,6 +15,7 @@ app/
   streamlit_app.py        Streamlit UI
 config/
   ai.json                 Конфигурация локального AI-помощника
+  ai_model_profiles.json  Профили рекомендуемых локальных AI-моделей
   palettes.json           Внешняя конфигурация Pixler/ternary палеток
 core/
   calculations.py         Расчетное ядро
@@ -40,6 +42,7 @@ logs/
 examples/
   sample_gas_data.csv     Демо-файл для проверки приложения
 scripts/
+  ai_models.py            Просмотр профилей локальных AI-моделей
   preflight.py            Проверка окружения перед запуском
 tests/
   test_*.py               Pytest-набор
@@ -76,6 +79,7 @@ streamlit run app/streamlit_app.py
 
 ```powershell
 python -m pytest
+python scripts/preflight.py
 git status --short
 ```
 
@@ -115,8 +119,8 @@ git status --short
 - начинать с provider interface, offline provider и fake provider для тестов;
 - не подключать облачные API без явного разрешения;
 - не логировать полные пользовательские таблицы и сырые данные;
-- обновить `docs/ai_usage.md` и `docs/ai_agent_plan.md`;
-- покрыть prompt contract и отказоустойчивость тестами.
+- обновить `docs/ai_usage.md`, `docs/local_model_profiles.md` и `docs/ai_agent_plan.md`;
+- покрыть prompt contract, профильные конфиги и отказоустойчивость тестами.
 
 ## Тестовая стратегия
 

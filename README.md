@@ -70,6 +70,7 @@ examples/sample_gas_data.csv
 - Настройка Pixler/ternary палеток через `config/palettes.json`.
 - Локальное диагностическое логирование в `logs/app.log`.
 - Локальный ИИ-помощник по документации в offline-first режиме.
+- Каталог профилей локальных AI-моделей для подготовки работы без интернета.
 - Экспорт расчетной таблицы в CSV.
 - Pytest-набор для проверки расчетов, mapping, импорта, примера данных, палеток и логирования.
 
@@ -81,7 +82,7 @@ examples/sample_gas_data.csv
 - Формула `Ch` требует подтверждения по корпоративной методике.
 - Границы зон Pixler/ternary в текущем конфиге являются черновыми и должны быть
   заменены на подтвержденные корпоративные линии.
-- LAS importer, PDF/PNG/SVG отчеты и полноценно обученный локальный ИИ-помощник планируются в следующих версиях.
+- LAS importer, PDF/PNG/SVG отчеты и полноценная RAG/AI-база знаний планируются в следующих версиях.
 
 ## Карта документации
 
@@ -92,6 +93,7 @@ examples/sample_gas_data.csv
 - [Конфигурация палеток](docs/palettes.md)
 - [Логирование](docs/logging.md)
 - [Локальный ИИ-помощник](docs/ai_usage.md)
+- [Профили локальных AI-моделей](docs/local_model_profiles.md)
 - [План локального ИИ-помощника](docs/ai_agent_plan.md)
 - [Архитектура и разработка](docs/development.md)
 - [Troubleshooting](docs/troubleshooting.md)
@@ -106,6 +108,9 @@ python -m pytest
 
 # Проверка готовности окружения
 python scripts/preflight.py
+
+# Просмотр профилей локальных AI-моделей
+python scripts/ai_models.py
 
 # Запуск приложения
 streamlit run app/streamlit_app.py

@@ -1,3 +1,5 @@
+# Troubleshooting
+
 ## Preflight показывает FAILED
 
 Запустите подробную проверку:
@@ -10,10 +12,9 @@ python scripts/preflight.py --json
 
 - не активировано виртуальное окружение;
 - не установлены зависимости из `requirements.txt`;
-- поврежден `config/ai.json` или `config/palettes.json`;
+- поврежден `config/ai.json`, `config/ai_model_profiles.json` или `config/palettes.json`;
 - папка `logs` недоступна для записи;
 - выбран provider `ollama`, но локальная модель не указана или не найдена.
-# Troubleshooting
 
 ## Где смотреть подробности ошибки
 
@@ -25,6 +26,7 @@ Get-Content logs/app.log -Tail 80
 
 Лог показывает шаги workflow и stack trace внутренних ошибок. В лог не должны
 попадать сырые таблицы и полное содержимое загруженных файлов.
+
 ## Streamlit не запускается
 
 Проверьте, что активировано виртуальное окружение и установлены зависимости:
@@ -122,11 +124,28 @@ python -m pytest -vv
 Сначала исправляйте расчетные тесты, затем import/mapping тесты. Если тест
 падает после изменения формулы, проверьте `docs/formulas.md` и источник методики.
 
+## Профили локальных AI-моделей не проходят проверку
+
+Проверьте каталог:
+
+```powershell
+python scripts/ai_models.py --json
+python -m pytest tests/test_ai_model_profiles.py
+```
+
+Типовые причины:
+
+- пустой или повторяющийся `id`;
+- модель указана без tag;
+- provider отличается от `ollama`;
+- нет описания сценариев применения.
+
 ## Локальная модель Ollama не готова
 
 Если в UI показано, что Ollama недоступен или модель не найдена:
 
 ```powershell
+python scripts/ai_models.py --profile balanced
 ollama list
 ```
 

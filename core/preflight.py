@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ai.health import HttpGet, check_ai_runtime_status
+from ai.model_profiles import load_ai_model_profile_catalog
 from ai.settings import load_ai_settings
 from palettes.config import load_palette_config
 
@@ -15,11 +16,14 @@ RUNTIME_MODULES: tuple[str, ...] = ("pandas", "numpy", "streamlit", "plotly", "o
 REQUIRED_PROJECT_FILES: tuple[str, ...] = (
     "app/streamlit_app.py",
     "config/ai.json",
+    "config/ai_model_profiles.json",
     "config/palettes.json",
+    "docs/local_model_profiles.md",
     "docs/formulas.md",
     "docs/user_guide.md",
     "examples/sample_gas_data.csv",
     "requirements.txt",
+    "scripts/ai_models.py",
 )
 
 
@@ -124,6 +128,23 @@ def _check_palette_config(root: Path) -> PreflightCheck:
     )
 
 
+def _check_ai_model_profiles(root: Path) -> PreflightCheck:
+    try:
+        catalog = load_ai_model_profile_catalog(root / "config" / "ai_model_profiles.json")
+    except Exception as exc:
+        return PreflightCheck(
+            name="ai_model_profiles",
+            status="error",
+            message=f"Ошибка config/ai_model_profiles.json: {exc}",
+        )
+
+    return PreflightCheck(
+        name="ai_model_profiles",
+        status="ok",
+        message=f"Профили локальных AI-моделей загружены: {len(catalog.profiles)}.",
+    )
+
+
 def _check_ai_config(root: Path, http_get: HttpGet | None) -> PreflightCheck:
     try:
         settings = load_ai_settings(root / "config" / "ai.json")
@@ -177,6 +198,7 @@ def run_preflight(
         _check_required_files(resolved_root),
         _check_runtime_modules(),
         _check_palette_config(resolved_root),
+        _check_ai_model_profiles(resolved_root),
         _check_ai_config(resolved_root, http_get=http_get),
         _check_logs_dir(resolved_root),
     )

@@ -15,6 +15,7 @@
 - Offline-first AI skeleton: локальная knowledge base, provider contract, Ollama provider и Streamlit-блок помощника.
 - AI runtime readiness check для offline-docs/Ollama и отображение статуса в UI.
 - Preflight-команда `python scripts/preflight.py` для проверки окружения перед запуском.
+- Каталог профилей локальных AI-моделей, CLI `python scripts/ai_models.py` и preflight-валидация профилей.
 
 ## v0.3
 
