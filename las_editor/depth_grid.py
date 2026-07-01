@@ -37,6 +37,7 @@ class LasResampleResult:
     diagnostics: DepthDiagnostics
     added_depths: tuple[float, ...] = ()
     fill_strategy: str = "empty"
+    depth_order_fixed: bool = False
     warnings: tuple[str, ...] = ()
 
 
@@ -212,6 +213,10 @@ def resample_las_data(
         working = working.drop_duplicates(subset=[depth_column], keep="first")
         warnings.append("Дубликаты глубин свернуты: оставлена первая строка для каждой глубины.")
 
+    depth_order_fixed = diagnostics.reverse_step_count > 0
+    if depth_order_fixed:
+        warnings.append("Порядок глубины исправлен: строки отсортированы по возрастанию глубины.")
+
     grid = build_depth_grid(diagnostics.min_depth, diagnostics.max_depth, target_step)
     existing_depths = {_round_depth(value) for value in working[depth_column]}
     added_depths = tuple(depth for depth in grid if _round_depth(depth) not in existing_depths)
@@ -232,5 +237,6 @@ def resample_las_data(
         diagnostics=diagnostics,
         added_depths=added_depths,
         fill_strategy=fill_strategy,
+        depth_order_fixed=depth_order_fixed,
         warnings=tuple(dict.fromkeys(warnings)),
     )

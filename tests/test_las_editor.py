@@ -51,3 +51,14 @@ def test_resample_las_data_can_fill_added_rows_with_linear_values():
     result = resample_las_data(df, depth_column="DEPT", target_step=0.2, fill_strategy="linear")
 
     assert list(result.data["C1"]) == pytest.approx([80, 90, 100, 110, 120])
+
+
+def test_resample_las_data_fixes_descending_depth_order():
+    df = pd.DataFrame({"DEPT": [2.0, 1.8, 1.6], "C1": [120, 110, 100]})
+
+    result = resample_las_data(df, depth_column="DEPT", target_step=0.2)
+
+    assert result.depth_order_fixed
+    assert list(result.data["DEPT"]) == [1.6, 1.8, 2.0]
+    assert list(result.data["C1"]) == [100, 110, 120]
+    assert any("Порядок глубины исправлен" in warning for warning in result.warnings)
