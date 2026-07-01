@@ -36,6 +36,8 @@ importers/
   excel_importer.py       Чтение XLSX/XLSM
   header_detector.py      Поиск и применение строки заголовков
   las_importer.py         Чтение LAS-файлов
+las_editor/
+  depth_grid.py           Проверка глубин, сетка шага и заполнение LAS-строк
 mapping/
   curve_aliases.py        Алиасы кривых
   mapper.py               Авто/manual mapping
