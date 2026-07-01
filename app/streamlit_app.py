@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import time
+from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
@@ -37,9 +38,11 @@ from palettes.depth_tracks import (
 from palettes.pixler import build_pixler_palette
 from palettes.ternary import build_ternary_palette
 from reports.export_csv import export_csv_bytes
+from wells.repository import DEFAULT_WELLS_ROOT, list_wells, read_well_file_bytes, save_well_version
 
 
 SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xlsm", ".las"}
+WELLS_STORAGE_ROOT = ROOT_DIR / DEFAULT_WELLS_ROOT
 APP_LAUNCH_COMMAND = "python -m streamlit run app/streamlit_app.py"
 APP_LAUNCH_SCRIPT = ".\\run_app.ps1"
 AI_SUPPORT_CHAT_KEY = "local_ai_support_chat_messages"
@@ -222,6 +225,88 @@ def _dataframe_to_raw_sheet(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame([list(df.columns), *df.to_numpy().tolist()])
 
 
+def _render_saved_wells_panel(logger) -> None:
+    records = list_wells(WELLS_STORAGE_ROOT)
+    with st.expander("Сохраненные скважины", expanded=bool(records)):
+        if not records:
+            st.caption("Пока нет сохраненных скважин. После правки LAS сохраните версию здесь, и она появится в списке.")
+            return
+
+        record_options = {f"{record.name} | {record.updated_at} | версий: {len(record.versions)}": record for record in records}
+        selected_record_label = st.selectbox(
+            "Скважина",
+            options=list(record_options.keys()),
+            key="saved_well_record_select",
+        )
+        selected_record = record_options[selected_record_label]
+        versions = list(selected_record.versions)
+        if not versions:
+            st.warning("У выбранной скважины нет сохраненных версий данных.")
+            return
+
+        version_options = {
+            f"{version.label} | {version.created_at}": version
+            for version in reversed(versions)
+        }
+        selected_version_label = st.selectbox(
+            "Версия данных",
+            options=list(version_options.keys()),
+            key="saved_well_version_select",
+        )
+        selected_version = version_options[selected_version_label]
+
+        st.caption(
+            f"Статус: {selected_record.status or 'draft'}; "
+            f"площадь/куст: {selected_record.area or 'не указано'}; "
+            f"id: {selected_record.id}"
+        )
+        if selected_record.comment:
+            st.caption("Комментарий: " + selected_record.comment)
+
+        csv_col, xlsx_col, las_col = st.columns(3)
+        try:
+            csv_col.download_button(
+                "Скачать CSV",
+                data=read_well_file_bytes(WELLS_STORAGE_ROOT, selected_record.id, selected_version.id, "csv"),
+                file_name=f"{selected_record.id}_{selected_version.id}.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
+            xlsx_col.download_button(
+                "Скачать XLSX",
+                data=read_well_file_bytes(WELLS_STORAGE_ROOT, selected_record.id, selected_version.id, "xlsx"),
+                file_name=f"{selected_record.id}_{selected_version.id}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+            las_col.download_button(
+                "Скачать LAS",
+                data=read_well_file_bytes(WELLS_STORAGE_ROOT, selected_record.id, selected_version.id, "las"),
+                file_name=f"{selected_record.id}_{selected_version.id}.las",
+                mime="text/plain",
+                use_container_width=True,
+            )
+        except Exception:
+            logger.exception("saved_well_download_failed well_id=%s version_id=%s", selected_record.id, selected_version.id)
+            st.error("Не удалось подготовить выгрузку сохраненной скважины. Подробности записаны в logs/app.log.")
+
+        if st.button("Использовать выбранную версию в расчетах", use_container_width=True):
+            try:
+                csv_bytes = read_well_file_bytes(WELLS_STORAGE_ROOT, selected_record.id, selected_version.id, "csv")
+                prepared_df = pd.read_csv(BytesIO(csv_bytes))
+                st.session_state[LAS_EDITOR_SESSION_SHEETS_KEY] = {
+                    f"{selected_record.name} / {selected_version.label}": _dataframe_to_raw_sheet(prepared_df)
+                }
+                st.session_state[LAS_EDITOR_SESSION_SUMMARY_KEY] = (
+                    f"{selected_record.name}, версия {selected_version.label}, строк: {len(prepared_df)}"
+                )
+            except Exception:
+                logger.exception("saved_well_load_to_session_failed well_id=%s version_id=%s", selected_record.id, selected_version.id)
+                st.error("Не удалось загрузить сохраненную версию в расчеты. Подробности записаны в logs/app.log.")
+            else:
+                st.success("Версия загружена в текущую сессию. Откройте вкладку `Работа с данными`.")
+
+
 def _build_mapping_controls(df: pd.DataFrame, detected_mapping: dict[str, str]) -> dict[str, str]:
     options = [""] + [str(column) for column in df.columns]
     mapping: dict[str, str] = {}
@@ -252,7 +337,6 @@ def _build_mapping_controls(df: pd.DataFrame, detected_mapping: dict[str, str]) 
         st.caption("Поля без сопоставления будут пропущены; отсутствующие C1-C5 будут приняты как 0.")
 
     return mapping
-
 
 def _interval_label(df: pd.DataFrame, index: int) -> str:
     row = df.iloc[index]
@@ -497,6 +581,7 @@ def _render_documentation_tab() -> None:
 def _render_las_editor(logger) -> None:
     st.subheader("LAS-редактор")
     st.caption("Подготовка LAS перед расчетами: проверка глубины, смена шага, добавление строк и ручная правка.")
+    _render_saved_wells_panel(logger)
 
     saved_summary = st.session_state.get(LAS_EDITOR_SESSION_SUMMARY_KEY)
     if saved_summary:
@@ -635,6 +720,65 @@ def _render_las_editor(logger) -> None:
         mime="text/csv",
         use_container_width=True,
     )
+
+    st.markdown("### Сохранить скважину локально")
+    records = list_wells(WELLS_STORAGE_ROOT)
+    existing_options = ["Новая скважина"] + [f"{record.name} | {record.id}" for record in records]
+    selected_existing = st.selectbox(
+        "Куда сохранить",
+        options=existing_options,
+        key="las_editor_save_target",
+    )
+    selected_record = None
+    if selected_existing != "Новая скважина":
+        selected_record = records[existing_options.index(selected_existing) - 1]
+
+    name_col, area_col, status_col = st.columns(3)
+    default_name = selected_record.name if selected_record else Path(getattr(uploaded_file, "name", "well")).stem
+    well_name = name_col.text_input("Название скважины", value=default_name, key="las_editor_well_name")
+    well_area = area_col.text_input("Куст/площадь", value=selected_record.area if selected_record else "", key="las_editor_well_area")
+    well_status = status_col.selectbox(
+        "Статус",
+        options=("draft", "checked", "approved"),
+        index=("draft", "checked", "approved").index(selected_record.status) if selected_record and selected_record.status in ("draft", "checked", "approved") else 0,
+        key="las_editor_well_status",
+    )
+    well_comment = st.text_area(
+        "Комментарий",
+        value=selected_record.comment if selected_record else "",
+        key="las_editor_well_comment",
+    )
+    version_label = st.text_input(
+        "Название версии",
+        value=f"LAS editor step {target_step}",
+        key="las_editor_version_label",
+    )
+
+    if st.button("Сохранить версию скважины", use_container_width=True):
+        try:
+            saved_record = save_well_version(
+                edited_df,
+                root=WELLS_STORAGE_ROOT,
+                well_name=well_name,
+                well_id=selected_record.id if selected_record else None,
+                area=well_area,
+                status=well_status,
+                comment=well_comment,
+                version_label=version_label,
+                depth_column=depth_column,
+                metadata={
+                    "source": "las_editor",
+                    "target_step": str(target_step),
+                    "fill_strategy": fill_strategy,
+                    "added_depth_count": len(result.added_depths),
+                },
+            )
+        except Exception:
+            logger.exception("well_version_save_failed")
+            st.error("Не удалось сохранить скважину. Подробности записаны в logs/app.log.")
+        else:
+            logger.info("well_version_saved well_id=%s rows=%d", safe_log_value(saved_record.id), len(edited_df))
+            st.success(f"Скважина сохранена локально: {saved_record.name} ({saved_record.id}).")
 
 
 def _render_workspace(logger) -> None:

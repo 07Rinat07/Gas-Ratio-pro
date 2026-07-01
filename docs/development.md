@@ -48,9 +48,14 @@ palettes/
   depth_tracks.py         Графики по глубине
 reports/
   export_csv.py           CSV export
+  export_las.py           LAS export helper
   export_xlsx.py          XLSX export helper
+wells/
+  repository.py           Локальное хранение скважин, manifest и версии данных
 logs/
   app.log                 Локальный runtime-лог, не коммитится
+data/wells/
+  */manifest.json         Локальные скважины и версии данных, не коммитятся
 examples/
   sample_gas_data.csv     Демо CSV-файл для проверки приложения
   sample_gas_data.las     Демо LAS-файл для проверки приложения
