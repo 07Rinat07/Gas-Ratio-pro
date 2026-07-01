@@ -26,7 +26,7 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 python -m pytest
 python scripts/preflight.py
-streamlit run app/streamlit_app.py
+python -m streamlit run app/streamlit_app.py
 ```
 
 После запуска Streamlit откроет локальный адрес вида:
@@ -40,7 +40,7 @@ http://localhost:8501
 ```powershell
 cd C:\OSPanel\home\gas-ratio-pro
 .\.venv\Scripts\Activate.ps1
-streamlit run app/streamlit_app.py
+python -m streamlit run app/streamlit_app.py
 ```
 
 ## Как проверить без рабочих данных
@@ -49,15 +49,16 @@ streamlit run app/streamlit_app.py
 
 ```text
 examples/sample_gas_data.csv
+examples/sample_gas_data.las
 ```
 
-Запустите приложение, загрузите этот CSV и оставьте автоматически найденную
+Запустите приложение, загрузите LAS или CSV и оставьте автоматически найденную
 строку заголовков. В интерфейсе должны появиться таблица расчетов, сводка
 классификации, Pixler/ternary палетки и графики по глубине.
 
 ## Что умеет v0.3
 
-- Импорт CSV, XLSX, XLSM.
+- Импорт LAS, CSV, XLSX, XLSM.
 - Чтение всех листов Excel.
 - Автоматический поиск строки заголовков среди первых 50 строк.
 - Ручной выбор строки заголовков.
@@ -85,13 +86,14 @@ examples/sample_gas_data.csv
 - Формула `Ch` требует подтверждения по корпоративной методике.
 - Границы зон Pixler/ternary в текущем конфиге являются черновыми и должны быть
   заменены на подтвержденные корпоративные линии.
-- LAS importer, PDF/PNG/SVG отчеты и полноценная RAG/AI-база знаний планируются в следующих версиях.
+- LAS-редактор, хранение скважин, PDF/PNG/SVG отчеты и расширенная RAG/AI-база знаний планируются в следующих версиях.
 
 ## Карта документации
 
 - [Установка и запуск](docs/setup.md)
 - [Руководство пользователя](docs/user_guide.md)
 - [Формат входных данных](docs/data_format.md)
+- [План LAS-редактора](docs/las_editor_plan.md)
 - [Формулы](docs/formulas.md)
 - [Конфигурация палеток](docs/palettes.md)
 - [Логирование](docs/logging.md)
@@ -136,7 +138,7 @@ python scripts/evaluate_ai.py --provider-mode configured
 python scripts/export_ai_training_pack.py
 
 # Запуск приложения
-streamlit run app/streamlit_app.py
+python -m streamlit run app/streamlit_app.py
 
 # Просмотр последних строк лога
 Get-Content logs/app.log -Tail 80

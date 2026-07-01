@@ -15,8 +15,8 @@
       "title": "Формат входных данных",
       "status": "approved",
       "priority": 9,
-      "topics": ["import", "csv", "xlsx", "headers", "mapping", "columns"],
-      "description": "Требования к CSV/XLSX, заголовкам и сопоставлению колонок."
+      "topics": ["import", "las", "csv", "xlsx", "headers", "mapping", "columns"],
+      "description": "Требования к LAS/CSV/XLSX, заголовкам и сопоставлению колонок."
     },
     {
       "path": "docs/user_guide.md",
@@ -41,6 +41,14 @@
       "priority": 7,
       "topics": ["pixler", "ternary", "palette", "regions", "config"],
       "description": "Описание палеток и черновых зон, требующих корпоративного подтверждения."
+    },
+    {
+      "path": "docs/las_editor_plan.md",
+      "title": "План LAS-редактора",
+      "status": "draft",
+      "priority": 7,
+      "topics": ["las", "editor", "depth", "resampling", "null", "gaps", "wells", "export"],
+      "description": "План вкладки LAS-редактора: изменение шага, проверка глубины, заполнение пропусков, хранение скважин и выгрузка."
     },
     {
       "path": "docs/ai_usage.md",

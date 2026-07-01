@@ -25,6 +25,7 @@ from core.models import CalculationConfig, STANDARD_FIELDS
 from importers.csv_importer import load_csv_sheets
 from importers.excel_importer import load_excel_sheets
 from importers.header_detector import detect_header_row, prepare_dataframe_with_header
+from importers.las_importer import load_las_sheets
 from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
 from palettes.depth_tracks import (
@@ -37,7 +38,7 @@ from palettes.ternary import build_ternary_palette
 from reports.export_csv import export_csv_bytes
 
 
-SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xlsm"}
+SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xlsm", ".las"}
 APP_LAUNCH_COMMAND = "python -m streamlit run app/streamlit_app.py"
 APP_LAUNCH_SCRIPT = ".\\run_app.ps1"
 AI_SUPPORT_CHAT_KEY = "local_ai_support_chat_messages"
@@ -59,6 +60,7 @@ DOCUMENTATION_TAB_DOCS: tuple[tuple[str, str], ...] = (
     ("Быстрый старт", "docs/setup.md"),
     ("Руководство пользователя", "docs/user_guide.md"),
     ("Формат входных данных", "docs/data_format.md"),
+    ("План LAS-редактора", "docs/las_editor_plan.md"),
     ("Формулы", "docs/formulas.md"),
     ("Локальный AI-помощник", "docs/ai_usage.md"),
     ("Локальный AI-агент", "docs/local_ai_agent.md"),
@@ -191,7 +193,9 @@ def _load_raw_sheets(uploaded_file) -> dict[str, pd.DataFrame]:
         return load_csv_sheets(uploaded_file)
     if suffix in {".xlsx", ".xlsm"}:
         return load_excel_sheets(uploaded_file)
-    raise ValueError(f"Формат {suffix} не поддерживается в v0.3.")
+    if suffix == ".las":
+        return load_las_sheets(uploaded_file)
+    raise ValueError(f"Формат {suffix} не поддерживается.")
 
 
 def _build_mapping_controls(df: pd.DataFrame, detected_mapping: dict[str, str]) -> dict[str, str]:
@@ -425,7 +429,7 @@ def _render_documentation_tab() -> None:
         )
         st.markdown(
             "1. Откройте локальный адрес Streamlit.\n"
-            "2. Загрузите CSV, XLSX или XLSM.\n"
+            "2. Загрузите LAS (рекомендуется), CSV, XLSX или XLSM.\n"
             "3. Проверьте строку заголовков и mapping.\n"
             "4. Выберите интервал и смотрите расчеты, палетки и графики."
         )
@@ -446,7 +450,7 @@ def _render_documentation_tab() -> None:
 
     st.markdown("### Основной рабочий сценарий")
     st.markdown(
-        "1. Загрузите файл и выберите лист.\n"
+        "1. Загрузите LAS, CSV или Excel-файл и выберите набор данных.\n"
         "2. Проверьте первые строки и строку заголовков.\n"
         "3. Исправьте сопоставление колонок, если авто-mapping ошибся.\n"
         "4. Проверьте предупреждения и режим `Ch`.\n"
@@ -481,11 +485,11 @@ def _render_workspace(logger) -> None:
 
     uploaded_file = st.file_uploader(
         "Загрузка файла",
-        type=["csv", "xlsx", "xlsm"],
+        type=["csv", "xlsx", "xlsm", "las"],
     )
 
     if uploaded_file is None:
-        st.info("Загрузите CSV, XLSX или XLSM файл с газовыми данными.")
+        st.info("Загрузите LAS, CSV, XLSX или XLSM файл с газовыми данными.")
         _render_ai_assistant(logger)
         return
 
@@ -515,7 +519,7 @@ def _render_workspace(logger) -> None:
         st.error("Файл прочитан, но листы или строки данных не найдены.")
         return
 
-    sheet_name = st.selectbox("Выбор листа", options=list(sheets.keys()))
+    sheet_name = st.selectbox("Выбор набора данных", options=list(sheets.keys()))
     raw_df = sheets[sheet_name]
     logger.info(
         "sheet_selected sheet=%s rows=%d columns=%d",

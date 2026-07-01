@@ -35,6 +35,7 @@ importers/
   csv_importer.py         Чтение CSV
   excel_importer.py       Чтение XLSX/XLSM
   header_detector.py      Поиск и применение строки заголовков
+  las_importer.py         Чтение LAS-файлов
 mapping/
   curve_aliases.py        Алиасы кривых
   mapper.py               Авто/manual mapping
@@ -49,7 +50,8 @@ reports/
 logs/
   app.log                 Локальный runtime-лог, не коммитится
 examples/
-  sample_gas_data.csv     Демо-файл для проверки приложения
+  sample_gas_data.csv     Демо CSV-файл для проверки приложения
+  sample_gas_data.las     Демо LAS-файл для проверки приложения
 scripts/
   ai_config.py            Просмотр и переключение AI-provider
   ai_models.py            Просмотр профилей локальных AI-моделей
@@ -153,9 +155,9 @@ git status --short
 
 Следующие крупные направления:
 
-- v0.4: инженерные палетки и подтвержденные границы зон;
-- v0.5: отчеты PDF/PNG/SVG и печатные планшеты;
-- v0.6: LAS importer;
+- v0.4: LAS-редактор, проверка глубины, изменение шага, заполнение пропусков и хранение скважин;
+- v0.5: инженерные палетки и подтвержденные границы зон;
+- v0.6: отчеты PDF/PNG/SVG и печатные планшеты;
 - v0.7: структура проектов;
 - v0.8: локальный ИИ-помощник по документации и интерпретации;
 - v1.0: коммерческая MVP.
