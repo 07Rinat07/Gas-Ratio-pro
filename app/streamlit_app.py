@@ -36,6 +36,17 @@ from reports.export_csv import export_csv_bytes
 
 
 SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xlsm"}
+AI_SUPPORT_CHAT_KEY = "local_ai_support_chat_messages"
+AI_SUPPORT_WELCOME_MESSAGE = (
+    "Здравствуйте. Я локальный помощник по Gas Ratio Interpreter: формулам, "
+    "импорту, предупреждениям, Ollama и выбранному интервалу."
+)
+AI_SUPPORT_QUICK_QUESTIONS: tuple[tuple[str, str], ...] = (
+    ("Ollama Launch", "В Ollama открылось окно Launch. Что выбрать для проекта?"),
+    ("Почему NaN?", "Почему Wh, Bh или BAR2 могут стать NaN?"),
+    ("Колонки", "Что делать, если приложение не сопоставило колонки C1 и C2?"),
+    ("Палетки", "Можно ли считать зоны Pixler и ternary подтвержденной методикой?"),
+)
 
 
 def _build_recommended_ai_setup_commands(profile_id: str = "balanced") -> tuple[str, ...]:
@@ -96,8 +107,33 @@ def _interval_label(df: pd.DataFrame, index: int) -> str:
     return f"{index}: depth={depth} | {interpretation}"
 
 
+def _initial_ai_support_chat_messages() -> list[dict[str, object]]:
+    return [{"role": "assistant", "content": AI_SUPPORT_WELCOME_MESSAGE, "sources": ()}]
+
+
+def _append_ai_support_chat_message(
+    messages: list[dict[str, object]],
+    role: str,
+    content: str,
+    sources: tuple[str, ...] = (),
+) -> None:
+    messages.append({"role": role, "content": content, "sources": sources})
+
+
+def _render_ai_support_chat_message(message: dict[str, object]) -> None:
+    role = str(message.get("role", "assistant"))
+    content = str(message.get("content", ""))
+    raw_sources = message.get("sources", ())
+    sources = tuple(str(source) for source in raw_sources) if isinstance(raw_sources, (tuple, list)) else ()
+
+    with st.chat_message(role):
+        st.markdown(content)
+        if sources:
+            st.caption("Источники: " + ", ".join(sources))
+
+
 def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
-    st.subheader("Локальный ИИ-помощник")
+    st.subheader("Чат поддержки")
 
     try:
         ai_settings = load_ai_settings()
@@ -128,18 +164,31 @@ def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
             st.caption(install_note)
             st.code("\n".join(commands), language="powershell")
 
-    question = st.text_area(
-        "Вопрос по данным, формулам, предупреждениям или выбранному интервалу",
-        placeholder="Например: почему Bh стал NaN или какие колонки нужны для расчета Wh?",
-        key="local_ai_question",
-        height=90,
+    if AI_SUPPORT_CHAT_KEY not in st.session_state:
+        st.session_state[AI_SUPPORT_CHAT_KEY] = _initial_ai_support_chat_messages()
+    messages = st.session_state[AI_SUPPORT_CHAT_KEY]
+
+    left, right = st.columns([3, 1])
+    left.caption("Быстрые вопросы")
+    if right.button("Очистить чат", key="local_ai_clear_chat", use_container_width=True):
+        st.session_state[AI_SUPPORT_CHAT_KEY] = _initial_ai_support_chat_messages()
+        messages = st.session_state[AI_SUPPORT_CHAT_KEY]
+
+    quick_question = ""
+    quick_columns = st.columns(len(AI_SUPPORT_QUICK_QUESTIONS))
+    for index, (label, prompt) in enumerate(AI_SUPPORT_QUICK_QUESTIONS):
+        if quick_columns[index].button(label, key=f"local_ai_quick_{index}", use_container_width=True):
+            quick_question = prompt
+
+    for message in messages:
+        _render_ai_support_chat_message(message)
+
+    typed_question = st.chat_input(
+        "Напишите вопрос по данным, формулам, Ollama или выбранному интервалу",
+        key="local_ai_chat_input",
     )
-
-    if not st.button("Спросить помощника", key="local_ai_submit"):
-        return
-
+    question = quick_question or typed_question or ""
     if not question.strip():
-        st.warning("Введите вопрос для локального помощника.")
         return
 
     assistant = LocalAssistant(provider=provider)
@@ -151,6 +200,9 @@ def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
         len(question),
         interval_row is not None,
     )
+    _append_ai_support_chat_message(messages, "user", question.strip())
+    _render_ai_support_chat_message(messages[-1])
+
     try:
         answer = assistant.answer(question, interval_row=interval_row)
     except Exception:
@@ -170,9 +222,8 @@ def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
         len(answer.sources),
     )
 
-    st.markdown(answer.answer)
-    if answer.sources:
-        st.caption("Источники: " + ", ".join(answer.sources))
+    _append_ai_support_chat_message(messages, "assistant", answer.answer, answer.sources)
+    _render_ai_support_chat_message(messages[-1])
 
 
 def main() -> None:
