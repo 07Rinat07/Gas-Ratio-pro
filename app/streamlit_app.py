@@ -13,6 +13,8 @@ if str(ROOT_DIR) not in sys.path:
 from ai.assistant import LocalAssistant
 from ai.factory import build_provider
 from ai.health import check_ai_runtime_status
+from ai.local_agent_setup import build_local_agent_next_commands
+from ai.model_profiles import find_ai_model_profile, load_ai_model_profile_catalog
 from ai.settings import load_ai_settings
 from core.calculations import CH_WARNING, calculate_gas_ratios
 from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summarize_interpretation
@@ -34,6 +36,14 @@ from reports.export_csv import export_csv_bytes
 
 
 SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xlsm"}
+
+
+def _build_recommended_ai_setup_commands(profile_id: str = "balanced") -> tuple[str, ...]:
+    catalog = load_ai_model_profile_catalog()
+    profile = find_ai_model_profile(catalog, profile_id)
+    if profile is None:
+        return ()
+    return build_local_agent_next_commands(profile)
 
 
 def _load_raw_sheets(uploaded_file) -> dict[str, pd.DataFrame]:
@@ -110,6 +120,13 @@ def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
         st.warning(status.message)
     if status.available_models:
         st.caption("Локальные модели: " + ", ".join(status.available_models))
+
+    setup_commands = _build_recommended_ai_setup_commands()
+    if setup_commands:
+        install_note, *commands = setup_commands
+        with st.expander("Подготовка локального AI runtime", expanded=not status.ready):
+            st.caption(install_note)
+            st.code("\n".join(commands), language="powershell")
 
     question = st.text_area(
         "Вопрос по данным, формулам, предупреждениям или выбранному интервалу",

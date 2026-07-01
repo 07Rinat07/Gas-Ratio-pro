@@ -20,7 +20,9 @@
 - Q/A-каталог `config/knowledge_qa.json` для типовых вопросов локального AI-помощника.
 - AI evaluation-кейсы `config/ai_eval_cases.json` и CLI `python scripts/evaluate_ai.py` для проверки RAG/safety качества.
 - Режим `python scripts/evaluate_ai.py --provider-mode configured` для проверки provider из `config/ai.json`.
-- CLI `python scripts/ai_config.py` для безопасного просмотра и переключения AI-provider.`n- CLI `python scripts/setup_local_agent.py` и runbook `docs/local_ai_agent.md` для подготовки локального AI-агента.
+- CLI `python scripts/ai_config.py` для безопасного просмотра и переключения AI-provider.
+- CLI `python scripts/setup_local_agent.py` и runbook `docs/local_ai_agent.md` для подготовки локального AI-агента.
+- Подсказка в Streamlit UI с командами подготовки локального AI runtime.
 
 ## v0.3
 
