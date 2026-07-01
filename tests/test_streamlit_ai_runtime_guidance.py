@@ -9,6 +9,7 @@ from app.streamlit_app import (
     DOCUMENTATION_TAB_DOCS,
     _append_ai_support_chat_message,
     _apply_app_style,
+    _select_ui_scale,
     _build_ai_wait_message,
     _build_recommended_ai_setup_commands,
     _initial_ai_support_chat_messages,
@@ -80,5 +81,18 @@ def test_ollama_wait_message_sets_expectation_for_slow_local_model():
     assert _build_ai_wait_message("offline-docs") == "ИИ-помощник готовит ответ."
 
 
-def test_app_style_helper_is_available_for_readable_ui():
-    assert callable(_apply_app_style)
+def test_app_style_helper_is_available_for_readable_ui(monkeypatch):
+    captured = {}
+
+    def fake_markdown(body, unsafe_allow_html=False):
+        captured["body"] = body
+        captured["unsafe"] = unsafe_allow_html
+
+    monkeypatch.setattr("app.streamlit_app.st.markdown", fake_markdown)
+
+    _apply_app_style("xlarge")
+
+    assert "22px" in captured["body"]
+    assert "3.05rem" in captured["body"]
+    assert captured["unsafe"] is True
+    assert callable(_select_ui_scale)

@@ -34,24 +34,34 @@ def ensure_disclaimer(answer: str) -> str:
     return f"{clean_answer}\n\n{INTERPRETATION_DISCLAIMER}" if clean_answer else INTERPRETATION_DISCLAIMER
 
 
+def _extract_verified_context_answer(context: str) -> str:
+    for line in context.splitlines():
+        clean_line = line.strip()
+        if clean_line.startswith("Проверенный ответ:"):
+            return clean_line.replace("Проверенный ответ:", "", 1).strip()
+    return ""
+
+
 class OfflineDocumentationProvider:
     provider_name = "offline-docs"
 
     def generate(self, request: ProviderRequest) -> ProviderResponse:
+        verified_answer = _extract_verified_context_answer(request.context)
         answer_parts = [
-            "Локальный помощник работает в offline-режиме: использую только документацию проекта и переданный контекст.",
+            "Быстрый локальный ответ по базе знаний проекта.",
         ]
 
-        if request.context.strip():
+        if verified_answer:
+            answer_parts.append(verified_answer)
+        elif request.context.strip():
             answer_parts.append(
-                "По найденным документам проверьте релевантные разделы ниже. "
-                "Если вопрос про формулы, ориентируйтесь на `docs/formulas.md`; "
-                "если про входные файлы, на `docs/data_format.md`."
+                "В локальной базе знаний найден релевантный контекст. Проверьте источники под ответом "
+                "и уточните вопрос, если нужна более точная инструкция."
             )
         else:
             answer_parts.append(
                 "В локальной документации не найден прямой контекст по вопросу. "
-                "Уточните вопрос или добавьте методику в `docs/`."
+                "Уточните вопрос или добавьте методику в `docs/` и Q/A-каталог."
             )
 
         if request.interval_context.strip():

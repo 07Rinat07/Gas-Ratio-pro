@@ -54,11 +54,36 @@ def _coerce_numeric(df: pd.DataFrame, columns: Iterable[str]) -> tuple[pd.DataFr
     return result, warnings
 
 
+def _depth_from_interval(result: pd.DataFrame) -> pd.Series | None:
+    depth_from = pd.to_numeric(result.get("depth_from"), errors="coerce") if "depth_from" in result else None
+    depth_to = pd.to_numeric(result.get("depth_to"), errors="coerce") if "depth_to" in result else None
+
+    if depth_from is None and depth_to is None:
+        return None
+    if depth_from is not None and depth_to is not None:
+        midpoint = (depth_from + depth_to) / 2
+        combined = midpoint.combine_first(depth_from).combine_first(depth_to)
+    elif depth_from is not None:
+        combined = depth_from
+    else:
+        combined = depth_to
+
+    return combined if not combined.isna().all() else None
+
+
 def ensure_depth_column(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     result = df.copy()
     warnings: list[str] = []
+    interval_depth = _depth_from_interval(result)
 
     if "depth" not in result.columns:
+        if interval_depth is not None:
+            result["depth"] = interval_depth
+            warnings.append(
+                "Колонка depth не найдена: используется середина интервала depth_from/depth_to."
+            )
+            return result, warnings
+
         result["depth"] = range(len(result))
         warnings.append(
             "Колонка depth не найдена: используется индекс строки как техническая глубина."
@@ -67,6 +92,13 @@ def ensure_depth_column(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
 
     result["depth"] = pd.to_numeric(result["depth"], errors="coerce")
     if result["depth"].isna().all():
+        if interval_depth is not None:
+            result["depth"] = interval_depth
+            warnings.append(
+                "Колонка depth есть, но не содержит числовых значений: используется середина интервала depth_from/depth_to."
+            )
+            return result, warnings
+
         result["depth"] = range(len(result))
         warnings.append(
             "Колонка depth есть, но не содержит числовых значений: используется индекс строки."

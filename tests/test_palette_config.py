@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from palettes.config import load_palette_config
+from palettes.depth_tracks import build_depth_gas_tracks
 from palettes.ternary import build_ternary_palette
 
 
@@ -81,3 +82,16 @@ def test_ternary_regions_are_rendered():
     fig = build_ternary_palette(row, regions=config.ternary_regions)
 
     assert len(fig.data) == len(config.ternary_regions) + 1
+
+def test_depth_tracks_use_interval_midpoint_when_depth_is_missing():
+    df = pd.DataFrame(
+        {
+            "depth_from": [1000, 1002],
+            "depth_to": [1001, 1004],
+            "c1": [80, 81],
+        }
+    )
+
+    fig = build_depth_gas_tracks(df)
+
+    assert list(fig.data[0].y) == [1000.5, 1003.0]

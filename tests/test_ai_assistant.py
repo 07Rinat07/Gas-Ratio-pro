@@ -10,7 +10,7 @@ from ai.factory import build_provider
 from ai.knowledge_base import DocumentationKnowledgeBase
 from ai.ollama_client import OllamaProvider
 from ai.prompts import INTERPRETATION_DISCLAIMER
-from ai.provider import ProviderRequest
+from ai.provider import OfflineDocumentationProvider, ProviderRequest
 from ai.settings import load_ai_settings
 
 
@@ -178,5 +178,19 @@ def test_ollama_provider_timeout_returns_local_docs_fallback():
     )
 
     assert "не успел ответить за 180 сек" in response.answer
+    assert "Проверьте строку заголовков" in response.answer
+    assert INTERPRETATION_DISCLAIMER in response.answer
+
+def test_offline_provider_uses_verified_qa_answer_from_context():
+    provider = OfflineDocumentationProvider()
+    response = provider.generate(
+        ProviderRequest(
+            question="Что делать, если колонки не сопоставились?",
+            prompt="prompt",
+            context="Проверенный ответ: Проверьте строку заголовков и mapping в интерфейсе.",
+        )
+    )
+
+    assert "Быстрый локальный ответ" in response.answer
     assert "Проверьте строку заголовков" in response.answer
     assert INTERPRETATION_DISCLAIMER in response.answer

@@ -5,14 +5,16 @@ from collections import defaultdict
 import pandas as pd
 
 from core.models import GAS_COMPONENT_FIELDS, MappingResult, STANDARD_FIELDS, PreparedDataFrame
-from mapping.curve_aliases import alias_lookup, normalize_curve_name
+from mapping.curve_aliases import alias_lookup, normalized_curve_candidates
 
 
 def detect_standard_field(column_name: object) -> str | None:
-    normalized = normalize_curve_name(column_name)
-    if not normalized:
-        return None
-    return alias_lookup().get(normalized)
+    lookup = alias_lookup()
+    for candidate in normalized_curve_candidates(column_name):
+        standard_name = lookup.get(candidate)
+        if standard_name is not None:
+            return standard_name
+    return None
 
 
 def auto_map_columns(columns) -> MappingResult:

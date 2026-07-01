@@ -8,7 +8,17 @@ def _depth_axis(df: pd.DataFrame) -> pd.Series:
     if df is None or df.empty:
         return pd.Series(dtype=float)
     if "depth" in df.columns and not df["depth"].isna().all():
-        return df["depth"]
+        return pd.to_numeric(df["depth"], errors="coerce")
+    if "depth_from" in df.columns and "depth_to" in df.columns:
+        depth_from = pd.to_numeric(df["depth_from"], errors="coerce")
+        depth_to = pd.to_numeric(df["depth_to"], errors="coerce")
+        midpoint = ((depth_from + depth_to) / 2).combine_first(depth_from).combine_first(depth_to)
+        if not midpoint.isna().all():
+            return midpoint.rename("interval_mid_depth")
+    if "depth_from" in df.columns and not df["depth_from"].isna().all():
+        return pd.to_numeric(df["depth_from"], errors="coerce").rename("depth_from")
+    if "depth_to" in df.columns and not df["depth_to"].isna().all():
+        return pd.to_numeric(df["depth_to"], errors="coerce").rename("depth_to")
     return pd.Series(range(len(df)), name="technical_depth")
 
 

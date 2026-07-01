@@ -16,6 +16,7 @@ from ai.factory import build_provider
 from ai.health import check_ai_runtime_status
 from ai.local_agent_setup import build_local_agent_next_commands
 from ai.model_profiles import find_ai_model_profile, load_ai_model_profile_catalog
+from ai.provider import OfflineDocumentationProvider
 from ai.settings import load_ai_settings
 from core.calculations import CH_WARNING, calculate_gas_ratios
 from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summarize_interpretation
@@ -40,6 +41,8 @@ SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xlsm"}
 APP_LAUNCH_COMMAND = "python -m streamlit run app/streamlit_app.py"
 APP_LAUNCH_SCRIPT = ".\\run_app.ps1"
 AI_SUPPORT_CHAT_KEY = "local_ai_support_chat_messages"
+AI_RESPONSE_MODE_KEY = "local_ai_response_mode"
+UI_SCALE_KEY = "ui_scale"
 AI_SUPPORT_WELCOME_MESSAGE = (
     "Здравствуйте. Я локальный помощник по Gas Ratio Interpreter: формулам, "
     "импорту, предупреждениям, Ollama и выбранному интервалу."
@@ -63,7 +66,13 @@ DOCUMENTATION_TAB_DOCS: tuple[tuple[str, str], ...] = (
 )
 
 
-def _apply_app_style() -> None:
+def _apply_app_style(scale: str = "large") -> None:
+    scale_tokens = {
+        "standard": {"base": "17px", "body": "1rem", "caption": "0.95rem", "button": "1rem", "h1": "2.35rem"},
+        "large": {"base": "20px", "body": "1.13rem", "caption": "1.02rem", "button": "1.08rem", "h1": "2.75rem"},
+        "xlarge": {"base": "22px", "body": "1.22rem", "caption": "1.08rem", "button": "1.16rem", "h1": "3.05rem"},
+    }
+    tokens = scale_tokens.get(scale, scale_tokens["large"])
     st.markdown(
         """
         <style>
@@ -77,7 +86,7 @@ def _apply_app_style() -> None:
         }
         .stApp {
             color: var(--app-text);
-            font-size: 18px;
+            font-size: {tokens["base"]};
         }
         .block-container {
             max-width: 1440px;
@@ -85,7 +94,7 @@ def _apply_app_style() -> None:
             padding-bottom: 3rem;
         }
         h1 {
-            font-size: 2.55rem !important;
+            font-size: {tokens["h1"]} !important;
             line-height: 1.12 !important;
             margin-bottom: 0.65rem !important;
         }
@@ -93,17 +102,17 @@ def _apply_app_style() -> None:
             letter-spacing: 0 !important;
         }
         p, li, label, span, div[data-testid="stMarkdownContainer"] {
-            font-size: 1.04rem;
+            font-size: {tokens["body"]} !important;
             line-height: 1.55;
         }
         div[data-testid="stCaptionContainer"], .stCaption {
             color: var(--app-muted) !important;
-            font-size: 0.96rem !important;
+            font-size: {tokens["caption"]} !important;
             line-height: 1.45 !important;
         }
         button[kind="secondary"], div[data-testid="stButton"] button {
             min-height: 2.65rem;
-            font-size: 1rem;
+            font-size: {tokens["button"]} !important;
             border-color: var(--app-border);
         }
         div[data-testid="stFileUploader"] section {
@@ -120,11 +129,11 @@ def _apply_app_style() -> None:
             margin-bottom: 0.8rem;
         }
         div[data-testid="stChatMessage"] p {
-            font-size: 1.05rem;
+            font-size: {tokens["body"]} !important;
             line-height: 1.58;
         }
         div[data-baseweb="textarea"] textarea {
-            font-size: 1.05rem !important;
+            font-size: {tokens["body"]} !important;
             min-height: 3.3rem;
         }
         div[data-testid="stAlert"] {
@@ -137,12 +146,35 @@ def _apply_app_style() -> None:
             min-width: 250px !important;
         }
         section[data-testid="stSidebar"] * {
-            font-size: 1rem !important;
+            font-size: {tokens["button"]} !important;
+        }
+        div[data-testid="stTabs"] button p {
+            font-size: {tokens["button"]} !important;
+            font-weight: 700 !important;
+        }
+        div[data-testid="stMetricValue"], div[data-testid="stMetricLabel"] {
+            font-size: {tokens["body"]} !important;
         }
         </style>
-        """,
+        """
+        .replace('{tokens["base"]}', tokens["base"])
+        .replace('{tokens["body"]}', tokens["body"])
+        .replace('{tokens["caption"]}', tokens["caption"])
+        .replace('{tokens["button"]}', tokens["button"])
+        .replace('{tokens["h1"]}', tokens["h1"]),
         unsafe_allow_html=True,
     )
+
+
+def _select_ui_scale() -> str:
+    selected = st.sidebar.radio(
+        "Размер интерфейса",
+        options=("Крупный", "Очень крупный", "Стандартный"),
+        index=0,
+        key=UI_SCALE_KEY,
+        horizontal=False,
+    )
+    return {"Стандартный": "standard", "Крупный": "large", "Очень крупный": "xlarge"}[selected]
 
 
 def _build_recommended_ai_setup_commands(profile_id: str = "balanced") -> tuple[str, ...]:
@@ -234,12 +266,29 @@ def _render_ai_support_chat_message(message: dict[str, object]) -> None:
             st.caption("Источники: " + ", ".join(sources))
 
 
+def _select_ai_response_provider(ai_settings, configured_provider):
+    if ai_settings.provider != "ollama":
+        return configured_provider, ai_settings.provider
+
+    mode = st.radio(
+        "Режим ответа чата",
+        options=("Быстро: база знаний", "Ollama: локальная модель"),
+        index=0,
+        key=AI_RESPONSE_MODE_KEY,
+        horizontal=True,
+        help="Быстрый режим отвечает по проверенной локальной базе знаний. Ollama может отвечать долго на слабом компьютере.",
+    )
+    if mode.startswith("Ollama"):
+        return configured_provider, "ollama"
+    return OfflineDocumentationProvider(), "offline-docs"
+
+
 def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
     st.subheader("Чат поддержки (локальный ИИ)")
 
     try:
         ai_settings = load_ai_settings()
-        provider = build_provider(ai_settings)
+        configured_provider = build_provider(ai_settings)
     except Exception:
         logger.exception("ai_settings_load_failed")
         st.error("Не удалось загрузить конфигурацию ИИ-помощника. Проверьте AI config.")
@@ -247,6 +296,7 @@ def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
         return
 
     status = check_ai_runtime_status(ai_settings)
+    provider, active_provider_name = _select_ai_response_provider(ai_settings, configured_provider)
     if ai_settings.provider == "ollama":
         st.caption(
             "Ollama в проекте - это этот чат. Отдельной кнопки Ollama нет: "
@@ -258,7 +308,7 @@ def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
             "по локальной документации проекта."
         )
 
-    st.caption(f"AI provider: {ai_settings.provider}")
+    st.caption(f"AI provider: {ai_settings.provider}; режим ответа: {active_provider_name}")
     if status.ready and ai_settings.provider == "ollama":
         model_name = ai_settings.ollama.model or "не указана"
         st.success(f"Локальный ИИ подключен: Ollama, модель `{model_name}`. Пишите вопрос в поле чата ниже.")
@@ -311,7 +361,7 @@ def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
     interval_row = selected_row if ai_settings.privacy.send_selected_interval_only else None
     logger.info(
         "ai_question_received provider=%s ready=%s chars=%d has_interval=%s",
-        safe_log_value(ai_settings.provider),
+        safe_log_value(active_provider_name),
         status.ready,
         len(question),
         interval_row is not None,
@@ -321,13 +371,13 @@ def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
 
     try:
         started_at = time.perf_counter()
-        with st.spinner(_build_ai_wait_message(ai_settings.provider)):
+        with st.spinner(_build_ai_wait_message(active_provider_name)):
             answer = assistant.answer(question, interval_row=interval_row)
         elapsed_seconds = time.perf_counter() - started_at
     except Exception:
         logger.exception(
             "ai_answer_failed provider=%s ready=%s chars=%d has_interval=%s",
-            safe_log_value(ai_settings.provider),
+            safe_log_value(active_provider_name),
             status.ready,
             len(question),
             interval_row is not None,
@@ -616,7 +666,8 @@ def _render_workspace(logger) -> None:
 
 def main() -> None:
     st.set_page_config(page_title="Gas Ratio Interpreter v0.3", layout="wide")
-    _apply_app_style()
+    ui_scale = _select_ui_scale()
+    _apply_app_style(ui_scale)
     st.title("Gas Ratio Interpreter v0.3")
     st.caption(INTERPRETATION_NOTE)
 

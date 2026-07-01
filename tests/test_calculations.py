@@ -83,3 +83,23 @@ def test_division_by_zero_returns_nan():
 
     assert np.isnan(result.loc[0, "bar2"])
     assert np.isnan(result.loc[0, "bh"])
+
+def test_depth_uses_interval_midpoint_when_depth_column_missing():
+    df = pd.DataFrame(
+        {
+            "depth_from": [1000, 1002],
+            "depth_to": [1001, 1004],
+            "c1": [80, 81],
+            "c2": [10, 9],
+            "c3": [5, 4],
+            "ic4": [3, 3],
+            "nc4": [2, 2],
+            "ic5": [1, 1],
+            "nc5": [1, 1],
+        }
+    )
+
+    calculation = calculate_gas_ratios(df)
+
+    assert list(calculation.data["depth"]) == [1000.5, 1003.0]
+    assert any("середина интервала" in warning for warning in calculation.warnings)
