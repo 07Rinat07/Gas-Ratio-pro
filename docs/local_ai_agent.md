@@ -84,5 +84,6 @@ Provider `offline-docs` не требует интернета и модели.
 
 - расширять `config/knowledge_qa.json` экспертно проверенными вопросами;
 - добавлять новые evaluation-кейсы в `config/ai_eval_cases.json`;
+- экспортировать безопасный training/evaluation pack командой `python scripts/export_ai_training_pack.py`;
 - сравнивать качество профилей `minimal_cpu`, `balanced`, `strong_local`;
 - готовить отдельный очищенный датасет перед любым fine-tune.

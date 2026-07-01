@@ -21,6 +21,7 @@ def _copy_required_fixture_tree(tmp_path: Path) -> Path:
         "config/knowledge_sources.json",
         "config/palettes.json",
         "docs/ai_evaluation.md",
+        "docs/ai_training_pack.md",
         "docs/ai_usage.md",
         "docs/data_format.md",
         "docs/formulas.md",
@@ -36,6 +37,7 @@ def _copy_required_fixture_tree(tmp_path: Path) -> Path:
         "scripts/ai_config.py",
         "scripts/ai_models.py",
         "scripts/evaluate_ai.py",
+        "scripts/export_ai_training_pack.py",
         "scripts/knowledge_base.py",
         "scripts/setup_local_agent.py",
     ):

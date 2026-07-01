@@ -98,6 +98,7 @@ examples/sample_gas_data.csv
 - [Локальный ИИ-помощник](docs/ai_usage.md)
 - [Локальная база знаний AI-помощника](docs/knowledge_base.md)
 - [Локальный AI-агент](docs/local_ai_agent.md)
+- [AI training pack](docs/ai_training_pack.md)
 - [Проверка качества AI-помощника](docs/ai_evaluation.md)
 - [Профили локальных AI-моделей](docs/local_model_profiles.md)
 - [План локального ИИ-помощника](docs/ai_agent_plan.md)
@@ -130,6 +131,9 @@ python scripts/knowledge_base.py
 # Проверка качества AI-помощника
 python scripts/evaluate_ai.py
 python scripts/evaluate_ai.py --provider-mode configured
+
+# Экспорт безопасного AI training/evaluation pack
+python scripts/export_ai_training_pack.py
 
 # Запуск приложения
 streamlit run app/streamlit_app.py

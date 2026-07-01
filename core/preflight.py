@@ -26,6 +26,7 @@ REQUIRED_PROJECT_FILES: tuple[str, ...] = (
     "config/knowledge_sources.json",
     "config/palettes.json",
     "docs/ai_evaluation.md",
+    "docs/ai_training_pack.md",
     "docs/knowledge_base.md",
     "docs/local_ai_agent.md",
     "docs/local_model_profiles.md",
@@ -36,6 +37,7 @@ REQUIRED_PROJECT_FILES: tuple[str, ...] = (
     "scripts/ai_config.py",
     "scripts/ai_models.py",
     "scripts/evaluate_ai.py",
+    "scripts/export_ai_training_pack.py",
     "scripts/knowledge_base.py",
     "scripts/setup_local_agent.py",
 )

@@ -12,6 +12,7 @@ ai/
   knowledge_base.py       Поиск по локальной документации
   knowledge_manifest.py   Загрузка manifest источников RAG
   knowledge_qa.py         Загрузка проверяемых Q/A-примеров
+  training_dataset.py     Экспорт безопасного AI training/evaluation pack
   model_profiles.py       Загрузка и валидация профилей локальных моделей
   ollama_client.py        Локальный Ollama provider
   provider.py             Provider contract
@@ -53,6 +54,7 @@ scripts/
   ai_config.py            Просмотр и переключение AI-provider
   ai_models.py            Просмотр профилей локальных AI-моделей
   evaluate_ai.py          Проверка качества AI/RAG
+  export_ai_training_pack.py Экспорт безопасного AI training/evaluation pack
   knowledge_base.py       Проверка manifest и поиска локальной базы знаний
   setup_local_agent.py    Подготовка локального AI-агента и скачивание модели
   preflight.py            Проверка окружения перед запуском

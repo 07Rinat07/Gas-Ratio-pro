@@ -31,9 +31,11 @@ python scripts/knowledge_base.py --query "Как считается Wh?"
 python scripts/knowledge_base.py --query "Почему Wh стал NaN из-за C2?"
 python scripts/evaluate_ai.py
 python scripts/evaluate_ai.py --provider-mode configured
+python scripts/export_ai_training_pack.py
 ```
 
-Подробности описаны в `docs/knowledge_base.md` и `docs/ai_evaluation.md`.
+Подробности описаны в `docs/knowledge_base.md`, `docs/ai_evaluation.md` и
+`docs/ai_training_pack.md`.
 
 ## Конфигурация
 
