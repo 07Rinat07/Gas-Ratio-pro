@@ -39,6 +39,7 @@ def test_local_agent_next_commands_include_config_and_evaluation():
     assert f"ollama pull {profile.model}" in commands
     assert f"python scripts/setup_local_agent.py --profile {profile.id} --write-config" in commands
     assert "python scripts/evaluate_ai.py --provider-mode configured" in commands
+    assert "python -m streamlit run app/streamlit_app.py" in commands
 
 
 def test_local_agent_setup_reports_missing_ollama_when_download_requested():

@@ -111,8 +111,16 @@ provider `ollama`. Подробности описаны в `docs/local_model_pr
 
 ## 8. Запустить приложение
 
+Самый простой запуск на Windows:
+
 ```powershell
-streamlit run app/streamlit_app.py
+.\run_app.ps1
+```
+
+Если скрипты PowerShell запрещены или нужно запустить вручную:
+
+```powershell
+python -m streamlit run app/streamlit_app.py
 ```
 
 Откройте адрес, который покажет Streamlit. Обычно это:
@@ -136,6 +144,9 @@ http://localhost:8501
 
 ```powershell
 cd C:\OSPanel\home\gas-ratio-pro
+.\run_app.ps1
+
+# или вручную:
 .\.venv\Scripts\Activate.ps1
-streamlit run app/streamlit_app.py
+python -m streamlit run app/streamlit_app.py
 ```

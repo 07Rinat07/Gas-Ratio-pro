@@ -34,12 +34,15 @@ Get-Content logs/app.log -Tail 80
 ```powershell
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-streamlit run app/streamlit_app.py
+python -m streamlit run app/streamlit_app.py
 ```
 
-Если команда `streamlit` не найдена:
+Если команда `streamlit` не найдена, это нормально для Windows PATH. Используйте готовый launcher или запуск через Python-модуль:
 
 ```powershell
+.\run_app.ps1
+
+# или вручную:
 python -m streamlit run app/streamlit_app.py
 ```
 
@@ -48,7 +51,7 @@ python -m streamlit run app/streamlit_app.py
 Запустите на другом порту:
 
 ```powershell
-streamlit run app/streamlit_app.py --server.port 8502
+python -m streamlit run app/streamlit_app.py --server.port 8502
 ```
 
 ## PowerShell не активирует `.venv`

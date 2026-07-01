@@ -3,6 +3,8 @@ from __future__ import annotations
 from app.streamlit_app import (
     AI_SUPPORT_CHAT_KEY,
     AI_SUPPORT_QUICK_QUESTIONS,
+    APP_LAUNCH_COMMAND,
+    APP_LAUNCH_SCRIPT,
     AI_SUPPORT_WELCOME_MESSAGE,
     DOCUMENTATION_TAB_DOCS,
     _append_ai_support_chat_message,
@@ -18,6 +20,8 @@ def test_streamlit_ai_runtime_guidance_uses_balanced_profile_commands():
     assert "ollama pull qwen3:4b" in commands
     assert "python scripts/preflight.py" in commands
     assert "python scripts/evaluate_ai.py --provider-mode configured" in commands
+    assert APP_LAUNCH_COMMAND in commands
+    assert "streamlit run app/streamlit_app.py" not in commands
 
 
 def test_support_chat_has_initial_message_and_quick_questions():
@@ -51,6 +55,16 @@ def test_documentation_tab_sources_are_readable():
     assert "docs/setup.md" in doc_paths
     assert "docs/user_guide.md" in doc_paths
     assert "docs/ai_usage.md" in doc_paths
+    assert APP_LAUNCH_SCRIPT == ".\\run_app.ps1"
+    assert APP_LAUNCH_COMMAND == "python -m streamlit run app/streamlit_app.py"
     assert callable(_render_documentation_tab)
     assert "Рабочий сценарий" in _read_documentation_markdown("docs/user_guide.md")
 
+
+
+def test_windows_launcher_uses_python_module_streamlit():
+    launcher = _read_documentation_markdown("run_app.ps1")
+
+    assert "-m streamlit" in launcher
+    assert "app/streamlit_app.py" in launcher
+    assert "--server.port" in launcher

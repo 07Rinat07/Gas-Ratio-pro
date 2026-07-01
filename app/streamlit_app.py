@@ -36,6 +36,8 @@ from reports.export_csv import export_csv_bytes
 
 
 SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xlsm"}
+APP_LAUNCH_COMMAND = "python -m streamlit run app/streamlit_app.py"
+APP_LAUNCH_SCRIPT = ".\\run_app.ps1"
 AI_SUPPORT_CHAT_KEY = "local_ai_support_chat_messages"
 AI_SUPPORT_WELCOME_MESSAGE = (
     "Здравствуйте. Я локальный помощник по Gas Ratio Interpreter: формулам, "
@@ -143,7 +145,7 @@ def _render_ai_support_chat_message(message: dict[str, object]) -> None:
 
 
 def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
-    st.subheader("Чат поддержки")
+    st.subheader("Чат поддержки (локальный ИИ)")
 
     try:
         ai_settings = load_ai_settings()
@@ -154,24 +156,38 @@ def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
         st.caption("Подробности записаны в logs/app.log.")
         return
 
-    st.caption(
-        "Помощник работает offline-first: `offline-docs` не требует интернета, "
-        "а `ollama` обращается только к локальному серверу. Полная таблица не передается."
-    )
     status = check_ai_runtime_status(ai_settings)
+    if ai_settings.provider == "ollama":
+        st.caption(
+            "Ollama в проекте - это этот чат. Отдельной кнопки Ollama нет: "
+            "приложение отправляет вопросы на локальный сервер `localhost:11434`."
+        )
+    else:
+        st.caption(
+            "Помощник работает в режиме `offline-docs`: без интернета, без модели, "
+            "по локальной документации проекта."
+        )
+
     st.caption(f"AI provider: {ai_settings.provider}")
-    if status.ready:
+    if status.ready and ai_settings.provider == "ollama":
+        model_name = ai_settings.ollama.model or "не указана"
+        st.success(f"Локальный ИИ подключен: Ollama, модель `{model_name}`. Пишите вопрос в поле чата ниже.")
+    elif status.ready:
         st.success(status.message)
     else:
         st.warning(status.message)
     if status.available_models:
-        st.caption("Локальные модели: " + ", ".join(status.available_models))
+        st.caption("Локальные модели на этом компьютере: " + ", ".join(status.available_models))
 
     setup_commands = _build_recommended_ai_setup_commands()
     if setup_commands:
         install_note, *commands = setup_commands
-        with st.expander("Подготовка локального AI runtime", expanded=not status.ready):
-            st.caption(install_note)
+        expander_title = "Проверка и запуск локального ИИ" if status.ready else "Подготовка локального ИИ"
+        with st.expander(expander_title, expanded=not status.ready):
+            if status.ready:
+                st.caption("Ollama уже готов. Эти команды нужны для проверки, повторного запуска или настройки другой машины.")
+            else:
+                st.caption(install_note)
             st.code("\n".join(commands), language="powershell")
 
     if AI_SUPPORT_CHAT_KEY not in st.session_state:
@@ -258,8 +274,9 @@ def _render_documentation_tab() -> None:
         st.markdown("### Быстрый запуск")
         st.code(
             "cd C:\\OSPanel\\home\\gas-ratio-pro\n"
-            ".\\.venv\\Scripts\\Activate.ps1\n"
-            "streamlit run app/streamlit_app.py",
+            f"{APP_LAUNCH_SCRIPT}\n"
+            f"# или без скрипта:\n"
+            f"{APP_LAUNCH_COMMAND}",
             language="powershell",
         )
         st.markdown(

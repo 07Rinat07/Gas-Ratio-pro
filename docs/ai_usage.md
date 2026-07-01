@@ -16,8 +16,9 @@ offline-docs
 
 ## Чат поддержки в интерфейсе
 
-В Streamlit помощник отображается как `Чат поддержки`: история сообщений
-хранится в `st.session_state`, есть быстрые вопросы и кнопка очистки чата.
+В Streamlit помощник отображается как `Чат поддержки`: это визуальная часть
+локального ИИ/Ollama в проекте, отдельного окна Ollama внутри приложения нет.
+История сообщений хранится в `st.session_state`, есть быстрые вопросы и кнопка очистки чата.
 Сообщения пользователя логируются только по длине и признаку выбранного интервала;
 полный текст вопроса и сырые таблицы в лог не записываются.
 
@@ -191,5 +192,5 @@ python -m pytest tests/test_ai_assistant.py tests/test_ai_model_profiles.py
 python scripts/ai_models.py --profile balanced
 python scripts/knowledge_base.py --query "Как считается Wh?"
 python scripts/knowledge_base.py --query "Почему Wh стал NaN из-за C2?"
-streamlit run app/streamlit_app.py
+python -m streamlit run app/streamlit_app.py
 ```

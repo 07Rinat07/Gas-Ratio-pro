@@ -97,7 +97,7 @@ def build_local_agent_next_commands(profile: AiModelProfile) -> tuple[str, ...]:
         f"python scripts/setup_local_agent.py --profile {profile.id} --write-config",
         "python scripts/preflight.py",
         "python scripts/evaluate_ai.py --provider-mode configured",
-        "streamlit run app/streamlit_app.py",
+        "python -m streamlit run app/streamlit_app.py",
     )
 
 
