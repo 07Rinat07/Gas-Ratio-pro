@@ -65,6 +65,32 @@
       ]
     },
     {
+      "id": "app_onboarding_from_zero",
+      "question": "Как пользоваться приложением с нуля?",
+      "answer": "Откройте приложение через streamlit run app/streamlit_app.py, затем сначала прочитайте вкладку Инструкции и документация. В рабочей вкладке загрузите CSV, XLSX или XLSM, выберите лист Excel при необходимости, проверьте превью и строку заголовков, затем подтвердите mapping колонок. После предупреждений выберите режим Ch и интервал, посмотрите Pixler, ternary и depth-графики, затем скачайте результат через Экспорт CSV. Если что-то непонятно, задайте вопрос в блоке Чат поддержки: он использует локальную документацию и безопасный контекст выбранного интервала.",
+      "status": "approved",
+      "priority": 7,
+      "topics": ["onboarding", "user-guide", "streamlit", "upload", "mapping", "interval", "export", "support-chat"],
+      "sources": ["docs/user_guide.md", "docs/ai_usage.md", "docs/troubleshooting.md"],
+      "safety_notes": [
+        "Не делать окончательное геологическое заключение только по подсказкам приложения.",
+        "Проверять результаты по ГИС, литологии, буровому контексту, фону, СПО, наращиваниям и рециркуляции."
+      ]
+    },
+    {
+      "id": "support_chat_not_answering",
+      "question": "Что делать, если чат поддержки не отвечает?",
+      "answer": "Сначала проверьте состояние AI config командой python scripts/ai_config.py status и общий preflight: python scripts/preflight.py. Если выбран provider ollama, убедитесь, что Ollama запущен, модель из AI config видна в ollama list, а локальный сервис доступен. Если модель не готова или интернета нет, верните provider offline-docs: он работает по локальной документации без модели. Для диагностики посмотрите последние строки logs/app.log командой Get-Content logs/app.log -Tail 80. Если вопрос выходит за текущую документацию, добавьте проверенный Q/A или документ и повторите python scripts/evaluate_ai.py.",
+      "status": "approved",
+      "priority": 7,
+      "topics": ["support-chat", "ai", "ollama", "offline-docs", "preflight", "logs", "troubleshooting"],
+      "sources": ["docs/ai_usage.md", "docs/troubleshooting.md", "docs/local_ai_agent.md", "docs/logging.md"],
+      "safety_notes": [
+        "Не отправлять пользовательские таблицы во внешние облачные API без явного разрешения.",
+        "Не писать полный текст пользовательских вопросов и сырые данные файла в лог."
+      ]
+    },
+    {
       "id": "palette_boundaries_are_draft",
       "question": "Можно ли считать зоны Pixler и ternary подтвержденной методикой?",
       "answer": "Нет. Текущие зоны Pixler и ternary вынесены в config/palettes.json как черновые визуальные границы. Перед production-использованием их нужно заменить на утвержденные корпоративные линии или области.",

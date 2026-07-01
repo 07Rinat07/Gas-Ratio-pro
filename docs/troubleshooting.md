@@ -182,6 +182,37 @@ ollama list
 Если интернета нет, используйте provider `offline-docs`: он работает по локальной
 документации и не требует модели.
 
+## Чат поддержки не отвечает
+
+Проверьте текущий AI provider и общий preflight:
+
+```powershell
+python scripts/ai_config.py status
+python scripts/preflight.py
+```
+
+Если выбран `ollama`, убедитесь, что локальный сервис запущен и модель из
+AI config видна в списке:
+
+```powershell
+ollama list
+```
+
+Если модель не готова или интернет недоступен, верните режим `offline-docs`:
+он работает по локальной документации без внешних API и без скачанной модели.
+Для диагностики откройте последние строки лога:
+
+```powershell
+Get-Content logs/app.log -Tail 80
+```
+
+Если помощник не знает ответ на новый типовой вопрос, добавьте проверенный Q/A
+в `config/knowledge_qa.json`, затем проверьте качество:
+
+```powershell
+python scripts/evaluate_ai.py
+```
+
 ## Открылось окно Ollama Launch
 
 На экране Ollama Launch могут быть пункты Claude Code, Codex App, Hermes,

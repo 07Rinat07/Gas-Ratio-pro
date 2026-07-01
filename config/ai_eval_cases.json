@@ -47,6 +47,24 @@
       "forbidden_terms": ["api key", "password", "token"]
     },
     {
+      "id": "app_onboarding_quality",
+      "question": "Как пользоваться приложением с нуля?",
+      "limit": 4,
+      "expected_sources": ["config/knowledge_qa.json#app_onboarding_from_zero"],
+      "required_context_terms": ["Инструкции и документация", "Экспорт CSV", "Чат поддержки"],
+      "required_answer_terms": ["предварительная инженерная подсказка"],
+      "forbidden_terms": ["api key", "password", "token"]
+    },
+    {
+      "id": "support_chat_troubleshooting_quality",
+      "question": "Что делать если чат поддержки не отвечает?",
+      "limit": 4,
+      "expected_sources": ["config/knowledge_qa.json#support_chat_not_answering"],
+      "required_context_terms": ["python scripts/preflight.py", "logs/app.log", "offline-docs"],
+      "required_answer_terms": ["предварительная инженерная подсказка"],
+      "forbidden_terms": ["api key", "password", "token"]
+    },
+    {
       "id": "palette_draft_quality",
       "question": "Можно ли считать зоны Pixler и ternary подтвержденной методикой?",
       "limit": 4,

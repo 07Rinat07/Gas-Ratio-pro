@@ -13,7 +13,10 @@ def test_default_knowledge_qa_catalog_loads():
     assert catalog.version
     assert len(catalog.examples) >= 3
     assert "wh_nan_missing_components" in {example.id for example in catalog.examples}
-    assert "ollama_launch_screen" in {example.id for example in catalog.examples}
+    example_ids = {example.id for example in catalog.examples}
+    assert "ollama_launch_screen" in example_ids
+    assert "app_onboarding_from_zero" in example_ids
+    assert "support_chat_not_answering" in example_ids
     assert all(example.sources for example in catalog.examples)
 
 

@@ -30,6 +30,9 @@ config/knowledge_sources.json
 config/knowledge_qa.json
 ```
 
+В Q/A-каталоге уже есть проверенные ответы для первого запуска приложения,
+экрана Ollama Launch, типовых проблем импорта и диагностики чата поддержки.
+
 Проверить manifest и поиск можно командами:
 
 ```powershell
