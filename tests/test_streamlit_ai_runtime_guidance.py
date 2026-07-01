@@ -4,11 +4,13 @@ from app.streamlit_app import (
     AI_SUPPORT_CHAT_KEY,
     AI_SUPPORT_QUICK_QUESTIONS,
     AI_SUPPORT_WELCOME_MESSAGE,
+    DOCUMENTATION_TAB_DOCS,
     _append_ai_support_chat_message,
     _build_recommended_ai_setup_commands,
     _initial_ai_support_chat_messages,
+    _read_documentation_markdown,
+    _render_documentation_tab,
 )
-
 
 def test_streamlit_ai_runtime_guidance_uses_balanced_profile_commands():
     commands = _build_recommended_ai_setup_commands()
@@ -41,3 +43,14 @@ def test_support_chat_appends_sources_without_raw_table_data():
     assert [message["role"] for message in messages] == ["assistant", "user", "assistant"]
     assert messages[-1]["sources"] == ("config/knowledge_qa.json#wh_nan_missing_components",)
     assert "raw" not in messages[-1]
+
+
+def test_documentation_tab_sources_are_readable():
+    doc_paths = {path for _title, path in DOCUMENTATION_TAB_DOCS}
+
+    assert "docs/setup.md" in doc_paths
+    assert "docs/user_guide.md" in doc_paths
+    assert "docs/ai_usage.md" in doc_paths
+    assert callable(_render_documentation_tab)
+    assert "Рабочий сценарий" in _read_documentation_markdown("docs/user_guide.md")
+

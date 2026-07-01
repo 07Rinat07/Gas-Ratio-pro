@@ -49,6 +49,16 @@ AI_SUPPORT_QUICK_QUESTIONS: tuple[tuple[str, str], ...] = (
 )
 
 
+DOCUMENTATION_TAB_DOCS: tuple[tuple[str, str], ...] = (
+    ("Быстрый старт", "docs/setup.md"),
+    ("Руководство пользователя", "docs/user_guide.md"),
+    ("Формат входных данных", "docs/data_format.md"),
+    ("Формулы", "docs/formulas.md"),
+    ("Локальный AI-помощник", "docs/ai_usage.md"),
+    ("Локальный AI-агент", "docs/local_ai_agent.md"),
+    ("Troubleshooting", "docs/troubleshooting.md"),
+)
+
 def _build_recommended_ai_setup_commands(profile_id: str = "balanced") -> tuple[str, ...]:
     catalog = load_ai_model_profile_catalog()
     profile = find_ai_model_profile(catalog, profile_id)
@@ -226,14 +236,76 @@ def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
     _render_ai_support_chat_message(messages[-1])
 
 
-def main() -> None:
-    st.set_page_config(page_title="Gas Ratio Interpreter v0.3", layout="wide")
-    st.title("Gas Ratio Interpreter v0.3")
-    st.caption(INTERPRETATION_NOTE)
 
-    logger = configure_logging()
-    logger.info("streamlit_app_started")
+def _read_documentation_markdown(relative_path: str) -> str:
+    candidate = Path(relative_path)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise ValueError(f"Unsafe documentation path: {relative_path}")
 
+    path = ROOT_DIR / candidate
+    return path.read_text(encoding="utf-8")
+
+
+def _render_documentation_tab() -> None:
+    st.subheader("Инструкции и документация")
+    st.caption(
+        "Эта вкладка нужна, чтобы новый пользователь мог развернуть проект, "
+        "загрузить файл, понять предупреждения и проверить локальный AI без внешних инструкций."
+    )
+
+    quick_start, verification = st.columns(2)
+    with quick_start:
+        st.markdown("### Быстрый запуск")
+        st.code(
+            "cd C:\\OSPanel\\home\\gas-ratio-pro\n"
+            ".\\.venv\\Scripts\\Activate.ps1\n"
+            "streamlit run app/streamlit_app.py",
+            language="powershell",
+        )
+        st.markdown(
+            "1. Откройте локальный адрес Streamlit.\n"
+            "2. Загрузите CSV, XLSX или XLSM.\n"
+            "3. Проверьте строку заголовков и mapping.\n"
+            "4. Выберите интервал и смотрите расчеты, палетки и графики."
+        )
+
+    with verification:
+        st.markdown("### Проверка готовности")
+        st.code(
+            "python -m pytest\n"
+            "python scripts/preflight.py\n"
+            "python scripts/evaluate_ai.py\n"
+            "python scripts/ai_config.py status",
+            language="powershell",
+        )
+        st.markdown(
+            "Если включен Ollama, preflight должен показать, что локальная модель найдена. "
+            "Если интернета нет или модель не нужна, provider `offline-docs` продолжает работать по локальным документам."
+        )
+
+    st.markdown("### Основной рабочий сценарий")
+    st.markdown(
+        "1. Загрузите файл и выберите лист.\n"
+        "2. Проверьте первые строки и строку заголовков.\n"
+        "3. Исправьте сопоставление колонок, если авто-mapping ошибся.\n"
+        "4. Проверьте предупреждения и режим `Ch`.\n"
+        "5. Выберите интервал, проверьте Pixler/ternary и depth-графики.\n"
+        "6. Скачайте расчетную таблицу через `Экспорт CSV`, если результат нужен дальше."
+    )
+
+    st.markdown("### Чат поддержки")
+    st.markdown(
+        "Чат поддержки отвечает по локальной документации, Q/A-примерам, формулам, "
+        "Ollama-настройке и выбранному интервалу. Полная таблица и сырые строки файла "
+        "в чат не передаются. Если вопрос выходит за пределы базы знаний, помощник должен "
+        "сказать, что нужно добавить методику или уточнить данные."
+    )
+
+    for index, (title, relative_path) in enumerate(DOCUMENTATION_TAB_DOCS):
+        with st.expander(title, expanded=index == 0):
+            st.markdown(_read_documentation_markdown(relative_path))
+
+def _render_workspace(logger) -> None:
     try:
         palette_config = load_palette_config()
     except Exception:
@@ -431,5 +503,18 @@ def main() -> None:
     )
 
 
+def main() -> None:
+    st.set_page_config(page_title="Gas Ratio Interpreter v0.3", layout="wide")
+    st.title("Gas Ratio Interpreter v0.3")
+    st.caption(INTERPRETATION_NOTE)
+
+    logger = configure_logging()
+    logger.info("streamlit_app_started")
+
+    workspace_tab, docs_tab = st.tabs(["Работа с данными", "Инструкции и документация"])
+    with workspace_tab:
+        _render_workspace(logger)
+    with docs_tab:
+        _render_documentation_tab()
 if __name__ == "__main__":
     main()
