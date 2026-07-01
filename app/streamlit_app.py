@@ -104,7 +104,7 @@ def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
         provider = build_provider(ai_settings)
     except Exception:
         logger.exception("ai_settings_load_failed")
-        st.error("Не удалось загрузить конфигурацию ИИ-помощника. Проверьте config/ai.json.")
+        st.error("Не удалось загрузить конфигурацию ИИ-помощника. Проверьте AI config.")
         st.caption("Подробности записаны в logs/app.log.")
         return
 
@@ -151,7 +151,19 @@ def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
         len(question),
         interval_row is not None,
     )
-    answer = assistant.answer(question, interval_row=interval_row)
+    try:
+        answer = assistant.answer(question, interval_row=interval_row)
+    except Exception:
+        logger.exception(
+            "ai_answer_failed provider=%s ready=%s chars=%d has_interval=%s",
+            safe_log_value(ai_settings.provider),
+            status.ready,
+            len(question),
+            interval_row is not None,
+        )
+        st.error("ИИ-помощник не смог подготовить ответ. Подробности записаны в logs/app.log.")
+        return
+
     logger.info(
         "ai_answer_generated provider=%s sources=%d",
         safe_log_value(answer.provider_name),

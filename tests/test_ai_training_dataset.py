@@ -16,11 +16,13 @@ from ai.training_dataset import (
 def test_ai_training_pack_uses_approved_qa_and_eval_cases():
     pack = build_ai_training_pack()
 
-    assert len(pack.train_records) == 5
-    assert len(pack.eval_records) == 5
+    assert len(pack.train_records) == 6
+    assert len(pack.eval_records) == 6
     assert pack.manifest()["safety"]["raw_user_tables_allowed"] is False
     assert all(record.split == "train" for record in pack.train_records)
     assert all(record.split == "eval" for record in pack.eval_records)
+    assert "qa::ollama_launch_screen" in {record.id for record in pack.train_records}
+    assert "eval::ollama_launch_screen_quality" in {record.id for record in pack.eval_records}
 
 
 def test_ai_training_record_is_chat_jsonl_compatible():
@@ -57,7 +59,7 @@ def test_write_ai_training_pack_creates_jsonl_and_manifest(tmp_path):
     manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
 
     assert report["ok"] is True
-    assert len(train_lines) == manifest["counts"]["train"] == 5
-    assert len(eval_lines) == manifest["counts"]["eval"] == 5
+    assert len(train_lines) == manifest["counts"]["train"] == 6
+    assert len(eval_lines) == manifest["counts"]["eval"] == 6
     assert json.loads(train_lines[0])["kind"] == "knowledge_qa"
     assert json.loads(eval_lines[0])["kind"] == "ai_eval_case"

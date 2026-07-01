@@ -44,7 +44,7 @@ class OllamaProvider:
             return ProviderResponse(
                 answer=(
                     "Локальная модель Ollama не настроена. Укажите имя модели в "
-                    "`config/ai.json` -> `ollama.model` и убедитесь, что Ollama запущен локально.\n\n"
+                    "AI config -> `ollama.model` и убедитесь, что Ollama запущен локально.\n\n"
                     f"{INTERPRETATION_DISCLAIMER}"
                 ),
                 provider_name=self.provider_name,

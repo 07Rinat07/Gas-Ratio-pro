@@ -41,7 +41,7 @@
     {
       "id": "ollama_offline_preparation",
       "question": "Что делать, если на работе пропадет интернет, а AI-помощник нужен?",
-      "answer": "Базовый provider offline-docs работает без интернета и без модели. Для более сильного локального помощника установите Ollama и заранее скачайте выбранную модель, например из профиля balanced. Удобный путь: python scripts/setup_local_agent.py --profile balanced --download, затем --write-config, проверка config/ai.json и python scripts/preflight.py.",
+      "answer": "Базовый provider offline-docs работает без интернета и без модели. Для более сильного локального помощника установите Ollama и заранее скачайте выбранную модель, например из профиля balanced. Удобный путь: python scripts/setup_local_agent.py --profile balanced --download, затем --write-config, проверка локального AI config и python scripts/preflight.py.",
       "status": "approved",
       "priority": 10,
       "topics": ["ai", "ollama", "offline-docs", "offline", "models", "preflight"],
@@ -49,6 +49,19 @@
       "safety_notes": [
         "Не использовать внешние облачные API без явного разрешения.",
         "Не передавать полные пользовательские таблицы локальной модели без отдельного решения по приватности."
+      ]
+    },
+    {
+      "id": "ollama_launch_screen",
+      "question": "Что делать, если открылся экран Ollama Launch с Claude Code, Codex App, Hermes или OpenClaw?",
+      "answer": "Для Gas Ratio Interpreter ничего выбирать на экране Ollama Launch не нужно. Это витрина отдельных AI-инструментов Ollama, а проект использует локальный HTTP-сервис Ollama и заранее скачанную модель. Окно можно свернуть или закрыть, главное чтобы Ollama продолжал работать в фоне и модель была видна в ollama list. Проверка проекта: python scripts/ai_config.py status и python scripts/preflight.py.",
+      "status": "approved",
+      "priority": 10,
+      "topics": ["ai", "ollama", "launch", "ui", "preflight", "models"],
+      "sources": ["docs/local_ai_agent.md", "docs/troubleshooting.md", "docs/ai_usage.md"],
+      "safety_notes": [
+        "Не запускать дополнительные AI-инструменты из Ollama Launch без отдельной необходимости.",
+        "Не подключать внешние облачные API без явного разрешения."
       ]
     },
     {

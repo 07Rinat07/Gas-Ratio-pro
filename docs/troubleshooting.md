@@ -176,8 +176,24 @@ ollama list
 
 - установлен ли Ollama на этой машине;
 - запущен ли локальный сервис;
-- совпадает ли имя модели в `config/ai.json` с именем из `ollama list`;
+- совпадает ли имя модели в локальном AI config с именем из `ollama list`;
 - была ли модель скачана заранее, пока интернет был доступен.
 
 Если интернета нет, используйте provider `offline-docs`: он работает по локальной
 документации и не требует модели.
+
+## Открылось окно Ollama Launch
+
+На экране Ollama Launch могут быть пункты Claude Code, Codex App, Hermes,
+OpenClaw и другие инструменты. Для Gas Ratio Interpreter выбирать их не нужно.
+
+Проект использует локальный HTTP-сервис Ollama и модель из AI config. Окно
+Ollama можно свернуть или закрыть, если сервис остается запущенным в фоне.
+
+Проверка:
+
+```powershell
+ollama list
+python scripts/ai_config.py status
+python scripts/preflight.py
+```

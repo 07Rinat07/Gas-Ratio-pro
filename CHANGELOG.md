@@ -25,6 +25,7 @@
 - Подсказка в Streamlit UI с командами подготовки локального AI runtime.
 - CLI `python scripts/export_ai_training_pack.py` для безопасного экспорта AI training/evaluation pack.
 - Локальный override `config/ai.local.json` для включения Ollama без изменения дефолтного `config/ai.json`.
+- Q/A-пример и evaluation-кейс про экран Ollama Launch, чтобы пользователь понимал, что выбирать там не нужно.
 
 ## v0.3
 

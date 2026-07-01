@@ -17,6 +17,7 @@ def test_default_ai_eval_catalog_loads():
     assert catalog.version
     assert len(catalog.cases) >= 3
     assert "wh_nan_quality" in {case.id for case in catalog.cases}
+    assert "ollama_launch_screen_quality" in {case.id for case in catalog.cases}
 
 
 def test_default_ai_evaluation_passes():

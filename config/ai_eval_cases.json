@@ -33,7 +33,16 @@
       "question": "Что делать, если на работе пропадет интернет, а AI-помощник нужен?",
       "limit": 4,
       "expected_sources": ["config/knowledge_qa.json#ollama_offline_preparation"],
-      "required_context_terms": ["offline-docs", "Ollama", "config/ai.json"],
+      "required_context_terms": ["offline-docs", "Ollama", "локального AI config"],
+      "required_answer_terms": ["предварительная инженерная подсказка"],
+      "forbidden_terms": ["api key", "password", "token"]
+    },
+    {
+      "id": "ollama_launch_screen_quality",
+      "question": "В Ollama открылось окно Launch с Claude Code и Codex App. Что выбрать для проекта?",
+      "limit": 4,
+      "expected_sources": ["config/knowledge_qa.json#ollama_launch_screen"],
+      "required_context_terms": ["ничего выбирать", "Ollama Launch", "python scripts/preflight.py"],
       "required_answer_terms": ["предварительная инженерная подсказка"],
       "forbidden_terms": ["api key", "password", "token"]
     },
