@@ -138,6 +138,7 @@ def test_ollama_provider_uses_local_http_post_and_adds_disclaimer():
 
     assert calls[0][0] == "http://localhost:11434/api/generate"
     assert calls[0][1]["model"] == "local-model"
+    assert calls[0][1]["options"]["num_predict"] == 256
     assert response.provider_name == "ollama"
     assert "Ответ локальной модели." in response.answer
     assert INTERPRETATION_DISCLAIMER in response.answer

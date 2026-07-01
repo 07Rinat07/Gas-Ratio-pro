@@ -13,6 +13,7 @@ venv/
 env/
 
 .streamlit/secrets.toml
+config/ai.local.json
 *.log
 *.tmp
 ~$*

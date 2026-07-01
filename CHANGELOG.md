@@ -24,6 +24,7 @@
 - CLI `python scripts/setup_local_agent.py` и runbook `docs/local_ai_agent.md` для подготовки локального AI-агента.
 - Подсказка в Streamlit UI с командами подготовки локального AI runtime.
 - CLI `python scripts/export_ai_training_pack.py` для безопасного экспорта AI training/evaluation pack.
+- Локальный override `config/ai.local.json` для включения Ollama без изменения дефолтного `config/ai.json`.
 
 ## v0.3
 

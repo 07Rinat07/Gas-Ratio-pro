@@ -32,6 +32,17 @@ def default_ai_config_path() -> Path:
     return Path(__file__).resolve().parents[1] / "config" / "ai.json"
 
 
+def local_ai_config_path(root: str | Path | None = None) -> Path:
+    project_root = Path(root) if root is not None else Path(__file__).resolve().parents[1]
+    return project_root / "config" / "ai.local.json"
+
+
+def resolve_ai_config_path(root: str | Path | None = None) -> Path:
+    project_root = Path(root) if root is not None else Path(__file__).resolve().parents[1]
+    local_config = local_ai_config_path(project_root)
+    return local_config if local_config.exists() else project_root / "config" / "ai.json"
+
+
 def _read_bool(value: object, default: bool) -> bool:
     return value if isinstance(value, bool) else default
 
@@ -45,7 +56,7 @@ def _read_int(value: object, default: int) -> int:
 
 
 def load_ai_settings(path: str | Path | None = None) -> AiSettings:
-    config_path = Path(path) if path is not None else default_ai_config_path()
+    config_path = Path(path) if path is not None else resolve_ai_config_path()
     if not config_path.exists():
         return AiSettings()
 

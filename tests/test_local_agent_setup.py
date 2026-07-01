@@ -37,7 +37,7 @@ def test_local_agent_next_commands_include_config_and_evaluation():
     commands = build_local_agent_next_commands(profile)
 
     assert f"ollama pull {profile.model}" in commands
-    assert f"python scripts/ai_config.py ollama --profile {profile.id} --write" in commands
+    assert f"python scripts/setup_local_agent.py --profile {profile.id} --write-config" in commands
     assert "python scripts/evaluate_ai.py --provider-mode configured" in commands
 
 

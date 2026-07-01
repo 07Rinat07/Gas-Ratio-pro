@@ -60,6 +60,8 @@ python scripts/setup_local_agent.py --profile balanced --download --write-config
 
 Команда без флагов ничего не скачивает и не меняет в конфиге.
 
+По умолчанию `--write-config` пишет в `config/ai.local.json`. Это локальный override для рабочей машины; он не коммитится и не ломает дефолтный `config/ai.json` для пользователей без Ollama.
+
 ## Если Ollama не установлен
 
 Команда покажет понятную ошибку и не будет менять проект. Нужно:

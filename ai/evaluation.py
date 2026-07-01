@@ -8,7 +8,7 @@ from ai.assistant import LocalAssistant
 from ai.factory import build_provider
 from ai.knowledge_base import DocumentationKnowledgeBase
 from ai.knowledge_qa import load_knowledge_qa_catalog
-from ai.settings import load_ai_settings
+from ai.settings import load_ai_settings, resolve_ai_config_path
 
 
 AI_EVAL_PROVIDER_MODES = {"offline-docs", "configured"}
@@ -213,10 +213,14 @@ def _evaluate_case(case: AiEvalCase, assistant: LocalAssistant) -> AiEvalCaseRes
     )
 
 
-def _build_assistant(root: Path, provider_mode: str) -> LocalAssistant:
+def _build_assistant(
+    root: Path,
+    provider_mode: str,
+    config_path: str | Path | None = None,
+) -> LocalAssistant:
     provider = None
     if provider_mode == "configured":
-        settings = load_ai_settings(root / "config" / "ai.json")
+        settings = load_ai_settings(config_path or resolve_ai_config_path(root))
         provider = build_provider(settings)
     return LocalAssistant(
         knowledge_base=DocumentationKnowledgeBase(root=root),
@@ -229,6 +233,7 @@ def run_ai_evaluation(
     path: str | Path | None = None,
     assistant: LocalAssistant | None = None,
     provider_mode: str = "offline-docs",
+    config_path: str | Path | None = None,
 ) -> AiEvalReport:
     resolved_root = Path(root) if root is not None else _project_root()
     if provider_mode not in AI_EVAL_PROVIDER_MODES:
@@ -236,6 +241,10 @@ def run_ai_evaluation(
         raise ValueError(f"Unsupported AI evaluation provider mode: {provider_mode}. Allowed: {allowed}.")
 
     catalog = load_ai_eval_catalog(path=path, root=resolved_root)
-    resolved_assistant = assistant or _build_assistant(resolved_root, provider_mode)
+    resolved_assistant = assistant or _build_assistant(
+        resolved_root,
+        provider_mode,
+        config_path=config_path,
+    )
     results = tuple(_evaluate_case(case, resolved_assistant) for case in catalog.cases)
     return AiEvalReport(version=catalog.version, provider_mode=provider_mode, results=results)

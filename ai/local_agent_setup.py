@@ -20,7 +20,7 @@ from ai.model_profiles import (
     find_ai_model_profile,
     load_ai_model_profile_catalog,
 )
-from ai.settings import load_ai_settings
+from ai.settings import load_ai_settings, local_ai_config_path
 
 
 CommandRunner = Callable[[Sequence[str], int], "CommandResult"]
@@ -94,7 +94,7 @@ def build_local_agent_next_commands(profile: AiModelProfile) -> tuple[str, ...]:
         "Install Ollama from https://ollama.com/download",
         f"ollama pull {profile.model}",
         "ollama list",
-        f"python scripts/ai_config.py ollama --profile {profile.id} --write",
+        f"python scripts/setup_local_agent.py --profile {profile.id} --write-config",
         "python scripts/preflight.py",
         "python scripts/evaluate_ai.py --provider-mode configured",
         "streamlit run app/streamlit_app.py",
@@ -171,7 +171,7 @@ def run_local_agent_setup(
     resolved_config_path = (
         Path(config_path)
         if config_path is not None
-        else resolved_root / "config" / "ai.json"
+        else local_ai_config_path(resolved_root)
     )
     profile = _resolve_profile(resolved_options.profile_id, resolved_root)
     steps: list[LocalAgentSetupStep] = [
@@ -290,7 +290,7 @@ def run_local_agent_setup(
             LocalAgentSetupStep(
                 name="ai_config",
                 status="ok",
-                message=f"config/ai.json переключен на Ollama model={profile.model}.",
+                message=f"AI config переключен на Ollama model={profile.model}: {resolved_config_path}.",
             )
         )
 

@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
 from ai.evaluation import load_ai_eval_catalog, run_ai_evaluation
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_default_ai_eval_catalog_loads():
@@ -25,7 +29,10 @@ def test_default_ai_evaluation_passes():
 
 
 def test_configured_provider_mode_uses_ai_settings():
-    report = run_ai_evaluation(provider_mode="configured")
+    report = run_ai_evaluation(
+        provider_mode="configured",
+        config_path=PROJECT_ROOT / "config" / "ai.json",
+    )
 
     assert report.ok
     assert report.provider_mode == "configured"

@@ -20,7 +20,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--provider-mode",
         choices=tuple(sorted(AI_EVAL_PROVIDER_MODES)),
         default="offline-docs",
-        help="Use offline-docs provider or provider from config/ai.json.",
+        help="Use offline-docs provider or the resolved AI config, including config/ai.local.json when present.",
     )
     return parser
 

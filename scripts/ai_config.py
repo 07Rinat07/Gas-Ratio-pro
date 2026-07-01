@@ -20,10 +20,10 @@ from ai.config_writer import (  # noqa: E402
     read_ai_config_document,
 )
 from ai.model_profiles import find_ai_model_profile, load_ai_model_profile_catalog  # noqa: E402
-from ai.settings import load_ai_settings  # noqa: E402
+from ai.settings import load_ai_settings, resolve_ai_config_path  # noqa: E402
 
 
-DEFAULT_AI_CONFIG = PROJECT_ROOT / "config" / "ai.json"
+DEFAULT_AI_CONFIG = resolve_ai_config_path(PROJECT_ROOT)
 
 
 def _print_config(config: dict) -> None:
@@ -73,7 +73,7 @@ def _offline_docs(args: argparse.Namespace) -> int:
         _print_next_steps("offline-docs")
         return 0
 
-    print("Preview only. Add --write to update config/ai.json.")
+    print(f"Preview only. Add --write to update {args.config}.")
     _print_config(config)
     return 0
 
@@ -102,7 +102,7 @@ def _ollama(args: argparse.Namespace) -> int:
         _print_next_steps("ollama")
         return 0
 
-    print("Preview only. Add --write to update config/ai.json.")
+    print(f"Preview only. Add --write to update {args.config}.")
     _print_config(config)
     print("")
     print("Model preparation:")
@@ -113,14 +113,14 @@ def _ollama(args: argparse.Namespace) -> int:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Inspect or update local AI provider config.")
-    parser.add_argument("--config", type=Path, default=DEFAULT_AI_CONFIG, help="Path to config/ai.json.")
+    parser.add_argument("--config", type=Path, default=DEFAULT_AI_CONFIG, help="Path to AI config.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     status_parser = subparsers.add_parser("status", help="Show current AI config.")
     status_parser.set_defaults(func=_status)
 
     offline_parser = subparsers.add_parser("offline-docs", help="Switch provider to offline-docs.")
-    offline_parser.add_argument("--write", action="store_true", help="Write config/ai.json.")
+    offline_parser.add_argument("--write", action="store_true", help="Write the selected AI config.")
     offline_parser.set_defaults(func=_offline_docs)
 
     ollama_parser = subparsers.add_parser("ollama", help="Switch provider to Ollama.")
@@ -134,7 +134,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_OLLAMA_TIMEOUT_SECONDS,
         help="Ollama request timeout.",
     )
-    ollama_parser.add_argument("--write", action="store_true", help="Write config/ai.json.")
+    ollama_parser.add_argument("--write", action="store_true", help="Write the selected AI config.")
     ollama_parser.set_defaults(func=_ollama)
 
     return parser

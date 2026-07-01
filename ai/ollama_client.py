@@ -56,6 +56,8 @@ class OllamaProvider:
             "stream": False,
             "options": {
                 "temperature": 0.2,
+                "num_predict": 256,
+                "num_ctx": 4096,
             },
         }
 

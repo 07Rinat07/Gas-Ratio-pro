@@ -11,7 +11,7 @@ from ai.knowledge_base import DocumentationKnowledgeBase
 from ai.knowledge_manifest import load_knowledge_source_manifest
 from ai.knowledge_qa import load_knowledge_qa_catalog
 from ai.model_profiles import load_ai_model_profile_catalog
-from ai.settings import load_ai_settings
+from ai.settings import load_ai_settings, resolve_ai_config_path
 from palettes.config import load_palette_config
 
 
@@ -233,13 +233,14 @@ def _check_ai_evaluation(root: Path) -> PreflightCheck:
 
 
 def _check_ai_config(root: Path, http_get: HttpGet | None) -> PreflightCheck:
+    config_path = resolve_ai_config_path(root)
     try:
-        settings = load_ai_settings(root / "config" / "ai.json")
+        settings = load_ai_settings(config_path)
     except Exception as exc:
         return PreflightCheck(
             name="ai_config",
             status="error",
-            message=f"Ошибка config/ai.json: {exc}",
+            message=f"Ошибка {config_path.relative_to(root)}: {exc}",
         )
 
     runtime_status = (

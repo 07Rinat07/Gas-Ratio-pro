@@ -58,7 +58,11 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Prepare the free local AI agent runtime with Ollama and the project RAG knowledge base."
     )
     parser.add_argument("--profile", default="balanced", help="Local model profile id.")
-    parser.add_argument("--config", default=str(PROJECT_ROOT / "config" / "ai.json"), help="Path to config/ai.json.")
+    parser.add_argument(
+        "--config",
+        default=str(PROJECT_ROOT / "config" / "ai.local.json"),
+        help="Path to AI config. Defaults to ignored local override config/ai.local.json.",
+    )
     parser.add_argument(
         "--pull",
         dest="pull_model",
@@ -74,7 +78,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--write-config",
         action="store_true",
-        help="Switch config/ai.json to Ollama with the selected profile.",
+        help="Switch the selected AI config to Ollama with the selected profile.",
     )
     parser.add_argument(
         "--evaluate",
@@ -86,7 +90,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--timeout-seconds",
         type=int,
         default=DEFAULT_OLLAMA_TIMEOUT_SECONDS,
-        help="Ollama HTTP timeout for config/ai.json.",
+        help="Ollama HTTP timeout for the selected AI config.",
     )
     parser.add_argument(
         "--command-timeout-seconds",

@@ -45,6 +45,15 @@ python scripts/export_ai_training_pack.py
 config/ai.json
 ```
 
+Для конкретной рабочей машины можно создать локальный override:
+
+```text
+config/ai.local.json
+```
+
+Этот файл не коммитится. Если он существует, приложение и preflight используют
+его вместо `config/ai.json`.
+
 Посмотреть текущий provider:
 
 ```powershell
