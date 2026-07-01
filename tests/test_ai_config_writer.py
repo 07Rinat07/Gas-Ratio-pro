@@ -5,6 +5,7 @@ import json
 import pytest
 
 from ai.config_writer import (
+    DEFAULT_OLLAMA_TIMEOUT_SECONDS,
     build_offline_docs_config,
     build_ollama_config,
     configure_offline_docs,
@@ -76,3 +77,12 @@ def test_configure_offline_docs_writes_valid_ai_config(tmp_path):
 
     assert settings.provider == "offline-docs"
     assert settings.ollama.model == "qwen3:4b"
+
+
+def test_default_ollama_timeout_is_long_enough_for_local_models(tmp_path):
+    path = tmp_path / "ai.json"
+    configure_ollama(path, model="qwen3:4b")
+    settings = load_ai_settings(path)
+
+    assert DEFAULT_OLLAMA_TIMEOUT_SECONDS == 180
+    assert settings.ollama.timeout_seconds == 180

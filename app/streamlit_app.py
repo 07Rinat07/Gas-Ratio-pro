@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -60,6 +61,89 @@ DOCUMENTATION_TAB_DOCS: tuple[tuple[str, str], ...] = (
     ("Локальный AI-агент", "docs/local_ai_agent.md"),
     ("Troubleshooting", "docs/troubleshooting.md"),
 )
+
+
+def _apply_app_style() -> None:
+    st.markdown(
+        """
+        <style>
+        :root {
+            --app-text: #f4f7fb;
+            --app-muted: #c5ccd8;
+            --app-panel: #171b24;
+            --app-panel-strong: #202634;
+            --app-border: #364154;
+            --app-accent: #4ea1ff;
+        }
+        .stApp {
+            color: var(--app-text);
+            font-size: 18px;
+        }
+        .block-container {
+            max-width: 1440px;
+            padding-top: 2.4rem;
+            padding-bottom: 3rem;
+        }
+        h1 {
+            font-size: 2.55rem !important;
+            line-height: 1.12 !important;
+            margin-bottom: 0.65rem !important;
+        }
+        h2, h3 {
+            letter-spacing: 0 !important;
+        }
+        p, li, label, span, div[data-testid="stMarkdownContainer"] {
+            font-size: 1.04rem;
+            line-height: 1.55;
+        }
+        div[data-testid="stCaptionContainer"], .stCaption {
+            color: var(--app-muted) !important;
+            font-size: 0.96rem !important;
+            line-height: 1.45 !important;
+        }
+        button[kind="secondary"], div[data-testid="stButton"] button {
+            min-height: 2.65rem;
+            font-size: 1rem;
+            border-color: var(--app-border);
+        }
+        div[data-testid="stFileUploader"] section {
+            background: var(--app-panel);
+            border: 1px solid var(--app-border);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        div[data-testid="stChatMessage"] {
+            background: var(--app-panel);
+            border: 1px solid #242b38;
+            border-radius: 8px;
+            padding: 0.85rem 1rem;
+            margin-bottom: 0.8rem;
+        }
+        div[data-testid="stChatMessage"] p {
+            font-size: 1.05rem;
+            line-height: 1.58;
+        }
+        div[data-baseweb="textarea"] textarea {
+            font-size: 1.05rem !important;
+            min-height: 3.3rem;
+        }
+        div[data-testid="stAlert"] {
+            border-radius: 8px;
+        }
+        code, pre {
+            font-size: 0.98rem !important;
+        }
+        section[data-testid="stSidebar"] {
+            min-width: 250px !important;
+        }
+        section[data-testid="stSidebar"] * {
+            font-size: 1rem !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 def _build_recommended_ai_setup_commands(profile_id: str = "balanced") -> tuple[str, ...]:
     catalog = load_ai_model_profile_catalog()
@@ -121,6 +205,12 @@ def _interval_label(df: pd.DataFrame, index: int) -> str:
 
 def _initial_ai_support_chat_messages() -> list[dict[str, object]]:
     return [{"role": "assistant", "content": AI_SUPPORT_WELCOME_MESSAGE, "sources": ()}]
+
+
+def _build_ai_wait_message(provider_name: str) -> str:
+    if provider_name == "ollama":
+        return "Ollama готовит ответ. Локальная модель может отвечать 20-120 секунд, особенно на первом вопросе."
+    return "ИИ-помощник готовит ответ."
 
 
 def _append_ai_support_chat_message(
@@ -230,7 +320,10 @@ def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
     _render_ai_support_chat_message(messages[-1])
 
     try:
-        answer = assistant.answer(question, interval_row=interval_row)
+        started_at = time.perf_counter()
+        with st.spinner(_build_ai_wait_message(ai_settings.provider)):
+            answer = assistant.answer(question, interval_row=interval_row)
+        elapsed_seconds = time.perf_counter() - started_at
     except Exception:
         logger.exception(
             "ai_answer_failed provider=%s ready=%s chars=%d has_interval=%s",
@@ -243,14 +336,15 @@ def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
         return
 
     logger.info(
-        "ai_answer_generated provider=%s sources=%d",
+        "ai_answer_generated provider=%s sources=%d seconds=%.1f",
         safe_log_value(answer.provider_name),
         len(answer.sources),
+        elapsed_seconds,
     )
 
     _append_ai_support_chat_message(messages, "assistant", answer.answer, answer.sources)
     _render_ai_support_chat_message(messages[-1])
-
+    st.caption(f"Ответ подготовлен за {elapsed_seconds:.1f} сек.")
 
 
 def _read_documentation_markdown(relative_path: str) -> str:
@@ -522,6 +616,7 @@ def _render_workspace(logger) -> None:
 
 def main() -> None:
     st.set_page_config(page_title="Gas Ratio Interpreter v0.3", layout="wide")
+    _apply_app_style()
     st.title("Gas Ratio Interpreter v0.3")
     st.caption(INTERPRETATION_NOTE)
 
@@ -533,5 +628,7 @@ def main() -> None:
         _render_workspace(logger)
     with docs_tab:
         _render_documentation_tab()
+
+
 if __name__ == "__main__":
     main()

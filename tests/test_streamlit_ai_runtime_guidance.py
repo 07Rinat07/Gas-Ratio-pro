@@ -8,6 +8,8 @@ from app.streamlit_app import (
     AI_SUPPORT_WELCOME_MESSAGE,
     DOCUMENTATION_TAB_DOCS,
     _append_ai_support_chat_message,
+    _apply_app_style,
+    _build_ai_wait_message,
     _build_recommended_ai_setup_commands,
     _initial_ai_support_chat_messages,
     _read_documentation_markdown,
@@ -68,3 +70,15 @@ def test_windows_launcher_uses_python_module_streamlit():
     assert "-m streamlit" in launcher
     assert "app/streamlit_app.py" in launcher
     assert "--server.port" in launcher
+
+
+def test_ollama_wait_message_sets_expectation_for_slow_local_model():
+    message = _build_ai_wait_message("ollama")
+
+    assert "Ollama" in message
+    assert "20-120 секунд" in message
+    assert _build_ai_wait_message("offline-docs") == "ИИ-помощник готовит ответ."
+
+
+def test_app_style_helper_is_available_for_readable_ui():
+    assert callable(_apply_app_style)

@@ -12,7 +12,7 @@ SUPPORTED_AI_PROVIDERS = {"offline-docs", "ollama"}
 class OllamaSettings:
     base_url: str = "http://localhost:11434"
     model: str = ""
-    timeout_seconds: int = 60
+    timeout_seconds: int = 180
 
 
 @dataclass(frozen=True)
@@ -90,6 +90,6 @@ def load_ai_settings(path: str | Path | None = None) -> AiSettings:
         ollama=OllamaSettings(
             base_url=str(raw_ollama.get("base_url", "http://localhost:11434")).rstrip("/"),
             model=str(raw_ollama.get("model", "")).strip(),
-            timeout_seconds=_read_int(raw_ollama.get("timeout_seconds"), 60),
+            timeout_seconds=_read_int(raw_ollama.get("timeout_seconds"), 180),
         ),
     )

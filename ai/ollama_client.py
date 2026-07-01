@@ -24,6 +24,25 @@ def default_http_post(url: str, payload: dict, timeout_seconds: int) -> dict:
     return json.loads(response_text)
 
 
+def _fallback_from_context(context: str, reason: str, timeout_seconds: int) -> str:
+    lines = [
+        f"Ollama не успел ответить за {timeout_seconds} сек. ({reason}). Показываю быстрый ответ по локальной базе знаний.",
+    ]
+
+    for line in context.splitlines():
+        clean_line = line.strip()
+        if clean_line.startswith("Проверенный ответ:"):
+            lines.append(clean_line.replace("Проверенный ответ:", "", 1).strip())
+            break
+
+    if len(lines) == 1 and context.strip():
+        lines.append("В локальной базе знаний найден релевантный контекст. Проверьте источники под ответом и уточните вопрос, если нужна детализация.")
+    elif len(lines) == 1:
+        lines.append("В локальной базе знаний нет прямого ответа. Проверьте документацию проекта или добавьте Q/A-пример.")
+
+    return ensure_disclaimer("\n\n".join(lines))
+
+
 class OllamaProvider:
     provider_name = "ollama"
 
@@ -56,7 +75,7 @@ class OllamaProvider:
             "stream": False,
             "options": {
                 "temperature": 0.2,
-                "num_predict": 256,
+                "num_predict": 160,
                 "num_ctx": 4096,
             },
         }
@@ -69,11 +88,10 @@ class OllamaProvider:
             )
         except (OSError, urllib.error.URLError, TimeoutError) as exc:
             return ProviderResponse(
-                answer=(
-                    "Не удалось подключиться к локальному Ollama. Проверьте, что сервис "
-                    f"запущен на `{self.base_url}` и модель `{self.model}` загружена. "
-                    f"Техническая причина: {exc.__class__.__name__}.\n\n"
-                    f"{INTERPRETATION_DISCLAIMER}"
+                answer=_fallback_from_context(
+                    request.context,
+                    reason=exc.__class__.__name__,
+                    timeout_seconds=self.timeout_seconds,
                 ),
                 provider_name=self.provider_name,
             )

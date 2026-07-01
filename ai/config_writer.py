@@ -8,7 +8,7 @@ from ai.settings import load_ai_settings
 
 
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
-DEFAULT_OLLAMA_TIMEOUT_SECONDS = 60
+DEFAULT_OLLAMA_TIMEOUT_SECONDS = 180
 
 
 def _default_config() -> dict[str, Any]:
