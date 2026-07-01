@@ -18,3 +18,4 @@ config/ai.local.json
 *.log
 *.tmp
 ~$*
+.aider*
