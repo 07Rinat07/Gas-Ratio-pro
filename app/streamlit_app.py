@@ -26,6 +26,7 @@ from importers.csv_importer import load_csv_sheets
 from importers.excel_importer import load_excel_sheets
 from importers.header_detector import detect_header_row, prepare_dataframe_with_header
 from importers.las_importer import load_las_sheets
+from las_editor.depth_grid import resample_las_data
 from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
 from palettes.depth_tracks import (
@@ -44,6 +45,8 @@ APP_LAUNCH_SCRIPT = ".\\run_app.ps1"
 AI_SUPPORT_CHAT_KEY = "local_ai_support_chat_messages"
 AI_RESPONSE_MODE_KEY = "local_ai_response_mode"
 UI_SCALE_KEY = "ui_scale"
+LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
+LAS_EDITOR_SESSION_SUMMARY_KEY = "las_editor_session_summary"
 AI_SUPPORT_WELCOME_MESSAGE = (
     "Здравствуйте. Я локальный помощник по Gas Ratio Interpreter: формулам, "
     "импорту, предупреждениям, Ollama и выбранному интервалу."
@@ -53,6 +56,14 @@ AI_SUPPORT_QUICK_QUESTIONS: tuple[tuple[str, str], ...] = (
     ("Почему NaN?", "Почему Wh, Bh или BAR2 могут стать NaN?"),
     ("Колонки", "Что делать, если приложение не сопоставило колонки C1 и C2?"),
     ("Палетки", "Можно ли считать зоны Pixler и ternary подтвержденной методикой?"),
+)
+LAS_EDITOR_STEP_PRESETS: tuple[str, ...] = ("0.1", "0.2", "0.5", "1.0", "1.2", "2.0", "Другой")
+LAS_EDITOR_FILL_STRATEGIES: tuple[tuple[str, str], ...] = (
+    ("Оставить пусто", "empty"),
+    ("Значение сверху", "top"),
+    ("Значение снизу", "bottom"),
+    ("Среднее сверху/снизу", "average"),
+    ("Линейная интерполяция", "linear"),
 )
 
 
@@ -196,6 +207,19 @@ def _load_raw_sheets(uploaded_file) -> dict[str, pd.DataFrame]:
     if suffix == ".las":
         return load_las_sheets(uploaded_file)
     raise ValueError(f"Формат {suffix} не поддерживается.")
+
+
+def _find_default_depth_column(df: pd.DataFrame) -> str:
+    mapping = auto_map_columns(df.columns).mapping
+    if mapping.get("depth") in df.columns:
+        return mapping["depth"]
+    if len(df.columns) == 0:
+        return ""
+    return str(df.columns[0])
+
+
+def _dataframe_to_raw_sheet(df: pd.DataFrame) -> pd.DataFrame:
+    return pd.DataFrame([list(df.columns), *df.to_numpy().tolist()])
 
 
 def _build_mapping_controls(df: pd.DataFrame, detected_mapping: dict[str, str]) -> dict[str, str]:
@@ -470,6 +494,149 @@ def _render_documentation_tab() -> None:
         with st.expander(title, expanded=index == 0):
             st.markdown(_read_documentation_markdown(relative_path))
 
+def _render_las_editor(logger) -> None:
+    st.subheader("LAS-редактор")
+    st.caption("Подготовка LAS перед расчетами: проверка глубины, смена шага, добавление строк и ручная правка.")
+
+    saved_summary = st.session_state.get(LAS_EDITOR_SESSION_SUMMARY_KEY)
+    if saved_summary:
+        st.success(f"В рабочую сессию сохранено: {saved_summary}")
+
+    uploaded_file = st.file_uploader(
+        "LAS-файл для редактора",
+        type=["las"],
+        key="las_editor_file_upload",
+    )
+    if uploaded_file is None:
+        st.info("Загрузите LAS-файл, чтобы проверить глубины и подготовить данные перед расчетом.")
+        return
+
+    try:
+        sheets = load_las_sheets(uploaded_file)
+        raw_df = sheets["LAS"]
+        detected_header = detect_header_row(raw_df)
+        prepared_df = prepare_dataframe_with_header(raw_df, detected_header.header_row)
+        logger.info(
+            "las_editor_file_read rows=%d columns=%d header_row=%d",
+            len(prepared_df),
+            len(prepared_df.columns),
+            detected_header.header_row,
+        )
+    except Exception:
+        logger.exception("las_editor_file_read_failed")
+        st.error("Не удалось прочитать LAS-файл в редакторе. Проверьте секции ~Curve и ~ASCII.")
+        st.caption("Подробности записаны в logs/app.log.")
+        return
+
+    if prepared_df.empty:
+        st.error("LAS прочитан, но после строки заголовков не осталось данных.")
+        return
+
+    st.markdown("### Исходные кривые")
+    st.dataframe(prepared_df.head(20), use_container_width=True)
+
+    column_names = [str(column) for column in prepared_df.columns]
+    default_depth_column = _find_default_depth_column(prepared_df)
+    default_depth_index = column_names.index(default_depth_column) if default_depth_column in column_names else 0
+
+    depth_col, step_col, custom_step_col = st.columns(3)
+    depth_column = depth_col.selectbox(
+        "Кривая глубины",
+        options=column_names,
+        index=default_depth_index,
+        key="las_editor_depth_column",
+    )
+    step_preset = step_col.selectbox(
+        "Целевой шаг, м",
+        options=LAS_EDITOR_STEP_PRESETS,
+        index=1,
+        key="las_editor_step_preset",
+    )
+    if step_preset == "Другой":
+        target_step = custom_step_col.text_input(
+            "Пользовательский шаг, м",
+            value="0.2",
+            key="las_editor_custom_step",
+        )
+    else:
+        target_step = step_preset
+        custom_step_col.metric("Выбранный шаг", target_step)
+
+    fill_labels = [label for label, _value in LAS_EDITOR_FILL_STRATEGIES]
+    fill_values = dict(LAS_EDITOR_FILL_STRATEGIES)
+    fill_label = st.selectbox(
+        "Заполнение добавленных строк",
+        options=fill_labels,
+        index=0,
+        key="las_editor_fill_strategy",
+    )
+    fill_strategy = fill_values[fill_label]
+
+    try:
+        result = resample_las_data(
+            prepared_df,
+            depth_column=depth_column,
+            target_step=target_step,
+            fill_strategy=fill_strategy,
+        )
+    except Exception:
+        logger.exception("las_editor_resample_failed")
+        st.error("Не удалось построить сетку глубин. Проверьте колонку глубины и шаг.")
+        st.caption("Подробности записаны в logs/app.log.")
+        return
+
+    diagnostics = result.diagnostics
+    metrics = st.columns(5)
+    metrics[0].metric("Строк", diagnostics.row_count)
+    metrics[1].metric("Глубин", diagnostics.valid_depth_count)
+    metrics[2].metric("Мин.", diagnostics.min_depth if diagnostics.min_depth is not None else "нет")
+    metrics[3].metric("Макс.", diagnostics.max_depth if diagnostics.max_depth is not None else "нет")
+    metrics[4].metric("Добавлено", len(result.added_depths))
+
+    if result.warnings:
+        for warning in result.warnings:
+            st.warning(warning)
+    else:
+        st.success("Глубина выглядит ровной по выбранному шагу.")
+
+    if result.added_depths:
+        preview_depths = ", ".join(str(depth) for depth in result.added_depths[:40])
+        if len(result.added_depths) > 40:
+            preview_depths += ", ..."
+        st.caption("Добавленные глубины: " + preview_depths)
+
+    st.markdown("### Ручная правка перед расчетом")
+    edited_df = st.data_editor(
+        result.data,
+        use_container_width=True,
+        num_rows="dynamic",
+        key="las_editor_data_editor",
+    )
+
+    save_col, export_col = st.columns(2)
+    if save_col.button("Сохранить для расчетов", type="primary", use_container_width=True):
+        st.session_state[LAS_EDITOR_SESSION_SHEETS_KEY] = {"LAS-редактор": _dataframe_to_raw_sheet(edited_df)}
+        st.session_state[LAS_EDITOR_SESSION_SUMMARY_KEY] = (
+            f"{len(edited_df)} строк, шаг {target_step}, заполнение: {fill_label}"
+        )
+        logger.info(
+            "las_editor_saved_to_session rows=%d columns=%d added_depths=%d fill_strategy=%s",
+            len(edited_df),
+            len(edited_df.columns),
+            len(result.added_depths),
+            safe_log_value(fill_strategy),
+        )
+        st.success("Исправленные LAS-данные сохранены. Откройте вкладку `Работа с данными` и включите данные из редактора.")
+
+    export_col.download_button(
+        "Экспорт CSV",
+        data=export_csv_bytes(edited_df),
+        file_name="las_editor_prepared.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
+
+
 def _render_workspace(logger) -> None:
     try:
         palette_config = load_palette_config()
@@ -483,36 +650,52 @@ def _render_workspace(logger) -> None:
     st.sidebar.caption(f"Config: {palette_config.version}")
     st.sidebar.info(palette_config.notice)
 
-    uploaded_file = st.file_uploader(
-        "Загрузка файла",
-        type=["csv", "xlsx", "xlsm", "las"],
-    )
+    editor_sheets = st.session_state.get(LAS_EDITOR_SESSION_SHEETS_KEY)
+    use_editor_data = False
+    if editor_sheets:
+        summary = st.session_state.get(LAS_EDITOR_SESSION_SUMMARY_KEY, "данные подготовлены")
+        st.info(f"Доступны данные из LAS-редактора: {summary}")
+        use_editor_data = st.checkbox(
+            "Использовать данные из LAS-редактора",
+            value=True,
+            key="workspace_use_las_editor_data",
+        )
 
-    if uploaded_file is None:
-        st.info("Загрузите LAS, CSV, XLSX или XLSM файл с газовыми данными.")
-        _render_ai_assistant(logger)
-        return
+    if use_editor_data:
+        suffix = ".las-editor"
+        sheets = editor_sheets
+        logger.info("editor_data_selected sheet_count=%d", len(sheets))
+    else:
+        uploaded_file = st.file_uploader(
+            "Загрузка файла",
+            type=["csv", "xlsx", "xlsm", "las"],
+        )
 
-    suffix = Path(uploaded_file.name).suffix.lower()
-    logger.info(
-        "file_upload_received extension=%s size=%s",
-        safe_log_value(suffix),
-        safe_log_value(getattr(uploaded_file, "size", "unknown")),
-    )
+        if uploaded_file is None:
+            st.info("Загрузите LAS, CSV, XLSX или XLSM файл с газовыми данными.")
+            _render_ai_assistant(logger)
+            return
 
-    if suffix not in SUPPORTED_EXTENSIONS:
-        logger.warning("unsupported_file_extension extension=%s", safe_log_value(suffix))
-        st.error("Формат файла не поддерживается в v0.3.")
-        return
+        suffix = Path(uploaded_file.name).suffix.lower()
+        logger.info(
+            "file_upload_received extension=%s size=%s",
+            safe_log_value(suffix),
+            safe_log_value(getattr(uploaded_file, "size", "unknown")),
+        )
 
-    try:
-        sheets = _load_raw_sheets(uploaded_file)
-        logger.info("file_read_success extension=%s sheet_count=%d", safe_log_value(suffix), len(sheets))
-    except Exception:
-        logger.exception("file_read_failed extension=%s", safe_log_value(suffix))
-        st.error("Не удалось прочитать файл. Проверьте формат и доступность данных.")
-        st.caption("Подробности записаны в logs/app.log.")
-        return
+        if suffix not in SUPPORTED_EXTENSIONS:
+            logger.warning("unsupported_file_extension extension=%s", safe_log_value(suffix))
+            st.error("Формат файла не поддерживается в v0.3.")
+            return
+
+        try:
+            sheets = _load_raw_sheets(uploaded_file)
+            logger.info("file_read_success extension=%s sheet_count=%d", safe_log_value(suffix), len(sheets))
+        except Exception:
+            logger.exception("file_read_failed extension=%s", safe_log_value(suffix))
+            st.error("Не удалось прочитать файл. Проверьте формат и доступность данных.")
+            st.caption("Подробности записаны в logs/app.log.")
+            return
 
     if not sheets:
         logger.warning("file_read_empty extension=%s", safe_log_value(suffix))
@@ -678,9 +861,11 @@ def main() -> None:
     logger = configure_logging()
     logger.info("streamlit_app_started")
 
-    workspace_tab, docs_tab = st.tabs(["Работа с данными", "Инструкции и документация"])
+    workspace_tab, las_editor_tab, docs_tab = st.tabs(["Работа с данными", "LAS-редактор", "Инструкции и документация"])
     with workspace_tab:
         _render_workspace(logger)
+    with las_editor_tab:
+        _render_las_editor(logger)
     with docs_tab:
         _render_documentation_tab()
 
