@@ -27,6 +27,7 @@ def _copy_required_fixture_tree(tmp_path: Path) -> Path:
         "docs/formulas.md",
         "docs/knowledge_base.md",
         "docs/las_editor_plan.md",
+        "docs/las_correlation_plan.md",
         "docs/local_ai_agent.md",
         "docs/local_model_profiles.md",
         "docs/mud_gas_analysis_literature.md",

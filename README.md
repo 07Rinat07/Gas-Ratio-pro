@@ -98,6 +98,7 @@ examples/sample_gas_data.las
 - [Руководство пользователя](docs/user_guide.md)
 - [Формат входных данных](docs/data_format.md)
 - [План LAS-редактора](docs/las_editor_plan.md)
+- [План multi-LAS корреляции](docs/las_correlation_plan.md)
 - [Формулы](docs/formulas.md)
 - [Mud gas analysis: литературный источник](docs/mud_gas_analysis_literature.md)
 - [Конфигурация палеток](docs/palettes.md)

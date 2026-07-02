@@ -59,6 +59,14 @@
       "description": "План вкладки LAS-редактора: изменение шага, проверка глубины, заполнение пропусков, хранение скважин и выгрузка."
     },
     {
+      "path": "docs/las_correlation_plan.md",
+      "title": "План multi-LAS корреляции",
+      "status": "draft",
+      "priority": 8,
+      "topics": ["las", "correlation", "multi-well", "gis", "gamma", "resistivity", "gas", "charts", "print"],
+      "description": "Дорожная карта загрузки нескольких LAS, корреляции скважин, вывода ГИС-кривых рядом с газами, масштабирования и печати графиков."
+    },
+    {
       "path": "docs/ai_usage.md",
       "title": "Локальный AI-помощник",
       "status": "approved",
