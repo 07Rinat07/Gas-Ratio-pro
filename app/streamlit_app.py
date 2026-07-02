@@ -55,6 +55,7 @@ from palettes.depth_tracks import (
 )
 from palettes.pixler import build_pixler_palette
 from palettes.ternary import build_ternary_palette
+from projects import ProjectRecord, create_project, ensure_default_project, list_projects
 from reports.export_csv import export_csv_bytes
 from wells.repository import DEFAULT_WELLS_ROOT, list_wells, read_well_file_bytes, save_well_version
 
@@ -70,6 +71,7 @@ LAS_EDITOR_SESSION_SUMMARY_KEY = "las_editor_session_summary"
 INTERPRETATION_SESSION_DATA_KEY = "interpretation_session_data"
 INTERPRETATION_SESSION_SOURCE_KEY = "interpretation_session_source"
 LAS_CORRELATION_SETTINGS_KEY = "las_correlation_settings"
+ACTIVE_PROJECT_ID_KEY = "active_project_id"
 APP_TABS = (
     "Работа с данными",
     "LAS-редактор",
@@ -1279,21 +1281,85 @@ def _apply_las_correlation_settings_to_session(settings: LasCorrelationSettings,
             st.session_state[f"las_correlation_group_override_{well.name}_{curve}"] = group
 
 
-def _load_project_las_correlation_settings() -> LasCorrelationSettings | None:
+def _project_settings_session_key(project_id: str) -> str:
+    return f"{LAS_CORRELATION_SETTINGS_KEY}:{project_id}"
+
+
+def _project_option_label(project: ProjectRecord) -> str:
+    return f"{project.name} ({project.id})"
+
+
+def _load_project_records_for_ui(logger) -> tuple[ProjectRecord, ...]:
+    try:
+        default_project = ensure_default_project(LAS_CORRELATION_PROJECTS_ROOT)
+        projects = list_projects(LAS_CORRELATION_PROJECTS_ROOT)
+        return projects or (default_project,)
+    except Exception:
+        logger.exception("project_records_load_failed")
+        st.warning("Не удалось загрузить список проектов. Используется основной проект.")
+        return (ProjectRecord(id=DEFAULT_PROJECT_ID, name="Основной проект"),)
+
+
+def _render_las_correlation_project_selector(logger) -> ProjectRecord:
+    projects = _load_project_records_for_ui(logger)
+    projects_by_id = {project.id: project for project in projects}
+    current_project_id = st.session_state.get(ACTIVE_PROJECT_ID_KEY)
+    if current_project_id not in projects_by_id:
+        current_project_id = DEFAULT_PROJECT_ID if DEFAULT_PROJECT_ID in projects_by_id else projects[0].id
+        st.session_state[ACTIVE_PROJECT_ID_KEY] = current_project_id
+
+    with st.expander("Проект", expanded=True):
+        selected_project_id = st.selectbox(
+            "Активный проект",
+            options=tuple(projects_by_id),
+            index=tuple(projects_by_id).index(current_project_id),
+            format_func=lambda project_id: _project_option_label(projects_by_id[project_id]),
+            key=ACTIVE_PROJECT_ID_KEY,
+        )
+        active_project = projects_by_id[selected_project_id]
+        st.caption(f"Папка проекта: data/projects/{active_project.id}/")
+
+        with st.form("las_correlation_create_project_form", clear_on_submit=True):
+            new_project_name = st.text_input("Название нового проекта")
+            new_project_description = st.text_input("Комментарий")
+            submitted = st.form_submit_button("Создать проект")
+            if submitted:
+                if not new_project_name.strip():
+                    st.warning("Введите название проекта.")
+                else:
+                    try:
+                        project = create_project(
+                            root=LAS_CORRELATION_PROJECTS_ROOT,
+                            name=new_project_name,
+                            description=new_project_description,
+                        )
+                        st.session_state[ACTIVE_PROJECT_ID_KEY] = project.id
+                        logger.info("project_created id=%s", safe_log_value(project.id))
+                        st.success("Проект создан.")
+                        st.rerun()
+                    except Exception:
+                        logger.exception("project_create_failed")
+                        st.error("Не удалось создать проект.")
+
+    return projects_by_id[st.session_state[ACTIVE_PROJECT_ID_KEY]]
+
+
+def _load_project_las_correlation_settings(project_id: str) -> LasCorrelationSettings | None:
     try:
         return load_project_correlation_settings(
             root=LAS_CORRELATION_PROJECTS_ROOT,
-            project_id=DEFAULT_PROJECT_ID,
+            project_id=project_id,
         )
     except Exception:
         st.warning("Не удалось прочитать настройки проекта. Проверьте файл настроек.")
         return None
 
 
-def _render_las_correlation_settings_loader(wells, group_options: tuple[str, ...]) -> None:
-    session_payload = st.session_state.get(LAS_CORRELATION_SETTINGS_KEY)
+def _render_las_correlation_settings_loader(wells, group_options: tuple[str, ...], project_id: str) -> None:
+    session_key = _project_settings_session_key(project_id)
+    session_payload = st.session_state.get(session_key)
     session_settings = settings_from_dict(session_payload) if session_payload else None
-    project_settings = _load_project_las_correlation_settings()
+    project_settings = _load_project_las_correlation_settings(project_id)
 
     if session_settings is None and project_settings is None:
         return
@@ -1305,7 +1371,7 @@ def _render_las_correlation_settings_loader(wells, group_options: tuple[str, ...
                 st.caption(line)
             if st.button("Загрузить настройки проекта", use_container_width=True, key="las_correlation_load_project_settings"):
                 _apply_las_correlation_settings_to_session(project_settings, wells, group_options)
-                st.session_state[LAS_CORRELATION_SETTINGS_KEY] = settings_to_dict(project_settings)
+                st.session_state[session_key] = settings_to_dict(project_settings)
                 st.rerun()
 
         if session_settings is not None:
@@ -1317,11 +1383,11 @@ def _render_las_correlation_settings_loader(wells, group_options: tuple[str, ...
                 _apply_las_correlation_settings_to_session(session_settings, wells, group_options)
                 st.rerun()
             if clear_col.button("Очистить настройки сессии", use_container_width=True, key="las_correlation_clear_saved_settings"):
-                st.session_state.pop(LAS_CORRELATION_SETTINGS_KEY, None)
+                st.session_state.pop(session_key, None)
                 st.rerun()
 
 
-def _render_las_correlation_settings_saver(settings: LasCorrelationSettings) -> None:
+def _render_las_correlation_settings_saver(settings: LasCorrelationSettings, project_id: str) -> None:
     with st.expander("Текущие настройки корреляции", expanded=False):
         for line in settings_summary(settings):
             st.caption(line)
@@ -1331,19 +1397,20 @@ def _render_las_correlation_settings_saver(settings: LasCorrelationSettings) -> 
                 save_project_correlation_settings(
                     settings,
                     root=LAS_CORRELATION_PROJECTS_ROOT,
-                    project_id=DEFAULT_PROJECT_ID,
+                    project_id=project_id,
                 )
-                st.session_state[LAS_CORRELATION_SETTINGS_KEY] = settings_to_dict(settings)
+                st.session_state[_project_settings_session_key(project_id)] = settings_to_dict(settings)
                 st.success("Настройки корреляции сохранены в проект.")
             except Exception:
                 st.error("Не удалось сохранить настройки проекта.")
         if session_col.button("Сохранить в сессию", use_container_width=True, key="las_correlation_save_current_settings"):
-            st.session_state[LAS_CORRELATION_SETTINGS_KEY] = settings_to_dict(settings)
+            st.session_state[_project_settings_session_key(project_id)] = settings_to_dict(settings)
             st.success("Настройки корреляции сохранены в текущей сессии.")
 
 def _render_las_correlation_tab(logger) -> None:
     st.subheader("LAS-корреляция")
     st.caption("Загрузите несколько LAS, чтобы смотреть ГИС-кривые рядом с газами по общей глубине.")
+    active_project = _render_las_correlation_project_selector(logger)
 
     uploaded_files = st.file_uploader(
         "LAS-файлы для корреляции",
@@ -1384,7 +1451,7 @@ def _render_las_correlation_tab(logger) -> None:
         for group in CURVE_GROUP_LABELS
         if group not in {"depth", "lithology", "other"}
     ]
-    _render_las_correlation_settings_loader(wells, tuple(group_options))
+    _render_las_correlation_settings_loader(wells, tuple(group_options), active_project.id)
 
     all_well_names = [well.name for well in wells]
     selected_well_names = st.multiselect(
@@ -1477,7 +1544,7 @@ def _render_las_correlation_tab(logger) -> None:
         mime="text/html",
         use_container_width=True,
     )
-    _render_las_correlation_settings_saver(current_settings)
+    _render_las_correlation_settings_saver(current_settings, active_project.id)
 
     with st.expander("Кривые по скважинам", expanded=False):
         for well in selected_wells:

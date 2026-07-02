@@ -123,7 +123,8 @@ http://localhost:8501
 Приложение само создает рабочие папки при сохранении данных:
 
 - `data/wells/` — сохраненные скважины и версии подготовленных данных;
-- `data/projects/default/correlation_settings.json` — настройки LAS-корреляции локального проекта;
+- `data/projects/<project_id>/project.json` — карточки локальных проектов;
+- `data/projects/<project_id>/correlation_settings.json` — настройки LAS-корреляции выбранного проекта;
 - `logs/app.log` — диагностический лог приложения.
 
 ## 10. Повторный запуск

@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 import json
-import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from las_correlation.settings import LasCorrelationSettings, settings_from_dict, settings_to_dict
+from projects.repository import DEFAULT_PROJECT_ID, DEFAULT_PROJECTS_ROOT, safe_project_id
 
 
-DEFAULT_PROJECTS_ROOT = Path("data/projects")
-DEFAULT_PROJECT_ID = "default"
 CORRELATION_SETTINGS_FILE_NAME = "correlation_settings.json"
 SETTINGS_SCHEMA_VERSION = 1
 
@@ -19,14 +17,8 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def _safe_project_id(project_id: str) -> str:
-    if not re.fullmatch(r"[0-9A-Za-zА-Яа-я_-]+", project_id):
-        raise ValueError("Некорректный идентификатор проекта.")
-    return project_id
-
-
 def _settings_path(root: Path | str, project_id: str) -> Path:
-    return Path(root) / _safe_project_id(project_id) / CORRELATION_SETTINGS_FILE_NAME
+    return Path(root) / safe_project_id(project_id) / CORRELATION_SETTINGS_FILE_NAME
 
 
 def save_project_correlation_settings(

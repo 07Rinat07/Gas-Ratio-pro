@@ -27,6 +27,8 @@ las_editor/
 mapping/
   curve_aliases.py        Алиасы кривых
   mapper.py               Авто/manual mapping
+projects/
+  repository.py           Локальные проекты и project.json
 palettes/
   config.py               Загрузчик и валидация палеточного конфига
   pixler.py               Pixler palette
@@ -43,7 +45,8 @@ logs/
 data/wells/
   */manifest.json         Локальные скважины и версии данных, не коммитятся
 data/projects/
-  default/correlation_settings.json  Настройки LAS-корреляции, не коммитятся
+  <project_id>/project.json              Карточка проекта, не коммитится
+  <project_id>/correlation_settings.json Настройки LAS-корреляции, не коммитятся
 examples/
   sample_gas_data.csv     Демо CSV-файл для проверки приложения
   sample_gas_data.las     Демо LAS-файл для проверки приложения
