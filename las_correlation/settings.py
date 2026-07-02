@@ -7,6 +7,9 @@ from las_correlation.core import DEFAULT_GAS_GROUPS, DEFAULT_GIS_GROUPS
 
 
 RangeValue = tuple[float, float] | None
+VIEW_MODE_BY_WELL = "По скважинам"
+VIEW_MODE_BY_CURVE = "По кривой"
+SUPPORTED_VIEW_MODES: tuple[str, ...] = (VIEW_MODE_BY_WELL, VIEW_MODE_BY_CURVE)
 
 
 @dataclass(frozen=True)
@@ -19,6 +22,8 @@ class LasCorrelationSettings:
     gis_x_range: RangeValue = None
     gas_x_range: RangeValue = None
     height_per_well: int = 430
+    view_mode: str = VIEW_MODE_BY_WELL
+    comparison_curve: str = ""
 
 
 def _string_tuple(value: Any) -> tuple[str, ...]:
@@ -79,6 +84,8 @@ def settings_to_dict(settings: LasCorrelationSettings) -> dict[str, Any]:
         "gis_x_range": list(settings.gis_x_range) if settings.gis_x_range is not None else None,
         "gas_x_range": list(settings.gas_x_range) if settings.gas_x_range is not None else None,
         "height_per_well": int(settings.height_per_well),
+        "view_mode": settings.view_mode,
+        "comparison_curve": settings.comparison_curve,
     }
 
 
@@ -88,6 +95,9 @@ def settings_from_dict(payload: Mapping[str, Any] | None) -> LasCorrelationSetti
         height_per_well = int(payload.get("height_per_well", 430))
     except (TypeError, ValueError):
         height_per_well = 430
+    view_mode = str(payload.get("view_mode") or VIEW_MODE_BY_WELL)
+    if view_mode not in SUPPORTED_VIEW_MODES:
+        view_mode = VIEW_MODE_BY_WELL
 
     return LasCorrelationSettings(
         selected_well_names=_string_tuple(payload.get("selected_well_names")),
@@ -98,6 +108,8 @@ def settings_from_dict(payload: Mapping[str, Any] | None) -> LasCorrelationSetti
         gis_x_range=_range_tuple(payload.get("gis_x_range")),
         gas_x_range=_range_tuple(payload.get("gas_x_range")),
         height_per_well=max(320, min(750, height_per_well)),
+        view_mode=view_mode,
+        comparison_curve=str(payload.get("comparison_curve") or ""),
     )
 
 
@@ -113,5 +125,8 @@ def settings_summary(settings: LasCorrelationSettings) -> tuple[str, ...]:
         f"X-scale ГИС: {settings.gis_x_range if settings.gis_x_range is not None else 'авто'}.",
         f"X-scale газы: {settings.gas_x_range if settings.gas_x_range is not None else 'авто'}.",
         f"Высота на скважину: {settings.height_per_well}.",
+        f"Представление: {settings.view_mode}.",
     ]
+    if settings.view_mode == VIEW_MODE_BY_CURVE and settings.comparison_curve:
+        summary.append(f"Кривая сравнения: {settings.comparison_curve}.")
     return tuple(summary)

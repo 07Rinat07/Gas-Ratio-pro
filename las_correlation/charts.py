@@ -125,3 +125,65 @@ def build_las_correlation_figure(
         legend={"orientation": "h", "y": -0.12},
     )
     return fig
+
+def build_las_curve_comparison_figure(
+    wells: Iterable[LasCorrelationWell],
+    curve_name: str,
+    *,
+    depth_range: tuple[float, float] | None = None,
+    x_range: tuple[float, float] | None = None,
+    height: int = 650,
+) -> go.Figure:
+    fig = go.Figure()
+    selected_curve = str(curve_name)
+
+    for well in wells:
+        if well.data.empty or selected_curve not in well.data.columns or well.depth_column not in well.data.columns:
+            continue
+
+        depth = _numeric_curve(well.data, well.depth_column)
+        values = _numeric_curve(well.data, selected_curve)
+        mask = depth.notna() & values.notna()
+        if depth_range is not None:
+            top_depth, bottom_depth = sorted((float(depth_range[0]), float(depth_range[1])))
+            mask &= depth.between(top_depth, bottom_depth, inclusive="both")
+        if not mask.any():
+            continue
+
+        fig.add_trace(
+            go.Scatter(
+                x=values.loc[mask],
+                y=depth.loc[mask],
+                mode="lines",
+                name=well.name,
+                hovertemplate=f"{well.name}<br>{selected_curve}=%{{x}}<br>Depth=%{{y}}<extra></extra>",
+            )
+        )
+
+    yaxis_options = {"title": "Depth", "autorange": "reversed"}
+    if depth_range is not None:
+        top_depth, bottom_depth = sorted((float(depth_range[0]), float(depth_range[1])))
+        yaxis_options["range"] = [bottom_depth, top_depth]
+        yaxis_options["autorange"] = False
+    xaxis_options = {"title": selected_curve, "zeroline": False}
+    if x_range is not None:
+        xaxis_options["range"] = list(x_range)
+
+    fig.update_yaxes(**yaxis_options)
+    fig.update_xaxes(**xaxis_options)
+    if not fig.data:
+        fig.add_annotation(
+            x=0.5,
+            y=0.5,
+            xref="paper",
+            yref="paper",
+            text=f"Нет числовых данных для кривой {selected_curve}",
+            showarrow=False,
+        )
+    fig.update_layout(
+        title=f"Сравнение кривой {selected_curve} между скважинами",
+        height=max(480, int(height)),
+        margin={"l": 70, "r": 30, "t": 80, "b": 60},
+        legend={"orientation": "h", "y": -0.12},
+    )
+    return fig

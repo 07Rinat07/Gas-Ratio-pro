@@ -1,4 +1,4 @@
-from las_correlation.charts import build_las_correlation_figure
+from las_correlation.charts import build_las_correlation_figure, build_las_curve_comparison_figure
 from las_correlation.core import (
     CURVE_GROUP_LABELS,
     DEFAULT_GAS_GROUPS,
@@ -8,12 +8,16 @@ from las_correlation.core import (
     build_las_correlation_interval_table,
     classify_curve_name,
     curve_group_rows,
+    curve_names_for_comparison,
     curve_columns_for_groups,
     group_curve_columns,
     prepare_las_correlation_well,
     prepare_las_correlation_wells,
 )
 from las_correlation.settings import (
+    SUPPORTED_VIEW_MODES,
+    VIEW_MODE_BY_CURVE,
+    VIEW_MODE_BY_WELL,
     LasCorrelationSettings,
     settings_from_dict,
     settings_summary,
@@ -33,13 +37,18 @@ __all__ = [
     "DEFAULT_GIS_GROUPS",
     "DEFAULT_PROJECT_ID",
     "DEFAULT_PROJECTS_ROOT",
+    "SUPPORTED_VIEW_MODES",
+    "VIEW_MODE_BY_CURVE",
+    "VIEW_MODE_BY_WELL",
     "LasCorrelationSettings",
     "LasCorrelationWell",
     "apply_curve_group_overrides",
     "build_las_correlation_figure",
+    "build_las_curve_comparison_figure",
     "build_las_correlation_interval_table",
     "classify_curve_name",
     "curve_group_rows",
+    "curve_names_for_comparison",
     "curve_columns_for_groups",
     "group_curve_columns",
     "prepare_las_correlation_well",

@@ -37,7 +37,9 @@ from las_correlation import (
     apply_curve_group_overrides,
     build_las_correlation_figure,
     build_las_correlation_interval_table,
+    build_las_curve_comparison_figure,
     curve_group_rows,
+    curve_names_for_comparison,
     prepare_las_correlation_wells,
     load_project_correlation_settings,
     save_project_correlation_settings,
@@ -88,6 +90,9 @@ LAS_EDITOR_FILL_STRATEGIES: tuple[tuple[str, str], ...] = (
     ("Среднее сверху/снизу", "average"),
     ("Линейная интерполяция", "linear"),
 )
+VIEW_MODE_BY_WELL = "По скважинам"
+VIEW_MODE_BY_CURVE = "По кривой"
+SUPPORTED_VIEW_MODES: tuple[str, ...] = (VIEW_MODE_BY_WELL, VIEW_MODE_BY_CURVE)
 
 
 DOCUMENTATION_TAB_DOCS: tuple[tuple[str, str], ...] = (
@@ -1249,6 +1254,25 @@ def _set_las_correlation_x_range_state(key_prefix: str, x_range: tuple[float, fl
         st.session_state[f"{key_prefix}_x_max"] = float(x_range[1])
 
 
+def _curve_belongs_to_groups(wells, curve_name: str, groups: tuple[str, ...]) -> bool:
+    return any(curve_name in well.curve_groups.get(group, ()) for well in wells for group in groups)
+
+
+def _comparison_x_range_for_curve(
+    wells,
+    curve_name: str,
+    gis_groups: tuple[str, ...],
+    gas_groups: tuple[str, ...],
+    gis_x_range: tuple[float, float] | None,
+    gas_x_range: tuple[float, float] | None,
+) -> tuple[float, float] | None:
+    if _curve_belongs_to_groups(wells, curve_name, gis_groups):
+        return gis_x_range
+    if _curve_belongs_to_groups(wells, curve_name, gas_groups):
+        return gas_x_range
+    return None
+
+
 def _apply_las_correlation_settings_to_session(settings: LasCorrelationSettings, wells, group_options: tuple[str, ...]) -> None:
     available_well_names = tuple(well.name for well in wells)
     selected_wells = tuple(name for name in settings.selected_well_names if name in available_well_names) or available_well_names
@@ -1256,6 +1280,11 @@ def _apply_las_correlation_settings_to_session(settings: LasCorrelationSettings,
     st.session_state["las_correlation_gis_groups"] = list(_filter_group_selection(settings.gis_groups, group_options, DEFAULT_GIS_GROUPS))
     st.session_state["las_correlation_gas_groups"] = list(_filter_group_selection(settings.gas_groups, group_options, DEFAULT_GAS_GROUPS))
     st.session_state["las_correlation_height_per_well"] = int(settings.height_per_well)
+    st.session_state["las_correlation_view_mode"] = (
+        settings.view_mode if settings.view_mode in SUPPORTED_VIEW_MODES else VIEW_MODE_BY_WELL
+    )
+    if settings.comparison_curve:
+        st.session_state["las_correlation_comparison_curve"] = settings.comparison_curve
 
     if settings.depth_range is None:
         st.session_state["las_correlation_depth_range_mode"] = "Общий весь интервал"
@@ -1547,6 +1576,28 @@ def _render_las_correlation_tab(logger) -> None:
         step=10,
         key="las_correlation_height_per_well",
     )
+    selected_groups = tuple(dict.fromkeys((*gis_groups, *gas_groups)))
+    view_mode = st.radio(
+        "Представление графика",
+        options=SUPPORTED_VIEW_MODES,
+        horizontal=True,
+        key="las_correlation_view_mode",
+    )
+    comparison_curve = ""
+    if view_mode == VIEW_MODE_BY_CURVE:
+        comparison_curve_options = curve_names_for_comparison(selected_wells, groups=selected_groups)
+        if not comparison_curve_options:
+            st.warning("Нет числовых кривых для сравнения в выбранных группах.")
+        else:
+            saved_curve = st.session_state.get("las_correlation_comparison_curve")
+            if saved_curve not in comparison_curve_options:
+                st.session_state["las_correlation_comparison_curve"] = comparison_curve_options[0]
+            comparison_curve = st.selectbox(
+                "Кривая для сравнения",
+                options=comparison_curve_options,
+                key="las_correlation_comparison_curve",
+            )
+
     current_settings = LasCorrelationSettings(
         selected_well_names=tuple(well.name for well in selected_wells),
         curve_group_overrides=curve_group_overrides,
@@ -1556,27 +1607,50 @@ def _render_las_correlation_tab(logger) -> None:
         gis_x_range=gis_x_range,
         gas_x_range=gas_x_range,
         height_per_well=int(height_per_well),
+        view_mode=view_mode,
+        comparison_curve=comparison_curve,
     )
-    figure = build_las_correlation_figure(
-        selected_wells,
-        gis_groups=tuple(gis_groups),
-        gas_groups=tuple(gas_groups),
-        depth_range=depth_range,
-        gis_x_range=gis_x_range,
-        gas_x_range=gas_x_range,
-        height_per_well=height_per_well,
-    )
+    if view_mode == VIEW_MODE_BY_CURVE and comparison_curve:
+        figure = build_las_curve_comparison_figure(
+            selected_wells,
+            comparison_curve,
+            depth_range=depth_range,
+            x_range=_comparison_x_range_for_curve(
+                selected_wells,
+                comparison_curve,
+                tuple(gis_groups),
+                tuple(gas_groups),
+                gis_x_range,
+                gas_x_range,
+            ),
+            height=max(650, int(height_per_well)),
+        )
+        figure_title = f"Gas Ratio Interpreter - LAS curve comparison: {comparison_curve}"
+        figure_file_name = "las_curve_comparison.html"
+    else:
+        figure = build_las_correlation_figure(
+            selected_wells,
+            gis_groups=tuple(gis_groups),
+            gas_groups=tuple(gas_groups),
+            depth_range=depth_range,
+            gis_x_range=gis_x_range,
+            gas_x_range=gas_x_range,
+            height_per_well=height_per_well,
+        )
+        figure_title = "Gas Ratio Interpreter - LAS correlation"
+        figure_file_name = "las_correlation.html"
+
     st.plotly_chart(figure, use_container_width=True)
     st.download_button(
-        "HTML для печати корреляции",
-        data=_plotly_figures_to_html([figure], "Gas Ratio Interpreter - LAS correlation"),
-        file_name="las_correlation.html",
+        "HTML для печати графика",
+        data=_plotly_figures_to_html([figure], figure_title),
+        file_name=figure_file_name,
         mime="text/html",
         use_container_width=True,
     )
     _render_las_correlation_interval_table(
         selected_wells,
-        groups=tuple(dict.fromkeys((*gis_groups, *gas_groups))),
+        groups=selected_groups,
         depth_range=depth_range,
         project_id=active_project.id,
     )

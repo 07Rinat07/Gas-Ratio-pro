@@ -8,8 +8,10 @@ from las_correlation import (
     apply_curve_group_overrides,
     build_las_correlation_figure,
     build_las_correlation_interval_table,
+    build_las_curve_comparison_figure,
     classify_curve_name,
     curve_group_rows,
+    curve_names_for_comparison,
     group_curve_columns,
     prepare_las_correlation_well,
     prepare_las_correlation_wells,
@@ -148,6 +150,37 @@ def test_build_las_correlation_interval_table_returns_empty_shape_for_empty_inte
 
     assert table.empty
     assert list(table.columns) == ["well", "depth"]
+
+
+def test_curve_names_for_comparison_returns_numeric_curves_from_selected_groups():
+    well = prepare_las_correlation_well(BytesIO(_sample_las_bytes()), name="Well A")
+
+    curve_names = curve_names_for_comparison([well], groups=("gamma", "total_gas"))
+
+    assert curve_names == ("GR", "TGAS")
+
+
+def test_build_las_curve_comparison_figure_plots_selected_curve_by_well():
+    wells = prepare_las_correlation_wells(
+        [
+            UploadedLasStub("well_a.las", _sample_las_bytes()),
+            UploadedLasStub("well_b.las", _sample_las_bytes()),
+        ]
+    )
+
+    fig = build_las_curve_comparison_figure(
+        wells,
+        "GR",
+        depth_range=(1000.0, 1001.0),
+        x_range=(0.0, 100.0),
+        height=620,
+    )
+
+    assert [trace.name for trace in fig.data] == ["well_a", "well_b"]
+    assert tuple(fig.layout.yaxis.range) == (1001.0, 1000.0)
+    assert tuple(fig.layout.xaxis.range) == (0.0, 100.0)
+    assert fig.layout.height == 620
+
 
 def test_build_las_correlation_figure_puts_gis_and_gas_tracks_side_by_side():
     well = prepare_las_correlation_well(BytesIO(_sample_las_bytes()), name="Well A")

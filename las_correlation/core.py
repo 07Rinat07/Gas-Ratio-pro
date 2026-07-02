@@ -138,6 +138,33 @@ def curve_columns_for_groups(well: LasCorrelationWell, groups: Iterable[str]) ->
     return tuple(dict.fromkeys(columns))
 
 
+def curve_names_for_comparison(
+    wells: Iterable[LasCorrelationWell],
+    *,
+    groups: Iterable[str] | None = None,
+) -> tuple[str, ...]:
+    selected_groups = tuple(groups) if groups is not None else None
+    curve_names: list[str] = []
+
+    for well in wells:
+        if well.data.empty:
+            continue
+        if selected_groups is None:
+            candidate_columns = tuple(str(column) for column in well.data.columns)
+        else:
+            candidate_columns = curve_columns_for_groups(well, selected_groups)
+
+        for column in candidate_columns:
+            if column == well.depth_column or column not in well.data.columns:
+                continue
+            values = pd.to_numeric(well.data[column], errors="coerce")
+            if values.empty or values.isna().all():
+                continue
+            curve_names.append(column)
+
+    return tuple(dict.fromkeys(curve_names))
+
+
 def build_las_correlation_interval_table(
     wells: Iterable[LasCorrelationWell],
     *,
