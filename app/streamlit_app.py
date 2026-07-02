@@ -441,11 +441,11 @@ def _render_interval_rule_summary(selected_row: pd.Series) -> None:
         st.info(message)
 
 
-def _render_rule_based_guidance() -> None:
-    st.markdown("### Справка без ИИ")
+def _render_start_guidance() -> None:
+    st.markdown("### Справка")
     st.info(
-        "Проект больше не использует встроенный генеративный ИИ или локальные модели. "
-        "Для помощи используйте вкладку `Инструкции и документация`, предупреждения workflow и проверяемые правила расчета."
+        "Используйте вкладку `Инструкции и документация`, предупреждения workflow "
+        "и проверяемые правила расчета."
     )
     st.markdown(
         "1. Начните с LAS-файла или демо `examples/sample_gas_data.las`.\n"
@@ -497,7 +497,7 @@ def _render_documentation_tab() -> None:
         )
         st.markdown(
             "Preflight проверяет Python, зависимости, ключевые файлы, конфиг палеток "
-            "и доступность папки логов. Генеративный ИИ и локальные модели больше не используются."
+            "и доступность папки логов."
         )
 
     st.markdown("### Основной рабочий сценарий")
@@ -510,11 +510,10 @@ def _render_documentation_tab() -> None:
         "6. Скачайте расчетную таблицу через `Экспорт CSV`, если результат нужен дальше."
     )
 
-    st.markdown("### Альтернатива без ИИ")
+    st.markdown("### Подсказки и диагностика")
     st.markdown(
         "Проект опирается на проверяемые правила, документацию, предупреждения и логи. "
-        "Если нужен новый тип подсказки, добавляем явное правило, тест и описание в документацию, "
-        "а не генеративный ответ модели."
+        "Если нужен новый тип подсказки, добавляем явное правило, тест и описание в документацию."
     )
     for index, (title, relative_path) in enumerate(DOCUMENTATION_TAB_DOCS):
         with st.expander(title, expanded=index == 0):
@@ -761,7 +760,7 @@ def _render_workspace(logger) -> None:
 
         if not uploaded_files:
             st.info("Загрузите один или несколько LAS, CSV, XLSX или XLSM файлов с газовыми данными.")
-            _render_rule_based_guidance()
+            _render_start_guidance()
             return
 
         suffixes = sorted({Path(uploaded_file.name).suffix.lower() for uploaded_file in uploaded_files})

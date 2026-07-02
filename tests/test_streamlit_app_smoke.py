@@ -77,28 +77,20 @@ def test_store_interpretation_dataset_updates_session_state(monkeypatch):
     assert session_state[module.INTERPRETATION_SESSION_SOURCE_KEY] == "LAS"
 
 
-def test_streamlit_app_documentation_docs_exclude_removed_model_pages():
+def test_streamlit_app_documentation_docs_include_project_plan():
     module = importlib.import_module("app.streamlit_app")
     doc_paths = {path for _title, path in module.DOCUMENTATION_TAB_DOCS}
 
-    removed_doc_paths = {
-        "docs/ai_usage.md",
-        "docs/ai_agent_plan.md",
-        "docs/ai_evaluation.md",
-        "docs/ai_training_pack.md",
-        "docs/knowledge_base.md",
-        "docs/local_ai_agent.md",
-        "docs/local_model_profiles.md",
-    }
     assert "docs/project_plan.md" in doc_paths
-    assert doc_paths.isdisjoint(removed_doc_paths)
+    assert "docs/user_guide.md" in doc_paths
+    assert "docs/troubleshooting.md" in doc_paths
 
 
-def test_selected_interval_rule_messages_explain_nan_without_ai():
+def test_selected_interval_rule_messages_explain_nan():
     module = importlib.import_module("app.streamlit_app")
     row = pd.Series({"interpretation": "Недостаточно данных", "wh": float("nan"), "bh": float("nan")})
 
     messages = module._selected_interval_rule_messages(row)
 
     assert any("Wh/Bh неполные" in message for message in messages)
-    assert all("модель" not in message.lower() for message in messages)
+    assert any("mapping" in message for message in messages)
