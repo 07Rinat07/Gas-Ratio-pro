@@ -36,6 +36,7 @@ from las_correlation import (
     LasCorrelationSettings,
     apply_curve_group_overrides,
     build_las_correlation_figure,
+    build_las_correlation_interval_table,
     curve_group_rows,
     prepare_las_correlation_wells,
     load_project_correlation_settings,
@@ -1407,6 +1408,35 @@ def _render_las_correlation_settings_saver(settings: LasCorrelationSettings, pro
             st.session_state[_project_settings_session_key(project_id)] = settings_to_dict(settings)
             st.success("Настройки корреляции сохранены в текущей сессии.")
 
+
+def _render_las_correlation_interval_table(
+    wells,
+    *,
+    groups: tuple[str, ...],
+    depth_range: tuple[float, float] | None,
+    project_id: str,
+) -> None:
+    interval_table = build_las_correlation_interval_table(
+        wells,
+        groups=groups,
+        depth_range=depth_range,
+    )
+    with st.expander("Таблица выбранного интервала", expanded=False):
+        st.caption("Таблица содержит выбранные скважины, глубину и кривые из групп, показанных на correlation-графике.")
+        st.metric("Строк в таблице", len(interval_table))
+        if interval_table.empty:
+            st.warning("В выбранном интервале нет строк LAS для выбранных скважин и групп кривых.")
+            return
+        st.dataframe(interval_table, use_container_width=True, height=420)
+        st.download_button(
+            "Экспорт выбранного интервала CSV",
+            data=export_csv_bytes(interval_table),
+            file_name=f"las_correlation_interval_{project_id}.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+
+
 def _render_las_correlation_tab(logger) -> None:
     st.subheader("LAS-корреляция")
     st.caption("Загрузите несколько LAS, чтобы смотреть ГИС-кривые рядом с газами по общей глубине.")
@@ -1544,6 +1574,12 @@ def _render_las_correlation_tab(logger) -> None:
         mime="text/html",
         use_container_width=True,
     )
+    _render_las_correlation_interval_table(
+        selected_wells,
+        groups=tuple(dict.fromkeys((*gis_groups, *gas_groups))),
+        depth_range=depth_range,
+        project_id=active_project.id,
+    )
     _render_las_correlation_settings_saver(current_settings, active_project.id)
 
     with st.expander("Кривые по скважинам", expanded=False):
@@ -1563,6 +1599,7 @@ def _render_las_correlation_tab(logger) -> None:
             st.dataframe(pd.DataFrame(group_rows), use_container_width=True)
 
     logger.info("las_correlation_rendered wells=%d", len(selected_wells))
+
 
 def main() -> None:
     st.set_page_config(page_title="Gas Ratio Interpreter v0.3", layout="wide")

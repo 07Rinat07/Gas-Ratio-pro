@@ -7,6 +7,7 @@ import pytest
 from las_correlation import (
     apply_curve_group_overrides,
     build_las_correlation_figure,
+    build_las_correlation_interval_table,
     classify_curve_name,
     curve_group_rows,
     group_curve_columns,
@@ -120,6 +121,34 @@ def test_prepare_las_correlation_wells_uses_unique_uploaded_names():
     assert [well.name for well in wells] == ["well", "well (2)"]
 
 
+def test_build_las_correlation_interval_table_filters_depth_and_groups():
+    well = prepare_las_correlation_well(BytesIO(_sample_las_bytes()), name="Well A")
+
+    table = build_las_correlation_interval_table(
+        [well],
+        groups=("gamma", "total_gas"),
+        depth_range=(1000.5, 1001.0),
+    )
+
+    assert list(table.columns) == ["well", "depth", "GR", "TGAS"]
+    assert list(table["well"]) == ["Well A"]
+    assert list(table["depth"]) == [1001.0]
+    assert float(table.loc[0, "GR"]) == 75.0
+    assert float(table.loc[0, "TGAS"]) == 3.1
+
+
+def test_build_las_correlation_interval_table_returns_empty_shape_for_empty_interval():
+    well = prepare_las_correlation_well(BytesIO(_sample_las_bytes()), name="Well A")
+
+    table = build_las_correlation_interval_table(
+        [well],
+        groups=("gamma",),
+        depth_range=(2000.0, 2010.0),
+    )
+
+    assert table.empty
+    assert list(table.columns) == ["well", "depth"]
+
 def test_build_las_correlation_figure_puts_gis_and_gas_tracks_side_by_side():
     well = prepare_las_correlation_well(BytesIO(_sample_las_bytes()), name="Well A")
 
@@ -142,6 +171,7 @@ def test_build_las_correlation_figure_puts_gis_and_gas_tracks_side_by_side():
     assert tuple(fig.layout.xaxis.range) == (0.0, 100.0)
     assert tuple(fig.layout.xaxis2.range) == (0.0, 90.0)
     assert fig.layout.height == 500
+
 
 def test_las_correlation_figure_uses_overridden_groups():
     well = prepare_las_correlation_well(BytesIO(_sample_las_bytes()), name="Well A")

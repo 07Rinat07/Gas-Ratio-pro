@@ -131,6 +131,53 @@ def group_curve_columns(columns: Iterable[object]) -> dict[str, tuple[str, ...]]
     return {group: tuple(values) for group, values in groups.items() if values}
 
 
+def curve_columns_for_groups(well: LasCorrelationWell, groups: Iterable[str]) -> tuple[str, ...]:
+    columns: list[str] = []
+    for group in groups:
+        columns.extend(well.curve_groups.get(group, ()))
+    return tuple(dict.fromkeys(columns))
+
+
+def build_las_correlation_interval_table(
+    wells: Iterable[LasCorrelationWell],
+    *,
+    groups: Iterable[str] | None = None,
+    depth_range: tuple[float, float] | None = None,
+) -> pd.DataFrame:
+    selected_groups = tuple(groups) if groups is not None else None
+    frames: list[pd.DataFrame] = []
+
+    for well in wells:
+        if well.data.empty or not well.depth_column or well.depth_column not in well.data.columns:
+            continue
+
+        depth = _numeric_depth(well.data, well.depth_column)
+        mask = depth.notna()
+        if depth_range is not None:
+            top_depth, bottom_depth = sorted((float(depth_range[0]), float(depth_range[1])))
+            mask &= depth.between(top_depth, bottom_depth, inclusive="both")
+
+        if selected_groups is None:
+            selected_columns = tuple(str(column) for column in well.data.columns)
+        else:
+            selected_columns = (well.depth_column, *curve_columns_for_groups(well, selected_groups))
+        existing_columns = [column for column in dict.fromkeys(selected_columns) if column in well.data.columns]
+        if well.depth_column not in existing_columns:
+            existing_columns.insert(0, well.depth_column)
+
+        interval_data = well.data.loc[mask, existing_columns].copy()
+        if interval_data.empty:
+            continue
+        interval_data.loc[:, well.depth_column] = depth.loc[interval_data.index]
+        interval_data = interval_data.rename(columns={well.depth_column: "depth"})
+        interval_data.insert(0, "well", well.name)
+        frames.append(interval_data)
+
+    if not frames:
+        return pd.DataFrame(columns=["well", "depth"])
+    return pd.concat(frames, ignore_index=True)
+
+
 def apply_curve_group_overrides(
     well: LasCorrelationWell,
     overrides: dict[str, str],
