@@ -567,10 +567,11 @@ def _render_documentation_tab() -> None:
             language="powershell",
         )
         st.markdown(
-            "1. Откройте локальный адрес Streamlit.\n"
-            "2. Загрузите LAS (рекомендуется), CSV, XLSX или XLSM.\n"
-            "3. Проверьте строку заголовков и mapping.\n"
-            "4. Выберите интервал и смотрите расчеты, палетки и графики."
+            "1. Запустите проект командой `./run_app.ps1` или `python -m streamlit run app/streamlit_app.py`.\n"
+            "2. Откройте в браузере `http://localhost:8501`.\n"
+            "3. Загрузите LAS (рекомендуется), CSV, XLSX или XLSM.\n"
+            "4. Проверьте строку заголовков и mapping.\n"
+            "5. Выберите интервал и смотрите расчеты, палетки и графики."
         )
 
     with verification:

@@ -47,6 +47,15 @@ python -m streamlit run app/streamlit_app.py
 python -m streamlit run app/streamlit_app.py
 ```
 
+После запуска откройте в браузере:
+
+```text
+http://localhost:8501
+```
+
+Если страница не открылась, проверьте окно PowerShell: Streamlit пишет туда
+фактический адрес и номер порта.
+
 ## Порт 8501 занят
 
 Запустите на другом порту:
