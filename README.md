@@ -59,6 +59,7 @@ examples/sample_gas_data.las
 ## Что умеет v0.3
 
 - Импорт LAS, CSV, XLSX, XLSM.
+- Мультизагрузка файлов в рабочем workflow с выбором набора данных.
 - LAS-редактор: проверка глубины, исправление убывающего порядка глубины, изменение шага, добавление строк, ручная правка и передача подготовленных данных в расчеты.
 - Локальное хранение скважин в `data/wells/` с версиями и выгрузкой `CSV`, `XLSX`, `LAS`.
 - Чтение всех листов Excel.
@@ -70,6 +71,7 @@ examples/sample_gas_data.las
 - Расчет `Wh`, `Bh`, `BAR2`, Pixler ratios, ternary ratios и настраиваемого `Ch`.
 - Предварительная инженерная классификация интервалов.
 - Pixler palette, ternary palette и depth tracks.
+- Интерпретационные depth-графики с ручным диапазоном глубины, ручным X-масштабом и HTML-выгрузкой для печати.
 - Настройка Pixler/ternary палеток через `config/palettes.json`.
 - Локальное диагностическое логирование в `logs/app.log`.
 - Локальный ИИ-помощник по документации в offline-first режиме.
@@ -97,6 +99,7 @@ examples/sample_gas_data.las
 - [Формат входных данных](docs/data_format.md)
 - [План LAS-редактора](docs/las_editor_plan.md)
 - [Формулы](docs/formulas.md)
+- [Mud gas analysis: литературный источник](docs/mud_gas_analysis_literature.md)
 - [Конфигурация палеток](docs/palettes.md)
 - [Логирование](docs/logging.md)
 - [Локальный ИИ-помощник](docs/ai_usage.md)

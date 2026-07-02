@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from palettes.config import load_palette_config
-from palettes.depth_tracks import build_depth_gas_tracks
+from palettes.depth_tracks import build_depth_gas_tracks, build_depth_interpretation_track
 from palettes.ternary import build_ternary_palette
 
 
@@ -95,3 +95,28 @@ def test_depth_tracks_use_interval_midpoint_when_depth_is_missing():
     fig = build_depth_gas_tracks(df)
 
     assert list(fig.data[0].y) == [1000.5, 1003.0]
+
+def test_depth_tracks_sort_depth_ascending_for_top_down_plot():
+    df = pd.DataFrame({"depth": [1002.0, 1000.0], "c1": [20, 10]})
+
+    fig = build_depth_gas_tracks(df, depth_range=(1000.0, 1002.0), x_range=(0.0, 30.0), height=700)
+
+    assert list(fig.data[0].y) == [1000.0, 1002.0]
+    assert list(fig.data[0].x) == [10, 20]
+    assert tuple(fig.layout.yaxis.range) == (1002.0, 1000.0)
+    assert tuple(fig.layout.xaxis.range) == (0.0, 30.0)
+    assert fig.layout.height == 700
+
+
+def test_depth_interpretation_track_uses_sorted_depths():
+    df = pd.DataFrame(
+        {
+            "depth": [2.0, 1.0],
+            "interpretation": ["Нефтяная залежь", "Газовая залежь"],
+        }
+    )
+
+    fig = build_depth_interpretation_track(df, depth_range=(1.0, 2.0))
+
+    assert list(fig.data[0].y) == [1.0, 2.0]
+    assert tuple(fig.layout.yaxis.range) == (2.0, 1.0)

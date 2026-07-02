@@ -6,6 +6,7 @@ from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
+import plotly.io as pio
 import streamlit as st
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -32,6 +33,7 @@ from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
 from palettes.depth_tracks import (
     build_depth_gas_tracks,
+    build_depth_interpretation_track,
     build_depth_pixler_tracks,
     build_depth_ratio_tracks,
 )
@@ -50,6 +52,8 @@ AI_RESPONSE_MODE_KEY = "local_ai_response_mode"
 UI_SCALE_KEY = "ui_scale"
 LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
 LAS_EDITOR_SESSION_SUMMARY_KEY = "las_editor_session_summary"
+INTERPRETATION_SESSION_DATA_KEY = "interpretation_session_data"
+INTERPRETATION_SESSION_SOURCE_KEY = "interpretation_session_source"
 AI_SUPPORT_WELCOME_MESSAGE = (
     "Здравствуйте. Я локальный помощник по Gas Ratio Interpreter: формулам, "
     "импорту, предупреждениям, Ollama и выбранному интервалу."
@@ -76,6 +80,7 @@ DOCUMENTATION_TAB_DOCS: tuple[tuple[str, str], ...] = (
     ("Формат входных данных", "docs/data_format.md"),
     ("План LAS-редактора", "docs/las_editor_plan.md"),
     ("Формулы", "docs/formulas.md"),
+    ("Mud gas literature", "docs/mud_gas_analysis_literature.md"),
     ("Локальный AI-помощник", "docs/ai_usage.md"),
     ("Локальный AI-агент", "docs/local_ai_agent.md"),
     ("Troubleshooting", "docs/troubleshooting.md"),
@@ -210,6 +215,72 @@ def _load_raw_sheets(uploaded_file) -> dict[str, pd.DataFrame]:
     if suffix == ".las":
         return load_las_sheets(uploaded_file)
     raise ValueError(f"Формат {suffix} не поддерживается.")
+
+
+def _load_uploaded_files_sheets(uploaded_files) -> dict[str, pd.DataFrame]:
+    files = list(uploaded_files or [])
+    if not files:
+        return {}
+
+    combined: dict[str, pd.DataFrame] = {}
+    multiple_files = len(files) > 1
+    for file_index, uploaded_file in enumerate(files, start=1):
+        suffix = Path(uploaded_file.name).suffix.lower()
+        if suffix not in SUPPORTED_EXTENSIONS:
+            raise ValueError(f"Формат {suffix} не поддерживается.")
+
+        file_sheets = _load_raw_sheets(uploaded_file)
+        file_label = Path(uploaded_file.name).stem or f"file_{file_index}"
+        for sheet_name, sheet_df in file_sheets.items():
+            base_name = f"{file_label} / {sheet_name}" if multiple_files else str(sheet_name)
+            unique_name = base_name
+            duplicate_index = 2
+            while unique_name in combined:
+                unique_name = f"{base_name} ({duplicate_index})"
+                duplicate_index += 1
+            combined[unique_name] = sheet_df
+
+    return combined
+
+
+def _depth_values_for_graphs(df: pd.DataFrame) -> pd.Series:
+    if df is None or df.empty or "depth" not in df.columns:
+        return pd.Series(dtype=float)
+    return pd.to_numeric(df["depth"], errors="coerce")
+
+
+def _filter_by_depth_range(df: pd.DataFrame, top_depth: float, bottom_depth: float) -> pd.DataFrame:
+    if df is None or df.empty:
+        return pd.DataFrame()
+    depth = _depth_values_for_graphs(df)
+    if depth.empty or depth.isna().all():
+        return df.copy()
+    top = min(float(top_depth), float(bottom_depth))
+    bottom = max(float(top_depth), float(bottom_depth))
+    return df.loc[(depth >= top) & (depth <= bottom)].copy()
+
+def _store_interpretation_dataset(calculated_df: pd.DataFrame, source_label: str) -> None:
+    st.session_state[INTERPRETATION_SESSION_DATA_KEY] = calculated_df
+    st.session_state[INTERPRETATION_SESSION_SOURCE_KEY] = str(source_label)
+
+
+def _plotly_figures_to_html(figures, title: str) -> bytes:
+    parts = [
+        "<!doctype html>",
+        "<html><head><meta charset='utf-8'>",
+        f"<title>{title}</title>",
+        "<style>body{font-family:Arial,sans-serif;margin:24px;} .chart{page-break-inside:avoid;margin-bottom:28px;}</style>",
+        "</head><body>",
+        f"<h1>{title}</h1>",
+    ]
+    include_plotlyjs = True
+    for figure in figures:
+        parts.append("<div class='chart'>")
+        parts.append(pio.to_html(figure, include_plotlyjs=include_plotlyjs, full_html=False))
+        parts.append("</div>")
+        include_plotlyjs = False
+    parts.append("</body></html>")
+    return "\n".join(parts).encode("utf-8")
 
 
 def _find_default_depth_column(df: pd.DataFrame) -> str:
@@ -810,33 +881,37 @@ def _render_workspace(logger) -> None:
         sheets = editor_sheets
         logger.info("editor_data_selected sheet_count=%d", len(sheets))
     else:
-        uploaded_file = st.file_uploader(
-            "Загрузка файла",
+        uploaded_files = st.file_uploader(
+            "Загрузка файлов",
             type=["csv", "xlsx", "xlsm", "las"],
+            accept_multiple_files=True,
         )
 
-        if uploaded_file is None:
-            st.info("Загрузите LAS, CSV, XLSX или XLSM файл с газовыми данными.")
+        if not uploaded_files:
+            st.info("Загрузите один или несколько LAS, CSV, XLSX или XLSM файлов с газовыми данными.")
             _render_ai_assistant(logger)
             return
 
-        suffix = Path(uploaded_file.name).suffix.lower()
-        logger.info(
-            "file_upload_received extension=%s size=%s",
-            safe_log_value(suffix),
-            safe_log_value(getattr(uploaded_file, "size", "unknown")),
-        )
-
-        if suffix not in SUPPORTED_EXTENSIONS:
-            logger.warning("unsupported_file_extension extension=%s", safe_log_value(suffix))
+        suffixes = sorted({Path(uploaded_file.name).suffix.lower() for uploaded_file in uploaded_files})
+        unsupported_suffixes = [suffix for suffix in suffixes if suffix not in SUPPORTED_EXTENSIONS]
+        if unsupported_suffixes:
+            logger.warning("unsupported_file_extension extension=%s", safe_log_value(",".join(unsupported_suffixes)))
             st.error("Формат файла не поддерживается в v0.3.")
             return
 
+        logger.info(
+            "file_upload_received count=%d extensions=%s total_size=%s",
+            len(uploaded_files),
+            safe_log_value(",".join(suffixes)),
+            safe_log_value(sum(int(getattr(uploaded_file, "size", 0) or 0) for uploaded_file in uploaded_files)),
+        )
+
         try:
-            sheets = _load_raw_sheets(uploaded_file)
-            logger.info("file_read_success extension=%s sheet_count=%d", safe_log_value(suffix), len(sheets))
+            sheets = _load_uploaded_files_sheets(uploaded_files)
+            suffix = ",".join(suffixes)
+            logger.info("file_read_success extensions=%s sheet_count=%d", safe_log_value(suffix), len(sheets))
         except Exception:
-            logger.exception("file_read_failed extension=%s", safe_log_value(suffix))
+            logger.exception("file_read_failed extensions=%s", safe_log_value(",".join(suffixes)))
             st.error("Не удалось прочитать файл. Проверьте формат и доступность данных.")
             st.caption("Подробности записаны в logs/app.log.")
             return
@@ -917,6 +992,7 @@ def _render_workspace(logger) -> None:
 
     calculation = calculate_gas_ratios(prepared.data, CalculationConfig(ch_mode=ch_mode))
     calculated_df = add_interpretation(calculation.data)
+    _store_interpretation_dataset(calculated_df, str(sheet_name))
     logger.info(
         "calculation_completed rows=%d ch_mode=%s warning_count=%d",
         len(calculated_df),
@@ -995,6 +1071,122 @@ def _render_workspace(logger) -> None:
     )
 
 
+def _select_x_range(label: str, key_prefix: str) -> tuple[float, float] | None:
+    auto_scale = st.checkbox(f"Автомасштаб X: {label}", value=True, key=f"{key_prefix}_x_auto")
+    if auto_scale:
+        return None
+
+    left, right = st.columns(2)
+    min_value = left.number_input(
+        f"X min: {label}",
+        value=0.0,
+        step=1.0,
+        key=f"{key_prefix}_x_min",
+    )
+    max_value = right.number_input(
+        f"X max: {label}",
+        value=100.0,
+        step=1.0,
+        key=f"{key_prefix}_x_max",
+    )
+    if min_value == max_value:
+        st.warning(f"Для {label} X min и X max совпадают. Используется автомасштаб.")
+        return None
+    return (min(float(min_value), float(max_value)), max(float(min_value), float(max_value)))
+
+
+def _render_interpretation_graphs_tab(logger) -> None:
+    st.subheader("Интерпретационные графики")
+    calculated_df = st.session_state.get(INTERPRETATION_SESSION_DATA_KEY)
+    if calculated_df is None or calculated_df.empty:
+        st.info("Сначала выполните расчет во вкладке `Работа с данными`. После этого здесь появятся графики и таблица интерпретации.")
+        return
+
+    source_label = st.session_state.get(INTERPRETATION_SESSION_SOURCE_KEY, "текущий расчет")
+    st.caption(f"Источник данных: {source_label}")
+
+    depth = _depth_values_for_graphs(calculated_df)
+    valid_depth = depth.dropna()
+    if valid_depth.empty:
+        st.warning("В расчетной таблице нет числовой глубины. Графики будут построены по техническому индексу.")
+        filtered_df = calculated_df.copy()
+        depth_range = None
+    else:
+        min_depth = float(valid_depth.min())
+        max_depth = float(valid_depth.max())
+        mode = st.radio(
+            "Диапазон глубины",
+            options=("Весь интервал", "Ручной интервал"),
+            horizontal=True,
+            key="interpretation_depth_range_mode",
+        )
+        if mode == "Ручной интервал":
+            top_col, bottom_col = st.columns(2)
+            top_depth = top_col.number_input("Верх, м", value=min_depth, step=0.1, key="interpretation_top_depth")
+            bottom_depth = bottom_col.number_input("Низ, м", value=max_depth, step=0.1, key="interpretation_bottom_depth")
+        else:
+            top_depth = min_depth
+            bottom_depth = max_depth
+        depth_range = (min(float(top_depth), float(bottom_depth)), max(float(top_depth), float(bottom_depth)))
+        filtered_df = _filter_by_depth_range(calculated_df, depth_range[0], depth_range[1])
+
+    st.metric("Строк в выбранном интервале", len(filtered_df))
+    if filtered_df.empty:
+        st.error("В выбранном диапазоне глубин нет строк.")
+        return
+
+    height = st.slider("Высота графиков", min_value=420, max_value=1100, value=650, step=10, key="interpretation_chart_height")
+    selected_tracks = st.multiselect(
+        "Графики",
+        options=("Интерпретация", "C1-C5", "Wh/Bh/Ch", "Pixler ratios"),
+        default=("Интерпретация", "C1-C5", "Wh/Bh/Ch", "Pixler ratios"),
+        key="interpretation_tracks",
+    )
+
+    with st.expander("Ручной масштаб X", expanded=False):
+        gas_x_range = _select_x_range("C1-C5", "interpretation_gas")
+        ratio_x_range = _select_x_range("Wh/Bh/Ch", "interpretation_ratio")
+        pixler_x_range = _select_x_range("Pixler ratios", "interpretation_pixler")
+
+    figures = []
+    if "Интерпретация" in selected_tracks:
+        figures.append(build_depth_interpretation_track(filtered_df, depth_range=depth_range, height=height))
+    if "C1-C5" in selected_tracks:
+        figures.append(build_depth_gas_tracks(filtered_df, depth_range=depth_range, x_range=gas_x_range, height=height))
+    if "Wh/Bh/Ch" in selected_tracks:
+        figures.append(build_depth_ratio_tracks(filtered_df, depth_range=depth_range, x_range=ratio_x_range, height=height))
+    if "Pixler ratios" in selected_tracks:
+        figures.append(build_depth_pixler_tracks(filtered_df, depth_range=depth_range, x_range=pixler_x_range, height=height))
+
+    if not figures:
+        st.warning("Выберите хотя бы один график.")
+    for figure in figures:
+        st.plotly_chart(figure, use_container_width=True)
+
+    if figures:
+        report_title = f"Gas Ratio Interpreter - {source_label}"
+        st.download_button(
+            "HTML для печати",
+            data=_plotly_figures_to_html(figures, report_title),
+            file_name="gas_ratio_depth_graphs.html",
+            mime="text/html",
+            use_container_width=True,
+        )
+
+    st.subheader("Сводка интерпретации")
+    st.dataframe(summarize_interpretation(filtered_df), use_container_width=True)
+    st.subheader("Таблица выбранного интервала")
+    st.dataframe(filtered_df, use_container_width=True)
+    st.download_button(
+        "Экспорт выбранного интервала CSV",
+        data=export_csv_bytes(filtered_df),
+        file_name="gas_ratio_selected_interval.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
+    logger.info("interpretation_graphs_rendered rows=%d figure_count=%d", len(filtered_df), len(figures))
+
+
 def main() -> None:
     st.set_page_config(page_title="Gas Ratio Interpreter v0.3", layout="wide")
     ui_scale = _select_ui_scale()
@@ -1005,7 +1197,7 @@ def main() -> None:
     logger = configure_logging()
     logger.info("streamlit_app_started")
 
-    workspace_tab, las_editor_tab, docs_tab = st.tabs(["Работа с данными", "LAS-редактор", "Инструкции и документация"])
+    workspace_tab, las_editor_tab, graphs_tab, docs_tab = st.tabs(["Работа с данными", "LAS-редактор", "Интерпретационные графики", "Инструкции и документация"])
     with workspace_tab:
         _render_workspace(logger)
     with las_editor_tab:

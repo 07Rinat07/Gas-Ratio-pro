@@ -11,6 +11,14 @@
       "description": "Подтвержденная документация по формулам и ограничениям расчетов."
     },
     {
+      "path": "docs/mud_gas_analysis_literature.md",
+      "title": "Mud gas analysis: литературный источник",
+      "status": "reference",
+      "priority": 9,
+      "topics": ["literature", "mud-gas", "haworth", "pixler", "oil-indicator", "interpretation", "graphs"],
+      "description": "Справочная выжимка из PDF Application of mud gas analysis for reservoir evaluation: авторы, формулы, интерпретационные ориентиры и требования к depth-графикам."
+    },
+    {
       "path": "docs/data_format.md",
       "title": "Формат входных данных",
       "status": "approved",
