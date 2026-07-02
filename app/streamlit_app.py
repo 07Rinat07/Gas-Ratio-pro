@@ -29,6 +29,8 @@ from importers.header_detector import detect_header_row, prepare_dataframe_with_
 from importers.las_importer import load_las_sheets
 from las_correlation import (
     CURVE_GROUP_LABELS,
+    DEFAULT_PROJECT_ID,
+    DEFAULT_PROJECTS_ROOT,
     DEFAULT_GAS_GROUPS,
     DEFAULT_GIS_GROUPS,
     LasCorrelationSettings,
@@ -36,6 +38,8 @@ from las_correlation import (
     build_las_correlation_figure,
     curve_group_rows,
     prepare_las_correlation_wells,
+    load_project_correlation_settings,
+    save_project_correlation_settings,
     settings_from_dict,
     settings_summary,
     settings_to_dict,
@@ -57,6 +61,7 @@ from wells.repository import DEFAULT_WELLS_ROOT, list_wells, read_well_file_byte
 
 SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xlsm", ".las"}
 WELLS_STORAGE_ROOT = ROOT_DIR / DEFAULT_WELLS_ROOT
+LAS_CORRELATION_PROJECTS_ROOT = ROOT_DIR / DEFAULT_PROJECTS_ROOT
 APP_LAUNCH_COMMAND = "python -m streamlit run app/streamlit_app.py"
 APP_LAUNCH_SCRIPT = ".\\run_app.ps1"
 UI_SCALE_KEY = "ui_scale"
@@ -1274,29 +1279,65 @@ def _apply_las_correlation_settings_to_session(settings: LasCorrelationSettings,
             st.session_state[f"las_correlation_group_override_{well.name}_{curve}"] = group
 
 
+def _load_project_las_correlation_settings() -> LasCorrelationSettings | None:
+    try:
+        return load_project_correlation_settings(
+            root=LAS_CORRELATION_PROJECTS_ROOT,
+            project_id=DEFAULT_PROJECT_ID,
+        )
+    except Exception:
+        st.warning("Не удалось прочитать настройки проекта. Проверьте файл настроек.")
+        return None
+
+
 def _render_las_correlation_settings_loader(wells, group_options: tuple[str, ...]) -> None:
-    payload = st.session_state.get(LAS_CORRELATION_SETTINGS_KEY)
-    if not payload:
+    session_payload = st.session_state.get(LAS_CORRELATION_SETTINGS_KEY)
+    session_settings = settings_from_dict(session_payload) if session_payload else None
+    project_settings = _load_project_las_correlation_settings()
+
+    if session_settings is None and project_settings is None:
         return
 
-    settings = settings_from_dict(payload)
     with st.expander("Сохраненные настройки корреляции", expanded=False):
-        for line in settings_summary(settings):
-            st.caption(line)
-        apply_col, clear_col = st.columns(2)
-        if apply_col.button("Применить сохраненные настройки", use_container_width=True, key="las_correlation_apply_saved_settings"):
-            _apply_las_correlation_settings_to_session(settings, wells, group_options)
-            st.rerun()
-        if clear_col.button("Очистить сохраненные настройки", use_container_width=True, key="las_correlation_clear_saved_settings"):
-            st.session_state.pop(LAS_CORRELATION_SETTINGS_KEY, None)
-            st.rerun()
+        if project_settings is not None:
+            st.markdown("**Проект**")
+            for line in settings_summary(project_settings):
+                st.caption(line)
+            if st.button("Загрузить настройки проекта", use_container_width=True, key="las_correlation_load_project_settings"):
+                _apply_las_correlation_settings_to_session(project_settings, wells, group_options)
+                st.session_state[LAS_CORRELATION_SETTINGS_KEY] = settings_to_dict(project_settings)
+                st.rerun()
+
+        if session_settings is not None:
+            st.markdown("**Текущая сессия**")
+            for line in settings_summary(session_settings):
+                st.caption(line)
+            apply_col, clear_col = st.columns(2)
+            if apply_col.button("Применить настройки сессии", use_container_width=True, key="las_correlation_apply_saved_settings"):
+                _apply_las_correlation_settings_to_session(session_settings, wells, group_options)
+                st.rerun()
+            if clear_col.button("Очистить настройки сессии", use_container_width=True, key="las_correlation_clear_saved_settings"):
+                st.session_state.pop(LAS_CORRELATION_SETTINGS_KEY, None)
+                st.rerun()
 
 
 def _render_las_correlation_settings_saver(settings: LasCorrelationSettings) -> None:
     with st.expander("Текущие настройки корреляции", expanded=False):
         for line in settings_summary(settings):
             st.caption(line)
-        if st.button("Сохранить текущие настройки", use_container_width=True, key="las_correlation_save_current_settings"):
+        project_col, session_col = st.columns(2)
+        if project_col.button("Сохранить в проект", use_container_width=True, key="las_correlation_save_project_settings"):
+            try:
+                save_project_correlation_settings(
+                    settings,
+                    root=LAS_CORRELATION_PROJECTS_ROOT,
+                    project_id=DEFAULT_PROJECT_ID,
+                )
+                st.session_state[LAS_CORRELATION_SETTINGS_KEY] = settings_to_dict(settings)
+                st.success("Настройки корреляции сохранены в проект.")
+            except Exception:
+                st.error("Не удалось сохранить настройки проекта.")
+        if session_col.button("Сохранить в сессию", use_container_width=True, key="las_correlation_save_current_settings"):
             st.session_state[LAS_CORRELATION_SETTINGS_KEY] = settings_to_dict(settings)
             st.success("Настройки корреляции сохранены в текущей сессии.")
 

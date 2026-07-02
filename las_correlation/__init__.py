@@ -17,11 +17,20 @@ from las_correlation.settings import (
     settings_summary,
     settings_to_dict,
 )
+from las_correlation.settings_store import (
+    DEFAULT_PROJECT_ID,
+    DEFAULT_PROJECTS_ROOT,
+    load_project_correlation_settings,
+    project_correlation_settings_exists,
+    save_project_correlation_settings,
+)
 
 __all__ = [
     "CURVE_GROUP_LABELS",
     "DEFAULT_GAS_GROUPS",
     "DEFAULT_GIS_GROUPS",
+    "DEFAULT_PROJECT_ID",
+    "DEFAULT_PROJECTS_ROOT",
     "LasCorrelationSettings",
     "LasCorrelationWell",
     "apply_curve_group_overrides",
@@ -31,6 +40,9 @@ __all__ = [
     "group_curve_columns",
     "prepare_las_correlation_well",
     "prepare_las_correlation_wells",
+    "load_project_correlation_settings",
+    "project_correlation_settings_exists",
+    "save_project_correlation_settings",
     "settings_from_dict",
     "settings_summary",
     "settings_to_dict",
