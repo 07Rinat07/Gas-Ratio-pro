@@ -12,6 +12,14 @@ def test_streamlit_app_imports():
     assert hasattr(module, "main")
 
 
+def test_streamlit_app_exposes_expected_tabs():
+    module = importlib.import_module("app.streamlit_app")
+
+    assert "LAS-корреляция" in module.APP_TABS
+    assert "Интерпретационные графики" in module.APP_TABS
+    assert hasattr(module, "_render_las_correlation_tab")
+
+
 def test_las_editor_helpers_prepare_raw_sheet_for_workspace():
     module = importlib.import_module("app.streamlit_app")
     df = pd.DataFrame({"DEPT": [1.2, 1.4], "C1": [80, 90]})
@@ -21,6 +29,7 @@ def test_las_editor_helpers_prepare_raw_sheet_for_workspace():
     assert module._find_default_depth_column(df) == "DEPT"
     assert list(raw_sheet.iloc[0]) == ["DEPT", "C1"]
     assert raw_sheet.iloc[1, 0] == 1.2
+
 
 class _UploadedFileStub:
     def __init__(self, name: str, data: bytes):
@@ -54,6 +63,7 @@ def test_filter_by_depth_range_keeps_selected_interval():
     filtered = module._filter_by_depth_range(df, 1000.5, 1002.0)
 
     assert list(filtered["depth"]) == [1001.0, 1002.0]
+
 
 def test_store_interpretation_dataset_updates_session_state(monkeypatch):
     module = importlib.import_module("app.streamlit_app")

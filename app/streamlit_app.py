@@ -28,6 +28,13 @@ from importers.csv_importer import load_csv_sheets
 from importers.excel_importer import load_excel_sheets
 from importers.header_detector import detect_header_row, prepare_dataframe_with_header
 from importers.las_importer import load_las_sheets
+from las_correlation import (
+    CURVE_GROUP_LABELS,
+    DEFAULT_GAS_GROUPS,
+    DEFAULT_GIS_GROUPS,
+    build_las_correlation_figure,
+    prepare_las_correlation_wells,
+)
 from las_editor.depth_grid import resample_las_data
 from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
@@ -54,6 +61,13 @@ LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
 LAS_EDITOR_SESSION_SUMMARY_KEY = "las_editor_session_summary"
 INTERPRETATION_SESSION_DATA_KEY = "interpretation_session_data"
 INTERPRETATION_SESSION_SOURCE_KEY = "interpretation_session_source"
+APP_TABS = (
+    "Работа с данными",
+    "LAS-редактор",
+    "LAS-корреляция",
+    "Интерпретационные графики",
+    "Инструкции и документация",
+)
 AI_SUPPORT_WELCOME_MESSAGE = (
     "Здравствуйте. Я локальный помощник по Gas Ratio Interpreter: формулам, "
     "импорту, предупреждениям, Ollama и выбранному интервалу."
@@ -79,6 +93,7 @@ DOCUMENTATION_TAB_DOCS: tuple[tuple[str, str], ...] = (
     ("Руководство пользователя", "docs/user_guide.md"),
     ("Формат входных данных", "docs/data_format.md"),
     ("План LAS-редактора", "docs/las_editor_plan.md"),
+    ("План LAS-корреляции", "docs/las_correlation_plan.md"),
     ("Формулы", "docs/formulas.md"),
     ("Mud gas literature", "docs/mud_gas_analysis_literature.md"),
     ("Локальный AI-помощник", "docs/ai_usage.md"),
@@ -1187,6 +1202,145 @@ def _render_interpretation_graphs_tab(logger) -> None:
     logger.info("interpretation_graphs_rendered rows=%d figure_count=%d", len(filtered_df), len(figures))
 
 
+def _curve_group_label(group: str) -> str:
+    return CURVE_GROUP_LABELS.get(group, group)
+
+
+def _render_las_correlation_tab(logger) -> None:
+    st.subheader("LAS-корреляция")
+    st.caption("Загрузите несколько LAS, чтобы смотреть ГИС-кривые рядом с газами по общей глубине.")
+
+    uploaded_files = st.file_uploader(
+        "LAS-файлы для корреляции",
+        type=["las"],
+        accept_multiple_files=True,
+        key="las_correlation_files",
+    )
+    if not uploaded_files:
+        st.info("Загрузите два или больше LAS-файла для сравнения скважин. Один LAS тоже можно открыть для проверки треков.")
+        return
+
+    try:
+        wells = prepare_las_correlation_wells(uploaded_files)
+    except Exception:
+        logger.exception("las_correlation_read_failed")
+        st.error("Не удалось прочитать LAS-файлы для корреляции. Проверьте секции ~Curve и ~ASCII.")
+        st.caption("Подробности записаны в logs/app.log.")
+        return
+
+    summary_rows = []
+    for well in wells:
+        summary_rows.append(
+            {
+                "Скважина": well.name,
+                "Строк": well.row_count,
+                "Depth curve": well.depth_column,
+                "Мин. глубина": well.min_depth,
+                "Макс. глубина": well.max_depth,
+                "ГИС": sum(len(well.curve_groups.get(group, ())) for group in DEFAULT_GIS_GROUPS),
+                "Газы": sum(len(well.curve_groups.get(group, ())) for group in DEFAULT_GAS_GROUPS),
+                "Прочие": len(well.curve_groups.get("other", ())),
+            }
+        )
+    st.dataframe(pd.DataFrame(summary_rows), use_container_width=True)
+
+    all_well_names = [well.name for well in wells]
+    selected_well_names = st.multiselect(
+        "Скважины на графике",
+        options=all_well_names,
+        default=all_well_names,
+        key="las_correlation_selected_wells",
+    )
+    selected_wells = [well for well in wells if well.name in selected_well_names]
+    if not selected_wells:
+        st.warning("Выберите хотя бы одну скважину.")
+        return
+
+    group_options = [
+        group
+        for group in CURVE_GROUP_LABELS
+        if group not in {"depth", "lithology", "other"}
+    ]
+    left, right = st.columns(2)
+    gis_groups = left.multiselect(
+        "ГИС-группы слева",
+        options=group_options,
+        default=[group for group in DEFAULT_GIS_GROUPS if group in group_options],
+        format_func=_curve_group_label,
+        key="las_correlation_gis_groups",
+    )
+    gas_groups = right.multiselect(
+        "Газовые группы справа",
+        options=group_options,
+        default=[group for group in DEFAULT_GAS_GROUPS if group in group_options],
+        format_func=_curve_group_label,
+        key="las_correlation_gas_groups",
+    )
+
+    valid_depths = [
+        value
+        for well in selected_wells
+        for value in (well.min_depth, well.max_depth)
+        if value is not None
+    ]
+    depth_range = None
+    if valid_depths:
+        min_depth = float(min(valid_depths))
+        max_depth = float(max(valid_depths))
+        range_mode = st.radio(
+            "Диапазон глубины",
+            options=("Общий весь интервал", "Ручной интервал"),
+            horizontal=True,
+            key="las_correlation_depth_range_mode",
+        )
+        if range_mode == "Ручной интервал":
+            top_col, bottom_col = st.columns(2)
+            top_depth = top_col.number_input("Верх, м", value=min_depth, step=0.1, key="las_correlation_top_depth")
+            bottom_depth = bottom_col.number_input("Низ, м", value=max_depth, step=0.1, key="las_correlation_bottom_depth")
+            depth_range = (min(float(top_depth), float(bottom_depth)), max(float(top_depth), float(bottom_depth)))
+
+    height_per_well = st.slider(
+        "Высота на скважину",
+        min_value=320,
+        max_value=750,
+        value=430,
+        step=10,
+        key="las_correlation_height_per_well",
+    )
+    figure = build_las_correlation_figure(
+        selected_wells,
+        gis_groups=tuple(gis_groups),
+        gas_groups=tuple(gas_groups),
+        depth_range=depth_range,
+        height_per_well=height_per_well,
+    )
+    st.plotly_chart(figure, use_container_width=True)
+    st.download_button(
+        "HTML для печати корреляции",
+        data=_plotly_figures_to_html([figure], "Gas Ratio Interpreter - LAS correlation"),
+        file_name="las_correlation.html",
+        mime="text/html",
+        use_container_width=True,
+    )
+
+    with st.expander("Кривые по скважинам", expanded=False):
+        for well in selected_wells:
+            st.markdown(f"#### {well.name}")
+            if well.warnings:
+                for warning in well.warnings:
+                    st.warning(warning)
+            group_rows = [
+                {
+                    "Группа": _curve_group_label(group),
+                    "Кривые": ", ".join(columns),
+                }
+                for group, columns in well.curve_groups.items()
+                if columns
+            ]
+            st.dataframe(pd.DataFrame(group_rows), use_container_width=True)
+
+    logger.info("las_correlation_rendered wells=%d", len(selected_wells))
+
 def main() -> None:
     st.set_page_config(page_title="Gas Ratio Interpreter v0.3", layout="wide")
     ui_scale = _select_ui_scale()
@@ -1197,11 +1351,15 @@ def main() -> None:
     logger = configure_logging()
     logger.info("streamlit_app_started")
 
-    workspace_tab, las_editor_tab, graphs_tab, docs_tab = st.tabs(["Работа с данными", "LAS-редактор", "Интерпретационные графики", "Инструкции и документация"])
+    workspace_tab, las_editor_tab, correlation_tab, graphs_tab, docs_tab = st.tabs(list(APP_TABS))
     with workspace_tab:
         _render_workspace(logger)
     with las_editor_tab:
         _render_las_editor(logger)
+    with correlation_tab:
+        _render_las_correlation_tab(logger)
+    with graphs_tab:
+        _render_interpretation_graphs_tab(logger)
     with docs_tab:
         _render_documentation_tab()
 
