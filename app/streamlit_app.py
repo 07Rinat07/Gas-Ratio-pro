@@ -31,10 +31,14 @@ from las_correlation import (
     CURVE_GROUP_LABELS,
     DEFAULT_GAS_GROUPS,
     DEFAULT_GIS_GROUPS,
+    LasCorrelationSettings,
     apply_curve_group_overrides,
     build_las_correlation_figure,
     curve_group_rows,
     prepare_las_correlation_wells,
+    settings_from_dict,
+    settings_summary,
+    settings_to_dict,
 )
 from las_editor.depth_grid import resample_las_data
 from mapping.mapper import apply_mapping, auto_map_columns
@@ -60,6 +64,7 @@ LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
 LAS_EDITOR_SESSION_SUMMARY_KEY = "las_editor_session_summary"
 INTERPRETATION_SESSION_DATA_KEY = "interpretation_session_data"
 INTERPRETATION_SESSION_SOURCE_KEY = "interpretation_session_source"
+LAS_CORRELATION_SETTINGS_KEY = "las_correlation_settings"
 APP_TABS = (
     "Работа с данными",
     "LAS-редактор",
@@ -1181,7 +1186,7 @@ def _format_curve_group_rows(well) -> pd.DataFrame:
 def _render_curve_group_override_controls(wells):
     selected_wells = list(wells)
     if not selected_wells:
-        return tuple()
+        return tuple(), {}
 
     use_manual_groups = st.checkbox(
         "Ручное назначение групп кривых",
@@ -1189,10 +1194,11 @@ def _render_curve_group_override_controls(wells):
         key="las_correlation_manual_curve_groups",
     )
     if not use_manual_groups:
-        return tuple(selected_wells)
+        return tuple(selected_wells), {}
 
     group_options = tuple(CURVE_GROUP_LABELS.keys())
     overridden_wells = []
+    all_overrides: dict[str, dict[str, str]] = {}
     with st.expander("Ручное назначение кривых", expanded=True):
         st.caption("Используйте этот блок, если LAS содержит нестандартные мнемоники или авто-группа выбрана неверно.")
         for well in selected_wells:
@@ -1216,10 +1222,83 @@ def _render_curve_group_override_controls(wells):
                 if selected_group != current_group:
                     overrides[curve] = selected_group
 
+            if overrides:
+                all_overrides[well.name] = overrides
             overridden_wells.append(apply_curve_group_overrides(well, overrides))
 
-    return tuple(overridden_wells)
+    return tuple(overridden_wells), all_overrides
 
+
+def _filter_group_selection(groups, allowed_groups: tuple[str, ...], fallback: tuple[str, ...]) -> tuple[str, ...]:
+    selected = tuple(group for group in groups if group in allowed_groups)
+    return selected or tuple(group for group in fallback if group in allowed_groups)
+
+
+def _set_las_correlation_x_range_state(key_prefix: str, x_range: tuple[float, float] | None) -> None:
+    st.session_state[f"{key_prefix}_x_auto"] = x_range is None
+    if x_range is not None:
+        st.session_state[f"{key_prefix}_x_min"] = float(x_range[0])
+        st.session_state[f"{key_prefix}_x_max"] = float(x_range[1])
+
+
+def _apply_las_correlation_settings_to_session(settings: LasCorrelationSettings, wells, group_options: tuple[str, ...]) -> None:
+    available_well_names = tuple(well.name for well in wells)
+    selected_wells = tuple(name for name in settings.selected_well_names if name in available_well_names) or available_well_names
+    st.session_state["las_correlation_selected_wells"] = list(selected_wells)
+    st.session_state["las_correlation_gis_groups"] = list(_filter_group_selection(settings.gis_groups, group_options, DEFAULT_GIS_GROUPS))
+    st.session_state["las_correlation_gas_groups"] = list(_filter_group_selection(settings.gas_groups, group_options, DEFAULT_GAS_GROUPS))
+    st.session_state["las_correlation_height_per_well"] = int(settings.height_per_well)
+
+    if settings.depth_range is None:
+        st.session_state["las_correlation_depth_range_mode"] = "Общий весь интервал"
+    else:
+        st.session_state["las_correlation_depth_range_mode"] = "Ручной интервал"
+        st.session_state["las_correlation_top_depth"] = float(settings.depth_range[0])
+        st.session_state["las_correlation_bottom_depth"] = float(settings.depth_range[1])
+
+    _set_las_correlation_x_range_state("las_correlation_gis", settings.gis_x_range)
+    _set_las_correlation_x_range_state("las_correlation_gas", settings.gas_x_range)
+
+    use_manual_groups = bool(settings.curve_group_overrides)
+    st.session_state["las_correlation_manual_curve_groups"] = use_manual_groups
+    if not use_manual_groups:
+        return
+
+    for well in wells:
+        overrides = settings.curve_group_overrides.get(well.name, {})
+        for row in curve_group_rows(well):
+            curve = row["curve"]
+            group = overrides.get(curve, row["group"])
+            if group not in CURVE_GROUP_LABELS:
+                group = "other"
+            st.session_state[f"las_correlation_group_override_{well.name}_{curve}"] = group
+
+
+def _render_las_correlation_settings_loader(wells, group_options: tuple[str, ...]) -> None:
+    payload = st.session_state.get(LAS_CORRELATION_SETTINGS_KEY)
+    if not payload:
+        return
+
+    settings = settings_from_dict(payload)
+    with st.expander("Сохраненные настройки корреляции", expanded=False):
+        for line in settings_summary(settings):
+            st.caption(line)
+        apply_col, clear_col = st.columns(2)
+        if apply_col.button("Применить сохраненные настройки", use_container_width=True, key="las_correlation_apply_saved_settings"):
+            _apply_las_correlation_settings_to_session(settings, wells, group_options)
+            st.rerun()
+        if clear_col.button("Очистить сохраненные настройки", use_container_width=True, key="las_correlation_clear_saved_settings"):
+            st.session_state.pop(LAS_CORRELATION_SETTINGS_KEY, None)
+            st.rerun()
+
+
+def _render_las_correlation_settings_saver(settings: LasCorrelationSettings) -> None:
+    with st.expander("Текущие настройки корреляции", expanded=False):
+        for line in settings_summary(settings):
+            st.caption(line)
+        if st.button("Сохранить текущие настройки", use_container_width=True, key="las_correlation_save_current_settings"):
+            st.session_state[LAS_CORRELATION_SETTINGS_KEY] = settings_to_dict(settings)
+            st.success("Настройки корреляции сохранены в текущей сессии.")
 
 def _render_las_correlation_tab(logger) -> None:
     st.subheader("LAS-корреляция")
@@ -1259,6 +1338,13 @@ def _render_las_correlation_tab(logger) -> None:
         )
     st.dataframe(pd.DataFrame(summary_rows), use_container_width=True)
 
+    group_options = [
+        group
+        for group in CURVE_GROUP_LABELS
+        if group not in {"depth", "lithology", "other"}
+    ]
+    _render_las_correlation_settings_loader(wells, tuple(group_options))
+
     all_well_names = [well.name for well in wells]
     selected_well_names = st.multiselect(
         "Скважины на графике",
@@ -1271,13 +1357,8 @@ def _render_las_correlation_tab(logger) -> None:
         st.warning("Выберите хотя бы одну скважину.")
         return
 
-    selected_wells = list(_render_curve_group_override_controls(selected_wells))
+    selected_wells, curve_group_overrides = _render_curve_group_override_controls(selected_wells)
 
-    group_options = [
-        group
-        for group in CURVE_GROUP_LABELS
-        if group not in {"depth", "lithology", "other"}
-    ]
     left, right = st.columns(2)
     gis_groups = left.multiselect(
         "ГИС-группы слева",
@@ -1328,6 +1409,16 @@ def _render_las_correlation_tab(logger) -> None:
         step=10,
         key="las_correlation_height_per_well",
     )
+    current_settings = LasCorrelationSettings(
+        selected_well_names=tuple(well.name for well in selected_wells),
+        curve_group_overrides=curve_group_overrides,
+        gis_groups=tuple(gis_groups),
+        gas_groups=tuple(gas_groups),
+        depth_range=depth_range,
+        gis_x_range=gis_x_range,
+        gas_x_range=gas_x_range,
+        height_per_well=int(height_per_well),
+    )
     figure = build_las_correlation_figure(
         selected_wells,
         gis_groups=tuple(gis_groups),
@@ -1345,6 +1436,7 @@ def _render_las_correlation_tab(logger) -> None:
         mime="text/html",
         use_container_width=True,
     )
+    _render_las_correlation_settings_saver(current_settings)
 
     with st.expander("Кривые по скважинам", expanded=False):
         for well in selected_wells:
