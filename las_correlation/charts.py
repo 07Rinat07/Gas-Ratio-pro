@@ -56,6 +56,8 @@ def build_las_correlation_figure(
     gis_groups: Iterable[str] = DEFAULT_GIS_GROUPS,
     gas_groups: Iterable[str] = DEFAULT_GAS_GROUPS,
     depth_range: tuple[float, float] | None = None,
+    gis_x_range: tuple[float, float] | None = None,
+    gas_x_range: tuple[float, float] | None = None,
     height_per_well: int = 430,
 ) -> go.Figure:
     selected_wells = [well for well in wells if well.row_count > 0]
@@ -97,8 +99,14 @@ def build_las_correlation_figure(
             yaxis_options["autorange"] = False
         fig.update_yaxes(**yaxis_options, row=row_index, col=1)
         fig.update_yaxes(**yaxis_options, row=row_index, col=2)
-        fig.update_xaxes(title="ГИС", zeroline=False, row=row_index, col=1)
-        fig.update_xaxes(title="Газы", zeroline=False, row=row_index, col=2)
+        gis_xaxis_options = {"title": "ГИС", "zeroline": False}
+        gas_xaxis_options = {"title": "Газы", "zeroline": False}
+        if gis_x_range is not None:
+            gis_xaxis_options["range"] = list(gis_x_range)
+        if gas_x_range is not None:
+            gas_xaxis_options["range"] = list(gas_x_range)
+        fig.update_xaxes(**gis_xaxis_options, row=row_index, col=1)
+        fig.update_xaxes(**gas_xaxis_options, row=row_index, col=2)
 
     if not fig.data:
         fig.add_annotation(

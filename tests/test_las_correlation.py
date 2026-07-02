@@ -128,6 +128,8 @@ def test_build_las_correlation_figure_puts_gis_and_gas_tracks_side_by_side():
         gis_groups=("gamma", "resistivity"),
         gas_groups=("total_gas", "gas_component"),
         depth_range=(1000.0, 1001.0),
+        gis_x_range=(0.0, 100.0),
+        gas_x_range=(0.0, 90.0),
         height_per_well=500,
     )
 
@@ -137,6 +139,8 @@ def test_build_las_correlation_figure_puts_gis_and_gas_tracks_side_by_side():
     assert "Well A: TGAS" in trace_names
     assert "Well A: C1" in trace_names
     assert tuple(fig.layout.yaxis.range) == (1001.0, 1000.0)
+    assert tuple(fig.layout.xaxis.range) == (0.0, 100.0)
+    assert tuple(fig.layout.xaxis2.range) == (0.0, 90.0)
     assert fig.layout.height == 500
 
 def test_las_correlation_figure_uses_overridden_groups():

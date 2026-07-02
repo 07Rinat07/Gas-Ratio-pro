@@ -1316,6 +1316,10 @@ def _render_las_correlation_tab(logger) -> None:
             bottom_depth = bottom_col.number_input("Низ, м", value=max_depth, step=0.1, key="las_correlation_bottom_depth")
             depth_range = (min(float(top_depth), float(bottom_depth)), max(float(top_depth), float(bottom_depth)))
 
+    with st.expander("Ручной масштаб X", expanded=False):
+        gis_x_range = _select_x_range("LAS-корреляция: ГИС слева", "las_correlation_gis")
+        gas_x_range = _select_x_range("LAS-корреляция: газы справа", "las_correlation_gas")
+
     height_per_well = st.slider(
         "Высота на скважину",
         min_value=320,
@@ -1329,6 +1333,8 @@ def _render_las_correlation_tab(logger) -> None:
         gis_groups=tuple(gis_groups),
         gas_groups=tuple(gas_groups),
         depth_range=depth_range,
+        gis_x_range=gis_x_range,
+        gas_x_range=gas_x_range,
         height_per_well=height_per_well,
     )
     st.plotly_chart(figure, use_container_width=True)
