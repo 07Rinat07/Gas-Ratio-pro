@@ -94,3 +94,33 @@ def test_selected_interval_rule_messages_explain_nan():
 
     assert any("Wh/Bh неполные" in message for message in messages)
     assert any("mapping" in message for message in messages)
+
+def test_las_correlation_report_rows_include_print_context():
+    module = importlib.import_module("app.streamlit_app")
+    project = module.ProjectRecord(id="default", name="Основной проект")
+
+    class WellStub:
+        def __init__(self, name: str):
+            self.name = name
+
+    rows = dict(
+        module._las_correlation_report_rows(
+            project=project,
+            selected_wells=(WellStub("Well A"), WellStub("Well B")),
+            depth_range=(1000.0, 1005.0),
+            gis_groups=("gamma",),
+            gas_groups=("total_gas",),
+            gis_x_range=(0.0, 150.0),
+            gas_x_range=None,
+            view_mode=module.VIEW_MODE_BY_CURVE,
+            comparison_curve="GR",
+        )
+    )
+
+    assert rows["Проект"] == "Основной проект (default)"
+    assert rows["Скважины"] == "Well A, Well B"
+    assert rows["Интервал глубины"] == "1000-1005 м"
+    assert rows["Представление"] == module.VIEW_MODE_BY_CURVE
+    assert rows["Кривая сравнения"] == "GR"
+    assert rows["X-scale ГИС"] == "0-150"
+    assert "Дата выгрузки" in rows

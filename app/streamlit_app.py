@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime
 import sys
 from io import BytesIO
 from pathlib import Path
 
 import pandas as pd
-import plotly.io as pio
 import streamlit as st
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -60,6 +60,7 @@ from palettes.pixler import build_pixler_palette
 from palettes.ternary import build_ternary_palette
 from projects import ProjectRecord, create_project, ensure_default_project, list_projects
 from reports.export_csv import export_csv_bytes
+from reports.export_html import HtmlReportMetadata, build_plotly_html_report
 from wells.repository import DEFAULT_WELLS_ROOT, list_wells, read_well_file_bytes, save_well_version
 
 
@@ -277,23 +278,63 @@ def _store_interpretation_dataset(calculated_df: pd.DataFrame, source_label: str
     st.session_state[INTERPRETATION_SESSION_SOURCE_KEY] = str(source_label)
 
 
-def _plotly_figures_to_html(figures, title: str) -> bytes:
-    parts = [
-        "<!doctype html>",
-        "<html><head><meta charset='utf-8'>",
-        f"<title>{title}</title>",
-        "<style>body{font-family:Arial,sans-serif;margin:24px;} .chart{page-break-inside:avoid;margin-bottom:28px;}</style>",
-        "</head><body>",
-        f"<h1>{title}</h1>",
+def _plotly_figures_to_html(
+    figures,
+    title: str,
+    *,
+    subtitle: str = "",
+    metadata_rows: tuple[tuple[str, str], ...] = (),
+    notes: tuple[str, ...] = (),
+) -> bytes:
+    return build_plotly_html_report(
+        figures,
+        HtmlReportMetadata(
+            title=title,
+            subtitle=subtitle,
+            rows=metadata_rows,
+            notes=notes,
+        ),
+    )
+
+
+def _range_label(value: tuple[float, float] | None, *, unit: str = "") -> str:
+    if value is None:
+        return "весь доступный интервал"
+    suffix = f" {unit}" if unit else ""
+    return f"{value[0]:g}-{value[1]:g}{suffix}"
+
+
+def _group_labels(groups: tuple[str, ...]) -> str:
+    labels = [_curve_group_label(group) for group in groups]
+    return ", ".join(labels) if labels else "не выбрано"
+
+
+def _las_correlation_report_rows(
+    *,
+    project: ProjectRecord,
+    selected_wells,
+    depth_range: tuple[float, float] | None,
+    gis_groups: tuple[str, ...],
+    gas_groups: tuple[str, ...],
+    gis_x_range: tuple[float, float] | None,
+    gas_x_range: tuple[float, float] | None,
+    view_mode: str,
+    comparison_curve: str,
+) -> tuple[tuple[str, str], ...]:
+    rows = [
+        ("Проект", f"{project.name} ({project.id})"),
+        ("Скважины", ", ".join(well.name for well in selected_wells)),
+        ("Интервал глубины", _range_label(depth_range, unit="м")),
+        ("Представление", view_mode),
+        ("ГИС-группы", _group_labels(gis_groups)),
+        ("Газовые группы", _group_labels(gas_groups)),
+        ("X-scale ГИС", _range_label(gis_x_range)),
+        ("X-scale газы", _range_label(gas_x_range)),
+        ("Дата выгрузки", datetime.now().strftime("%Y-%m-%d %H:%M")),
     ]
-    include_plotlyjs = True
-    for figure in figures:
-        parts.append("<div class='chart'>")
-        parts.append(pio.to_html(figure, include_plotlyjs=include_plotlyjs, full_html=False))
-        parts.append("</div>")
-        include_plotlyjs = False
-    parts.append("</body></html>")
-    return "\n".join(parts).encode("utf-8")
+    if view_mode == VIEW_MODE_BY_CURVE and comparison_curve:
+        rows.insert(4, ("Кривая сравнения", comparison_curve))
+    return tuple(rows)
 
 
 def _find_default_depth_column(df: pd.DataFrame) -> str:
@@ -1640,10 +1681,27 @@ def _render_las_correlation_tab(logger) -> None:
         figure_title = "Gas Ratio Interpreter - LAS correlation"
         figure_file_name = "las_correlation.html"
 
+    report_metadata_rows = _las_correlation_report_rows(
+        project=active_project,
+        selected_wells=selected_wells,
+        depth_range=depth_range,
+        gis_groups=tuple(gis_groups),
+        gas_groups=tuple(gas_groups),
+        gis_x_range=gis_x_range,
+        gas_x_range=gas_x_range,
+        view_mode=view_mode,
+        comparison_curve=comparison_curve,
+    )
     st.plotly_chart(figure, use_container_width=True)
     st.download_button(
         "HTML для печати графика",
-        data=_plotly_figures_to_html([figure], figure_title),
+        data=_plotly_figures_to_html(
+            [figure],
+            figure_title,
+            subtitle="LAS-корреляция: печатный график выбранного интервала",
+            metadata_rows=report_metadata_rows,
+            notes=(INTERPRETATION_NOTE,),
+        ),
         file_name=figure_file_name,
         mime="text/html",
         use_container_width=True,
