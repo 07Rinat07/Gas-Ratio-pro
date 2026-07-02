@@ -13,6 +13,13 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from core.calculations import CH_WARNING, calculate_gas_ratios
+from core.diagnostics import (
+    build_mapping_diagnostics,
+    build_ratio_nan_diagnostics,
+    interval_ratio_diagnostic_messages,
+    mapping_warning_messages,
+    ratio_nan_warning_messages,
+)
 from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summarize_interpretation
 from core.logging_config import configure_logging, safe_log_value
 from core.models import CalculationConfig, STANDARD_FIELDS
@@ -395,6 +402,80 @@ def _build_mapping_controls(df: pd.DataFrame, detected_mapping: dict[str, str]) 
 
     return mapping
 
+
+def _format_mapping_diagnostics_table(diagnostics: pd.DataFrame) -> pd.DataFrame:
+    if diagnostics.empty:
+        return diagnostics
+    return diagnostics.rename(
+        columns={
+            "label": "Поле",
+            "source_column": "Колонка файла",
+            "status": "Статус",
+            "effect": "Влияние",
+            "action": "Что проверить",
+        }
+    )[["Поле", "Колонка файла", "Статус", "Влияние", "Что проверить"]]
+
+
+def _render_mapping_diagnostics(
+    mapping: dict[str, str],
+    source_columns,
+    messages: tuple[str, ...] | None = None,
+) -> None:
+    messages = messages if messages is not None else mapping_warning_messages(mapping, source_columns)
+    diagnostics = build_mapping_diagnostics(mapping, source_columns)
+
+    with st.expander("Диагностика mapping", expanded=bool(messages)):
+        st.dataframe(_format_mapping_diagnostics_table(diagnostics), use_container_width=True)
+        if messages:
+            for message in messages:
+                st.warning(message)
+        else:
+            st.success("Основные поля сопоставлены.")
+
+
+def _format_ratio_nan_diagnostics_table(diagnostics: pd.DataFrame) -> pd.DataFrame:
+    if diagnostics.empty:
+        return diagnostics
+    table = diagnostics.rename(
+        columns={
+            "label": "Коэффициент",
+            "nan_count": "NaN строк",
+            "row_count": "Всего строк",
+            "causes": "Причина",
+            "action": "Что проверить",
+        }
+    )
+    return table[["Коэффициент", "NaN строк", "Всего строк", "Причина", "Что проверить"]]
+
+
+def _render_ratio_nan_diagnostics(
+    calculated_df: pd.DataFrame,
+    ch_mode: str,
+    messages: tuple[str, ...] | None = None,
+) -> None:
+    messages = messages if messages is not None else ratio_nan_warning_messages(calculated_df, ch_mode=ch_mode)
+    diagnostics = build_ratio_nan_diagnostics(calculated_df, ch_mode=ch_mode)
+
+    with st.expander("Диагностика расчетов", expanded=bool(messages)):
+        st.dataframe(_format_ratio_nan_diagnostics_table(diagnostics), use_container_width=True)
+        if messages:
+            st.caption("Если значение NaN есть только в части строк, проверьте эти интервалы в расчетной таблице.")
+        else:
+            st.success("Wh, Bh, Ch и BAR2 рассчитаны во всех строках.")
+
+
+def _render_formula_reference() -> None:
+    with st.expander("Формулы коэффициентов", expanded=False):
+        st.markdown(
+            "`Wh = (C2 + C3 + iC4 + nC4 + iC5 + nC5) * 100 / (C1 + C2 + C3 + iC4 + nC4 + iC5 + nC5)`\n\n"
+            "`Bh = (C1 + C2) / (C3 + iC4 + nC4 + iC5 + nC5)`\n\n"
+            "`Ch = (C3 + iC4 + nC4 + iC5 + nC5) / (iC4 + nC4 + iC5 + nC5)` в режиме `A`\n\n"
+            "`BAR2 = C1 / C2`\n\n"
+            "`Pixler ratios = C1/C2, C1/C3, C1/(iC4+nC4), C1/(iC5+nC5)`"
+        )
+
+
 def _interval_label(df: pd.DataFrame, index: int) -> str:
     row = df.iloc[index]
     depth = row.get("depth", index)
@@ -413,7 +494,7 @@ def _format_interval_value(row: pd.Series, field: str) -> str:
     return str(value)
 
 
-def _selected_interval_rule_messages(row: pd.Series) -> tuple[str, ...]:
+def _selected_interval_rule_messages(row: pd.Series, ch_mode: str = "A") -> tuple[str, ...]:
     interpretation = str(row.get("interpretation", "Недостаточно данных"))
     messages = [
         f"Предварительная зона: {interpretation}.",
@@ -426,6 +507,10 @@ def _selected_interval_rule_messages(row: pd.Series) -> tuple[str, ...]:
         ),
     ]
 
+    interval_diagnostics = interval_ratio_diagnostic_messages(row, ch_mode=ch_mode)
+    if interval_diagnostics:
+        messages.extend(interval_diagnostics)
+
     if pd.isna(row.get("wh")) or pd.isna(row.get("bh")):
         messages.append("Wh/Bh неполные: проверьте C1-C5, нули в знаменателях и mapping колонок.")
     else:
@@ -435,9 +520,9 @@ def _selected_interval_rule_messages(row: pd.Series) -> tuple[str, ...]:
     return tuple(messages)
 
 
-def _render_interval_rule_summary(selected_row: pd.Series) -> None:
+def _render_interval_rule_summary(selected_row: pd.Series, ch_mode: str = "A") -> None:
     st.subheader("Проверяемые подсказки по интервалу")
-    for message in _selected_interval_rule_messages(selected_row):
+    for message in _selected_interval_rule_messages(selected_row, ch_mode=ch_mode):
         st.info(message)
 
 
@@ -847,6 +932,8 @@ def _render_workspace(logger) -> None:
         len(mapping_result.unmapped_columns),
     )
     manual_mapping = _build_mapping_controls(prepared_df, mapping_result.mapping)
+    mapping_messages = mapping_warning_messages(manual_mapping, prepared_df.columns)
+    _render_mapping_diagnostics(manual_mapping, prepared_df.columns, mapping_messages)
 
     prepared = apply_mapping(prepared_df, manual_mapping)
     logger.info(
@@ -854,6 +941,7 @@ def _render_workspace(logger) -> None:
         safe_log_value(",".join(sorted(manual_mapping.keys()))),
         len(prepared.warnings),
     )
+    _render_formula_reference()
     ch_mode = st.radio(
         "Режим Ch",
         options=["A", "reserved"],
@@ -871,7 +959,14 @@ def _render_workspace(logger) -> None:
         len(calculation.warnings),
     )
 
-    warnings = list(mapping_result.warnings) + list(prepared.warnings) + list(calculation.warnings)
+    nan_messages = ratio_nan_warning_messages(calculated_df, ch_mode=ch_mode)
+    warnings = (
+        list(mapping_result.warnings)
+        + list(prepared.warnings)
+        + list(calculation.warnings)
+        + list(mapping_messages)
+        + list(nan_messages)
+    )
     warnings = list(dict.fromkeys(warnings))
 
     st.subheader("Предупреждения")
@@ -881,6 +976,7 @@ def _render_workspace(logger) -> None:
     else:
         st.success("Критичных предупреждений нет.")
     st.info(CH_WARNING)
+    _render_ratio_nan_diagnostics(calculated_df, ch_mode, nan_messages)
 
     if calculated_df.empty:
         logger.warning("calculated_dataframe_empty")
@@ -912,7 +1008,7 @@ def _render_workspace(logger) -> None:
 
     selected_row = calculated_df.loc[selected_index]
     logger.info("interval_selected index=%s", safe_log_value(selected_index))
-    _render_interval_rule_summary(selected_row)
+    _render_interval_rule_summary(selected_row, ch_mode=ch_mode)
 
     st.subheader("Pixler + ternary")
     left, right = st.columns(2)
