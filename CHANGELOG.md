@@ -10,28 +10,10 @@
 - Черновые ternary-регионы из конфига.
 - Локальное диагностическое логирование в `logs/app.log`.
 - Тесты логирования и палеточного конфига.
-- Документация `docs/palettes.md`, `docs/logging.md` и `docs/ai_agent_plan.md`.
-- План локального бесплатного ИИ-помощника на базе локального runtime и RAG.
-- Offline-first AI skeleton: локальная knowledge base, provider contract, Ollama provider и Streamlit-блок помощника.
-- AI runtime readiness check для offline-docs/Ollama и отображение статуса в UI.
+- Документация `docs/palettes.md` и `docs/logging.md`.
 - Preflight-команда `python scripts/preflight.py` для проверки окружения перед запуском.
-- Каталог профилей локальных AI-моделей, CLI `python scripts/ai_models.py` и preflight-валидация профилей.
-- Manifest локальной RAG-базы знаний, CLI `python scripts/knowledge_base.py` и preflight-валидация источников.
-- Q/A-каталог `config/knowledge_qa.json` для типовых вопросов локального AI-помощника.
-- AI evaluation-кейсы `config/ai_eval_cases.json` и CLI `python scripts/evaluate_ai.py` для проверки RAG/safety качества.
-- Режим `python scripts/evaluate_ai.py --provider-mode configured` для проверки provider из `config/ai.json`.
-- CLI `python scripts/ai_config.py` для безопасного просмотра и переключения AI-provider.
-- CLI `python scripts/setup_local_agent.py` и runbook `docs/local_ai_agent.md` для подготовки локального AI-агента.
-- Подсказка в Streamlit UI с командами подготовки локального AI runtime.
-- CLI `python scripts/export_ai_training_pack.py` для безопасного экспорта AI training/evaluation pack.
-- Локальный override `config/ai.local.json` для включения Ollama без изменения дефолтного `config/ai.json`.
-- Q/A-пример и evaluation-кейс про экран Ollama Launch, чтобы пользователь понимал, что выбирать там не нужно.
-- Streamlit-блок `Чат поддержки` с историей сообщений, быстрыми вопросами и очисткой чата.
-- Q/A-примеры и evaluation-кейсы для первого запуска приложения и диагностики чата поддержки.
 - Windows launcher `run_app.ps1` и запуск Streamlit через `python -m streamlit`, чтобы не зависеть от PATH.
-- Индикатор ожидания ответа Ollama в чате поддержки и логирование времени генерации.
-- Более крупная типографика Streamlit UI, увеличенный таймаут Ollama и fallback-ответ по локальной документации при таймауте модели.
-- Выбор размера интерфейса в sidebar, быстрый режим чата по базе знаний, расширенное распознавание Excel-заголовков и depth-графики по середине интервала.
+- Выбор размера интерфейса в sidebar, расширенное распознавание Excel-заголовков и depth-графики по середине интервала.
 - LAS importer для секций `~Curve`/`~ASCII`, пример `examples/sample_gas_data.las` и тесты полного pipeline mapping/calculation.
 - План вкладки `LAS-редактор` для проверки глубины, изменения шага, добавления строк, ручного/автоматического заполнения пропусков, хранения скважин и выгрузки LAS/XLSX/CSV.
 - Core-ядро LAS-редактора: диагностика глубин, построение сетки шага и стратегии заполнения `empty`, `top`, `bottom`, `average`, `linear`.
@@ -42,6 +24,14 @@
 - Добавлена дорожная карта multi-LAS, интерпретационных depth-графиков, ручного масштаба и печати выбранного интервала.
 - Добавлен подробный `docs/las_correlation_plan.md`: загрузка нескольких LAS, ГИС-кривые рядом с газами, корреляционные графики, масштабирование, печать и этапы реализации.
 - Реализован первый слой `LAS-корреляция`: core-модель скважин, классификация LAS-кривых, Streamlit-вкладка, depth-график ГИС рядом с газами и HTML-выгрузка для печати.
+- Добавлен `docs/project_plan.md` с обновленным планом развития без встроенного генеративного ИИ.
+- Добавлены проверяемые подсказки по выбранному интервалу вместо чат-помощника.
+
+Удалено:
+
+- Убран встроенный AI/Ollama/Llama слой: пакет `ai/`, AI CLI-скрипты, AI config, RAG/Q/A/evaluation/training pack документы и тесты.
+- Убран чат поддержки из Streamlit и команды подготовки локальной модели из документации.
+- `preflight` больше не проверяет локальные модели, provider config, RAG manifest или AI evaluation.
 
 ## v0.3
 

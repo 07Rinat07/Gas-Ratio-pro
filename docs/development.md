@@ -3,28 +3,9 @@
 ## Структура проекта
 
 ```text
-ai/
-  assistant.py            Сбор контекста и вызов provider
-  config_writer.py        Безопасная запись config/ai.json
-  evaluation.py           Локальная проверка качества AI/RAG
-  factory.py              Выбор provider по config/ai.json
-  local_agent_setup.py    Подготовка локального AI-агента
-  knowledge_base.py       Поиск по локальной документации
-  knowledge_manifest.py   Загрузка manifest источников RAG
-  knowledge_qa.py         Загрузка проверяемых Q/A-примеров
-  training_dataset.py     Экспорт безопасного AI training/evaluation pack
-  model_profiles.py       Загрузка и валидация профилей локальных моделей
-  ollama_client.py        Локальный Ollama provider
-  provider.py             Provider contract
-  settings.py             Загрузка config/ai.json
 app/
   streamlit_app.py        Streamlit UI
 config/
-  ai.json                 Конфигурация локального AI-помощника
-  ai_eval_cases.json      Кейсы проверки качества AI-помощника
-  ai_model_profiles.json  Профили рекомендуемых локальных AI-моделей
-  knowledge_qa.json       Проверяемые Q/A-примеры AI-помощника
-  knowledge_sources.json  Manifest локальной базы знаний AI-помощника
   palettes.json           Внешняя конфигурация Pixler/ternary палеток
 core/
   calculations.py         Расчетное ядро
@@ -36,6 +17,9 @@ importers/
   excel_importer.py       Чтение XLSX/XLSM
   header_detector.py      Поиск и применение строки заголовков
   las_importer.py         Чтение LAS-файлов
+las_correlation/
+  core.py                 Подготовка нескольких LAS и классификация кривых
+  charts.py               ГИС/газовые correlation-графики
 las_editor/
   depth_grid.py           Проверка глубин, сетка шага и заполнение LAS-строк
 mapping/
@@ -60,12 +44,6 @@ examples/
   sample_gas_data.csv     Демо CSV-файл для проверки приложения
   sample_gas_data.las     Демо LAS-файл для проверки приложения
 scripts/
-  ai_config.py            Просмотр и переключение AI-provider
-  ai_models.py            Просмотр профилей локальных AI-моделей
-  evaluate_ai.py          Проверка качества AI/RAG
-  export_ai_training_pack.py Экспорт безопасного AI training/evaluation pack
-  knowledge_base.py       Проверка manifest и поиска локальной базы знаний
-  setup_local_agent.py    Подготовка локального AI-агента и скачивание модели
   preflight.py            Проверка окружения перед запуском
 tests/
   test_*.py               Pytest-набор
@@ -93,8 +71,6 @@ cd C:\OSPanel\home\gas-ratio-pro
 .\.venv\Scripts\Activate.ps1
 python -m pytest
 python scripts/preflight.py
-python scripts/knowledge_base.py
-python scripts/evaluate_ai.py
 streamlit run app/streamlit_app.py
 ```
 
@@ -139,13 +115,9 @@ git status --short
 - обновить `docs/user_guide.md`;
 - проверить запуск Streamlit вручную.
 
-Если добавляется AI-функциональность, нужно:
-
-- начинать с provider interface, offline provider и fake provider для тестов;
-- не подключать облачные API без явного разрешения;
-- не логировать полные пользовательские таблицы и сырые данные;
-- обновить `docs/ai_usage.md`, `docs/knowledge_base.md`, `docs/local_ai_agent.md`, `docs/local_model_profiles.md` и `docs/ai_agent_plan.md`;
-- покрыть prompt contract, профильные конфиги, Q/A-каталог, evaluation-кейсы и отказоустойчивость тестами.
+Если появляется идея добавить генеративный ИИ или локальную модель, сначала нужно
+обсудить изменение курса проекта. Текущий принцип: помощь пользователю делается
+через проверяемые правила, мастера, предупреждения, графики, отчеты и документацию.
 
 ## Тестовая стратегия
 
@@ -166,5 +138,5 @@ git status --short
 - v0.5: инженерные палетки и подтвержденные границы зон;
 - v0.6: отчеты PDF/PNG/SVG и печатные планшеты;
 - v0.7: структура проектов;
-- v0.8: локальный ИИ-помощник по документации и интерпретации;
+- v0.8: rule-based мастера диагностики, справочные панели и печатные отчеты;
 - v1.0: коммерческая MVP.

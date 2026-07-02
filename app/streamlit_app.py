@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-import time
 from io import BytesIO
 from pathlib import Path
 
@@ -13,13 +12,6 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from ai.assistant import LocalAssistant
-from ai.factory import build_provider
-from ai.health import check_ai_runtime_status
-from ai.local_agent_setup import build_local_agent_next_commands
-from ai.model_profiles import find_ai_model_profile, load_ai_model_profile_catalog
-from ai.provider import OfflineDocumentationProvider
-from ai.settings import load_ai_settings
 from core.calculations import CH_WARNING, calculate_gas_ratios
 from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summarize_interpretation
 from core.logging_config import configure_logging, safe_log_value
@@ -54,8 +46,6 @@ SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xlsm", ".las"}
 WELLS_STORAGE_ROOT = ROOT_DIR / DEFAULT_WELLS_ROOT
 APP_LAUNCH_COMMAND = "python -m streamlit run app/streamlit_app.py"
 APP_LAUNCH_SCRIPT = ".\\run_app.ps1"
-AI_SUPPORT_CHAT_KEY = "local_ai_support_chat_messages"
-AI_RESPONSE_MODE_KEY = "local_ai_response_mode"
 UI_SCALE_KEY = "ui_scale"
 LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
 LAS_EDITOR_SESSION_SUMMARY_KEY = "las_editor_session_summary"
@@ -67,16 +57,6 @@ APP_TABS = (
     "LAS-корреляция",
     "Интерпретационные графики",
     "Инструкции и документация",
-)
-AI_SUPPORT_WELCOME_MESSAGE = (
-    "Здравствуйте. Я локальный помощник по Gas Ratio Interpreter: формулам, "
-    "импорту, предупреждениям, Ollama и выбранному интервалу."
-)
-AI_SUPPORT_QUICK_QUESTIONS: tuple[tuple[str, str], ...] = (
-    ("Ollama Launch", "В Ollama открылось окно Launch. Что выбрать для проекта?"),
-    ("Почему NaN?", "Почему Wh, Bh или BAR2 могут стать NaN?"),
-    ("Колонки", "Что делать, если приложение не сопоставило колонки C1 и C2?"),
-    ("Палетки", "Можно ли считать зоны Pixler и ternary подтвержденной методикой?"),
 )
 LAS_EDITOR_STEP_PRESETS: tuple[str, ...] = ("0.1", "0.2", "0.5", "1.0", "1.2", "2.0", "Другой")
 LAS_EDITOR_FILL_STRATEGIES: tuple[tuple[str, str], ...] = (
@@ -96,8 +76,7 @@ DOCUMENTATION_TAB_DOCS: tuple[tuple[str, str], ...] = (
     ("План LAS-корреляции", "docs/las_correlation_plan.md"),
     ("Формулы", "docs/formulas.md"),
     ("Mud gas literature", "docs/mud_gas_analysis_literature.md"),
-    ("Локальный AI-помощник", "docs/ai_usage.md"),
-    ("Локальный AI-агент", "docs/local_ai_agent.md"),
+    ("План проекта", "docs/project_plan.md"),
     ("Troubleshooting", "docs/troubleshooting.md"),
 )
 
@@ -211,14 +190,6 @@ def _select_ui_scale() -> str:
         horizontal=False,
     )
     return {"Стандартный": "standard", "Крупный": "large", "Очень крупный": "xlarge"}[selected]
-
-
-def _build_recommended_ai_setup_commands(profile_id: str = "balanced") -> tuple[str, ...]:
-    catalog = load_ai_model_profile_catalog()
-    profile = find_ai_model_profile(catalog, profile_id)
-    if profile is None:
-        return ()
-    return build_local_agent_next_commands(profile)
 
 
 def _load_raw_sheets(uploaded_file) -> dict[str, pd.DataFrame]:
@@ -433,166 +404,55 @@ def _interval_label(df: pd.DataFrame, index: int) -> str:
     return f"{index}: depth={depth} | {interpretation}"
 
 
-def _initial_ai_support_chat_messages() -> list[dict[str, object]]:
-    return [{"role": "assistant", "content": AI_SUPPORT_WELCOME_MESSAGE, "sources": ()}]
+def _format_interval_value(row: pd.Series, field: str) -> str:
+    value = row.get(field)
+    if pd.isna(value):
+        return "нет данных"
+    if isinstance(value, float):
+        return f"{value:.4g}"
+    return str(value)
 
 
-def _build_ai_wait_message(provider_name: str) -> str:
-    if provider_name == "ollama":
-        return "Ollama готовит ответ. Локальная модель может отвечать 20-120 секунд, особенно на первом вопросе."
-    return "ИИ-помощник готовит ответ."
+def _selected_interval_rule_messages(row: pd.Series) -> tuple[str, ...]:
+    interpretation = str(row.get("interpretation", "Недостаточно данных"))
+    messages = [
+        f"Предварительная зона: {interpretation}.",
+        (
+            "Коэффициенты: "
+            f"Wh={_format_interval_value(row, 'wh')}, "
+            f"Bh={_format_interval_value(row, 'bh')}, "
+            f"Ch={_format_interval_value(row, 'ch')}, "
+            f"BAR2={_format_interval_value(row, 'bar2')}."
+        ),
+    ]
 
-
-def _append_ai_support_chat_message(
-    messages: list[dict[str, object]],
-    role: str,
-    content: str,
-    sources: tuple[str, ...] = (),
-) -> None:
-    messages.append({"role": role, "content": content, "sources": sources})
-
-
-def _render_ai_support_chat_message(message: dict[str, object]) -> None:
-    role = str(message.get("role", "assistant"))
-    content = str(message.get("content", ""))
-    raw_sources = message.get("sources", ())
-    sources = tuple(str(source) for source in raw_sources) if isinstance(raw_sources, (tuple, list)) else ()
-
-    with st.chat_message(role):
-        st.markdown(content)
-        if sources:
-            st.caption("Источники: " + ", ".join(sources))
-
-
-def _select_ai_response_provider(ai_settings, configured_provider):
-    if ai_settings.provider != "ollama":
-        return configured_provider, ai_settings.provider
-
-    mode = st.radio(
-        "Режим ответа чата",
-        options=("Быстро: база знаний", "Ollama: локальная модель"),
-        index=0,
-        key=AI_RESPONSE_MODE_KEY,
-        horizontal=True,
-        help="Быстрый режим отвечает по проверенной локальной базе знаний. Ollama может отвечать долго на слабом компьютере.",
-    )
-    if mode.startswith("Ollama"):
-        return configured_provider, "ollama"
-    return OfflineDocumentationProvider(), "offline-docs"
-
-
-def _render_ai_assistant(logger, selected_row: pd.Series | None = None) -> None:
-    st.subheader("Чат поддержки (локальный ИИ)")
-
-    try:
-        ai_settings = load_ai_settings()
-        configured_provider = build_provider(ai_settings)
-    except Exception:
-        logger.exception("ai_settings_load_failed")
-        st.error("Не удалось загрузить конфигурацию ИИ-помощника. Проверьте AI config.")
-        st.caption("Подробности записаны в logs/app.log.")
-        return
-
-    status = check_ai_runtime_status(ai_settings)
-    provider, active_provider_name = _select_ai_response_provider(ai_settings, configured_provider)
-    if ai_settings.provider == "ollama":
-        st.caption(
-            "Ollama в проекте - это этот чат. Отдельной кнопки Ollama нет: "
-            "приложение отправляет вопросы на локальный сервер `localhost:11434`."
-        )
+    if pd.isna(row.get("wh")) or pd.isna(row.get("bh")):
+        messages.append("Wh/Bh неполные: проверьте C1-C5, нули в знаменателях и mapping колонок.")
     else:
-        st.caption(
-            "Помощник работает в режиме `offline-docs`: без интернета, без модели, "
-            "по локальной документации проекта."
-        )
+        messages.append("Wh/Bh рассчитаны: используйте их как инженерную подсказку, а не как утвержденный диагноз.")
 
-    st.caption(f"AI provider: {ai_settings.provider}; режим ответа: {active_provider_name}")
-    if status.ready and ai_settings.provider == "ollama":
-        model_name = ai_settings.ollama.model or "не указана"
-        st.success(f"Локальный ИИ подключен: Ollama, модель `{model_name}`. Пишите вопрос в поле чата ниже.")
-    elif status.ready:
-        st.success(status.message)
-    else:
-        st.warning(status.message)
-    if status.available_models:
-        st.caption("Локальные модели на этом компьютере: " + ", ".join(status.available_models))
+    messages.append("Обязательно сверяйте интервал с ГИС, литологией, фоном, СПО, наращиваниями и рециркуляцией.")
+    return tuple(messages)
 
-    setup_commands = _build_recommended_ai_setup_commands()
-    if setup_commands:
-        install_note, *commands = setup_commands
-        expander_title = "Проверка и запуск локального ИИ" if status.ready else "Подготовка локального ИИ"
-        with st.expander(expander_title, expanded=not status.ready):
-            if status.ready:
-                st.caption("Ollama уже готов. Эти команды нужны для проверки, повторного запуска или настройки другой машины.")
-            else:
-                st.caption(install_note)
-            st.code("\n".join(commands), language="powershell")
 
-    if AI_SUPPORT_CHAT_KEY not in st.session_state:
-        st.session_state[AI_SUPPORT_CHAT_KEY] = _initial_ai_support_chat_messages()
-    messages = st.session_state[AI_SUPPORT_CHAT_KEY]
+def _render_interval_rule_summary(selected_row: pd.Series) -> None:
+    st.subheader("Проверяемые подсказки по интервалу")
+    for message in _selected_interval_rule_messages(selected_row):
+        st.info(message)
 
-    left, right = st.columns([3, 1])
-    left.caption("Быстрые вопросы")
-    if right.button("Очистить чат", key="local_ai_clear_chat", use_container_width=True):
-        st.session_state[AI_SUPPORT_CHAT_KEY] = _initial_ai_support_chat_messages()
-        messages = st.session_state[AI_SUPPORT_CHAT_KEY]
 
-    quick_question = ""
-    quick_columns = st.columns(len(AI_SUPPORT_QUICK_QUESTIONS))
-    for index, (label, prompt) in enumerate(AI_SUPPORT_QUICK_QUESTIONS):
-        if quick_columns[index].button(label, key=f"local_ai_quick_{index}", use_container_width=True):
-            quick_question = prompt
-
-    for message in messages:
-        _render_ai_support_chat_message(message)
-
-    typed_question = st.chat_input(
-        "Напишите вопрос по данным, формулам, Ollama или выбранному интервалу",
-        key="local_ai_chat_input",
+def _render_rule_based_guidance() -> None:
+    st.markdown("### Справка без ИИ")
+    st.info(
+        "Проект больше не использует встроенный генеративный ИИ или локальные модели. "
+        "Для помощи используйте вкладку `Инструкции и документация`, предупреждения workflow и проверяемые правила расчета."
     )
-    question = quick_question or typed_question or ""
-    if not question.strip():
-        return
-
-    assistant = LocalAssistant(provider=provider)
-    interval_row = selected_row if ai_settings.privacy.send_selected_interval_only else None
-    logger.info(
-        "ai_question_received provider=%s ready=%s chars=%d has_interval=%s",
-        safe_log_value(active_provider_name),
-        status.ready,
-        len(question),
-        interval_row is not None,
+    st.markdown(
+        "1. Начните с LAS-файла или демо `examples/sample_gas_data.las`.\n"
+        "2. Если LAS требует подготовки, используйте `LAS-редактор`.\n"
+        "3. Для нескольких скважин используйте `LAS-корреляция`.\n"
+        "4. При ошибках откройте `docs/troubleshooting.md` или последние строки `logs/app.log`."
     )
-    _append_ai_support_chat_message(messages, "user", question.strip())
-    _render_ai_support_chat_message(messages[-1])
-
-    try:
-        started_at = time.perf_counter()
-        with st.spinner(_build_ai_wait_message(active_provider_name)):
-            answer = assistant.answer(question, interval_row=interval_row)
-        elapsed_seconds = time.perf_counter() - started_at
-    except Exception:
-        logger.exception(
-            "ai_answer_failed provider=%s ready=%s chars=%d has_interval=%s",
-            safe_log_value(active_provider_name),
-            status.ready,
-            len(question),
-            interval_row is not None,
-        )
-        st.error("ИИ-помощник не смог подготовить ответ. Подробности записаны в logs/app.log.")
-        return
-
-    logger.info(
-        "ai_answer_generated provider=%s sources=%d seconds=%.1f",
-        safe_log_value(answer.provider_name),
-        len(answer.sources),
-        elapsed_seconds,
-    )
-
-    _append_ai_support_chat_message(messages, "assistant", answer.answer, answer.sources)
-    _render_ai_support_chat_message(messages[-1])
-    st.caption(f"Ответ подготовлен за {elapsed_seconds:.1f} сек.")
 
 
 def _read_documentation_markdown(relative_path: str) -> str:
@@ -608,7 +468,7 @@ def _render_documentation_tab() -> None:
     st.subheader("Инструкции и документация")
     st.caption(
         "Эта вкладка нужна, чтобы новый пользователь мог развернуть проект, "
-        "загрузить файл, понять предупреждения и проверить локальный AI без внешних инструкций."
+        "загрузить файл, понять предупреждения и работать без внешних инструкций."
     )
 
     quick_start, verification = st.columns(2)
@@ -632,14 +492,12 @@ def _render_documentation_tab() -> None:
         st.markdown("### Проверка готовности")
         st.code(
             "python -m pytest\n"
-            "python scripts/preflight.py\n"
-            "python scripts/evaluate_ai.py\n"
-            "python scripts/ai_config.py status",
+            "python scripts/preflight.py",
             language="powershell",
         )
         st.markdown(
-            "Если включен Ollama, preflight должен показать, что локальная модель найдена. "
-            "Если интернета нет или модель не нужна, provider `offline-docs` продолжает работать по локальным документам."
+            "Preflight проверяет Python, зависимости, ключевые файлы, конфиг палеток "
+            "и доступность папки логов. Генеративный ИИ и локальные модели больше не используются."
         )
 
     st.markdown("### Основной рабочий сценарий")
@@ -652,17 +510,16 @@ def _render_documentation_tab() -> None:
         "6. Скачайте расчетную таблицу через `Экспорт CSV`, если результат нужен дальше."
     )
 
-    st.markdown("### Чат поддержки")
+    st.markdown("### Альтернатива без ИИ")
     st.markdown(
-        "Чат поддержки отвечает по локальной документации, Q/A-примерам, формулам, "
-        "Ollama-настройке и выбранному интервалу. Полная таблица и сырые строки файла "
-        "в чат не передаются. Если вопрос выходит за пределы базы знаний, помощник должен "
-        "сказать, что нужно добавить методику или уточнить данные."
+        "Проект опирается на проверяемые правила, документацию, предупреждения и логи. "
+        "Если нужен новый тип подсказки, добавляем явное правило, тест и описание в документацию, "
+        "а не генеративный ответ модели."
     )
-
     for index, (title, relative_path) in enumerate(DOCUMENTATION_TAB_DOCS):
         with st.expander(title, expanded=index == 0):
             st.markdown(_read_documentation_markdown(relative_path))
+
 
 def _render_las_editor(logger) -> None:
     st.subheader("LAS-редактор")
@@ -904,7 +761,7 @@ def _render_workspace(logger) -> None:
 
         if not uploaded_files:
             st.info("Загрузите один или несколько LAS, CSV, XLSX или XLSM файлов с газовыми данными.")
-            _render_ai_assistant(logger)
+            _render_rule_based_guidance()
             return
 
         suffixes = sorted({Path(uploaded_file.name).suffix.lower() for uploaded_file in uploaded_files})
@@ -1056,8 +913,7 @@ def _render_workspace(logger) -> None:
 
     selected_row = calculated_df.loc[selected_index]
     logger.info("interval_selected index=%s", safe_log_value(selected_index))
-
-    _render_ai_assistant(logger, selected_row)
+    _render_interval_rule_summary(selected_row)
 
     st.subheader("Pixler + ternary")
     left, right = st.columns(2)

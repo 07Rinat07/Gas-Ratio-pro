@@ -5,13 +5,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from ai.evaluation import run_ai_evaluation
-from ai.health import HttpGet, check_ai_runtime_status
-from ai.knowledge_base import DocumentationKnowledgeBase
-from ai.knowledge_manifest import load_knowledge_source_manifest
-from ai.knowledge_qa import load_knowledge_qa_catalog
-from ai.model_profiles import load_ai_model_profile_catalog
-from ai.settings import load_ai_settings, resolve_ai_config_path
 from palettes.config import load_palette_config
 
 
@@ -19,27 +12,22 @@ MIN_PYTHON_VERSION = (3, 11)
 RUNTIME_MODULES: tuple[str, ...] = ("pandas", "numpy", "streamlit", "plotly", "openpyxl")
 REQUIRED_PROJECT_FILES: tuple[str, ...] = (
     "app/streamlit_app.py",
-    "config/ai.json",
-    "config/ai_eval_cases.json",
-    "config/ai_model_profiles.json",
-    "config/knowledge_qa.json",
-    "config/knowledge_sources.json",
     "config/palettes.json",
-    "docs/ai_evaluation.md",
-    "docs/ai_training_pack.md",
-    "docs/knowledge_base.md",
-    "docs/local_ai_agent.md",
-    "docs/local_model_profiles.md",
-    "docs/formulas.md",
+    "docs/project_plan.md",
+    "docs/setup.md",
     "docs/user_guide.md",
+    "docs/data_format.md",
+    "docs/formulas.md",
+    "docs/las_editor_plan.md",
+    "docs/las_correlation_plan.md",
+    "docs/mud_gas_analysis_literature.md",
+    "docs/logging.md",
+    "docs/palettes.md",
+    "docs/troubleshooting.md",
     "examples/sample_gas_data.csv",
+    "examples/sample_gas_data.las",
     "requirements.txt",
-    "scripts/ai_config.py",
-    "scripts/ai_models.py",
-    "scripts/evaluate_ai.py",
-    "scripts/export_ai_training_pack.py",
-    "scripts/knowledge_base.py",
-    "scripts/setup_local_agent.py",
+    "scripts/preflight.py",
 )
 
 
@@ -144,117 +132,6 @@ def _check_palette_config(root: Path) -> PreflightCheck:
     )
 
 
-def _check_ai_model_profiles(root: Path) -> PreflightCheck:
-    try:
-        catalog = load_ai_model_profile_catalog(root / "config" / "ai_model_profiles.json")
-    except Exception as exc:
-        return PreflightCheck(
-            name="ai_model_profiles",
-            status="error",
-            message=f"Ошибка config/ai_model_profiles.json: {exc}",
-        )
-
-    return PreflightCheck(
-        name="ai_model_profiles",
-        status="ok",
-        message=f"Профили локальных AI-моделей загружены: {len(catalog.profiles)}.",
-    )
-
-
-def _check_knowledge_sources(root: Path) -> PreflightCheck:
-    try:
-        manifest = load_knowledge_source_manifest(root / "config" / "knowledge_sources.json", root=root)
-        chunks = DocumentationKnowledgeBase(
-            root=root,
-            manifest=manifest,
-            include_qa_examples=False,
-        ).load_chunks()
-    except Exception as exc:
-        return PreflightCheck(
-            name="knowledge_sources",
-            status="error",
-            message=f"Ошибка config/knowledge_sources.json: {exc}",
-        )
-
-    if not chunks:
-        return PreflightCheck(
-            name="knowledge_sources",
-            status="error",
-            message="База знаний не содержит markdown-блоков.",
-        )
-
-    return PreflightCheck(
-        name="knowledge_sources",
-        status="ok",
-        message=f"База знаний загружена: {len(manifest.sources)} источников, {len(chunks)} блоков.",
-    )
-
-
-def _check_knowledge_qa(root: Path) -> PreflightCheck:
-    try:
-        catalog = load_knowledge_qa_catalog(root / "config" / "knowledge_qa.json", root=root)
-    except Exception as exc:
-        return PreflightCheck(
-            name="knowledge_qa",
-            status="error",
-            message=f"Ошибка config/knowledge_qa.json: {exc}",
-        )
-
-    return PreflightCheck(
-        name="knowledge_qa",
-        status="ok",
-        message=f"Q/A-примеры загружены: {len(catalog.examples)}.",
-    )
-
-
-def _check_ai_evaluation(root: Path) -> PreflightCheck:
-    try:
-        report = run_ai_evaluation(root=root)
-    except Exception as exc:
-        return PreflightCheck(
-            name="ai_evaluation",
-            status="error",
-            message=f"Ошибка config/ai_eval_cases.json: {exc}",
-        )
-
-    if not report.ok:
-        failed_ids = ", ".join(result.case_id for result in report.results if not result.passed)
-        return PreflightCheck(
-            name="ai_evaluation",
-            status="error",
-            message=f"AI evaluation не прошел: {failed_ids}.",
-        )
-
-    return PreflightCheck(
-        name="ai_evaluation",
-        status="ok",
-        message=f"AI evaluation пройден: {len(report.results)} кейсов.",
-    )
-
-
-def _check_ai_config(root: Path, http_get: HttpGet | None) -> PreflightCheck:
-    config_path = resolve_ai_config_path(root)
-    try:
-        settings = load_ai_settings(config_path)
-    except Exception as exc:
-        return PreflightCheck(
-            name="ai_config",
-            status="error",
-            message=f"Ошибка {config_path.relative_to(root)}: {exc}",
-        )
-
-    runtime_status = (
-        check_ai_runtime_status(settings)
-        if http_get is None
-        else check_ai_runtime_status(settings, http_get=http_get)
-    )
-    return PreflightCheck(
-        name="ai_runtime",
-        status="ok" if runtime_status.ready else "error",
-        message=runtime_status.message,
-    )
-
-
 def _check_logs_dir(root: Path) -> PreflightCheck:
     log_dir = root / "logs"
     try:
@@ -276,21 +153,13 @@ def _check_logs_dir(root: Path) -> PreflightCheck:
     )
 
 
-def run_preflight(
-    root: str | Path | None = None,
-    http_get: HttpGet | None = None,
-) -> PreflightReport:
+def run_preflight(root: str | Path | None = None) -> PreflightReport:
     resolved_root = Path(root) if root is not None else project_root()
     checks = (
         _check_python_version(),
         _check_required_files(resolved_root),
         _check_runtime_modules(),
         _check_palette_config(resolved_root),
-        _check_ai_model_profiles(resolved_root),
-        _check_knowledge_sources(resolved_root),
-        _check_knowledge_qa(resolved_root),
-        _check_ai_evaluation(resolved_root),
-        _check_ai_config(resolved_root, http_get=http_get),
         _check_logs_dir(resolved_root),
     )
     return PreflightReport(checks=checks)
