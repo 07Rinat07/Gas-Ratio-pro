@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Iterable
 
@@ -129,6 +129,58 @@ def group_curve_columns(columns: Iterable[object]) -> dict[str, tuple[str, ...]]
         column_name = str(column)
         groups[classify_curve_name(column_name)].append(column_name)
     return {group: tuple(values) for group, values in groups.items() if values}
+
+
+def apply_curve_group_overrides(
+    well: LasCorrelationWell,
+    overrides: dict[str, str],
+) -> LasCorrelationWell:
+    groups: dict[str, list[str]] = {group: [] for group in CURVE_GROUP_LABELS}
+    normalized_overrides = {str(column): group for column, group in overrides.items()}
+    current_group_by_column = {
+        column: group
+        for group, columns in well.curve_groups.items()
+        for column in columns
+    }
+    warnings = list(well.warnings)
+
+    for column in well.data.columns:
+        column_name = str(column)
+        current_group = current_group_by_column.get(column_name, classify_curve_name(column_name))
+        target_group = normalized_overrides.get(column_name, current_group)
+        if target_group not in CURVE_GROUP_LABELS:
+            warnings.append(
+                f"Кривая {column_name}: группа {target_group} не поддерживается, использована `Прочие`."
+            )
+            target_group = "other"
+        groups[target_group].append(column_name)
+
+    return replace(
+        well,
+        curve_groups={group: tuple(values) for group, values in groups.items() if values},
+        warnings=tuple(dict.fromkeys(warnings)),
+    )
+
+
+def curve_group_rows(well: LasCorrelationWell) -> tuple[dict[str, str], ...]:
+    rows: list[dict[str, str]] = []
+    group_by_column = {
+        column: group
+        for group, columns in well.curve_groups.items()
+        for column in columns
+    }
+    for column in well.data.columns:
+        column_name = str(column)
+        group = group_by_column.get(column_name, "other")
+        rows.append(
+            {
+                "curve": column_name,
+                "group": group,
+                "group_label": CURVE_GROUP_LABELS.get(group, group),
+                "is_depth": "yes" if column_name == well.depth_column else "no",
+            }
+        )
+    return tuple(rows)
 
 
 def _source_name(file_or_path, fallback_index: int | None = None) -> str:

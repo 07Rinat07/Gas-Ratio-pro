@@ -31,7 +31,9 @@ from las_correlation import (
     CURVE_GROUP_LABELS,
     DEFAULT_GAS_GROUPS,
     DEFAULT_GIS_GROUPS,
+    apply_curve_group_overrides,
     build_las_correlation_figure,
+    curve_group_rows,
     prepare_las_correlation_wells,
 )
 from las_editor.depth_grid import resample_las_data
@@ -1158,6 +1160,67 @@ def _curve_group_label(group: str) -> str:
     return CURVE_GROUP_LABELS.get(group, group)
 
 
+def _curve_group_option_label(group: str) -> str:
+    return f"{_curve_group_label(group)} ({group})"
+
+
+def _format_curve_group_rows(well) -> pd.DataFrame:
+    rows = pd.DataFrame(curve_group_rows(well))
+    if rows.empty:
+        return rows
+    return rows.rename(
+        columns={
+            "curve": "Кривая",
+            "group": "Группа",
+            "group_label": "Название группы",
+            "is_depth": "Depth curve",
+        }
+    )[["Кривая", "Группа", "Название группы", "Depth curve"]]
+
+
+def _render_curve_group_override_controls(wells):
+    selected_wells = list(wells)
+    if not selected_wells:
+        return tuple()
+
+    use_manual_groups = st.checkbox(
+        "Ручное назначение групп кривых",
+        value=False,
+        key="las_correlation_manual_curve_groups",
+    )
+    if not use_manual_groups:
+        return tuple(selected_wells)
+
+    group_options = tuple(CURVE_GROUP_LABELS.keys())
+    overridden_wells = []
+    with st.expander("Ручное назначение кривых", expanded=True):
+        st.caption("Используйте этот блок, если LAS содержит нестандартные мнемоники или авто-группа выбрана неверно.")
+        for well in selected_wells:
+            st.markdown(f"#### {well.name}")
+            rows = curve_group_rows(well)
+            st.dataframe(_format_curve_group_rows(well), use_container_width=True)
+
+            current_group_by_curve = {row["curve"]: row["group"] for row in rows}
+            overrides: dict[str, str] = {}
+            columns = st.columns(3)
+            for index, curve in enumerate(str(column) for column in well.data.columns):
+                current_group = current_group_by_curve.get(curve, "other")
+                default_index = group_options.index(current_group) if current_group in group_options else group_options.index("other")
+                selected_group = columns[index % 3].selectbox(
+                    curve,
+                    options=group_options,
+                    index=default_index,
+                    format_func=_curve_group_option_label,
+                    key=f"las_correlation_group_override_{well.name}_{curve}",
+                )
+                if selected_group != current_group:
+                    overrides[curve] = selected_group
+
+            overridden_wells.append(apply_curve_group_overrides(well, overrides))
+
+    return tuple(overridden_wells)
+
+
 def _render_las_correlation_tab(logger) -> None:
     st.subheader("LAS-корреляция")
     st.caption("Загрузите несколько LAS, чтобы смотреть ГИС-кривые рядом с газами по общей глубине.")
@@ -1207,6 +1270,8 @@ def _render_las_correlation_tab(logger) -> None:
     if not selected_wells:
         st.warning("Выберите хотя бы одну скважину.")
         return
+
+    selected_wells = list(_render_curve_group_override_controls(selected_wells))
 
     group_options = [
         group

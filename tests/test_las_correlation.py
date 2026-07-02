@@ -5,8 +5,10 @@ from io import BytesIO
 import pytest
 
 from las_correlation import (
+    apply_curve_group_overrides,
     build_las_correlation_figure,
     classify_curve_name,
+    curve_group_rows,
     group_curve_columns,
     prepare_las_correlation_well,
     prepare_las_correlation_wells,
@@ -69,6 +71,27 @@ def test_group_curve_columns_preserves_columns_by_group():
     assert groups["other"] == ("COMMENT",)
 
 
+def test_apply_curve_group_overrides_moves_curve_to_selected_group():
+    well = prepare_las_correlation_well(BytesIO(_sample_las_bytes()), name="Well A")
+
+    overridden = apply_curve_group_overrides(well, {"TGAS": "gamma", "GR": "other"})
+
+    assert overridden.curve_groups["gamma"] == ("TGAS",)
+    assert "GR" not in overridden.curve_groups.get("gamma", ())
+    assert "GR" in overridden.curve_groups["other"]
+
+
+def test_curve_group_rows_show_current_group_and_depth_flag():
+    well = prepare_las_correlation_well(BytesIO(_sample_las_bytes()), name="Well A")
+
+    rows = curve_group_rows(well)
+    rows_by_curve = {row["curve"]: row for row in rows}
+
+    assert rows_by_curve["DEPT"]["group"] == "depth"
+    assert rows_by_curve["DEPT"]["is_depth"] == "yes"
+    assert rows_by_curve["GR"]["group_label"] == "Gamma ray / GR"
+
+
 def test_prepare_las_correlation_well_sorts_depth_and_keeps_gis_curves():
     stream = BytesIO(_sample_las_bytes())
 
@@ -115,3 +138,17 @@ def test_build_las_correlation_figure_puts_gis_and_gas_tracks_side_by_side():
     assert "Well A: C1" in trace_names
     assert tuple(fig.layout.yaxis.range) == (1001.0, 1000.0)
     assert fig.layout.height == 500
+
+def test_las_correlation_figure_uses_overridden_groups():
+    well = prepare_las_correlation_well(BytesIO(_sample_las_bytes()), name="Well A")
+    overridden = apply_curve_group_overrides(well, {"TGAS": "gamma"})
+
+    fig = build_las_correlation_figure(
+        [overridden],
+        gis_groups=("gamma",),
+        gas_groups=("total_gas",),
+    )
+
+    trace_names = {trace.name for trace in fig.data}
+    assert "Well A: TGAS" in trace_names
+    assert "Well A: GR" in trace_names
