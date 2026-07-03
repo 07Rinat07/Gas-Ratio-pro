@@ -10,6 +10,7 @@ from palettes.config import load_palette_config
 
 MIN_PYTHON_VERSION = (3, 11)
 RUNTIME_MODULES: tuple[str, ...] = ("pandas", "numpy", "streamlit", "plotly", "openpyxl")
+STATIC_EXPORT_MODULE = "kaleido"
 REQUIRED_PROJECT_FILES: tuple[str, ...] = (
     "app/streamlit_app.py",
     "config/palettes.json",
@@ -99,6 +100,24 @@ def _check_runtime_modules() -> PreflightCheck:
     )
 
 
+def _check_static_export_module() -> PreflightCheck:
+    if importlib.util.find_spec(STATIC_EXPORT_MODULE) is not None:
+        return PreflightCheck(
+            name="static_export",
+            status="ok",
+            message="PNG/PDF/SVG экспорт доступен.",
+        )
+
+    return PreflightCheck(
+        name="static_export",
+        status="warning",
+        message=(
+            "PNG/PDF/SVG экспорт недоступен без kaleido. "
+            "Выполните `pip install -r requirements.txt`, если нужен статический экспорт графиков."
+        ),
+    )
+
+
 def _check_required_files(root: Path) -> PreflightCheck:
     missing = [relative for relative in REQUIRED_PROJECT_FILES if not (root / relative).exists()]
     if not missing:
@@ -159,6 +178,7 @@ def run_preflight(root: str | Path | None = None) -> PreflightReport:
         _check_python_version(),
         _check_required_files(resolved_root),
         _check_runtime_modules(),
+        _check_static_export_module(),
         _check_palette_config(resolved_root),
         _check_logs_dir(resolved_root),
     )

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.streamlit_app import ACTIVE_PROJECT_ID_KEY, _project_selectbox_key
 from projects import DEFAULT_PROJECT_ID, create_project, ensure_default_project, list_projects, load_project
 
 
@@ -27,3 +28,10 @@ def test_create_project_uses_unique_ids_and_lists_projects(tmp_path):
 def test_create_project_rejects_unsafe_project_id(tmp_path):
     with pytest.raises(ValueError, match="Некорректный идентификатор проекта"):
         create_project(tmp_path, name="Bad", project_id="../bad")
+
+
+def test_project_selectbox_key_is_decoupled_from_active_project_state():
+    project_ids = ("default", "demo")
+
+    assert _project_selectbox_key("default", project_ids) != ACTIVE_PROJECT_ID_KEY
+    assert _project_selectbox_key("default", project_ids) != _project_selectbox_key("demo", project_ids)

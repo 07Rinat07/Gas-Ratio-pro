@@ -59,8 +59,20 @@ from palettes.depth_tracks import (
 from palettes.pixler import build_pixler_palette
 from palettes.ternary import build_ternary_palette
 from projects import ProjectRecord, create_project, ensure_default_project, list_projects
+from projects.las_files import (
+    ProjectLasFile,
+    list_project_las_files,
+    read_project_las_file_bytes,
+    save_project_las_file,
+)
 from reports.export_csv import export_csv_bytes
 from reports.export_html import HtmlReportMetadata, build_plotly_html_report
+from reports.export_static import (
+    SUPPORTED_STATIC_EXPORT_FORMATS,
+    StaticExportOptions,
+    StaticExportUnavailableError,
+    export_plotly_static_bytes,
+)
 from wells.repository import DEFAULT_WELLS_ROOT, list_wells, read_well_file_bytes, save_well_version
 
 
@@ -76,6 +88,7 @@ INTERPRETATION_SESSION_DATA_KEY = "interpretation_session_data"
 INTERPRETATION_SESSION_SOURCE_KEY = "interpretation_session_source"
 LAS_CORRELATION_SETTINGS_KEY = "las_correlation_settings"
 ACTIVE_PROJECT_ID_KEY = "active_project_id"
+PROJECT_SELECTBOX_KEY_PREFIX = "active_project_select"
 APP_TABS = (
     "Работа с данными",
     "LAS-редактор",
@@ -335,6 +348,84 @@ def _las_correlation_report_rows(
     if view_mode == VIEW_MODE_BY_CURVE and comparison_curve:
         rows.insert(4, ("Кривая сравнения", comparison_curve))
     return tuple(rows)
+
+def _static_export_mime(format_name: str) -> str:
+    return {
+        "png": "image/png",
+        "pdf": "application/pdf",
+        "svg": "image/svg+xml",
+    }.get(format_name, "application/octet-stream")
+
+
+def _render_static_export_controls(
+    figure,
+    *,
+    base_file_name: str,
+    default_height: int,
+    key_prefix: str,
+) -> None:
+    with st.expander("PNG/PDF/SVG экспорт", expanded=False):
+        st.caption(
+            "Статический экспорт готовит отдельные файлы графика. "
+            "Если движок экспорта не установлен, приложение покажет понятное предупреждение."
+        )
+        prepare_export = st.checkbox(
+            "Подготовить PNG/PDF/SVG файлы",
+            value=False,
+            key=f"{key_prefix}_prepare_static_export",
+        )
+        width_col, height_col, scale_col = st.columns(3)
+        export_width = width_col.number_input(
+            "Ширина, px",
+            min_value=600,
+            max_value=4000,
+            value=1600,
+            step=100,
+            key=f"{key_prefix}_static_width",
+        )
+        export_height = height_col.number_input(
+            "Высота, px",
+            min_value=600,
+            max_value=6000,
+            value=max(900, int(default_height)),
+            step=100,
+            key=f"{key_prefix}_static_height",
+        )
+        export_scale = scale_col.number_input(
+            "Scale",
+            min_value=0.5,
+            max_value=4.0,
+            value=2.0,
+            step=0.5,
+            key=f"{key_prefix}_static_scale",
+        )
+        if not prepare_export:
+            return
+
+        base_name = Path(base_file_name).stem or "las_correlation"
+        columns = st.columns(len(SUPPORTED_STATIC_EXPORT_FORMATS))
+        for index, format_name in enumerate(SUPPORTED_STATIC_EXPORT_FORMATS):
+            try:
+                data = export_plotly_static_bytes(
+                    figure,
+                    StaticExportOptions(
+                        format=format_name,
+                        width=int(export_width),
+                        height=int(export_height),
+                        scale=float(export_scale),
+                    ),
+                )
+            except StaticExportUnavailableError as exc:
+                st.warning(str(exc))
+                break
+            columns[index].download_button(
+                format_name.upper(),
+                data=data,
+                file_name=f"{base_name}.{format_name}",
+                mime=_static_export_mime(format_name),
+                use_container_width=True,
+                key=f"{key_prefix}_download_{format_name}",
+            )
 
 
 def _find_default_depth_column(df: pd.DataFrame) -> str:
@@ -1352,6 +1443,12 @@ def _apply_las_correlation_settings_to_session(settings: LasCorrelationSettings,
             st.session_state[f"las_correlation_group_override_{well.name}_{curve}"] = group
 
 
+class _NamedLasBytesIO(BytesIO):
+    def __init__(self, data: bytes, name: str) -> None:
+        super().__init__(data)
+        self.name = name
+
+
 def _project_settings_session_key(project_id: str) -> str:
     return f"{LAS_CORRELATION_SETTINGS_KEY}:{project_id}"
 
@@ -1371,9 +1468,14 @@ def _load_project_records_for_ui(logger) -> tuple[ProjectRecord, ...]:
         return (ProjectRecord(id=DEFAULT_PROJECT_ID, name="Основной проект"),)
 
 
+def _project_selectbox_key(current_project_id: str, project_ids: tuple[str, ...]) -> str:
+    return f"{PROJECT_SELECTBOX_KEY_PREFIX}_{current_project_id}_{len(project_ids)}"
+
+
 def _render_las_correlation_project_selector(logger) -> ProjectRecord:
     projects = _load_project_records_for_ui(logger)
     projects_by_id = {project.id: project for project in projects}
+    project_ids = tuple(projects_by_id)
     current_project_id = st.session_state.get(ACTIVE_PROJECT_ID_KEY)
     if current_project_id not in projects_by_id:
         current_project_id = DEFAULT_PROJECT_ID if DEFAULT_PROJECT_ID in projects_by_id else projects[0].id
@@ -1382,11 +1484,12 @@ def _render_las_correlation_project_selector(logger) -> ProjectRecord:
     with st.expander("Проект", expanded=True):
         selected_project_id = st.selectbox(
             "Активный проект",
-            options=tuple(projects_by_id),
-            index=tuple(projects_by_id).index(current_project_id),
+            options=project_ids,
+            index=project_ids.index(current_project_id),
             format_func=lambda project_id: _project_option_label(projects_by_id[project_id]),
-            key=ACTIVE_PROJECT_ID_KEY,
+            key=_project_selectbox_key(current_project_id, project_ids),
         )
+        st.session_state[ACTIVE_PROJECT_ID_KEY] = selected_project_id
         active_project = projects_by_id[selected_project_id]
         st.caption(f"Папка проекта: data/projects/{active_project.id}/")
 
@@ -1412,7 +1515,7 @@ def _render_las_correlation_project_selector(logger) -> ProjectRecord:
                         logger.exception("project_create_failed")
                         st.error("Не удалось создать проект.")
 
-    return projects_by_id[st.session_state[ACTIVE_PROJECT_ID_KEY]]
+    return active_project
 
 
 def _load_project_las_correlation_settings(project_id: str) -> LasCorrelationSettings | None:
@@ -1425,6 +1528,86 @@ def _load_project_las_correlation_settings(project_id: str) -> LasCorrelationSet
         st.warning("Не удалось прочитать настройки проекта. Проверьте файл настроек.")
         return None
 
+
+def _project_las_option_label(record: ProjectLasFile) -> str:
+    return f"{record.name} | {record.saved_at} | {record.original_file_name}"
+
+
+def _project_las_records_table(records: tuple[ProjectLasFile, ...]) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "Скважина": record.name,
+                "Файл": record.original_file_name,
+                "Размер, KB": round(record.size_bytes / 1024, 1),
+                "Сохранено": record.saved_at,
+                "ID": record.id,
+            }
+            for record in records
+        ]
+    )
+
+
+def _render_project_las_files_panel(
+    project: ProjectRecord,
+    uploaded_files: tuple[object, ...],
+    logger,
+) -> tuple[object, ...]:
+    saved_records = list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+    selected_records: tuple[ProjectLasFile, ...] = ()
+
+    with st.expander("LAS-файлы проекта", expanded=bool(saved_records)):
+        if uploaded_files:
+            st.caption("Сохраните загруженные LAS в активный проект, чтобы открыть их после перезапуска приложения.")
+            if st.button("Сохранить загруженные LAS в проект", use_container_width=True, key="save_uploaded_las_to_project"):
+                try:
+                    saved_count = 0
+                    for uploaded_file in uploaded_files:
+                        original_name = Path(str(getattr(uploaded_file, "name", "source.las"))).name
+                        save_project_las_file(
+                            data=bytes(uploaded_file.getvalue()),
+                            root=LAS_CORRELATION_PROJECTS_ROOT,
+                            project_id=project.id,
+                            file_name=original_name,
+                            well_name=Path(original_name).stem,
+                        )
+                        saved_count += 1
+                    logger.info("project_las_files_saved project_id=%s count=%d", safe_log_value(project.id), saved_count)
+                    st.success(f"LAS-файлы сохранены в проект: {saved_count}.")
+                    st.rerun()
+                except Exception:
+                    logger.exception("project_las_files_save_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось сохранить LAS-файлы в проект. Подробности записаны в logs/app.log.")
+
+        if not saved_records:
+            st.caption("В активном проекте пока нет сохраненных LAS-файлов.")
+            return ()
+
+        st.dataframe(_project_las_records_table(saved_records), use_container_width=True, height=220)
+        records_by_id = {record.id: record for record in saved_records}
+        default_ids = tuple(records_by_id) if not uploaded_files else ()
+        selected_ids = st.multiselect(
+            "Добавить сохраненные LAS из проекта в корреляцию",
+            options=tuple(records_by_id),
+            default=default_ids,
+            format_func=lambda record_id: _project_las_option_label(records_by_id[record_id]),
+            key=f"project_las_files_{project.id}",
+        )
+        selected_records = tuple(records_by_id[record_id] for record_id in selected_ids)
+
+    sources: list[object] = []
+    for record in selected_records:
+        try:
+            data = read_project_las_file_bytes(LAS_CORRELATION_PROJECTS_ROOT, project.id, record.id)
+            sources.append(_NamedLasBytesIO(data, f"{record.name}.las"))
+        except Exception:
+            logger.exception(
+                "project_las_file_read_failed project_id=%s las_file_id=%s",
+                safe_log_value(project.id),
+                safe_log_value(record.id),
+            )
+            st.error(f"Не удалось прочитать LAS из проекта: {record.name}.")
+    return tuple(sources)
 
 def _render_las_correlation_settings_loader(wells, group_options: tuple[str, ...], project_id: str) -> None:
     session_key = _project_settings_session_key(project_id)
@@ -1512,18 +1695,23 @@ def _render_las_correlation_tab(logger) -> None:
     st.caption("Загрузите несколько LAS, чтобы смотреть ГИС-кривые рядом с газами по общей глубине.")
     active_project = _render_las_correlation_project_selector(logger)
 
-    uploaded_files = st.file_uploader(
-        "LAS-файлы для корреляции",
-        type=["las"],
-        accept_multiple_files=True,
-        key="las_correlation_files",
+    uploaded_files = tuple(
+        st.file_uploader(
+            "LAS-файлы для корреляции",
+            type=["las"],
+            accept_multiple_files=True,
+            key="las_correlation_files",
+        )
+        or ()
     )
-    if not uploaded_files:
-        st.info("Загрузите два или больше LAS-файла для сравнения скважин. Один LAS тоже можно открыть для проверки треков.")
+    project_las_sources = _render_project_las_files_panel(active_project, uploaded_files, logger)
+    las_sources = (*project_las_sources, *uploaded_files)
+    if not las_sources:
+        st.info("Загрузите LAS-файлы или выберите сохраненные LAS активного проекта.")
         return
 
     try:
-        wells = prepare_las_correlation_wells(uploaded_files)
+        wells = prepare_las_correlation_wells(las_sources)
     except Exception:
         logger.exception("las_correlation_read_failed")
         st.error("Не удалось прочитать LAS-файлы для корреляции. Проверьте секции ~Curve и ~ASCII.")
@@ -1705,6 +1893,12 @@ def _render_las_correlation_tab(logger) -> None:
         file_name=figure_file_name,
         mime="text/html",
         use_container_width=True,
+    )
+    _render_static_export_controls(
+        figure,
+        base_file_name=figure_file_name,
+        default_height=int(figure.layout.height or height_per_well),
+        key_prefix="las_correlation",
     )
     _render_las_correlation_interval_table(
         selected_wells,
