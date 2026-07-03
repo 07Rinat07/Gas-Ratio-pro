@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime
+import importlib
 import sys
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 
@@ -59,15 +60,7 @@ from palettes.depth_tracks import (
 from palettes.pixler import build_pixler_palette
 from palettes.ternary import build_ternary_palette
 from projects import ProjectRecord, create_project, ensure_default_project, list_projects
-from projects.las_files import (
-    ProjectLasFile,
-    ProjectLasWellCard,
-    list_project_las_files,
-    list_project_las_wells,
-    read_project_las_file_bytes,
-    save_project_las_file,
-    set_project_las_file_archived,
-)
+from projects import las_files as project_las_files
 from reports.export_csv import export_csv_bytes
 from reports.export_html import HtmlReportMetadata, build_plotly_html_report
 from reports.export_static import (
@@ -78,6 +71,12 @@ from reports.export_static import (
 )
 from wells.repository import DEFAULT_WELLS_ROOT, list_wells, read_well_file_bytes, save_well_version
 
+project_las_files = importlib.reload(project_las_files)
+list_project_las_files = project_las_files.list_project_las_files
+list_project_las_wells = project_las_files.list_project_las_wells
+read_project_las_file_bytes = project_las_files.read_project_las_file_bytes
+save_project_las_file = project_las_files.save_project_las_file
+set_project_las_file_archived = project_las_files.set_project_las_file_archived
 
 SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xlsm", ".las"}
 WELLS_STORAGE_ROOT = ROOT_DIR / DEFAULT_WELLS_ROOT
