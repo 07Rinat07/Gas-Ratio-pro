@@ -13,7 +13,7 @@ from projects.repository import DEFAULT_PROJECT_ID, DEFAULT_PROJECTS_ROOT, safe_
 PROJECT_WELLS_DIR_NAME = "wells"
 PROJECT_LAS_MANIFEST_FILE_NAME = "las_files.json"
 PROJECT_LAS_SOURCE_FILE_NAME = "source.las"
-PROJECT_LAS_FILES_SCHEMA_VERSION = 2
+PROJECT_LAS_FILES_SCHEMA_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,7 @@ class ProjectLasFile:
     size_bytes: int
     well_id: str = ""
     version_label: str = ""
+    archived_at: str = ""
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,7 @@ def _record_from_dict(raw: dict[str, Any]) -> ProjectLasFile:
         size_bytes=int(raw.get("size_bytes", 0) or 0),
         well_id=well_id,
         version_label=version_label,
+        archived_at=str(raw.get("archived_at", "")),
     )
 
 
@@ -88,6 +90,7 @@ def _record_to_dict(record: ProjectLasFile) -> dict[str, Any]:
         "original_file_name": record.original_file_name,
         "saved_at": record.saved_at,
         "size_bytes": record.size_bytes,
+        "archived_at": record.archived_at,
     }
 
 
@@ -117,26 +120,30 @@ def _write_manifest(root: Path | str, project_id: str, records: tuple[ProjectLas
 def list_project_las_files(
     root: Path | str = DEFAULT_PROJECTS_ROOT,
     project_id: str = DEFAULT_PROJECT_ID,
+    include_archived: bool = False,
 ) -> tuple[ProjectLasFile, ...]:
     try:
         records = _read_manifest(root, project_id)
     except (OSError, json.JSONDecodeError, TypeError, ValueError):
         return ()
+    if not include_archived:
+        records = tuple(record for record in records if not record.archived_at)
     return tuple(sorted(records, key=lambda record: record.saved_at, reverse=True))
 
 
 def list_project_las_wells(
     root: Path | str = DEFAULT_PROJECTS_ROOT,
     project_id: str = DEFAULT_PROJECT_ID,
+    include_archived: bool = False,
 ) -> tuple[ProjectLasWellCard, ...]:
     grouped: dict[str, list[ProjectLasFile]] = {}
-    for record in list_project_las_files(root, project_id):
+    for record in list_project_las_files(root, project_id, include_archived=include_archived):
         grouped.setdefault(record.well_id or _slugify(record.name), []).append(record)
 
     cards: list[ProjectLasWellCard] = []
     for well_id, versions in grouped.items():
         sorted_versions = tuple(sorted(versions, key=lambda record: record.saved_at, reverse=True))
-        latest = sorted_versions[0]
+        latest = next((record for record in sorted_versions if not record.archived_at), sorted_versions[0])
         cards.append(
             ProjectLasWellCard(
                 id=well_id,
@@ -189,12 +196,47 @@ def save_project_las_file(
     return record
 
 
+def set_project_las_file_archived(
+    root: Path | str,
+    project_id: str,
+    las_file_id: str,
+    archived: bool = True,
+) -> ProjectLasFile:
+    _safe_las_file_id(las_file_id)
+    records = list(_read_manifest(root, project_id))
+    updated_records: list[ProjectLasFile] = []
+    updated_record: ProjectLasFile | None = None
+    archived_at = _utc_now() if archived else ""
+
+    for record in records:
+        if record.id == las_file_id:
+            updated_record = ProjectLasFile(
+                id=record.id,
+                name=record.name,
+                original_file_name=record.original_file_name,
+                saved_at=record.saved_at,
+                size_bytes=record.size_bytes,
+                well_id=record.well_id,
+                version_label=record.version_label,
+                archived_at=archived_at,
+            )
+            updated_records.append(updated_record)
+        else:
+            updated_records.append(record)
+
+    if updated_record is None:
+        raise FileNotFoundError(f"Project LAS file not found: {las_file_id}")
+
+    _write_manifest(root, project_id, tuple(updated_records))
+    return updated_record
+
+
 def read_project_las_file_bytes(
     root: Path | str,
     project_id: str,
     las_file_id: str,
 ) -> bytes:
-    records = {record.id: record for record in list_project_las_files(root, project_id)}
+    records = {record.id: record for record in list_project_las_files(root, project_id, include_archived=True)}
     if las_file_id not in records:
         raise FileNotFoundError(f"Project LAS file not found: {las_file_id}")
     return (_las_file_dir(root, project_id, las_file_id) / PROJECT_LAS_SOURCE_FILE_NAME).read_bytes()

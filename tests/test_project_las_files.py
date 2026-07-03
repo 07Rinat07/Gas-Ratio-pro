@@ -7,6 +7,7 @@ from projects import (
     list_project_las_wells,
     read_project_las_file_bytes,
     save_project_las_file,
+    set_project_las_file_archived,
 )
 
 
@@ -29,6 +30,7 @@ def test_project_las_file_roundtrip(tmp_path):
     assert records[0].name == "Well A"
     assert records[0].well_id == "well-a"
     assert records[0].version_label == "Исходный LAS"
+    assert records[0].archived_at == ""
     assert records[0].original_file_name == "Well A.las"
     assert read_project_las_file_bytes(tmp_path, "demo", record.id) == LAS_BYTES
     assert (tmp_path / "demo" / "wells" / record.id / "source.las").exists()
@@ -62,6 +64,44 @@ def test_project_las_file_uses_unique_ids_and_groups_versions_by_well(tmp_path):
     assert well_cards[0].id == "well-a"
     assert well_cards[0].name == "Well A"
     assert {version.version_label for version in well_cards[0].versions} == {"raw 1", "raw 2"}
+
+
+def test_project_las_file_archive_hides_version_without_deleting_source(tmp_path):
+    first = save_project_las_file(
+        LAS_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="well-a-raw.las",
+        well_name="Well A",
+        version_label="raw",
+    )
+    second = save_project_las_file(
+        LAS_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="well-a-fixed.las",
+        well_name="Well A",
+        version_label="fixed",
+    )
+
+    archived = set_project_las_file_archived(tmp_path, "demo", first.id, archived=True)
+
+    active_records = list_project_las_files(tmp_path, "demo")
+    all_records = list_project_las_files(tmp_path, "demo", include_archived=True)
+    active_cards = list_project_las_wells(tmp_path, "demo")
+    all_cards = list_project_las_wells(tmp_path, "demo", include_archived=True)
+
+    assert archived.archived_at
+    assert {record.id for record in active_records} == {second.id}
+    assert {record.id for record in all_records} == {first.id, second.id}
+    assert [version.id for version in active_cards[0].versions] == [second.id]
+    assert {version.id for version in all_cards[0].versions} == {first.id, second.id}
+    assert read_project_las_file_bytes(tmp_path, "demo", first.id) == LAS_BYTES
+
+    restored = set_project_las_file_archived(tmp_path, "demo", first.id, archived=False)
+
+    assert restored.archived_at == ""
+    assert {record.id for record in list_project_las_files(tmp_path, "demo")} == {first.id, second.id}
 
 
 def test_project_las_file_rejects_unsafe_project_id(tmp_path):

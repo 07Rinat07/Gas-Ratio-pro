@@ -62,9 +62,11 @@ from projects import ProjectRecord, create_project, ensure_default_project, list
 from projects.las_files import (
     ProjectLasFile,
     ProjectLasWellCard,
+    list_project_las_files,
     list_project_las_wells,
     read_project_las_file_bytes,
     save_project_las_file,
+    set_project_las_file_archived,
 )
 from reports.export_csv import export_csv_bytes
 from reports.export_html import HtmlReportMetadata, build_plotly_html_report
@@ -1531,7 +1533,8 @@ def _load_project_las_correlation_settings(project_id: str) -> LasCorrelationSet
 
 
 def _project_las_option_label(record: ProjectLasFile) -> str:
-    return f"{record.name} | {record.version_label} | {record.saved_at} | {record.original_file_name}"
+    status = " | архив" if record.archived_at else ""
+    return f"{record.name} | {record.version_label} | {record.saved_at} | {record.original_file_name}{status}"
 
 
 def _project_las_records_table(well_cards: tuple[ProjectLasWellCard, ...]) -> pd.DataFrame:
@@ -1542,9 +1545,11 @@ def _project_las_records_table(well_cards: tuple[ProjectLasWellCard, ...]) -> pd
                 {
                     "Скважина": card.name,
                     "Версия": version.version_label,
+                    "Статус": "архив" if version.archived_at else "активна",
                     "Файл": version.original_file_name,
                     "Размер, KB": round(version.size_bytes / 1024, 1),
                     "Сохранено": version.saved_at,
+                    "Архивировано": version.archived_at,
                     "Well ID": card.id,
                     "Version ID": version.id,
                 }
@@ -1557,11 +1562,13 @@ def _render_project_las_files_panel(
     uploaded_files: tuple[object, ...],
     logger,
 ) -> tuple[object, ...]:
-    saved_well_cards = list_project_las_wells(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-    saved_records = tuple(version for card in saved_well_cards for version in card.versions)
+    active_well_cards = list_project_las_wells(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+    active_records = tuple(version for card in active_well_cards for version in card.versions)
+    all_records = list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, project.id, include_archived=True)
+    archived_records = tuple(record for record in all_records if record.archived_at)
     selected_records: tuple[ProjectLasFile, ...] = ()
 
-    with st.expander("LAS-файлы проекта", expanded=bool(saved_records)):
+    with st.expander("LAS-файлы проекта", expanded=bool(active_records or archived_records)):
         if uploaded_files:
             st.caption("Сохраните загруженные LAS в активный проект, чтобы открыть их после перезапуска приложения.")
             if st.button("Сохранить загруженные LAS в проект", use_container_width=True, key="save_uploaded_las_to_project"):
@@ -1589,13 +1596,82 @@ def _render_project_las_files_panel(
                     logger.exception("project_las_files_save_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось сохранить LAS-файлы в проект. Подробности записаны в logs/app.log.")
 
-        if not saved_records:
+        if not active_records and not archived_records:
             st.caption("В активном проекте пока нет сохраненных LAS-файлов.")
             return ()
 
-        st.dataframe(_project_las_records_table(saved_well_cards), use_container_width=True, height=240)
-        records_by_id = {record.id: record for record in saved_records}
-        latest_version_ids = tuple(card.versions[0].id for card in saved_well_cards if card.versions)
+        show_archived = False
+        if archived_records:
+            show_archived = st.checkbox(
+                "Показать архивные версии",
+                value=False,
+                key=f"project_las_show_archived_{project.id}",
+            )
+        display_well_cards = list_project_las_wells(
+            LAS_CORRELATION_PROJECTS_ROOT,
+            project.id,
+            include_archived=show_archived,
+        )
+        st.dataframe(_project_las_records_table(display_well_cards), use_container_width=True, height=260)
+
+        if active_records:
+            archive_options = {record.id: record for record in active_records}
+            archive_col, archive_button_col = st.columns([3, 1])
+            archive_id = archive_col.selectbox(
+                "Версия для архива",
+                options=tuple(archive_options),
+                format_func=lambda record_id: _project_las_option_label(archive_options[record_id]),
+                key=f"project_las_archive_select_{project.id}",
+            )
+            if archive_button_col.button("В архив", use_container_width=True, key=f"project_las_archive_button_{project.id}"):
+                try:
+                    set_project_las_file_archived(
+                        LAS_CORRELATION_PROJECTS_ROOT,
+                        project.id,
+                        archive_id,
+                        archived=True,
+                    )
+                    logger.info(
+                        "project_las_file_archived project_id=%s las_file_id=%s",
+                        safe_log_value(project.id),
+                        safe_log_value(archive_id),
+                    )
+                    st.success("Версия LAS перенесена в архив.")
+                    st.rerun()
+                except Exception:
+                    logger.exception("project_las_file_archive_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось архивировать версию LAS. Подробности записаны в logs/app.log.")
+
+        if show_archived and archived_records:
+            restore_options = {record.id: record for record in archived_records}
+            restore_col, restore_button_col = st.columns([3, 1])
+            restore_id = restore_col.selectbox(
+                "Версия для восстановления",
+                options=tuple(restore_options),
+                format_func=lambda record_id: _project_las_option_label(restore_options[record_id]),
+                key=f"project_las_restore_select_{project.id}",
+            )
+            if restore_button_col.button("Вернуть", use_container_width=True, key=f"project_las_restore_button_{project.id}"):
+                try:
+                    set_project_las_file_archived(
+                        LAS_CORRELATION_PROJECTS_ROOT,
+                        project.id,
+                        restore_id,
+                        archived=False,
+                    )
+                    logger.info(
+                        "project_las_file_restored project_id=%s las_file_id=%s",
+                        safe_log_value(project.id),
+                        safe_log_value(restore_id),
+                    )
+                    st.success("Версия LAS возвращена из архива.")
+                    st.rerun()
+                except Exception:
+                    logger.exception("project_las_file_restore_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось вернуть версию LAS из архива. Подробности записаны в logs/app.log.")
+
+        records_by_id = {record.id: record for record in active_records}
+        latest_version_ids = tuple(card.versions[0].id for card in active_well_cards if card.versions)
         default_ids = latest_version_ids if not uploaded_files else ()
         selected_ids = st.multiselect(
             "Добавить сохраненные версии LAS из проекта в корреляцию",

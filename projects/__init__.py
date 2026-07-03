@@ -5,6 +5,7 @@ from projects.las_files import (
     list_project_las_wells,
     read_project_las_file_bytes,
     save_project_las_file,
+    set_project_las_file_archived,
 )
 from projects.repository import (
     DEFAULT_PROJECT_ID,
@@ -30,4 +31,5 @@ __all__ = [
     "load_project",
     "read_project_las_file_bytes",
     "save_project_las_file",
+    "set_project_las_file_archived",
 ]
