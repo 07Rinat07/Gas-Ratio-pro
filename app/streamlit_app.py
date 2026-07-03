@@ -60,9 +60,12 @@ from palettes.depth_tracks import (
 from palettes.pixler import build_pixler_palette
 from palettes.ternary import build_ternary_palette
 from projects import ProjectRecord, create_project, ensure_default_project, list_projects
+from projects import calculations as project_calculations
 from projects import las_files as project_las_files
 from reports.export_csv import export_csv_bytes
 from reports.export_html import HtmlReportMetadata, build_plotly_html_report
+from reports.export_las import export_las_bytes
+from reports.export_xlsx import export_xlsx_bytes
 from reports.export_static import (
     SUPPORTED_STATIC_EXPORT_FORMATS,
     StaticExportOptions,
@@ -71,10 +74,18 @@ from reports.export_static import (
 )
 from wells.repository import DEFAULT_WELLS_ROOT, list_wells, read_well_file_bytes, save_well_version
 
+project_calculations = importlib.reload(project_calculations)
 project_las_files = importlib.reload(project_las_files)
+list_project_calculations = project_calculations.list_project_calculations
+read_project_calculation_dataframe = project_calculations.read_project_calculation_dataframe
+read_project_calculation_file_bytes = project_calculations.read_project_calculation_file_bytes
+read_project_calculation_metadata = project_calculations.read_project_calculation_metadata
+save_project_calculation = project_calculations.save_project_calculation
+export_project_las_files_zip = project_las_files.export_project_las_files_zip
 list_project_las_files = project_las_files.list_project_las_files
 list_project_las_wells = project_las_files.list_project_las_wells
 read_project_las_file_bytes = project_las_files.read_project_las_file_bytes
+read_project_las_file_dataframe = project_las_files.read_project_las_file_dataframe
 save_project_las_file = project_las_files.save_project_las_file
 set_project_las_file_archived = project_las_files.set_project_las_file_archived
 
@@ -86,6 +97,9 @@ APP_LAUNCH_SCRIPT = ".\\run_app.ps1"
 UI_SCALE_KEY = "ui_scale"
 LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
 LAS_EDITOR_SESSION_SUMMARY_KEY = "las_editor_session_summary"
+PROJECT_SESSION_SHEETS_KEY = "project_session_sheets"
+PROJECT_SESSION_SUMMARY_KEY = "project_session_summary"
+PROJECT_SESSION_PROJECT_ID_KEY = "project_session_project_id"
 INTERPRETATION_SESSION_DATA_KEY = "interpretation_session_data"
 INTERPRETATION_SESSION_SOURCE_KEY = "interpretation_session_source"
 LAS_CORRELATION_SETTINGS_KEY = "las_correlation_settings"
@@ -760,7 +774,7 @@ def _render_documentation_tab() -> None:
             st.markdown(_read_documentation_markdown(relative_path))
 
 
-def _render_las_editor(logger) -> None:
+def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     st.subheader("LAS-редактор")
     st.caption("Подготовка LAS перед расчетами: проверка глубины, смена шага, добавление строк и ручная правка.")
     _render_saved_wells_panel(logger)
@@ -962,8 +976,36 @@ def _render_las_editor(logger) -> None:
             logger.info("well_version_saved well_id=%s rows=%d", safe_log_value(saved_record.id), len(edited_df))
             st.success(f"Скважина сохранена локально: {saved_record.name} ({saved_record.id}).")
 
+    st.markdown("### Сохранить подготовленный LAS в проект")
+    st.caption(f"Активный проект: {active_project.name} ({active_project.id})")
+    if st.button("Сохранить подготовленный LAS в активный проект", use_container_width=True, key="las_editor_save_to_project"):
+        if not well_name.strip():
+            st.warning("Введите название скважины перед сохранением в проект.")
+        else:
+            try:
+                las_bytes = export_las_bytes(edited_df, well_name=well_name, depth_column=depth_column)
+                saved_las = save_project_las_file(
+                    las_bytes,
+                    root=LAS_CORRELATION_PROJECTS_ROOT,
+                    project_id=active_project.id,
+                    file_name=f"{well_name.strip()}_{version_label.strip() or 'prepared'}.las",
+                    well_name=well_name,
+                    version_label=version_label.strip() or "Подготовленный LAS",
+                )
+            except Exception:
+                logger.exception("project_las_prepared_save_failed project_id=%s", safe_log_value(active_project.id))
+                st.error("Не удалось сохранить подготовленный LAS в проект. Подробности записаны в logs/app.log.")
+            else:
+                logger.info(
+                    "project_las_prepared_saved project_id=%s las_file_id=%s rows=%d",
+                    safe_log_value(active_project.id),
+                    safe_log_value(saved_las.id),
+                    len(edited_df),
+                )
+                st.success(f"Подготовленный LAS сохранен в проект: {saved_las.name} / {saved_las.version_label}.")
 
-def _render_workspace(logger) -> None:
+
+def _render_workspace(logger, active_project: ProjectRecord) -> None:
     try:
         palette_config = load_palette_config()
     except Exception:
@@ -976,18 +1018,37 @@ def _render_workspace(logger) -> None:
     st.sidebar.caption(f"Config: {palette_config.version}")
     st.sidebar.info(palette_config.notice)
 
+    _render_project_workspace_loader(active_project, logger)
+    _render_project_calculations_panel(active_project, logger)
+
     editor_sheets = st.session_state.get(LAS_EDITOR_SESSION_SHEETS_KEY)
-    use_editor_data = False
+    project_sheets = st.session_state.get(PROJECT_SESSION_SHEETS_KEY)
+    if st.session_state.get(PROJECT_SESSION_PROJECT_ID_KEY) != active_project.id:
+        project_sheets = None
+
+    source_options = []
+    if project_sheets:
+        source_options.append("Проект")
+        summary = st.session_state.get(PROJECT_SESSION_SUMMARY_KEY, "проектные данные загружены")
+        st.info(f"Доступны данные активного проекта: {summary}")
     if editor_sheets:
+        source_options.append("LAS-редактор")
         summary = st.session_state.get(LAS_EDITOR_SESSION_SUMMARY_KEY, "данные подготовлены")
         st.info(f"Доступны данные из LAS-редактора: {summary}")
-        use_editor_data = st.checkbox(
-            "Использовать данные из LAS-редактора",
-            value=True,
-            key="workspace_use_las_editor_data",
-        )
+    source_options.append("Файлы")
 
-    if use_editor_data:
+    selected_source = st.radio(
+        "Источник данных",
+        options=source_options,
+        horizontal=True,
+        key="workspace_data_source",
+    )
+
+    if selected_source == "Проект" and project_sheets:
+        suffix = ".project"
+        sheets = project_sheets
+        logger.info("project_data_selected project_id=%s sheet_count=%d", safe_log_value(active_project.id), len(sheets))
+    elif selected_source == "LAS-редактор" and editor_sheets:
         suffix = ".las-editor"
         sheets = editor_sheets
         logger.info("editor_data_selected sheet_count=%d", len(sheets))
@@ -1189,6 +1250,17 @@ def _render_workspace(logger) -> None:
         data=export_csv_bytes(calculated_df),
         file_name="gas_ratio_calculations.csv",
         mime="text/csv",
+    )
+    _render_project_calculation_saver(
+        project=active_project,
+        calculated_df=calculated_df,
+        selected_source=selected_source,
+        sheet_name=str(sheet_name),
+        mapping=manual_mapping,
+        ch_mode=ch_mode,
+        warnings=tuple(warnings),
+        header_row=int(header_row),
+        logger=logger,
     )
 
 
@@ -1470,11 +1542,11 @@ def _load_project_records_for_ui(logger) -> tuple[ProjectRecord, ...]:
         return (ProjectRecord(id=DEFAULT_PROJECT_ID, name="Основной проект"),)
 
 
-def _project_selectbox_key(current_project_id: str, project_ids: tuple[str, ...]) -> str:
-    return f"{PROJECT_SELECTBOX_KEY_PREFIX}_{current_project_id}_{len(project_ids)}"
+def _project_selectbox_key(current_project_id: str, project_ids: tuple[str, ...], key_prefix: str = "global") -> str:
+    return f"{PROJECT_SELECTBOX_KEY_PREFIX}_{key_prefix}_{current_project_id}_{len(project_ids)}"
 
 
-def _render_las_correlation_project_selector(logger) -> ProjectRecord:
+def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bool = False) -> ProjectRecord:
     projects = _load_project_records_for_ui(logger)
     projects_by_id = {project.id: project for project in projects}
     project_ids = tuple(projects_by_id)
@@ -1483,19 +1555,19 @@ def _render_las_correlation_project_selector(logger) -> ProjectRecord:
         current_project_id = DEFAULT_PROJECT_ID if DEFAULT_PROJECT_ID in projects_by_id else projects[0].id
         st.session_state[ACTIVE_PROJECT_ID_KEY] = current_project_id
 
-    with st.expander("Проект", expanded=True):
+    with st.expander("Проект", expanded=expanded):
         selected_project_id = st.selectbox(
             "Активный проект",
             options=project_ids,
             index=project_ids.index(current_project_id),
             format_func=lambda project_id: _project_option_label(projects_by_id[project_id]),
-            key=_project_selectbox_key(current_project_id, project_ids),
+            key=_project_selectbox_key(current_project_id, project_ids, key_prefix=key_prefix),
         )
         st.session_state[ACTIVE_PROJECT_ID_KEY] = selected_project_id
         active_project = projects_by_id[selected_project_id]
         st.caption(f"Папка проекта: data/projects/{active_project.id}/")
 
-        with st.form("las_correlation_create_project_form", clear_on_submit=True):
+        with st.form(f"{key_prefix}_create_project_form", clear_on_submit=True):
             new_project_name = st.text_input("Название нового проекта")
             new_project_description = st.text_input("Комментарий")
             submitted = st.form_submit_button("Создать проект")
@@ -1518,6 +1590,10 @@ def _render_las_correlation_project_selector(logger) -> ProjectRecord:
                         st.error("Не удалось создать проект.")
 
     return active_project
+
+
+def _render_las_correlation_project_selector(logger) -> ProjectRecord:
+    return _render_project_selector(logger, key_prefix="las_correlation", expanded=True)
 
 
 def _load_project_las_correlation_settings(project_id: str) -> LasCorrelationSettings | None:
@@ -1554,6 +1630,271 @@ def _project_las_records_table(well_cards: tuple[ProjectLasWellCard, ...]) -> pd
                 }
             )
     return pd.DataFrame(rows)
+
+
+def _project_las_records_to_raw_sheets(project: ProjectRecord, records: tuple[ProjectLasFile, ...]) -> dict[str, pd.DataFrame]:
+    sheets: dict[str, pd.DataFrame] = {}
+    for record in records:
+        dataframe = read_project_las_file_dataframe(LAS_CORRELATION_PROJECTS_ROOT, project.id, record.id)
+        sheet_name = f"{record.name} / {record.version_label}"
+        if sheet_name in sheets:
+            sheet_name = f"{sheet_name} / {record.id}"
+        sheets[sheet_name] = _dataframe_to_raw_sheet(dataframe)
+    return sheets
+
+
+def _render_project_las_zip_download(
+    project: ProjectRecord,
+    selected_ids: tuple[str, ...],
+    *,
+    key: str,
+    logger,
+) -> None:
+    if not selected_ids:
+        return
+
+    try:
+        zip_bytes = export_project_las_files_zip(
+            LAS_CORRELATION_PROJECTS_ROOT,
+            project.id,
+            selected_ids,
+        )
+    except Exception:
+        logger.exception("project_las_export_failed project_id=%s", safe_log_value(project.id))
+        st.error("Не удалось подготовить выгрузку проектных LAS. Подробности записаны в logs/app.log.")
+        return
+
+    st.download_button(
+        "Выгрузить LAS/XLSX/CSV (ZIP)",
+        data=zip_bytes,
+        file_name=f"{project.id}_las_versions.zip",
+        mime="application/zip",
+        use_container_width=True,
+        key=key,
+    )
+
+
+def _render_project_workspace_loader(project: ProjectRecord, logger) -> None:
+    active_well_cards = list_project_las_wells(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+    active_records = tuple(version for card in active_well_cards for version in card.versions)
+
+    with st.expander("Данные активного проекта", expanded=bool(active_records)):
+        st.caption(f"Открыт проект: {project.name} ({project.id})")
+        if not active_records:
+            st.caption("В активном проекте пока нет активных LAS-версий.")
+            return
+
+        st.dataframe(_project_las_records_table(active_well_cards), use_container_width=True, height=240)
+        records_by_id = {record.id: record for record in active_records}
+        latest_version_ids = tuple(card.versions[0].id for card in active_well_cards if card.versions)
+        selected_ids = tuple(
+            st.multiselect(
+                "Версии для рабочего workflow",
+                options=tuple(records_by_id),
+                default=latest_version_ids,
+                format_func=lambda record_id: _project_las_option_label(records_by_id[record_id]),
+                key=f"workspace_project_las_versions_{project.id}",
+            )
+        )
+
+        open_col, export_col = st.columns(2)
+        if open_col.button("Открыть выбранные версии", use_container_width=True, key=f"workspace_open_project_{project.id}"):
+            if not selected_ids:
+                st.warning("Выберите хотя бы одну LAS-версию проекта.")
+            else:
+                try:
+                    selected_records = tuple(records_by_id[record_id] for record_id in selected_ids)
+                    sheets = _project_las_records_to_raw_sheets(project, selected_records)
+                except Exception:
+                    logger.exception("project_las_open_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось открыть выбранные LAS-версии проекта. Подробности записаны в logs/app.log.")
+                else:
+                    st.session_state[PROJECT_SESSION_SHEETS_KEY] = sheets
+                    st.session_state[PROJECT_SESSION_PROJECT_ID_KEY] = project.id
+                    st.session_state[PROJECT_SESSION_SUMMARY_KEY] = (
+                        f"{project.name}: версий {len(selected_records)}, листов {len(sheets)}"
+                    )
+                    logger.info(
+                        "project_las_opened project_id=%s version_count=%d sheet_count=%d",
+                        safe_log_value(project.id),
+                        len(selected_records),
+                        len(sheets),
+                    )
+                    st.success("Выбранные версии проекта загружены в рабочий workflow.")
+
+        with export_col:
+            _render_project_las_zip_download(
+                project,
+                selected_ids,
+                key=f"workspace_project_las_export_{project.id}",
+                logger=logger,
+            )
+
+
+def _project_calculation_option_label(record) -> str:
+    warning_label = f" | предупреждений: {record.warnings_count}" if record.warnings_count else ""
+    return f"{record.source_label} | {record.saved_at} | строк: {record.row_count}{warning_label}"
+
+
+def _project_calculations_table(records: tuple[object, ...]) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "Источник": record.source_label,
+                "Набор данных": record.sheet_name,
+                "Строк": record.row_count,
+                "Ch": record.ch_mode,
+                "Предупреждений": record.warnings_count,
+                "Сохранено": record.saved_at,
+                "Calculation ID": record.id,
+            }
+            for record in records
+        ]
+    )
+
+
+def _render_project_calculation_metadata(project: ProjectRecord, calculation_id: str, logger) -> None:
+    try:
+        metadata = read_project_calculation_metadata(LAS_CORRELATION_PROJECTS_ROOT, project.id, calculation_id)
+    except Exception:
+        logger.exception(
+            "project_calculation_metadata_read_failed project_id=%s calculation_id=%s",
+            safe_log_value(project.id),
+            safe_log_value(calculation_id),
+        )
+        st.warning("Не удалось прочитать metadata сохраненного расчета.")
+        return
+
+    mapping = metadata.get("mapping", {})
+    warnings = metadata.get("warnings", [])
+    with st.expander("Mapping и предупреждения расчета", expanded=False):
+        st.caption(f"Ch: {metadata.get('ch_mode', '') or 'не указан'}; строка заголовков: {metadata.get('header_row')}")
+        st.caption("Mapping")
+        st.json(mapping)
+        if warnings:
+            st.caption("Предупреждения")
+            for warning in warnings:
+                st.warning(str(warning))
+        else:
+            st.success("Сохраненный расчет не содержит предупреждений.")
+
+
+def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
+    records = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+    with st.expander("Сохраненные расчеты проекта", expanded=bool(records)):
+        if not records:
+            st.caption("В активном проекте пока нет сохраненных расчетов.")
+            return
+
+        st.dataframe(_project_calculations_table(records), use_container_width=True, height=220)
+        records_by_id = {record.id: record for record in records}
+        selected_id = st.selectbox(
+            "Расчет проекта",
+            options=tuple(records_by_id),
+            format_func=lambda record_id: _project_calculation_option_label(records_by_id[record_id]),
+            key=f"project_calculation_select_{project.id}",
+        )
+        selected_record = records_by_id[selected_id]
+        _render_project_calculation_metadata(project, selected_id, logger)
+
+        csv_col, xlsx_col, open_col = st.columns(3)
+        try:
+            csv_col.download_button(
+                "Скачать CSV",
+                data=read_project_calculation_file_bytes(
+                    LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id, "csv"
+                ),
+                file_name=f"{selected_record.id}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key=f"project_calculation_csv_{project.id}_{selected_id}",
+            )
+            xlsx_col.download_button(
+                "Скачать XLSX",
+                data=read_project_calculation_file_bytes(
+                    LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id, "xlsx"
+                ),
+                file_name=f"{selected_record.id}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key=f"project_calculation_xlsx_{project.id}_{selected_id}",
+            )
+        except Exception:
+            logger.exception(
+                "project_calculation_download_failed project_id=%s calculation_id=%s",
+                safe_log_value(project.id),
+                safe_log_value(selected_id),
+            )
+            st.error("Не удалось подготовить выгрузку сохраненного расчета. Подробности записаны в logs/app.log.")
+
+        if open_col.button(
+            "Открыть в графиках",
+            use_container_width=True,
+            key=f"project_calculation_open_{project.id}_{selected_id}",
+        ):
+            try:
+                calculation_df = read_project_calculation_dataframe(
+                    LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id
+                )
+                _store_interpretation_dataset(
+                    calculation_df,
+                    f"{project.name} / {selected_record.source_label}",
+                )
+            except Exception:
+                logger.exception(
+                    "project_calculation_open_failed project_id=%s calculation_id=%s",
+                    safe_log_value(project.id),
+                    safe_log_value(selected_id),
+                )
+                st.error("Не удалось открыть сохраненный расчет. Подробности записаны в logs/app.log.")
+            else:
+                st.success("Сохраненный расчет открыт во вкладке `Интерпретационные графики`.")
+
+
+def _render_project_calculation_saver(
+    *,
+    project: ProjectRecord,
+    calculated_df: pd.DataFrame,
+    selected_source: str,
+    sheet_name: str,
+    mapping: dict[str, str],
+    ch_mode: str,
+    warnings: tuple[str, ...] | list[str],
+    header_row: int,
+    logger,
+) -> None:
+    with st.expander("Сохранить расчет в проект", expanded=False):
+        st.caption(f"Активный проект: {project.name} ({project.id})")
+        default_label = f"{selected_source}: {sheet_name}"
+        calculation_label = st.text_input(
+            "Название расчета",
+            value=default_label,
+            key=f"project_calculation_label_{project.id}",
+        )
+        if st.button("Сохранить расчетный snapshot", use_container_width=True, key=f"save_calculation_{project.id}"):
+            try:
+                record = save_project_calculation(
+                    calculated_df,
+                    root=LAS_CORRELATION_PROJECTS_ROOT,
+                    project_id=project.id,
+                    source_label=calculation_label,
+                    sheet_name=str(sheet_name),
+                    mapping=mapping,
+                    ch_mode=ch_mode,
+                    warnings=tuple(warnings),
+                    header_row=int(header_row),
+                )
+            except Exception:
+                logger.exception("project_calculation_save_failed project_id=%s", safe_log_value(project.id))
+                st.error("Не удалось сохранить расчет в проект. Подробности записаны в logs/app.log.")
+            else:
+                logger.info(
+                    "project_calculation_saved project_id=%s calculation_id=%s rows=%d",
+                    safe_log_value(project.id),
+                    safe_log_value(record.id),
+                    len(calculated_df),
+                )
+                st.success(f"Расчет сохранен в проект: {record.source_label}.")
 
 
 def _render_project_las_files_panel(
@@ -1680,6 +2021,12 @@ def _render_project_las_files_panel(
             key=f"project_las_files_{project.id}",
         )
         selected_records = tuple(records_by_id[record_id] for record_id in selected_ids)
+        _render_project_las_zip_download(
+            project,
+            tuple(selected_ids),
+            key=f"project_las_export_{project.id}",
+            logger=logger,
+        )
 
     sources: list[object] = []
     for record in selected_records:
@@ -1768,19 +2115,34 @@ def _render_las_correlation_interval_table(
             st.warning("В выбранном интервале нет строк LAS для выбранных скважин и групп кривых.")
             return
         st.dataframe(interval_table, use_container_width=True, height=420)
-        st.download_button(
-            "Экспорт выбранного интервала CSV",
+        csv_col, xlsx_col, las_col = st.columns(3)
+        csv_col.download_button(
+            "Экспорт CSV",
             data=export_csv_bytes(interval_table),
             file_name=f"las_correlation_interval_{project_id}.csv",
             mime="text/csv",
             use_container_width=True,
         )
+        xlsx_col.download_button(
+            "Экспорт XLSX",
+            data=export_xlsx_bytes(interval_table, sheet_name="interval"),
+            file_name=f"las_correlation_interval_{project_id}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+        las_col.download_button(
+            "Экспорт LAS",
+            data=export_las_bytes(interval_table, well_name=project_id, depth_column="depth"),
+            file_name=f"las_correlation_interval_{project_id}.las",
+            mime="text/plain",
+            use_container_width=True,
+        )
 
 
-def _render_las_correlation_tab(logger) -> None:
+def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
     st.subheader("LAS-корреляция")
     st.caption("Загрузите несколько LAS, чтобы смотреть ГИС-кривые рядом с газами по общей глубине.")
-    active_project = _render_las_correlation_project_selector(logger)
+    st.caption(f"Активный проект: {active_project.name} ({active_project.id})")
 
     uploaded_files = tuple(
         st.file_uploader(
@@ -2024,13 +2386,15 @@ def main() -> None:
     logger = configure_logging()
     logger.info("streamlit_app_started")
 
+    active_project = _render_project_selector(logger, key_prefix="global", expanded=True)
+
     workspace_tab, las_editor_tab, correlation_tab, graphs_tab, docs_tab = st.tabs(list(APP_TABS))
     with workspace_tab:
-        _render_workspace(logger)
+        _render_workspace(logger, active_project)
     with las_editor_tab:
-        _render_las_editor(logger)
+        _render_las_editor(logger, active_project)
     with correlation_tab:
-        _render_las_correlation_tab(logger)
+        _render_las_correlation_tab(logger, active_project)
     with graphs_tab:
         _render_interpretation_graphs_tab(logger)
     with docs_tab:

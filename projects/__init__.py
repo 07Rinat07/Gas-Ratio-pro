@@ -1,9 +1,19 @@
+from projects.calculations import (
+    ProjectCalculationRecord,
+    list_project_calculations,
+    read_project_calculation_dataframe,
+    read_project_calculation_file_bytes,
+    read_project_calculation_metadata,
+    save_project_calculation,
+)
 from projects.las_files import (
     ProjectLasFile,
     ProjectLasWellCard,
+    export_project_las_files_zip,
     list_project_las_files,
     list_project_las_wells,
     read_project_las_file_bytes,
+    read_project_las_file_dataframe,
     save_project_las_file,
     set_project_las_file_archived,
 )
@@ -18,11 +28,18 @@ from projects.repository import (
 )
 
 __all__ = [
+    "save_project_calculation",
+    "read_project_calculation_metadata",
+    "read_project_calculation_file_bytes",
+    "read_project_calculation_dataframe",
+    "list_project_calculations",
+    "ProjectCalculationRecord",
     "DEFAULT_PROJECT_ID",
     "DEFAULT_PROJECTS_ROOT",
     "ProjectLasFile",
     "ProjectLasWellCard",
     "ProjectRecord",
+    "export_project_las_files_zip",
     "create_project",
     "ensure_default_project",
     "list_projects",
@@ -30,6 +47,7 @@ __all__ = [
     "list_project_las_wells",
     "load_project",
     "read_project_las_file_bytes",
+    "read_project_las_file_dataframe",
     "save_project_las_file",
     "set_project_las_file_archived",
 ]

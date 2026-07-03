@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from io import BytesIO
+from zipfile import ZipFile
+
 import pytest
 
 from projects import (
+    export_project_las_files_zip,
     list_project_las_files,
     list_project_las_wells,
     read_project_las_file_bytes,
+    read_project_las_file_dataframe,
     save_project_las_file,
     set_project_las_file_archived,
 )
@@ -107,3 +112,38 @@ def test_project_las_file_archive_hides_version_without_deleting_source(tmp_path
 def test_project_las_file_rejects_unsafe_project_id(tmp_path):
     with pytest.raises(ValueError, match="Некорректный идентификатор проекта"):
         save_project_las_file(LAS_BYTES, root=tmp_path, project_id="../bad", file_name="well.las")
+
+
+def test_project_las_file_dataframe_and_zip_export(tmp_path):
+    record = save_project_las_file(
+        LAS_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="Well A.las",
+        well_name="Well A",
+        version_label="raw",
+    )
+
+    dataframe = read_project_las_file_dataframe(tmp_path, "demo", record.id)
+    zip_bytes = export_project_las_files_zip(tmp_path, "demo", [record.id])
+
+    assert list(dataframe.columns) == ["DEPT", "GR"]
+    assert dataframe.loc[0, "DEPT"] == 1000.0
+    with ZipFile(BytesIO(zip_bytes)) as archive:
+        names = archive.namelist()
+        assert any(name.endswith(".las") for name in names)
+        assert any(name.endswith(".csv") for name in names)
+        assert any(name.endswith(".xlsx") for name in names)
+        csv_name = next(name for name in names if name.endswith(".csv"))
+        assert "DEPT" in archive.read(csv_name).decode("utf-8-sig")
+
+
+def test_project_las_zip_export_validates_selection_and_formats(tmp_path):
+    record = save_project_las_file(LAS_BYTES, root=tmp_path, project_id="demo", file_name="well.las")
+
+    with pytest.raises(ValueError, match="Не выбраны"):
+        export_project_las_files_zip(tmp_path, "demo", [])
+
+    with pytest.raises(ValueError, match="Неподдерживаемый формат"):
+        export_project_las_files_zip(tmp_path, "demo", [record.id], formats=("pdf",))
+

@@ -4,16 +4,24 @@ import json
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
 from typing import Any
+from zipfile import ZIP_DEFLATED, ZipFile
 
+import pandas as pd
+
+from importers.las_importer import read_las
 from projects.repository import DEFAULT_PROJECT_ID, DEFAULT_PROJECTS_ROOT, safe_project_id
+from reports.export_csv import export_csv_bytes
+from reports.export_xlsx import export_xlsx_bytes
 
 
 PROJECT_WELLS_DIR_NAME = "wells"
 PROJECT_LAS_MANIFEST_FILE_NAME = "las_files.json"
 PROJECT_LAS_SOURCE_FILE_NAME = "source.las"
 PROJECT_LAS_FILES_SCHEMA_VERSION = 3
+PROJECT_LAS_EXPORT_FORMATS = ("las", "xlsx", "csv")
 
 
 @dataclass(frozen=True)
@@ -49,6 +57,11 @@ def _safe_las_file_id(value: str) -> str:
     if not re.fullmatch(r"[0-9A-Za-zА-Яа-я_-]+", value):
         raise ValueError("Некорректный идентификатор LAS-файла проекта.")
     return value
+
+
+def _safe_export_stem(value: str) -> str:
+    stem = re.sub(r"[^0-9A-Za-zА-Яа-я_-]+", "_", value.strip()).strip("_")
+    return stem or "project_las"
 
 
 def _project_wells_dir(root: Path | str, project_id: str) -> Path:
@@ -240,3 +253,59 @@ def read_project_las_file_bytes(
     if las_file_id not in records:
         raise FileNotFoundError(f"Project LAS file not found: {las_file_id}")
     return (_las_file_dir(root, project_id, las_file_id) / PROJECT_LAS_SOURCE_FILE_NAME).read_bytes()
+
+
+def read_project_las_file_dataframe(
+    root: Path | str,
+    project_id: str,
+    las_file_id: str,
+) -> pd.DataFrame:
+    return read_las(BytesIO(read_project_las_file_bytes(root, project_id, las_file_id)))
+
+
+def export_project_las_files_zip(
+    root: Path | str,
+    project_id: str,
+    las_file_ids: tuple[str, ...] | list[str],
+    formats: tuple[str, ...] | list[str] = PROJECT_LAS_EXPORT_FORMATS,
+) -> bytes:
+    selected_ids = tuple(
+        dict.fromkeys(str(las_file_id) for las_file_id in las_file_ids if str(las_file_id))
+    )
+    if not selected_ids:
+        raise ValueError("Не выбраны LAS-версии проекта для выгрузки.")
+
+    selected_formats = tuple(dict.fromkeys(format_name.lower() for format_name in formats if format_name))
+    unsupported_formats = tuple(
+        format_name for format_name in selected_formats if format_name not in PROJECT_LAS_EXPORT_FORMATS
+    )
+    if unsupported_formats:
+        raise ValueError("Неподдерживаемый формат выгрузки: " + ", ".join(unsupported_formats))
+
+    records_by_id = {
+        record.id: record
+        for record in list_project_las_files(root, project_id, include_archived=True)
+    }
+    missing_ids = tuple(las_file_id for las_file_id in selected_ids if las_file_id not in records_by_id)
+    if missing_ids:
+        raise FileNotFoundError("Project LAS file not found: " + ", ".join(missing_ids))
+
+    buffer = BytesIO()
+    with ZipFile(buffer, "w", compression=ZIP_DEFLATED) as archive:
+        for las_file_id in selected_ids:
+            record = records_by_id[las_file_id]
+            las_bytes = read_project_las_file_bytes(root, project_id, record.id)
+            file_stem = _safe_export_stem(f"{record.name}_{record.version_label}_{record.id}")
+            dataframe: pd.DataFrame | None = None
+
+            if "las" in selected_formats:
+                archive.writestr(f"{file_stem}.las", las_bytes)
+            if "csv" in selected_formats or "xlsx" in selected_formats:
+                dataframe = read_las(BytesIO(las_bytes))
+            if "csv" in selected_formats and dataframe is not None:
+                archive.writestr(f"{file_stem}.csv", export_csv_bytes(dataframe))
+            if "xlsx" in selected_formats and dataframe is not None:
+                archive.writestr(f"{file_stem}.xlsx", export_xlsx_bytes(dataframe, sheet_name=record.name))
+
+    return buffer.getvalue()
+

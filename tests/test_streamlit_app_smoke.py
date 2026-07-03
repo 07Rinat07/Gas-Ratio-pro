@@ -124,3 +124,26 @@ def test_las_correlation_report_rows_include_print_context():
     assert rows["Кривая сравнения"] == "GR"
     assert rows["X-scale ГИС"] == "0-150"
     assert "Дата выгрузки" in rows
+
+
+def test_project_las_records_to_raw_sheets_loads_project_version(monkeypatch, tmp_path):
+    module = importlib.import_module("app.streamlit_app")
+    sample = Path("examples/sample_gas_data.las").read_bytes()
+    record = module.save_project_las_file(
+        sample,
+        root=tmp_path,
+        project_id="demo",
+        file_name="well_a.las",
+        well_name="Well A",
+        version_label="prepared",
+    )
+    monkeypatch.setattr(module, "LAS_CORRELATION_PROJECTS_ROOT", tmp_path)
+
+    sheets = module._project_las_records_to_raw_sheets(
+        module.ProjectRecord(id="demo", name="Demo"),
+        (record,),
+    )
+
+    assert list(sheets) == ["Well A / prepared"]
+    assert list(sheets["Well A / prepared"].iloc[0])[:2] == ["DEPT", "C1"]
+
