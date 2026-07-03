@@ -61,7 +61,8 @@ from palettes.ternary import build_ternary_palette
 from projects import ProjectRecord, create_project, ensure_default_project, list_projects
 from projects.las_files import (
     ProjectLasFile,
-    list_project_las_files,
+    ProjectLasWellCard,
+    list_project_las_wells,
     read_project_las_file_bytes,
     save_project_las_file,
 )
@@ -1530,22 +1531,25 @@ def _load_project_las_correlation_settings(project_id: str) -> LasCorrelationSet
 
 
 def _project_las_option_label(record: ProjectLasFile) -> str:
-    return f"{record.name} | {record.saved_at} | {record.original_file_name}"
+    return f"{record.name} | {record.version_label} | {record.saved_at} | {record.original_file_name}"
 
 
-def _project_las_records_table(records: tuple[ProjectLasFile, ...]) -> pd.DataFrame:
-    return pd.DataFrame(
-        [
-            {
-                "Скважина": record.name,
-                "Файл": record.original_file_name,
-                "Размер, KB": round(record.size_bytes / 1024, 1),
-                "Сохранено": record.saved_at,
-                "ID": record.id,
-            }
-            for record in records
-        ]
-    )
+def _project_las_records_table(well_cards: tuple[ProjectLasWellCard, ...]) -> pd.DataFrame:
+    rows = []
+    for card in well_cards:
+        for version in card.versions:
+            rows.append(
+                {
+                    "Скважина": card.name,
+                    "Версия": version.version_label,
+                    "Файл": version.original_file_name,
+                    "Размер, KB": round(version.size_bytes / 1024, 1),
+                    "Сохранено": version.saved_at,
+                    "Well ID": card.id,
+                    "Version ID": version.id,
+                }
+            )
+    return pd.DataFrame(rows)
 
 
 def _render_project_las_files_panel(
@@ -1553,7 +1557,8 @@ def _render_project_las_files_panel(
     uploaded_files: tuple[object, ...],
     logger,
 ) -> tuple[object, ...]:
-    saved_records = list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+    saved_well_cards = list_project_las_wells(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+    saved_records = tuple(version for card in saved_well_cards for version in card.versions)
     selected_records: tuple[ProjectLasFile, ...] = ()
 
     with st.expander("LAS-файлы проекта", expanded=bool(saved_records)):
@@ -1570,9 +1575,14 @@ def _render_project_las_files_panel(
                             project_id=project.id,
                             file_name=original_name,
                             well_name=Path(original_name).stem,
+                            version_label="Загруженный LAS",
                         )
                         saved_count += 1
-                    logger.info("project_las_files_saved project_id=%s count=%d", safe_log_value(project.id), saved_count)
+                    logger.info(
+                        "project_las_files_saved project_id=%s count=%d",
+                        safe_log_value(project.id),
+                        saved_count,
+                    )
                     st.success(f"LAS-файлы сохранены в проект: {saved_count}.")
                     st.rerun()
                 except Exception:
@@ -1583,11 +1593,12 @@ def _render_project_las_files_panel(
             st.caption("В активном проекте пока нет сохраненных LAS-файлов.")
             return ()
 
-        st.dataframe(_project_las_records_table(saved_records), use_container_width=True, height=220)
+        st.dataframe(_project_las_records_table(saved_well_cards), use_container_width=True, height=240)
         records_by_id = {record.id: record for record in saved_records}
-        default_ids = tuple(records_by_id) if not uploaded_files else ()
+        latest_version_ids = tuple(card.versions[0].id for card in saved_well_cards if card.versions)
+        default_ids = latest_version_ids if not uploaded_files else ()
         selected_ids = st.multiselect(
-            "Добавить сохраненные LAS из проекта в корреляцию",
+            "Добавить сохраненные версии LAS из проекта в корреляцию",
             options=tuple(records_by_id),
             default=default_ids,
             format_func=lambda record_id: _project_las_option_label(records_by_id[record_id]),
@@ -1599,15 +1610,16 @@ def _render_project_las_files_panel(
     for record in selected_records:
         try:
             data = read_project_las_file_bytes(LAS_CORRELATION_PROJECTS_ROOT, project.id, record.id)
-            sources.append(_NamedLasBytesIO(data, f"{record.name}.las"))
+            sources.append(_NamedLasBytesIO(data, f"{record.name}_{record.version_label}.las"))
         except Exception:
             logger.exception(
                 "project_las_file_read_failed project_id=%s las_file_id=%s",
                 safe_log_value(project.id),
                 safe_log_value(record.id),
             )
-            st.error(f"Не удалось прочитать LAS из проекта: {record.name}.")
+            st.error(f"Не удалось прочитать LAS из проекта: {record.name}, версия {record.version_label}.")
     return tuple(sources)
+
 
 def _render_las_correlation_settings_loader(wells, group_options: tuple[str, ...], project_id: str) -> None:
     session_key = _project_settings_session_key(project_id)

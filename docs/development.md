@@ -46,6 +46,8 @@ data/wells/
   */manifest.json         Локальные скважины и версии данных, не коммитятся
 data/projects/
   <project_id>/project.json              Карточка проекта, не коммитится
+  <project_id>/wells/las_files.json      Карточки скважин и версии LAS, не коммитится
+  <project_id>/wells/<version_id>/source.las Исходный LAS версии, не коммитится
   <project_id>/correlation_settings.json Настройки LAS-корреляции, не коммитятся
 examples/
   sample_gas_data.csv     Демо CSV-файл для проверки приложения

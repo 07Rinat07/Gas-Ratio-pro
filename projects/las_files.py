@@ -13,7 +13,7 @@ from projects.repository import DEFAULT_PROJECT_ID, DEFAULT_PROJECTS_ROOT, safe_
 PROJECT_WELLS_DIR_NAME = "wells"
 PROJECT_LAS_MANIFEST_FILE_NAME = "las_files.json"
 PROJECT_LAS_SOURCE_FILE_NAME = "source.las"
-PROJECT_LAS_FILES_SCHEMA_VERSION = 1
+PROJECT_LAS_FILES_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -23,6 +23,16 @@ class ProjectLasFile:
     original_file_name: str
     saved_at: str
     size_bytes: int
+    well_id: str = ""
+    version_label: str = ""
+
+
+@dataclass(frozen=True)
+class ProjectLasWellCard:
+    id: str
+    name: str
+    updated_at: str
+    versions: tuple[ProjectLasFile, ...]
 
 
 def _utc_now() -> str:
@@ -53,19 +63,28 @@ def _las_file_dir(root: Path | str, project_id: str, las_file_id: str) -> Path:
 
 
 def _record_from_dict(raw: dict[str, Any]) -> ProjectLasFile:
+    name = str(raw.get("name", "")) or "Без названия"
+    original_file_name = str(raw.get("original_file_name", "")) or "source.las"
+    saved_at = str(raw.get("saved_at", ""))
+    well_id = str(raw.get("well_id", "")) or _slugify(name)
+    version_label = str(raw.get("version_label", "")) or "Исходный LAS"
     return ProjectLasFile(
         id=str(raw.get("id", "")),
-        name=str(raw.get("name", "")) or "Без названия",
-        original_file_name=str(raw.get("original_file_name", "")) or "source.las",
-        saved_at=str(raw.get("saved_at", "")),
+        name=name,
+        original_file_name=original_file_name,
+        saved_at=saved_at,
         size_bytes=int(raw.get("size_bytes", 0) or 0),
+        well_id=well_id,
+        version_label=version_label,
     )
 
 
 def _record_to_dict(record: ProjectLasFile) -> dict[str, Any]:
     return {
         "id": record.id,
+        "well_id": record.well_id or _slugify(record.name),
         "name": record.name,
+        "version_label": record.version_label or "Исходный LAS",
         "original_file_name": record.original_file_name,
         "saved_at": record.saved_at,
         "size_bytes": record.size_bytes,
@@ -106,20 +125,46 @@ def list_project_las_files(
     return tuple(sorted(records, key=lambda record: record.saved_at, reverse=True))
 
 
+def list_project_las_wells(
+    root: Path | str = DEFAULT_PROJECTS_ROOT,
+    project_id: str = DEFAULT_PROJECT_ID,
+) -> tuple[ProjectLasWellCard, ...]:
+    grouped: dict[str, list[ProjectLasFile]] = {}
+    for record in list_project_las_files(root, project_id):
+        grouped.setdefault(record.well_id or _slugify(record.name), []).append(record)
+
+    cards: list[ProjectLasWellCard] = []
+    for well_id, versions in grouped.items():
+        sorted_versions = tuple(sorted(versions, key=lambda record: record.saved_at, reverse=True))
+        latest = sorted_versions[0]
+        cards.append(
+            ProjectLasWellCard(
+                id=well_id,
+                name=latest.name,
+                updated_at=latest.saved_at,
+                versions=sorted_versions,
+            )
+        )
+    return tuple(sorted(cards, key=lambda card: card.updated_at, reverse=True))
+
+
 def save_project_las_file(
     data: bytes,
     root: Path | str = DEFAULT_PROJECTS_ROOT,
     project_id: str = DEFAULT_PROJECT_ID,
     file_name: str = "source.las",
     well_name: str = "",
+    version_label: str = "Исходный LAS",
 ) -> ProjectLasFile:
     if not data:
         raise ValueError("Нет данных LAS для сохранения в проект.")
 
     safe_original_name = Path(str(file_name)).name or "source.las"
     clean_well_name = well_name.strip() or Path(safe_original_name).stem or "LAS"
+    clean_version_label = version_label.strip() or "Исходный LAS"
+    well_id = _slugify(clean_well_name)
     now = _utc_now()
-    base_id = f"{now[:10].replace('-', '')}-{_slugify(clean_well_name)}"
+    base_id = f"{now[:10].replace('-', '')}-{well_id}-{_slugify(clean_version_label)}"
     las_file_id = base_id
     counter = 2
     while _las_file_dir(root, project_id, las_file_id).exists():
@@ -132,7 +177,9 @@ def save_project_las_file(
 
     record = ProjectLasFile(
         id=las_file_id,
+        well_id=well_id,
         name=clean_well_name,
+        version_label=clean_version_label,
         original_file_name=safe_original_name,
         saved_at=now,
         size_bytes=len(data),
