@@ -61,6 +61,8 @@ from palettes.pixler import build_pixler_palette
 from palettes.ternary import build_ternary_palette
 from projects import ProjectRecord, create_project, ensure_default_project, list_projects
 from projects import calculations as project_calculations
+from projects import exports as project_exports
+from projects import graph_settings as project_graph_settings
 from projects import las_files as project_las_files
 from reports.export_csv import export_csv_bytes
 from reports.export_html import HtmlReportMetadata, build_plotly_html_report
@@ -75,12 +77,20 @@ from reports.export_static import (
 from wells.repository import DEFAULT_WELLS_ROOT, list_wells, read_well_file_bytes, save_well_version
 
 project_calculations = importlib.reload(project_calculations)
+project_exports = importlib.reload(project_exports)
 project_las_files = importlib.reload(project_las_files)
 list_project_calculations = project_calculations.list_project_calculations
 read_project_calculation_dataframe = project_calculations.read_project_calculation_dataframe
 read_project_calculation_file_bytes = project_calculations.read_project_calculation_file_bytes
 read_project_calculation_metadata = project_calculations.read_project_calculation_metadata
 save_project_calculation = project_calculations.save_project_calculation
+list_project_exports = project_exports.list_project_exports
+read_project_export_file_bytes = project_exports.read_project_export_file_bytes
+save_project_export = project_exports.save_project_export
+DEFAULT_INTERPRETATION_TRACKS = project_graph_settings.DEFAULT_INTERPRETATION_TRACKS
+InterpretationGraphSettings = project_graph_settings.InterpretationGraphSettings
+load_project_interpretation_graph_settings = project_graph_settings.load_project_interpretation_graph_settings
+save_project_interpretation_graph_settings = project_graph_settings.save_project_interpretation_graph_settings
 export_project_las_files_zip = project_las_files.export_project_las_files_zip
 list_project_las_files = project_las_files.list_project_las_files
 list_project_las_wells = project_las_files.list_project_las_wells
@@ -123,6 +133,7 @@ LAS_EDITOR_FILL_STRATEGIES: tuple[tuple[str, str], ...] = (
 VIEW_MODE_BY_WELL = "По скважинам"
 VIEW_MODE_BY_CURVE = "По кривой"
 SUPPORTED_VIEW_MODES: tuple[str, ...] = (VIEW_MODE_BY_WELL, VIEW_MODE_BY_CURVE)
+INTERPRETATION_TRACK_OPTIONS: tuple[str, ...] = tuple(DEFAULT_INTERPRETATION_TRACKS)
 
 
 DOCUMENTATION_TAB_DOCS: tuple[tuple[str, str], ...] = (
@@ -1020,6 +1031,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
 
     _render_project_workspace_loader(active_project, logger)
     _render_project_calculations_panel(active_project, logger)
+    _render_project_exports_panel(active_project, logger)
 
     editor_sheets = st.session_state.get(LAS_EDITOR_SESSION_SHEETS_KEY)
     project_sheets = st.session_state.get(PROJECT_SESSION_SHEETS_KEY)
@@ -1288,7 +1300,93 @@ def _select_x_range(label: str, key_prefix: str) -> tuple[float, float] | None:
     return (min(float(min_value), float(max_value)), max(float(min_value), float(max_value)))
 
 
-def _render_interpretation_graphs_tab(logger) -> None:
+def _filter_interpretation_tracks(tracks: tuple[str, ...]) -> tuple[str, ...]:
+    selected = tuple(track for track in tracks if track in INTERPRETATION_TRACK_OPTIONS)
+    return selected or INTERPRETATION_TRACK_OPTIONS
+
+
+def _set_interpretation_x_range_state(key_prefix: str, x_range: tuple[float, float] | None) -> None:
+    st.session_state[f"{key_prefix}_x_auto"] = x_range is None
+    if x_range is not None:
+        st.session_state[f"{key_prefix}_x_min"] = float(x_range[0])
+        st.session_state[f"{key_prefix}_x_max"] = float(x_range[1])
+
+
+def _apply_interpretation_graph_settings_to_session(settings: InterpretationGraphSettings) -> None:
+    st.session_state["interpretation_tracks"] = list(_filter_interpretation_tracks(settings.selected_tracks))
+    st.session_state["interpretation_chart_height"] = int(settings.height)
+    if settings.depth_range is None:
+        st.session_state["interpretation_depth_range_mode"] = "Весь интервал"
+    else:
+        st.session_state["interpretation_depth_range_mode"] = "Ручной интервал"
+        st.session_state["interpretation_top_depth"] = float(settings.depth_range[0])
+        st.session_state["interpretation_bottom_depth"] = float(settings.depth_range[1])
+
+    _set_interpretation_x_range_state("interpretation_gas", settings.gas_x_range)
+    _set_interpretation_x_range_state("interpretation_ratio", settings.ratio_x_range)
+    _set_interpretation_x_range_state("interpretation_pixler", settings.pixler_x_range)
+
+
+def _interpretation_graph_settings_summary(settings: InterpretationGraphSettings) -> tuple[str, ...]:
+    depth_label = "весь интервал" if settings.depth_range is None else _range_label(settings.depth_range, unit="м")
+    return (
+        f"Треки: {', '.join(settings.selected_tracks)}",
+        f"Диапазон глубины: {depth_label}",
+        f"Высота: {settings.height}px",
+        f"X C1-C5: {_range_label(settings.gas_x_range)}",
+        f"X Wh/Bh/Ch: {_range_label(settings.ratio_x_range)}",
+        f"X Pixler: {_range_label(settings.pixler_x_range)}",
+    )
+
+
+def _load_project_interpretation_graph_settings(project: ProjectRecord, logger) -> InterpretationGraphSettings | None:
+    try:
+        return load_project_interpretation_graph_settings(
+            root=LAS_CORRELATION_PROJECTS_ROOT,
+            project_id=project.id,
+        )
+    except Exception:
+        logger.exception("interpretation_graph_settings_load_failed project_id=%s", safe_log_value(project.id))
+        st.warning("Не удалось прочитать настройки интерпретационных графиков проекта.")
+        return None
+
+
+def _render_interpretation_graph_settings_loader(project: ProjectRecord, logger) -> None:
+    project_settings = _load_project_interpretation_graph_settings(project, logger)
+    if project_settings is None:
+        return
+
+    with st.expander("Сохраненные настройки графиков проекта", expanded=False):
+        for line in _interpretation_graph_settings_summary(project_settings):
+            st.caption(line)
+        if st.button("Загрузить настройки графиков проекта", use_container_width=True, key=f"load_interpretation_graph_settings_{project.id}"):
+            _apply_interpretation_graph_settings_to_session(project_settings)
+            st.rerun()
+
+
+def _render_interpretation_graph_settings_saver(
+    project: ProjectRecord,
+    settings: InterpretationGraphSettings,
+    logger,
+) -> None:
+    with st.expander("Текущие настройки графиков", expanded=False):
+        for line in _interpretation_graph_settings_summary(settings):
+            st.caption(line)
+        if st.button("Сохранить настройки графиков в проект", use_container_width=True, key=f"save_interpretation_graph_settings_{project.id}"):
+            try:
+                save_project_interpretation_graph_settings(
+                    settings,
+                    root=LAS_CORRELATION_PROJECTS_ROOT,
+                    project_id=project.id,
+                )
+            except Exception:
+                logger.exception("interpretation_graph_settings_save_failed project_id=%s", safe_log_value(project.id))
+                st.error("Не удалось сохранить настройки графиков в проект. Подробности записаны в logs/app.log.")
+            else:
+                st.success("Настройки интерпретационных графиков сохранены в проект.")
+
+
+def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> None:
     st.subheader("Интерпретационные графики")
     calculated_df = st.session_state.get(INTERPRETATION_SESSION_DATA_KEY)
     if calculated_df is None or calculated_df.empty:
@@ -1297,6 +1395,8 @@ def _render_interpretation_graphs_tab(logger) -> None:
 
     source_label = st.session_state.get(INTERPRETATION_SESSION_SOURCE_KEY, "текущий расчет")
     st.caption(f"Источник данных: {source_label}")
+    st.caption(f"Активный проект: {active_project.name} ({active_project.id})")
+    _render_interpretation_graph_settings_loader(active_project, logger)
 
     depth = _depth_values_for_graphs(calculated_df)
     valid_depth = depth.dropna()
@@ -1304,6 +1404,7 @@ def _render_interpretation_graphs_tab(logger) -> None:
         st.warning("В расчетной таблице нет числовой глубины. Графики будут построены по техническому индексу.")
         filtered_df = calculated_df.copy()
         depth_range = None
+        saved_depth_range = None
     else:
         min_depth = float(valid_depth.min())
         max_depth = float(valid_depth.max())
@@ -1321,6 +1422,7 @@ def _render_interpretation_graphs_tab(logger) -> None:
             top_depth = min_depth
             bottom_depth = max_depth
         depth_range = (min(float(top_depth), float(bottom_depth)), max(float(top_depth), float(bottom_depth)))
+        saved_depth_range = depth_range if mode == "Ручной интервал" else None
         filtered_df = _filter_by_depth_range(calculated_df, depth_range[0], depth_range[1])
 
     st.metric("Строк в выбранном интервале", len(filtered_df))
@@ -1331,8 +1433,8 @@ def _render_interpretation_graphs_tab(logger) -> None:
     height = st.slider("Высота графиков", min_value=420, max_value=1100, value=650, step=10, key="interpretation_chart_height")
     selected_tracks = st.multiselect(
         "Графики",
-        options=("Интерпретация", "C1-C5", "Wh/Bh/Ch", "Pixler ratios"),
-        default=("Интерпретация", "C1-C5", "Wh/Bh/Ch", "Pixler ratios"),
+        options=INTERPRETATION_TRACK_OPTIONS,
+        default=INTERPRETATION_TRACK_OPTIONS,
         key="interpretation_tracks",
     )
 
@@ -1340,6 +1442,16 @@ def _render_interpretation_graphs_tab(logger) -> None:
         gas_x_range = _select_x_range("C1-C5", "interpretation_gas")
         ratio_x_range = _select_x_range("Wh/Bh/Ch", "interpretation_ratio")
         pixler_x_range = _select_x_range("Pixler ratios", "interpretation_pixler")
+
+    current_settings = InterpretationGraphSettings(
+        selected_tracks=tuple(selected_tracks),
+        height=int(height),
+        depth_range=saved_depth_range,
+        gas_x_range=gas_x_range,
+        ratio_x_range=ratio_x_range,
+        pixler_x_range=pixler_x_range,
+    )
+    _render_interpretation_graph_settings_saver(active_project, current_settings, logger)
 
     figures = []
     if "Интерпретация" in selected_tracks:
@@ -1358,25 +1470,60 @@ def _render_interpretation_graphs_tab(logger) -> None:
 
     if figures:
         report_title = f"Gas Ratio Interpreter - {source_label}"
-        st.download_button(
+        html_bytes = _plotly_figures_to_html(figures, report_title)
+        html_download_col, html_save_col = st.columns(2)
+        html_download_col.download_button(
             "HTML для печати",
-            data=_plotly_figures_to_html(figures, report_title),
+            data=html_bytes,
             file_name="gas_ratio_depth_graphs.html",
             mime="text/html",
             use_container_width=True,
         )
+        if html_save_col.button("Сохранить HTML в проект", use_container_width=True, key=f"save_interpretation_html_export_{active_project.id}"):
+            _save_project_export_with_feedback(
+                project=active_project,
+                data=html_bytes,
+                label=f"Интерпретационные графики: {source_label}",
+                file_name="gas_ratio_depth_graphs.html",
+                mime_type="text/html",
+                kind="interpretation_graphs_html",
+                source=str(source_label),
+                metadata={
+                    "rows": len(filtered_df),
+                    "figure_count": len(figures),
+                    "settings": project_graph_settings.settings_to_dict(current_settings),
+                },
+                logger=logger,
+            )
 
     st.subheader("Сводка интерпретации")
     st.dataframe(summarize_interpretation(filtered_df), use_container_width=True)
     st.subheader("Таблица выбранного интервала")
     st.dataframe(filtered_df, use_container_width=True)
-    st.download_button(
+    interval_csv_bytes = export_csv_bytes(filtered_df)
+    interval_download_col, interval_save_col = st.columns(2)
+    interval_download_col.download_button(
         "Экспорт выбранного интервала CSV",
-        data=export_csv_bytes(filtered_df),
+        data=interval_csv_bytes,
         file_name="gas_ratio_selected_interval.csv",
         mime="text/csv",
         use_container_width=True,
     )
+    if interval_save_col.button("Сохранить CSV в проект", use_container_width=True, key=f"save_interpretation_interval_csv_{active_project.id}"):
+        _save_project_export_with_feedback(
+            project=active_project,
+            data=interval_csv_bytes,
+            label=f"Интервал интерпретации: {source_label}",
+            file_name="gas_ratio_selected_interval.csv",
+            mime_type="text/csv",
+            kind="interpretation_interval_csv",
+            source=str(source_label),
+            metadata={
+                "rows": len(filtered_df),
+                "settings": project_graph_settings.settings_to_dict(current_settings),
+            },
+            logger=logger,
+        )
     logger.info("interpretation_graphs_rendered rows=%d figure_count=%d", len(filtered_df), len(figures))
 
 
@@ -1729,6 +1876,104 @@ def _render_project_workspace_loader(project: ProjectRecord, logger) -> None:
                 key=f"workspace_project_las_export_{project.id}",
                 logger=logger,
             )
+
+
+def _project_export_option_label(record) -> str:
+    return f"{record.label} | {record.saved_at} | {record.file_name}"
+
+
+def _project_exports_table(records: tuple[object, ...]) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "Название": record.label,
+                "Тип": record.kind,
+                "Файл": record.file_name,
+                "Источник": record.source,
+                "Размер, KB": round(record.size_bytes / 1024, 1),
+                "Сохранено": record.saved_at,
+                "Export ID": record.id,
+            }
+            for record in records
+        ]
+    )
+
+
+def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
+    records = list_project_exports(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+    with st.expander("Сохраненные экспорты проекта", expanded=bool(records)):
+        if not records:
+            st.caption("В активном проекте пока нет сохраненных экспортов.")
+            return
+
+        st.dataframe(_project_exports_table(records), use_container_width=True, height=220)
+        records_by_id = {record.id: record for record in records}
+        selected_id = st.selectbox(
+            "Экспорт проекта",
+            options=tuple(records_by_id),
+            format_func=lambda record_id: _project_export_option_label(records_by_id[record_id]),
+            key=f"project_export_select_{project.id}",
+        )
+        selected_record = records_by_id[selected_id]
+        try:
+            data = read_project_export_file_bytes(LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id)
+        except Exception:
+            logger.exception(
+                "project_export_download_failed project_id=%s export_id=%s",
+                safe_log_value(project.id),
+                safe_log_value(selected_id),
+            )
+            st.error("Не удалось подготовить сохраненный экспорт. Подробности записаны в logs/app.log.")
+            return
+
+        st.download_button(
+            "Скачать экспорт",
+            data=data,
+            file_name=selected_record.file_name,
+            mime=selected_record.mime_type,
+            use_container_width=True,
+            key=f"project_export_download_{project.id}_{selected_id}",
+        )
+        if selected_record.metadata:
+            with st.expander("Metadata экспорта", expanded=False):
+                st.json(selected_record.metadata)
+
+
+def _save_project_export_with_feedback(
+    *,
+    project: ProjectRecord,
+    data: bytes,
+    label: str,
+    file_name: str,
+    mime_type: str,
+    kind: str,
+    source: str,
+    metadata: dict[str, object],
+    logger,
+) -> None:
+    try:
+        record = save_project_export(
+            data,
+            root=LAS_CORRELATION_PROJECTS_ROOT,
+            project_id=project.id,
+            label=label,
+            file_name=file_name,
+            mime_type=mime_type,
+            kind=kind,
+            source=source,
+            metadata=metadata,
+        )
+    except Exception:
+        logger.exception("project_export_save_failed project_id=%s kind=%s", safe_log_value(project.id), safe_log_value(kind))
+        st.error("Не удалось сохранить экспорт в проект. Подробности записаны в logs/app.log.")
+    else:
+        logger.info(
+            "project_export_saved project_id=%s export_id=%s size=%d",
+            safe_log_value(project.id),
+            safe_log_value(record.id),
+            record.size_bytes,
+        )
+        st.success(f"Экспорт сохранен в проект: {record.label}.")
 
 
 def _project_calculation_option_label(record) -> str:
@@ -2396,7 +2641,7 @@ def main() -> None:
     with correlation_tab:
         _render_las_correlation_tab(logger, active_project)
     with graphs_tab:
-        _render_interpretation_graphs_tab(logger)
+        _render_interpretation_graphs_tab(logger, active_project)
     with docs_tab:
         _render_documentation_tab()
 
