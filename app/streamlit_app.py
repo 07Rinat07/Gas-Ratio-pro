@@ -132,6 +132,7 @@ LAS_CORRELATION_SETTINGS_KEY = "las_correlation_settings"
 ACTIVE_PROJECT_ID_KEY = "active_project_id"
 PROJECT_SELECTBOX_KEY_PREFIX = "active_project_select"
 APP_TABS = (
+    "Старт",
     "Работа с данными",
     "LAS-редактор",
     "LAS-корреляция",
@@ -152,6 +153,41 @@ SUPPORTED_VIEW_MODES: tuple[str, ...] = (VIEW_MODE_BY_WELL, VIEW_MODE_BY_CURVE)
 TABLET_TRACK_OPTION = "Планшет"
 INTERPRETATION_TRACK_OPTIONS: tuple[str, ...] = tuple(dict.fromkeys((*DEFAULT_INTERPRETATION_TRACKS, TABLET_TRACK_OPTION)))
 
+
+
+
+START_ACTIONS: tuple[dict[str, str], ...] = (
+    {
+        "title": "Загрузить данные",
+        "target_tab": "Работа с данными",
+        "description": "Импорт LAS, CSV, XLSX/XLSM, проверка заголовков, mapping, расчет коэффициентов и первичная интерпретация.",
+        "when": "Когда есть файл с газовым каротажем или расчетная таблица.",
+    },
+    {
+        "title": "Открыть LAS-редактор",
+        "target_tab": "LAS-редактор",
+        "description": "Проверка глубины, подготовка сетки, ручная правка LAS и сохранение подготовленной версии в проект.",
+        "when": "Когда LAS нужно привести в порядок перед расчетами или корреляцией.",
+    },
+    {
+        "title": "Открыть корреляцию",
+        "target_tab": "LAS-корреляция",
+        "description": "Сравнение нескольких скважин, группировка кривых, X-scale, интервал, печатный HTML и графический экспорт.",
+        "when": "Когда нужно сопоставить несколько LAS по одному интервалу.",
+    },
+    {
+        "title": "Открыть интерпретационные графики",
+        "target_tab": "Интерпретационные графики",
+        "description": "Планшет, маркеры, зоны интерпретации, interval report и экспорт PNG/PDF/SVG.",
+        "when": "Когда расчет уже выполнен и нужно подготовить инженерный материал.",
+    },
+    {
+        "title": "Открыть документацию",
+        "target_tab": "Инструкции и документация",
+        "description": "Формулы, troubleshooting, формат данных, методика mud gas analysis и план проекта.",
+        "when": "Когда нужно проверить ограничения методики или понять предупреждение.",
+    },
+)
 
 DOCUMENTATION_TAB_DOCS: tuple[tuple[str, str], ...] = (
     ("Быстрый старт", "docs/setup.md"),
@@ -254,6 +290,31 @@ def _apply_app_style(scale: str = "large") -> None:
         }
         div[data-testid="stMetricValue"], div[data-testid="stMetricLabel"] {
             font-size: {tokens["body"]} !important;
+        }
+        .workflow-card {
+            background: var(--app-panel);
+            border: 1px solid var(--app-border);
+            border-radius: 12px;
+            padding: 1rem 1.1rem;
+            min-height: 12rem;
+            margin-bottom: 0.9rem;
+        }
+        .workflow-card strong {
+            display: block;
+            font-size: 1.1rem;
+            margin-bottom: 0.45rem;
+        }
+        .workflow-card small {
+            color: var(--app-muted);
+            display: block;
+            margin-top: 0.7rem;
+            line-height: 1.45;
+        }
+        .workflow-status {
+            background: var(--app-panel-strong);
+            border: 1px solid var(--app-border);
+            border-radius: 10px;
+            padding: 0.85rem 1rem;
         }
         </style>
         """
@@ -756,6 +817,81 @@ def _render_start_guidance() -> None:
         "4. При ошибках откройте `docs/troubleshooting.md` или последние строки `logs/app.log`."
     )
 
+
+
+
+def _workflow_status_rows(active_project: ProjectRecord) -> tuple[tuple[str, str], ...]:
+    """Build compact status rows for the start screen.
+
+    The start screen should not duplicate every workflow panel. It only answers
+    the first practical question: what is already loaded and where to continue.
+    """
+    rows: list[tuple[str, str]] = [("Активный проект", f"{active_project.name} ({active_project.id})")]
+
+    editor_sheets = st.session_state.get(LAS_EDITOR_SESSION_SHEETS_KEY)
+    if editor_sheets:
+        rows.append(("LAS-редактор", st.session_state.get(LAS_EDITOR_SESSION_SUMMARY_KEY, "данные подготовлены")))
+    else:
+        rows.append(("LAS-редактор", "подготовленные данные не загружены в текущую сессию"))
+
+    project_sheets = st.session_state.get(PROJECT_SESSION_SHEETS_KEY)
+    if project_sheets and st.session_state.get(PROJECT_SESSION_PROJECT_ID_KEY) == active_project.id:
+        rows.append(("Проектные данные", st.session_state.get(PROJECT_SESSION_SUMMARY_KEY, "проектные данные загружены")))
+    else:
+        rows.append(("Проектные данные", "не выбраны для текущего workflow"))
+
+    interpretation_df = st.session_state.get(INTERPRETATION_SESSION_DATA_KEY)
+    if isinstance(interpretation_df, pd.DataFrame) and not interpretation_df.empty:
+        source = st.session_state.get(INTERPRETATION_SESSION_SOURCE_KEY, "расчетная таблица")
+        rows.append(("Интерпретационные графики", f"доступны данные: {source}, строк: {len(interpretation_df)}"))
+    else:
+        rows.append(("Интерпретационные графики", "сначала выполните расчет во вкладке `Работа с данными`"))
+
+    return tuple(rows)
+
+
+def _start_action_titles() -> tuple[str, ...]:
+    """Expose start-screen action titles for smoke tests and documentation checks."""
+    return tuple(action["title"] for action in START_ACTIONS)
+
+
+def _render_start_tab(active_project: ProjectRecord) -> None:
+    st.subheader("Стартовый экран")
+    st.caption(
+        "Выберите рабочий сценарий. Streamlit не переключает вкладки программно, "
+        "поэтому карточка показывает, какую вкладку открыть дальше."
+    )
+
+    st.markdown("### Что делать дальше")
+    action_columns = st.columns(3)
+    for index, action in enumerate(START_ACTIONS):
+        with action_columns[index % len(action_columns)]:
+            st.markdown(
+                "<div class='workflow-card'>"
+                f"<strong>{action['title']}</strong>"
+                f"<p>{action['description']}</p>"
+                f"<small><b>Открыть вкладку:</b> {action['target_tab']}<br>"
+                f"<b>Когда использовать:</b> {action['when']}</small>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+    st.markdown("### Текущее состояние")
+    for label, value in _workflow_status_rows(active_project):
+        st.markdown(
+            f"<div class='workflow-status'><b>{label}</b><br>{value}</div>",
+            unsafe_allow_html=True,
+        )
+
+    with st.expander("Рекомендуемый порядок работы", expanded=False):
+        st.markdown(
+            "1. Создайте или выберите проект в левой панели.\n"
+            "2. Если LAS проблемный, сначала откройте `LAS-редактор`.\n"
+            "3. Для расчета коэффициентов откройте `Работа с данными`.\n"
+            "4. Для нескольких скважин используйте `LAS-корреляция`.\n"
+            "5. Для печати и обсуждения откройте `Интерпретационные графики`.\n"
+            "6. При предупреждениях сверяйте формулы и ограничения во вкладке документации."
+        )
 
 def _read_documentation_markdown(relative_path: str) -> str:
     candidate = Path(relative_path)
@@ -3074,7 +3210,9 @@ def main() -> None:
 
     active_project = _render_project_selector(logger, key_prefix="global", expanded=True)
 
-    workspace_tab, las_editor_tab, correlation_tab, graphs_tab, docs_tab = st.tabs(list(APP_TABS))
+    start_tab, workspace_tab, las_editor_tab, correlation_tab, graphs_tab, docs_tab = st.tabs(list(APP_TABS))
+    with start_tab:
+        _render_start_tab(active_project)
     with workspace_tab:
         _render_workspace(logger, active_project)
     with las_editor_tab:

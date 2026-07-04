@@ -148,3 +148,27 @@ def test_project_las_records_to_raw_sheets_loads_project_version(monkeypatch, tm
     assert list(sheets) == ["Well A / prepared"]
     assert list(sheets["Well A / prepared"].iloc[0])[:2] == ["DEPT", "C1"]
 
+
+
+def test_start_screen_actions_cover_main_workflows():
+    module = importlib.import_module("app.streamlit_app")
+
+    assert module.APP_TABS[0] == "Старт"
+    assert module._start_action_titles() == (
+        "Загрузить данные",
+        "Открыть LAS-редактор",
+        "Открыть корреляцию",
+        "Открыть интерпретационные графики",
+        "Открыть документацию",
+    )
+
+
+def test_workflow_status_rows_explain_empty_session(monkeypatch):
+    module = importlib.import_module("app.streamlit_app")
+    monkeypatch.setattr(module.st, "session_state", {})
+
+    rows = dict(module._workflow_status_rows(module.ProjectRecord(id="demo", name="Demo")))
+
+    assert rows["Активный проект"] == "Demo (demo)"
+    assert "не загружены" in rows["LAS-редактор"]
+    assert "сначала выполните расчет" in rows["Интерпретационные графики"]
