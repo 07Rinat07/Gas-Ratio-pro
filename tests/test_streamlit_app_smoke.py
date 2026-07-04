@@ -172,3 +172,21 @@ def test_workflow_status_rows_explain_empty_session(monkeypatch):
     assert rows["Активный проект"] == "Demo (demo)"
     assert "не загружены" in rows["LAS-редактор"]
     assert "сначала выполните расчет" in rows["Интерпретационные графики"]
+
+
+def test_workflow_status_detail_rows_include_next_actions(monkeypatch):
+    module = importlib.import_module("app.streamlit_app")
+    monkeypatch.setattr(module.st, "session_state", {})
+
+    rows = module._workflow_status_detail_rows(module.ProjectRecord(id="demo", name="Demo"))
+
+    assert all(len(row) == 3 for row in rows)
+    assert any("Дальше" not in action and action for _label, _status, action in rows)
+    assert rows[0][0] == "Активный проект"
+
+
+def test_dataframe_shape_label_for_ui_tables():
+    module = importlib.import_module("app.streamlit_app")
+
+    assert module._dataframe_shape_label(pd.DataFrame({"A": [1, 2], "B": [3, 4]})) == "строк: 2, колонок: 2"
+    assert module._dataframe_shape_label(None) == "нет данных"

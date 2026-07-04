@@ -316,6 +316,22 @@ def _apply_app_style(scale: str = "large") -> None:
             border-radius: 10px;
             padding: 0.85rem 1rem;
         }
+        .workflow-status + .workflow-status {
+            margin-top: 0.65rem;
+        }
+        .workflow-status small {
+            color: var(--app-muted);
+            display: block;
+            margin-top: 0.35rem;
+        }
+        div[data-testid="stDataFrame"] {
+            border: 1px solid var(--app-border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        div[data-testid="stDataFrame"] * {
+            font-size: 0.96rem !important;
+        }
         </style>
         """
         .replace('{tokens["base"]}', tokens["base"])
@@ -431,6 +447,36 @@ def _dataframe_to_report_table(title: str, df: pd.DataFrame) -> HtmlReportTable 
         headers=tuple(str(column) for column in safe_df.columns),
         rows=tuple(tuple(row) for row in safe_df.itertuples(index=False, name=None)),
     )
+
+
+def _dataframe_shape_label(df: pd.DataFrame | None) -> str:
+    """Return a short table size label for UI captions and smoke tests."""
+    if df is None:
+        return "нет данных"
+    return f"строк: {len(df)}, колонок: {len(df.columns)}"
+
+
+def _render_dataframe_panel(
+    title: str,
+    df: pd.DataFrame,
+    *,
+    max_preview_rows: int | None = None,
+    expanded: bool = False,
+    height: int = 360,
+    help_text: str = "",
+) -> None:
+    """Render large tables inside a compact expandable panel.
+
+    The application often works with wide LAS and calculation tables. Keeping
+    these tables collapsed by default makes the workflow readable on ordinary
+    monitors while still preserving quick access to the raw data.
+    """
+    with st.expander(title, expanded=expanded):
+        st.caption(_dataframe_shape_label(df))
+        if help_text:
+            st.caption(help_text)
+        display_df = df.head(max_preview_rows) if max_preview_rows else df
+        st.dataframe(display_df, use_container_width=True, height=height)
 
 
 def _range_label(value: tuple[float, float] | None, *, unit: str = "") -> str:
@@ -820,34 +866,61 @@ def _render_start_guidance() -> None:
 
 
 
-def _workflow_status_rows(active_project: ProjectRecord) -> tuple[tuple[str, str], ...]:
-    """Build compact status rows for the start screen.
-
-    The start screen should not duplicate every workflow panel. It only answers
-    the first practical question: what is already loaded and where to continue.
-    """
-    rows: list[tuple[str, str]] = [("Активный проект", f"{active_project.name} ({active_project.id})")]
+def _workflow_status_detail_rows(active_project: ProjectRecord) -> tuple[tuple[str, str, str], ...]:
+    """Build status rows with a concrete next action for each workflow stage."""
+    rows: list[tuple[str, str, str]] = [
+        ("Активный проект", f"{active_project.name} ({active_project.id})", "Проверьте, что выбран нужный проект перед импортом или сохранением."),
+    ]
 
     editor_sheets = st.session_state.get(LAS_EDITOR_SESSION_SHEETS_KEY)
     if editor_sheets:
-        rows.append(("LAS-редактор", st.session_state.get(LAS_EDITOR_SESSION_SUMMARY_KEY, "данные подготовлены")))
+        rows.append((
+            "LAS-редактор",
+            st.session_state.get(LAS_EDITOR_SESSION_SUMMARY_KEY, "данные подготовлены"),
+            "Можно передать подготовленную таблицу в расчет или сохранить версию в проект.",
+        ))
     else:
-        rows.append(("LAS-редактор", "подготовленные данные не загружены в текущую сессию"))
+        rows.append((
+            "LAS-редактор",
+            "подготовленные данные не загружены в текущую сессию",
+            "Откройте LAS-редактор, если файл требует исправления глубины или NULL-значений.",
+        ))
 
     project_sheets = st.session_state.get(PROJECT_SESSION_SHEETS_KEY)
     if project_sheets and st.session_state.get(PROJECT_SESSION_PROJECT_ID_KEY) == active_project.id:
-        rows.append(("Проектные данные", st.session_state.get(PROJECT_SESSION_SUMMARY_KEY, "проектные данные загружены")))
+        rows.append((
+            "Проектные данные",
+            st.session_state.get(PROJECT_SESSION_SUMMARY_KEY, "проектные данные загружены"),
+            "Можно продолжить расчет или экспорт выбранных проектных версий.",
+        ))
     else:
-        rows.append(("Проектные данные", "не выбраны для текущего workflow"))
+        rows.append((
+            "Проектные данные",
+            "не выбраны для текущего workflow",
+            "Откройте сохраненный проект или загрузите новые данные во вкладке `Работа с данными`.",
+        ))
 
     interpretation_df = st.session_state.get(INTERPRETATION_SESSION_DATA_KEY)
     if isinstance(interpretation_df, pd.DataFrame) and not interpretation_df.empty:
         source = st.session_state.get(INTERPRETATION_SESSION_SOURCE_KEY, "расчетная таблица")
-        rows.append(("Интерпретационные графики", f"доступны данные: {source}, строк: {len(interpretation_df)}"))
+        rows.append((
+            "Интерпретационные графики",
+            f"доступны данные: {source}, строк: {len(interpretation_df)}",
+            "Можно открыть планшет, маркеры, зоны и interval report.",
+        ))
     else:
-        rows.append(("Интерпретационные графики", "сначала выполните расчет во вкладке `Работа с данными`"))
+        rows.append((
+            "Интерпретационные графики",
+            "сначала выполните расчет во вкладке `Работа с данными`",
+            "После расчета данные автоматически появятся в интерпретационных графиках.",
+        ))
 
     return tuple(rows)
+
+
+def _workflow_status_rows(active_project: ProjectRecord) -> tuple[tuple[str, str], ...]:
+    """Build compact status rows for tests and backward-compatible callers."""
+    return tuple((label, status) for label, status, _action in _workflow_status_detail_rows(active_project))
 
 
 def _start_action_titles() -> tuple[str, ...]:
@@ -877,9 +950,9 @@ def _render_start_tab(active_project: ProjectRecord) -> None:
             )
 
     st.markdown("### Текущее состояние")
-    for label, value in _workflow_status_rows(active_project):
+    for label, value, next_action in _workflow_status_detail_rows(active_project):
         st.markdown(
-            f"<div class='workflow-status'><b>{label}</b><br>{value}</div>",
+            f"<div class='workflow-status'><b>{label}</b><br>{value}<small><b>Дальше:</b> {next_action}</small></div>",
             unsafe_allow_html=True,
         )
 
@@ -1288,8 +1361,14 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         len(raw_df.columns),
     )
 
-    st.subheader("Предпросмотр первых 20 строк")
-    st.dataframe(raw_df.head(20), use_container_width=True)
+    _render_dataframe_panel(
+        "Предпросмотр исходных строк",
+        raw_df,
+        max_preview_rows=20,
+        expanded=True,
+        height=320,
+        help_text="Первые строки файла до выбора строки заголовков.",
+    )
 
     if raw_df.empty:
         logger.warning("selected_sheet_empty sheet=%s", safe_log_value(sheet_name))
@@ -1325,7 +1404,14 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         return
 
     st.subheader("Сопоставление колонок")
-    st.dataframe(prepared_df.head(20), use_container_width=True)
+    _render_dataframe_panel(
+        "Подготовленная таблица после выбора заголовков",
+        prepared_df,
+        max_preview_rows=20,
+        expanded=False,
+        height=320,
+        help_text="Проверьте, что названия колонок распознаны корректно перед mapping.",
+    )
 
     mapping_result = auto_map_columns(prepared_df.columns)
     logger.info(
@@ -1371,13 +1457,13 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
     )
     warnings = list(dict.fromkeys(warnings))
 
-    st.subheader("Предупреждения")
-    if warnings:
-        for warning in warnings:
-            st.warning(warning)
-    else:
-        st.success("Критичных предупреждений нет.")
-    st.info(CH_WARNING)
+    with st.expander("Предупреждения и проверки", expanded=bool(warnings)):
+        if warnings:
+            for warning in warnings:
+                st.warning(warning)
+        else:
+            st.success("Критичных предупреждений нет.")
+        st.info(CH_WARNING)
     _render_ratio_nan_diagnostics(calculated_df, ch_mode, nan_messages)
 
     if calculated_df.empty:
@@ -1386,7 +1472,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         return
 
     st.subheader("Сводка классификации")
-    st.dataframe(summarize_interpretation(calculated_df), use_container_width=True)
+    st.dataframe(summarize_interpretation(calculated_df), use_container_width=True, height=220)
 
     interval_indices = [
         int(index)
@@ -1430,7 +1516,13 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
     tab_pixler.plotly_chart(build_depth_pixler_tracks(calculated_df), use_container_width=True)
 
     st.subheader("Расчетная таблица")
-    st.dataframe(calculated_df, use_container_width=True)
+    _render_dataframe_panel(
+        "Полная расчетная таблица",
+        calculated_df,
+        expanded=False,
+        height=460,
+        help_text="Полная таблица остается доступной, но не перегружает основной экран.",
+    )
     st.download_button(
         "Экспорт CSV",
         data=export_csv_bytes(calculated_df),
