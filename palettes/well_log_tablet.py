@@ -41,6 +41,7 @@ PREFERRED_TABLET_COLUMNS: tuple[str, ...] = (
     "c1_c5",
 )
 DEPTH_COLUMN_NAMES = {"depth", "depth_from", "depth_to", "_plot_depth"}
+TABLET_FILL_MODES = {"none", "to_zero", "to_left", "to_right"}
 
 
 MUD_GAS_LITERATURE_TRACK_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -83,6 +84,7 @@ class TabletTrackConfig:
     color: str | None = None
     x_range: tuple[float, float] | None = None
     fill: bool = False
+    fill_mode: str = "none"
 
 
 @dataclass(frozen=True)
@@ -232,6 +234,7 @@ def normalize_track_configs(
     units: Mapping[str, str | None] | None = None,
     colors: Mapping[str, str | None] | None = None,
     fill: bool = False,
+    fill_modes: Mapping[str, str | None] | None = None,
 ) -> tuple[TabletTrackConfig, ...]:
     """Build ordered tablet track configs from UI/project settings.
 
@@ -243,6 +246,7 @@ def normalize_track_configs(
     ranges = x_ranges or {}
     unit_map = units or {}
     color_map = colors or {}
+    fill_mode_map = fill_modes or {}
     configs: list[TabletTrackConfig] = []
     for index, column in enumerate(columns):
         column_name = str(column)
@@ -254,9 +258,74 @@ def normalize_track_configs(
                 color=color_map.get(column_name) or DEFAULT_TABLET_COLORS[index % len(DEFAULT_TABLET_COLORS)],
                 x_range=ranges.get(column_name),
                 fill=fill,
+                fill_mode=normalize_tablet_fill_mode(fill_mode_map.get(column_name), legacy_fill=fill),
             )
         )
     return tuple(configs)
+
+
+def normalize_tablet_fill_mode(value: str | None, *, legacy_fill: bool = False) -> str:
+    """Normalize per-track tablet fill mode.
+
+    ``legacy_fill`` keeps old saved projects compatible: if a project only has
+    the former boolean fill flag, tracks still render as fill-to-zero. New
+    projects can store an explicit mode per parameter.
+    """
+
+    normalized = str(value or "").strip().lower()
+    aliases = {
+        "": "to_zero" if legacy_fill else "none",
+        "false": "none",
+        "no": "none",
+        "none": "none",
+        "line": "none",
+        "true": "to_zero",
+        "zero": "to_zero",
+        "to_zero": "to_zero",
+        "tozerox": "to_zero",
+        "left": "to_left",
+        "to_left": "to_left",
+        "right": "to_right",
+        "to_right": "to_right",
+    }
+    mode = aliases.get(normalized, normalized)
+    return mode if mode in TABLET_FILL_MODES else ("to_zero" if legacy_fill else "none")
+
+
+def tablet_fill_mode_label(mode: str | None) -> str:
+    labels = {
+        "none": "line",
+        "to_zero": "fill to zero",
+        "to_left": "fill to left scale",
+        "to_right": "fill to right scale",
+    }
+    return labels.get(normalize_tablet_fill_mode(mode), "line")
+
+
+def _hex_to_rgba(color: str, opacity: float) -> str:
+    text = str(color or "#111111").strip()
+    if text.startswith("#") and len(text) == 7:
+        try:
+            red = int(text[1:3], 16)
+            green = int(text[3:5], 16)
+            blue = int(text[5:7], 16)
+            return f"rgba({red},{green},{blue},{max(0.0, min(1.0, opacity))})"
+        except ValueError:
+            pass
+    return f"rgba(17,17,17,{max(0.0, min(1.0, opacity))})"
+
+
+def _fill_baseline(values: pd.Series, track: TabletTrackConfig, mode: str) -> float | None:
+    if mode == "none":
+        return None
+    if mode == "to_zero":
+        return 0.0
+    if track.x_range is not None:
+        return float(track.x_range[0] if mode == "to_left" else track.x_range[1])
+    numeric = pd.to_numeric(values, errors="coerce").dropna()
+    if numeric.empty:
+        return None
+    return float(numeric.min() if mode == "to_left" else numeric.max())
 
 
 def tablet_units_from_dataframe(df: pd.DataFrame) -> dict[str, str]:
@@ -284,7 +353,7 @@ def _track_title(track: TabletTrackConfig, values: pd.Series) -> str:
     else:
         numeric = pd.to_numeric(values, errors="coerce").dropna()
         scale = "auto" if numeric.empty else f"auto {numeric.min():g} - {numeric.max():g}"
-    fill_label = "fill" if track.fill else "line"
+    fill_label = tablet_fill_mode_label(track.fill_mode if track.fill_mode else ("to_zero" if track.fill else "none"))
     return f"{label}{unit}<br>{scale}<br>{fill_label}"
 
 
@@ -338,14 +407,34 @@ def build_well_log_tablet(
         if values.isna().all():
             continue
 
+        color = track.color or DEFAULT_TABLET_COLORS[(index - 1) % len(DEFAULT_TABLET_COLORS)]
+        fill_mode = normalize_tablet_fill_mode(track.fill_mode, legacy_fill=track.fill)
+        baseline = _fill_baseline(values, track, fill_mode)
+        fill = None
+        if baseline is not None:
+            fig.add_trace(
+                go.Scatter(
+                    x=[baseline] * len(depth),
+                    y=depth,
+                    mode="lines",
+                    line={"color": "rgba(0,0,0,0)", "width": 0},
+                    hoverinfo="skip",
+                    showlegend=False,
+                ),
+                row=1,
+                col=index,
+            )
+            fill = "tonextx"
+
         fig.add_trace(
             go.Scatter(
                 x=values,
                 y=depth,
                 mode="lines",
                 name=track.label or track.column,
-                line={"color": track.color or DEFAULT_TABLET_COLORS[(index - 1) % len(DEFAULT_TABLET_COLORS)], "width": 1.6},
-                fill="tozerox" if track.fill else None,
+                line={"color": color, "width": 1.6},
+                fill=fill,
+                fillcolor=_hex_to_rgba(color, 0.18),
                 hovertemplate=f"{track.column}=%{{x}}<br>Depth=%{{y}}<extra></extra>",
             ),
             row=1,

@@ -188,3 +188,34 @@ def test_mud_gas_literature_markers_use_extremes_and_skip_duplicate_depths():
         ("IOI", 1003.0),
     ]
     assert all("провер" in marker.note.lower() or "справоч" in marker.note.lower() for marker in markers)
+
+
+def test_per_track_fill_modes_add_baseline_traces_and_titles():
+    from palettes.well_log_tablet import normalize_tablet_fill_mode
+
+    df = pd.DataFrame({"depth": [1000.0, 1001.0], "GR": [70.0, 90.0], "C1": [5.0, 10.0]})
+    configs = normalize_track_configs(
+        ("GR", "C1"),
+        x_ranges={"GR": (0.0, 150.0), "C1": (0.0, 20.0)},
+        fill_modes={"GR": "to_left", "C1": "to_right"},
+    )
+
+    fig = build_well_log_tablet(df, configs)
+
+    assert normalize_tablet_fill_mode("left") == "to_left"
+    assert configs[0].fill_mode == "to_left"
+    assert configs[1].fill_mode == "to_right"
+    assert len(fig.data) == 4
+    assert list(fig.data[0].x) == [0.0, 0.0]
+    assert list(fig.data[2].x) == [20.0, 20.0]
+    assert fig.data[1].fill == "tonextx"
+    assert fig.data[3].fill == "tonextx"
+    assert "fill to left scale" in fig.layout.annotations[0].text
+    assert "fill to right scale" in fig.layout.annotations[1].text
+
+
+def test_legacy_tablet_fill_still_maps_to_zero_fill():
+    configs = normalize_track_configs(("GR",), fill=True)
+
+    assert configs[0].fill is True
+    assert configs[0].fill_mode == "to_zero"

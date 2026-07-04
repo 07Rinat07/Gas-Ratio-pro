@@ -30,6 +30,7 @@ class InterpretationGraphSettings:
     tablet_tracks: tuple[str, ...] = ()
     tablet_x_ranges: dict[str, tuple[float, float]] = field(default_factory=dict)
     tablet_colors: dict[str, str] = field(default_factory=dict)
+    tablet_fill_modes: dict[str, str] = field(default_factory=dict)
     tablet_markers: tuple[dict[str, Any], ...] = ()
     tablet_zones: tuple[dict[str, Any], ...] = ()
     tablet_fill: bool = False
@@ -96,6 +97,34 @@ def _colors_from_raw(raw: object) -> dict[str, str]:
             colors[column] = color
     return colors
 
+def _fill_modes_from_raw(raw: object) -> dict[str, str]:
+    if not isinstance(raw, dict):
+        return {}
+    allowed = {"none", "to_zero", "to_left", "to_right"}
+    aliases = {
+        "": "none",
+        "line": "none",
+        "false": "none",
+        "no": "none",
+        "none": "none",
+        "true": "to_zero",
+        "zero": "to_zero",
+        "to_zero": "to_zero",
+        "tozerox": "to_zero",
+        "left": "to_left",
+        "to_left": "to_left",
+        "right": "to_right",
+        "to_right": "to_right",
+    }
+    result: dict[str, str] = {}
+    for key, value in raw.items():
+        column = str(key).strip()
+        mode = aliases.get(str(value or "").strip().lower(), str(value or "").strip().lower())
+        if column and mode in allowed:
+            result[column] = mode
+    return result
+
+
 def _markers_from_raw(raw: object) -> tuple[dict[str, Any], ...]:
     if not isinstance(raw, list):
         return ()
@@ -161,6 +190,7 @@ def settings_to_dict(settings: InterpretationGraphSettings) -> dict[str, Any]:
         "tablet_tracks": list(settings.tablet_tracks),
         "tablet_x_ranges": _ranges_to_dict(settings.tablet_x_ranges),
         "tablet_colors": dict(settings.tablet_colors),
+        "tablet_fill_modes": dict(settings.tablet_fill_modes),
         "tablet_markers": list(settings.tablet_markers),
         "tablet_zones": list(settings.tablet_zones),
         "tablet_fill": bool(settings.tablet_fill),
@@ -186,6 +216,7 @@ def settings_from_dict(raw: object) -> InterpretationGraphSettings:
         tablet_tracks=tuple(str(track) for track in payload.get("tablet_tracks", ()) if str(track)),
         tablet_x_ranges=_ranges_from_raw(payload.get("tablet_x_ranges")),
         tablet_colors=_colors_from_raw(payload.get("tablet_colors")),
+        tablet_fill_modes=_fill_modes_from_raw(payload.get("tablet_fill_modes")),
         tablet_markers=_markers_from_raw(payload.get("tablet_markers")),
         tablet_zones=_zones_from_raw(payload.get("tablet_zones")),
         tablet_fill=bool(payload.get("tablet_fill", False)),

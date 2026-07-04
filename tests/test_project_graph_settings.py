@@ -23,6 +23,7 @@ def test_project_interpretation_graph_settings_roundtrip(tmp_path):
         tablet_tracks=("GR", "C1"),
         tablet_x_ranges={"GR": (0.0, 150.0)},
         tablet_colors={"GR": "#111111"},
+        tablet_fill_modes={"GR": "to_left", "C1": "to_right"},
         tablet_markers=({"label": "a", "depth": 1001.0, "note": "peak"},),
         tablet_zones=({"label": "oil", "top_depth": 1000.0, "bottom_depth": 1002.0, "color": "#ffd966", "note": "manual"},),
         tablet_fill=True,
@@ -40,6 +41,7 @@ def test_project_interpretation_graph_settings_roundtrip(tmp_path):
     assert payload["settings"]["tablet_tracks"] == ["GR", "C1"]
     assert payload["settings"]["tablet_x_ranges"] == {"GR": [0.0, 150.0]}
     assert payload["settings"]["tablet_colors"] == {"GR": "#111111"}
+    assert payload["settings"]["tablet_fill_modes"] == {"GR": "to_left", "C1": "to_right"}
     assert payload["settings"]["tablet_markers"] == [{"label": "a", "depth": 1001.0, "note": "peak"}]
     assert payload["settings"]["tablet_zones"] == [
         {"label": "oil", "top_depth": 1000.0, "bottom_depth": 1002.0, "color": "#ffd966", "note": "manual"}
@@ -59,6 +61,7 @@ def test_project_interpretation_graph_settings_from_dict_normalizes_values():
             "tablet_tracks": ["GR", ""],
             "tablet_x_ranges": {"GR": [150, 0], "bad": [10, 10]},
             "tablet_colors": {"GR": "#123456", "bad": "red"},
+            "tablet_fill_modes": {"GR": "left", "C1": "bad", "C2": "zero"},
             "tablet_markers": [
                 {"label": "", "depth": "1001.5", "note": "check"},
                 {"label": "bad", "depth": "nope"},
@@ -80,6 +83,7 @@ def test_project_interpretation_graph_settings_from_dict_normalizes_values():
     assert settings.tablet_tracks == ("GR",)
     assert settings.tablet_x_ranges == {"GR": (0.0, 150.0)}
     assert settings.tablet_colors == {"GR": "#123456"}
+    assert settings.tablet_fill_modes == {"GR": "to_left", "C2": "to_zero"}
     assert settings.tablet_markers == ({"label": "a", "depth": 1001.5, "note": "check"},)
     assert settings.tablet_zones == (
         {"label": "gas", "top_depth": 1000.0, "bottom_depth": 1005.0, "color": "#abcdef", "note": "check"},

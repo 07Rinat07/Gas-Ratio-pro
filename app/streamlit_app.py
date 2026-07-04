@@ -59,6 +59,7 @@ from palettes.depth_tracks import (
 )
 from palettes.well_log_tablet import (
     DEFAULT_TABLET_COLORS,
+    TABLET_FILL_MODES,
     InterpretationMarker,
     InterpretationZone,
     build_interpretation_zone_table,
@@ -1527,11 +1528,11 @@ def _render_tablet_zone_controls(depth_range: tuple[float, float] | None, df: pd
 def _render_tablet_controls(
     filtered_df: pd.DataFrame,
     depth_range: tuple[float, float] | None,
-) -> tuple[tuple[str, ...], dict[str, tuple[float, float]], dict[str, str], tuple[InterpretationMarker, ...], tuple[InterpretationZone, ...], bool]:
+) -> tuple[tuple[str, ...], dict[str, tuple[float, float]], dict[str, str], dict[str, str], tuple[InterpretationMarker, ...], tuple[InterpretationZone, ...], bool]:
     available_columns = numeric_tablet_columns(filtered_df)
     if not available_columns:
         st.warning("В выбранном интервале нет числовых параметров для планшета.")
-        return (), {}, {}, (), (), False
+        return (), {}, {}, {}, (), (), False
 
     current_state = tuple(st.session_state.get("interpretation_tablet_columns", ()))
     valid_state = _valid_tablet_columns(filtered_df, current_state)
@@ -1577,22 +1578,45 @@ def _render_tablet_controls(
     )
     if not selected_columns:
         st.warning("Выберите хотя бы один числовой параметр для планшета.")
-        return (), {}, {}, (), (), False
+        return (), {}, {}, {}, (), (), False
 
-    tablet_fill = st.checkbox("Заливка кривых до нуля", value=False, key="interpretation_tablet_fill")
+    tablet_fill = st.checkbox(
+        "Заливка всех кривых до нуля (legacy)",
+        value=False,
+        key="interpretation_tablet_fill",
+        help="Совместимый общий режим. Для точной настройки используйте индивидуальные режимы заливки ниже.",
+    )
     tablet_x_ranges = _select_tablet_x_ranges(filtered_df, selected_columns)
     tablet_colors: dict[str, str] = {}
-    with st.expander("Цвета треков планшета", expanded=False):
+    tablet_fill_modes: dict[str, str] = {}
+    fill_mode_labels = {
+        "none": "Линия без заливки",
+        "to_zero": "Заливка до 0",
+        "to_left": "Заливка до левой границы шкалы",
+        "to_right": "Заливка до правой границы шкалы",
+    }
+    with st.expander("Цвета и заливка треков планшета", expanded=False):
         for index, column in enumerate(selected_columns):
+            color_col, fill_col = st.columns((1, 1.4))
             default_color = DEFAULT_TABLET_COLORS[index % len(DEFAULT_TABLET_COLORS)]
-            tablet_colors[column] = st.color_picker(
+            tablet_colors[column] = color_col.color_picker(
                 f"Цвет: {column}",
                 value=default_color,
                 key=f"interpretation_tablet_{_safe_widget_key(column)}_color",
             )
+            default_mode = st.session_state.get(f"interpretation_tablet_{_safe_widget_key(column)}_fill_mode")
+            if default_mode not in TABLET_FILL_MODES:
+                default_mode = "to_zero" if tablet_fill else "none"
+            tablet_fill_modes[column] = fill_col.selectbox(
+                f"Заливка: {column}",
+                options=("none", "to_zero", "to_left", "to_right"),
+                index=("none", "to_zero", "to_left", "to_right").index(str(default_mode)),
+                format_func=lambda mode: fill_mode_labels.get(str(mode), str(mode)),
+                key=f"interpretation_tablet_{_safe_widget_key(column)}_fill_mode",
+            )
     markers = _render_tablet_marker_controls(depth_range, filtered_df)
     zones = _render_tablet_zone_controls(depth_range, filtered_df)
-    return selected_columns, tablet_x_ranges, tablet_colors, markers, zones, bool(tablet_fill)
+    return selected_columns, tablet_x_ranges, tablet_colors, tablet_fill_modes, markers, zones, bool(tablet_fill)
 
 
 def _apply_interpretation_graph_settings_to_session(settings: InterpretationGraphSettings) -> None:
@@ -1612,6 +1636,8 @@ def _apply_interpretation_graph_settings_to_session(settings: InterpretationGrap
     st.session_state["interpretation_tablet_fill"] = bool(settings.tablet_fill)
     for column, color in settings.tablet_colors.items():
         st.session_state[f"interpretation_tablet_{_safe_widget_key(column)}_color"] = str(color)
+    for column, mode in settings.tablet_fill_modes.items():
+        st.session_state[f"interpretation_tablet_{_safe_widget_key(column)}_fill_mode"] = str(mode)
     for column, x_range in settings.tablet_x_ranges.items():
         _set_tablet_x_range_state(column, x_range)
     st.session_state["interpretation_tablet_marker_count"] = len(settings.tablet_markers)
@@ -1751,12 +1777,13 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     tablet_columns: tuple[str, ...] = ()
     tablet_x_ranges: dict[str, tuple[float, float]] = {}
     tablet_colors: dict[str, str] = {}
+    tablet_fill_modes: dict[str, str] = {}
     tablet_markers: tuple[InterpretationMarker, ...] = ()
     tablet_zones: tuple[InterpretationZone, ...] = ()
     tablet_fill = False
     if TABLET_TRACK_OPTION in selected_tracks:
         st.subheader("Планшетные параметры")
-        tablet_columns, tablet_x_ranges, tablet_colors, tablet_markers, tablet_zones, tablet_fill = _render_tablet_controls(filtered_df, depth_range)
+        tablet_columns, tablet_x_ranges, tablet_colors, tablet_fill_modes, tablet_markers, tablet_zones, tablet_fill = _render_tablet_controls(filtered_df, depth_range)
 
     current_settings = InterpretationGraphSettings(
         selected_tracks=tuple(selected_tracks),
@@ -1768,6 +1795,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         tablet_tracks=tablet_columns,
         tablet_x_ranges=tablet_x_ranges,
         tablet_colors=tablet_colors,
+        tablet_fill_modes=tablet_fill_modes,
         tablet_markers=tuple({"label": marker.label, "depth": marker.depth, "note": marker.note} for marker in tablet_markers),
         tablet_zones=tuple(
             {
@@ -1784,6 +1812,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     _render_interpretation_graph_settings_saver(active_project, current_settings, logger)
 
     figures = []
+    tablet_figure = None
     if "Интерпретация" in selected_tracks:
         figures.append(build_depth_interpretation_track(filtered_df, depth_range=depth_range, height=height))
     if "C1-C5" in selected_tracks:
@@ -1799,22 +1828,29 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             units=tablet_units_from_dataframe(filtered_df),
             colors=tablet_colors,
             fill=tablet_fill,
+            fill_modes=tablet_fill_modes,
         )
-        figures.append(
-            build_well_log_tablet(
-                filtered_df,
-                tablet_tracks,
-                depth_range=depth_range,
-                markers=tablet_markers,
-                zones=tablet_zones,
-                height=max(int(height), 760),
-            )
+        tablet_figure = build_well_log_tablet(
+            filtered_df,
+            tablet_tracks,
+            depth_range=depth_range,
+            markers=tablet_markers,
+            zones=tablet_zones,
+            height=max(int(height), 760),
         )
+        figures.append(tablet_figure)
 
     if not figures:
         st.warning("Выберите хотя бы один график.")
     for figure in figures:
         st.plotly_chart(figure, use_container_width=True)
+    if tablet_figure is not None:
+        _render_static_export_controls(
+            tablet_figure,
+            base_file_name="gas_ratio_well_log_tablet",
+            default_height=max(int(height), 760),
+            key_prefix="interpretation_tablet",
+        )
 
     if TABLET_TRACK_OPTION in selected_tracks and tablet_markers and tablet_columns:
         marker_table = build_marker_interpretation_table(filtered_df, tablet_markers, columns=tablet_columns)
