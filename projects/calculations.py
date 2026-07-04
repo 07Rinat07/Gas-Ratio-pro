@@ -24,6 +24,17 @@ PROJECT_CALCULATIONS_SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True)
+class ProjectCalculationsSummary:
+    count: int
+    total_rows: int
+    total_warnings: int
+    latest_saved_at: str = ""
+    latest_source_label: str = ""
+    sources: tuple[str, ...] = ()
+    columns: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class ProjectCalculationRecord:
     id: str
     source_label: str
@@ -120,6 +131,95 @@ def list_project_calculations(
     except (OSError, json.JSONDecodeError, TypeError, ValueError):
         return ()
     return tuple(sorted(records, key=lambda record: record.saved_at, reverse=True))
+
+
+
+def summarize_project_calculations(
+    root: Path | str = DEFAULT_PROJECTS_ROOT,
+    project_id: str = DEFAULT_PROJECT_ID,
+) -> ProjectCalculationsSummary:
+    records = list_project_calculations(root, project_id)
+    if not records:
+        return ProjectCalculationsSummary(count=0, total_rows=0, total_warnings=0)
+
+    columns: set[str] = set()
+    for record in records:
+        try:
+            metadata = read_project_calculation_metadata(root, project_id, record.id)
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError, FileNotFoundError, ValueError, TypeError):
+            continue
+        for column in metadata.get("columns", ()):
+            column_name = str(column).strip()
+            if column_name:
+                columns.add(column_name)
+
+    latest = records[0]
+    return ProjectCalculationsSummary(
+        count=len(records),
+        total_rows=sum(record.row_count for record in records),
+        total_warnings=sum(record.warnings_count for record in records),
+        latest_saved_at=latest.saved_at,
+        latest_source_label=latest.source_label,
+        sources=tuple(dict.fromkeys(record.source_label for record in records if record.source_label)),
+        columns=tuple(sorted(columns, key=str.lower)),
+    )
+
+
+def filter_project_calculations(
+    root: Path | str = DEFAULT_PROJECTS_ROOT,
+    project_id: str = DEFAULT_PROJECT_ID,
+    source_query: str = "",
+    warning_state: str = "any",
+    required_columns: tuple[str, ...] | list[str] | None = None,
+) -> tuple[ProjectCalculationRecord, ...]:
+    """Return saved calculation records matching practical project filters.
+
+    The function intentionally keeps filtering conservative: corrupted metadata
+    does not break the project screen, but records that require metadata-based
+    checks are skipped because their warning list or column set cannot be
+    trusted.
+    """
+
+    records = list_project_calculations(root, project_id)
+    clean_source_query = source_query.strip().casefold()
+    clean_warning_state = warning_state.strip().casefold() or "any"
+    clean_required_columns = tuple(
+        dict.fromkeys(str(column).strip() for column in (required_columns or ()) if str(column).strip())
+    )
+    required_columns_folded = {column.casefold() for column in clean_required_columns}
+
+    filtered: list[ProjectCalculationRecord] = []
+    for record in records:
+        if clean_source_query and clean_source_query not in record.source_label.casefold():
+            continue
+
+        needs_metadata = clean_warning_state in {"with_warnings", "without_warnings"} or bool(required_columns_folded)
+        metadata: dict[str, Any] = {}
+        if needs_metadata:
+            try:
+                metadata = read_project_calculation_metadata(root, project_id, record.id)
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError, FileNotFoundError, ValueError, TypeError):
+                continue
+
+        if clean_warning_state == "with_warnings":
+            warnings = metadata.get("warnings", ())
+            if not warnings:
+                continue
+        elif clean_warning_state == "without_warnings":
+            warnings = metadata.get("warnings", ())
+            if warnings:
+                continue
+        elif clean_warning_state not in {"any", "all"}:
+            raise ValueError("Некорректный режим фильтра предупреждений.")
+
+        if required_columns_folded:
+            available_columns = {str(column).strip().casefold() for column in metadata.get("columns", ())}
+            if not required_columns_folded.issubset(available_columns):
+                continue
+
+        filtered.append(record)
+
+    return tuple(filtered)
 
 
 def save_project_calculation(

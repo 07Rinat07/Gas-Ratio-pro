@@ -48,7 +48,14 @@ from las_correlation import (
     settings_summary,
     settings_to_dict,
 )
-from las_editor.depth_grid import resample_las_data
+from las_editor.depth_grid import (
+    apply_las_bulk_operations,
+    build_las_edit_audit_log,
+    build_las_edit_preview,
+    build_las_editor_hints,
+    insert_manual_depth_rows,
+    resample_las_data,
+)
 from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
 from palettes.depth_tracks import (
@@ -96,6 +103,8 @@ project_calculations = importlib.reload(project_calculations)
 project_exports = importlib.reload(project_exports)
 project_las_files = importlib.reload(project_las_files)
 list_project_calculations = project_calculations.list_project_calculations
+filter_project_calculations = project_calculations.filter_project_calculations
+summarize_project_calculations = project_calculations.summarize_project_calculations
 read_project_calculation_dataframe = project_calculations.read_project_calculation_dataframe
 read_project_calculation_file_bytes = project_calculations.read_project_calculation_file_bytes
 read_project_calculation_metadata = project_calculations.read_project_calculation_metadata
@@ -1191,9 +1200,81 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     )
     fill_strategy = fill_values[fill_label]
 
+    st.markdown("### Массовые операции")
+    st.caption(
+        "Эти операции выполняются до построения новой сетки глубины. "
+        "Исходный файл не перезаписывается: результат можно проверить ниже и только потом сохранить."
+    )
+    bulk_col1, bulk_col2, bulk_col3 = st.columns(3)
+    remove_duplicate_depths = bulk_col1.checkbox(
+        "Удалить дубли глубин",
+        value=False,
+        key="las_editor_remove_duplicate_depths",
+    )
+    sort_depth = bulk_col1.checkbox(
+        "Отсортировать глубину",
+        value=True,
+        key="las_editor_sort_depth",
+    )
+    replace_null_enabled = bulk_col2.checkbox(
+        "Заменить LAS NULL на пусто",
+        value=True,
+        key="las_editor_replace_null_enabled",
+    )
+    null_value = bulk_col2.text_input(
+        "NULL-значение",
+        value="-999.25",
+        key="las_editor_null_value",
+        disabled=not replace_null_enabled,
+    )
+    trim_enabled = bulk_col3.checkbox(
+        "Обрезать интервал",
+        value=False,
+        key="las_editor_trim_enabled",
+    )
+    trim_start = bulk_col3.text_input(
+        "От глубины",
+        value="",
+        key="las_editor_trim_start",
+        disabled=not trim_enabled,
+    )
+    trim_end = bulk_col3.text_input(
+        "До глубины",
+        value="",
+        key="las_editor_trim_end",
+        disabled=not trim_enabled,
+    )
+
+    try:
+        bulk_result = apply_las_bulk_operations(
+            prepared_df,
+            depth_column=depth_column,
+            remove_duplicate_depths=remove_duplicate_depths,
+            trim_start=trim_start if trim_enabled else None,
+            trim_end=trim_end if trim_enabled else None,
+            replace_null_value=null_value if replace_null_enabled else None,
+            sort_depth=sort_depth,
+        )
+    except Exception:
+        logger.exception("las_editor_bulk_operations_failed")
+        st.error("Не удалось выполнить массовые операции. Проверьте колонку глубины, NULL и границы интервала.")
+        st.caption("Подробности записаны в logs/app.log.")
+        return
+
+    with st.expander("Журнал массовых операций", expanded=bool(bulk_result.warnings)):
+        if bulk_result.operation_log:
+            for item in bulk_result.operation_log:
+                st.markdown(f"- {item}")
+        else:
+            st.caption("Массовые операции не меняли таблицу.")
+        if bulk_result.warnings:
+            st.markdown("#### Что требует проверки")
+            for warning in bulk_result.warnings:
+                st.warning(warning)
+
     try:
         result = resample_las_data(
-            prepared_df,
+            bulk_result.data,
             depth_column=depth_column,
             target_step=target_step,
             fill_strategy=fill_strategy,
@@ -1250,26 +1331,155 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
             preview_depths += ", ..."
         st.caption("Добавленные глубины: " + preview_depths)
 
+    st.markdown("### Ручное добавление строк по интервалу")
+    st.caption(
+        "Этот блок нужен, когда нужно точечно уплотнить или восстановить часть LAS, "
+        "не перестраивая весь ствол. Операция попадает в журнал правок сохраненной версии."
+    )
+    manual_rows_enabled = st.checkbox(
+        "Добавить строки только в выбранном интервале",
+        value=False,
+        key="las_editor_manual_rows_enabled",
+    )
+    manual_result = None
+    editor_base_df = result.data
+    manual_added_depths: tuple[float, ...] = ()
+    manual_interval_log: tuple[str, ...] = ()
+    if manual_rows_enabled:
+        manual_cols = st.columns(3)
+        manual_start = manual_cols[0].text_input(
+            "Начало интервала",
+            value=str(diagnostics.min_depth if diagnostics.min_depth is not None else ""),
+            key="las_editor_manual_rows_start",
+        )
+        manual_end = manual_cols[1].text_input(
+            "Конец интервала",
+            value=str(diagnostics.max_depth if diagnostics.max_depth is not None else ""),
+            key="las_editor_manual_rows_end",
+        )
+        manual_step = manual_cols[2].text_input(
+            "Шаг внутри интервала",
+            value=str(target_step),
+            key="las_editor_manual_rows_step",
+        )
+        try:
+            manual_result = insert_manual_depth_rows(
+                result.data,
+                depth_column=depth_column,
+                start_depth=manual_start,
+                end_depth=manual_end,
+                step=manual_step,
+                fill_strategy=fill_strategy,
+            )
+            editor_base_df = manual_result.data
+            manual_added_depths = manual_result.added_depths
+            manual_interval_log = manual_result.operation_log
+            st.metric("Добавлено вручную", len(manual_result.added_depths))
+            for warning in manual_result.warnings:
+                st.warning(warning)
+            if manual_result.added_depths:
+                st.caption(
+                    "Ручные добавленные глубины: "
+                    + ", ".join(str(depth) for depth in manual_result.added_depths[:40])
+                    + (", ..." if len(manual_result.added_depths) > 40 else "")
+                )
+        except Exception:
+            logger.exception("las_editor_manual_interval_rows_failed")
+            st.error("Не удалось добавить строки по выбранному интервалу. Проверьте границы и шаг.")
+            st.caption("Подробности записаны в logs/app.log.")
+            return
+
     st.markdown("### Ручная правка перед расчетом")
     edited_df = st.data_editor(
-        result.data,
+        editor_base_df,
         use_container_width=True,
         num_rows="dynamic",
         key="las_editor_data_editor",
     )
 
+    all_added_depths = tuple(result.added_depths) + tuple(manual_added_depths)
+    manual_preview = build_las_edit_preview(editor_base_df, edited_df)
+    audit_entries = build_las_edit_audit_log(
+        depth_column=depth_column,
+        target_step=target_step,
+        fill_strategy=fill_strategy,
+        bulk_operation_log=bulk_result.operation_log,
+        manual_interval_log=manual_interval_log,
+        added_depths=all_added_depths,
+        manual_preview=manual_preview,
+    )
+
+    editor_hints = build_las_editor_hints(
+        diagnostics,
+        added_depth_count=len(all_added_depths),
+        fill_strategy=fill_strategy,
+        bulk_operation_log=bulk_result.operation_log,
+        manual_interval_log=manual_interval_log,
+        preview=manual_preview,
+    )
+
+    with st.expander("Проверяемые подсказки LAS-редактора", expanded=bool(result.warnings or bulk_result.warnings or manual_added_depths)):
+        status_icon = {"ok": "✅", "info": "ℹ️", "review": "🟡", "warning": "⚠️"}
+        st.caption("Подсказки не меняют данные автоматически. Они показывают, что инженер должен проверить перед сохранением версии или выгрузкой.")
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "Статус": f"{status_icon.get(hint.status, 'ℹ️')} {hint.status}",
+                        "Раздел": hint.topic,
+                        "Что найдено": hint.message,
+                        "Что сделать": hint.action,
+                    }
+                    for hint in editor_hints
+                ]
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+        st.caption("Подробнее: docs/las_editor_plan.md и docs/user_guide.md → раздел LAS-редактора.")
+
+    with st.expander("Предпросмотр до/после и журнал правок", expanded=manual_preview.changed_cells > 0):
+        preview_cols = st.columns(5)
+        preview_cols[0].metric("Строк было", manual_preview.before_rows)
+        preview_cols[1].metric("Строк стало", manual_preview.after_rows)
+        preview_cols[2].metric("Добавлено", manual_preview.added_rows)
+        preview_cols[3].metric("Удалено", manual_preview.removed_rows)
+        preview_cols[4].metric("Изменено ячеек", manual_preview.changed_cells)
+        if manual_preview.changed_columns:
+            st.caption("Измененные колонки: " + ", ".join(manual_preview.changed_columns))
+        else:
+            st.caption("Ручных изменений после автоматической подготовки не найдено.")
+
+        before_col, after_col = st.columns(2)
+        before_col.markdown("**До ручной правки**")
+        before_col.dataframe(editor_base_df.head(30), use_container_width=True)
+        after_col.markdown("**После ручной правки**")
+        after_col.dataframe(edited_df.head(30), use_container_width=True)
+
+        st.markdown("**Журнал правок, который будет сохранен в metadata версии**")
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {"Этап": entry.stage, "Действие": entry.action, "Детали": entry.details}
+                    for entry in audit_entries
+                ]
+            ),
+            use_container_width=True,
+        )
+
     save_col, export_col = st.columns(2)
     if save_col.button("Сохранить для расчетов", type="primary", use_container_width=True):
         st.session_state[LAS_EDITOR_SESSION_SHEETS_KEY] = {"LAS-редактор": _dataframe_to_raw_sheet(edited_df)}
         st.session_state[LAS_EDITOR_SESSION_SUMMARY_KEY] = (
-            f"{len(edited_df)} строк, шаг {target_step}, заполнение: {fill_label}"
+            f"{len(edited_df)} строк, шаг {target_step}, заполнение: {fill_label}, массовых операций: {len(bulk_result.operation_log)}"
         )
         logger.info(
-            "las_editor_saved_to_session rows=%d columns=%d added_depths=%d fill_strategy=%s",
+            "las_editor_saved_to_session rows=%d columns=%d added_depths=%d fill_strategy=%s bulk_operations=%d",
             len(edited_df),
             len(edited_df.columns),
-            len(result.added_depths),
+            len(all_added_depths),
             safe_log_value(fill_strategy),
+            len(bulk_result.operation_log),
         )
         st.success("Исправленные LAS-данные сохранены. Откройте вкладку `Работа с данными` и включите данные из редактора.")
 
@@ -1330,7 +1540,20 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
                     "source": "las_editor",
                     "target_step": str(target_step),
                     "fill_strategy": fill_strategy,
-                    "added_depth_count": len(result.added_depths),
+                    "added_depth_count": len(all_added_depths),
+                    "manual_interval_added_depth_count": len(manual_added_depths),
+                    "preview": {
+                        "before_rows": manual_preview.before_rows,
+                        "after_rows": manual_preview.after_rows,
+                        "added_rows": manual_preview.added_rows,
+                        "removed_rows": manual_preview.removed_rows,
+                        "changed_cells": manual_preview.changed_cells,
+                        "changed_columns": list(manual_preview.changed_columns),
+                    },
+                    "edit_log": [
+                        {"stage": entry.stage, "action": entry.action, "details": entry.details}
+                        for entry in audit_entries
+                    ],
                 },
             )
         except Exception:
@@ -1355,6 +1578,25 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
                     file_name=f"{well_name.strip()}_{version_label.strip() or 'prepared'}.las",
                     well_name=well_name,
                     version_label=version_label.strip() or "Подготовленный LAS",
+                    metadata={
+                        "source": "las_editor",
+                        "target_step": str(target_step),
+                        "fill_strategy": fill_strategy,
+                        "added_depth_count": len(all_added_depths),
+                    "manual_interval_added_depth_count": len(manual_added_depths),
+                        "preview": {
+                            "before_rows": manual_preview.before_rows,
+                            "after_rows": manual_preview.after_rows,
+                            "added_rows": manual_preview.added_rows,
+                            "removed_rows": manual_preview.removed_rows,
+                            "changed_cells": manual_preview.changed_cells,
+                            "changed_columns": list(manual_preview.changed_columns),
+                        },
+                        "edit_log": [
+                            {"stage": entry.stage, "action": entry.action, "details": entry.details}
+                            for entry in audit_entries
+                        ],
+                    },
                 )
             except Exception:
                 logger.exception("project_las_prepared_save_failed project_id=%s", safe_log_value(active_project.id))
@@ -2554,6 +2796,32 @@ def _project_las_records_table(well_cards: tuple[ProjectLasWellCard, ...]) -> pd
     return pd.DataFrame(rows)
 
 
+def _project_workspace_summary_rows(project: ProjectRecord) -> tuple[tuple[str, str], ...]:
+    all_well_cards = list_project_las_wells(
+        LAS_CORRELATION_PROJECTS_ROOT,
+        project.id,
+        include_archived=True,
+    )
+    versions = tuple(version for card in all_well_cards for version in card.versions)
+    archived_versions = tuple(version for version in versions if version.archived_at)
+    active_versions = tuple(version for version in versions if not version.archived_at)
+    exports = list_project_exports(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+
+    return (
+        ("Скважин", str(len(all_well_cards))),
+        ("LAS-версий", str(len(versions))),
+        ("Активных LAS-версий", str(len(active_versions))),
+        ("Архивных LAS-версий", str(len(archived_versions))),
+        ("Доступных экспортов", str(len(exports))),
+    )
+
+
+def _project_workspace_summary_table(project: ProjectRecord) -> pd.DataFrame:
+    return pd.DataFrame(
+        [{"Показатель": label, "Значение": value} for label, value in _project_workspace_summary_rows(project)]
+    )
+
+
 def _project_las_records_to_raw_sheets(project: ProjectRecord, records: tuple[ProjectLasFile, ...]) -> dict[str, pd.DataFrame]:
     sheets: dict[str, pd.DataFrame] = {}
     for record in records:
@@ -2602,6 +2870,8 @@ def _render_project_workspace_loader(project: ProjectRecord, logger) -> None:
 
     with st.expander("Данные активного проекта", expanded=bool(active_records)):
         st.caption(f"Открыт проект: {project.name} ({project.id})")
+        st.dataframe(_project_workspace_summary_table(project), use_container_width=True, hide_index=True, height=210)
+
         if not active_records:
             st.caption("В активном проекте пока нет активных LAS-версий.")
             return
@@ -2756,6 +3026,30 @@ def _project_calculation_option_label(record) -> str:
     return f"{record.source_label} | {record.saved_at} | строк: {record.row_count}{warning_label}"
 
 
+def _project_calculations_summary_caption(summary) -> str:
+    if not summary.count:
+        return "Сохраненных расчетов пока нет."
+
+    source_preview = ", ".join(summary.sources[:3])
+    if len(summary.sources) > 3:
+        source_preview += f" и еще {len(summary.sources) - 3}"
+    columns_preview = ", ".join(summary.columns[:8])
+    if len(summary.columns) > 8:
+        columns_preview += f" и еще {len(summary.columns) - 8}"
+
+    parts = [
+        f"расчетов: {summary.count}",
+        f"строк: {summary.total_rows}",
+        f"предупреждений: {summary.total_warnings}",
+        f"последний: {summary.latest_source_label} / {summary.latest_saved_at}",
+    ]
+    if source_preview:
+        parts.append(f"источники: {source_preview}")
+    if columns_preview:
+        parts.append(f"колонки: {columns_preview}")
+    return "; ".join(parts)
+
+
 def _project_calculations_table(records: tuple[object, ...]) -> pd.DataFrame:
     return pd.DataFrame(
         [
@@ -2771,6 +3065,10 @@ def _project_calculations_table(records: tuple[object, ...]) -> pd.DataFrame:
             for record in records
         ]
     )
+
+
+def _parse_project_calculation_columns_filter(value: str) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(part.strip() for part in value.split(",") if part.strip()))
 
 
 def _render_project_calculation_metadata(project: ProjectRecord, calculation_id: str, logger) -> None:
@@ -2800,10 +3098,62 @@ def _render_project_calculation_metadata(project: ProjectRecord, calculation_id:
 
 
 def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
-    records = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-    with st.expander("Сохраненные расчеты проекта", expanded=bool(records)):
-        if not records:
+    all_records = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+    summary = summarize_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+    with st.expander("Сохраненные расчеты проекта", expanded=bool(all_records)):
+        st.caption(_project_calculations_summary_caption(summary))
+        if all_records:
+            metric_count, metric_rows, metric_warnings, metric_columns = st.columns(4)
+            metric_count.metric("Расчетов", summary.count)
+            metric_rows.metric("Строк", summary.total_rows)
+            metric_warnings.metric("Предупреждений", summary.total_warnings)
+            metric_columns.metric("Колонок", len(summary.columns))
+        if not all_records:
             st.caption("В активном проекте пока нет сохраненных расчетов.")
+            return
+
+        with st.expander("Быстрый фильтр расчетов", expanded=False):
+            filter_source, filter_warnings = st.columns(2)
+            source_query = filter_source.text_input(
+                "Источник содержит",
+                value="",
+                placeholder="Например: Well A, LAS, Pixler",
+                key=f"project_calculation_filter_source_{project.id}",
+            )
+            warning_state_label = filter_warnings.selectbox(
+                "Предупреждения",
+                options=("Любые", "Только с предупреждениями", "Только без предупреждений"),
+                key=f"project_calculation_filter_warnings_{project.id}",
+            )
+            columns_query = st.text_input(
+                "Обязательные колонки",
+                value="",
+                placeholder="Через запятую: depth, c1, wh",
+                key=f"project_calculation_filter_columns_{project.id}",
+            )
+            warning_state = {
+                "Любые": "any",
+                "Только с предупреждениями": "with_warnings",
+                "Только без предупреждений": "without_warnings",
+            }[warning_state_label]
+            required_columns = _parse_project_calculation_columns_filter(columns_query)
+
+        try:
+            records = filter_project_calculations(
+                LAS_CORRELATION_PROJECTS_ROOT,
+                project.id,
+                source_query=source_query,
+                warning_state=warning_state,
+                required_columns=required_columns,
+            )
+        except ValueError:
+            records = all_records
+            st.warning("Фильтр расчетов сброшен из-за некорректного режима предупреждений.")
+
+        if len(records) != len(all_records):
+            st.caption(f"Показано расчетов: {len(records)} из {len(all_records)}.")
+        if not records:
+            st.warning("По текущему фильтру сохраненные расчеты не найдены.")
             return
 
         st.dataframe(_project_calculations_table(records), use_container_width=True, height=220)

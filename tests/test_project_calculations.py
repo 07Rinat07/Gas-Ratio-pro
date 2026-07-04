@@ -5,10 +5,12 @@ import pytest
 
 from projects import (
     list_project_calculations,
+    filter_project_calculations,
     read_project_calculation_dataframe,
     read_project_calculation_file_bytes,
     read_project_calculation_metadata,
     save_project_calculation,
+    summarize_project_calculations,
 )
 
 
@@ -82,3 +84,102 @@ def test_project_calculation_read_rejects_unknown_record_or_file_key(tmp_path):
 
     with pytest.raises(FileNotFoundError, match="Project calculation file not found"):
         read_project_calculation_file_bytes(tmp_path, "demo", record.id, "pdf")
+
+
+def test_project_calculations_summary_aggregates_records_and_columns(tmp_path):
+    first_df = pd.DataFrame({"depth": [1000.0, 1001.0], "c1": [80.0, 90.0], "wh": [1.2, 1.4]})
+    second_df = pd.DataFrame({"depth": [1002.0], "c2": [10.0], "bh": [0.4]})
+
+    save_project_calculation(
+        first_df,
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well A",
+        warnings=("check c2",),
+    )
+    save_project_calculation(
+        second_df,
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well B",
+        warnings=("check c3", "check c4"),
+    )
+
+    summary = summarize_project_calculations(tmp_path, "demo")
+
+    assert summary.count == 2
+    assert summary.total_rows == 3
+    assert summary.total_warnings == 3
+    assert summary.latest_source_label == "Well B"
+    assert summary.sources == ("Well B", "Well A")
+    assert set(summary.columns) == {"depth", "c1", "wh", "c2", "bh"}
+
+
+def test_project_calculations_summary_returns_empty_state(tmp_path):
+    summary = summarize_project_calculations(tmp_path, "demo")
+
+    assert summary.count == 0
+    assert summary.total_rows == 0
+    assert summary.total_warnings == 0
+    assert summary.sources == ()
+    assert summary.columns == ()
+
+
+def test_project_calculation_filter_matches_source_warnings_and_columns(tmp_path):
+    first_df = pd.DataFrame({"depth": [1000.0], "c1": [80.0], "wh": [1.2]})
+    second_df = pd.DataFrame({"depth": [1001.0], "c2": [10.0], "bh": [0.4]})
+    third_df = pd.DataFrame({"depth": [1002.0], "c1": [70.0], "c2": [8.0], "pixler_c1_c2": [8.75]})
+
+    save_project_calculation(
+        first_df,
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well A gas calculation",
+        warnings=("check c2",),
+    )
+    save_project_calculation(
+        second_df,
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well B clean calculation",
+        warnings=(),
+    )
+    save_project_calculation(
+        third_df,
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well C Pixler calculation",
+        warnings=("check mapping",),
+    )
+
+    by_source = filter_project_calculations(tmp_path, "demo", source_query="well b")
+    with_warnings = filter_project_calculations(tmp_path, "demo", warning_state="with_warnings")
+    without_warnings = filter_project_calculations(tmp_path, "demo", warning_state="without_warnings")
+    with_columns = filter_project_calculations(tmp_path, "demo", required_columns=("depth", "c1", "c2"))
+    combined = filter_project_calculations(
+        tmp_path,
+        "demo",
+        source_query="pixler",
+        warning_state="with_warnings",
+        required_columns=("pixler_c1_c2",),
+    )
+
+    assert [record.source_label for record in by_source] == ["Well B clean calculation"]
+    assert {record.source_label for record in with_warnings} == {
+        "Well A gas calculation",
+        "Well C Pixler calculation",
+    }
+    assert [record.source_label for record in without_warnings] == ["Well B clean calculation"]
+    assert [record.source_label for record in with_columns] == ["Well C Pixler calculation"]
+    assert [record.source_label for record in combined] == ["Well C Pixler calculation"]
+
+
+def test_project_calculation_filter_rejects_unknown_warning_state(tmp_path):
+    save_project_calculation(
+        pd.DataFrame({"depth": [1.0], "c1": [2.0]}),
+        root=tmp_path,
+        project_id="demo",
+    )
+
+    with pytest.raises(ValueError, match="Некорректный режим"):
+        filter_project_calculations(tmp_path, "demo", warning_state="broken")

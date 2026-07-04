@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from io import BytesIO
 from zipfile import ZipFile
 
@@ -134,8 +136,20 @@ def test_project_las_file_dataframe_and_zip_export(tmp_path):
         assert any(name.endswith(".las") for name in names)
         assert any(name.endswith(".csv") for name in names)
         assert any(name.endswith(".xlsx") for name in names)
+        assert "manifest.json" in names
+        assert "README.txt" in names
         csv_name = next(name for name in names if name.endswith(".csv"))
         assert "DEPT" in archive.read(csv_name).decode("utf-8-sig")
+        manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
+        assert manifest["project_id"] == "demo"
+        assert manifest["formats"] == ["las", "xlsx", "csv"]
+        assert manifest["las_files"][0]["id"] == record.id
+        assert manifest["las_files"][0]["well_name"] == "Well A"
+        exported_files = manifest["las_files"][0]["exported_files"]
+        las_export = next(item for item in exported_files if item["format"] == "las")
+        assert las_export["name"].endswith(".las")
+        assert las_export["size_bytes"] == len(archive.read(las_export["name"]))
+        assert las_export["sha256"] == hashlib.sha256(archive.read(las_export["name"])).hexdigest()
 
 
 def test_project_las_zip_export_validates_selection_and_formats(tmp_path):
@@ -147,3 +161,21 @@ def test_project_las_zip_export_validates_selection_and_formats(tmp_path):
     with pytest.raises(ValueError, match="Неподдерживаемый формат"):
         export_project_las_files_zip(tmp_path, "demo", [record.id], formats=("pdf",))
 
+
+
+def test_project_las_file_persists_editor_metadata(tmp_path):
+    record = save_project_las_file(
+        LAS_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="Well A prepared.las",
+        well_name="Well A",
+        version_label="prepared",
+        metadata={"source": "las_editor", "edit_log": [{"action": "Batch operation"}]},
+    )
+
+    loaded = list_project_las_files(tmp_path, "demo")[0]
+
+    assert loaded.id == record.id
+    assert loaded.metadata["source"] == "las_editor"
+    assert loaded.metadata["edit_log"][0]["action"] == "Batch operation"

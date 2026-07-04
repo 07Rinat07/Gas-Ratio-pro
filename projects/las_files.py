@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import dataclass
@@ -34,6 +35,7 @@ class ProjectLasFile:
     well_id: str = ""
     version_label: str = ""
     archived_at: str = ""
+    metadata: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -64,6 +66,10 @@ def _safe_export_stem(value: str) -> str:
     return stem or "project_las"
 
 
+def _sha256_hex(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
 def _project_wells_dir(root: Path | str, project_id: str) -> Path:
     return Path(root) / safe_project_id(project_id) / PROJECT_WELLS_DIR_NAME
 
@@ -91,6 +97,7 @@ def _record_from_dict(raw: dict[str, Any]) -> ProjectLasFile:
         well_id=well_id,
         version_label=version_label,
         archived_at=str(raw.get("archived_at", "")),
+        metadata=dict(raw.get("metadata", {}) or {}),
     )
 
 
@@ -104,6 +111,7 @@ def _record_to_dict(record: ProjectLasFile) -> dict[str, Any]:
         "saved_at": record.saved_at,
         "size_bytes": record.size_bytes,
         "archived_at": record.archived_at,
+        "metadata": dict(record.metadata or {}),
     }
 
 
@@ -175,6 +183,7 @@ def save_project_las_file(
     file_name: str = "source.las",
     well_name: str = "",
     version_label: str = "Исходный LAS",
+    metadata: dict[str, Any] | None = None,
 ) -> ProjectLasFile:
     if not data:
         raise ValueError("Нет данных LAS для сохранения в проект.")
@@ -203,6 +212,7 @@ def save_project_las_file(
         original_file_name=safe_original_name,
         saved_at=now,
         size_bytes=len(data),
+        metadata=metadata or {},
     )
     records = (record, *tuple(item for item in _read_manifest(root, project_id) if item.id != record.id))
     _write_manifest(root, project_id, records)
@@ -232,6 +242,7 @@ def set_project_las_file_archived(
                 well_id=record.well_id,
                 version_label=record.version_label,
                 archived_at=archived_at,
+                metadata=record.metadata,
             )
             updated_records.append(updated_record)
         else:
@@ -290,6 +301,9 @@ def export_project_las_files_zip(
     if missing_ids:
         raise FileNotFoundError("Project LAS file not found: " + ", ".join(missing_ids))
 
+    exported_at = _utc_now()
+    manifest_entries: list[dict[str, Any]] = []
+
     buffer = BytesIO()
     with ZipFile(buffer, "w", compression=ZIP_DEFLATED) as archive:
         for las_file_id in selected_ids:
@@ -297,15 +311,79 @@ def export_project_las_files_zip(
             las_bytes = read_project_las_file_bytes(root, project_id, record.id)
             file_stem = _safe_export_stem(f"{record.name}_{record.version_label}_{record.id}")
             dataframe: pd.DataFrame | None = None
+            exported_files: list[dict[str, Any]] = []
 
             if "las" in selected_formats:
-                archive.writestr(f"{file_stem}.las", las_bytes)
+                file_name = f"{file_stem}.las"
+                archive.writestr(file_name, las_bytes)
+                exported_files.append(
+                    {
+                        "name": file_name,
+                        "format": "las",
+                        "size_bytes": len(las_bytes),
+                        "sha256": _sha256_hex(las_bytes),
+                    }
+                )
             if "csv" in selected_formats or "xlsx" in selected_formats:
                 dataframe = read_las(BytesIO(las_bytes))
             if "csv" in selected_formats and dataframe is not None:
-                archive.writestr(f"{file_stem}.csv", export_csv_bytes(dataframe))
+                file_name = f"{file_stem}.csv"
+                csv_bytes = export_csv_bytes(dataframe)
+                archive.writestr(file_name, csv_bytes)
+                exported_files.append(
+                    {
+                        "name": file_name,
+                        "format": "csv",
+                        "size_bytes": len(csv_bytes),
+                        "sha256": _sha256_hex(csv_bytes),
+                    }
+                )
             if "xlsx" in selected_formats and dataframe is not None:
-                archive.writestr(f"{file_stem}.xlsx", export_xlsx_bytes(dataframe, sheet_name=record.name))
+                file_name = f"{file_stem}.xlsx"
+                xlsx_bytes = export_xlsx_bytes(dataframe, sheet_name=record.name)
+                archive.writestr(file_name, xlsx_bytes)
+                exported_files.append(
+                    {
+                        "name": file_name,
+                        "format": "xlsx",
+                        "size_bytes": len(xlsx_bytes),
+                        "sha256": _sha256_hex(xlsx_bytes),
+                    }
+                )
+
+            manifest_entries.append(
+                {
+                    "id": record.id,
+                    "well_id": record.well_id,
+                    "well_name": record.name,
+                    "version_label": record.version_label,
+                    "original_file_name": record.original_file_name,
+                    "saved_at": record.saved_at,
+                    "archived_at": record.archived_at,
+                    "size_bytes": record.size_bytes,
+                    "exported_files": exported_files,
+                    "metadata": dict(record.metadata or {}),
+                }
+            )
+
+        manifest = {
+            "schema_version": 1,
+            "project_id": safe_project_id(project_id),
+            "exported_at": exported_at,
+            "formats": list(selected_formats),
+            "las_files": manifest_entries,
+        }
+        archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
+        archive.writestr(
+            "README.txt",
+            "Project LAS export\n"
+            f"Project: {safe_project_id(project_id)}\n"
+            f"Exported at: {exported_at}\n"
+            "\n"
+            "The archive contains selected LAS versions and converted CSV/XLSX files. "
+            "Use manifest.json to check well names, version labels, original file names, "
+            "archive status, exported file names, file sizes and SHA-256 checksums.\n",
+        )
 
     return buffer.getvalue()
 
