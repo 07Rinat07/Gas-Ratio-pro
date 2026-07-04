@@ -50,6 +50,17 @@ PROJECT_CALCULATION_KEY_COLUMN_PRIORITY = (
 )
 PROJECT_CALCULATION_EXPORT_LABELS = {"csv": "CSV", "xlsx": "XLSX", "metadata": "metadata.json"}
 PROJECT_CALCULATION_COMPARE_COLUMN_LIMIT = 20
+PROJECT_CALCULATION_CARD_MAPPING_LIMIT = 8
+PROJECT_CALCULATION_REQUIRED_MAPPING_FIELDS = (
+    "depth",
+    "c1",
+    "c2",
+    "c3",
+    "ic4",
+    "nc4",
+)
+PROJECT_CALCULATION_DEPTH_COLUMN_ALIASES = ("depth", "dept", "md")
+PROJECT_CALCULATION_KEY_GAS_MAPPING_FIELDS = ("c1", "c2", "c3", "ic4", "nc4")
 
 
 
@@ -79,6 +90,11 @@ class ProjectCalculationCard:
     key_columns: tuple[str, ...] = ()
     available_exports: tuple[str, ...] = ()
     graph_ready: bool = False
+    mapping_count: int = 0
+    mapping_preview: tuple[str, ...] = ()
+    missing_mapping_fields: tuple[str, ...] = ()
+    ch_mode_label: str = ""
+    open_warnings: tuple[str, ...] = ()
 
 @dataclass(frozen=True)
 class ProjectCalculationComparison:
@@ -265,6 +281,76 @@ def _select_project_calculation_key_columns(columns: tuple[str, ...] | list[str]
     return tuple(selected[:PROJECT_CALCULATION_CARD_COLUMN_LIMIT])
 
 
+def _normalize_project_calculation_mapping(mapping: Any) -> dict[str, str]:
+    if not isinstance(mapping, dict):
+        return {}
+
+    normalized: dict[str, str] = {}
+    for target_field, source_column in mapping.items():
+        clean_target = str(target_field).strip()
+        clean_source = str(source_column).strip()
+        if clean_target and clean_source and clean_source.lower() not in {"none", "nan"}:
+            normalized[clean_target] = clean_source
+    return normalized
+
+
+def _build_project_calculation_mapping_preview(mapping: dict[str, str]) -> tuple[str, ...]:
+    priority = PROJECT_CALCULATION_REQUIRED_MAPPING_FIELDS + tuple(
+        field for field in mapping if field not in PROJECT_CALCULATION_REQUIRED_MAPPING_FIELDS
+    )
+    preview: list[str] = []
+    for field in priority:
+        if field in mapping:
+            preview.append(f"{field} → {mapping[field]}")
+        if len(preview) >= PROJECT_CALCULATION_CARD_MAPPING_LIMIT:
+            break
+    return tuple(preview)
+
+
+def _missing_project_calculation_mapping_fields(mapping: dict[str, str]) -> tuple[str, ...]:
+    mapped_fields = {field.casefold() for field in mapping}
+    return tuple(field for field in PROJECT_CALCULATION_REQUIRED_MAPPING_FIELDS if field.casefold() not in mapped_fields)
+
+
+def _build_project_calculation_open_warnings(
+    *,
+    columns: tuple[str, ...],
+    missing_mapping_fields: tuple[str, ...],
+) -> tuple[str, ...]:
+    folded_columns = {column.casefold() for column in columns}
+    warnings: list[str] = []
+
+    if not any(alias in folded_columns for alias in PROJECT_CALCULATION_DEPTH_COLUMN_ALIASES):
+        warnings.append(
+            "В сохраненном snapshot не найдена колонка depth/DEPT/MD. "
+            "Интерпретационные графики могут открыться без корректной оси глубины."
+        )
+
+    missing_gas_fields = tuple(
+        field for field in PROJECT_CALCULATION_KEY_GAS_MAPPING_FIELDS if field in missing_mapping_fields
+    )
+    if missing_gas_fields:
+        warnings.append(
+            "В mapping snapshot отсутствуют ключевые газовые поля: "
+            + ", ".join(missing_gas_fields)
+            + ". Перед анализом проверьте сопоставление C1-C5 и предупреждения расчета."
+        )
+
+    return tuple(warnings)
+
+
+def _project_calculation_ch_mode_label(ch_mode: str) -> str:
+    clean_mode = str(ch_mode).strip()
+    if not clean_mode:
+        return "не указан"
+    labels = {
+        "ratio": "ratio / расчетный режим Ch",
+        "standard": "standard / стандартный режим Ch",
+        "legacy": "legacy / старый режим Ch",
+    }
+    return labels.get(clean_mode.casefold(), clean_mode)
+
+
 def build_project_calculation_card(
     root: Path | str,
     project_id: str,
@@ -285,6 +371,7 @@ def build_project_calculation_card(
     metadata = read_project_calculation_metadata(root, project_id, record.id)
     warnings = tuple(str(warning) for warning in metadata.get("warnings", ()) if str(warning))
     columns = tuple(str(column) for column in metadata.get("columns", ()) if str(column))
+    mapping = _normalize_project_calculation_mapping(metadata.get("mapping", {}))
     available_exports = tuple(
         PROJECT_CALCULATION_EXPORT_LABELS.get(file_key, file_key.upper())
         for file_key in ("csv", "xlsx", "metadata")
@@ -292,6 +379,11 @@ def build_project_calculation_card(
     )
     folded_columns = {column.casefold() for column in columns}
     graph_ready = bool(columns) and any(column in folded_columns for column in {"depth", "dept", "md"})
+    missing_mapping_fields = _missing_project_calculation_mapping_fields(mapping)
+    open_warnings = _build_project_calculation_open_warnings(
+        columns=columns,
+        missing_mapping_fields=missing_mapping_fields,
+    )
 
     return ProjectCalculationCard(
         id=record.id,
@@ -305,6 +397,11 @@ def build_project_calculation_card(
         key_columns=_select_project_calculation_key_columns(columns),
         available_exports=available_exports,
         graph_ready=graph_ready,
+        mapping_count=len(mapping),
+        mapping_preview=_build_project_calculation_mapping_preview(mapping),
+        missing_mapping_fields=missing_mapping_fields,
+        ch_mode_label=_project_calculation_ch_mode_label(record.ch_mode or str(metadata.get("ch_mode", ""))),
+        open_warnings=open_warnings,
     )
 
 def filter_project_calculations(

@@ -197,6 +197,7 @@ def test_project_calculation_card_summarizes_selected_record_before_opening(tmp_
         source_label="Well A final calculation",
         sheet_name="prepared",
         ch_mode="ratio",
+        mapping={"depth": "DEPT", "c1": "C1", "c2": "C2", "wh": "Wh"},
         warnings=("check C3", "check C4", "check C5", "check units", "check mapping", "check zero"),
     )
 
@@ -207,16 +208,63 @@ def test_project_calculation_card_summarizes_selected_record_before_opening(tmp_
     assert card.sheet_name == "prepared"
     assert card.row_count == 2
     assert card.ch_mode == "ratio"
+    assert card.ch_mode_label == "ratio / расчетный режим Ch"
+    assert card.mapping_count == 4
+    assert card.mapping_preview == ("depth → DEPT", "c1 → C1", "c2 → C2", "wh → Wh")
+    assert card.missing_mapping_fields == ("c3", "ic4", "nc4")
     assert card.warnings_count == 6
     assert card.warning_preview == ("check C3", "check C4", "check C5", "check units", "check mapping")
     assert card.key_columns[:5] == ("depth", "c1", "c2", "wh", "inverse_oil_indicator")
     assert card.available_exports == ("CSV", "XLSX", "metadata.json")
     assert card.graph_ready is True
+    assert card.open_warnings == (
+        "В mapping snapshot отсутствуют ключевые газовые поля: c3, ic4, nc4. "
+        "Перед анализом проверьте сопоставление C1-C5 и предупреждения расчета.",
+    )
 
 
 def test_project_calculation_card_rejects_unknown_record(tmp_path):
     with pytest.raises(FileNotFoundError, match="Project calculation not found"):
         build_project_calculation_card(tmp_path, "demo", "missing")
+
+
+def test_project_calculation_card_handles_missing_mapping_and_ch_mode(tmp_path):
+    record = save_project_calculation(
+        pd.DataFrame({"depth": [1000.0], "c1": [80.0]}),
+        root=tmp_path,
+        project_id="demo",
+        mapping={},
+        ch_mode="",
+    )
+
+    card = build_project_calculation_card(tmp_path, "demo", record.id)
+
+    assert card.mapping_count == 0
+    assert card.mapping_preview == ()
+    assert card.missing_mapping_fields == ("depth", "c1", "c2", "c3", "ic4", "nc4")
+    assert card.ch_mode_label == "не указан"
+    assert card.open_warnings == (
+        "В mapping snapshot отсутствуют ключевые газовые поля: c1, c2, c3, ic4, nc4. "
+        "Перед анализом проверьте сопоставление C1-C5 и предупреждения расчета.",
+    )
+
+
+def test_project_calculation_card_warns_when_saved_snapshot_has_no_depth_column(tmp_path):
+    record = save_project_calculation(
+        pd.DataFrame({"c1": [80.0], "c2": [10.0], "c3": [2.0], "ic4": [0.4], "nc4": [0.5]}),
+        root=tmp_path,
+        project_id="demo",
+        mapping={"depth": "DEPT", "c1": "C1", "c2": "C2", "c3": "C3", "ic4": "iC4", "nc4": "nC4"},
+    )
+
+    card = build_project_calculation_card(tmp_path, "demo", record.id)
+
+    assert card.graph_ready is False
+    assert card.missing_mapping_fields == ()
+    assert card.open_warnings == (
+        "В сохраненном snapshot не найдена колонка depth/DEPT/MD. "
+        "Интерпретационные графики могут открыться без корректной оси глубины.",
+    )
 
 
 def test_project_calculation_filter_rejects_unknown_warning_state(tmp_path):

@@ -1,3 +1,7 @@
+
+## Unreleased
+
+- Added project calculation open warnings for saved snapshots that have no depth/DEPT/MD column or incomplete key gas mapping before sending them to interpretation graphs.
 # Gas Ratio Interpreter v0.3
 
 Локальное инженерное приложение для импорта газовых данных, сопоставления колонок,

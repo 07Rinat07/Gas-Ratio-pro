@@ -3092,13 +3092,24 @@ def _render_project_calculation_metadata(project: ProjectRecord, calculation_id:
     with st.container(border=True):
         st.subheader("Карточка выбранного расчета")
         st.caption(f"{card.source_label} | {card.saved_at}")
-        card_rows, card_warnings, card_exports = st.columns(3)
+        card_rows, card_warnings, card_mapping, card_exports = st.columns(4)
         card_rows.metric("Строк", card.row_count)
         card_warnings.metric("Предупреждений", card.warnings_count)
+        card_mapping.metric("Mapping", card.mapping_count)
         card_exports.metric("Выгрузки", ", ".join(card.available_exports) or "нет")
         if card.sheet_name:
             st.caption(f"Набор данных: {card.sheet_name}")
-        st.caption(f"Ch: {card.ch_mode or 'не указан'}")
+        st.caption(f"Режим Ch перед открытием snapshot: {card.ch_mode_label}")
+        if card.mapping_preview:
+            st.caption("Mapping перед открытием: " + "; ".join(card.mapping_preview))
+            if card.mapping_count > len(card.mapping_preview):
+                st.caption(f"Показано {len(card.mapping_preview)} из {card.mapping_count} сопоставлений.")
+        else:
+            st.warning("В metadata snapshot нет сохраненного mapping. Перед повторным расчетом проверьте колонки вручную.")
+        if card.missing_mapping_fields:
+            st.caption("Не найдены ключевые поля mapping: " + ", ".join(card.missing_mapping_fields))
+        else:
+            st.caption("Ключевые поля mapping для depth и основных газов сохранены.")
         if card.key_columns:
             st.caption("Ключевые колонки: " + ", ".join(card.key_columns))
         else:
@@ -3107,6 +3118,10 @@ def _render_project_calculation_metadata(project: ProjectRecord, calculation_id:
             st.success("Расчет готов к открытию в интерпретационных графиках.")
         else:
             st.warning("Перед открытием в графиках проверьте наличие depth/DEPT/MD и числовых колонок.")
+        if card.open_warnings:
+            st.caption("Предупреждения перед открытием snapshot")
+            for open_warning in card.open_warnings:
+                st.warning(open_warning)
         if card.warning_preview:
             st.caption("Первые предупреждения")
             for warning in card.warning_preview:
@@ -3120,6 +3135,7 @@ def _render_project_calculation_metadata(project: ProjectRecord, calculation_id:
     warnings = metadata.get("warnings", [])
     with st.expander("Полный mapping и предупреждения расчета", expanded=False):
         st.caption(f"Строка заголовков: {metadata.get('header_row')}")
+        st.caption(f"Режим Ch: {card.ch_mode_label}")
         st.caption("Mapping")
         st.json(mapping)
         if warnings:
@@ -3321,6 +3337,9 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
             key=f"project_calculation_open_{project.id}_{selected_id}",
         ):
             try:
+                open_card = build_project_calculation_card(LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id)
+                for open_warning in open_card.open_warnings:
+                    st.warning(open_warning)
                 calculation_df = read_project_calculation_dataframe(
                     LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id
                 )
