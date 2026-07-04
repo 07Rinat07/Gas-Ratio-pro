@@ -24,6 +24,17 @@ PROJECT_CALCULATIONS_SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True)
+class ProjectCalculationsSummary:
+    count: int
+    total_rows: int
+    total_warnings: int
+    latest_saved_at: str = ""
+    latest_source_label: str = ""
+    sources: tuple[str, ...] = ()
+    columns: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class ProjectCalculationRecord:
     id: str
     source_label: str
@@ -120,6 +131,38 @@ def list_project_calculations(
     except (OSError, json.JSONDecodeError, TypeError, ValueError):
         return ()
     return tuple(sorted(records, key=lambda record: record.saved_at, reverse=True))
+
+
+
+def summarize_project_calculations(
+    root: Path | str = DEFAULT_PROJECTS_ROOT,
+    project_id: str = DEFAULT_PROJECT_ID,
+) -> ProjectCalculationsSummary:
+    records = list_project_calculations(root, project_id)
+    if not records:
+        return ProjectCalculationsSummary(count=0, total_rows=0, total_warnings=0)
+
+    columns: set[str] = set()
+    for record in records:
+        try:
+            metadata = read_project_calculation_metadata(root, project_id, record.id)
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError, FileNotFoundError, ValueError, TypeError):
+            continue
+        for column in metadata.get("columns", ()):
+            column_name = str(column).strip()
+            if column_name:
+                columns.add(column_name)
+
+    latest = records[0]
+    return ProjectCalculationsSummary(
+        count=len(records),
+        total_rows=sum(record.row_count for record in records),
+        total_warnings=sum(record.warnings_count for record in records),
+        latest_saved_at=latest.saved_at,
+        latest_source_label=latest.source_label,
+        sources=tuple(dict.fromkeys(record.source_label for record in records if record.source_label)),
+        columns=tuple(sorted(columns, key=str.lower)),
+    )
 
 
 def save_project_calculation(

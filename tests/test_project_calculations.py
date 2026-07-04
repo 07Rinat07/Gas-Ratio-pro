@@ -9,6 +9,7 @@ from projects import (
     read_project_calculation_file_bytes,
     read_project_calculation_metadata,
     save_project_calculation,
+    summarize_project_calculations,
 )
 
 
@@ -82,3 +83,42 @@ def test_project_calculation_read_rejects_unknown_record_or_file_key(tmp_path):
 
     with pytest.raises(FileNotFoundError, match="Project calculation file not found"):
         read_project_calculation_file_bytes(tmp_path, "demo", record.id, "pdf")
+
+
+def test_project_calculations_summary_aggregates_records_and_columns(tmp_path):
+    first_df = pd.DataFrame({"depth": [1000.0, 1001.0], "c1": [80.0, 90.0], "wh": [1.2, 1.4]})
+    second_df = pd.DataFrame({"depth": [1002.0], "c2": [10.0], "bh": [0.4]})
+
+    save_project_calculation(
+        first_df,
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well A",
+        warnings=("check c2",),
+    )
+    save_project_calculation(
+        second_df,
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well B",
+        warnings=("check c3", "check c4"),
+    )
+
+    summary = summarize_project_calculations(tmp_path, "demo")
+
+    assert summary.count == 2
+    assert summary.total_rows == 3
+    assert summary.total_warnings == 3
+    assert summary.latest_source_label == "Well B"
+    assert summary.sources == ("Well B", "Well A")
+    assert set(summary.columns) == {"depth", "c1", "wh", "c2", "bh"}
+
+
+def test_project_calculations_summary_returns_empty_state(tmp_path):
+    summary = summarize_project_calculations(tmp_path, "demo")
+
+    assert summary.count == 0
+    assert summary.total_rows == 0
+    assert summary.total_warnings == 0
+    assert summary.sources == ()
+    assert summary.columns == ()

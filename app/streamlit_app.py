@@ -103,6 +103,7 @@ project_calculations = importlib.reload(project_calculations)
 project_exports = importlib.reload(project_exports)
 project_las_files = importlib.reload(project_las_files)
 list_project_calculations = project_calculations.list_project_calculations
+summarize_project_calculations = project_calculations.summarize_project_calculations
 read_project_calculation_dataframe = project_calculations.read_project_calculation_dataframe
 read_project_calculation_file_bytes = project_calculations.read_project_calculation_file_bytes
 read_project_calculation_metadata = project_calculations.read_project_calculation_metadata
@@ -3024,6 +3025,30 @@ def _project_calculation_option_label(record) -> str:
     return f"{record.source_label} | {record.saved_at} | строк: {record.row_count}{warning_label}"
 
 
+def _project_calculations_summary_caption(summary) -> str:
+    if not summary.count:
+        return "Сохраненных расчетов пока нет."
+
+    source_preview = ", ".join(summary.sources[:3])
+    if len(summary.sources) > 3:
+        source_preview += f" и еще {len(summary.sources) - 3}"
+    columns_preview = ", ".join(summary.columns[:8])
+    if len(summary.columns) > 8:
+        columns_preview += f" и еще {len(summary.columns) - 8}"
+
+    parts = [
+        f"расчетов: {summary.count}",
+        f"строк: {summary.total_rows}",
+        f"предупреждений: {summary.total_warnings}",
+        f"последний: {summary.latest_source_label} / {summary.latest_saved_at}",
+    ]
+    if source_preview:
+        parts.append(f"источники: {source_preview}")
+    if columns_preview:
+        parts.append(f"колонки: {columns_preview}")
+    return "; ".join(parts)
+
+
 def _project_calculations_table(records: tuple[object, ...]) -> pd.DataFrame:
     return pd.DataFrame(
         [
@@ -3069,7 +3094,15 @@ def _render_project_calculation_metadata(project: ProjectRecord, calculation_id:
 
 def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
     records = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+    summary = summarize_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)
     with st.expander("Сохраненные расчеты проекта", expanded=bool(records)):
+        st.caption(_project_calculations_summary_caption(summary))
+        if records:
+            metric_count, metric_rows, metric_warnings, metric_columns = st.columns(4)
+            metric_count.metric("Расчетов", summary.count)
+            metric_rows.metric("Строк", summary.total_rows)
+            metric_warnings.metric("Предупреждений", summary.total_warnings)
+            metric_columns.metric("Колонок", len(summary.columns))
         if not records:
             st.caption("В активном проекте пока нет сохраненных расчетов.")
             return

@@ -1,6 +1,8 @@
 from projects.calculations import (
     ProjectCalculationRecord,
+    ProjectCalculationsSummary,
     list_project_calculations,
+    summarize_project_calculations,
     read_project_calculation_dataframe,
     read_project_calculation_file_bytes,
     read_project_calculation_metadata,
@@ -60,6 +62,8 @@ __all__ = [
     "read_project_calculation_dataframe",
     "list_project_calculations",
     "ProjectCalculationRecord",
+    "ProjectCalculationsSummary",
+    "summarize_project_calculations",
     "DEFAULT_PROJECT_ID",
     "DEFAULT_PROJECTS_ROOT",
     "ProjectLasFile",
