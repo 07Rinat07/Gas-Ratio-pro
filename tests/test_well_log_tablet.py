@@ -110,3 +110,39 @@ def test_tablet_units_from_dataframe_reads_las_attrs():
     from palettes.well_log_tablet import tablet_units_from_dataframe
 
     assert tablet_units_from_dataframe(df) == {"GR": "API"}
+
+
+def test_build_well_log_tablet_adds_interpretation_zone_shape():
+    from palettes.well_log_tablet import InterpretationZone
+
+    df = pd.DataFrame({"depth": [1000.0, 1001.0, 1002.0], "GR": [70.0, 80.0, 90.0]})
+    fig = build_well_log_tablet(
+        df,
+        (TabletTrackConfig(column="GR"),),
+        zones=(InterpretationZone(label="oil", top_depth=1000.5, bottom_depth=1001.5, color="#ffd966"),),
+    )
+
+    zone_shapes = [shape for shape in fig.layout.shapes if shape.type == "rect"]
+    assert len(zone_shapes) == 1
+    assert zone_shapes[0].y0 == 1000.5
+    assert zone_shapes[0].y1 == 1001.5
+    assert zone_shapes[0].fillcolor == "#ffd966"
+
+
+def test_build_interpretation_zone_table_normalizes_depth_order():
+    from palettes.well_log_tablet import InterpretationZone, build_interpretation_zone_table
+
+    table = build_interpretation_zone_table(
+        (InterpretationZone(label="gas", top_depth=1005.0, bottom_depth=1000.0, color="#abcdef", note="check"),)
+    )
+
+    assert table.to_dict("records") == [
+        {
+            "Зона": "gas",
+            "Верх": 1000.0,
+            "Низ": 1005.0,
+            "Мощность": 5.0,
+            "Цвет": "#abcdef",
+            "Комментарий": "check",
+        }
+    ]

@@ -29,7 +29,9 @@ class InterpretationGraphSettings:
     pixler_x_range: tuple[float, float] | None = None
     tablet_tracks: tuple[str, ...] = ()
     tablet_x_ranges: dict[str, tuple[float, float]] = field(default_factory=dict)
+    tablet_colors: dict[str, str] = field(default_factory=dict)
     tablet_markers: tuple[dict[str, Any], ...] = ()
+    tablet_zones: tuple[dict[str, Any], ...] = ()
     tablet_fill: bool = False
 
 
@@ -82,6 +84,18 @@ def _ranges_from_raw(raw: object) -> dict[str, tuple[float, float]]:
     return result
 
 
+
+def _colors_from_raw(raw: object) -> dict[str, str]:
+    if not isinstance(raw, dict):
+        return {}
+    colors: dict[str, str] = {}
+    for key, value in raw.items():
+        column = str(key).strip()
+        color = str(value).strip()
+        if column and color.startswith("#") and len(color) in {4, 7}:
+            colors[column] = color
+    return colors
+
 def _markers_from_raw(raw: object) -> tuple[dict[str, Any], ...]:
     if not isinstance(raw, list):
         return ()
@@ -106,6 +120,36 @@ def _markers_from_raw(raw: object) -> tuple[dict[str, Any], ...]:
     return tuple(markers)
 
 
+
+def _zones_from_raw(raw: object) -> tuple[dict[str, Any], ...]:
+    if not isinstance(raw, list):
+        return ()
+    zones: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        try:
+            top_depth = float(item.get("top_depth"))
+            bottom_depth = float(item.get("bottom_depth"))
+        except (TypeError, ValueError):
+            continue
+        if top_depth == bottom_depth:
+            continue
+        label = str(item.get("label") or "").strip() or f"Zone {len(zones) + 1}"
+        color = str(item.get("color") or "#ffd966").strip()
+        if not color.startswith("#"):
+            color = "#ffd966"
+        zones.append(
+            {
+                "label": label,
+                "top_depth": min(top_depth, bottom_depth),
+                "bottom_depth": max(top_depth, bottom_depth),
+                "color": color,
+                "note": str(item.get("note") or ""),
+            }
+        )
+    return tuple(zones)
+
 def settings_to_dict(settings: InterpretationGraphSettings) -> dict[str, Any]:
     return {
         "selected_tracks": list(settings.selected_tracks),
@@ -116,7 +160,9 @@ def settings_to_dict(settings: InterpretationGraphSettings) -> dict[str, Any]:
         "pixler_x_range": _range_to_list(settings.pixler_x_range),
         "tablet_tracks": list(settings.tablet_tracks),
         "tablet_x_ranges": _ranges_to_dict(settings.tablet_x_ranges),
+        "tablet_colors": dict(settings.tablet_colors),
         "tablet_markers": list(settings.tablet_markers),
+        "tablet_zones": list(settings.tablet_zones),
         "tablet_fill": bool(settings.tablet_fill),
     }
 
@@ -139,7 +185,9 @@ def settings_from_dict(raw: object) -> InterpretationGraphSettings:
         pixler_x_range=_range_from_raw(payload.get("pixler_x_range")),
         tablet_tracks=tuple(str(track) for track in payload.get("tablet_tracks", ()) if str(track)),
         tablet_x_ranges=_ranges_from_raw(payload.get("tablet_x_ranges")),
+        tablet_colors=_colors_from_raw(payload.get("tablet_colors")),
         tablet_markers=_markers_from_raw(payload.get("tablet_markers")),
+        tablet_zones=_zones_from_raw(payload.get("tablet_zones")),
         tablet_fill=bool(payload.get("tablet_fill", False)),
     )
 

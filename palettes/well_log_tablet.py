@@ -60,6 +60,15 @@ class InterpretationMarker:
     note: str = ""
 
 
+@dataclass(frozen=True)
+class InterpretationZone:
+    label: str
+    top_depth: float
+    bottom_depth: float
+    color: str = "#ffd966"
+    note: str = ""
+
+
 def numeric_tablet_columns(df: pd.DataFrame) -> tuple[str, ...]:
     if df is None or df.empty:
         return ()
@@ -178,6 +187,7 @@ def build_well_log_tablet(
     *,
     depth_range: tuple[float, float] | None = None,
     markers: Sequence[InterpretationMarker] = (),
+    zones: Sequence[InterpretationZone] = (),
     height: int = 760,
 ) -> go.Figure:
     if df is None or df.empty:
@@ -237,6 +247,37 @@ def build_well_log_tablet(
 
     shapes = []
     annotations = []
+    for zone in zones:
+        top_depth = min(float(zone.top_depth), float(zone.bottom_depth))
+        bottom_depth = max(float(zone.top_depth), float(zone.bottom_depth))
+        shapes.append(
+            {
+                "type": "rect",
+                "xref": "paper",
+                "x0": 0,
+                "x1": 1,
+                "yref": "y",
+                "y0": top_depth,
+                "y1": bottom_depth,
+                "fillcolor": zone.color or "#ffd966",
+                "opacity": 0.18,
+                "line": {"width": 0},
+                "layer": "below",
+            }
+        )
+        annotations.append(
+            {
+                "xref": "paper",
+                "x": 0.01,
+                "yref": "y",
+                "y": top_depth,
+                "text": str(zone.label),
+                "showarrow": False,
+                "font": {"color": "#172033", "size": 12},
+                "bgcolor": "rgba(255,255,255,0.75)",
+            }
+        )
+
     for marker in markers:
         shapes.append(
             {
@@ -310,4 +351,25 @@ def build_marker_interpretation_table(
             row["Комментарий"] = marker.note
         rows.append(row)
 
+    return pd.DataFrame(rows)
+
+
+def build_interpretation_zone_table(zones: Sequence[InterpretationZone]) -> pd.DataFrame:
+    if not zones:
+        return pd.DataFrame()
+
+    rows: list[dict[str, object]] = []
+    for zone in zones:
+        top_depth = min(float(zone.top_depth), float(zone.bottom_depth))
+        bottom_depth = max(float(zone.top_depth), float(zone.bottom_depth))
+        rows.append(
+            {
+                "Зона": zone.label,
+                "Верх": top_depth,
+                "Низ": bottom_depth,
+                "Мощность": bottom_depth - top_depth,
+                "Цвет": zone.color,
+                "Комментарий": zone.note,
+            }
+        )
     return pd.DataFrame(rows)
