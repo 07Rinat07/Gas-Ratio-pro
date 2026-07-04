@@ -81,6 +81,7 @@ from projects import graph_settings as project_graph_settings
 from projects import las_files as project_las_files
 from reports.export_csv import export_csv_bytes
 from reports.export_html import HtmlReportMetadata, HtmlReportTable, build_plotly_html_report
+from reports.interval_report import build_interval_print_report
 from reports.export_las import export_las_bytes
 from reports.export_xlsx import export_xlsx_bytes
 from reports.export_static import (
@@ -1890,22 +1891,40 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             notes=(INTERPRETATION_NOTE,),
             tables=tuple(report_tables),
         )
-        html_download_col, html_save_col = st.columns(2)
+        interval_report_bytes = build_interval_print_report(
+            figures,
+            title=f"Gas Ratio Interval Report - {source_label}",
+            source_label=str(source_label),
+            project_label=f"{active_project.name} ({active_project.id})",
+            depth_label=_range_label(depth_range, unit="м"),
+            interval_df=filtered_df,
+            tablet_columns=tablet_columns,
+            extra_tables=tuple(report_tables),
+            notes=(INTERPRETATION_NOTE,),
+        )
+        html_download_col, interval_report_col, html_save_col = st.columns(3)
         html_download_col.download_button(
-            "HTML для печати",
+            "HTML графиков",
             data=html_bytes,
             file_name="gas_ratio_depth_graphs.html",
             mime="text/html",
             use_container_width=True,
         )
-        if html_save_col.button("Сохранить HTML в проект", use_container_width=True, key=f"save_interpretation_html_export_{active_project.id}"):
+        interval_report_col.download_button(
+            "Печатный отчет интервала",
+            data=interval_report_bytes,
+            file_name="gas_ratio_interval_report.html",
+            mime="text/html",
+            use_container_width=True,
+        )
+        if html_save_col.button("Сохранить отчет в проект", use_container_width=True, key=f"save_interpretation_html_export_{active_project.id}"):
             _save_project_export_with_feedback(
                 project=active_project,
-                data=html_bytes,
-                label=f"Интерпретационные графики: {source_label}",
-                file_name="gas_ratio_depth_graphs.html",
+                data=interval_report_bytes,
+                label=f"Печатный отчет интервала: {source_label}",
+                file_name="gas_ratio_interval_report.html",
                 mime_type="text/html",
-                kind="interpretation_graphs_html",
+                kind="interpretation_interval_report_html",
                 source=str(source_label),
                 metadata={
                     "rows": len(filtered_df),
