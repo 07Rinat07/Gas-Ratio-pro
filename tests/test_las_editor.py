@@ -3,13 +3,28 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from las_editor.depth_grid import build_depth_grid, diagnose_depths, resample_las_data
+from las_editor.depth_grid import build_depth_grid, build_depth_step_report, diagnose_depths, resample_las_data
 
 
 def test_build_depth_grid_supports_decimal_comma_and_custom_step():
     grid = build_depth_grid("1,2", "2,0", "0,2")
 
     assert grid == (1.2, 1.4, 1.6, 1.8, 2.0)
+
+
+def test_depth_step_report_finds_min_max_common_step_and_outliers():
+    depths = pd.Series([1000.0, 1000.2, 1000.4, 1001.0, 1001.2])
+
+    report = build_depth_step_report(depths, expected_step=0.2)
+
+    assert report.step_count == 4
+    assert report.min_step == pytest.approx(0.2)
+    assert report.max_step == pytest.approx(0.6)
+    assert report.most_common_step == pytest.approx(0.2)
+    assert len(report.outliers) == 1
+    assert report.outliers[0].from_depth == pytest.approx(1000.4)
+    assert report.outliers[0].to_depth == pytest.approx(1001.0)
+    assert report.outliers[0].step == pytest.approx(0.6)
 
 
 def test_diagnose_depths_reports_duplicates_reverse_steps_and_gaps():
@@ -24,6 +39,9 @@ def test_diagnose_depths_reports_duplicates_reverse_steps_and_gaps():
     assert diagnostics.gaps[0].start_depth == pytest.approx(1.4)
     assert diagnostics.gaps[0].end_depth == pytest.approx(1.8)
     assert diagnostics.gaps[0].missing_depths == (1.6,)
+    assert diagnostics.step_report.min_step == pytest.approx(0.2)
+    assert diagnostics.step_report.max_step == pytest.approx(0.4)
+    assert diagnostics.step_report.outliers
 
 
 def test_resample_las_data_adds_missing_depth_rows_without_filling_by_default():

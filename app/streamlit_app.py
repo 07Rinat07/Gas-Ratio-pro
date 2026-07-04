@@ -1218,6 +1218,32 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     else:
         st.success("Глубина выглядит ровной по выбранному шагу.")
 
+    step_report = diagnostics.step_report
+    with st.expander("Отчет по шагу глубины", expanded=bool(step_report.outliers)):
+        report_cols = st.columns(4)
+        report_cols[0].metric("Шагов", step_report.step_count)
+        report_cols[1].metric("Мин. шаг", step_report.min_step if step_report.min_step is not None else "нет")
+        report_cols[2].metric("Макс. шаг", step_report.max_step if step_report.max_step is not None else "нет")
+        report_cols[3].metric("Частый шаг", step_report.most_common_step if step_report.most_common_step is not None else "нет")
+        if step_report.outliers:
+            st.caption("Первые выбросы шага глубины. Проверьте пропуски, дубли, сбой записи глубины или неверный целевой шаг.")
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "От": outlier.from_depth,
+                            "До": outlier.to_depth,
+                            "Фактический шаг": outlier.step,
+                            "Ожидаемый шаг": outlier.expected_step,
+                        }
+                        for outlier in step_report.outliers[:100]
+                    ]
+                ),
+                use_container_width=True,
+            )
+        else:
+            st.caption("Выбросы шага по выбранному целевому шагу не найдены.")
+
     if result.added_depths:
         preview_depths = ", ".join(str(depth) for depth in result.added_depths[:40])
         if len(result.added_depths) > 40:

@@ -17,6 +17,23 @@ class DepthGap:
 
 
 @dataclass(frozen=True)
+class DepthStepOutlier:
+    from_depth: float
+    to_depth: float
+    step: float
+    expected_step: float | None = None
+
+
+@dataclass(frozen=True)
+class DepthStepReport:
+    step_count: int
+    min_step: float | None
+    max_step: float | None
+    most_common_step: float | None
+    outliers: tuple[DepthStepOutlier, ...] = ()
+
+
+@dataclass(frozen=True)
 class DepthDiagnostics:
     depth_column: str
     row_count: int
@@ -25,6 +42,7 @@ class DepthDiagnostics:
     min_depth: float | None
     max_depth: float | None
     inferred_step: float | None
+    step_report: DepthStepReport = DepthStepReport(0, None, None, None)
     duplicate_depths: tuple[float, ...] = ()
     reverse_step_count: int = 0
     gaps: tuple[DepthGap, ...] = ()
@@ -75,6 +93,55 @@ def _infer_step(sorted_depths: pd.Series) -> float | None:
     return float(positive_diffs.value_counts().idxmax())
 
 
+def build_depth_step_report(
+    sorted_depths: pd.Series,
+    expected_step=None,
+    tolerance: float = 1e-9,
+) -> DepthStepReport:
+    """Build a compact quality report for depth increments.
+
+    The report is based on sorted unique depths. It is intentionally separated
+    from resampling so the editor can show problems before changing the data.
+    """
+
+    if sorted_depths.empty or len(sorted_depths) < 2:
+        return DepthStepReport(0, None, None, None)
+
+    diffs = sorted_depths.diff().dropna().round(10)
+    positive_diffs = diffs[diffs > 0]
+    if positive_diffs.empty:
+        return DepthStepReport(0, None, None, None)
+
+    expected_value = float(_to_decimal(expected_step)) if expected_step is not None else None
+    common_step = float(positive_diffs.value_counts().idxmax())
+    reference_step = expected_value if expected_value is not None else common_step
+
+    outliers: list[DepthStepOutlier] = []
+    for index in range(1, len(sorted_depths)):
+        previous = float(sorted_depths.iloc[index - 1])
+        current = float(sorted_depths.iloc[index])
+        step = _round_depth(current - previous)
+        if step <= 0:
+            continue
+        if abs(step - reference_step) > tolerance:
+            outliers.append(
+                DepthStepOutlier(
+                    from_depth=previous,
+                    to_depth=current,
+                    step=step,
+                    expected_step=reference_step,
+                )
+            )
+
+    return DepthStepReport(
+        step_count=int(len(positive_diffs)),
+        min_step=float(positive_diffs.min()),
+        max_step=float(positive_diffs.max()),
+        most_common_step=common_step,
+        outliers=tuple(outliers),
+    )
+
+
 def build_depth_grid(start_depth, end_depth, step) -> tuple[float, ...]:
     start = _to_decimal(start_depth)
     end = _to_decimal(end_depth)
@@ -116,6 +183,7 @@ def diagnose_depths(
             min_depth=None,
             max_depth=None,
             inferred_step=None,
+            step_report=DepthStepReport(0, None, None, None),
             warnings=tuple(warnings + ["Нет числовых глубин для проверки."]),
         )
 
@@ -131,6 +199,15 @@ def diagnose_depths(
 
     sorted_unique = pd.Series(sorted(rounded_depths.drop_duplicates()))
     inferred_step = _infer_step(sorted_unique)
+    step_report = build_depth_step_report(sorted_unique, expected_step=expected_step)
+
+    if step_report.min_step is not None and step_report.max_step is not None and step_report.min_step != step_report.max_step:
+        warnings.append(
+            "Найден неравномерный шаг глубины: "
+            f"минимальный {step_report.min_step}, максимальный {step_report.max_step}."
+        )
+    if step_report.outliers:
+        warnings.append(f"Найдены выбросы шага глубины: {len(step_report.outliers)}.")
 
     gaps: list[DepthGap] = []
     if expected_step is not None:
@@ -154,6 +231,7 @@ def diagnose_depths(
         min_depth=float(valid_depths.min()),
         max_depth=float(valid_depths.max()),
         inferred_step=inferred_step,
+        step_report=step_report,
         duplicate_depths=duplicate_depths,
         reverse_step_count=reverse_step_count,
         gaps=tuple(gaps),
