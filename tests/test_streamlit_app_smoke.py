@@ -190,3 +190,22 @@ def test_dataframe_shape_label_for_ui_tables():
 
     assert module._dataframe_shape_label(pd.DataFrame({"A": [1, 2], "B": [3, 4]})) == "строк: 2, колонок: 2"
     assert module._dataframe_shape_label(None) == "нет данных"
+
+
+def test_layout_profile_options_cover_standard_and_wide():
+    module = importlib.import_module("app.streamlit_app")
+
+    assert module._layout_profile_options() == ("Обычный монитор", "Широкий экран")
+    assert module._layout_profile_key("Обычный монитор") == "standard"
+    assert module._layout_profile_key("Широкий экран") == "wide"
+    assert module._layout_profile_key("unknown") == "wide"
+
+
+def test_layout_profile_summary_explains_screen_mode():
+    module = importlib.import_module("app.streamlit_app")
+
+    label, max_width, description = module._layout_profile_summary("standard")
+
+    assert label == "Обычный монитор"
+    assert max_width == "1200px"
+    assert "стандартных экранов" in description

@@ -121,6 +121,7 @@ LAS_CORRELATION_PROJECTS_ROOT = ROOT_DIR / DEFAULT_PROJECTS_ROOT
 APP_LAUNCH_COMMAND = "python -m streamlit run app/streamlit_app.py"
 APP_LAUNCH_SCRIPT = ".\\run_app.ps1"
 UI_SCALE_KEY = "ui_scale"
+UI_LAYOUT_KEY = "ui_layout"
 LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
 LAS_EDITOR_SESSION_SUMMARY_KEY = "las_editor_session_summary"
 PROJECT_SESSION_SHEETS_KEY = "project_session_sheets"
@@ -152,6 +153,21 @@ VIEW_MODE_BY_CURVE = "По кривой"
 SUPPORTED_VIEW_MODES: tuple[str, ...] = (VIEW_MODE_BY_WELL, VIEW_MODE_BY_CURVE)
 TABLET_TRACK_OPTION = "Планшет"
 INTERPRETATION_TRACK_OPTIONS: tuple[str, ...] = tuple(dict.fromkeys((*DEFAULT_INTERPRETATION_TRACKS, TABLET_TRACK_OPTION)))
+
+UI_LAYOUT_PROFILES: dict[str, dict[str, str]] = {
+    "standard": {
+        "label": "Обычный монитор",
+        "max_width": "1200px",
+        "columns": "2",
+        "description": "Для ноутбуков и стандартных экранов: меньше горизонтальной прокрутки и компактные карточки.",
+    },
+    "wide": {
+        "label": "Широкий экран",
+        "max_width": "1680px",
+        "columns": "3",
+        "description": "Для широких мониторов: больше места под планшеты, корреляцию и таблицы интервала.",
+    },
+}
 
 
 
@@ -202,13 +218,14 @@ DOCUMENTATION_TAB_DOCS: tuple[tuple[str, str], ...] = (
 )
 
 
-def _apply_app_style(scale: str = "large") -> None:
+def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
     scale_tokens = {
         "standard": {"base": "17px", "body": "1rem", "caption": "0.95rem", "button": "1rem", "h1": "2.35rem"},
         "large": {"base": "20px", "body": "1.13rem", "caption": "1.02rem", "button": "1.08rem", "h1": "2.75rem"},
         "xlarge": {"base": "22px", "body": "1.22rem", "caption": "1.08rem", "button": "1.16rem", "h1": "3.05rem"},
     }
     tokens = scale_tokens.get(scale, scale_tokens["large"])
+    layout_tokens = UI_LAYOUT_PROFILES.get(layout, UI_LAYOUT_PROFILES["wide"])
     st.markdown(
         """
         <style>
@@ -225,9 +242,28 @@ def _apply_app_style(scale: str = "large") -> None:
             font-size: {tokens["base"]};
         }
         .block-container {
-            max-width: 1440px;
+            max-width: {layout_tokens["max_width"]};
             padding-top: 2.4rem;
             padding-bottom: 3rem;
+        }
+        @media (max-width: 1280px) {
+            .block-container {
+                max-width: 1180px;
+                padding-left: 1.1rem;
+                padding-right: 1.1rem;
+            }
+            .workflow-card {
+                min-height: 10rem;
+            }
+        }
+        @media (max-width: 900px) {
+            .block-container {
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
+            div[data-testid="stHorizontalBlock"] {
+                gap: 0.75rem;
+            }
         }
         h1 {
             font-size: {tokens["h1"]} !important;
@@ -338,7 +374,8 @@ def _apply_app_style(scale: str = "large") -> None:
         .replace('{tokens["body"]}', tokens["body"])
         .replace('{tokens["caption"]}', tokens["caption"])
         .replace('{tokens["button"]}', tokens["button"])
-        .replace('{tokens["h1"]}', tokens["h1"]),
+        .replace('{tokens["h1"]}', tokens["h1"])
+        .replace('{layout_tokens["max_width"]}', layout_tokens["max_width"]),
         unsafe_allow_html=True,
     )
 
@@ -352,6 +389,37 @@ def _select_ui_scale() -> str:
         horizontal=False,
     )
     return {"Стандартный": "standard", "Крупный": "large", "Очень крупный": "xlarge"}[selected]
+
+
+def _layout_profile_options() -> tuple[str, ...]:
+    """Return layout labels in the order shown in the sidebar."""
+    return tuple(profile["label"] for profile in UI_LAYOUT_PROFILES.values())
+
+
+def _layout_profile_key(label: str) -> str:
+    """Resolve a human-readable sidebar label to an internal layout key."""
+    for key, profile in UI_LAYOUT_PROFILES.items():
+        if profile["label"] == label:
+            return key
+    return "wide"
+
+
+def _select_ui_layout() -> str:
+    selected = st.sidebar.radio(
+        "Режим экрана",
+        options=_layout_profile_options(),
+        index=1,
+        key=UI_LAYOUT_KEY,
+        horizontal=False,
+        help="Обычный монитор ограничивает ширину рабочих блоков, широкий экран дает больше места под планшеты и таблицы.",
+    )
+    return _layout_profile_key(selected)
+
+
+def _layout_profile_summary(layout: str) -> tuple[str, str, str]:
+    """Expose the active layout profile for tests and UI status blocks."""
+    profile = UI_LAYOUT_PROFILES.get(layout, UI_LAYOUT_PROFILES["wide"])
+    return profile["label"], profile["max_width"], profile["description"]
 
 
 def _load_raw_sheets(uploaded_file) -> dict[str, pd.DataFrame]:
@@ -936,7 +1004,10 @@ def _render_start_tab(active_project: ProjectRecord) -> None:
     )
 
     st.markdown("### Что делать дальше")
-    action_columns = st.columns(3)
+    layout_value = str(st.session_state.get(UI_LAYOUT_KEY, UI_LAYOUT_PROFILES["wide"]["label"]))
+    layout_key = layout_value if layout_value in UI_LAYOUT_PROFILES else _layout_profile_key(layout_value)
+    column_count = int(UI_LAYOUT_PROFILES.get(layout_key, UI_LAYOUT_PROFILES["wide"])["columns"])
+    action_columns = st.columns(column_count)
     for index, action in enumerate(START_ACTIONS):
         with action_columns[index % len(action_columns)]:
             st.markdown(
@@ -954,6 +1025,15 @@ def _render_start_tab(active_project: ProjectRecord) -> None:
         st.markdown(
             f"<div class='workflow-status'><b>{label}</b><br>{value}<small><b>Дальше:</b> {next_action}</small></div>",
             unsafe_allow_html=True,
+        )
+
+    layout_label, layout_width, layout_description = _layout_profile_summary(layout_key)
+    with st.expander("Проверка экрана и компоновки", expanded=False):
+        st.markdown(
+            f"**Активный режим:** {layout_label} (`max-width: {layout_width}`).\n\n"
+            f"{layout_description}\n\n"
+            "Проверьте, что карточки не обрезаются, таблицы открываются без лишней горизонтальной прокрутки, "
+            "а планшет и correlation-графики читаются на вашем рабочем мониторе."
         )
 
     with st.expander("Рекомендуемый порядок работы", expanded=False):
@@ -3293,7 +3373,8 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
 def main() -> None:
     st.set_page_config(page_title="Gas Ratio Interpreter v0.3", layout="wide")
     ui_scale = _select_ui_scale()
-    _apply_app_style(ui_scale)
+    ui_layout = _select_ui_layout()
+    _apply_app_style(ui_scale, ui_layout)
     st.title("Gas Ratio Interpreter v0.3")
     st.caption(INTERPRETATION_NOTE)
 
