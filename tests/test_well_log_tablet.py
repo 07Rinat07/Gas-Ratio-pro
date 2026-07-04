@@ -146,3 +146,45 @@ def test_build_interpretation_zone_table_normalizes_depth_order():
             "Комментарий": "check",
         }
     ]
+
+
+def test_mud_gas_literature_tablet_columns_uses_available_ordered_aliases():
+    from palettes.well_log_tablet import mud_gas_literature_tablet_columns
+
+    df = pd.DataFrame(
+        {
+            "DEPT": [1000.0, 1001.0],
+            "NPHI": [0.25, 0.22],
+            "C1": [10.0, 11.0],
+            "TGAS": [50.0, 70.0],
+            "GR": [80.0, 85.0],
+            "WH": [8.0, 12.0],
+            "C1_C2": [20.0, 15.0],
+            "RT": [12.0, 18.0],
+        }
+    )
+
+    assert mud_gas_literature_tablet_columns(df) == ("GR", "TGAS", "C1", "WH", "C1_C2", "RT", "NPHI")
+
+
+def test_mud_gas_literature_markers_use_extremes_and_skip_duplicate_depths():
+    from palettes.well_log_tablet import mud_gas_literature_markers
+
+    df = pd.DataFrame(
+        {
+            "depth": [1000.0, 1001.0, 1002.0, 1003.0],
+            "TGAS": [10.0, 90.0, 30.0, 20.0],
+            "WH": [5.0, 6.0, 25.0, 7.0],
+            "C1_C2": [40.0, 30.0, 8.0, 12.0],
+            "inverse_oil_indicator": [1.0, 2.0, 3.0, 9.0],
+        }
+    )
+
+    markers = mud_gas_literature_markers(df)
+
+    assert [(marker.label, marker.depth) for marker in markers] == [
+        ("TG", 1001.0),
+        ("Wh", 1002.0),
+        ("IOI", 1003.0),
+    ]
+    assert all("провер" in marker.note.lower() or "справоч" in marker.note.lower() for marker in markers)

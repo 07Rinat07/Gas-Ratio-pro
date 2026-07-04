@@ -65,6 +65,8 @@ from palettes.well_log_tablet import (
     build_marker_interpretation_table,
     build_well_log_tablet,
     default_tablet_columns,
+    mud_gas_literature_markers,
+    mud_gas_literature_tablet_columns,
     normalize_track_configs,
     numeric_tablet_columns,
     tablet_units_from_dataframe,
@@ -1535,6 +1537,34 @@ def _render_tablet_controls(
     valid_state = _valid_tablet_columns(filtered_df, current_state)
     if current_state and valid_state != current_state:
         st.session_state["interpretation_tablet_columns"] = list(valid_state)
+
+    literature_columns = mud_gas_literature_tablet_columns(filtered_df)
+    if literature_columns:
+        preset_col, marker_col = st.columns(2)
+        if preset_col.button(
+            "Применить preset Mud gas analysis",
+            help="Выбирает доступные GR/total gas/C1-C5/Wh-Bh-Ch/Pixler/ГИС-треки в порядке из литературного обзора.",
+            use_container_width=True,
+            key="interpretation_tablet_apply_mud_gas_preset",
+        ):
+            st.session_state["interpretation_tablet_columns"] = list(literature_columns)
+            st.rerun()
+        if marker_col.button(
+            "Добавить mud-gas маркеры",
+            help="Ставит безопасные справочные маркеры по total-gas/Wh/Pixler/oil-indicator экстремумам. Это не автоматическая классификация.",
+            use_container_width=True,
+            key="interpretation_tablet_apply_mud_gas_markers",
+        ):
+            suggested_markers = mud_gas_literature_markers(filtered_df)
+            st.session_state["interpretation_tablet_marker_count"] = len(suggested_markers)
+            for index, marker in enumerate(suggested_markers):
+                st.session_state[f"interpretation_tablet_marker_{index}_label"] = marker.label
+                st.session_state[f"interpretation_tablet_marker_{index}_depth"] = float(marker.depth)
+                st.session_state[f"interpretation_tablet_marker_{index}_note"] = marker.note
+            st.rerun()
+        st.caption(
+            "Mud gas preset использует только найденные в данных колонки; отсутствующие C-компоненты, ratios или ГИС-кривые не подставляются искусственно."
+        )
 
     selected_columns = tuple(
         st.multiselect(
