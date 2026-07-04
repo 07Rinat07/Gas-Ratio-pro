@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import dataclass
@@ -63,6 +64,10 @@ def _safe_las_file_id(value: str) -> str:
 def _safe_export_stem(value: str) -> str:
     stem = re.sub(r"[^0-9A-Za-zА-Яа-я_-]+", "_", value.strip()).strip("_")
     return stem or "project_las"
+
+
+def _sha256_hex(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
 
 
 def _project_wells_dir(root: Path | str, project_id: str) -> Path:
@@ -306,22 +311,45 @@ def export_project_las_files_zip(
             las_bytes = read_project_las_file_bytes(root, project_id, record.id)
             file_stem = _safe_export_stem(f"{record.name}_{record.version_label}_{record.id}")
             dataframe: pd.DataFrame | None = None
-            exported_files: list[str] = []
+            exported_files: list[dict[str, Any]] = []
 
             if "las" in selected_formats:
                 file_name = f"{file_stem}.las"
                 archive.writestr(file_name, las_bytes)
-                exported_files.append(file_name)
+                exported_files.append(
+                    {
+                        "name": file_name,
+                        "format": "las",
+                        "size_bytes": len(las_bytes),
+                        "sha256": _sha256_hex(las_bytes),
+                    }
+                )
             if "csv" in selected_formats or "xlsx" in selected_formats:
                 dataframe = read_las(BytesIO(las_bytes))
             if "csv" in selected_formats and dataframe is not None:
                 file_name = f"{file_stem}.csv"
-                archive.writestr(file_name, export_csv_bytes(dataframe))
-                exported_files.append(file_name)
+                csv_bytes = export_csv_bytes(dataframe)
+                archive.writestr(file_name, csv_bytes)
+                exported_files.append(
+                    {
+                        "name": file_name,
+                        "format": "csv",
+                        "size_bytes": len(csv_bytes),
+                        "sha256": _sha256_hex(csv_bytes),
+                    }
+                )
             if "xlsx" in selected_formats and dataframe is not None:
                 file_name = f"{file_stem}.xlsx"
-                archive.writestr(file_name, export_xlsx_bytes(dataframe, sheet_name=record.name))
-                exported_files.append(file_name)
+                xlsx_bytes = export_xlsx_bytes(dataframe, sheet_name=record.name)
+                archive.writestr(file_name, xlsx_bytes)
+                exported_files.append(
+                    {
+                        "name": file_name,
+                        "format": "xlsx",
+                        "size_bytes": len(xlsx_bytes),
+                        "sha256": _sha256_hex(xlsx_bytes),
+                    }
+                )
 
             manifest_entries.append(
                 {
@@ -354,7 +382,7 @@ def export_project_las_files_zip(
             "\n"
             "The archive contains selected LAS versions and converted CSV/XLSX files. "
             "Use manifest.json to check well names, version labels, original file names, "
-            "archive status and exported file names.\n",
+            "archive status, exported file names, file sizes and SHA-256 checksums.\n",
         )
 
     return buffer.getvalue()

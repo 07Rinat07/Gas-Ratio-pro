@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from io import BytesIO
 from zipfile import ZipFile
@@ -144,7 +145,11 @@ def test_project_las_file_dataframe_and_zip_export(tmp_path):
         assert manifest["formats"] == ["las", "xlsx", "csv"]
         assert manifest["las_files"][0]["id"] == record.id
         assert manifest["las_files"][0]["well_name"] == "Well A"
-        assert any(name.endswith(".las") for name in manifest["las_files"][0]["exported_files"])
+        exported_files = manifest["las_files"][0]["exported_files"]
+        las_export = next(item for item in exported_files if item["format"] == "las")
+        assert las_export["name"].endswith(".las")
+        assert las_export["size_bytes"] == len(archive.read(las_export["name"]))
+        assert las_export["sha256"] == hashlib.sha256(archive.read(las_export["name"])).hexdigest()
 
 
 def test_project_las_zip_export_validates_selection_and_formats(tmp_path):
