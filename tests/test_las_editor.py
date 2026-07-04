@@ -7,6 +7,7 @@ from las_editor.depth_grid import (
     apply_las_bulk_operations,
     build_las_edit_audit_log,
     build_las_edit_preview,
+    build_las_editor_hints,
     build_depth_grid,
     insert_manual_depth_rows,
     build_depth_step_report,
@@ -198,3 +199,43 @@ def test_insert_manual_depth_rows_can_fill_and_audit_manual_interval():
     assert result.added_depths == (1.2,)
     assert any(entry.stage == "manual-interval" for entry in log)
     assert any("Manual interval rows added: 1" in entry.details for entry in log)
+
+
+def test_las_editor_hints_explain_depth_gaps_nulls_and_manual_edits():
+    df = pd.DataFrame({"DEPT": [1000.0, 1000.4, 1000.4, None], "C1": [10, -999.25, 14, 20]})
+    diagnostics = diagnose_depths(df, depth_column="DEPT", expected_step=0.2)
+    preview = build_las_edit_preview(
+        pd.DataFrame({"DEPT": [1000.0, 1000.2], "C1": [10, 12]}),
+        pd.DataFrame({"DEPT": [1000.0, 1000.2], "C1": [11, 12]}),
+    )
+
+    hints = build_las_editor_hints(
+        diagnostics,
+        added_depth_count=1,
+        fill_strategy="linear",
+        bulk_operation_log=("LAS NULL -999.25 replaced with empty values: 1 cells.",),
+        manual_interval_log=("Manual interval rows added: 1.",),
+        preview=preview,
+    )
+
+    topics = {hint.topic for hint in hints}
+    assert "Шаг глубины" in topics
+    assert "Пропуски глубины" in topics
+    assert "NULL-значения" in topics
+    assert "Ручное заполнение" in topics
+    assert "Предпросмотр правок" in topics
+    assert any(hint.status == "warning" and "пропущенными" in hint.message for hint in hints)
+    assert any(hint.topic == "NULL-значения" and hint.status == "review" for hint in hints)
+    assert any(hint.topic == "Предпросмотр правок" and "изменено ячеек 1" in hint.message for hint in hints)
+
+
+def test_las_editor_hints_report_clean_depth_grid_as_ok():
+    df = pd.DataFrame({"DEPT": [1.0, 1.2, 1.4], "C1": [10, 12, 14]})
+    diagnostics = diagnose_depths(df, depth_column="DEPT", expected_step=0.2)
+
+    hints = build_las_editor_hints(diagnostics, preview=build_las_edit_preview(df, df))
+
+    assert any(hint.topic == "Шаг глубины" and hint.status == "ok" for hint in hints)
+    assert any(hint.topic == "Пропуски глубины" and hint.status == "ok" for hint in hints)
+    assert any(hint.topic == "Сохранение скважины" for hint in hints)
+    assert any(hint.topic == "Выгрузка данных" for hint in hints)

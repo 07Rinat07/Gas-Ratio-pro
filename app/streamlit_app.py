@@ -52,6 +52,7 @@ from las_editor.depth_grid import (
     apply_las_bulk_operations,
     build_las_edit_audit_log,
     build_las_edit_preview,
+    build_las_editor_hints,
     insert_manual_depth_rows,
     resample_las_data,
 )
@@ -1405,6 +1406,35 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
         added_depths=all_added_depths,
         manual_preview=manual_preview,
     )
+
+    editor_hints = build_las_editor_hints(
+        diagnostics,
+        added_depth_count=len(all_added_depths),
+        fill_strategy=fill_strategy,
+        bulk_operation_log=bulk_result.operation_log,
+        manual_interval_log=manual_interval_log,
+        preview=manual_preview,
+    )
+
+    with st.expander("Проверяемые подсказки LAS-редактора", expanded=bool(result.warnings or bulk_result.warnings or manual_added_depths)):
+        status_icon = {"ok": "✅", "info": "ℹ️", "review": "🟡", "warning": "⚠️"}
+        st.caption("Подсказки не меняют данные автоматически. Они показывают, что инженер должен проверить перед сохранением версии или выгрузкой.")
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "Статус": f"{status_icon.get(hint.status, 'ℹ️')} {hint.status}",
+                        "Раздел": hint.topic,
+                        "Что найдено": hint.message,
+                        "Что сделать": hint.action,
+                    }
+                    for hint in editor_hints
+                ]
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+        st.caption("Подробнее: docs/las_editor_plan.md и docs/user_guide.md → раздел LAS-редактора.")
 
     with st.expander("Предпросмотр до/после и журнал правок", expanded=manual_preview.changed_cells > 0):
         preview_cols = st.columns(5)

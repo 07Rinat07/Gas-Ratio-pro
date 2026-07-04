@@ -375,6 +375,178 @@ def build_las_edit_audit_log(
     return tuple(entries)
 
 
+
+
+@dataclass(frozen=True)
+class LasEditorHint:
+    topic: str
+    status: str
+    message: str
+    action: str
+
+
+def build_las_editor_hints(
+    diagnostics: DepthDiagnostics,
+    *,
+    added_depth_count: int = 0,
+    fill_strategy: str = "empty",
+    bulk_operation_log: tuple[str, ...] | list[str] = (),
+    manual_interval_log: tuple[str, ...] | list[str] = (),
+    preview: LasEditPreview | None = None,
+    saved_to_project: bool = False,
+    exported: bool = False,
+) -> tuple[LasEditorHint, ...]:
+    """Return checkable user hints for the LAS editor workflow.
+
+    Hints are deliberately rule-based. They explain what the editor observed,
+    why it matters for calculations/correlation, and which manual action the
+    engineer should take before saving or exporting a prepared LAS version.
+    """
+
+    hints: list[LasEditorHint] = []
+
+    def add(topic: str, status: str, message: str, action: str) -> None:
+        hints.append(LasEditorHint(topic=topic, status=status, message=message, action=action))
+
+    step_report = diagnostics.step_report
+    if step_report.step_count == 0:
+        add(
+            "Шаг глубины",
+            "warning",
+            "Недостаточно числовых глубин для проверки шага.",
+            f"Проверьте колонку `{diagnostics.depth_column}` и строку заголовков перед сохранением версии.",
+        )
+    elif step_report.outliers or (step_report.min_step is not None and step_report.max_step is not None and step_report.min_step != step_report.max_step):
+        add(
+            "Шаг глубины",
+            "warning",
+            (
+                f"Шаг глубины неоднородный: частый шаг {step_report.most_common_step}, "
+                f"минимальный {step_report.min_step}, максимальный {step_report.max_step}."
+            ),
+            "Проверьте выбросы шага, затем используйте сортировку, удаление дублей или ручное добавление строк только на проблемном интервале.",
+        )
+    else:
+        add(
+            "Шаг глубины",
+            "ok",
+            f"Шаг глубины выглядит согласованным: {step_report.most_common_step}.",
+            "Можно переходить к проверке NULL и сохранению подготовленной версии.",
+        )
+
+    if diagnostics.gaps:
+        first_gap = diagnostics.gaps[0]
+        add(
+            "Пропуски глубины",
+            "warning",
+            f"Найдено интервалов с пропущенными глубинами: {len(diagnostics.gaps)}.",
+            f"Начните проверку с интервала {first_gap.start_depth}–{first_gap.end_depth}; не заполняйте его автоматически без проверки соседних кривых.",
+        )
+    elif added_depth_count:
+        add(
+            "Пропуски глубины",
+            "review",
+            f"Редактор добавил строк глубины: {added_depth_count}.",
+            "Откройте предпросмотр до/после и убедитесь, что стратегия заполнения не исказила газовые пики.",
+        )
+    else:
+        add(
+            "Пропуски глубины",
+            "ok",
+            "Пропуски по выбранному шагу не обнаружены.",
+            "Дополнительное ручное добавление строк не требуется, если интервал выбран корректно.",
+        )
+
+    if diagnostics.null_depth_count:
+        add(
+            "NULL и глубина",
+            "warning",
+            f"В колонке глубины есть пустые или нечисловые значения: {diagnostics.null_depth_count}.",
+            "Исправьте строки с пустой глубиной или удалите их до расчета; глубина не должна заполняться интерполяцией без контроля.",
+        )
+
+    null_replacement_log = [item for item in bulk_operation_log if "NULL" in str(item).upper()]
+    if null_replacement_log:
+        add(
+            "NULL-значения",
+            "review",
+            str(null_replacement_log[-1]),
+            "Проверьте, что заменяемое значение действительно является LAS NULL, а не реальным измерением конкретного прибора.",
+        )
+    else:
+        add(
+            "NULL-значения",
+            "info",
+            "Замена LAS NULL не применялась или не изменила таблицу.",
+            "Если в LAS используется другое NULL-значение, укажите его явно перед расчетом.",
+        )
+
+    if manual_interval_log:
+        add(
+            "Ручное заполнение",
+            "review",
+            "; ".join(str(item) for item in manual_interval_log),
+            f"Проверьте добавленные строки в интервале и стратегию заполнения `{fill_strategy}` перед сохранением версии.",
+        )
+    else:
+        add(
+            "Ручное заполнение",
+            "info",
+            "Ручное добавление строк по интервалу не применялось.",
+            "Используйте его только для точечной подготовки проблемного участка, а не для автоматического изменения всего LAS.",
+        )
+
+    if preview is not None and (preview.added_rows or preview.removed_rows or preview.changed_cells):
+        add(
+            "Предпросмотр правок",
+            "review",
+            (
+                f"После ручной правки: добавлено строк {preview.added_rows}, "
+                f"удалено {preview.removed_rows}, изменено ячеек {preview.changed_cells}."
+            ),
+            "Сверьте измененные колонки и сохраните версию только после проверки, что правки не затронули исходные пики случайно.",
+        )
+    else:
+        add(
+            "Предпросмотр правок",
+            "ok",
+            "Ручные изменения после автоматической подготовки не обнаружены.",
+            "Журнал правок всё равно сохранит настройки шага, заполнения и массовых операций.",
+        )
+
+    if diagnostics.duplicate_depths:
+        add(
+            "Дубли глубины",
+            "warning",
+            f"Найдены дубли глубины: {len(diagnostics.duplicate_depths)} уникальных значений.",
+            "Удалите дубли только после проверки, какую строку нужно оставить: первую, усредненную или исправленную вручную.",
+        )
+
+    if diagnostics.reverse_step_count:
+        add(
+            "Порядок глубины",
+            "warning",
+            f"Найдены обратные шаги глубины: {diagnostics.reverse_step_count}.",
+            "Отсортируйте глубину и проверьте, не смешаны ли в файле разные проходки или секции.",
+        )
+
+    add(
+        "Сохранение скважины",
+        "info" if not saved_to_project else "ok",
+        "Подготовленный LAS сохраняется как отдельная версия скважины с журналом правок.",
+        "Перед сохранением заполните название скважины, версию и комментарий так, чтобы позже было понятно, какие операции применялись.",
+    )
+
+    add(
+        "Выгрузка данных",
+        "info" if not exported else "ok",
+        "CSV/LAS/XLSX выгрузки нужны для передачи подготовленных данных вне приложения.",
+        "После экспорта откройте файл в стороннем просмотрщике и проверьте глубину, NULL и единицы измерения перед отправкой коллегам.",
+    )
+
+    return tuple(hints)
+
+
 @dataclass(frozen=True)
 class LasBulkOperationResult:
     data: pd.DataFrame
