@@ -165,6 +165,63 @@ def summarize_project_calculations(
     )
 
 
+def filter_project_calculations(
+    root: Path | str = DEFAULT_PROJECTS_ROOT,
+    project_id: str = DEFAULT_PROJECT_ID,
+    source_query: str = "",
+    warning_state: str = "any",
+    required_columns: tuple[str, ...] | list[str] | None = None,
+) -> tuple[ProjectCalculationRecord, ...]:
+    """Return saved calculation records matching practical project filters.
+
+    The function intentionally keeps filtering conservative: corrupted metadata
+    does not break the project screen, but records that require metadata-based
+    checks are skipped because their warning list or column set cannot be
+    trusted.
+    """
+
+    records = list_project_calculations(root, project_id)
+    clean_source_query = source_query.strip().casefold()
+    clean_warning_state = warning_state.strip().casefold() or "any"
+    clean_required_columns = tuple(
+        dict.fromkeys(str(column).strip() for column in (required_columns or ()) if str(column).strip())
+    )
+    required_columns_folded = {column.casefold() for column in clean_required_columns}
+
+    filtered: list[ProjectCalculationRecord] = []
+    for record in records:
+        if clean_source_query and clean_source_query not in record.source_label.casefold():
+            continue
+
+        needs_metadata = clean_warning_state in {"with_warnings", "without_warnings"} or bool(required_columns_folded)
+        metadata: dict[str, Any] = {}
+        if needs_metadata:
+            try:
+                metadata = read_project_calculation_metadata(root, project_id, record.id)
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError, FileNotFoundError, ValueError, TypeError):
+                continue
+
+        if clean_warning_state == "with_warnings":
+            warnings = metadata.get("warnings", ())
+            if not warnings:
+                continue
+        elif clean_warning_state == "without_warnings":
+            warnings = metadata.get("warnings", ())
+            if warnings:
+                continue
+        elif clean_warning_state not in {"any", "all"}:
+            raise ValueError("Некорректный режим фильтра предупреждений.")
+
+        if required_columns_folded:
+            available_columns = {str(column).strip().casefold() for column in metadata.get("columns", ())}
+            if not required_columns_folded.issubset(available_columns):
+                continue
+
+        filtered.append(record)
+
+    return tuple(filtered)
+
+
 def save_project_calculation(
     df: pd.DataFrame,
     root: Path | str = DEFAULT_PROJECTS_ROOT,

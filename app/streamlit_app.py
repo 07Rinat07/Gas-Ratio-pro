@@ -103,6 +103,7 @@ project_calculations = importlib.reload(project_calculations)
 project_exports = importlib.reload(project_exports)
 project_las_files = importlib.reload(project_las_files)
 list_project_calculations = project_calculations.list_project_calculations
+filter_project_calculations = project_calculations.filter_project_calculations
 summarize_project_calculations = project_calculations.summarize_project_calculations
 read_project_calculation_dataframe = project_calculations.read_project_calculation_dataframe
 read_project_calculation_file_bytes = project_calculations.read_project_calculation_file_bytes
@@ -3066,6 +3067,10 @@ def _project_calculations_table(records: tuple[object, ...]) -> pd.DataFrame:
     )
 
 
+def _parse_project_calculation_columns_filter(value: str) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(part.strip() for part in value.split(",") if part.strip()))
+
+
 def _render_project_calculation_metadata(project: ProjectRecord, calculation_id: str, logger) -> None:
     try:
         metadata = read_project_calculation_metadata(LAS_CORRELATION_PROJECTS_ROOT, project.id, calculation_id)
@@ -3093,18 +3098,62 @@ def _render_project_calculation_metadata(project: ProjectRecord, calculation_id:
 
 
 def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
-    records = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+    all_records = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)
     summary = summarize_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-    with st.expander("Сохраненные расчеты проекта", expanded=bool(records)):
+    with st.expander("Сохраненные расчеты проекта", expanded=bool(all_records)):
         st.caption(_project_calculations_summary_caption(summary))
-        if records:
+        if all_records:
             metric_count, metric_rows, metric_warnings, metric_columns = st.columns(4)
             metric_count.metric("Расчетов", summary.count)
             metric_rows.metric("Строк", summary.total_rows)
             metric_warnings.metric("Предупреждений", summary.total_warnings)
             metric_columns.metric("Колонок", len(summary.columns))
-        if not records:
+        if not all_records:
             st.caption("В активном проекте пока нет сохраненных расчетов.")
+            return
+
+        with st.expander("Быстрый фильтр расчетов", expanded=False):
+            filter_source, filter_warnings = st.columns(2)
+            source_query = filter_source.text_input(
+                "Источник содержит",
+                value="",
+                placeholder="Например: Well A, LAS, Pixler",
+                key=f"project_calculation_filter_source_{project.id}",
+            )
+            warning_state_label = filter_warnings.selectbox(
+                "Предупреждения",
+                options=("Любые", "Только с предупреждениями", "Только без предупреждений"),
+                key=f"project_calculation_filter_warnings_{project.id}",
+            )
+            columns_query = st.text_input(
+                "Обязательные колонки",
+                value="",
+                placeholder="Через запятую: depth, c1, wh",
+                key=f"project_calculation_filter_columns_{project.id}",
+            )
+            warning_state = {
+                "Любые": "any",
+                "Только с предупреждениями": "with_warnings",
+                "Только без предупреждений": "without_warnings",
+            }[warning_state_label]
+            required_columns = _parse_project_calculation_columns_filter(columns_query)
+
+        try:
+            records = filter_project_calculations(
+                LAS_CORRELATION_PROJECTS_ROOT,
+                project.id,
+                source_query=source_query,
+                warning_state=warning_state,
+                required_columns=required_columns,
+            )
+        except ValueError:
+            records = all_records
+            st.warning("Фильтр расчетов сброшен из-за некорректного режима предупреждений.")
+
+        if len(records) != len(all_records):
+            st.caption(f"Показано расчетов: {len(records)} из {len(all_records)}.")
+        if not records:
+            st.warning("По текущему фильтру сохраненные расчеты не найдены.")
             return
 
         st.dataframe(_project_calculations_table(records), use_container_width=True, height=220)

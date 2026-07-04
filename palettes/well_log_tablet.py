@@ -41,6 +41,38 @@ PREFERRED_TABLET_COLUMNS: tuple[str, ...] = (
     "c1_c5",
 )
 DEPTH_COLUMN_NAMES = {"depth", "depth_from", "depth_to", "_plot_depth"}
+
+
+MUD_GAS_LITERATURE_TRACK_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("GR/lithology", ("gr", "gamma", "gamma_ray", "lithology")),
+    ("Total gas", ("total_gas", "tgas", "gas_total", "totalgas", "gas")),
+    ("C1 methane", ("c1", "methane")),
+    ("C2 ethane", ("c2", "ethane")),
+    ("C3 propane", ("c3", "propane")),
+    ("iC4", ("ic4", "i_c4", "iso_c4", "isobutane")),
+    ("nC4", ("nc4", "n_c4", "normal_c4", "n-butane", "nbutane")),
+    ("iC5", ("ic5", "i_c5", "iso_c5", "isopentane")),
+    ("nC5", ("nc5", "n_c5", "normal_c5", "n-pentane", "npentane")),
+    ("Wh", ("wh", "wetness")),
+    ("Bh", ("bh", "balance")),
+    ("Ch", ("ch", "character")),
+    ("C1/C2", ("c1_c2", "c1/c2", "c1c2")),
+    ("C1/C3", ("c1_c3", "c1/c3", "c1c3")),
+    ("C1/C4", ("c1_c4", "c1/sumc4", "c1_sumc4", "c1c4")),
+    ("C1/C5", ("c1_c5", "c1/sumc5", "c1_sumc5", "c1c5")),
+    ("Inverse oil indicator", ("inverse_oil_indicator", "ioi", "c1_heavy", "c1_over_heavy")),
+    ("Deep resistivity", ("rdeep", "rt", "lld", "resdeep", "deep_resistivity")),
+    ("Shallow resistivity", ("rshallow", "rs", "lls", "resshallow", "shallow_resistivity")),
+    ("Density", ("rhob", "density", "den")),
+    ("Neutron porosity", ("nphi", "neutron", "neutron_porosity")),
+)
+
+MUD_GAS_MARKER_COLUMN_ALIASES: tuple[tuple[str, tuple[str, ...], str], ...] = (
+    ("TG", ("total_gas", "tgas", "gas_total", "totalgas", "gas"), "Максимум total gas: проверить hydrocarbon-bearing interval по ГИС и буровому контексту."),
+    ("Wh", ("wh", "wetness"), "Максимум Wh/wetness: проверить возможное обогащение тяжелыми компонентами."),
+    ("C1/C2", ("c1_c2", "c1/c2", "c1c2"), "Минимум C1/C2: по Pixler может быть связан с более тяжелым флюидом; требуется сверка."),
+    ("IOI", ("inverse_oil_indicator", "ioi", "c1_heavy", "c1_over_heavy"), "Максимум inverse oil indicator: справочный индикатор, не использовать без проверки."),
+)
 TABLET_FILL_MODES = {"none", "to_zero", "to_left", "to_right"}
 
 
@@ -136,6 +168,95 @@ def default_tablet_columns(df: pd.DataFrame, *, limit: int = 8) -> tuple[str, ..
         if len(selected) >= limit:
             break
     return tuple(selected)
+
+
+def _canonical_column_token(column: object) -> str:
+    """Normalize LAS/Excel mnemonic variants for preset matching."""
+
+    return "".join(char for char in str(column).lower() if char.isalnum())
+
+
+def _column_lookup_by_alias(df: pd.DataFrame) -> dict[str, str]:
+    lookup: dict[str, str] = {}
+    for column in numeric_tablet_columns(df):
+        token = _canonical_column_token(column)
+        if token and token not in lookup:
+            lookup[token] = column
+    return lookup
+
+
+def mud_gas_literature_tablet_columns(df: pd.DataFrame, *, limit: int | None = None) -> tuple[str, ...]:
+    """Return available tablet tracks in the order recommended by mud-gas literature.
+
+    The preset follows ``docs/mud_gas_analysis_literature.md``: GR/lithology,
+    total gas, chromatograph components, Haworth ratios, Pixler ratios, inverse
+    oil indicator and common supporting GIS curves. Missing columns are skipped
+    rather than synthesized, because the renderer must not hide absent data from
+    the engineer.
+    """
+
+    if df is None or df.empty:
+        return ()
+
+    lookup = _column_lookup_by_alias(df)
+    selected: list[str] = []
+    for _label, aliases in MUD_GAS_LITERATURE_TRACK_ALIASES:
+        for alias in aliases:
+            match = lookup.get(_canonical_column_token(alias))
+            if match is not None and match not in selected:
+                selected.append(match)
+                break
+        if limit is not None and len(selected) >= limit:
+            break
+    return tuple(selected)
+
+
+def _nearest_depth_for_extreme(df: pd.DataFrame, column: str, *, mode: str) -> float | None:
+    plot_df = df.copy()
+    plot_df["_plot_depth"] = _depth_axis(plot_df)
+    values = pd.to_numeric(plot_df[column], errors="coerce")
+    candidates = plot_df.loc[values.notna() & plot_df["_plot_depth"].notna()].copy()
+    if candidates.empty:
+        return None
+    candidate_values = pd.to_numeric(candidates[column], errors="coerce")
+    index = candidate_values.idxmin() if mode == "min" else candidate_values.idxmax()
+    return float(candidates.loc[index, "_plot_depth"])
+
+
+def mud_gas_literature_markers(df: pd.DataFrame, *, max_markers: int = 4) -> tuple[InterpretationMarker, ...]:
+    """Suggest safe literature-based depth markers for the tablet.
+
+    Markers are deliberately descriptive, not deterministic interpretation. They
+    point the engineer to total-gas peaks, wetness peaks and Pixler/oil-indicator
+    anomalies that should be checked together with logs, lithology and drilling
+    context.
+    """
+
+    if df is None or df.empty or max_markers <= 0:
+        return ()
+
+    lookup = _column_lookup_by_alias(df)
+    markers: list[InterpretationMarker] = []
+    used_depths: list[float] = []
+    for label, aliases, note in MUD_GAS_MARKER_COLUMN_ALIASES:
+        column = None
+        for alias in aliases:
+            column = lookup.get(_canonical_column_token(alias))
+            if column is not None:
+                break
+        if column is None:
+            continue
+        mode = "min" if label == "C1/C2" else "max"
+        depth = _nearest_depth_for_extreme(df, column, mode=mode)
+        if depth is None:
+            continue
+        if any(abs(depth - existing) < 1e-9 for existing in used_depths):
+            continue
+        markers.append(InterpretationMarker(label=label, depth=depth, note=note))
+        used_depths.append(depth)
+        if len(markers) >= max_markers:
+            break
+    return tuple(markers)
 
 
 def _canonical_column_token(column: object) -> str:
