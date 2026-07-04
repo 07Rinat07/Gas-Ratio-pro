@@ -52,6 +52,25 @@ DEFAULT_MAPPING_FIELDS: tuple[str, ...] = ("depth",) + GAS_COMPONENT_FIELDS
 DEFAULT_RATIO_FIELDS: tuple[str, ...] = ("wh", "bh", "ch", "bar2", "oil_indicator", "inverse_oil_indicator")
 
 
+DOC_LINKS: dict[str, str] = {
+    "mapping": "docs/troubleshooting.md#колонки-не-сопоставились",
+    "nan": "docs/troubleshooting.md#все-расчеты-дают-nan",
+    "depth": "docs/troubleshooting.md#глубина-отсутствует",
+    "formulas": "docs/formulas.md",
+}
+
+
+def _doc_link(topic: str) -> str:
+    return DOC_LINKS.get(topic, DOC_LINKS["nan"])
+
+
+def _with_doc_reference(message: str, topic: str) -> str:
+    link = _doc_link(topic)
+    if link in message:
+        return message
+    return f"{message} См. [{link}]({link})."
+
+
 def _label(field: str) -> str:
     return FIELD_LABELS.get(field, RATIO_LABELS.get(field, field))
 
@@ -123,24 +142,36 @@ def mapping_warning_messages(
             continue
         if status == "from_interval":
             messages.append(
-                "Mapping: depth не выбран напрямую; глубина будет рассчитана по середине depth_from/depth_to."
+                _with_doc_reference(
+                    "Mapping: depth не выбран напрямую; глубина будет рассчитана по середине depth_from/depth_to.",
+                    "depth",
+                )
             )
             continue
         if row["field"] == "depth":
             messages.append(
-                "Mapping: depth не сопоставлен; графики будут использовать технический индекс строки. "
-                "Проверьте depth или пару depth_from/depth_to."
+                _with_doc_reference(
+                    "Mapping: depth не сопоставлен; графики будут использовать технический индекс строки. "
+                    "Проверьте depth или пару depth_from/depth_to.",
+                    "depth",
+                )
             )
             continue
         if status == "source_missing":
             messages.append(
-                f"Mapping: {_label(row['field'])} выбран как `{row['source_column']}`, "
-                "но такой колонки нет в текущих данных."
+                _with_doc_reference(
+                    f"Mapping: {_label(row['field'])} выбран как `{row['source_column']}`, "
+                    "но такой колонки нет в текущих данных.",
+                    "mapping",
+                )
             )
             continue
         messages.append(
-            f"Mapping: {_label(row['field'])} не сопоставлен; компонент будет принят как 0. "
-            "Проверьте названия колонок и единицы измерения."
+            _with_doc_reference(
+                f"Mapping: {_label(row['field'])} не сопоставлен; компонент будет принят как 0. "
+                "Проверьте названия колонок и единицы измерения.",
+                "mapping",
+            )
         )
 
     return tuple(dict.fromkeys(messages))
@@ -328,9 +359,13 @@ def ratio_nan_warning_messages(
         row_count = int(row["row_count"])
         if nan_count <= 0 or row_count <= 0:
             continue
+        topic = "formulas" if row["ratio"] == "ch" else "nan"
         messages.append(
-            f"{row['label']}: NaN в {nan_count} из {row_count} строк. "
-            f"Причина: {row['causes']}. Что проверить: {row['action']}."
+            _with_doc_reference(
+                f"{row['label']}: NaN в {nan_count} из {row_count} строк. "
+                f"Причина: {row['causes']}. Что проверить: {row['action']}.",
+                topic,
+            )
         )
 
     return tuple(messages)
@@ -359,9 +394,13 @@ def interval_ratio_diagnostic_messages(
         if diagnostics.empty:
             continue
         detail = diagnostics.iloc[0]
+        topic = "formulas" if detail["ratio"] == "ch" else "nan"
         messages.append(
-            f"{detail['label']}: нет расчета в выбранной строке. "
-            f"Причина: {detail['causes']}. Проверьте mapping и входные C1-C5."
+            _with_doc_reference(
+                f"{detail['label']}: нет расчета в выбранной строке. "
+                f"Причина: {detail['causes']}. Проверьте mapping и входные C1-C5.",
+                topic,
+            )
         )
 
     return tuple(messages)

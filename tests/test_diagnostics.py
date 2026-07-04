@@ -64,7 +64,8 @@ def test_ratio_nan_warning_messages_include_row_counts():
     assert messages == (
         "Wh: NaN в 1 из 2 строк. Причина: нет колонок: C3, iC4, nC4, iC5, nC5; "
         "нулевой или пустой знаменатель C1+C2+C3+iC4+nC4+iC5+nC5: 1 строка. "
-        "Что проверить: проверьте mapping, числовой формат и нули в знаменателях.",
+        "Что проверить: проверьте mapping, числовой формат и нули в знаменателях. "
+        "См. [docs/troubleshooting.md#все-расчеты-дают-nan](docs/troubleshooting.md#все-расчеты-дают-nan).",
     )
 
 
@@ -99,3 +100,19 @@ def test_ratio_nan_diagnostics_cover_inverse_oil_indicator_denominator():
     assert row["label"] == "Inverse oil indicator"
     assert row["nan_count"] == 1
     assert "C3+iC4+nC4+iC5+nC5" in row["causes"]
+
+
+def test_mapping_warning_messages_include_documentation_links():
+    messages = mapping_warning_messages({"c1": "BAD"}, source_columns=["C1"])
+
+    assert any("docs/troubleshooting.md#колонки-не-сопоставились" in message for message in messages)
+    assert any("docs/troubleshooting.md#глубина-отсутствует" in message for message in messages)
+
+
+def test_ch_nan_warning_points_to_formula_documentation():
+    df = pd.DataFrame({"ch": [float("nan")], "c3": [1.0], "ic4": [0.0], "nc4": [0.0], "ic5": [0.0], "nc5": [0.0]})
+
+    messages = ratio_nan_warning_messages(df, ratios=("ch",), ch_mode="B")
+
+    assert len(messages) == 1
+    assert "docs/formulas.md" in messages[0]
