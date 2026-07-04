@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from io import BytesIO
 from zipfile import ZipFile
 
@@ -134,8 +135,16 @@ def test_project_las_file_dataframe_and_zip_export(tmp_path):
         assert any(name.endswith(".las") for name in names)
         assert any(name.endswith(".csv") for name in names)
         assert any(name.endswith(".xlsx") for name in names)
+        assert "manifest.json" in names
+        assert "README.txt" in names
         csv_name = next(name for name in names if name.endswith(".csv"))
         assert "DEPT" in archive.read(csv_name).decode("utf-8-sig")
+        manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
+        assert manifest["project_id"] == "demo"
+        assert manifest["formats"] == ["las", "xlsx", "csv"]
+        assert manifest["las_files"][0]["id"] == record.id
+        assert manifest["las_files"][0]["well_name"] == "Well A"
+        assert any(name.endswith(".las") for name in manifest["las_files"][0]["exported_files"])
 
 
 def test_project_las_zip_export_validates_selection_and_formats(tmp_path):

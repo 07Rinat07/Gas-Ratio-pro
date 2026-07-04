@@ -296,6 +296,9 @@ def export_project_las_files_zip(
     if missing_ids:
         raise FileNotFoundError("Project LAS file not found: " + ", ".join(missing_ids))
 
+    exported_at = _utc_now()
+    manifest_entries: list[dict[str, Any]] = []
+
     buffer = BytesIO()
     with ZipFile(buffer, "w", compression=ZIP_DEFLATED) as archive:
         for las_file_id in selected_ids:
@@ -303,15 +306,56 @@ def export_project_las_files_zip(
             las_bytes = read_project_las_file_bytes(root, project_id, record.id)
             file_stem = _safe_export_stem(f"{record.name}_{record.version_label}_{record.id}")
             dataframe: pd.DataFrame | None = None
+            exported_files: list[str] = []
 
             if "las" in selected_formats:
-                archive.writestr(f"{file_stem}.las", las_bytes)
+                file_name = f"{file_stem}.las"
+                archive.writestr(file_name, las_bytes)
+                exported_files.append(file_name)
             if "csv" in selected_formats or "xlsx" in selected_formats:
                 dataframe = read_las(BytesIO(las_bytes))
             if "csv" in selected_formats and dataframe is not None:
-                archive.writestr(f"{file_stem}.csv", export_csv_bytes(dataframe))
+                file_name = f"{file_stem}.csv"
+                archive.writestr(file_name, export_csv_bytes(dataframe))
+                exported_files.append(file_name)
             if "xlsx" in selected_formats and dataframe is not None:
-                archive.writestr(f"{file_stem}.xlsx", export_xlsx_bytes(dataframe, sheet_name=record.name))
+                file_name = f"{file_stem}.xlsx"
+                archive.writestr(file_name, export_xlsx_bytes(dataframe, sheet_name=record.name))
+                exported_files.append(file_name)
+
+            manifest_entries.append(
+                {
+                    "id": record.id,
+                    "well_id": record.well_id,
+                    "well_name": record.name,
+                    "version_label": record.version_label,
+                    "original_file_name": record.original_file_name,
+                    "saved_at": record.saved_at,
+                    "archived_at": record.archived_at,
+                    "size_bytes": record.size_bytes,
+                    "exported_files": exported_files,
+                    "metadata": dict(record.metadata or {}),
+                }
+            )
+
+        manifest = {
+            "schema_version": 1,
+            "project_id": safe_project_id(project_id),
+            "exported_at": exported_at,
+            "formats": list(selected_formats),
+            "las_files": manifest_entries,
+        }
+        archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
+        archive.writestr(
+            "README.txt",
+            "Project LAS export\n"
+            f"Project: {safe_project_id(project_id)}\n"
+            f"Exported at: {exported_at}\n"
+            "\n"
+            "The archive contains selected LAS versions and converted CSV/XLSX files. "
+            "Use manifest.json to check well names, version labels, original file names, "
+            "archive status and exported file names.\n",
+        )
 
     return buffer.getvalue()
 
