@@ -209,3 +209,42 @@ def test_layout_profile_summary_explains_screen_mode():
     assert label == "Обычный монитор"
     assert max_width == "1200px"
     assert "стандартных экранов" in description
+
+
+def test_project_workspace_summary_counts_versions_archives_and_exports(monkeypatch, tmp_path):
+    module = importlib.import_module("app.streamlit_app")
+    sample = Path("examples/sample_gas_data.las").read_bytes()
+    first = module.save_project_las_file(
+        sample,
+        root=tmp_path,
+        project_id="demo",
+        file_name="well_a.las",
+        well_name="Well A",
+        version_label="raw",
+    )
+    module.save_project_las_file(
+        sample,
+        root=tmp_path,
+        project_id="demo",
+        file_name="well_b.las",
+        well_name="Well B",
+        version_label="prepared",
+    )
+    module.set_project_las_file_archived(tmp_path, "demo", first.id, archived=True)
+    module.save_project_export(
+        b"depth,c1\n1000,10\n",
+        root=tmp_path,
+        project_id="demo",
+        label="Interval CSV",
+        file_name="interval.csv",
+        kind="csv",
+    )
+    monkeypatch.setattr(module, "LAS_CORRELATION_PROJECTS_ROOT", tmp_path)
+
+    rows = dict(module._project_workspace_summary_rows(module.ProjectRecord(id="demo", name="Demo")))
+
+    assert rows["Скважин"] == "2"
+    assert rows["LAS-версий"] == "2"
+    assert rows["Активных LAS-версий"] == "1"
+    assert rows["Архивных LAS-версий"] == "1"
+    assert rows["Доступных экспортов"] == "1"

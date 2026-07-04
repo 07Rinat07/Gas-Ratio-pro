@@ -2794,6 +2794,32 @@ def _project_las_records_table(well_cards: tuple[ProjectLasWellCard, ...]) -> pd
     return pd.DataFrame(rows)
 
 
+def _project_workspace_summary_rows(project: ProjectRecord) -> tuple[tuple[str, str], ...]:
+    all_well_cards = list_project_las_wells(
+        LAS_CORRELATION_PROJECTS_ROOT,
+        project.id,
+        include_archived=True,
+    )
+    versions = tuple(version for card in all_well_cards for version in card.versions)
+    archived_versions = tuple(version for version in versions if version.archived_at)
+    active_versions = tuple(version for version in versions if not version.archived_at)
+    exports = list_project_exports(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+
+    return (
+        ("Скважин", str(len(all_well_cards))),
+        ("LAS-версий", str(len(versions))),
+        ("Активных LAS-версий", str(len(active_versions))),
+        ("Архивных LAS-версий", str(len(archived_versions))),
+        ("Доступных экспортов", str(len(exports))),
+    )
+
+
+def _project_workspace_summary_table(project: ProjectRecord) -> pd.DataFrame:
+    return pd.DataFrame(
+        [{"Показатель": label, "Значение": value} for label, value in _project_workspace_summary_rows(project)]
+    )
+
+
 def _project_las_records_to_raw_sheets(project: ProjectRecord, records: tuple[ProjectLasFile, ...]) -> dict[str, pd.DataFrame]:
     sheets: dict[str, pd.DataFrame] = {}
     for record in records:
@@ -2842,6 +2868,8 @@ def _render_project_workspace_loader(project: ProjectRecord, logger) -> None:
 
     with st.expander("Данные активного проекта", expanded=bool(active_records)):
         st.caption(f"Открыт проект: {project.name} ({project.id})")
+        st.dataframe(_project_workspace_summary_table(project), use_container_width=True, hide_index=True, height=210)
+
         if not active_records:
             st.caption("В активном проекте пока нет активных LAS-версий.")
             return
