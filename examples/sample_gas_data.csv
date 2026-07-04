@@ -1,0 +1,7 @@
+Report,Gas Ratio Demo,,,,,,,
+Generated,2026-06-30,,,,,,,
+Depth,CH4,C2,C3,i-C4,n-C4,i-C5,n-C5,Lithology
+1000,80,10,5,3,2,1,1,Sandstone
+1001,95,2,1,0.4,0.3,0.1,0.1,Shale
+1002,55,18,12,6,4,2,1.5,Limestone
+1003,20,25,18,12,8,4,3,Sandstone
