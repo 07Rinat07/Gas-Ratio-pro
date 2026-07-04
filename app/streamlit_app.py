@@ -108,6 +108,11 @@ summarize_project_calculations = project_calculations.summarize_project_calculat
 read_project_calculation_dataframe = project_calculations.read_project_calculation_dataframe
 read_project_calculation_file_bytes = project_calculations.read_project_calculation_file_bytes
 read_project_calculation_metadata = project_calculations.read_project_calculation_metadata
+build_project_calculation_card = project_calculations.build_project_calculation_card
+compare_project_calculations = project_calculations.compare_project_calculations
+build_project_calculation_comparison_table = project_calculations.build_project_calculation_comparison_table
+export_project_calculation_comparison_csv = project_calculations.export_project_calculation_comparison_csv
+export_project_calculation_comparison_html = project_calculations.export_project_calculation_comparison_html
 save_project_calculation = project_calculations.save_project_calculation
 list_project_exports = project_exports.list_project_exports
 read_project_export_file_bytes = project_exports.read_project_export_file_bytes
@@ -3073,6 +3078,7 @@ def _parse_project_calculation_columns_filter(value: str) -> tuple[str, ...]:
 
 def _render_project_calculation_metadata(project: ProjectRecord, calculation_id: str, logger) -> None:
     try:
+        card = build_project_calculation_card(LAS_CORRELATION_PROJECTS_ROOT, project.id, calculation_id)
         metadata = read_project_calculation_metadata(LAS_CORRELATION_PROJECTS_ROOT, project.id, calculation_id)
     except Exception:
         logger.exception(
@@ -3083,19 +3089,129 @@ def _render_project_calculation_metadata(project: ProjectRecord, calculation_id:
         st.warning("Не удалось прочитать metadata сохраненного расчета.")
         return
 
+    with st.container(border=True):
+        st.subheader("Карточка выбранного расчета")
+        st.caption(f"{card.source_label} | {card.saved_at}")
+        card_rows, card_warnings, card_exports = st.columns(3)
+        card_rows.metric("Строк", card.row_count)
+        card_warnings.metric("Предупреждений", card.warnings_count)
+        card_exports.metric("Выгрузки", ", ".join(card.available_exports) or "нет")
+        if card.sheet_name:
+            st.caption(f"Набор данных: {card.sheet_name}")
+        st.caption(f"Ch: {card.ch_mode or 'не указан'}")
+        if card.key_columns:
+            st.caption("Ключевые колонки: " + ", ".join(card.key_columns))
+        else:
+            st.caption("Ключевые колонки не найдены в metadata расчета.")
+        if card.graph_ready:
+            st.success("Расчет готов к открытию в интерпретационных графиках.")
+        else:
+            st.warning("Перед открытием в графиках проверьте наличие depth/DEPT/MD и числовых колонок.")
+        if card.warning_preview:
+            st.caption("Первые предупреждения")
+            for warning in card.warning_preview:
+                st.warning(warning)
+            if card.warnings_count > len(card.warning_preview):
+                st.caption(f"Показано {len(card.warning_preview)} из {card.warnings_count} предупреждений.")
+        else:
+            st.success("Сохраненный расчет не содержит предупреждений.")
+
     mapping = metadata.get("mapping", {})
     warnings = metadata.get("warnings", [])
-    with st.expander("Mapping и предупреждения расчета", expanded=False):
-        st.caption(f"Ch: {metadata.get('ch_mode', '') or 'не указан'}; строка заголовков: {metadata.get('header_row')}")
+    with st.expander("Полный mapping и предупреждения расчета", expanded=False):
+        st.caption(f"Строка заголовков: {metadata.get('header_row')}")
         st.caption("Mapping")
         st.json(mapping)
         if warnings:
-            st.caption("Предупреждения")
+            st.caption("Все предупреждения")
             for warning in warnings:
                 st.warning(str(warning))
         else:
             st.success("Сохраненный расчет не содержит предупреждений.")
 
+
+
+def _format_project_calculation_tuple(values: tuple[str, ...], empty_text: str = "нет") -> str:
+    return ", ".join(values) if values else empty_text
+
+
+def _render_project_calculation_comparison(project: ProjectRecord, records: tuple[object, ...], logger) -> None:
+    if len(records) < 2:
+        st.caption("Для сравнения нужно минимум два сохраненных расчета проекта.")
+        return
+
+    records_by_id = {record.id: record for record in records}
+    newest_id = records[0].id
+    previous_id = records[1].id
+    with st.expander("Сравнение двух сохраненных расчетов", expanded=False):
+        st.caption(
+            "Сравнение безопасно читает только сохраненные snapshots и показывает различия "
+            "по строкам, колонкам, измененным ячейкам общих колонок и предупреждениям."
+        )
+        left_col, right_col = st.columns(2)
+        left_id = left_col.selectbox(
+            "Базовый расчет",
+            options=tuple(records_by_id),
+            index=tuple(records_by_id).index(previous_id) if previous_id in records_by_id else 0,
+            format_func=lambda record_id: _project_calculation_option_label(records_by_id[record_id]),
+            key=f"project_calculation_compare_left_{project.id}",
+        )
+        right_id = right_col.selectbox(
+            "Сравнить с",
+            options=tuple(records_by_id),
+            index=tuple(records_by_id).index(newest_id) if newest_id in records_by_id else 0,
+            format_func=lambda record_id: _project_calculation_option_label(records_by_id[record_id]),
+            key=f"project_calculation_compare_right_{project.id}",
+        )
+        if left_id == right_id:
+            st.warning("Выберите два разных сохраненных расчета.")
+            return
+
+        try:
+            comparison = compare_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id, left_id, right_id)
+        except Exception:
+            logger.exception(
+                "project_calculation_compare_failed project_id=%s left_id=%s right_id=%s",
+                safe_log_value(project.id),
+                safe_log_value(left_id),
+                safe_log_value(right_id),
+            )
+            st.error("Не удалось сравнить сохраненные расчеты. Подробности записаны в logs/app.log.")
+            return
+
+        row_metric, column_metric, cell_metric, warning_metric = st.columns(4)
+        row_metric.metric("Строк", comparison.right_rows, delta=comparison.row_delta)
+        column_metric.metric("Общих колонок", len(comparison.common_columns))
+        cell_metric.metric("Измененных ячеек", comparison.changed_cell_count)
+        warning_metric.metric(
+            "Предупреждений +/-",
+            len(comparison.added_warnings) + len(comparison.removed_warnings),
+        )
+        st.caption(f"База: {comparison.left_source_label}")
+        st.caption(f"Новый расчет: {comparison.right_source_label}")
+        if comparison.has_differences:
+            st.warning("Между выбранными snapshots есть отличия. Проверьте их перед печатью или передачей отчета.")
+        else:
+            st.success("Существенные отличия между выбранными snapshots не найдены.")
+
+        diff_table = build_project_calculation_comparison_table(comparison)
+        st.dataframe(diff_table, use_container_width=True, hide_index=True)
+
+        csv_export_col, html_export_col = st.columns(2)
+        csv_export_col.download_button(
+            "Скачать сравнение CSV",
+            data=export_project_calculation_comparison_csv(comparison),
+            file_name=f"calculation-comparison-{comparison.left_id}-vs-{comparison.right_id}.csv",
+            mime="text/csv",
+            key=f"project_calculation_compare_csv_{project.id}_{comparison.left_id}_{comparison.right_id}",
+        )
+        html_export_col.download_button(
+            "Скачать сравнение HTML",
+            data=export_project_calculation_comparison_html(comparison),
+            file_name=f"calculation-comparison-{comparison.left_id}-vs-{comparison.right_id}.html",
+            mime="text/html",
+            key=f"project_calculation_compare_html_{project.id}_{comparison.left_id}_{comparison.right_id}",
+        )
 
 def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
     all_records = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)
@@ -3149,6 +3265,8 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
         except ValueError:
             records = all_records
             st.warning("Фильтр расчетов сброшен из-за некорректного режима предупреждений.")
+
+        _render_project_calculation_comparison(project, all_records, logger)
 
         if len(records) != len(all_records):
             st.caption(f"Показано расчетов: {len(records)} из {len(all_records)}.")

@@ -6,6 +6,11 @@ import pytest
 from projects import (
     list_project_calculations,
     filter_project_calculations,
+    build_project_calculation_card,
+    compare_project_calculations,
+    build_project_calculation_comparison_table,
+    export_project_calculation_comparison_csv,
+    export_project_calculation_comparison_html,
     read_project_calculation_dataframe,
     read_project_calculation_file_bytes,
     read_project_calculation_metadata,
@@ -174,6 +179,46 @@ def test_project_calculation_filter_matches_source_warnings_and_columns(tmp_path
     assert [record.source_label for record in combined] == ["Well C Pixler calculation"]
 
 
+def test_project_calculation_card_summarizes_selected_record_before_opening(tmp_path):
+    df = pd.DataFrame(
+        {
+            "depth": [1000.0, 1001.0],
+            "c1": [80.0, 82.0],
+            "c2": [10.0, 11.0],
+            "wh": [8.0, 7.45],
+            "inverse_oil_indicator": [0.12, 0.14],
+            "extra": [1, 2],
+        }
+    )
+    record = save_project_calculation(
+        df,
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well A final calculation",
+        sheet_name="prepared",
+        ch_mode="ratio",
+        warnings=("check C3", "check C4", "check C5", "check units", "check mapping", "check zero"),
+    )
+
+    card = build_project_calculation_card(tmp_path, "demo", record.id)
+
+    assert card.id == record.id
+    assert card.source_label == "Well A final calculation"
+    assert card.sheet_name == "prepared"
+    assert card.row_count == 2
+    assert card.ch_mode == "ratio"
+    assert card.warnings_count == 6
+    assert card.warning_preview == ("check C3", "check C4", "check C5", "check units", "check mapping")
+    assert card.key_columns[:5] == ("depth", "c1", "c2", "wh", "inverse_oil_indicator")
+    assert card.available_exports == ("CSV", "XLSX", "metadata.json")
+    assert card.graph_ready is True
+
+
+def test_project_calculation_card_rejects_unknown_record(tmp_path):
+    with pytest.raises(FileNotFoundError, match="Project calculation not found"):
+        build_project_calculation_card(tmp_path, "demo", "missing")
+
+
 def test_project_calculation_filter_rejects_unknown_warning_state(tmp_path):
     save_project_calculation(
         pd.DataFrame({"depth": [1.0], "c1": [2.0]}),
@@ -183,3 +228,99 @@ def test_project_calculation_filter_rejects_unknown_warning_state(tmp_path):
 
     with pytest.raises(ValueError, match="Некорректный режим"):
         filter_project_calculations(tmp_path, "demo", warning_state="broken")
+
+
+
+def test_project_calculation_comparison_reports_rows_columns_cells_and_warnings(tmp_path):
+    left = save_project_calculation(
+        pd.DataFrame(
+            {
+                "depth": [1000.0, 1001.0],
+                "c1": [80.0, 81.0],
+                "wh": [8.0, 8.1],
+            }
+        ),
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well A before",
+        warnings=("check c2", "check units"),
+    )
+    right = save_project_calculation(
+        pd.DataFrame(
+            {
+                "depth": [1000.0, 1001.0, 1002.0],
+                "c1": [80.0, 82.0, 83.0],
+                "bh": [0.4, 0.5, 0.6],
+            }
+        ),
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well A after",
+        warnings=("check units", "check mapping"),
+    )
+
+    comparison = compare_project_calculations(tmp_path, "demo", left.id, right.id)
+
+    assert comparison.left_id == left.id
+    assert comparison.right_id == right.id
+    assert comparison.left_source_label == "Well A before"
+    assert comparison.right_source_label == "Well A after"
+    assert comparison.left_rows == 2
+    assert comparison.right_rows == 3
+    assert comparison.row_delta == 1
+    assert comparison.added_columns == ("bh",)
+    assert comparison.removed_columns == ("wh",)
+    assert comparison.common_columns == ("depth", "c1")
+    assert comparison.changed_columns == ("c1",)
+    assert comparison.changed_cell_count == 1
+    assert comparison.added_warnings == ("check mapping",)
+    assert comparison.removed_warnings == ("check c2",)
+    assert comparison.common_warnings == ("check units",)
+    assert comparison.has_differences is True
+
+
+def test_project_calculation_comparison_requires_two_known_records(tmp_path):
+    record = save_project_calculation(
+        pd.DataFrame({"depth": [1.0], "c1": [2.0]}),
+        root=tmp_path,
+        project_id="demo",
+    )
+
+    with pytest.raises(ValueError, match="два разных"):
+        compare_project_calculations(tmp_path, "demo", record.id, record.id)
+
+    with pytest.raises(FileNotFoundError, match="Project calculation not found"):
+        compare_project_calculations(tmp_path, "demo", record.id, "missing")
+
+
+def test_project_calculation_comparison_exports_csv_and_html(tmp_path):
+    left = save_project_calculation(
+        pd.DataFrame({"depth": [1000.0], "c1": [80.0], "wh": [8.0]}),
+        root=tmp_path,
+        project_id="demo",
+        source_label="Before <A>",
+        warnings=("old warning",),
+    )
+    right = save_project_calculation(
+        pd.DataFrame({"depth": [1000.0], "c1": [81.0], "bh": [0.4]}),
+        root=tmp_path,
+        project_id="demo",
+        source_label="After & B",
+        warnings=("new warning",),
+    )
+
+    comparison = compare_project_calculations(tmp_path, "demo", left.id, right.id)
+    table = build_project_calculation_comparison_table(comparison)
+    csv_bytes = export_project_calculation_comparison_csv(comparison)
+    html_bytes = export_project_calculation_comparison_html(comparison)
+
+    assert table.loc[table["Раздел"] == "Колонки добавлены", "Значения"].item() == "bh"
+    assert table.loc[table["Раздел"] == "Колонки удалены", "Значения"].item() == "wh"
+    assert "Колонки с измененными ячейками" in csv_bytes.decode("utf-8-sig")
+    assert "new warning" in csv_bytes.decode("utf-8-sig")
+
+    html_text = html_bytes.decode("utf-8")
+    assert "<!doctype html>" in html_text
+    assert "Before &lt;A&gt;" in html_text
+    assert "After &amp; B" in html_text
+    assert "Исходные файлы проекта не изменялись" in html_text
