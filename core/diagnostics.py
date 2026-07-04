@@ -31,6 +31,8 @@ RATIO_LABELS: dict[str, str] = {
     "c1_c3": "C1/C3",
     "c1_c4": "C1/C4",
     "c1_c5": "C1/C5",
+    "oil_indicator": "Oil indicator",
+    "inverse_oil_indicator": "Inverse oil indicator",
 }
 
 RATIO_INPUTS: dict[str, tuple[str, ...]] = {
@@ -42,10 +44,12 @@ RATIO_INPUTS: dict[str, tuple[str, ...]] = {
     "c1_c3": ("c1", "c3"),
     "c1_c4": ("c1", "ic4", "nc4"),
     "c1_c5": ("c1", "ic5", "nc5"),
+    "oil_indicator": ("c1", "c3", "ic4", "nc4", "ic5", "nc5"),
+    "inverse_oil_indicator": ("c1", "c3", "ic4", "nc4", "ic5", "nc5"),
 }
 
 DEFAULT_MAPPING_FIELDS: tuple[str, ...] = ("depth",) + GAS_COMPONENT_FIELDS
-DEFAULT_RATIO_FIELDS: tuple[str, ...] = ("wh", "bh", "ch", "bar2")
+DEFAULT_RATIO_FIELDS: tuple[str, ...] = ("wh", "bh", "ch", "bar2", "oil_indicator", "inverse_oil_indicator")
 
 
 def _label(field: str) -> str:
@@ -191,6 +195,20 @@ def _denominator_for_ratio(df: pd.DataFrame, ratio: str) -> tuple[pd.Series, str
     if ratio == "c1_c5":
         denominator = _numeric_series(df, "sum_c5") if "sum_c5" in df.columns else _numeric_series(df, "ic5") + _numeric_series(df, "nc5")
         return denominator, "sum_c5", "iC5+nC5"
+    if ratio == "oil_indicator":
+        return _numeric_series(df, "c1"), "c1", "C1"
+    if ratio == "inverse_oil_indicator":
+        if "sum_c4" in df.columns and "sum_c5" in df.columns:
+            denominator = _numeric_series(df, "c3") + _numeric_series(df, "sum_c4") + _numeric_series(df, "sum_c5")
+        else:
+            denominator = (
+                _numeric_series(df, "c3")
+                + _numeric_series(df, "ic4")
+                + _numeric_series(df, "nc4")
+                + _numeric_series(df, "ic5")
+                + _numeric_series(df, "nc5")
+            )
+        return denominator, "heavy_components", "C3+iC4+nC4+iC5+nC5"
 
     return pd.Series(np.nan, index=df.index, dtype=float), "unknown", "неизвестный знаменатель"
 

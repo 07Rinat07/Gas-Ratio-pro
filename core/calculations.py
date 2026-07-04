@@ -9,7 +9,12 @@ import pandas as pd
 from core.models import CalculationConfig, CalculationResult, GAS_COMPONENT_FIELDS
 
 
-CH_WARNING = "Формула Ch требует подтверждения по корпоративной методике."
+CH_WARNING = "Формула Ch требует подтверждения по корпоративной методике. См. docs/formulas.md#ch."
+METHODOLOGY_WARNING = (
+    "Расчеты Wh/Bh/BAR2/Pixler/oil indicator являются предварительной инженерной "
+    "подсказкой; проверьте единицы измерения C1-C5, mapping, нули и буровой контекст. "
+    "См. docs/formulas.md и docs/mud_gas_analysis_literature.md."
+)
 
 
 def safe_divide(numerator, denominator):
@@ -118,7 +123,7 @@ def calculate_gas_ratios(
         return CalculationResult(
             data=pd.DataFrame(),
             warnings=("Нет данных для расчета.",),
-            metadata={"ch_notice": CH_WARNING},
+            metadata={"ch_notice": CH_WARNING, "methodology_notice": METHODOLOGY_WARNING},
         )
 
     result = df.copy()
@@ -152,6 +157,10 @@ def calculate_gas_ratios(
     )
     result["bar2"] = safe_divide(result["c1"], result["c2"])
 
+    heavy_components = result["c3"] + result["sum_c4"] + result["sum_c5"]
+    result["oil_indicator"] = safe_divide(heavy_components, result["c1"])
+    result["inverse_oil_indicator"] = safe_divide(result["c1"], heavy_components)
+
     result["c1_c2"] = safe_divide(result["c1"], result["c2"])
     result["c1_c3"] = safe_divide(result["c1"], result["c3"])
     result["c1_c4"] = safe_divide(result["c1"], result["sum_c4"])
@@ -171,9 +180,10 @@ def calculate_gas_ratios(
         warnings.append("Ch отключен: выбран резервный режим без подтвержденной формулы.")
 
     warnings.append(CH_WARNING)
+    warnings.append(METHODOLOGY_WARNING)
 
     return CalculationResult(
         data=result,
         warnings=tuple(dict.fromkeys(warnings)),
-        metadata={"ch_notice": CH_WARNING, "ch_mode": config.ch_mode},
+        metadata={"ch_notice": CH_WARNING, "methodology_notice": METHODOLOGY_WARNING, "ch_mode": config.ch_mode},
     )

@@ -676,7 +676,7 @@ def _render_ratio_nan_diagnostics(
         if messages:
             st.caption("Если значение NaN есть только в части строк, проверьте эти интервалы в расчетной таблице.")
         else:
-            st.success("Wh, Bh, Ch и BAR2 рассчитаны во всех строках.")
+            st.success("Wh, Bh, Ch, BAR2 и oil/inverse oil indicator рассчитаны во всех строках.")
 
 
 def _render_formula_reference() -> None:
@@ -686,7 +686,10 @@ def _render_formula_reference() -> None:
             "`Bh = (C1 + C2) / (C3 + iC4 + nC4 + iC5 + nC5)`\n\n"
             "`Ch = (C3 + iC4 + nC4 + iC5 + nC5) / (iC4 + nC4 + iC5 + nC5)` в режиме `A`\n\n"
             "`BAR2 = C1 / C2`\n\n"
-            "`Pixler ratios = C1/C2, C1/C3, C1/(iC4+nC4), C1/(iC5+nC5)`"
+            "`Oil indicator = (C3 + iC4 + nC4 + iC5 + nC5) / C1`\n\n"
+            "`Inverse oil indicator = C1 / (C3 + iC4 + nC4 + iC5 + nC5)`\n\n"
+            "`Pixler ratios = C1/C2, C1/C3, C1/(iC4+nC4), C1/(iC5+nC5)`\n\n"
+            "Методический статус: справочные коэффициенты, требующие проверки по ГИС, литологии, фону газа и буровому контексту. См. `docs/formulas.md`."
         )
 
 

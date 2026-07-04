@@ -76,3 +76,26 @@ def test_interval_ratio_diagnostic_messages_explain_selected_row_nan():
     assert len(messages) == 1
     assert "Wh: нет расчета" in messages[0]
     assert "Проверьте mapping" in messages[0]
+
+
+def test_ratio_nan_diagnostics_cover_inverse_oil_indicator_denominator():
+    calculation = calculate_gas_ratios(
+        pd.DataFrame(
+            {
+                "c1": [10.0],
+                "c2": [0.0],
+                "c3": [0.0],
+                "ic4": [0.0],
+                "nc4": [0.0],
+                "ic5": [0.0],
+                "nc5": [0.0],
+            }
+        )
+    )
+
+    diagnostics = build_ratio_nan_diagnostics(calculation.data, ratios=("inverse_oil_indicator",))
+    row = diagnostics.iloc[0]
+
+    assert row["label"] == "Inverse oil indicator"
+    assert row["nan_count"] == 1
+    assert "C3+iC4+nC4+iC5+nC5" in row["causes"]
