@@ -73,6 +73,46 @@ def _parse_curve_mnemonic(line: str) -> str | None:
     return mnemonic or None
 
 
+def _parse_curve_unit(line: str) -> str | None:
+    clean_line = _remove_inline_comment(line)
+    if not clean_line:
+        return None
+
+    left = clean_line.split(":", 1)[0].strip()
+    if "." not in left:
+        return None
+
+    unit_part = left.split(".", 1)[1].strip()
+    if not unit_part:
+        return None
+
+    # LAS lines are usually ``MNEM.UNIT value : description``. Everything
+    # after the first whitespace belongs to the value/description, not unit.
+    unit = unit_part.split(maxsplit=1)[0].strip()
+    return unit or None
+
+def _parse_curve_units(text: str) -> dict[str, str]:
+    section = ""
+    units: dict[str, str] = {}
+    for raw_line in text.splitlines():
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        next_section = _section_name(stripped)
+        if next_section is not None:
+            section = next_section
+            continue
+
+        if section not in CURVE_SECTION_NAMES:
+            continue
+
+        mnemonic = _parse_curve_mnemonic(stripped)
+        unit = _parse_curve_unit(stripped)
+        if mnemonic and unit:
+            units[mnemonic] = unit
+    return units
+
 def _parse_null_value(line: str) -> float | None:
     clean_line = _remove_inline_comment(line)
     if not clean_line.strip().upper().startswith("NULL"):
@@ -155,7 +195,9 @@ def _parse_las_text(text: str) -> tuple[list[str], list[list[float | None]], flo
 def load_las_raw(file_or_path) -> pd.DataFrame:
     text = _decode_las(_read_bytes(file_or_path))
     curves, rows, _null_value = _parse_las_text(text)
-    return pd.DataFrame([curves, *rows])
+    raw_df = pd.DataFrame([curves, *rows])
+    raw_df.attrs["las_units"] = _parse_curve_units(text)
+    return raw_df
 
 
 def load_las_sheets(file_or_path) -> dict[str, pd.DataFrame]:
@@ -166,4 +208,6 @@ def read_las(file_or_path, header_row: int | None = None) -> pd.DataFrame:
     raw_df = load_las_raw(file_or_path)
     if header_row is None:
         header_row = detect_header_row(raw_df).header_row
-    return prepare_dataframe_with_header(raw_df, header_row)
+    prepared = prepare_dataframe_with_header(raw_df, header_row)
+    prepared.attrs["las_units"] = dict(raw_df.attrs.get("las_units", {}))
+    return prepared

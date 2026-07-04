@@ -99,9 +99,20 @@ def normalize_track_configs(
     columns: Sequence[str],
     *,
     x_ranges: Mapping[str, tuple[float, float] | None] | None = None,
+    units: Mapping[str, str | None] | None = None,
+    colors: Mapping[str, str | None] | None = None,
     fill: bool = False,
 ) -> tuple[TabletTrackConfig, ...]:
+    """Build ordered tablet track configs from UI/project settings.
+
+    The order of ``columns`` is preserved, because a printed log tablet is read
+    left-to-right exactly as the engineer arranged the tracks in the UI.
+    ``units`` and ``colors`` are optional maps keyed by dataframe column name.
+    """
+
     ranges = x_ranges or {}
+    unit_map = units or {}
+    color_map = colors or {}
     configs: list[TabletTrackConfig] = []
     for index, column in enumerate(columns):
         column_name = str(column)
@@ -109,12 +120,30 @@ def normalize_track_configs(
             TabletTrackConfig(
                 column=column_name,
                 label=column_name,
-                color=DEFAULT_TABLET_COLORS[index % len(DEFAULT_TABLET_COLORS)],
+                unit=unit_map.get(column_name),
+                color=color_map.get(column_name) or DEFAULT_TABLET_COLORS[index % len(DEFAULT_TABLET_COLORS)],
                 x_range=ranges.get(column_name),
                 fill=fill,
             )
         )
     return tuple(configs)
+
+
+def tablet_units_from_dataframe(df: pd.DataFrame) -> dict[str, str]:
+    """Return LAS/unit hints stored in ``DataFrame.attrs``.
+
+    The importer and future project loaders can attach units as either
+    ``df.attrs["las_units"]`` or ``df.attrs["curve_units"]``. The renderer
+    treats this metadata as optional: missing units simply produce unitless track
+    titles instead of failing the report.
+    """
+
+    if df is None:
+        return {}
+    raw_units = df.attrs.get("las_units") or df.attrs.get("curve_units") or {}
+    if not isinstance(raw_units, Mapping):
+        return {}
+    return {str(column): str(unit).strip() for column, unit in raw_units.items() if str(column).strip() and str(unit).strip()}
 
 
 def _track_title(track: TabletTrackConfig, values: pd.Series) -> str:

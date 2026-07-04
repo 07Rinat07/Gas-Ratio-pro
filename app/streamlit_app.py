@@ -58,12 +58,14 @@ from palettes.depth_tracks import (
     build_depth_ratio_tracks,
 )
 from palettes.well_log_tablet import (
+    DEFAULT_TABLET_COLORS,
     InterpretationMarker,
     build_marker_interpretation_table,
     build_well_log_tablet,
     default_tablet_columns,
     normalize_track_configs,
     numeric_tablet_columns,
+    tablet_units_from_dataframe,
 )
 from palettes.pixler import build_pixler_palette
 from palettes.ternary import build_ternary_palette
@@ -73,7 +75,7 @@ from projects import exports as project_exports
 from projects import graph_settings as project_graph_settings
 from projects import las_files as project_las_files
 from reports.export_csv import export_csv_bytes
-from reports.export_html import HtmlReportMetadata, build_plotly_html_report
+from reports.export_html import HtmlReportMetadata, HtmlReportTable, build_plotly_html_report
 from reports.export_las import export_las_bytes
 from reports.export_xlsx import export_xlsx_bytes
 from reports.export_static import (
@@ -334,6 +336,7 @@ def _plotly_figures_to_html(
     subtitle: str = "",
     metadata_rows: tuple[tuple[str, str], ...] = (),
     notes: tuple[str, ...] = (),
+    tables: tuple[HtmlReportTable, ...] = (),
 ) -> bytes:
     return build_plotly_html_report(
         figures,
@@ -342,7 +345,24 @@ def _plotly_figures_to_html(
             subtitle=subtitle,
             rows=metadata_rows,
             notes=notes,
+            tables=tables,
         ),
+    )
+
+
+def _dataframe_to_report_table(title: str, df: pd.DataFrame) -> HtmlReportTable | None:
+    if df is None or df.empty:
+        return None
+    safe_df = df.copy()
+    for column in safe_df.columns:
+        if pd.api.types.is_float_dtype(safe_df[column]):
+            safe_df[column] = safe_df[column].map(lambda value: "" if pd.isna(value) else f"{float(value):g}")
+        else:
+            safe_df[column] = safe_df[column].map(lambda value: "" if pd.isna(value) else str(value))
+    return HtmlReportTable(
+        title=title,
+        headers=tuple(str(column) for column in safe_df.columns),
+        rows=tuple(tuple(row) for row in safe_df.itertuples(index=False, name=None)),
     )
 
 
@@ -1437,11 +1457,11 @@ def _render_tablet_marker_controls(depth_range: tuple[float, float] | None, df: 
 def _render_tablet_controls(
     filtered_df: pd.DataFrame,
     depth_range: tuple[float, float] | None,
-) -> tuple[tuple[str, ...], dict[str, tuple[float, float]], tuple[InterpretationMarker, ...], bool]:
+) -> tuple[tuple[str, ...], dict[str, tuple[float, float]], dict[str, str], tuple[InterpretationMarker, ...], bool]:
     available_columns = numeric_tablet_columns(filtered_df)
     if not available_columns:
         st.warning("В выбранном интервале нет числовых параметров для планшета.")
-        return (), {}, (), False
+        return (), {}, {}, (), False
 
     current_state = tuple(st.session_state.get("interpretation_tablet_columns", ()))
     valid_state = _valid_tablet_columns(filtered_df, current_state)
@@ -1459,12 +1479,21 @@ def _render_tablet_controls(
     )
     if not selected_columns:
         st.warning("Выберите хотя бы один числовой параметр для планшета.")
-        return (), {}, (), False
+        return (), {}, {}, (), False
 
     tablet_fill = st.checkbox("Заливка кривых до нуля", value=False, key="interpretation_tablet_fill")
     tablet_x_ranges = _select_tablet_x_ranges(filtered_df, selected_columns)
+    tablet_colors: dict[str, str] = {}
+    with st.expander("Цвета треков планшета", expanded=False):
+        for index, column in enumerate(selected_columns):
+            default_color = DEFAULT_TABLET_COLORS[index % len(DEFAULT_TABLET_COLORS)]
+            tablet_colors[column] = st.color_picker(
+                f"Цвет: {column}",
+                value=default_color,
+                key=f"interpretation_tablet_{_safe_widget_key(column)}_color",
+            )
     markers = _render_tablet_marker_controls(depth_range, filtered_df)
-    return selected_columns, tablet_x_ranges, markers, bool(tablet_fill)
+    return selected_columns, tablet_x_ranges, tablet_colors, markers, bool(tablet_fill)
 
 
 def _apply_interpretation_graph_settings_to_session(settings: InterpretationGraphSettings) -> None:
@@ -1612,11 +1641,12 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
 
     tablet_columns: tuple[str, ...] = ()
     tablet_x_ranges: dict[str, tuple[float, float]] = {}
+    tablet_colors: dict[str, str] = {}
     tablet_markers: tuple[InterpretationMarker, ...] = ()
     tablet_fill = False
     if TABLET_TRACK_OPTION in selected_tracks:
         st.subheader("Планшетные параметры")
-        tablet_columns, tablet_x_ranges, tablet_markers, tablet_fill = _render_tablet_controls(filtered_df, depth_range)
+        tablet_columns, tablet_x_ranges, tablet_colors, tablet_markers, tablet_fill = _render_tablet_controls(filtered_df, depth_range)
 
     current_settings = InterpretationGraphSettings(
         selected_tracks=tuple(selected_tracks),
@@ -1642,7 +1672,13 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     if "Pixler ratios" in selected_tracks:
         figures.append(build_depth_pixler_tracks(filtered_df, depth_range=depth_range, x_range=pixler_x_range, height=height))
     if TABLET_TRACK_OPTION in selected_tracks and tablet_columns:
-        tablet_tracks = normalize_track_configs(tablet_columns, x_ranges=tablet_x_ranges, fill=tablet_fill)
+        tablet_tracks = normalize_track_configs(
+            tablet_columns,
+            x_ranges=tablet_x_ranges,
+            units=tablet_units_from_dataframe(filtered_df),
+            colors=tablet_colors,
+            fill=tablet_fill,
+        )
         figures.append(
             build_well_log_tablet(
                 filtered_df,
@@ -1666,7 +1702,26 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
 
     if figures:
         report_title = f"Gas Ratio Interpreter - {source_label}"
-        html_bytes = _plotly_figures_to_html(figures, report_title)
+        report_tables: list[HtmlReportTable] = []
+        if TABLET_TRACK_OPTION in selected_tracks and tablet_markers and tablet_columns:
+            marker_table = build_marker_interpretation_table(filtered_df, tablet_markers, columns=tablet_columns)
+            marker_report_table = _dataframe_to_report_table("Таблица маркеров планшета", marker_table)
+            if marker_report_table is not None:
+                report_tables.append(marker_report_table)
+        html_bytes = _plotly_figures_to_html(
+            figures,
+            report_title,
+            subtitle="Интерпретационные графики и планшет выбранного интервала",
+            metadata_rows=(
+                ("Источник данных", str(source_label)),
+                ("Активный проект", f"{active_project.name} ({active_project.id})"),
+                ("Диапазон глубины", _range_label(depth_range, unit="м")),
+                ("Строк в интервале", str(len(filtered_df))),
+                ("Планшетные параметры", ", ".join(tablet_columns) if tablet_columns else "не выбраны"),
+            ),
+            notes=(INTERPRETATION_NOTE,),
+            tables=tuple(report_tables),
+        )
         html_download_col, html_save_col = st.columns(2)
         html_download_col.download_button(
             "HTML для печати",

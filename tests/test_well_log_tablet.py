@@ -5,6 +5,7 @@ import pandas as pd
 from palettes.well_log_tablet import (
     InterpretationMarker,
     TabletTrackConfig,
+    normalize_track_configs,
     build_marker_interpretation_table,
     build_well_log_tablet,
     default_tablet_columns,
@@ -83,3 +84,29 @@ def test_marker_interpretation_table_uses_nearest_depth_row():
             "Комментарий": "peak",
         }
     ]
+
+
+def test_normalize_track_configs_preserves_order_units_and_custom_colors():
+    configs = normalize_track_configs(
+        ("C1", "GR"),
+        units={"C1": "%", "GR": "API"},
+        colors={"GR": "#00ff00"},
+        x_ranges={"GR": (0.0, 180.0)},
+        fill=True,
+    )
+
+    assert [config.column for config in configs] == ["C1", "GR"]
+    assert configs[0].unit == "%"
+    assert configs[1].unit == "API"
+    assert configs[1].color == "#00ff00"
+    assert configs[1].x_range == (0.0, 180.0)
+    assert configs[0].fill is True
+
+
+def test_tablet_units_from_dataframe_reads_las_attrs():
+    df = pd.DataFrame({"depth": [1.0], "GR": [80.0]})
+    df.attrs["las_units"] = {"GR": "API", "EMPTY": ""}
+
+    from palettes.well_log_tablet import tablet_units_from_dataframe
+
+    assert tablet_units_from_dataframe(df) == {"GR": "API"}

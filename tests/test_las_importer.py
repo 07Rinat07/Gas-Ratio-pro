@@ -63,3 +63,20 @@ def test_las_pipeline_maps_and_calculates_ratios():
     assert mapping.mapping["nc5"] == "NC5"
     assert calculation.data.loc[0, "wh"] == pytest.approx(21.56862745098)
     assert pd.isna(calculation.data.loc[2, "c2"])
+
+
+def test_las_importer_keeps_curve_units_in_dataframe_attrs():
+    las_bytes = b"""
+~Well
+NULL. -999.25
+~Curve
+DEPT.M : depth
+GR.API : gamma ray
+C1.% : methane
+~ASCII
+1000 80 10
+"""
+
+    prepared = read_las(BytesIO(las_bytes))
+
+    assert prepared.attrs["las_units"] == {"DEPT": "M", "GR": "API", "C1": "%"}
