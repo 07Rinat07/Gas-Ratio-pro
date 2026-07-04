@@ -17,6 +17,7 @@ def test_streamlit_app_exposes_expected_tabs():
 
     assert "LAS-корреляция" in module.APP_TABS
     assert "Интерпретационные графики" in module.APP_TABS
+    assert module.TABLET_TRACK_OPTION in module.INTERPRETATION_TRACK_OPTIONS
     assert hasattr(module, "_render_las_correlation_tab")
 
 

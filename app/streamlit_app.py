@@ -57,6 +57,14 @@ from palettes.depth_tracks import (
     build_depth_pixler_tracks,
     build_depth_ratio_tracks,
 )
+from palettes.well_log_tablet import (
+    InterpretationMarker,
+    build_marker_interpretation_table,
+    build_well_log_tablet,
+    default_tablet_columns,
+    normalize_track_configs,
+    numeric_tablet_columns,
+)
 from palettes.pixler import build_pixler_palette
 from palettes.ternary import build_ternary_palette
 from projects import ProjectRecord, create_project, ensure_default_project, list_projects
@@ -133,7 +141,8 @@ LAS_EDITOR_FILL_STRATEGIES: tuple[tuple[str, str], ...] = (
 VIEW_MODE_BY_WELL = "По скважинам"
 VIEW_MODE_BY_CURVE = "По кривой"
 SUPPORTED_VIEW_MODES: tuple[str, ...] = (VIEW_MODE_BY_WELL, VIEW_MODE_BY_CURVE)
-INTERPRETATION_TRACK_OPTIONS: tuple[str, ...] = tuple(DEFAULT_INTERPRETATION_TRACKS)
+TABLET_TRACK_OPTION = "Планшет"
+INTERPRETATION_TRACK_OPTIONS: tuple[str, ...] = tuple(dict.fromkeys((*DEFAULT_INTERPRETATION_TRACKS, TABLET_TRACK_OPTION)))
 
 
 DOCUMENTATION_TAB_DOCS: tuple[tuple[str, str], ...] = (
@@ -1312,6 +1321,152 @@ def _set_interpretation_x_range_state(key_prefix: str, x_range: tuple[float, flo
         st.session_state[f"{key_prefix}_x_max"] = float(x_range[1])
 
 
+def _safe_widget_key(value: object) -> str:
+    token = "".join(char if char.isalnum() else "_" for char in str(value)).strip("_")
+    return token[:80] or "value"
+
+
+def _tablet_x_range_key(column: str) -> str:
+    return f"interpretation_tablet_{_safe_widget_key(column)}"
+
+
+def _set_tablet_x_range_state(column: str, x_range: tuple[float, float] | None) -> None:
+    key_prefix = _tablet_x_range_key(column)
+    st.session_state[f"{key_prefix}_x_auto"] = x_range is None
+    if x_range is not None:
+        st.session_state[f"{key_prefix}_x_min"] = float(x_range[0])
+        st.session_state[f"{key_prefix}_x_max"] = float(x_range[1])
+
+
+def _valid_tablet_columns(df: pd.DataFrame, columns: tuple[str, ...]) -> tuple[str, ...]:
+    available = set(numeric_tablet_columns(df))
+    return tuple(column for column in columns if column in available)
+
+
+def _tablet_columns_default(df: pd.DataFrame, saved_columns: tuple[str, ...] = ()) -> tuple[str, ...]:
+    saved = _valid_tablet_columns(df, saved_columns)
+    if saved:
+        return saved
+    return default_tablet_columns(df)
+
+
+def _select_tablet_x_ranges(df: pd.DataFrame, columns: tuple[str, ...]) -> dict[str, tuple[float, float]]:
+    x_ranges: dict[str, tuple[float, float]] = {}
+    if not columns:
+        return x_ranges
+
+    with st.expander("Ручной масштаб X по параметрам планшета", expanded=False):
+        for column in columns:
+            values = pd.to_numeric(df[column], errors="coerce").dropna() if column in df.columns else pd.Series(dtype=float)
+            if values.empty:
+                default_min, default_max = 0.0, 100.0
+            else:
+                default_min, default_max = float(values.min()), float(values.max())
+                if default_min == default_max:
+                    default_max = default_min + 1.0
+
+            key_prefix = _tablet_x_range_key(column)
+            auto_scale = st.checkbox(f"Автомасштаб X: {column}", value=True, key=f"{key_prefix}_x_auto")
+            if auto_scale:
+                continue
+
+            min_col, max_col = st.columns(2)
+            min_value = min_col.number_input(
+                f"X min: {column}",
+                value=default_min,
+                step=1.0,
+                key=f"{key_prefix}_x_min",
+            )
+            max_value = max_col.number_input(
+                f"X max: {column}",
+                value=default_max,
+                step=1.0,
+                key=f"{key_prefix}_x_max",
+            )
+            if min_value == max_value:
+                st.warning(f"Для {column} X min и X max совпадают. Используется автомасштаб.")
+                continue
+            x_ranges[column] = (min(float(min_value), float(max_value)), max(float(min_value), float(max_value)))
+    return x_ranges
+
+
+def _render_tablet_marker_controls(depth_range: tuple[float, float] | None, df: pd.DataFrame) -> tuple[InterpretationMarker, ...]:
+    depth = _depth_values_for_graphs(df).dropna()
+    if depth_range is not None:
+        default_top, default_bottom = depth_range
+    elif not depth.empty:
+        default_top, default_bottom = float(depth.min()), float(depth.max())
+    else:
+        default_top, default_bottom = 0.0, float(max(len(df) - 1, 0))
+
+    with st.expander("Маркеры интерпретации планшета", expanded=False):
+        marker_count = st.number_input(
+            "Количество маркеров",
+            min_value=0,
+            max_value=8,
+            value=0,
+            step=1,
+            key="interpretation_tablet_marker_count",
+        )
+        markers: list[InterpretationMarker] = []
+        span = max(default_bottom - default_top, 0.0)
+        for index in range(int(marker_count)):
+            label_default = chr(ord("a") + index)
+            depth_default = default_top + (span * (index + 1) / (int(marker_count) + 1)) if marker_count else default_top
+            label_col, depth_col, note_col = st.columns((1, 1, 3))
+            label = label_col.text_input(
+                f"Метка {index + 1}",
+                value=label_default,
+                key=f"interpretation_tablet_marker_{index}_label",
+            )
+            marker_depth = depth_col.number_input(
+                f"Глубина {index + 1}",
+                value=float(depth_default),
+                step=0.1,
+                key=f"interpretation_tablet_marker_{index}_depth",
+            )
+            note = note_col.text_input(
+                f"Комментарий {index + 1}",
+                value="",
+                key=f"interpretation_tablet_marker_{index}_note",
+            )
+            markers.append(InterpretationMarker(label=(label.strip() or label_default), depth=float(marker_depth), note=note.strip()))
+    return tuple(markers)
+
+
+def _render_tablet_controls(
+    filtered_df: pd.DataFrame,
+    depth_range: tuple[float, float] | None,
+) -> tuple[tuple[str, ...], dict[str, tuple[float, float]], tuple[InterpretationMarker, ...], bool]:
+    available_columns = numeric_tablet_columns(filtered_df)
+    if not available_columns:
+        st.warning("В выбранном интервале нет числовых параметров для планшета.")
+        return (), {}, (), False
+
+    current_state = tuple(st.session_state.get("interpretation_tablet_columns", ()))
+    valid_state = _valid_tablet_columns(filtered_df, current_state)
+    if current_state and valid_state != current_state:
+        st.session_state["interpretation_tablet_columns"] = list(valid_state)
+
+    selected_columns = tuple(
+        st.multiselect(
+            "Параметры планшета",
+            options=available_columns,
+            default=list(_tablet_columns_default(filtered_df, valid_state)),
+            key="interpretation_tablet_columns",
+            help="Можно выбрать любые числовые LAS/Excel/CSV/расчетные колонки. Глубина всегда идет вниз по возрастанию.",
+        )
+    )
+    if not selected_columns:
+        st.warning("Выберите хотя бы один числовой параметр для планшета.")
+        return (), {}, (), False
+
+    tablet_fill = st.checkbox("Заливка кривых до нуля", value=False, key="interpretation_tablet_fill")
+    tablet_x_ranges = _select_tablet_x_ranges(filtered_df, selected_columns)
+    markers = _render_tablet_marker_controls(depth_range, filtered_df)
+    return selected_columns, tablet_x_ranges, markers, bool(tablet_fill)
+
+
 def _apply_interpretation_graph_settings_to_session(settings: InterpretationGraphSettings) -> None:
     st.session_state["interpretation_tracks"] = list(_filter_interpretation_tracks(settings.selected_tracks))
     st.session_state["interpretation_chart_height"] = int(settings.height)
@@ -1325,10 +1480,20 @@ def _apply_interpretation_graph_settings_to_session(settings: InterpretationGrap
     _set_interpretation_x_range_state("interpretation_gas", settings.gas_x_range)
     _set_interpretation_x_range_state("interpretation_ratio", settings.ratio_x_range)
     _set_interpretation_x_range_state("interpretation_pixler", settings.pixler_x_range)
+    st.session_state["interpretation_tablet_columns"] = list(settings.tablet_tracks)
+    st.session_state["interpretation_tablet_fill"] = bool(settings.tablet_fill)
+    for column, x_range in settings.tablet_x_ranges.items():
+        _set_tablet_x_range_state(column, x_range)
+    st.session_state["interpretation_tablet_marker_count"] = len(settings.tablet_markers)
+    for index, marker in enumerate(settings.tablet_markers):
+        st.session_state[f"interpretation_tablet_marker_{index}_label"] = str(marker.get("label") or chr(ord("a") + index))
+        st.session_state[f"interpretation_tablet_marker_{index}_depth"] = float(marker.get("depth", 0.0))
+        st.session_state[f"interpretation_tablet_marker_{index}_note"] = str(marker.get("note") or "")
 
 
 def _interpretation_graph_settings_summary(settings: InterpretationGraphSettings) -> tuple[str, ...]:
     depth_label = "весь интервал" if settings.depth_range is None else _range_label(settings.depth_range, unit="м")
+    tablet_label = ", ".join(settings.tablet_tracks) if settings.tablet_tracks else "не настроен"
     return (
         f"Треки: {', '.join(settings.selected_tracks)}",
         f"Диапазон глубины: {depth_label}",
@@ -1336,6 +1501,8 @@ def _interpretation_graph_settings_summary(settings: InterpretationGraphSettings
         f"X C1-C5: {_range_label(settings.gas_x_range)}",
         f"X Wh/Bh/Ch: {_range_label(settings.ratio_x_range)}",
         f"X Pixler: {_range_label(settings.pixler_x_range)}",
+        f"Планшет: {tablet_label}",
+        f"Маркеры планшета: {len(settings.tablet_markers)}",
     )
 
 
@@ -1443,6 +1610,14 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         ratio_x_range = _select_x_range("Wh/Bh/Ch", "interpretation_ratio")
         pixler_x_range = _select_x_range("Pixler ratios", "interpretation_pixler")
 
+    tablet_columns: tuple[str, ...] = ()
+    tablet_x_ranges: dict[str, tuple[float, float]] = {}
+    tablet_markers: tuple[InterpretationMarker, ...] = ()
+    tablet_fill = False
+    if TABLET_TRACK_OPTION in selected_tracks:
+        st.subheader("Планшетные параметры")
+        tablet_columns, tablet_x_ranges, tablet_markers, tablet_fill = _render_tablet_controls(filtered_df, depth_range)
+
     current_settings = InterpretationGraphSettings(
         selected_tracks=tuple(selected_tracks),
         height=int(height),
@@ -1450,6 +1625,10 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         gas_x_range=gas_x_range,
         ratio_x_range=ratio_x_range,
         pixler_x_range=pixler_x_range,
+        tablet_tracks=tablet_columns,
+        tablet_x_ranges=tablet_x_ranges,
+        tablet_markers=tuple({"label": marker.label, "depth": marker.depth, "note": marker.note} for marker in tablet_markers),
+        tablet_fill=tablet_fill,
     )
     _render_interpretation_graph_settings_saver(active_project, current_settings, logger)
 
@@ -1462,11 +1641,28 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         figures.append(build_depth_ratio_tracks(filtered_df, depth_range=depth_range, x_range=ratio_x_range, height=height))
     if "Pixler ratios" in selected_tracks:
         figures.append(build_depth_pixler_tracks(filtered_df, depth_range=depth_range, x_range=pixler_x_range, height=height))
+    if TABLET_TRACK_OPTION in selected_tracks and tablet_columns:
+        tablet_tracks = normalize_track_configs(tablet_columns, x_ranges=tablet_x_ranges, fill=tablet_fill)
+        figures.append(
+            build_well_log_tablet(
+                filtered_df,
+                tablet_tracks,
+                depth_range=depth_range,
+                markers=tablet_markers,
+                height=max(int(height), 760),
+            )
+        )
 
     if not figures:
         st.warning("Выберите хотя бы один график.")
     for figure in figures:
         st.plotly_chart(figure, use_container_width=True)
+
+    if TABLET_TRACK_OPTION in selected_tracks and tablet_markers and tablet_columns:
+        marker_table = build_marker_interpretation_table(filtered_df, tablet_markers, columns=tablet_columns)
+        if not marker_table.empty:
+            st.subheader("Таблица маркеров планшета")
+            st.dataframe(marker_table, use_container_width=True)
 
     if figures:
         report_title = f"Gas Ratio Interpreter - {source_label}"

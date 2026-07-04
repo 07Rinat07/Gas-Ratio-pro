@@ -34,6 +34,7 @@ palettes/
   pixler.py               Pixler palette
   ternary.py              Ternary palette
   depth_tracks.py         Графики по глубине
+  well_log_tablet.py      Планшетный renderer: числовые треки, шкалы и маркеры
 reports/
   export_csv.py           CSV export
   export_las.py           LAS export helper

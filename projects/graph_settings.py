@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -27,6 +27,10 @@ class InterpretationGraphSettings:
     gas_x_range: tuple[float, float] | None = None
     ratio_x_range: tuple[float, float] | None = None
     pixler_x_range: tuple[float, float] | None = None
+    tablet_tracks: tuple[str, ...] = ()
+    tablet_x_ranges: dict[str, tuple[float, float]] = field(default_factory=dict)
+    tablet_markers: tuple[dict[str, Any], ...] = ()
+    tablet_fill: bool = False
 
 
 def _utc_now() -> str:
@@ -56,6 +60,52 @@ def _range_from_raw(raw: object) -> tuple[float, float] | None:
     return (min(first, second), max(first, second))
 
 
+def _ranges_to_dict(value: dict[str, tuple[float, float]] | None) -> dict[str, list[float]]:
+    if not value:
+        return {}
+    result: dict[str, list[float]] = {}
+    for key, range_value in value.items():
+        normalized = _range_from_raw(range_value)
+        if normalized is not None:
+            result[str(key)] = _range_to_list(normalized) or []
+    return result
+
+
+def _ranges_from_raw(raw: object) -> dict[str, tuple[float, float]]:
+    if not isinstance(raw, dict):
+        return {}
+    result: dict[str, tuple[float, float]] = {}
+    for key, value in raw.items():
+        normalized = _range_from_raw(value)
+        if normalized is not None:
+            result[str(key)] = normalized
+    return result
+
+
+def _markers_from_raw(raw: object) -> tuple[dict[str, Any], ...]:
+    if not isinstance(raw, list):
+        return ()
+    markers: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        try:
+            depth = float(item.get("depth"))
+        except (TypeError, ValueError):
+            continue
+        label = str(item.get("label") or "").strip()
+        if not label:
+            label = chr(ord("a") + len(markers))
+        markers.append(
+            {
+                "label": label,
+                "depth": depth,
+                "note": str(item.get("note") or ""),
+            }
+        )
+    return tuple(markers)
+
+
 def settings_to_dict(settings: InterpretationGraphSettings) -> dict[str, Any]:
     return {
         "selected_tracks": list(settings.selected_tracks),
@@ -64,6 +114,10 @@ def settings_to_dict(settings: InterpretationGraphSettings) -> dict[str, Any]:
         "gas_x_range": _range_to_list(settings.gas_x_range),
         "ratio_x_range": _range_to_list(settings.ratio_x_range),
         "pixler_x_range": _range_to_list(settings.pixler_x_range),
+        "tablet_tracks": list(settings.tablet_tracks),
+        "tablet_x_ranges": _ranges_to_dict(settings.tablet_x_ranges),
+        "tablet_markers": list(settings.tablet_markers),
+        "tablet_fill": bool(settings.tablet_fill),
     }
 
 
@@ -83,6 +137,10 @@ def settings_from_dict(raw: object) -> InterpretationGraphSettings:
         gas_x_range=_range_from_raw(payload.get("gas_x_range")),
         ratio_x_range=_range_from_raw(payload.get("ratio_x_range")),
         pixler_x_range=_range_from_raw(payload.get("pixler_x_range")),
+        tablet_tracks=tuple(str(track) for track in payload.get("tablet_tracks", ()) if str(track)),
+        tablet_x_ranges=_ranges_from_raw(payload.get("tablet_x_ranges")),
+        tablet_markers=_markers_from_raw(payload.get("tablet_markers")),
+        tablet_fill=bool(payload.get("tablet_fill", False)),
     )
 
 

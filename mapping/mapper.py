@@ -51,6 +51,25 @@ def auto_map_columns(columns) -> MappingResult:
     )
 
 
+def _is_numeric_like(series: pd.Series) -> bool:
+    return pd.to_numeric(series, errors="coerce").notna().any()
+
+
+def _safe_extra_column_name(source_name: object, existing_columns: set[str]) -> str | None:
+    name = str(source_name).strip()
+    if not name or name.lower().startswith("unnamed"):
+        return None
+    if name.lower() in {field.lower() for field in STANDARD_FIELDS}:
+        return None
+
+    candidate = name
+    duplicate_index = 2
+    while candidate in existing_columns:
+        candidate = f"{name}_{duplicate_index}"
+        duplicate_index += 1
+    return candidate
+
+
 def apply_mapping(
     df: pd.DataFrame,
     mapping: dict[str, str],
@@ -71,6 +90,20 @@ def apply_mapping(
         selected_columns[standard_name] = df[source_name]
 
     result = pd.DataFrame(selected_columns, index=df.index)
+
+    used_source_columns = {str(source_name) for source_name in mapping.values()}
+    existing_columns = {str(column) for column in result.columns}
+    for source_name in df.columns:
+        if str(source_name) in used_source_columns:
+            continue
+        series = df[source_name]
+        if not isinstance(series, pd.Series) or not _is_numeric_like(series):
+            continue
+        extra_name = _safe_extra_column_name(source_name, existing_columns)
+        if extra_name is None:
+            continue
+        result[extra_name] = series
+        existing_columns.add(extra_name)
 
     if missing_components_as_zero:
         for component in GAS_COMPONENT_FIELDS:
