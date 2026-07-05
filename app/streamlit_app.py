@@ -147,6 +147,8 @@ list_project_csv_datasets = project_datasets.list_project_csv_datasets
 save_project_csv_dataset = project_datasets.save_project_csv_dataset
 list_project_excel_datasets = project_datasets.list_project_excel_datasets
 save_project_excel_dataset = project_datasets.save_project_excel_dataset
+list_project_core_datasets = project_datasets.list_project_core_datasets
+save_project_core_dataset = project_datasets.save_project_core_dataset
 build_project_dataset_table = project_datasets.build_project_dataset_table
 DEFAULT_INTERPRETATION_TRACKS = project_graph_settings.DEFAULT_INTERPRETATION_TRACKS
 InterpretationGraphSettings = project_graph_settings.InterpretationGraphSettings
@@ -1797,6 +1799,38 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
                         )
                         st.success(f"Excel datasets сохранены в проект: {saved_count}.")
                         st.rerun()
+            core_uploads = tuple(
+                uploaded_file
+                for uploaded_file in uploaded_files
+                if Path(str(getattr(uploaded_file, "name", ""))).suffix.lower() in {".csv", ".xlsx", ".xlsm"}
+            )
+            if core_uploads:
+                st.caption("CSV/Excel с лабораторными core-данными можно сохранить как Core dataset проекта.")
+                if st.button("Сохранить загруженные файлы как Core datasets", key=f"save_uploaded_core_datasets_{active_project.id}"):
+                    try:
+                        saved_count = 0
+                        for uploaded_file in core_uploads:
+                            original_name = Path(str(getattr(uploaded_file, "name", "core.csv"))).name
+                            save_project_core_dataset(
+                                data=bytes(uploaded_file.getvalue()),
+                                root=LAS_CORRELATION_PROJECTS_ROOT,
+                                project_id=active_project.id,
+                                file_name=original_name,
+                                name=Path(original_name).stem,
+                                metadata={"source": "workspace_upload", "dataset_role": "core"},
+                            )
+                            saved_count += 1
+                    except Exception:
+                        logger.exception("project_core_datasets_save_failed project_id=%s", safe_log_value(active_project.id))
+                        st.error("Не удалось сохранить Core datasets в проект. Подробности записаны в logs/app.log.")
+                    else:
+                        logger.info(
+                            "project_core_datasets_saved project_id=%s count=%d",
+                            safe_log_value(active_project.id),
+                            saved_count,
+                        )
+                        st.success(f"Core datasets сохранены в проект: {saved_count}.")
+                        st.rerun()
         except Exception:
             logger.exception("file_read_failed extensions=%s", safe_log_value(",".join(suffixes)))
             st.error("Не удалось прочитать файл. Проверьте формат и доступность данных.")
@@ -3391,6 +3425,21 @@ def _render_project_dataset_manager(project: ProjectRecord, logger) -> None:
                 select_key=f"project_dataset_excel_select_{project.id}",
                 empty_caption="В активном проекте пока нет Excel datasets.",
                 ready_message="Excel dataset готов к проверке активного листа, mapping и расчетам.",
+            )
+
+    with st.expander("Dataset Manager · Core", expanded=False):
+        try:
+            core_datasets = list_project_core_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+        except Exception:
+            logger.exception("project_dataset_manager_core_failed project_id=%s", safe_log_value(project.id))
+            st.warning("Не удалось построить список Core datasets.")
+        else:
+            _render_dataset_manager_table(
+                title="Core datasets",
+                datasets=core_datasets,
+                select_key=f"project_dataset_core_select_{project.id}",
+                empty_caption="В активном проекте пока нет Core datasets.",
+                ready_message="Core dataset готов к сопоставлению образцов с LAS по глубине.",
             )
 
 

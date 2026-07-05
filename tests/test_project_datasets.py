@@ -347,3 +347,146 @@ def test_project_excel_dataset_rejects_empty_bytes(tmp_path):
 
     with pytest.raises(ValueError):
         save_project_excel_dataset(b"", root=tmp_path, project_id="demo")
+
+CORE_CSV_BYTES = b"MD,Sample_ID,Porosity,Permeability,Comment\n1000,A1,12.5,15,good\n1001,A2,13.0,18,good\n"
+CORE_NO_DEPTH_BYTES = b"Sample_ID,Porosity,Permeability\nA1,12.5,15\nA2,13.0,18\n"
+CORE_DUP_DEPTH_BYTES = b"MD,Sample_ID,Porosity\n1000,A1,12.5\n1000,A2,13.0\n"
+
+
+def test_project_core_dataset_manager_indexes_saved_csv_core(tmp_path):
+    from projects import list_project_core_datasets, read_project_core_dataset_dataframe, save_project_core_dataset
+
+    record = save_project_core_dataset(
+        CORE_CSV_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="Well A core.csv",
+        name="Well A core",
+        well_id="well-a",
+    )
+
+    datasets = list_project_core_datasets(tmp_path, "demo")
+
+    assert len(datasets) == 1
+    dataset = datasets[0]
+    assert dataset.id == f"core:{record.id}"
+    assert dataset.kind == "Core"
+    assert dataset.name == "Well A core"
+    assert dataset.source_id == record.id
+    assert dataset.well_id == "well-a"
+    assert dataset.row_count == 2
+    assert dataset.column_count == 5
+    assert dataset.depth_curve == "MD"
+    assert dataset.status == "ready"
+    assert dataset.warnings == ()
+    assert dataset.metadata["sample_count"] == 2
+    assert dataset.metadata["depth_min"] == 1000.0
+    assert dataset.metadata["depth_max"] == 1001.0
+    assert "porosity" in dataset.metadata["known_measurements"]
+    assert "permeability" in dataset.metadata["known_measurements"]
+
+    dataframe = read_project_core_dataset_dataframe(tmp_path, "demo", record.id)
+    assert list(dataframe.columns) == ["MD", "Sample_ID", "Porosity", "Permeability", "Comment"]
+
+
+def test_project_core_dataset_manager_indexes_saved_excel_core(tmp_path):
+    from io import BytesIO
+    from projects import list_project_core_datasets, save_project_core_dataset
+
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        pd.DataFrame({"Depth": [1000, 1001], "PHI": [0.12, 0.13], "PERM": [10, 20]}).to_excel(
+            writer,
+            sheet_name="Core",
+            index=False,
+        )
+
+    record = save_project_core_dataset(
+        buffer.getvalue(),
+        root=tmp_path,
+        project_id="demo",
+        file_name="core.xlsx",
+        name="Core lab",
+        active_sheet="Core",
+    )
+
+    dataset = list_project_core_datasets(tmp_path, "demo")[0]
+
+    assert record.file_format == "EXCEL"
+    assert record.active_sheet == "Core"
+    assert dataset.kind == "Core"
+    assert dataset.version_label == "Core"
+    assert dataset.depth_curve == "Depth"
+    assert dataset.metadata["file_format"] == "EXCEL"
+    assert dataset.metadata["active_sheet"] == "Core"
+    assert dataset.metadata["known_measurements"] == ["porosity", "permeability"]
+
+
+def test_project_core_dataset_manager_flags_missing_depth_column(tmp_path):
+    from projects import list_project_core_datasets, save_project_core_dataset
+
+    save_project_core_dataset(
+        CORE_NO_DEPTH_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="No Depth core.csv",
+        name="Core without depth",
+    )
+
+    dataset = list_project_core_datasets(tmp_path, "demo")[0]
+
+    assert dataset.status == "warning"
+    assert dataset.depth_curve == ""
+    assert "Не найдена глубинная колонка DEPT/DEPTH/MD для привязки core-образцов." in dataset.warnings
+
+
+def test_project_core_dataset_manager_flags_duplicate_sample_depths(tmp_path):
+    from projects import list_project_core_datasets, save_project_core_dataset
+
+    save_project_core_dataset(
+        CORE_DUP_DEPTH_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="Duplicate core.csv",
+        name="Duplicate core",
+    )
+
+    dataset = list_project_core_datasets(tmp_path, "demo")[0]
+
+    assert dataset.status == "warning"
+    assert "Найдены дубли глубин core-образцов; проверьте повторные plug samples." in dataset.warnings
+
+
+def test_project_dataset_table_accepts_core_records(tmp_path):
+    from projects import build_project_dataset_table, list_project_core_datasets, save_project_core_dataset
+
+    save_project_core_dataset(
+        CORE_CSV_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="Well A core.csv",
+        name="Well A core",
+    )
+
+    table = build_project_dataset_table(list_project_core_datasets(tmp_path, "demo"))
+
+    assert list(table["Тип"]) == ["Core"]
+    assert table.loc[0, "Dataset"] == "Well A core"
+    assert table.loc[0, "Глубина"] == "MD"
+
+
+def test_project_core_dataset_duplicate_names_get_unique_ids(tmp_path):
+    from projects import save_project_core_dataset
+
+    first = save_project_core_dataset(CORE_CSV_BYTES, root=tmp_path, project_id="demo", file_name="core.csv", name="Core")
+    second = save_project_core_dataset(CORE_CSV_BYTES, root=tmp_path, project_id="demo", file_name="core.csv", name="Core")
+
+    assert first.id != second.id
+    assert second.id.endswith("-2")
+
+
+def test_project_core_dataset_rejects_empty_bytes(tmp_path):
+    from projects import save_project_core_dataset
+
+    with pytest.raises(ValueError):
+        save_project_core_dataset(b"", root=tmp_path, project_id="demo")
