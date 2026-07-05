@@ -158,10 +158,14 @@ save_project_production_dataset = project_datasets.save_project_production_datas
 build_project_dataset_table = project_datasets.build_project_dataset_table
 build_project_duplicate_files_table = project_index.build_project_duplicate_files_table
 build_project_file_index_table = project_index.build_project_file_index_table
+build_project_file_versions_table = project_index.build_project_file_versions_table
+build_project_file_version_history_table = project_index.build_project_file_version_history_table
 detect_project_duplicate_files = project_index.detect_project_duplicate_files
 annotate_project_file_index_duplicates = project_index.annotate_project_file_index_duplicates
 load_project_file_index = project_index.load_project_file_index
+load_project_file_versions = project_index.load_project_file_versions
 save_project_file_index = project_index.save_project_file_index
+update_project_file_versions = project_index.update_project_file_versions
 validate_project_file_index = project_index.validate_project_file_index
 DEFAULT_INTERPRETATION_TRACKS = project_graph_settings.DEFAULT_INTERPRETATION_TRACKS
 InterpretationGraphSettings = project_graph_settings.InterpretationGraphSettings
@@ -3605,6 +3609,44 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
         else:
             st.success("Дубликаты по SHA-256 и паре имя/размер не найдены.")
         st.dataframe(build_project_file_index_table(annotated_entries), use_container_width=True, height=260)
+
+    with st.expander("Project Database · Версии файлов", expanded=False):
+        st.caption(
+            "Версии файлов строятся по сохраненному project_index.json. "
+            "История хранит только metadata, checksum и номер версии; содержимое файлов не копируется."
+        )
+        if st.button("Обновить версии файлов", key=f"project_file_versions_refresh_{project.id}"):
+            try:
+                assets = update_project_file_versions(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+            except Exception:
+                logger.exception("project_file_versions_update_failed project_id=%s", safe_log_value(project.id))
+                st.error("Не удалось обновить версии файлов проекта. Подробности записаны в logs/app.log.")
+            else:
+                version_total = sum(asset.version_count for asset in assets)
+                st.success(f"Версии файлов обновлены. Объектов: {len(assets)}, версий: {version_total}.")
+
+        assets = load_project_file_versions(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+        if not assets:
+            st.caption("История версий еще не создана. Сначала обновите индекс файлов, затем нажмите `Обновить версии файлов`.")
+            return
+
+        total_versions = sum(asset.version_count for asset in assets)
+        changed_assets = sum(1 for asset in assets if asset.version_count > 1)
+        st.caption(
+            f"Файлов под версионным контролем: {len(assets)} · всего версий: {total_versions} · "
+            f"файлов с историей изменений: {changed_assets}"
+        )
+        st.dataframe(build_project_file_versions_table(assets), use_container_width=True, height=240)
+
+        assets_with_history = [asset for asset in assets if asset.version_count > 1]
+        if assets_with_history:
+            selected_label = st.selectbox(
+                "История версий файла",
+                options=[f"{asset.relative_path} · версий: {asset.version_count}" for asset in assets_with_history],
+                key=f"project_file_versions_history_select_{project.id}",
+            )
+            selected_asset = assets_with_history[[f"{asset.relative_path} · версий: {asset.version_count}" for asset in assets_with_history].index(selected_label)]
+            st.dataframe(build_project_file_version_history_table(selected_asset), use_container_width=True, height=220)
 
 def _project_workspace_summary_rows(project: ProjectRecord) -> tuple[tuple[str, str], ...]:
     all_well_cards = list_project_las_wells(

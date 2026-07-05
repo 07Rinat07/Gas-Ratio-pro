@@ -191,3 +191,112 @@ def test_project_file_index_annotation_marks_duplicate_entries(tmp_path):
     duplicate_entries = [entry for entry in annotated if entry.name == "source.csv"]
     assert {entry.status for entry in duplicate_entries} == {"warning"}
     assert all("Возможный дубликат" in "; ".join(entry.warnings) for entry in duplicate_entries)
+
+from projects import (
+    build_project_file_version_history_table,
+    build_project_file_versions_table,
+    load_project_file_versions,
+    update_project_file_versions,
+)
+
+
+def test_project_file_versions_create_initial_versions_from_saved_index(tmp_path):
+    save_project_csv_dataset(
+        CSV_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="gas.csv",
+        name="Gas dataset",
+    )
+    save_project_file_index(tmp_path, "demo")
+
+    assets = update_project_file_versions(tmp_path, "demo", author="Rinat")
+    loaded_assets = load_project_file_versions(tmp_path, "demo")
+
+    assert assets
+    assert len(assets) == len(loaded_assets)
+    source_assets = [asset for asset in assets if asset.relative_path.endswith("source.csv")]
+    assert source_assets
+    assert source_assets[0].version_count == 1
+    assert source_assets[0].active_version is not None
+    assert source_assets[0].active_version.version_number == 1
+    assert source_assets[0].active_version.author == "Rinat"
+    assert source_assets[0].active_version.change_summary == "Initial version"
+    payload = json.loads((tmp_path / "demo" / "project_file_versions.json").read_text(encoding="utf-8"))
+    assert payload["schema_version"] == 1
+    assert payload["project_id"] == "demo"
+
+
+def test_project_file_versions_append_new_version_when_checksum_changes(tmp_path):
+    record = save_project_csv_dataset(
+        CSV_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="gas.csv",
+        name="Gas dataset",
+    )
+    save_project_file_index(tmp_path, "demo")
+    update_project_file_versions(tmp_path, "demo")
+
+    source_path = tmp_path / "demo" / "datasets" / "csv" / record.id / "source.csv"
+    source_path.write_bytes(b"Depth,C1\n1000,2.4\n")
+    save_project_file_index(tmp_path, "demo")
+    assets = update_project_file_versions(tmp_path, "demo", author="engineer")
+
+    source_asset = next(asset for asset in assets if asset.relative_path.endswith("source.csv"))
+    assert source_asset.version_count == 2
+    assert [version.status for version in source_asset.versions] == ["archived", "active"]
+    assert source_asset.active_version.version_number == 2
+    assert source_asset.active_version.change_summary == "File content changed"
+    assert source_asset.active_version.author == "engineer"
+
+
+def test_project_file_versions_do_not_duplicate_unchanged_checksums(tmp_path):
+    save_project_csv_dataset(
+        CSV_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="gas.csv",
+        name="Gas dataset",
+    )
+    save_project_file_index(tmp_path, "demo")
+
+    first_assets = update_project_file_versions(tmp_path, "demo")
+    second_assets = update_project_file_versions(tmp_path, "demo")
+
+    first_counts = {asset.relative_path: asset.version_count for asset in first_assets}
+    second_counts = {asset.relative_path: asset.version_count for asset in second_assets}
+    assert second_counts == first_counts
+
+
+def test_project_file_versions_tables_contain_active_and_history_summary(tmp_path):
+    record = save_project_csv_dataset(
+        CSV_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="gas.csv",
+        name="Gas dataset",
+    )
+    save_project_file_index(tmp_path, "demo")
+    update_project_file_versions(tmp_path, "demo")
+    (tmp_path / "demo" / "datasets" / "csv" / record.id / "source.csv").write_bytes(b"Depth,C1\n1000,3.6\n")
+    save_project_file_index(tmp_path, "demo")
+    assets = update_project_file_versions(tmp_path, "demo")
+
+    table = build_project_file_versions_table(assets)
+    assert list(table.columns) == [
+        "Тип",
+        "Файл",
+        "Путь",
+        "Активная версия",
+        "Всего версий",
+        "SHA-256",
+        "Размер, байт",
+        "Автор",
+        "Создана версия",
+        "Изменение",
+    ]
+    source_asset = next(asset for asset in assets if asset.relative_path.endswith("source.csv"))
+    history = build_project_file_version_history_table(source_asset)
+    assert list(history["Версия"]) == [2, 1]
+    assert "активная" in set(history["Статус"])

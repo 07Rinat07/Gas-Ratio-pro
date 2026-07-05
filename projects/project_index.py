@@ -12,8 +12,10 @@ import pandas as pd
 from projects.repository import safe_project_id
 
 PROJECT_INDEX_FILE_NAME = "project_index.json"
+PROJECT_FILE_VERSIONS_FILE_NAME = "project_file_versions.json"
 PROJECT_INDEX_SCHEMA_VERSION = 1
-_INDEX_EXCLUDED_NAMES = {PROJECT_INDEX_FILE_NAME}
+PROJECT_FILE_VERSIONS_SCHEMA_VERSION = 1
+_INDEX_EXCLUDED_NAMES = {PROJECT_INDEX_FILE_NAME, PROJECT_FILE_VERSIONS_FILE_NAME}
 _INDEX_EXCLUDED_DIRS = {"__pycache__", ".pytest_cache"}
 
 
@@ -45,6 +47,47 @@ class ProjectFileIndexEntry:
         return labels.get(self.status, self.status)
 
 
+
+@dataclass(frozen=True)
+class ProjectFileVersionRecord:
+    """One immutable metadata version for a file tracked by Project Database."""
+
+    id: str
+    version_number: int
+    relative_path: str
+    name: str
+    kind: str
+    size_bytes: int
+    modified_at: str
+    checksum_sha256: str
+    created_at: str
+    author: str = "local"
+    status: str = "active"
+    change_summary: str = "Initial version"
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ProjectFileVersionAsset:
+    """Version history for one logical project file path."""
+
+    asset_key: str
+    relative_path: str
+    name: str
+    kind: str
+    active_version_id: str
+    versions: tuple[ProjectFileVersionRecord, ...]
+
+    @property
+    def active_version(self) -> ProjectFileVersionRecord | None:
+        for version in self.versions:
+            if version.id == self.active_version_id:
+                return version
+        return self.versions[-1] if self.versions else None
+
+    @property
+    def version_count(self) -> int:
+        return len(self.versions)
 
 
 @dataclass(frozen=True)
@@ -86,6 +129,10 @@ def _project_dir(root: Path | str, project_id: str) -> Path:
 
 def _index_path(root: Path | str, project_id: str) -> Path:
     return _project_dir(root, project_id) / PROJECT_INDEX_FILE_NAME
+
+
+def _file_versions_path(root: Path | str, project_id: str) -> Path:
+    return _project_dir(root, project_id) / PROJECT_FILE_VERSIONS_FILE_NAME
 
 
 def _iso_mtime(path: Path) -> str:
@@ -133,6 +180,77 @@ def _well_id_from_path(relative_path: str) -> str:
             if index + 1 < len(parts):
                 return parts[index + 1]
     return ""
+
+
+def _asset_key_from_entry(entry: ProjectFileIndexEntry) -> str:
+    return entry.relative_path.replace("\\", "/").strip().lower()
+
+
+def _version_id(entry: ProjectFileIndexEntry, version_number: int) -> str:
+    seed = f"{_asset_key_from_entry(entry)}::{entry.checksum_sha256}::{version_number}"
+    return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:16]
+
+
+def _version_record_to_dict(record: ProjectFileVersionRecord) -> dict[str, Any]:
+    return {
+        "id": record.id,
+        "version_number": record.version_number,
+        "relative_path": record.relative_path,
+        "name": record.name,
+        "kind": record.kind,
+        "size_bytes": record.size_bytes,
+        "modified_at": record.modified_at,
+        "checksum_sha256": record.checksum_sha256,
+        "created_at": record.created_at,
+        "author": record.author,
+        "status": record.status,
+        "change_summary": record.change_summary,
+        "metadata": dict(record.metadata),
+    }
+
+
+def _version_record_from_dict(raw: dict[str, Any]) -> ProjectFileVersionRecord:
+    return ProjectFileVersionRecord(
+        id=str(raw.get("id", "")),
+        version_number=int(raw.get("version_number", 0) or 0),
+        relative_path=str(raw.get("relative_path", "")),
+        name=str(raw.get("name", "")),
+        kind=str(raw.get("kind", "File")),
+        size_bytes=int(raw.get("size_bytes", 0) or 0),
+        modified_at=str(raw.get("modified_at", "")),
+        checksum_sha256=str(raw.get("checksum_sha256", "")),
+        created_at=str(raw.get("created_at", "")),
+        author=str(raw.get("author", "local")),
+        status=str(raw.get("status", "active")),
+        change_summary=str(raw.get("change_summary", "")),
+        metadata=dict(raw.get("metadata") or {}),
+    )
+
+
+def _version_asset_to_dict(asset: ProjectFileVersionAsset) -> dict[str, Any]:
+    return {
+        "asset_key": asset.asset_key,
+        "relative_path": asset.relative_path,
+        "name": asset.name,
+        "kind": asset.kind,
+        "active_version_id": asset.active_version_id,
+        "versions": [_version_record_to_dict(version) for version in asset.versions],
+    }
+
+
+def _version_asset_from_dict(raw: dict[str, Any]) -> ProjectFileVersionAsset:
+    return ProjectFileVersionAsset(
+        asset_key=str(raw.get("asset_key", "")),
+        relative_path=str(raw.get("relative_path", "")),
+        name=str(raw.get("name", "")),
+        kind=str(raw.get("kind", "File")),
+        active_version_id=str(raw.get("active_version_id", "")),
+        versions=tuple(
+            _version_record_from_dict(item)
+            for item in raw.get("versions", ())
+            if isinstance(item, dict)
+        ),
+    )
 
 
 def _entry_to_dict(entry: ProjectFileIndexEntry) -> dict[str, Any]:
@@ -399,6 +517,178 @@ def annotate_project_file_index_duplicates(
             )
         )
     return tuple(annotated)
+
+
+def load_project_file_versions(root: Path | str, project_id: str) -> tuple[ProjectFileVersionAsset, ...]:
+    """Load metadata-only file version history for a project."""
+
+    path = _file_versions_path(root, project_id)
+    if not path.exists():
+        return ()
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ()
+    return tuple(
+        _version_asset_from_dict(item)
+        for item in raw.get("assets", ())
+        if isinstance(item, dict)
+    )
+
+
+def update_project_file_versions(
+    root: Path | str,
+    project_id: str,
+    *,
+    author: str = "local",
+) -> tuple[ProjectFileVersionAsset, ...]:
+    """Update file version history from the saved project index.
+
+    Versioning is metadata-only: the function stores checksums and file metadata
+    for each logical relative path from `project_index.json`. File contents are not
+    copied. A new version is appended only when the checksum for the same path was
+    not seen before.
+    """
+
+    entries = tuple(entry for entry in load_project_file_index(root, project_id) if entry.status != "missing")
+    existing_by_key = {asset.asset_key: asset for asset in load_project_file_versions(root, project_id)}
+    now = _utc_now()
+    assets: list[ProjectFileVersionAsset] = []
+
+    for entry in sorted(entries, key=lambda item: item.relative_path):
+        asset_key = _asset_key_from_entry(entry)
+        existing = existing_by_key.get(asset_key)
+        previous_versions = list(existing.versions) if existing else []
+        matching = next((version for version in previous_versions if version.checksum_sha256 == entry.checksum_sha256), None)
+        if matching:
+            active_version_id = matching.id
+            versions = tuple(
+                ProjectFileVersionRecord(
+                    id=version.id,
+                    version_number=version.version_number,
+                    relative_path=version.relative_path,
+                    name=version.name,
+                    kind=version.kind,
+                    size_bytes=version.size_bytes,
+                    modified_at=version.modified_at,
+                    checksum_sha256=version.checksum_sha256,
+                    created_at=version.created_at,
+                    author=version.author,
+                    status="active" if version.id == active_version_id else "archived",
+                    change_summary=version.change_summary,
+                    metadata=dict(version.metadata),
+                )
+                for version in previous_versions
+            )
+        else:
+            version_number = len(previous_versions) + 1
+            change_summary = "Initial version" if not previous_versions else "File content changed"
+            new_version = ProjectFileVersionRecord(
+                id=_version_id(entry, version_number),
+                version_number=version_number,
+                relative_path=entry.relative_path,
+                name=entry.name,
+                kind=entry.kind,
+                size_bytes=entry.size_bytes,
+                modified_at=entry.modified_at,
+                checksum_sha256=entry.checksum_sha256,
+                created_at=now,
+                author=author.strip() or "local",
+                status="active",
+                change_summary=change_summary,
+                metadata={
+                    "well_id": entry.well_id,
+                    "dataset_type": entry.dataset_type,
+                    **dict(entry.metadata),
+                },
+            )
+            versions = tuple(
+                ProjectFileVersionRecord(
+                    id=version.id,
+                    version_number=version.version_number,
+                    relative_path=version.relative_path,
+                    name=version.name,
+                    kind=version.kind,
+                    size_bytes=version.size_bytes,
+                    modified_at=version.modified_at,
+                    checksum_sha256=version.checksum_sha256,
+                    created_at=version.created_at,
+                    author=version.author,
+                    status="archived",
+                    change_summary=version.change_summary,
+                    metadata=dict(version.metadata),
+                )
+                for version in previous_versions
+            ) + (new_version,)
+            active_version_id = new_version.id
+
+        assets.append(
+            ProjectFileVersionAsset(
+                asset_key=asset_key,
+                relative_path=entry.relative_path,
+                name=entry.name,
+                kind=entry.kind,
+                active_version_id=active_version_id,
+                versions=versions,
+            )
+        )
+
+    path = _file_versions_path(root, project_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": PROJECT_FILE_VERSIONS_SCHEMA_VERSION,
+        "project_id": safe_project_id(project_id),
+        "generated_at": now,
+        "assets": [_version_asset_to_dict(asset) for asset in assets],
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return tuple(assets)
+
+
+def build_project_file_versions_table(assets: tuple[ProjectFileVersionAsset, ...]) -> pd.DataFrame:
+    """Build a compact table with active version information for UI/reporting."""
+
+    rows = []
+    for asset in assets:
+        active = asset.active_version
+        rows.append(
+            {
+                "Тип": asset.kind,
+                "Файл": asset.name,
+                "Путь": asset.relative_path,
+                "Активная версия": active.version_number if active else "—",
+                "Всего версий": asset.version_count,
+                "SHA-256": active.checksum_sha256[:16] if active else "—",
+                "Размер, байт": active.size_bytes if active else 0,
+                "Автор": active.author if active else "—",
+                "Создана версия": active.created_at if active else "—",
+                "Изменение": active.change_summary if active else "—",
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def build_project_file_version_history_table(asset: ProjectFileVersionAsset) -> pd.DataFrame:
+    """Build detailed version history for one project file asset."""
+
+    return pd.DataFrame(
+        [
+            {
+                "Версия": version.version_number,
+                "Статус": "активная" if version.id == asset.active_version_id else "архив",
+                "Файл": version.name,
+                "Путь": version.relative_path,
+                "Размер, байт": version.size_bytes,
+                "SHA-256": version.checksum_sha256[:16],
+                "Изменен файл": version.modified_at,
+                "Создана версия": version.created_at,
+                "Автор": version.author,
+                "Изменение": version.change_summary,
+            }
+            for version in sorted(asset.versions, key=lambda item: item.version_number, reverse=True)
+        ]
+    )
+
 
 def build_project_file_index_table(entries: tuple[ProjectFileIndexEntry, ...]) -> pd.DataFrame:
     return pd.DataFrame(
