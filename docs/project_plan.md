@@ -164,7 +164,7 @@
 - [x] Curve grouping.
 - [x] Curve categories.
 - [x] Curve units manager.
-- [ ] Curve metadata editor.
+- [x] Curve metadata editor.
 - [ ] Curve duplicate detection.
 - [ ] Curve quality flags.
 - [ ] Curve mnemonics dictionary.
@@ -641,3 +641,14 @@ Dashboard, Documentation Center и общий page shell теперь испол
 CSS-анимации вынесены в единые `@keyframes`: `gas-page-fade`, `gas-page-slide`, `gas-active-underline`, `gas-sidebar-expand`, `gas-sidebar-collapse`, `gas-command-open`, `gas-command-close`, `gas-skeleton-shimmer` и `gas-progress-pulse`. Для доступности добавлен `@media (prefers-reduced-motion: reduce)`, который отключает продолжительное движение у пользователей с ограничением анимаций. Навигационные кнопки теперь имеют hover, active/press state и визуальную обратную связь без декоративных нерабочих элементов.
 
 Текущий следующий незавершенный пункт: **UI Modernization Track → Branding Assets**.
+
+### Реализовано: LAS Professional → Curve Manager → Curve metadata editor
+
+LAS-редактор получил metadata-only редактор кривых. Новый модуль `las_editor/curve_metadata.py` формирует карточки metadata для каждой LAS-кривой на основе существующего контекста Curve Manager: alias, группы, категории и единицы измерения. Пользователь может вручную заполнить описание кривой, источник данных, прибор/инструмент, статус, качество и комментарий без изменения числовых значений LAS.
+
+Во вкладке `LAS-редактор` добавлен блок `Curve Manager · Curve metadata editor` со сводкой по статусам и качеству, таблицей всех кривых, выбором кривой и поля metadata, контролируемыми списками для `status`/`quality`, текстовыми полями для описания, источника, инструмента и комментария. Все изменения пишутся в `curve_metadata`, обновляют `manifest`, имеют историю с `timestamp`, `reason`, `source` и поддерживают `Undo последней metadata-правки`.
+
+Добавлены unit-тесты `tests/test_curve_metadata.py`: проверяется построение metadata из контекста Curve Manager, сохранение в manifest, валидация входных данных, no-op при повторном назначении, undo последней операции, строки таблицы, сводка и нормализация metadata-полей.
+
+Текущий следующий незавершенный пункт: **LAS Professional → Curve Manager → Curve duplicate detection**.
+

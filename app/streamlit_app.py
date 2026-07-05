@@ -77,6 +77,18 @@ from las_editor.curve_units import (
     undo_last_unit_assignment,
     unit_summary_rows,
 )
+from las_editor.curve_metadata import (
+    assign_curve_metadata,
+    available_metadata_fields,
+    available_metadata_qualities,
+    available_metadata_statuses,
+    build_curve_metadata,
+    curve_metadata_table_rows,
+    metadata_quality_label,
+    metadata_status_label,
+    metadata_summary_rows,
+    undo_last_metadata_assignment,
+)
 from las_editor.curve_merge import MERGE_STRATEGIES, merge_curves, undo_last_merge
 from las_editor.curve_rename import CurveRenameHistoryEntry, rename_curve, undo_last_rename
 from las_editor.depth_grid import (
@@ -285,6 +297,8 @@ LAS_EDITOR_CATEGORY_HISTORY_KEY = "las_editor_curve_category_history"
 LAS_EDITOR_CATEGORY_OVERRIDES_KEY = "las_editor_curve_category_overrides"
 LAS_EDITOR_UNIT_HISTORY_KEY = "las_editor_curve_unit_history"
 LAS_EDITOR_UNIT_OVERRIDES_KEY = "las_editor_curve_unit_overrides"
+LAS_EDITOR_METADATA_HISTORY_KEY = "las_editor_curve_metadata_history"
+LAS_EDITOR_METADATA_KEY = "las_editor_curve_metadata"
 PROJECT_SESSION_SHEETS_KEY = "project_session_sheets"
 PROJECT_SESSION_SUMMARY_KEY = "project_session_summary"
 PROJECT_SESSION_PROJECT_ID_KEY = "project_session_project_id"
@@ -1968,6 +1982,7 @@ def _las_editor_reference_state(column_names: list[str]) -> dict[str, object]:
         "curve_group_overrides": dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {})),
         "curve_category_overrides": dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {})),
         "curve_unit_overrides": dict(st.session_state.get(LAS_EDITOR_UNIT_OVERRIDES_KEY, {})),
+        "curve_metadata": dict(st.session_state.get(LAS_EDITOR_METADATA_KEY, {})),
     }
 
 
@@ -2480,6 +2495,179 @@ def _render_las_curve_units_manager(prepared_df: pd.DataFrame) -> None:
             )
         else:
             st.caption("История ручных единиц пока пуста.")
+
+
+def _render_las_curve_metadata_editor(prepared_df: pd.DataFrame) -> None:
+    st.markdown("### Curve Manager · Curve metadata editor")
+    st.caption(
+        "Редактор metadata кривых хранит описание, источник, прибор, статус, качество и комментарий "
+        "без изменения числовых значений LAS. Эти поля нужны для аудита, отчетов и будущих правил импорта/экспорта."
+    )
+
+    if LAS_EDITOR_METADATA_HISTORY_KEY not in st.session_state:
+        st.session_state[LAS_EDITOR_METADATA_HISTORY_KEY] = ()
+    if LAS_EDITOR_METADATA_KEY not in st.session_state:
+        st.session_state[LAS_EDITOR_METADATA_KEY] = {}
+
+    column_names = [str(column) for column in prepared_df.columns]
+    aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
+    group_overrides = dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {}))
+    category_overrides = dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {}))
+    unit_overrides = dict(st.session_state.get(LAS_EDITOR_UNIT_OVERRIDES_KEY, {}))
+    metadata = dict(st.session_state.get(LAS_EDITOR_METADATA_KEY, {}))
+
+    built_metadata = build_curve_metadata(
+        column_names,
+        aliases=aliases,
+        group_overrides=group_overrides,
+        category_overrides=category_overrides,
+        unit_overrides=unit_overrides,
+        metadata=metadata,
+    )
+    metadata_rows = curve_metadata_table_rows(
+        column_names,
+        aliases=aliases,
+        group_overrides=group_overrides,
+        category_overrides=category_overrides,
+        unit_overrides=unit_overrides,
+        metadata=metadata,
+    )
+
+    with st.expander("Сводка metadata", expanded=True):
+        st.dataframe(
+            pd.DataFrame(metadata_summary_rows(built_metadata)).rename(
+                columns={"type": "Тип", "label": "Значение", "curve_count": "Кривых"}
+            )[["Тип", "Значение", "Кривых"]],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    st.dataframe(
+        pd.DataFrame(metadata_rows).rename(
+            columns={
+                "curve_name": "Кривая",
+                "alias": "Alias",
+                "category": "Категория",
+                "unit_label": "Единица",
+                "description": "Описание",
+                "source": "Источник",
+                "tool": "Прибор/инструмент",
+                "status_label": "Статус",
+                "quality_label": "Качество",
+                "comment": "Комментарий",
+                "manual_fields": "Ручные поля",
+            }
+        )[["Кривая", "Alias", "Категория", "Единица", "Описание", "Источник", "Прибор/инструмент", "Статус", "Качество", "Комментарий", "Ручные поля"]],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    curve_col, field_col, value_col, action_col = st.columns([2, 2, 3, 1])
+    curve_name = curve_col.selectbox("Кривая для metadata", options=column_names, key="las_editor_metadata_curve")
+    field_options = list(available_metadata_fields())
+    selected_field = field_col.selectbox("Поле metadata", options=field_options, key="las_editor_metadata_field")
+    current_values = built_metadata.get(curve_name, {})
+    if selected_field == "status":
+        status_options = list(available_metadata_statuses())
+        current_status = current_values.get("status", "draft")
+        index = status_options.index(current_status) if current_status in status_options else 0
+        selected_value = value_col.selectbox(
+            "Значение",
+            options=status_options,
+            index=index,
+            format_func=metadata_status_label,
+            key="las_editor_metadata_status_value",
+        )
+    elif selected_field == "quality":
+        quality_options = list(available_metadata_qualities())
+        current_quality = current_values.get("quality", "unknown")
+        index = quality_options.index(current_quality) if current_quality in quality_options else 0
+        selected_value = value_col.selectbox(
+            "Значение",
+            options=quality_options,
+            index=index,
+            format_func=metadata_quality_label,
+            key="las_editor_metadata_quality_value",
+        )
+    else:
+        selected_value = value_col.text_input(
+            "Значение",
+            value=current_values.get(selected_field, ""),
+            key=f"las_editor_metadata_text_{selected_field}",
+        )
+
+    references = _las_editor_reference_state(column_names)
+    if action_col.button("Сохранить", use_container_width=True, key="las_editor_metadata_apply"):
+        try:
+            result = assign_curve_metadata(
+                prepared_df,
+                curve_name,
+                selected_field,
+                selected_value,
+                aliases=aliases,
+                group_overrides=group_overrides,
+                category_overrides=category_overrides,
+                unit_overrides=unit_overrides,
+                metadata=metadata,
+                history=st.session_state.get(LAS_EDITOR_METADATA_HISTORY_KEY, ()),
+                references=references,
+                reason="manual",
+                source="las_editor_ui",
+            )
+            st.session_state[LAS_EDITOR_METADATA_KEY] = result.references.get("curve_metadata", result.metadata)
+            st.session_state[LAS_EDITOR_METADATA_HISTORY_KEY] = result.history
+            for message in result.diagnostics:
+                st.info(message)
+            if result.assigned:
+                st.success(f"Metadata обновлена: {result.curve_name}.{result.field}")
+            else:
+                st.warning("Metadata не изменилась: такое значение уже существовало.")
+        except ValueError as exc:
+            st.warning(str(exc))
+
+    history = tuple(st.session_state.get(LAS_EDITOR_METADATA_HISTORY_KEY, ()))
+    if st.button("Undo последней metadata-правки", disabled=not history, use_container_width=True, key="las_editor_metadata_undo"):
+        try:
+            result = undo_last_metadata_assignment(
+                prepared_df,
+                aliases=aliases,
+                group_overrides=group_overrides,
+                category_overrides=category_overrides,
+                unit_overrides=unit_overrides,
+                metadata=dict(st.session_state.get(LAS_EDITOR_METADATA_KEY, {})),
+                history=history,
+                references=references,
+            )
+            st.session_state[LAS_EDITOR_METADATA_KEY] = result.references.get("curve_metadata", result.metadata)
+            st.session_state[LAS_EDITOR_METADATA_HISTORY_KEY] = result.history
+            for message in result.diagnostics:
+                st.info(message)
+            st.success("Последняя metadata-правка отменена.")
+        except ValueError as exc:
+            st.warning(str(exc))
+
+    history = tuple(st.session_state.get(LAS_EDITOR_METADATA_HISTORY_KEY, ()))
+    with st.expander("История metadata кривых", expanded=bool(history)):
+        if history:
+            st.dataframe(
+                pd.DataFrame([
+                    {
+                        "curve_name": entry.curve_name,
+                        "field": entry.field,
+                        "value": entry.value,
+                        "previous_value": entry.previous_value,
+                        "timestamp": entry.timestamp,
+                        "reason": entry.reason,
+                        "source": entry.source,
+                    }
+                    for entry in history
+                ]),
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.caption("История metadata пока пуста.")
+
 
 def _render_las_curve_rename_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
     st.markdown("### Curve Manager · Rename curves")
@@ -4101,6 +4289,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     _render_las_curve_grouping_manager(prepared_df)
     _render_las_curve_category_manager(prepared_df)
     _render_las_curve_units_manager(prepared_df)
+    _render_las_curve_metadata_editor(prepared_df)
     prepared_df = _render_las_curve_merge_manager(prepared_df)
 
     column_names = [str(column) for column in prepared_df.columns]

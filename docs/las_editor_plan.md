@@ -280,3 +280,7 @@ LAS Editor remains a data-first workspace. The global branded background may exi
 Блок `Curve Manager · Curve categories` добавлен после ручной группировки кривых. Он решает задачу более крупной инженерной классификации: depth reference, petrophysics, mud gas, drilling, interpretation и uncategorized. Категория рассчитывается автоматически по активной группе кривой, но пользователь может вручную перенести отдельную кривую в другую категорию для отчетов, фильтров и будущих правил импорта/экспорта.
 
 Ручные назначения сохраняются в `curve_category_overrides`, история действий содержит `curve_name`, `category`, `previous_category`, `timestamp`, `reason` и `source`. Undo последней операции восстанавливает предыдущее состояние без изменения исходного DataFrame.
+
+### Этап Curve Manager · Curve metadata editor
+
+Статус: реализовано. Добавлен metadata-only редактор кривых для описания, источника, прибора/инструмента, статуса, качества и комментария. Логика находится в `las_editor/curve_metadata.py`, UI-блок — во вкладке `LAS-редактор`, тесты — в `tests/test_curve_metadata.py`. Изменения не затрагивают числовые значения LAS и сохраняются как metadata с историей и undo.
