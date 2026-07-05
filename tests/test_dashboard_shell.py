@@ -74,15 +74,32 @@ def test_wide_layout_uses_full_available_width() -> None:
 def test_dashboard_shell_css_has_modern_application_shell() -> None:
     source = Path(app.__file__).read_text(encoding="utf-8")
 
-    assert ".dashboard-side-rail" in source
-    assert "grid-template-columns: 4.4rem minmax(0, 1fr)" in source
-    assert "calc(100vh - 7rem)" in source
+    assert ".dashboard-side-rail { display: none; }" in source
+    assert "calc(100vh - 4.2rem)" in source
     assert "background-position: center right" in source
     assert "dashboard-footer" in source
+    assert "@media (max-width: 760px)" in source
 
 
 def test_sidebar_is_compact_for_dashboard_workspace() -> None:
     source = Path(app.__file__).read_text(encoding="utf-8")
 
     assert 'section[data-testid="stSidebar"]' in source
-    assert "13.5rem" in source
+    assert "10.8rem" in source
+
+
+def test_dashboard_has_large_functional_action_cards() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "Создать / открыть проект" in source
+    assert 'href="#data-workspace"' in source
+    assert 'href="#las-editor-workspace"' in source
+    assert "dashboard-action-card" in source
+
+
+def test_global_background_layer_is_available_for_all_tabs() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "--global-bg-image" in source
+    assert "background-attachment: fixed" in source
+    assert 'button[role="tab"]' in source

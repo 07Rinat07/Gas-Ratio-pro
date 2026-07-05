@@ -26,7 +26,8 @@
 - [x] Dataset Manager: LAS, CSV, Excel, Core, Mud Log и Production datasets.
 - [x] Project Database: индексация файлов, проверка дубликатов, версии файлов и автоматические UUID.
 - [x] Dashboard background shell: главная страница получила фон с морской буровой, темный overlay, навигационный navbar, интерактивные карточки, быстрый доступ, динамические новости, статистику, активность и блок авторских прав.
-- [x] Dashboard application shell: стартовая страница растягивается на всю ширину рабочей области, использует компактный rail-sidebar, современный navbar с поисковыми/action-чипами, glass-сетку карточек и status footer; рабочие модули остаются на однотонном фоне.
+- [x] Dashboard application shell: стартовая страница растягивается на всю ширину рабочей области, использует современный navbar с поисковыми/action-чипами, glass-сетку карточек и status footer; рабочие модули закрываются темными рабочими панелями для читаемости.
+- [x] Responsive dashboard navigation refresh: декоративный левый rail-sidebar убран, быстрый доступ переделан в крупные функциональные action-карточки, верхние вкладки оформлены как кнопки с hover-анимацией, фирменный фон доступен как общий бренд-слой приложения.
 
 ---
 
@@ -38,8 +39,10 @@
 
 - [x] Dashboard background shell.
 - [x] Modern navigation bar.
-- [x] Compact left rail-sidebar.
+- [x] Compact left rail-sidebar prototype.
+- [x] Remove unproductive dashboard rail-sidebar.
 - [x] Responsive central workspace.
+- [x] Mobile/tablet dashboard breakpoints.
 - [x] Dynamic status bar.
 - [ ] Global command palette.
 - [ ] Keyboard shortcuts.
@@ -79,8 +82,9 @@
 - [ ] Theme manager.
 - [ ] Dark theme tokens.
 - [x] Dashboard background support.
+- [x] Global branded background layer for all tabs.
 - [x] Adaptive transparency for dashboard panels.
-- [x] Separate solid workspace background for plots, LAS editor, crossplots, tables and reports.
+- [x] Dark readable work panels above branded background for plots, LAS editor, crossplots, tables and reports.
 
 ## UI.6 Branding and Commercial Readiness
 
@@ -438,10 +442,16 @@ Dashboard теперь содержит HTML/CSS shell с верхним navbar,
 
 ### Реализовано: UI Modernization Track → Dashboard application shell
 
-Главная страница переработана из узкого прототипа в полноширинный application shell. Streamlit `block-container` в широком режиме больше не ограничивает Dashboard фиксированной шириной, поэтому стартовая область занимает доступное пространство экрана и не оставляет большие пустые поля по бокам. Нативный sidebar сделан компактнее, а внутри Dashboard добавлен отдельный вертикальный rail-sidebar примерно на 60–70 px для быстрых переходов по главным секциям.
+Главная страница переработана из узкого прототипа в полноширинный application shell. Streamlit `block-container` в широком режиме больше не ограничивает Dashboard фиксированной шириной, поэтому стартовая область занимает доступное пространство экрана и не оставляет большие пустые поля по бокам.
 
 Dashboard получил современный navbar с брендом, навигационными кнопками, поисковым чипом `Ctrl+K` и чипом активного проекта. Фоновое изображение `assets/dashboard/rig_of_sea.png` растягивается на всю Dashboard-область, позиционируется по центру/правому краю и перекрывается менее агрессивным затемняющим overlay: карточки остаются читаемыми, но буровая и море визуально видны как часть дизайна, а не как скрытая картинка под блоками.
 
-Основные виджеты переведены в адаптивную glass-сетку: приветствие, недавние проекты, быстрый доступ, статистика проекта, активность, новости, полезные советы, mini log preview и лицензия. Статистика, проекты, новости, активность и советы строятся из реального состояния локального проекта и session state. Рабочие модули LAS Editor, графики, таблицы, correlation и reports не получают фоновое изображение и остаются на однотонной темной теме для читаемости кривых, чисел и инженерных таблиц.
+Основные виджеты переведены в адаптивную glass-сетку: приветствие, недавние проекты, быстрый доступ, статистика проекта, активность, новости, полезные советы, mini log preview и лицензия. Статистика, проекты, новости, активность и советы строятся из реального состояния локального проекта и session state. Рабочие модули LAS Editor, графики, таблицы, correlation и reports закрываются темными рабочими панелями для читаемости кривых, чисел и инженерных таблиц.
+
+### Реализовано: UI Modernization Track → Responsive dashboard navigation refresh
+
+После визуальной проверки чернового shell удален неэффективный левый rail-sidebar внутри Dashboard: он занимал место, не давал полезной навигации и ухудшал внешний вид. Быстрый доступ переведен в крупные информативные action-карточки со ссылками-якорями на рабочие разделы: проект/импорт, LAS-редактор, LAS-корреляция, графики/отчеты и инструкции.
+
+Фирменный фон с морской буровой теперь доступен как общий бренд-слой приложения. Для рабочих вкладок он приглушается темным overlay, а реальные графики, LAS-кривые, таблицы и редакторы остаются на темных панелях, чтобы фон не мешал данным. Верхние Streamlit-вкладки стилизованы как крупные кнопки с активным состоянием и hover-анимацией, чтобы переключение разделов визуально воспринималось как меню приложения. Добавлены CSS-breakpoints для широкого экрана, обычного монитора и мобильной ширины: dashboard-сетка перестраивается из трех колонок в две и одну колонку.
 
 Текущий следующий незавершенный пункт: **UI Modernization Track → Application Shell → Global command palette**.

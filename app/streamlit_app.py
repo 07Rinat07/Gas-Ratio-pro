@@ -320,6 +320,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
     }
     tokens = scale_tokens.get(scale, scale_tokens["large"])
     layout_tokens = UI_LAYOUT_PROFILES.get(layout, UI_LAYOUT_PROFILES["wide"])
+    app_background_uri = _dashboard_background_data_uri()
+    app_background_css = f"url('{app_background_uri}')" if app_background_uri else "none"
     st.markdown(
         """
         <style>
@@ -331,14 +333,21 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             --app-border: rgba(148, 163, 184, 0.28);
             --app-accent: #ff8a00;
             --app-accent-soft: rgba(255, 138, 0, 0.18);
+            --global-bg-image: {app_background_css};
         }
         .stApp {
             color: var(--app-text);
             font-size: {tokens["base"]};
+            background-image:
+                linear-gradient(90deg, rgba(3, 7, 18, 0.92), rgba(3, 7, 18, 0.72)),
+                var(--global-bg-image);
+            background-size: cover;
+            background-position: center right;
+            background-attachment: fixed;
         }
         .block-container {
             max-width: {layout_tokens["max_width"]};
-            padding: 1.2rem 1rem 2.4rem 1rem;
+            padding: 0.35rem 0.7rem 2.2rem 0.7rem;
         }
         @media (max-width: 1280px) {
             .block-container {
@@ -409,9 +418,10 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             font-size: 0.98rem !important;
         }
         section[data-testid="stSidebar"] {
-            width: 13.5rem !important;
-            min-width: 13.5rem !important;
-            max-width: 13.5rem !important;
+            width: 10.8rem !important;
+            min-width: 10.8rem !important;
+            max-width: 10.8rem !important;
+            background: rgba(15, 17, 26, 0.94) !important;
         }
         section[data-testid="stSidebar"] * {
             font-size: 0.82rem !important;
@@ -422,9 +432,30 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         section[data-testid="stSidebar"] span {
             font-size: 0.82rem !important;
         }
+        div[data-testid="stTabs"] div[role="tablist"] {
+            gap: 0.55rem;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+            padding-bottom: 0.45rem;
+        }
+        div[data-testid="stTabs"] button[role="tab"] {
+            min-height: 3.15rem;
+            padding: 0.55rem 0.95rem;
+            border-radius: 14px 14px 6px 6px;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            background: rgba(15, 23, 42, 0.58);
+            transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
+        }
+        div[data-testid="stTabs"] button[aria-selected="true"] {
+            border-color: rgba(255, 138, 0, 0.58);
+            background: linear-gradient(180deg, rgba(255, 138, 0, 0.24), rgba(15, 23, 42, 0.76));
+        }
+        div[data-testid="stTabs"] button[role="tab"]:hover {
+            transform: translateY(-1px);
+            border-color: rgba(255, 138, 0, 0.45);
+        }
         div[data-testid="stTabs"] button p {
             font-size: {tokens["button"]} !important;
-            font-weight: 700 !important;
+            font-weight: 850 !important;
         }
         div[data-testid="stMetricValue"], div[data-testid="stMetricLabel"] {
             font-size: {tokens["body"]} !important;
@@ -464,78 +495,49 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         .dashboard-shell {
             position: relative;
-            min-height: calc(100vh - 7rem);
+            min-height: calc(100vh - 4.2rem);
             width: 100%;
-            border: 1px solid rgba(148, 163, 184, 0.18);
-            border-radius: 22px;
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            border-radius: 18px;
             overflow: hidden;
             background-size: cover;
             background-position: center right;
             background-repeat: no-repeat;
             box-shadow: 0 34px 110px rgba(0, 0, 0, 0.45);
-            margin: 0 0 1.25rem 0;
+            margin: 0 0 1rem 0;
         }
         .dashboard-overlay {
             position: absolute;
             inset: 0;
             background:
-                radial-gradient(circle at 78% 38%, rgba(255, 138, 0, 0.11), transparent 34%),
-                linear-gradient(90deg, rgba(3, 7, 18, 0.92) 0%, rgba(7, 12, 24, 0.76) 38%, rgba(7, 12, 24, 0.42) 68%, rgba(7, 12, 24, 0.24) 100%);
+                radial-gradient(circle at 82% 42%, rgba(255, 138, 0, 0.05), transparent 35%),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.76) 0%, rgba(7, 12, 24, 0.52) 42%, rgba(7, 12, 24, 0.22) 72%, rgba(7, 12, 24, 0.08) 100%);
         }
         .dashboard-content {
             position: relative;
             z-index: 1;
-            min-height: calc(100vh - 7rem);
-            display: grid;
-            grid-template-columns: 4.4rem minmax(0, 1fr);
+            min-height: calc(100vh - 4.2rem);
+            display: block;
         }
-        .dashboard-side-rail {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0.55rem;
-            padding: 1.05rem 0.45rem;
-            background: rgba(2, 6, 23, 0.62);
-            border-right: 1px solid rgba(148, 163, 184, 0.16);
-            backdrop-filter: blur(14px);
-        }
-        .dashboard-rail-button {
-            width: 2.8rem;
-            height: 2.8rem;
-            display: grid;
-            place-items: center;
-            border-radius: 14px;
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            background: rgba(15, 23, 42, 0.56);
-            color: #f8fafc !important;
-            text-decoration: none;
-            font-weight: 900;
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-        }
-        .dashboard-rail-button.active,
-        .dashboard-rail-button:hover {
-            color: var(--app-accent) !important;
-            border-color: rgba(255, 138, 0, 0.46);
-            background: rgba(255, 138, 0, 0.13);
-        }
+        .dashboard-side-rail { display: none; }
         .dashboard-main {
             min-width: 0;
-            padding: 1rem 1rem 1.1rem 1rem;
+            padding: 0.85rem;
         }
         .dashboard-navbar {
             display: grid;
-            grid-template-columns: minmax(11rem, 0.55fr) minmax(22rem, 1.5fr) minmax(16rem, 0.9fr);
+            grid-template-columns: minmax(12rem, 0.5fr) minmax(28rem, 1.5fr) minmax(16rem, 0.65fr);
             align-items: center;
             gap: 0.8rem;
-            padding: 0.82rem 0.95rem;
-            margin-bottom: 1rem;
-            background: rgba(2, 6, 23, 0.76);
+            padding: 0.78rem 0.95rem;
+            margin-bottom: 0.85rem;
+            background: rgba(2, 6, 23, 0.74);
             border: 1px solid rgba(148, 163, 184, 0.18);
             border-radius: 16px;
-            backdrop-filter: blur(16px);
+            backdrop-filter: blur(18px);
         }
         .dashboard-brand {
-            font-size: 1.08rem;
+            font-size: 1.1rem;
             font-weight: 900;
             letter-spacing: 0.04em;
             text-transform: uppercase;
@@ -546,18 +548,25 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 0.42rem;
+            gap: 0.55rem;
         }
         .dashboard-navlinks a,
         .dashboard-action-link {
-            color: #e5e7eb;
+            color: #f8fafc;
             text-decoration: none;
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            background: rgba(15, 23, 42, 0.62);
-            border-radius: 999px;
-            padding: 0.44rem 0.72rem;
-            font-weight: 800;
-            font-size: 0.86rem !important;
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            background: linear-gradient(180deg, rgba(30, 41, 59, 0.88), rgba(15, 23, 42, 0.76));
+            border-radius: 14px;
+            padding: 0.68rem 0.96rem;
+            font-weight: 900;
+            font-size: 0.9rem !important;
+            transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+        }
+        .dashboard-navlinks a:hover,
+        .dashboard-action-link:hover {
+            transform: translateY(-1px);
+            border-color: rgba(255, 138, 0, 0.65);
+            background: linear-gradient(180deg, rgba(255, 138, 0, 0.28), rgba(15, 23, 42, 0.82));
         }
         .dashboard-search {
             display: flex;
@@ -567,46 +576,43 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .dashboard-search-chip {
             color: #dbeafe !important;
             border: 1px solid rgba(148, 163, 184, 0.22);
-            background: rgba(15, 23, 42, 0.58);
+            background: rgba(15, 23, 42, 0.68);
             border-radius: 999px;
-            padding: 0.42rem 0.7rem;
-            font-weight: 800;
+            padding: 0.52rem 0.74rem;
+            font-weight: 850;
             font-size: 0.84rem !important;
             white-space: nowrap;
         }
         .dashboard-layout {
             display: grid;
-            grid-template-columns: minmax(28rem, 0.95fr) minmax(32rem, 1.25fr) minmax(17rem, 0.55fr);
+            grid-template-columns: minmax(22rem, 0.82fr) minmax(36rem, 1.35fr) minmax(20rem, 0.68fr);
             grid-template-areas:
                 "welcome projects stats"
                 "news quick activity"
                 "tips preview license";
-            gap: 0.9rem;
+            gap: 0.72rem;
             align-items: stretch;
         }
         .dashboard-card {
-            background: linear-gradient(180deg, rgba(6, 14, 28, 0.72), rgba(5, 10, 22, 0.58));
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            border-radius: 18px;
-            padding: 1rem;
-            backdrop-filter: blur(14px);
-            box-shadow: 0 20px 48px rgba(0, 0, 0, 0.23), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+            background: linear-gradient(180deg, rgba(4, 10, 24, 0.74), rgba(5, 10, 22, 0.54));
+            border: 1px solid rgba(148, 163, 184, 0.20);
+            border-radius: 16px;
+            padding: 0.92rem;
+            backdrop-filter: blur(13px);
+            box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+            transition: border-color 140ms ease, transform 140ms ease;
         }
-        .dashboard-card:hover {
-            border-color: rgba(255, 138, 0, 0.34);
-        }
+        .dashboard-card:hover { border-color: rgba(255, 138, 0, 0.40); }
         .dashboard-card h3 {
             color: var(--app-accent);
-            margin: 0 0 0.75rem 0;
-            font-size: 1rem !important;
+            margin: 0 0 0.7rem 0;
+            font-size: 0.98rem !important;
             text-transform: uppercase;
         }
         .dashboard-card p,
         .dashboard-card li,
-        .dashboard-card div {
-            color: #e5e7eb;
-        }
-        .dashboard-card.welcome { grid-area: welcome; min-height: 12.8rem; }
+        .dashboard-card div { color: #e5e7eb; }
+        .dashboard-card.welcome { grid-area: welcome; min-height: 11.5rem; }
         .dashboard-card.projects { grid-area: projects; }
         .dashboard-card.stats { grid-area: stats; }
         .dashboard-card.news { grid-area: news; }
@@ -617,125 +623,102 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .dashboard-card.license { grid-area: license; }
         .dashboard-list-row {
             display: flex;
-            align-items: flex-start;
             justify-content: space-between;
-            gap: 0.7rem;
-            border-top: 1px solid rgba(148, 163, 184, 0.15);
-            padding: 0.68rem 0;
+            gap: 0.8rem;
+            padding: 0.55rem 0;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.16);
         }
-        .dashboard-list-row:first-of-type { border-top: 0; }
-        .dashboard-muted { color: #bac4d2 !important; font-size: 0.82rem !important; }
-        .dashboard-actions {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(8rem, 1fr));
-            gap: 0.65rem;
-        }
-        .dashboard-action-card {
-            min-height: 5.6rem;
-            border: 1px solid rgba(148, 163, 184, 0.23);
-            border-radius: 14px;
-            background: rgba(15, 23, 42, 0.58);
-            padding: 0.8rem;
-        }
-        .dashboard-action-card strong {
-            display: block;
-            color: #fff;
-            margin-bottom: 0.25rem;
-        }
-        .dashboard-metrics {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.6rem;
-        }
+        .dashboard-muted { color: #aeb8c8 !important; font-size: 0.82rem !important; }
+        .dashboard-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; }
         .dashboard-metric {
-            border: 1px solid rgba(148, 163, 184, 0.19);
+            min-height: 4rem;
+            padding: 0.75rem;
+            border: 1px solid rgba(148, 163, 184, 0.20);
+            border-radius: 13px;
+            background: rgba(15, 23, 42, 0.62);
+        }
+        .dashboard-metric b { display: block; font-size: 1.55rem; }
+        .dashboard-metric span { color: #d1d5db; font-weight: 800; }
+        .dashboard-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; }
+        .dashboard-action-card {
+            min-height: 5.1rem;
+            padding: 0.9rem;
+            border: 1px solid rgba(148, 163, 184, 0.24);
             border-radius: 14px;
-            padding: 0.8rem;
-            background: rgba(2, 6, 23, 0.42);
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.50));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
         }
-        .dashboard-metric b {
-            display: block;
-            color: #ffffff;
-            font-size: 1.45rem;
-        }
-        .dashboard-preview {
-            min-height: 19.4rem;
-            background: rgba(2, 6, 23, 0.78);
-            border: 1px solid rgba(148, 163, 184, 0.22);
-            border-radius: 14px;
-            padding: 0.85rem;
-        }
-        .dashboard-log-track {
-            display: grid;
-            grid-template-columns: 3.4rem repeat(5, 1fr);
-            gap: 0.5rem;
-            height: 15.8rem;
-            align-items: stretch;
-        }
-        .dashboard-depth-track,
-        .dashboard-curve-track {
-            border-left: 1px solid rgba(148, 163, 184, 0.24);
-            border-right: 1px solid rgba(148, 163, 184, 0.18);
-            background: repeating-linear-gradient(to bottom, rgba(148, 163, 184, 0.11), rgba(148, 163, 184, 0.11) 1px, transparent 1px, transparent 34px);
-            border-radius: 10px;
+        .dashboard-action-card strong { display: block; font-size: 1.02rem; margin-bottom: 0.25rem; }
+        .dashboard-action-card:hover { border-color: rgba(255, 138, 0, 0.55); transform: translateY(-1px); }
+        .dashboard-preview { min-height: 12rem; }
+        .dashboard-log-track { display: grid; grid-template-columns: 0.45fr repeat(5, 1fr); gap: 0.25rem; min-height: 10.2rem; margin-top: 0.55rem; }
+        .dashboard-depth-track, .dashboard-curve-track {
             position: relative;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 8px;
+            background: rgba(2, 6, 23, 0.74);
+            overflow: hidden;
+        }
+        .dashboard-depth-track::before, .dashboard-curve-track::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(to bottom, rgba(148, 163, 184, 0.11), rgba(148, 163, 184, 0.11) 1px, transparent 1px, transparent 34px);
         }
         .dashboard-curve-track::after {
             content: "";
             position: absolute;
-            inset: 8% 38% 6% 38%;
-            border-left: 2px solid var(--app-accent);
+            top: 16%; bottom: 8%; left: 48%; width: 2px;
+            background: var(--app-accent);
             transform: skewX(-8deg);
-            filter: drop-shadow(0 0 8px rgba(255, 138, 0, 0.35));
+            box-shadow: 0 0 10px rgba(255, 138, 0, 0.52);
         }
-        .dashboard-curve-label {
-            text-align: center;
-            color: #e5e7eb;
-            font-size: 0.75rem !important;
-            font-weight: 900;
-            padding-top: 0.35rem;
-        }
+        .dashboard-curve-label { position: relative; z-index: 1; padding: 0.35rem; text-align: center; font-weight: 900; font-size: 0.72rem; }
         .dashboard-footer {
             display: flex;
             justify-content: space-between;
             gap: 1rem;
-            margin-top: 0.9rem;
-            padding: 0.65rem 0.85rem;
-            border-radius: 14px;
-            border: 1px solid rgba(148, 163, 184, 0.16);
-            background: rgba(2, 6, 23, 0.62);
-            backdrop-filter: blur(14px);
-            color: #cbd5e1 !important;
+            margin-top: 0.75rem;
+            color: #aeb8c8;
+            font-size: 0.86rem;
         }
-        @media (max-width: 1500px) {
-            .dashboard-layout {
-                grid-template-columns: minmax(22rem, 0.9fr) minmax(31rem, 1.2fr) minmax(16rem, 0.6fr);
-            }
-            .dashboard-actions { grid-template-columns: repeat(2, minmax(8rem, 1fr)); }
-        }
-        @media (max-width: 1180px) {
-            .dashboard-content { grid-template-columns: 1fr; }
-            .dashboard-side-rail { display: none; }
+        .dashboard-tab-note { display: none; }
+        @media (max-width: 1200px) {
             .dashboard-navbar { grid-template-columns: 1fr; }
             .dashboard-search { justify-content: flex-start; flex-wrap: wrap; }
+            .dashboard-layout {
+                grid-template-columns: 1fr 1fr;
+                grid-template-areas:
+                    "welcome stats"
+                    "projects projects"
+                    "quick quick"
+                    "preview preview"
+                    "news activity"
+                    "tips license";
+            }
+        }
+        @media (max-width: 760px) {
+            .block-container { padding: 0.25rem 0.35rem 1.4rem 0.35rem; }
+            section[data-testid="stSidebar"] { display: none; }
+            .dashboard-shell { border-radius: 12px; min-height: auto; }
+            .dashboard-main { padding: 0.55rem; }
+            .dashboard-navlinks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .dashboard-navlinks a { text-align: center; padding: 0.72rem 0.5rem; }
             .dashboard-layout {
                 grid-template-columns: 1fr;
                 grid-template-areas:
                     "welcome"
-                    "projects"
                     "quick"
-                    "preview"
+                    "projects"
                     "stats"
+                    "preview"
                     "activity"
                     "news"
                     "tips"
                     "license";
             }
-        }
-        @media (max-width: 760px) {
-            .dashboard-actions, .dashboard-metrics { grid-template-columns: 1fr; }
-            .dashboard-shell { border-radius: 16px; }
-            .dashboard-main { padding: 0.7rem; }
+            .dashboard-actions { grid-template-columns: 1fr; }
+            .dashboard-log-track { grid-template-columns: 0.5fr 1fr 1fr; }
         }
         div[data-testid="stDataFrame"] {
             border: 1px solid var(--app-border);
@@ -752,7 +735,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .replace('{tokens["caption"]}', tokens["caption"])
         .replace('{tokens["button"]}', tokens["button"])
         .replace('{tokens["h1"]}', tokens["h1"])
-        .replace('{layout_tokens["max_width"]}', layout_tokens["max_width"]),
+        .replace('{layout_tokens["max_width"]}', layout_tokens["max_width"])
+        .replace('{app_background_css}', app_background_css),
         unsafe_allow_html=True,
     )
 
@@ -1802,14 +1786,6 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
         <div class="dashboard-shell" style="{style}">
           <div class="dashboard-overlay"></div>
           <div class="dashboard-content">
-            <nav class="dashboard-side-rail" aria-label="Dashboard sidebar">
-              <a class="dashboard-rail-button active" href="#dashboard-home" title="Старт">⌂</a>
-              <a class="dashboard-rail-button" href="#dashboard-projects" title="Проекты">▣</a>
-              <a class="dashboard-rail-button" href="#dashboard-quick-actions" title="Быстрый доступ">＋</a>
-              <a class="dashboard-rail-button" href="#dashboard-preview" title="Мини-планшет">⌁</a>
-              <a class="dashboard-rail-button" href="#dashboard-activity" title="Активность">◷</a>
-              <a class="dashboard-rail-button" href="#dashboard-license" title="Лицензия">©</a>
-            </nav>
             <main class="dashboard-main" id="dashboard-home">
               <div class="dashboard-navbar">
                 <div class="dashboard-brand">Gas Ratio <span>Pro</span></div>
@@ -1853,12 +1829,12 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
                 <article class="dashboard-card quick" id="dashboard-quick-actions">
                   <h3>Быстрый доступ</h3>
                   <div class="dashboard-actions">
-                    <div class="dashboard-action-card"><strong>Создать проект</strong><span class="dashboard-muted">Левая панель проекта</span></div>
-                    <div class="dashboard-action-card"><strong>Импорт LAS</strong><span class="dashboard-muted">Вкладка Работа с данными</span></div>
-                    <div class="dashboard-action-card"><strong>LAS-редактор</strong><span class="dashboard-muted">Подготовка кривых</span></div>
-                    <div class="dashboard-action-card"><strong>Корреляция</strong><span class="dashboard-muted">Сравнение скважин</span></div>
-                    <div class="dashboard-action-card"><strong>Отчеты</strong><span class="dashboard-muted">Экспорт материалов</span></div>
-                    <div class="dashboard-action-card"><strong>Руководство</strong><span class="dashboard-muted">Инструкции и документация</span></div>
+                    <a class="dashboard-action-card" href="#data-workspace"><strong>Создать / открыть проект</strong><span class="dashboard-muted">Работа с проектом и импортом</span></a>
+                    <a class="dashboard-action-card" href="#data-workspace"><strong>Импорт LAS</strong><span class="dashboard-muted">Перейти к загрузке данных</span></a>
+                    <a class="dashboard-action-card" href="#las-editor-workspace"><strong>LAS-редактор</strong><span class="dashboard-muted">Подготовка и правка кривых</span></a>
+                    <a class="dashboard-action-card" href="#correlation-workspace"><strong>LAS-корреляция</strong><span class="dashboard-muted">Сравнение скважин</span></a>
+                    <a class="dashboard-action-card" href="#graphs-workspace"><strong>Графики и отчеты</strong><span class="dashboard-muted">Планшеты и экспорт</span></a>
+                    <a class="dashboard-action-card" href="#documentation-workspace"><strong>Инструкции</strong><span class="dashboard-muted">Руководство пользователя</span></a>
                   </div>
                 </article>
                 <article class="dashboard-card activity" id="dashboard-activity">
@@ -1887,7 +1863,7 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
                 <article class="dashboard-card license" id="dashboard-license">
                   <h3>Лицензия и авторские права</h3>
                   <p>© Rinat Sarmuldin. Все права защищены. Коммерческое использование допускается только с разрешения автора.</p>
-                  <div class="dashboard-muted">Фоновое изображение используется только на главной странице, чтобы не мешать рабочим графикам и числам.</div>
+                  <div class="dashboard-muted">Фоновое изображение используется как фирменный слой приложения; рабочие графики и таблицы закрываются темными панелями для читаемости.</div>
                 </article>
               </section>
               <footer class="dashboard-footer">
@@ -1907,20 +1883,8 @@ def _render_start_tab(active_project: ProjectRecord) -> None:
         projects = (active_project,)
     _render_dashboard_shell(active_project, projects)
 
-    st.markdown("### Навигационные кнопки")
-    st.caption(
-        "Streamlit не переключает вкладки программно, поэтому кнопки показывают, "
-        "какой рабочий раздел открыть дальше. Основная навигация остается в верхних вкладках приложения."
-    )
-    action_columns = st.columns(3)
-    for index, action in enumerate(START_ACTIONS):
-        with action_columns[index % 3]:
-            st.button(
-                action["title"],
-                key=f"dashboard_action_{index}",
-                use_container_width=True,
-                help=f"Откройте вкладку: {action['target_tab']}. {action['when']}",
-            )
+    st.caption("Быстрые действия внутри Dashboard являются крупными ссылками-якорями. Основное переключение рабочих разделов выполняется верхними вкладками Streamlit ниже/выше страницы.")
+
 
     with st.expander("Текущее состояние workflow", expanded=False):
         for label, value, next_action in _workflow_status_detail_rows(active_project):
@@ -1936,8 +1900,8 @@ def _render_start_tab(active_project: ProjectRecord) -> None:
         st.markdown(
             f"**Активный режим:** {layout_label} (`max-width: {layout_width}`).\n\n"
             f"{layout_description}\n\n"
-            "Главная страница использует фоновую картинку с темным overlay. "
-            "Рабочие графики, планшеты, таблицы и редакторы остаются на однотонном фоне для читаемости."
+            "Все вкладки используют фирменный фоновый слой с темным overlay. "
+            "Рабочие графики, планшеты, таблицы и редакторы закрываются однотонными темными рабочими панелями для читаемости."
         )
 
 
@@ -5807,14 +5771,19 @@ def main() -> None:
     with start_tab:
         _render_start_tab(active_project)
     with workspace_tab:
+        st.markdown('<div id="data-workspace"></div>', unsafe_allow_html=True)
         _render_workspace(logger, active_project)
     with las_editor_tab:
+        st.markdown('<div id="las-editor-workspace"></div>', unsafe_allow_html=True)
         _render_las_editor(logger, active_project)
     with correlation_tab:
+        st.markdown('<div id="correlation-workspace"></div>', unsafe_allow_html=True)
         _render_las_correlation_tab(logger, active_project)
     with graphs_tab:
+        st.markdown('<div id="graphs-workspace"></div>', unsafe_allow_html=True)
         _render_interpretation_graphs_tab(logger, active_project)
     with docs_tab:
+        st.markdown('<div id="documentation-workspace"></div>', unsafe_allow_html=True)
         _render_documentation_tab()
 
 
