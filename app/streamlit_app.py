@@ -160,12 +160,16 @@ build_project_duplicate_files_table = project_index.build_project_duplicate_file
 build_project_file_index_table = project_index.build_project_file_index_table
 build_project_file_versions_table = project_index.build_project_file_versions_table
 build_project_file_version_history_table = project_index.build_project_file_version_history_table
+build_project_uuid_registry_table = project_index.build_project_uuid_registry_table
 detect_project_duplicate_files = project_index.detect_project_duplicate_files
 annotate_project_file_index_duplicates = project_index.annotate_project_file_index_duplicates
 load_project_file_index = project_index.load_project_file_index
 load_project_file_versions = project_index.load_project_file_versions
+load_project_uuid_registry = project_index.load_project_uuid_registry
 save_project_file_index = project_index.save_project_file_index
 update_project_file_versions = project_index.update_project_file_versions
+update_project_uuid_registry = project_index.update_project_uuid_registry
+validate_project_uuid_registry = project_index.validate_project_uuid_registry
 validate_project_file_index = project_index.validate_project_file_index
 DEFAULT_INTERPRETATION_TRACKS = project_graph_settings.DEFAULT_INTERPRETATION_TRACKS
 InterpretationGraphSettings = project_graph_settings.InterpretationGraphSettings
@@ -3647,6 +3651,50 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
             )
             selected_asset = assets_with_history[[f"{asset.relative_path} · версий: {asset.version_count}" for asset in assets_with_history].index(selected_label)]
             st.dataframe(build_project_file_version_history_table(selected_asset), use_container_width=True, height=220)
+
+    with st.expander("Project Database · Автоматические UUID", expanded=False):
+        st.caption(
+            "Registry назначает стабильные UUID v4 проекту, скважинам, datasets, расчетам, "
+            "экспортам, файлам индекса и версиям файлов. Содержимое файлов не копируется и не переписывается."
+        )
+        columns = st.columns(2)
+        with columns[0]:
+            if st.button("Обновить UUID registry", key=f"project_uuid_registry_refresh_{project.id}"):
+                try:
+                    summary = update_project_uuid_registry(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+                except Exception:
+                    logger.exception("project_uuid_registry_update_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось обновить UUID registry проекта. Подробности записаны в logs/app.log.")
+                else:
+                    st.success(
+                        f"UUID registry обновлен. Объектов: {summary.total_count}, "
+                        f"новых UUID: {summary.created_count}, восстановлено: {summary.restored_count}."
+                    )
+        with columns[1]:
+            if st.button("Проверить UUID registry", key=f"project_uuid_registry_validate_{project.id}"):
+                try:
+                    summary = validate_project_uuid_registry(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+                except Exception:
+                    logger.exception("project_uuid_registry_validate_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось проверить UUID registry проекта. Подробности записаны в logs/app.log.")
+                else:
+                    warnings = sum(1 for entry in summary.entries if entry.status == "warning")
+                    if warnings:
+                        st.warning(f"UUID registry требует проверки. Объектов с предупреждениями: {warnings}.")
+                    else:
+                        st.success(f"UUID registry корректен. Объектов: {summary.total_count}.")
+
+        uuid_entries = load_project_uuid_registry(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+        if not uuid_entries:
+            st.caption("UUID registry еще не создан. Нажмите `Обновить UUID registry` после обновления индекса файлов.")
+        else:
+            object_types = sorted({entry.object_type for entry in uuid_entries})
+            restored = sum(1 for entry in uuid_entries if entry.status == "restored")
+            st.caption(
+                f"UUID объектов: {len(uuid_entries)} · типов: {', '.join(object_types)} · "
+                f"восстановленных записей: {restored}"
+            )
+            st.dataframe(build_project_uuid_registry_table(uuid_entries), use_container_width=True, height=260)
 
 def _project_workspace_summary_rows(project: ProjectRecord) -> tuple[tuple[str, str], ...]:
     all_well_cards = list_project_las_wells(

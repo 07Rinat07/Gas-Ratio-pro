@@ -135,3 +135,6 @@ git status --short
 ## Well Manager metadata
 
 Карточка скважины в активном проекте хранит только metadata в `well_cards.json`: название, статус, комментарий, координаты, KB, GL, плановую/фактическую TD, дату начала бурения `spud_date` в формате `YYYY-MM-DD`, оператора `operator` и месторождение `field`. Эти поля отображаются в Project Explorer и не изменяют сохраненные LAS-версии или расчетные snapshots.
+
+
+Project Database также поддерживает `project_uuids.json` — metadata-only registry стабильных UUID v4 для объектов проекта.

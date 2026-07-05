@@ -300,3 +300,92 @@ def test_project_file_versions_tables_contain_active_and_history_summary(tmp_pat
     history = build_project_file_version_history_table(source_asset)
     assert list(history["Версия"]) == [2, 1]
     assert "активная" in set(history["Статус"])
+
+from projects import (
+    build_project_uuid_registry_table,
+    load_project_uuid_registry,
+    update_project_uuid_registry,
+    validate_project_uuid_registry,
+)
+
+
+def test_project_uuid_registry_assigns_stable_uuid_v4_to_project_objects(tmp_path):
+    save_project_csv_dataset(
+        CSV_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="gas.csv",
+        name="Gas dataset",
+    )
+    save_project_file_index(tmp_path, "demo")
+    update_project_file_versions(tmp_path, "demo", author="Rinat")
+
+    summary = update_project_uuid_registry(tmp_path, "demo")
+    loaded_entries = load_project_uuid_registry(tmp_path, "demo")
+
+    assert summary.total_count == len(loaded_entries)
+    assert summary.created_count == summary.total_count
+    assert any(entry.logical_key == "project::demo" for entry in loaded_entries)
+    assert any(entry.object_type == "CSV Dataset" for entry in loaded_entries)
+    assert any(entry.object_type == "Project File" for entry in loaded_entries)
+    assert all(len(entry.uuid) == 36 for entry in loaded_entries)
+    assert len({entry.uuid for entry in loaded_entries}) == len(loaded_entries)
+
+    second_summary = update_project_uuid_registry(tmp_path, "demo")
+    assert second_summary.created_count == 0
+    assert {entry.logical_key: entry.uuid for entry in second_summary.entries} == {
+        entry.logical_key: entry.uuid for entry in loaded_entries
+    }
+
+
+def test_project_uuid_registry_restores_invalid_or_duplicate_values(tmp_path):
+    save_project_csv_dataset(
+        CSV_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="gas.csv",
+        name="Gas dataset",
+    )
+    save_project_file_index(tmp_path, "demo")
+    update_project_uuid_registry(tmp_path, "demo")
+
+    registry_path = tmp_path / "demo" / "project_uuids.json"
+    payload = json.loads(registry_path.read_text(encoding="utf-8"))
+    payload["entries"][0]["uuid"] = "not-a-uuid"
+    payload["entries"][1]["uuid"] = payload["entries"][2]["uuid"]
+    registry_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    validation_before = validate_project_uuid_registry(tmp_path, "demo")
+    assert any(entry.status == "warning" for entry in validation_before.entries)
+
+    repaired = update_project_uuid_registry(tmp_path, "demo")
+
+    assert repaired.restored_count >= 2
+    assert len({entry.uuid for entry in repaired.entries}) == len(repaired.entries)
+    assert all(entry.status != "warning" for entry in repaired.entries)
+
+
+def test_project_uuid_registry_table_contains_service_metadata(tmp_path):
+    save_project_csv_dataset(
+        CSV_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="gas.csv",
+        name="Gas dataset",
+    )
+    save_project_file_index(tmp_path, "demo")
+    summary = update_project_uuid_registry(tmp_path, "demo")
+
+    table = build_project_uuid_registry_table(summary.entries)
+
+    assert list(table.columns) == [
+        "Тип",
+        "Object ID",
+        "UUID",
+        "Статус",
+        "Ключ",
+        "Путь",
+        "Предупреждения",
+    ]
+    assert "Project" in set(table["Тип"])
+    assert "CSV Dataset" in set(table["Тип"])

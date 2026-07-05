@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,9 +14,11 @@ from projects.repository import safe_project_id
 
 PROJECT_INDEX_FILE_NAME = "project_index.json"
 PROJECT_FILE_VERSIONS_FILE_NAME = "project_file_versions.json"
+PROJECT_UUID_REGISTRY_FILE_NAME = "project_uuids.json"
 PROJECT_INDEX_SCHEMA_VERSION = 1
 PROJECT_FILE_VERSIONS_SCHEMA_VERSION = 1
-_INDEX_EXCLUDED_NAMES = {PROJECT_INDEX_FILE_NAME, PROJECT_FILE_VERSIONS_FILE_NAME}
+PROJECT_UUID_REGISTRY_SCHEMA_VERSION = 1
+_INDEX_EXCLUDED_NAMES = {PROJECT_INDEX_FILE_NAME, PROJECT_FILE_VERSIONS_FILE_NAME, PROJECT_UUID_REGISTRY_FILE_NAME}
 _INDEX_EXCLUDED_DIRS = {"__pycache__", ".pytest_cache"}
 
 
@@ -119,6 +122,42 @@ class ProjectDuplicateFileGroup:
         return "Проверьте группу вручную перед удалением или объединением."
 
 
+@dataclass(frozen=True)
+class ProjectUuidEntry:
+    """Stable UUID assigned to one logical project object."""
+
+    logical_key: str
+    object_type: str
+    object_id: str
+    uuid: str
+    status: str = "active"
+    warnings: tuple[str, ...] = ()
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def status_label(self) -> str:
+        labels = {
+            "active": "активный",
+            "restored": "восстановлен",
+            "warning": "требует проверки",
+        }
+        return labels.get(self.status, self.status)
+
+
+@dataclass(frozen=True)
+class ProjectUuidRegistrySummary:
+    """Compact result of automatic UUID registry refresh."""
+
+    entries: tuple[ProjectUuidEntry, ...]
+    created_count: int = 0
+    restored_count: int = 0
+    duplicate_uuid_count: int = 0
+
+    @property
+    def total_count(self) -> int:
+        return len(self.entries)
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -133,6 +172,10 @@ def _index_path(root: Path | str, project_id: str) -> Path:
 
 def _file_versions_path(root: Path | str, project_id: str) -> Path:
     return _project_dir(root, project_id) / PROJECT_FILE_VERSIONS_FILE_NAME
+
+
+def _uuid_registry_path(root: Path | str, project_id: str) -> Path:
+    return _project_dir(root, project_id) / PROJECT_UUID_REGISTRY_FILE_NAME
 
 
 def _iso_mtime(path: Path) -> str:
@@ -686,6 +729,290 @@ def build_project_file_version_history_table(asset: ProjectFileVersionAsset) -> 
                 "Изменение": version.change_summary,
             }
             for version in sorted(asset.versions, key=lambda item: item.version_number, reverse=True)
+        ]
+    )
+
+
+def _uuid_entry_to_dict(entry: ProjectUuidEntry) -> dict[str, Any]:
+    return {
+        "logical_key": entry.logical_key,
+        "object_type": entry.object_type,
+        "object_id": entry.object_id,
+        "uuid": entry.uuid,
+        "status": entry.status,
+        "warnings": list(entry.warnings),
+        "metadata": dict(entry.metadata),
+    }
+
+
+def _uuid_entry_from_dict(raw: dict[str, Any]) -> ProjectUuidEntry:
+    return ProjectUuidEntry(
+        logical_key=str(raw.get("logical_key", "")),
+        object_type=str(raw.get("object_type", "Object")),
+        object_id=str(raw.get("object_id", "")),
+        uuid=str(raw.get("uuid", "")),
+        status=str(raw.get("status", "active")),
+        warnings=tuple(str(item) for item in raw.get("warnings", ()) if str(item)),
+        metadata=dict(raw.get("metadata") or {}),
+    )
+
+
+def _is_valid_uuid(value: str) -> bool:
+    try:
+        uuid.UUID(str(value), version=4)
+    except (TypeError, ValueError, AttributeError):
+        return False
+    return True
+
+
+def _new_uuid(existing: set[str]) -> str:
+    while True:
+        value = str(uuid.uuid4())
+        if value not in existing:
+            existing.add(value)
+            return value
+
+
+def _load_json_file(path: Path) -> dict[str, Any]:
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def _manifest_records(project_dir: Path, relative_path: str, key: str) -> tuple[dict[str, Any], ...]:
+    payload = _load_json_file(project_dir / relative_path)
+    return tuple(item for item in payload.get(key, ()) if isinstance(item, dict))
+
+
+def _collect_project_uuid_specs(root: Path | str, project_id: str) -> tuple[dict[str, Any], ...]:
+    """Collect logical project objects that require stable UUIDs.
+
+    The collector is intentionally metadata-only. It reads project manifests and
+    saved database metadata, but it never opens source LAS/CSV/Excel/Core/Mud Log
+    or Production files and never mutates project datasets.
+    """
+
+    safe_id = safe_project_id(project_id)
+    project_dir = _project_dir(root, safe_id)
+    specs: list[dict[str, Any]] = [
+        {
+            "logical_key": f"project::{safe_id}",
+            "object_type": "Project",
+            "object_id": safe_id,
+            "metadata": {"relative_path": "project.json"},
+        }
+    ]
+
+    manifest_map = (
+        ("wells/las_files.json", "las_files", "LAS Version", "wells"),
+        ("datasets/csv/csv_datasets.json", "csv_datasets", "CSV Dataset", "datasets/csv"),
+        ("datasets/excel/excel_datasets.json", "excel_datasets", "Excel Dataset", "datasets/excel"),
+        ("datasets/core/core_datasets.json", "core_datasets", "Core Dataset", "datasets/core"),
+        ("datasets/mud_log/mud_log_datasets.json", "mud_log_datasets", "Mud Log Dataset", "datasets/mud_log"),
+        ("datasets/production/production_datasets.json", "production_datasets", "Production Dataset", "datasets/production"),
+        ("calculations/calculations.json", "calculations", "Calculation Snapshot", "calculations"),
+        ("exports/exports.json", "exports", "Export", "exports"),
+        ("well_cards/well_cards.json", "well_cards", "Well", "well_cards"),
+        ("well_groups.json", "groups", "Well Group", "well_groups"),
+        ("project_folders.json", "folders", "Project Folder", "project_folders"),
+        ("project_labels.json", "labels", "Project Label", "project_labels"),
+    )
+    for relative_path, key, object_type, group in manifest_map:
+        for record in _manifest_records(project_dir, relative_path, key):
+            object_id = str(record.get("id", "")).strip()
+            if not object_id:
+                continue
+            specs.append(
+                {
+                    "logical_key": f"{group}::{object_id}",
+                    "object_type": object_type,
+                    "object_id": object_id,
+                    "metadata": {
+                        "relative_path": relative_path,
+                        "name": str(record.get("name") or record.get("label") or record.get("file_name") or ""),
+                    },
+                }
+            )
+
+    for entry in load_project_file_index(root, safe_id):
+        specs.append(
+            {
+                "logical_key": f"file::{entry.relative_path}",
+                "object_type": "Project File",
+                "object_id": entry.id,
+                "metadata": {
+                    "relative_path": entry.relative_path,
+                    "kind": entry.kind,
+                    "checksum_sha256": entry.checksum_sha256,
+                    "well_id": entry.well_id,
+                    "dataset_type": entry.dataset_type,
+                },
+            }
+        )
+
+    for asset in load_project_file_versions(root, safe_id):
+        specs.append(
+            {
+                "logical_key": f"file_version_asset::{asset.asset_key}",
+                "object_type": "File Version Asset",
+                "object_id": asset.asset_key,
+                "metadata": {"relative_path": asset.relative_path, "kind": asset.kind},
+            }
+        )
+        for version in asset.versions:
+            specs.append(
+                {
+                    "logical_key": f"file_version::{asset.asset_key}::{version.version_number}",
+                    "object_type": "File Version",
+                    "object_id": version.id,
+                    "metadata": {
+                        "relative_path": version.relative_path,
+                        "version_number": version.version_number,
+                        "checksum_sha256": version.checksum_sha256,
+                    },
+                }
+            )
+
+    unique: dict[str, dict[str, Any]] = {}
+    for spec in specs:
+        key = str(spec.get("logical_key", "")).strip()
+        if key:
+            unique.setdefault(key, spec)
+    return tuple(unique[key] for key in sorted(unique))
+
+
+def load_project_uuid_registry(root: Path | str, project_id: str) -> tuple[ProjectUuidEntry, ...]:
+    """Load stable UUID assignments for project objects."""
+
+    path = _uuid_registry_path(root, project_id)
+    if not path.exists():
+        return ()
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return ()
+    return tuple(
+        _uuid_entry_from_dict(item)
+        for item in raw.get("entries", ())
+        if isinstance(item, dict)
+    )
+
+
+def update_project_uuid_registry(root: Path | str, project_id: str) -> ProjectUuidRegistrySummary:
+    """Assign UUID v4 values to all currently known project objects.
+
+    Existing valid UUIDs are preserved by logical key. Missing, invalid or
+    duplicate UUIDs are regenerated and marked as restored so legacy project
+    metadata can be safely normalized without rewriting old source files.
+    """
+
+    safe_id = safe_project_id(project_id)
+    existing = {entry.logical_key: entry for entry in load_project_uuid_registry(root, safe_id)}
+    used: set[str] = set()
+    duplicate_candidates: set[str] = set()
+    for entry in existing.values():
+        if not _is_valid_uuid(entry.uuid):
+            continue
+        if entry.uuid in used:
+            duplicate_candidates.add(entry.uuid)
+        used.add(entry.uuid)
+
+    entries: list[ProjectUuidEntry] = []
+    created_count = 0
+    restored_count = 0
+    for spec in _collect_project_uuid_specs(root, safe_id):
+        key = str(spec["logical_key"])
+        previous = existing.get(key)
+        warnings: list[str] = []
+        status = "active"
+        if previous and _is_valid_uuid(previous.uuid) and previous.uuid not in duplicate_candidates:
+            value = previous.uuid
+        else:
+            value = _new_uuid(used)
+            if previous:
+                restored_count += 1
+                status = "restored"
+                warnings.append("UUID отсутствовал, был некорректным или повторялся; назначен новый UUID v4.")
+            else:
+                created_count += 1
+        entries.append(
+            ProjectUuidEntry(
+                logical_key=key,
+                object_type=str(spec.get("object_type", "Object")),
+                object_id=str(spec.get("object_id", "")),
+                uuid=value,
+                status=status,
+                warnings=tuple(warnings),
+                metadata=dict(spec.get("metadata") or {}),
+            )
+        )
+
+    path = _uuid_registry_path(root, safe_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": PROJECT_UUID_REGISTRY_SCHEMA_VERSION,
+        "project_id": safe_id,
+        "generated_at": _utc_now(),
+        "entries": [_uuid_entry_to_dict(entry) for entry in entries],
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return ProjectUuidRegistrySummary(
+        entries=tuple(entries),
+        created_count=created_count,
+        restored_count=restored_count,
+        duplicate_uuid_count=len(duplicate_candidates),
+    )
+
+
+def validate_project_uuid_registry(root: Path | str, project_id: str) -> ProjectUuidRegistrySummary:
+    """Check current UUID registry without changing it."""
+
+    entries = load_project_uuid_registry(root, project_id)
+    seen: set[str] = set()
+    duplicates = 0
+    checked: list[ProjectUuidEntry] = []
+    for entry in entries:
+        warnings = list(entry.warnings)
+        status = entry.status
+        if not _is_valid_uuid(entry.uuid):
+            status = "warning"
+            warnings.append("UUID некорректен или отсутствует.")
+        elif entry.uuid in seen:
+            status = "warning"
+            warnings.append("UUID повторяется в registry.")
+            duplicates += 1
+        seen.add(entry.uuid)
+        checked.append(
+            ProjectUuidEntry(
+                logical_key=entry.logical_key,
+                object_type=entry.object_type,
+                object_id=entry.object_id,
+                uuid=entry.uuid,
+                status=status,
+                warnings=tuple(dict.fromkeys(warnings)),
+                metadata=dict(entry.metadata),
+            )
+        )
+    return ProjectUuidRegistrySummary(entries=tuple(checked), duplicate_uuid_count=duplicates)
+
+
+def build_project_uuid_registry_table(entries: tuple[ProjectUuidEntry, ...]) -> pd.DataFrame:
+    """Build compact UUID registry table for UI/reporting."""
+
+    return pd.DataFrame(
+        [
+            {
+                "Тип": entry.object_type,
+                "Object ID": entry.object_id,
+                "UUID": entry.uuid,
+                "Статус": entry.status_label,
+                "Ключ": entry.logical_key,
+                "Путь": str(entry.metadata.get("relative_path", "")) or "—",
+                "Предупреждения": "; ".join(entry.warnings),
+            }
+            for entry in entries
         ]
     )
 
