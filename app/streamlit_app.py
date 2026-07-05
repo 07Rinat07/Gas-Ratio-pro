@@ -156,7 +156,10 @@ save_project_mud_log_dataset = project_datasets.save_project_mud_log_dataset
 list_project_production_datasets = project_datasets.list_project_production_datasets
 save_project_production_dataset = project_datasets.save_project_production_dataset
 build_project_dataset_table = project_datasets.build_project_dataset_table
+build_project_duplicate_files_table = project_index.build_project_duplicate_files_table
 build_project_file_index_table = project_index.build_project_file_index_table
+detect_project_duplicate_files = project_index.detect_project_duplicate_files
+annotate_project_file_index_duplicates = project_index.annotate_project_file_index_duplicates
 load_project_file_index = project_index.load_project_file_index
 save_project_file_index = project_index.save_project_file_index
 validate_project_file_index = project_index.validate_project_file_index
@@ -3585,13 +3588,23 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
             st.caption("Индекс еще не создан. Нажмите `Обновить индекс файлов`.")
             return
 
+        duplicate_groups = detect_project_duplicate_files(entries)
+        annotated_entries = annotate_project_file_index_duplicates(entries, duplicate_groups)
         total_size = sum(entry.size_bytes for entry in entries)
         indexed_kinds = sorted({entry.kind for entry in entries})
+        duplicate_files = sum(group.duplicate_count for group in duplicate_groups)
         st.caption(
             f"В индексе файлов: {len(entries)} · размер: {total_size:,} байт · "
-            f"типы: {', '.join(indexed_kinds)}"
+            f"типы: {', '.join(indexed_kinds)} · возможных лишних дублей: {duplicate_files}"
         )
-        st.dataframe(build_project_file_index_table(entries), use_container_width=True, height=260)
+        if duplicate_groups:
+            st.warning(
+                "Найдены возможные дубликаты файлов проекта. Проверьте таблицу перед удалением или объединением datasets."
+            )
+            st.dataframe(build_project_duplicate_files_table(duplicate_groups), use_container_width=True, height=220)
+        else:
+            st.success("Дубликаты по SHA-256 и паре имя/размер не найдены.")
+        st.dataframe(build_project_file_index_table(annotated_entries), use_container_width=True, height=260)
 
 def _project_workspace_summary_rows(project: ProjectRecord) -> tuple[tuple[str, str], ...]:
     all_well_cards = list_project_las_wells(

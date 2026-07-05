@@ -45,6 +45,37 @@ class ProjectFileIndexEntry:
         return labels.get(self.status, self.status)
 
 
+
+
+@dataclass(frozen=True)
+class ProjectDuplicateFileGroup:
+    """Files that likely represent the same project asset."""
+
+    reason: str
+    match_key: str
+    entries: tuple[ProjectFileIndexEntry, ...]
+
+    @property
+    def duplicate_count(self) -> int:
+        return max(len(self.entries) - 1, 0)
+
+    @property
+    def reason_label(self) -> str:
+        labels = {
+            "checksum": "одинаковая SHA-256",
+            "name_size": "одинаковое имя и размер",
+        }
+        return labels.get(self.reason, self.reason)
+
+    @property
+    def recommendation(self) -> str:
+        if self.reason == "checksum":
+            return "Оставьте один исходный файл или dataset, остальные можно удалить/заархивировать после проверки ссылок."
+        if self.reason == "name_size":
+            return "Проверьте содержимое файлов: имя и размер совпадают, но контрольная сумма может отличаться."
+        return "Проверьте группу вручную перед удалением или объединением."
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -243,6 +274,131 @@ def validate_project_file_index(root: Path | str, project_id: str) -> tuple[Proj
         )
     return tuple(checked)
 
+
+
+
+def _group_duplicates(
+    entries: tuple[ProjectFileIndexEntry, ...],
+    *,
+    key_getter,
+    reason: str,
+    skip_keys: set[str] | None = None,
+) -> tuple[ProjectDuplicateFileGroup, ...]:
+    skip_keys = skip_keys or set()
+    grouped: dict[str, list[ProjectFileIndexEntry]] = {}
+    for entry in entries:
+        if entry.status == "missing":
+            continue
+        key = key_getter(entry)
+        if not key or key in skip_keys:
+            continue
+        grouped.setdefault(key, []).append(entry)
+
+    duplicate_groups: list[ProjectDuplicateFileGroup] = []
+    for key, group_entries in sorted(grouped.items()):
+        if len(group_entries) < 2:
+            continue
+        duplicate_groups.append(
+            ProjectDuplicateFileGroup(
+                reason=reason,
+                match_key=key,
+                entries=tuple(sorted(group_entries, key=lambda item: item.relative_path)),
+            )
+        )
+    return tuple(duplicate_groups)
+
+
+def detect_project_duplicate_files(
+    entries: tuple[ProjectFileIndexEntry, ...],
+) -> tuple[ProjectDuplicateFileGroup, ...]:
+    """Detect likely duplicate files from a saved project file index.
+
+    Exact duplicates are grouped by SHA-256 first. Name/size groups are added only
+    when a file was not already reported as an exact checksum duplicate. This keeps
+    the result compact while still surfacing suspicious repeated imports.
+    """
+
+    checksum_groups = _group_duplicates(
+        entries,
+        key_getter=lambda entry: entry.checksum_sha256,
+        reason="checksum",
+    )
+    checksum_duplicate_ids = {
+        entry.id
+        for group in checksum_groups
+        for entry in group.entries
+    }
+    name_size_groups = _group_duplicates(
+        tuple(entry for entry in entries if entry.id not in checksum_duplicate_ids),
+        key_getter=lambda entry: f"{entry.name.lower()}::{entry.size_bytes}",
+        reason="name_size",
+    )
+    return tuple((*checksum_groups, *name_size_groups))
+
+
+def detect_project_duplicate_files_from_index(
+    root: Path | str,
+    project_id: str,
+) -> tuple[ProjectDuplicateFileGroup, ...]:
+    """Load the saved project index and detect duplicate files."""
+
+    return detect_project_duplicate_files(load_project_file_index(root, project_id))
+
+
+def build_project_duplicate_files_table(groups: tuple[ProjectDuplicateFileGroup, ...]) -> pd.DataFrame:
+    """Build a compact UI/report table for project duplicate groups."""
+
+    return pd.DataFrame(
+        [
+            {
+                "Причина": group.reason_label,
+                "Совпадений": len(group.entries),
+                "Лишних файлов": group.duplicate_count,
+                "Ключ": group.match_key[:32],
+                "Файлы": "\n".join(entry.relative_path for entry in group.entries),
+                "Типы": ", ".join(sorted({entry.kind for entry in group.entries})),
+                "Рекомендация": group.recommendation,
+            }
+            for group in groups
+        ]
+    )
+
+
+def annotate_project_file_index_duplicates(
+    entries: tuple[ProjectFileIndexEntry, ...],
+    groups: tuple[ProjectDuplicateFileGroup, ...] | None = None,
+) -> tuple[ProjectFileIndexEntry, ...]:
+    """Return entries with warning/status markers for duplicate groups."""
+
+    groups = detect_project_duplicate_files(entries) if groups is None else groups
+    duplicate_reasons: dict[str, list[str]] = {}
+    for group in groups:
+        for entry in group.entries:
+            duplicate_reasons.setdefault(entry.relative_path, []).append(
+                f"Возможный дубликат: {group.reason_label}."
+            )
+
+    annotated: list[ProjectFileIndexEntry] = []
+    for entry in entries:
+        warnings = tuple(dict.fromkeys((*entry.warnings, *duplicate_reasons.get(entry.relative_path, ()))))
+        status = "warning" if duplicate_reasons.get(entry.relative_path) and entry.status == "present" else entry.status
+        annotated.append(
+            ProjectFileIndexEntry(
+                id=entry.id,
+                relative_path=entry.relative_path,
+                name=entry.name,
+                kind=entry.kind,
+                size_bytes=entry.size_bytes,
+                modified_at=entry.modified_at,
+                checksum_sha256=entry.checksum_sha256,
+                well_id=entry.well_id,
+                dataset_type=entry.dataset_type,
+                status=status,
+                warnings=warnings,
+                metadata=dict(entry.metadata),
+            )
+        )
+    return tuple(annotated)
 
 def build_project_file_index_table(entries: tuple[ProjectFileIndexEntry, ...]) -> pd.DataFrame:
     return pd.DataFrame(

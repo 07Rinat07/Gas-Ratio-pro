@@ -111,3 +111,83 @@ def test_project_file_index_table_contains_compact_file_summary(tmp_path):
     ]
     assert "source.csv" in set(table["Файл"])
     assert "CSV" in set(table["Тип"])
+
+from projects import (
+    annotate_project_file_index_duplicates,
+    build_project_duplicate_files_table,
+    detect_project_duplicate_files,
+)
+
+
+def test_project_file_index_detects_exact_checksum_duplicates(tmp_path):
+    project_dir = tmp_path / "demo"
+    (project_dir / "datasets" / "csv" / "a").mkdir(parents=True)
+    (project_dir / "datasets" / "csv" / "b").mkdir(parents=True)
+    duplicate_bytes = b"Depth,C1\n1000,1.2\n"
+    (project_dir / "datasets" / "csv" / "a" / "source.csv").write_bytes(duplicate_bytes)
+    (project_dir / "datasets" / "csv" / "b" / "source.csv").write_bytes(duplicate_bytes)
+
+    entries = save_project_file_index(tmp_path, "demo")
+    groups = detect_project_duplicate_files(entries)
+
+    assert len(groups) == 1
+    assert groups[0].reason == "checksum"
+    assert groups[0].duplicate_count == 1
+    assert {entry.relative_path for entry in groups[0].entries} == {
+        "datasets/csv/a/source.csv",
+        "datasets/csv/b/source.csv",
+    }
+
+
+def test_project_file_index_detects_name_size_duplicates_after_checksum_groups(tmp_path):
+    project_dir = tmp_path / "demo"
+    (project_dir / "exports" / "first").mkdir(parents=True)
+    (project_dir / "exports" / "second").mkdir(parents=True)
+    (project_dir / "exports" / "first" / "report.html").write_bytes(b"AAAA")
+    (project_dir / "exports" / "second" / "report.html").write_bytes(b"BBBB")
+
+    entries = save_project_file_index(tmp_path, "demo")
+    groups = detect_project_duplicate_files(entries)
+
+    assert len(groups) == 1
+    assert groups[0].reason == "name_size"
+    assert groups[0].match_key == "report.html::4"
+
+
+def test_project_duplicate_files_table_contains_recommendations(tmp_path):
+    project_dir = tmp_path / "demo"
+    (project_dir / "datasets" / "csv" / "a").mkdir(parents=True)
+    (project_dir / "datasets" / "csv" / "b").mkdir(parents=True)
+    (project_dir / "datasets" / "csv" / "a" / "source.csv").write_bytes(CSV_BYTES)
+    (project_dir / "datasets" / "csv" / "b" / "source.csv").write_bytes(CSV_BYTES)
+
+    entries = save_project_file_index(tmp_path, "demo")
+    groups = detect_project_duplicate_files(entries)
+    table = build_project_duplicate_files_table(groups)
+
+    assert list(table.columns) == [
+        "Причина",
+        "Совпадений",
+        "Лишних файлов",
+        "Ключ",
+        "Файлы",
+        "Типы",
+        "Рекомендация",
+    ]
+    assert table.iloc[0]["Лишних файлов"] == 1
+    assert "Оставьте один" in table.iloc[0]["Рекомендация"]
+
+
+def test_project_file_index_annotation_marks_duplicate_entries(tmp_path):
+    project_dir = tmp_path / "demo"
+    (project_dir / "datasets" / "csv" / "a").mkdir(parents=True)
+    (project_dir / "datasets" / "csv" / "b").mkdir(parents=True)
+    (project_dir / "datasets" / "csv" / "a" / "source.csv").write_bytes(CSV_BYTES)
+    (project_dir / "datasets" / "csv" / "b" / "source.csv").write_bytes(CSV_BYTES)
+
+    entries = save_project_file_index(tmp_path, "demo")
+    annotated = annotate_project_file_index_duplicates(entries)
+
+    duplicate_entries = [entry for entry in annotated if entry.name == "source.csv"]
+    assert {entry.status for entry in duplicate_entries} == {"warning"}
+    assert all("Возможный дубликат" in "; ".join(entry.warnings) for entry in duplicate_entries)

@@ -90,9 +90,14 @@ from projects.project_folders import (
 
 from projects.project_index import (
     PROJECT_INDEX_FILE_NAME,
+    ProjectDuplicateFileGroup,
     ProjectFileIndexEntry,
+    annotate_project_file_index_duplicates,
+    build_project_duplicate_files_table,
     build_project_file_index,
     build_project_file_index_table,
+    detect_project_duplicate_files,
+    detect_project_duplicate_files_from_index,
     load_project_file_index,
     save_project_file_index,
     validate_project_file_index,
