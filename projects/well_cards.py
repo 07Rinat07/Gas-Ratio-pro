@@ -20,6 +20,8 @@ PROJECT_WELL_CARD_STATUSES: dict[str, str] = {
 PROJECT_WELL_COORDINATE_KEYS = ("x", "y", "latitude", "longitude")
 PROJECT_WELL_KB_METADATA_KEY = "kb_m"
 PROJECT_WELL_GL_METADATA_KEY = "gl_m"
+PROJECT_WELL_PLANNED_TD_METADATA_KEY = "planned_td_m"
+PROJECT_WELL_ACTUAL_TD_METADATA_KEY = "actual_td_m"
 
 
 @dataclass(frozen=True)
@@ -56,16 +58,17 @@ class ProjectWellCoordinates:
 
 @dataclass(frozen=True)
 class ProjectWellDepthReference:
-    """Validated optional depth reference metadata for a well card.
+    """Validated optional depth reference and total-depth metadata for a well card.
 
-    KB (Kelly Bushing / rotary table reference elevation) is stored in meters as
-    metadata only. The value is allowed to be negative for rare local datum
-    conventions, but the range is intentionally bounded to catch wrong units or
-    accidental text pasted into the field.
+    KB (Kelly Bushing / rotary table reference elevation) and GL (Ground Level)
+    are elevations in meters. Planned/actual TD values are measured depths in
+    meters. All values are metadata-only and do not rewrite LAS versions.
     """
 
     kb_m: float | None = None
     gl_m: float | None = None
+    planned_td_m: float | None = None
+    actual_td_m: float | None = None
 
     @property
     def has_kb(self) -> bool:
@@ -76,8 +79,20 @@ class ProjectWellDepthReference:
         return self.gl_m is not None
 
     @property
+    def has_planned_td(self) -> bool:
+        return self.planned_td_m is not None
+
+    @property
+    def has_actual_td(self) -> bool:
+        return self.actual_td_m is not None
+
+    @property
+    def has_td(self) -> bool:
+        return self.has_planned_td or self.has_actual_td
+
+    @property
     def has_any(self) -> bool:
-        return self.has_kb or self.has_gl
+        return self.has_kb or self.has_gl or self.has_td
 
     @staticmethod
     def _format_elevation(label: str, value: float | None) -> str:
@@ -94,8 +109,20 @@ class ProjectWellDepthReference:
         return self._format_elevation("GL", self.gl_m)
 
     @property
+    def planned_td_label(self) -> str:
+        return self._format_elevation("План TD", self.planned_td_m)
+
+    @property
+    def actual_td_label(self) -> str:
+        return self._format_elevation("Факт TD", self.actual_td_m)
+
+    @property
     def datum_labels(self) -> tuple[str, ...]:
         return tuple(label for label in (self.kb_label, self.gl_label) if label)
+
+    @property
+    def td_labels(self) -> tuple[str, ...]:
+        return tuple(label for label in (self.planned_td_label, self.actual_td_label) if label)
 
     @property
     def kb_above_gl_m(self) -> float | None:
@@ -159,6 +186,11 @@ class ProjectWellCardTableRow:
     kb_label: str = ""
     gl_m: float | None = None
     gl_label: str = ""
+    planned_td_m: float | None = None
+    planned_td_label: str = ""
+    actual_td_m: float | None = None
+    actual_td_label: str = ""
+    td_status_label: str = ""
     kb_above_gl_m: float | None = None
     kb_above_gl_label: str = ""
 
@@ -239,7 +271,12 @@ def merge_project_well_coordinates_metadata(
 
 
 
-def validate_project_well_depth_reference(kb_m: Any = None, gl_m: Any = None) -> ProjectWellDepthReference:
+def validate_project_well_depth_reference(
+    kb_m: Any = None,
+    gl_m: Any = None,
+    planned_td_m: Any = None,
+    actual_td_m: Any = None,
+) -> ProjectWellDepthReference:
     """Validate optional KB and GL elevations stored in meters.
 
     The helper accepts UI strings with either comma or dot decimal separators.
@@ -250,11 +287,28 @@ def validate_project_well_depth_reference(kb_m: Any = None, gl_m: Any = None) ->
 
     kb_value = _optional_float(kb_m, "KB")
     gl_value = _optional_float(gl_m, "GL")
+    planned_td_value = _optional_float(planned_td_m, "Плановая TD")
+    actual_td_value = _optional_float(actual_td_m, "Фактическая TD")
     if kb_value is not None and not -1000.0 <= kb_value <= 10000.0:
         raise ValueError("KB должен быть в диапазоне от -1000 до 10000 м.")
     if gl_value is not None and not -1000.0 <= gl_value <= 10000.0:
         raise ValueError("GL должен быть в диапазоне от -1000 до 10000 м.")
-    return ProjectWellDepthReference(kb_m=kb_value, gl_m=gl_value)
+    if planned_td_value is not None and not 0.0 < planned_td_value <= 15000.0:
+        raise ValueError("Плановая TD должна быть в диапазоне от 0 до 15000 м.")
+    if actual_td_value is not None and not 0.0 < actual_td_value <= 15000.0:
+        raise ValueError("Фактическая TD должна быть в диапазоне от 0 до 15000 м.")
+    if (
+        planned_td_value is not None
+        and actual_td_value is not None
+        and actual_td_value > planned_td_value * 1.5
+    ):
+        raise ValueError("Фактическая TD подозрительно больше плановой TD; проверьте единицы измерения.")
+    return ProjectWellDepthReference(
+        kb_m=kb_value,
+        gl_m=gl_value,
+        planned_td_m=planned_td_value,
+        actual_td_m=actual_td_value,
+    )
 
 
 def validate_project_well_kb(kb_m: Any = None) -> ProjectWellDepthReference:
@@ -273,6 +327,8 @@ def depth_reference_to_metadata(reference: ProjectWellDepthReference) -> dict[st
     return {
         PROJECT_WELL_KB_METADATA_KEY: reference.kb_m,
         PROJECT_WELL_GL_METADATA_KEY: reference.gl_m,
+        PROJECT_WELL_PLANNED_TD_METADATA_KEY: reference.planned_td_m,
+        PROJECT_WELL_ACTUAL_TD_METADATA_KEY: reference.actual_td_m,
     }
 
 
@@ -280,6 +336,8 @@ def depth_reference_from_metadata(metadata: dict[str, Any]) -> ProjectWellDepthR
     return validate_project_well_depth_reference(
         kb_m=metadata.get(PROJECT_WELL_KB_METADATA_KEY),
         gl_m=metadata.get(PROJECT_WELL_GL_METADATA_KEY),
+        planned_td_m=metadata.get(PROJECT_WELL_PLANNED_TD_METADATA_KEY),
+        actual_td_m=metadata.get(PROJECT_WELL_ACTUAL_TD_METADATA_KEY),
     )
 
 
@@ -288,11 +346,45 @@ def merge_project_well_depth_reference_metadata(
     *,
     kb_m: Any = None,
     gl_m: Any = None,
+    planned_td_m: Any = None,
+    actual_td_m: Any = None,
 ) -> dict[str, Any]:
     """Return card metadata with validated KB/GL elevations updated."""
 
     clean_metadata = dict(metadata or {})
-    clean_metadata.update(depth_reference_to_metadata(validate_project_well_depth_reference(kb_m=kb_m, gl_m=gl_m)))
+    clean_metadata.update(
+        depth_reference_to_metadata(
+            validate_project_well_depth_reference(
+                kb_m=kb_m,
+                gl_m=gl_m,
+                planned_td_m=planned_td_m,
+                actual_td_m=actual_td_m,
+            )
+        )
+    )
+    return clean_metadata
+
+
+def merge_project_well_td_metadata(
+    metadata: dict[str, Any] | None = None,
+    *,
+    planned_td_m: Any = None,
+    actual_td_m: Any = None,
+) -> dict[str, Any]:
+    """Return card metadata with validated planned/actual total depth updated."""
+
+    clean_metadata = dict(metadata or {})
+    reference = depth_reference_from_metadata(clean_metadata)
+    clean_metadata.update(
+        depth_reference_to_metadata(
+            validate_project_well_depth_reference(
+                kb_m=reference.kb_m,
+                gl_m=reference.gl_m,
+                planned_td_m=planned_td_m,
+                actual_td_m=actual_td_m,
+            )
+        )
+    )
     return clean_metadata
 
 
@@ -306,7 +398,12 @@ def merge_project_well_kb_metadata(
     clean_metadata = dict(metadata or {})
     reference = depth_reference_from_metadata(clean_metadata)
     clean_metadata.update(
-        depth_reference_to_metadata(validate_project_well_depth_reference(kb_m=kb_m, gl_m=reference.gl_m))
+        depth_reference_to_metadata(validate_project_well_depth_reference(
+            kb_m=kb_m,
+            gl_m=reference.gl_m,
+            planned_td_m=reference.planned_td_m,
+            actual_td_m=reference.actual_td_m,
+        ))
     )
     return clean_metadata
 
@@ -321,9 +418,39 @@ def merge_project_well_gl_metadata(
     clean_metadata = dict(metadata or {})
     reference = depth_reference_from_metadata(clean_metadata)
     clean_metadata.update(
-        depth_reference_to_metadata(validate_project_well_depth_reference(kb_m=reference.kb_m, gl_m=gl_m))
+        depth_reference_to_metadata(validate_project_well_depth_reference(
+            kb_m=reference.kb_m,
+            gl_m=gl_m,
+            planned_td_m=reference.planned_td_m,
+            actual_td_m=reference.actual_td_m,
+        ))
     )
     return clean_metadata
+
+
+def build_project_well_td_status_label(reference: ProjectWellDepthReference, max_las_depth_m: Any = None) -> str:
+    """Return a compact TD status for UI tables and tests.
+
+    Without a LAS depth argument the function reports only planned/factual TD
+    consistency. When `max_las_depth_m` is provided, it also flags LAS curves
+    that extend below the saved actual TD.
+    """
+
+    if not reference.has_td:
+        return "TD не указана"
+    target_td = reference.actual_td_m if reference.actual_td_m is not None else reference.planned_td_m
+    if target_td is None:
+        return "TD не указана"
+    max_depth = _optional_float(max_las_depth_m, "Максимальная глубина LAS")
+    if max_depth is not None and max_depth > target_td + 0.001:
+        return f"LAS глубже TD на {max_depth - target_td:.3f} м".replace(".000 м", " м")
+    if reference.actual_td_m is not None and reference.planned_td_m is not None:
+        delta = reference.actual_td_m - reference.planned_td_m
+        if abs(delta) <= 0.001:
+            return "Фактическая TD совпадает с плановой"
+        sign = "+" if delta > 0 else ""
+        return f"Факт TD {sign}{delta:.3f} м к плану".replace(".000 м", " м")
+    return "TD указана"
 
 
 def _utc_now() -> str:
@@ -505,6 +632,11 @@ def build_project_well_card_table(
             kb_label=card.depth_reference.kb_label,
             gl_m=card.depth_reference.gl_m,
             gl_label=card.depth_reference.gl_label,
+            planned_td_m=card.depth_reference.planned_td_m,
+            planned_td_label=card.depth_reference.planned_td_label,
+            actual_td_m=card.depth_reference.actual_td_m,
+            actual_td_label=card.depth_reference.actual_td_label,
+            td_status_label=build_project_well_td_status_label(card.depth_reference),
             kb_above_gl_m=card.depth_reference.kb_above_gl_m,
             kb_above_gl_label=card.depth_reference.kb_above_gl_label,
         )

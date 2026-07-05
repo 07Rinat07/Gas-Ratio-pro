@@ -676,3 +676,90 @@ def test_project_tree_shows_well_card_gl_and_kb_gl_difference(tmp_path):
     assert "KB=24 м" in str(well_row["status"])
     assert "GL=19.500 м" in str(well_row["status"])
     assert "KB-GL=4.500 м" in str(well_row["status"])
+
+
+def test_project_well_card_td_is_validated_and_listed(tmp_path):
+    project = create_project(tmp_path, name="Well TD", project_id="well-td")
+
+    from projects import (
+        build_project_well_card_table,
+        get_project_well_card,
+        merge_project_well_td_metadata,
+        save_project_well_card,
+    )
+
+    metadata = merge_project_well_td_metadata({"source": "manual"}, planned_td_m="3200", actual_td_m="3188,5")
+    save_project_well_card(
+        tmp_path,
+        project.id,
+        well_id="well-td",
+        name="Well TD",
+        status="review",
+        metadata=metadata,
+    )
+
+    stored = get_project_well_card(tmp_path, project.id, "well-td")
+    rows = build_project_well_card_table(tmp_path, project.id)
+
+    assert stored is not None
+    assert stored.metadata["source"] == "manual"
+    assert stored.depth_reference.planned_td_m == 3200.0
+    assert stored.depth_reference.actual_td_m == 3188.5
+    assert stored.depth_reference.planned_td_label == "План TD=3200 м"
+    assert stored.depth_reference.actual_td_label == "Факт TD=3188.500 м"
+    assert rows[0].planned_td_m == 3200.0
+    assert rows[0].actual_td_m == 3188.5
+    assert rows[0].td_status_label == "Факт TD -11.500 м к плану"
+
+
+def test_project_well_card_rejects_invalid_td(tmp_path):
+    create_project(tmp_path, name="Bad TD", project_id="bad-td")
+
+    from projects import merge_project_well_td_metadata
+
+    try:
+        merge_project_well_td_metadata(planned_td_m="0")
+    except ValueError as exc:
+        assert "TD" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("Invalid planned TD was accepted")
+
+    try:
+        merge_project_well_td_metadata(planned_td_m="1000", actual_td_m="2000")
+    except ValueError as exc:
+        assert "Фактическая TD" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("Suspicious actual TD was accepted")
+
+
+def test_project_tree_shows_well_card_td_in_status(tmp_path):
+    project = create_project(tmp_path, name="Tree TD", project_id="tree-td")
+    las_record = save_project_las_file(
+        b"~Version\nVERS. 2.0\n~Well\nNULL. -999.25\n~Curve\nDEPT.M : Depth\nC1. : C1\n~Ascii\n1000 80\n",
+        root=tmp_path,
+        project_id=project.id,
+        file_name="well_td.las",
+        well_name="Well TD",
+        version_label="Raw LAS",
+    )
+
+    from projects import merge_project_well_td_metadata, save_project_well_card
+
+    save_project_well_card(
+        tmp_path,
+        project.id,
+        well_id=las_record.well_id,
+        name="Well TD Official",
+        status="ready",
+        metadata=merge_project_well_td_metadata(planned_td_m="3200", actual_td_m="3188.5"),
+    )
+
+    tree = build_project_tree(tmp_path, project.id)
+    rows = project_tree_table_rows(tree)
+    well_row = next(row for row in rows if row["id"] == f"well:{las_record.well_id}")
+    well_node = next(node for _level, node in flatten_project_tree(tree) if node.id == f"well:{las_record.well_id}")
+
+    assert "План TD=3200 м" in str(well_row["status"])
+    assert "Факт TD=3188.500 м" in str(well_row["status"])
+    assert well_node.metadata["planned_td_m"] == "3200.0"
+    assert well_node.metadata["actual_td_m"] == "3188.5"

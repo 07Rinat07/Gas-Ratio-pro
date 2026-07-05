@@ -3070,15 +3070,27 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                     value="" if default_depth_reference.kb_m is None else f"{default_depth_reference.kb_m:g}",
                     key=f"project_explorer_well_card_kb_{project.id}_{selected_well_id}",
                 )
+                well_card_planned_td = st.text_input(
+                    "Плановая TD, м",
+                    value="" if default_depth_reference.planned_td_m is None else f"{default_depth_reference.planned_td_m:g}",
+                    key=f"project_explorer_well_card_planned_td_{project.id}_{selected_well_id}",
+                )
             with datum_col_b:
                 well_card_gl = st.text_input(
                     "GL, м",
                     value="" if default_depth_reference.gl_m is None else f"{default_depth_reference.gl_m:g}",
                     key=f"project_explorer_well_card_gl_{project.id}_{selected_well_id}",
                 )
+                well_card_actual_td = st.text_input(
+                    "Фактическая TD, м",
+                    value="" if default_depth_reference.actual_td_m is None else f"{default_depth_reference.actual_td_m:g}",
+                    key=f"project_explorer_well_card_actual_td_{project.id}_{selected_well_id}",
+                )
             if default_depth_reference.kb_above_gl_label:
                 st.caption(f"Текущая разница отметок: {default_depth_reference.kb_above_gl_label}")
-            st.caption("KB и GL хранятся как metadata скважины в метрах и не меняют LAS-версии.")
+            if default_depth_reference.has_td:
+                st.caption("TD: " + "; ".join(default_depth_reference.td_labels))
+            st.caption("KB, GL и TD хранятся как metadata скважины в метрах и не меняют LAS-версии.")
             well_card_note = st.text_area(
                 "Комментарий",
                 value=default_note,
@@ -3102,6 +3114,8 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                         well_card_metadata,
                         kb_m=well_card_kb,
                         gl_m=well_card_gl,
+                        planned_td_m=well_card_planned_td,
+                        actual_td_m=well_card_actual_td,
                     )
                     save_project_well_card(
                         LAS_CORRELATION_PROJECTS_ROOT,
