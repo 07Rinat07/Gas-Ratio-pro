@@ -203,6 +203,7 @@ LAS_CORRELATION_PROJECTS_ROOT = ROOT_DIR / DEFAULT_PROJECTS_ROOT
 APP_LAUNCH_COMMAND = "python -m streamlit run app/streamlit_app.py"
 APP_LAUNCH_SCRIPT = ".\\run_app.ps1"
 DASHBOARD_BACKGROUND_PATH = ROOT_DIR / "assets" / "dashboard" / "gas_ratio_brand_background.png"
+DOCUMENTATION_HERO_PATH = ROOT_DIR / "assets" / "dashboard" / "documentation_hero.png"
 BRANDING_LOGO_PATH = ROOT_DIR / "assets" / "branding" / "gas_ratio_pro_logo.png"
 DASHBOARD_TIPS = (
     "Проверяйте единицы измерения перед расчетом газовых коэффициентов.",
@@ -845,26 +846,72 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             border-radius: 8px;
         }
         .docs-hero {
-            min-height: calc(100vh - 8rem);
+            min-height: auto;
             margin-top: 0.4rem;
-            padding: 1.2rem;
+            padding: 0;
             border-radius: 18px;
             border: 1px solid rgba(148, 163, 184, 0.20);
+            background: rgba(2, 6, 23, 0.10);
+            box-shadow: 0 28px 90px rgba(0,0,0,0.30);
+            overflow: hidden;
+        }
+        .docs-hero-banner {
+            position: relative;
+            min-height: clamp(260px, 36vw, 470px);
+            border-radius: 18px 18px 0 0;
+            overflow: hidden;
+            background-image: var(--docs-hero-image);
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+        }
+        .docs-hero-banner::before {
+            content: "";
+            position: absolute;
+            inset: 0;
             background:
-                linear-gradient(90deg, rgba(3, 7, 18, 0.10), rgba(3, 7, 18, 0.05), rgba(3, 7, 18, 0.00)),
-                var(--global-bg-image);
-            background-size: 100% 100%, clamp(260px, 34vw, 560px) auto;
-            background-position: center center, right 2vw bottom 1rem;
-            background-repeat: no-repeat, no-repeat;
-            box-shadow: 0 28px 90px rgba(0,0,0,0.35);
+                radial-gradient(circle at 78% 54%, rgba(255, 138, 0, 0.06), transparent 28%),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.42) 0%, rgba(3, 7, 18, 0.22) 44%, rgba(3, 7, 18, 0.04) 100%);
+        }
+        .docs-hero-content {
+            position: absolute;
+            left: clamp(1.2rem, 4vw, 4rem);
+            bottom: clamp(1.2rem, 4vw, 3rem);
+            z-index: 1;
+            max-width: min(42rem, 72vw);
+            padding: 1rem 1.2rem;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 18px;
+            background: rgba(4, 10, 24, 0.28);
+            backdrop-filter: blur(4px);
+            box-shadow: 0 20px 70px rgba(0, 0, 0, 0.30);
+        }
+        .docs-hero-kicker {
+            color: var(--app-accent);
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 0.35rem;
+        }
+        .docs-hero-title {
+            color: #ffffff;
+            font-size: clamp(2rem, 4vw, 4rem) !important;
+            line-height: 1.05 !important;
+            font-weight: 950;
+            margin: 0 0 0.5rem 0 !important;
+        }
+        .docs-hero-subtitle {
+            color: #e5e7eb !important;
+            font-size: clamp(1rem, 1.35vw, 1.35rem) !important;
+            margin: 0 !important;
         }
         .docs-panel {
             border: 1px solid rgba(148, 163, 184, 0.22);
             border-radius: 16px;
-            background: rgba(5, 10, 22, 0.24);
-            backdrop-filter: blur(5px);
+            background: rgba(5, 10, 22, 0.66);
+            backdrop-filter: blur(8px);
             padding: 1rem;
-            margin-bottom: 0.8rem;
+            margin: 0.9rem 1rem;
         }
         .docs-panel h3 { color: var(--app-accent); margin-top: 0; }
         @media (max-width: 1100px) {
@@ -873,7 +920,9 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (max-width: 760px) {
             .app-nav-wrap { grid-template-columns: 1fr; }
-            .docs-hero { padding: 0.75rem; }
+            .docs-hero { border-radius: 14px; }
+            .docs-hero-banner { min-height: 240px; }
+            .docs-hero-content { left: 0.8rem; right: 0.8rem; bottom: 0.8rem; max-width: none; }
         }
         </style>
         """
@@ -1852,6 +1901,11 @@ def _dashboard_background_data_uri() -> str:
     return _asset_to_data_uri(DASHBOARD_BACKGROUND_PATH)
 
 
+def _documentation_hero_data_uri() -> str:
+    """Expose the documentation hero artwork for the Instructions page."""
+    return _asset_to_data_uri(DOCUMENTATION_HERO_PATH)
+
+
 def _branding_logo_data_uri() -> str:
     """Expose the Gas Ratio Pro logo for navbar, license and watermark rendering."""
     return _asset_to_data_uri(BRANDING_LOGO_PATH)
@@ -2174,9 +2228,22 @@ def _read_documentation_markdown(relative_path: str) -> str:
 
 
 def _render_documentation_tab() -> None:
-    st.markdown('<div class="docs-hero">', unsafe_allow_html=True)
+    hero_uri = _documentation_hero_data_uri()
+    hero_style = f"--docs-hero-image: url('{hero_uri}');" if hero_uri else "--docs-hero-image: var(--global-bg-image);"
+    st.markdown(
+        f'''
+        <div class="docs-hero" style="{hero_style}">
+          <section class="docs-hero-banner">
+            <div class="docs-hero-content">
+              <div class="docs-hero-kicker">Gas Ratio Pro</div>
+              <h1 class="docs-hero-title">Инструкции и документация</h1>
+              <p class="docs-hero-subtitle">Руководство, быстрый старт, проверка готовности и методика работы с LAS-данными.</p>
+            </div>
+          </section>
+        ''',
+        unsafe_allow_html=True,
+    )
     st.markdown('<div class="docs-panel">', unsafe_allow_html=True)
-    st.subheader("Инструкции и документация")
     st.caption(
         "Эта вкладка нужна, чтобы новый пользователь мог развернуть проект, "
         "загрузить файл, понять предупреждения и работать без внешних инструкций."

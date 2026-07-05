@@ -120,8 +120,17 @@ def test_documentation_tab_uses_branded_background() -> None:
     source = Path(app.__file__).read_text(encoding="utf-8")
 
     assert "docs-hero" in source
+    assert "docs-hero-banner" in source
     assert "docs-panel" in source
-    assert "var(--global-bg-image)" in source
+    assert "--docs-hero-image" in source
+    assert "_documentation_hero_data_uri" in source
+
+
+def test_documentation_hero_asset_is_embedded() -> None:
+    data_uri = app._documentation_hero_data_uri()
+
+    assert data_uri.startswith("data:image/png;base64,")
+    assert len(data_uri) > 100
 
 
 def test_proprietary_license_file_exists() -> None:
