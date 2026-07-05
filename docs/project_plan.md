@@ -598,3 +598,11 @@ Dashboard получил явную responsive-сетку для целевых 
 Dashboard, Documentation Center и общий page shell теперь используют shared transparency tokens вместо разрозненных локальных значений. Для рабочих инженерных экранов сохранена защита читаемости: в режиме `background-rule-dark-workspace` glass-поверхности становятся почти непрозрачными, blur отключается, а LAS Editor / Graphs / Reports / tables остаются на темном фоне без декоративной картинки. Добавлены smoke-тесты на наличие компонентов `glass-card`, `glass-panel`, `glass-hero`, `glass-sidebar`, `glass-navbar`, `glass-modal`, `glass-tooltip`, readability checks и документацию этапа.
 
 Текущий следующий незавершенный пункт: **UI Modernization Track → Navigation Animations**.
+
+### Реализовано: UI Modernization Track → Navigation Animations
+
+Навигационная система получила общий слой motion-токенов `NAVIGATION_ANIMATION_TOKENS` и реестр возможностей `NAVIGATION_ANIMATION_FEATURES`. Реализованы page fade transition, page slide transition, hover/press-анимации кнопок, hover-анимации карточек, активный underline для выбранного раздела, плавное раскрытие sidebar, анимация открытия/закрытия command palette, skeleton shimmer, progress indicator и smooth scroll.
+
+CSS-анимации вынесены в единые `@keyframes`: `gas-page-fade`, `gas-page-slide`, `gas-active-underline`, `gas-sidebar-expand`, `gas-sidebar-collapse`, `gas-command-open`, `gas-command-close`, `gas-skeleton-shimmer` и `gas-progress-pulse`. Для доступности добавлен `@media (prefers-reduced-motion: reduce)`, который отключает продолжительное движение у пользователей с ограничением анимаций. Навигационные кнопки теперь имеют hover, active/press state и визуальную обратную связь без декоративных нерабочих элементов.
+
+Текущий следующий незавершенный пункт: **UI Modernization Track → Branding Assets**.

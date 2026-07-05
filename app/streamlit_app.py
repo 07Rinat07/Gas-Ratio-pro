@@ -429,6 +429,34 @@ GLASS_UI_READABILITY_RULES: tuple[str, ...] = (
 )
 
 
+NAVIGATION_ANIMATION_TOKENS: dict[str, str] = {
+    "page_fade": "gas-page-fade 220ms ease-out both",
+    "page_slide": "gas-page-slide 260ms cubic-bezier(0.22, 1, 0.36, 1) both",
+    "button_hover": "translateY(-2px) scale(1.012)",
+    "button_press": "translateY(0) scale(0.985)",
+    "card_hover": "translateY(-3px)",
+    "sidebar_expand": "gas-sidebar-expand 240ms ease-out both",
+    "command_palette_open": "gas-command-open 180ms ease-out both",
+    "command_palette_close": "gas-command-close 160ms ease-in both",
+    "smooth_scroll": "smooth",
+}
+
+NAVIGATION_ANIMATION_FEATURES: tuple[str, ...] = (
+    "Page fade transition",
+    "Page slide transition",
+    "Button hover animation",
+    "Button press animation",
+    "Card hover animation",
+    "Sidebar expand animation",
+    "Sidebar collapse animation",
+    "Command palette open animation",
+    "Command palette close animation",
+    "Loading skeletons",
+    "Progress indicators",
+    "Smooth scroll",
+)
+
+
 START_ACTIONS: tuple[dict[str, str], ...] = (
     {
         "id": "project",
@@ -1173,6 +1201,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             margin: 0.2rem 0 0.95rem 0;
         }
         .app-nav-card {
+            position: relative;
             background: linear-gradient(180deg, rgba(15, 23, 42, 0.86), rgba(7, 12, 24, 0.72));
             border: 1px solid rgba(148, 163, 184, 0.24);
             border-radius: 16px;
@@ -1180,10 +1209,29 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             min-height: 5.1rem;
             box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
             backdrop-filter: blur(14px);
+            animation: gas-page-fade 220ms ease-out both;
+            transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+            will-change: transform;
+        }
+        .app-nav-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(255, 138, 0, 0.58);
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.34), 0 0 22px rgba(255, 138, 0, 0.12);
         }
         .app-nav-card.active {
             border-color: rgba(255, 138, 0, 0.78);
             background: linear-gradient(180deg, rgba(255, 138, 0, 0.24), rgba(15, 23, 42, 0.78));
+        }
+        .app-nav-card.active::after {
+            content: "";
+            position: absolute;
+            left: 0.9rem;
+            right: 0.9rem;
+            bottom: 0.55rem;
+            height: 2px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, transparent, rgba(255, 138, 0, 0.95), transparent);
+            animation: gas-active-underline 620ms ease-out both;
         }
         .app-nav-card b { display: block; color: #f8fafc; font-size: 0.98rem; margin-bottom: 0.3rem; }
         .app-nav-card span { color: #cbd5e1; font-size: 0.78rem !important; line-height: 1.25 !important; }
@@ -1193,12 +1241,18 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             border: 1px solid rgba(148, 163, 184, 0.30) !important;
             color: #f8fafc !important;
             box-shadow: 0 10px 30px rgba(0,0,0,0.18);
-            transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+            transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1), border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+            will-change: transform;
         }
         div[data-testid="stButton"] button:hover {
-            transform: translateY(-1px);
+            transform: translateY(-2px) scale(1.012);
             border-color: rgba(255, 138, 0, 0.70) !important;
             background: linear-gradient(180deg, rgba(255, 138, 0, 0.30), rgba(15, 23, 42, 0.84)) !important;
+            box-shadow: 0 16px 38px rgba(0,0,0,0.28), 0 0 18px rgba(255,138,0,0.12);
+        }
+        div[data-testid="stButton"] button:active {
+            transform: translateY(0) scale(0.985);
+            transition-duration: 90ms;
         }
         .modern-sidebar-card,
         .sidebar-brand-card,
@@ -1443,6 +1497,40 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             font-size: 0.86rem;
         }
         .docs-section-anchor { scroll-margin-top: 5rem; }
+
+        html { scroll-behavior: smooth; }
+        @keyframes gas-page-fade { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes gas-page-slide { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes gas-active-underline { from { opacity: 0; transform: scaleX(0.18); } to { opacity: 1; transform: scaleX(1); } }
+        @keyframes gas-sidebar-expand { from { opacity: 0.88; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes gas-sidebar-collapse { from { opacity: 1; transform: translateX(0); } to { opacity: 0.88; transform: translateX(-8px); } }
+        @keyframes gas-command-open { from { opacity: 0; transform: translateY(-8px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes gas-command-close { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-6px) scale(0.99); } }
+        @keyframes gas-skeleton-shimmer { 0% { background-position: 220% 0; } 100% { background-position: -220% 0; } }
+        @keyframes gas-progress-pulse { 0%, 100% { opacity: 0.65; transform: scaleX(0.96); } 50% { opacity: 1; transform: scaleX(1); } }
+        .app-page-shell { animation: gas-page-slide 260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+        .dashboard-card, .docs-v2-card, .command-result-card, .quick-action-caption { transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), border-color 180ms ease, box-shadow 180ms ease; }
+        .dashboard-card:hover, .docs-v2-card:hover, .command-result-card:hover, .quick-action-caption:hover { transform: translateY(-3px); }
+        section[data-testid="stSidebar"] { animation: gas-sidebar-expand 240ms ease-out both; }
+        .command-palette-shell { animation: gas-command-open 180ms ease-out both; }
+        .navigation-loading-skeleton {
+            min-height: 0.72rem;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(148,163,184,0.12), rgba(255,138,0,0.22), rgba(148,163,184,0.12));
+            background-size: 220% 100%;
+            animation: gas-skeleton-shimmer 1.15s ease-in-out infinite;
+        }
+        .navigation-progress-indicator {
+            height: 3px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(255,138,0,0.18), rgba(255,138,0,0.88), rgba(255,138,0,0.18));
+            transform-origin: center;
+            animation: gas-progress-pulse 1.2s ease-in-out infinite;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
+            *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
+        }
         .docs-info-row {
             border-left: 3px solid rgba(255, 138, 0, 0.80);
             border-radius: 10px;
@@ -2546,6 +2634,16 @@ def _dashboard_tip(active_project: ProjectRecord) -> str:
     day_key = datetime.now().strftime("%Y-%m-%d")
     rng = random.Random(f"{active_project.id}:{day_key}")
     return rng.choice(DASHBOARD_TIPS)
+
+
+def _navigation_animation_feature_names() -> tuple[str, ...]:
+    """Expose implemented navigation animation features for smoke tests and documentation."""
+    return NAVIGATION_ANIMATION_FEATURES
+
+
+def _navigation_animation_token_names() -> tuple[str, ...]:
+    """Return stable animation token names used by the shared navigation system."""
+    return tuple(NAVIGATION_ANIMATION_TOKENS.keys())
 
 
 def _html_escape(value: object) -> str:

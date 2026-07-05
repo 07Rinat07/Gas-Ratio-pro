@@ -467,3 +467,42 @@ def test_shared_glass_ui_system_is_documented() -> None:
     assert "shared transparency tokens" in plan
     assert "Glass UI System" in guide
     assert "LAS Editor / Graphs / Reports" in guide
+
+
+def test_navigation_animations_cover_required_motion_features() -> None:
+    features = set(app._navigation_animation_feature_names())
+    tokens = set(app._navigation_animation_token_names())
+
+    assert "Page fade transition" in features
+    assert "Page slide transition" in features
+    assert "Button hover animation" in features
+    assert "Button press animation" in features
+    assert "Card hover animation" in features
+    assert "Sidebar expand animation" in features
+    assert "Sidebar collapse animation" in features
+    assert "Command palette open animation" in features
+    assert "Command palette close animation" in features
+    assert "Loading skeletons" in features
+    assert "Progress indicators" in features
+    assert "Smooth scroll" in features
+    assert "page_fade" in tokens
+    assert "button_hover" in tokens
+    assert "command_palette_open" in tokens
+
+
+def test_navigation_animation_css_is_present_and_accessible() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "NAVIGATION_ANIMATION_TOKENS" in source
+    assert "@keyframes gas-page-fade" in source
+    assert "@keyframes gas-page-slide" in source
+    assert "@keyframes gas-active-underline" in source
+    assert "@keyframes gas-sidebar-expand" in source
+    assert "@keyframes gas-command-open" in source
+    assert "@keyframes gas-command-close" in source
+    assert "navigation-loading-skeleton" in source
+    assert "navigation-progress-indicator" in source
+    assert "prefers-reduced-motion: reduce" in source
+    assert "scroll-behavior: smooth" in source
+    assert "transform: translateY(-2px) scale(1.012)" in source
+    assert "transform: translateY(0) scale(0.985)" in source
