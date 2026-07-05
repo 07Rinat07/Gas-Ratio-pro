@@ -17,6 +17,39 @@ PROJECT_WELL_CARD_STATUSES: dict[str, str] = {
     "ready": "Готова",
     "archived": "Архив",
 }
+PROJECT_WELL_COORDINATE_KEYS = ("x", "y", "latitude", "longitude")
+
+
+@dataclass(frozen=True)
+class ProjectWellCoordinates:
+    """Validated optional well coordinates stored in card metadata.
+
+    X/Y are project-local or field coordinate values and therefore only need to
+    be finite numeric values. Latitude and longitude are geographic values and
+    are range-checked when provided. Empty UI fields are stored as ``None`` so a
+    partially known well card remains valid.
+    """
+
+    x: float | None = None
+    y: float | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+
+    @property
+    def has_any(self) -> bool:
+        return any(value is not None for value in (self.x, self.y, self.latitude, self.longitude))
+
+    @property
+    def geographic_label(self) -> str:
+        if self.latitude is None or self.longitude is None:
+            return ""
+        return f"{self.latitude:.6f}, {self.longitude:.6f}"
+
+    @property
+    def projected_label(self) -> str:
+        if self.x is None or self.y is None:
+            return ""
+        return f"X={self.x:.6f}".rstrip("0").rstrip(".") + "; " + f"Y={self.y:.6f}".rstrip("0").rstrip(".")
 
 
 @dataclass(frozen=True)
@@ -41,6 +74,10 @@ class ProjectWellCard:
     def status_label(self) -> str:
         return PROJECT_WELL_CARD_STATUSES.get(self.status, self.status or "Черновик")
 
+    @property
+    def coordinates(self) -> ProjectWellCoordinates:
+        return coordinates_from_metadata(self.metadata or {})
+
 
 @dataclass(frozen=True)
 class ProjectWellCardTableRow:
@@ -50,6 +87,86 @@ class ProjectWellCardTableRow:
     status_label: str
     note: str
     updated_at: str
+    coordinate_x: float | None = None
+    coordinate_y: float | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    coordinates_label: str = ""
+
+
+
+def _optional_float(value: Any, field_label: str) -> float | None:
+    """Normalize optional numeric metadata from UI strings or JSON values."""
+
+    if value is None:
+        return None
+    if isinstance(value, str):
+        clean = value.strip().replace(",", ".")
+        if not clean:
+            return None
+        value = clean
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field_label}: ожидается число.") from exc
+    if number != number or number in (float("inf"), float("-inf")):
+        raise ValueError(f"{field_label}: значение должно быть конечным числом.")
+    return number
+
+
+def validate_project_well_coordinates(
+    x: Any = None,
+    y: Any = None,
+    latitude: Any = None,
+    longitude: Any = None,
+) -> ProjectWellCoordinates:
+    """Validate optional projected and geographic well coordinates."""
+
+    coords = ProjectWellCoordinates(
+        x=_optional_float(x, "X"),
+        y=_optional_float(y, "Y"),
+        latitude=_optional_float(latitude, "Широта"),
+        longitude=_optional_float(longitude, "Долгота"),
+    )
+    if coords.latitude is not None and not -90.0 <= coords.latitude <= 90.0:
+        raise ValueError("Широта должна быть в диапазоне от -90 до 90.")
+    if coords.longitude is not None and not -180.0 <= coords.longitude <= 180.0:
+        raise ValueError("Долгота должна быть в диапазоне от -180 до 180.")
+    return coords
+
+
+def coordinates_to_metadata(coords: ProjectWellCoordinates) -> dict[str, float | None]:
+    return {
+        "x": coords.x,
+        "y": coords.y,
+        "latitude": coords.latitude,
+        "longitude": coords.longitude,
+    }
+
+
+def coordinates_from_metadata(metadata: dict[str, Any]) -> ProjectWellCoordinates:
+    return validate_project_well_coordinates(
+        x=metadata.get("x"),
+        y=metadata.get("y"),
+        latitude=metadata.get("latitude"),
+        longitude=metadata.get("longitude"),
+    )
+
+
+def merge_project_well_coordinates_metadata(
+    metadata: dict[str, Any] | None = None,
+    *,
+    x: Any = None,
+    y: Any = None,
+    latitude: Any = None,
+    longitude: Any = None,
+) -> dict[str, Any]:
+    """Return card metadata with validated coordinate keys updated in place."""
+
+    clean_metadata = dict(metadata or {})
+    coords = validate_project_well_coordinates(x=x, y=y, latitude=latitude, longitude=longitude)
+    clean_metadata.update(coordinates_to_metadata(coords))
+    return clean_metadata
 
 
 def _utc_now() -> str:
@@ -220,6 +337,13 @@ def build_project_well_card_table(
             status_label=card.status_label,
             note=card.note,
             updated_at=card.updated_at,
+            coordinate_x=card.coordinates.x,
+            coordinate_y=card.coordinates.y,
+            latitude=card.coordinates.latitude,
+            longitude=card.coordinates.longitude,
+            coordinates_label="; ".join(
+                label for label in (card.coordinates.projected_label, card.coordinates.geographic_label) if label
+            ),
         )
         for card in list_project_well_cards(root, project_id)
     )

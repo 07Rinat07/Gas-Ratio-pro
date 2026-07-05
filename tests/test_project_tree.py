@@ -435,3 +435,96 @@ def test_project_tree_shows_saved_well_card_status(tmp_path):
 
     assert well_row["label"] == "Well Card Official"
     assert "карточка: Готова" in str(well_row["status"])
+
+
+def test_project_well_card_coordinates_are_validated_and_listed(tmp_path):
+    project = create_project(tmp_path, name="Well Coordinates", project_id="well-coordinates")
+
+    from projects import (
+        build_project_well_card_table,
+        get_project_well_card,
+        merge_project_well_coordinates_metadata,
+        save_project_well_card,
+    )
+
+    metadata = merge_project_well_coordinates_metadata(
+        {"source": "manual"},
+        x="502341.25",
+        y="6154321.5",
+        latitude="47.123456",
+        longitude="71.654321",
+    )
+    save_project_well_card(
+        tmp_path,
+        project.id,
+        well_id="well-coord",
+        name="Well Coord",
+        status="review",
+        metadata=metadata,
+    )
+
+    stored = get_project_well_card(tmp_path, project.id, "well-coord")
+    rows = build_project_well_card_table(tmp_path, project.id)
+
+    assert stored is not None
+    assert stored.metadata["source"] == "manual"
+    assert stored.coordinates.x == 502341.25
+    assert stored.coordinates.y == 6154321.5
+    assert stored.coordinates.latitude == 47.123456
+    assert stored.coordinates.longitude == 71.654321
+    assert rows[0].coordinate_x == 502341.25
+    assert rows[0].coordinate_y == 6154321.5
+    assert rows[0].latitude == 47.123456
+    assert rows[0].longitude == 71.654321
+    assert "X=502341.25" in rows[0].coordinates_label
+    assert "47.123456, 71.654321" in rows[0].coordinates_label
+
+
+def test_project_well_card_rejects_invalid_geographic_coordinates(tmp_path):
+    project = create_project(tmp_path, name="Bad Coordinates", project_id="bad-coordinates")
+
+    from projects import merge_project_well_coordinates_metadata, save_project_well_card
+
+    try:
+        metadata = merge_project_well_coordinates_metadata(latitude="91", longitude="71")
+    except ValueError as exc:
+        assert "Широта" in str(exc)
+    else:  # pragma: no cover - defensive assertion for plain pytest without raises helper
+        raise AssertionError("Invalid latitude was accepted")
+
+    try:
+        metadata = merge_project_well_coordinates_metadata(latitude="47", longitude="181")
+    except ValueError as exc:
+        assert "Долгота" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("Invalid longitude was accepted")
+
+    assert save_project_well_card(tmp_path, project.id, well_id="safe-well", name="Safe Well").metadata == {}
+
+
+def test_project_tree_shows_well_card_coordinates_in_status(tmp_path):
+    project = create_project(tmp_path, name="Tree Coordinates", project_id="tree-coordinates")
+    las_record = save_project_las_file(
+        b"~Version\nVERS. 2.0\n~Well\nNULL. -999.25\n~Curve\nDEPT.M : Depth\nC1. : C1\n~Ascii\n1000 80\n",
+        root=tmp_path,
+        project_id=project.id,
+        file_name="well_coord.las",
+        well_name="Well Coord",
+        version_label="Raw LAS",
+    )
+
+    from projects import merge_project_well_coordinates_metadata, save_project_well_card
+
+    save_project_well_card(
+        tmp_path,
+        project.id,
+        well_id=las_record.well_id,
+        name="Well Coord Official",
+        status="ready",
+        metadata=merge_project_well_coordinates_metadata(x=100.5, y=200.25, latitude=47, longitude=71),
+    )
+
+    rows = project_tree_table_rows(build_project_tree(tmp_path, project.id))
+    well_row = next(row for row in rows if row["id"] == f"well:{las_record.well_id}")
+
+    assert "координаты: X=100.5; Y=200.25; 47.000000, 71.000000" in str(well_row["status"])

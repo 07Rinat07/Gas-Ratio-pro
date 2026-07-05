@@ -3017,6 +3017,8 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
             default_name = current_card.name if current_card else well_labels.get(selected_well_node_id, selected_well_id)
             default_status = current_card.status if current_card else "draft"
             default_note = current_card.note if current_card else ""
+            default_metadata = dict(current_card.metadata or {}) if current_card else {}
+            default_coords = project_well_cards.coordinates_from_metadata(default_metadata)
             status_options = tuple(PROJECT_WELL_CARD_STATUSES)
             try:
                 status_index = status_options.index(default_status)
@@ -3034,6 +3036,31 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                 format_func=lambda status: PROJECT_WELL_CARD_STATUSES.get(status, status),
                 key=f"project_explorer_well_card_status_{project.id}_{selected_well_id}",
             )
+            st.caption("Координаты скважины")
+            coord_col_a, coord_col_b = st.columns(2)
+            with coord_col_a:
+                well_card_x = st.text_input(
+                    "X / Easting",
+                    value="" if default_coords.x is None else f"{default_coords.x:g}",
+                    key=f"project_explorer_well_card_x_{project.id}_{selected_well_id}",
+                )
+                well_card_latitude = st.text_input(
+                    "Широта",
+                    value="" if default_coords.latitude is None else f"{default_coords.latitude:g}",
+                    key=f"project_explorer_well_card_latitude_{project.id}_{selected_well_id}",
+                )
+            with coord_col_b:
+                well_card_y = st.text_input(
+                    "Y / Northing",
+                    value="" if default_coords.y is None else f"{default_coords.y:g}",
+                    key=f"project_explorer_well_card_y_{project.id}_{selected_well_id}",
+                )
+                well_card_longitude = st.text_input(
+                    "Долгота",
+                    value="" if default_coords.longitude is None else f"{default_coords.longitude:g}",
+                    key=f"project_explorer_well_card_longitude_{project.id}_{selected_well_id}",
+                )
+            st.caption("X/Y — локальные или проектные координаты. Широта: -90..90, долгота: -180..180.")
             well_card_note = st.text_area(
                 "Комментарий",
                 value=default_note,
@@ -3046,6 +3073,13 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                 st.caption("Карточка еще не создана.")
             if st.button("Сохранить карточку скважины", key=f"project_explorer_save_well_card_{project.id}"):
                 try:
+                    well_card_metadata = project_well_cards.merge_project_well_coordinates_metadata(
+                        default_metadata,
+                        x=well_card_x,
+                        y=well_card_y,
+                        latitude=well_card_latitude,
+                        longitude=well_card_longitude,
+                    )
                     save_project_well_card(
                         LAS_CORRELATION_PROJECTS_ROOT,
                         project.id,
@@ -3053,6 +3087,7 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                         name=well_card_name,
                         status=well_card_status,
                         note=well_card_note,
+                        metadata=well_card_metadata,
                     )
                     logger.info(
                         "project_well_card_saved project_id=%s well_id=%s",

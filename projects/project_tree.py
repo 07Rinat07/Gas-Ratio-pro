@@ -170,6 +170,10 @@ def _well_node(well: ProjectLasWellCard, card: ProjectWellCard | None = None) ->
     metadata: dict[str, str | int] = {"well_id": well.id, "version_count": len(versions)}
     if card is not None:
         status_parts.append(f"карточка: {card.status_label}")
+        coords = card.coordinates
+        if coords.has_any:
+            coordinate_label = "; ".join(label for label in (coords.projected_label, coords.geographic_label) if label)
+            status_parts.append(f"координаты: {coordinate_label}")
         metadata.update(
             {
                 "well_card_status": card.status,
@@ -177,6 +181,14 @@ def _well_node(well: ProjectLasWellCard, card: ProjectWellCard | None = None) ->
                 "well_card_updated_at": card.updated_at,
             }
         )
+        if coords.x is not None:
+            metadata["coordinate_x"] = str(coords.x)
+        if coords.y is not None:
+            metadata["coordinate_y"] = str(coords.y)
+        if coords.latitude is not None:
+            metadata["latitude"] = str(coords.latitude)
+        if coords.longitude is not None:
+            metadata["longitude"] = str(coords.longitude)
     return ProjectTreeNode(
         id=f"well:{well.id}",
         label=card.name if card is not None and card.name else well.name,

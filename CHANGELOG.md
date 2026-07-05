@@ -136,3 +136,5 @@ Get-Content logs/app.log -Tail 80
 # Проверка текущего git-состояния
 git status --short
 ```
+
+- Добавлены координаты скважины в Well Manager: X/Y, широта/долгота, проверка диапазонов и отображение в Project Explorer.
