@@ -122,7 +122,8 @@ def test_documentation_tab_uses_branded_background() -> None:
     assert "docs-hero" in source
     assert "docs-hero-banner" in source
     assert "docs-panel" in source
-    assert "--docs-hero-image" in source
+    assert "docs-hero-image" in source
+    assert "docs-hero-brand-badge" in source
     assert "_documentation_hero_data_uri" in source
 
 

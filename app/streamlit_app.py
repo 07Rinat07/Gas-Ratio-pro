@@ -850,41 +850,72 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             margin-top: 0.4rem;
             padding: 0;
             border-radius: 18px;
-            border: 1px solid rgba(148, 163, 184, 0.20);
-            background: rgba(2, 6, 23, 0.10);
-            box-shadow: 0 28px 90px rgba(0,0,0,0.30);
+            border: 1px solid rgba(255, 138, 0, 0.38);
+            background: rgba(2, 6, 23, 0.08);
+            box-shadow: 0 28px 90px rgba(0,0,0,0.26);
             overflow: hidden;
         }
         .docs-hero-banner {
             position: relative;
-            min-height: clamp(260px, 36vw, 470px);
+            min-height: clamp(250px, 34vw, 430px);
             border-radius: 18px 18px 0 0;
             overflow: hidden;
-            background-image: var(--docs-hero-image);
-            background-size: cover;
-            background-position: center center;
-            background-repeat: no-repeat;
+            background: rgba(2, 6, 23, 0.08);
+        }
+        .docs-hero-image {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center center;
+            display: block;
+            opacity: 1;
+            filter: saturate(1.08) contrast(1.04);
         }
         .docs-hero-banner::before {
             content: "";
             position: absolute;
             inset: 0;
+            z-index: 1;
             background:
-                radial-gradient(circle at 78% 54%, rgba(255, 138, 0, 0.06), transparent 28%),
-                linear-gradient(90deg, rgba(3, 7, 18, 0.42) 0%, rgba(3, 7, 18, 0.22) 44%, rgba(3, 7, 18, 0.04) 100%);
+                radial-gradient(circle at 82% 52%, rgba(255, 138, 0, 0.02), transparent 32%),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.34) 0%, rgba(3, 7, 18, 0.16) 46%, rgba(3, 7, 18, 0.02) 100%);
+        }
+        .docs-hero-brand-badge {
+            position: absolute;
+            right: clamp(1rem, 3vw, 2.4rem);
+            top: clamp(1rem, 2.4vw, 2rem);
+            z-index: 2;
+            width: clamp(70px, 7vw, 120px);
+            height: clamp(70px, 7vw, 120px);
+            border-radius: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            background: rgba(2, 6, 23, 0.18);
+            backdrop-filter: blur(3px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
+        }
+        .docs-hero-brand-badge img {
+            width: 86%;
+            height: 86%;
+            object-fit: contain;
+            display: block;
         }
         .docs-hero-content {
             position: absolute;
             left: clamp(1.2rem, 4vw, 4rem);
             bottom: clamp(1.2rem, 4vw, 3rem);
-            z-index: 1;
+            z-index: 2;
             max-width: min(42rem, 72vw);
             padding: 1rem 1.2rem;
-            border: 1px solid rgba(148, 163, 184, 0.22);
+            border: 1px solid rgba(148, 163, 184, 0.20);
             border-radius: 18px;
-            background: rgba(4, 10, 24, 0.28);
-            backdrop-filter: blur(4px);
-            box-shadow: 0 20px 70px rgba(0, 0, 0, 0.30);
+            background: rgba(4, 10, 24, 0.24);
+            backdrop-filter: blur(3px);
+            box-shadow: 0 20px 70px rgba(0, 0, 0, 0.24);
         }
         .docs-hero-kicker {
             color: var(--app-accent);
@@ -2143,7 +2174,6 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
                 <article class="dashboard-card license" id="dashboard-license">
                   <h3>Лицензия и авторские права</h3>
                   <p>© Rinat Sarmuldin. Все права защищены. Коммерческое использование допускается только с разрешения автора.</p>
-                  <div class="dashboard-muted">Фоновое изображение используется как фирменный слой приложения; рабочие графики и таблицы закрываются темными панелями для читаемости.</div>
                 </article>
               </section>
               <footer class="dashboard-footer">
@@ -2228,12 +2258,24 @@ def _read_documentation_markdown(relative_path: str) -> str:
 
 
 def _render_documentation_tab() -> None:
-    hero_uri = _documentation_hero_data_uri()
-    hero_style = f"--docs-hero-image: url('{hero_uri}');" if hero_uri else "--docs-hero-image: var(--global-bg-image);"
+    hero_uri = _documentation_hero_data_uri() or _dashboard_background_data_uri()
+    logo_uri = _branding_logo_data_uri()
+    logo_html = (
+        f'<div class="docs-hero-brand-badge"><img src="{logo_uri}" alt="Gas Ratio Pro logo"></div>'
+        if logo_uri
+        else ""
+    )
+    image_html = (
+        f'<img class="docs-hero-image" src="{hero_uri}" alt="Gas Ratio Pro documentation banner">'
+        if hero_uri
+        else ""
+    )
     st.markdown(
         f'''
-        <div class="docs-hero" style="{hero_style}">
+        <div class="docs-hero">
           <section class="docs-hero-banner">
+            {image_html}
+            {logo_html}
             <div class="docs-hero-content">
               <div class="docs-hero-kicker">Gas Ratio Pro</div>
               <h1 class="docs-hero-title">Инструкции и документация</h1>
