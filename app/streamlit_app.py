@@ -3063,12 +3063,22 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                 )
             st.caption("X/Y — локальные или проектные координаты. Широта: -90..90, долгота: -180..180.")
             st.caption("Отметки глубины")
-            well_card_kb = st.text_input(
-                "KB, м",
-                value="" if default_depth_reference.kb_m is None else f"{default_depth_reference.kb_m:g}",
-                key=f"project_explorer_well_card_kb_{project.id}_{selected_well_id}",
-            )
-            st.caption("KB хранится как metadata скважины в метрах и не меняет LAS-версии.")
+            datum_col_a, datum_col_b = st.columns(2)
+            with datum_col_a:
+                well_card_kb = st.text_input(
+                    "KB, м",
+                    value="" if default_depth_reference.kb_m is None else f"{default_depth_reference.kb_m:g}",
+                    key=f"project_explorer_well_card_kb_{project.id}_{selected_well_id}",
+                )
+            with datum_col_b:
+                well_card_gl = st.text_input(
+                    "GL, м",
+                    value="" if default_depth_reference.gl_m is None else f"{default_depth_reference.gl_m:g}",
+                    key=f"project_explorer_well_card_gl_{project.id}_{selected_well_id}",
+                )
+            if default_depth_reference.kb_above_gl_label:
+                st.caption(f"Текущая разница отметок: {default_depth_reference.kb_above_gl_label}")
+            st.caption("KB и GL хранятся как metadata скважины в метрах и не меняют LAS-версии.")
             well_card_note = st.text_area(
                 "Комментарий",
                 value=default_note,
@@ -3088,9 +3098,10 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                         latitude=well_card_latitude,
                         longitude=well_card_longitude,
                     )
-                    well_card_metadata = project_well_cards.merge_project_well_kb_metadata(
+                    well_card_metadata = project_well_cards.merge_project_well_depth_reference_metadata(
                         well_card_metadata,
                         kb_m=well_card_kb,
+                        gl_m=well_card_gl,
                     )
                     save_project_well_card(
                         LAS_CORRELATION_PROJECTS_ROOT,

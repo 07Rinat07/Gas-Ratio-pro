@@ -602,3 +602,77 @@ def test_project_tree_shows_well_card_kb_in_status(tmp_path):
     well_row = next(row for row in rows if row["id"] == f"well:{las_record.well_id}")
 
     assert "KB=15 м" in str(well_row["status"])
+
+
+def test_project_well_card_gl_is_validated_and_listed(tmp_path):
+    project = create_project(tmp_path, name="Well GL", project_id="well-gl")
+
+    from projects import (
+        build_project_well_card_table,
+        get_project_well_card,
+        merge_project_well_gl_metadata,
+        save_project_well_card,
+    )
+
+    metadata = merge_project_well_gl_metadata({"source": "manual"}, gl_m="-4,25")
+    save_project_well_card(
+        tmp_path,
+        project.id,
+        well_id="well-gl",
+        name="Well GL",
+        status="review",
+        metadata=metadata,
+    )
+
+    stored = get_project_well_card(tmp_path, project.id, "well-gl")
+    rows = build_project_well_card_table(tmp_path, project.id)
+
+    assert stored is not None
+    assert stored.metadata["source"] == "manual"
+    assert stored.depth_reference.gl_m == -4.25
+    assert stored.depth_reference.gl_label == "GL=-4.250 м"
+    assert rows[0].gl_m == -4.25
+    assert rows[0].gl_label == "GL=-4.250 м"
+
+
+def test_project_well_card_rejects_invalid_gl(tmp_path):
+    create_project(tmp_path, name="Bad GL", project_id="bad-gl")
+
+    from projects import merge_project_well_gl_metadata
+
+    try:
+        merge_project_well_gl_metadata(gl_m="10001")
+    except ValueError as exc:
+        assert "GL" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("Invalid GL was accepted")
+
+
+def test_project_tree_shows_well_card_gl_and_kb_gl_difference(tmp_path):
+    project = create_project(tmp_path, name="Tree GL", project_id="tree-gl")
+    las_record = save_project_las_file(
+        b"~Version\nVERS. 2.0\n~Well\nNULL. -999.25\n~Curve\nDEPT.M : Depth\nC1. : C1\n~Ascii\n1000 80\n",
+        root=tmp_path,
+        project_id=project.id,
+        file_name="well_gl.las",
+        well_name="Well GL",
+        version_label="Raw LAS",
+    )
+
+    from projects import merge_project_well_depth_reference_metadata, save_project_well_card
+
+    save_project_well_card(
+        tmp_path,
+        project.id,
+        well_id=las_record.well_id,
+        name="Well GL Official",
+        status="ready",
+        metadata=merge_project_well_depth_reference_metadata(kb_m="24", gl_m="19.5"),
+    )
+
+    rows = project_tree_table_rows(build_project_tree(tmp_path, project.id))
+    well_row = next(row for row in rows if row["id"] == f"well:{las_record.well_id}")
+
+    assert "KB=24 м" in str(well_row["status"])
+    assert "GL=19.500 м" in str(well_row["status"])
+    assert "KB-GL=4.500 м" in str(well_row["status"])

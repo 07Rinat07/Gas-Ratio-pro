@@ -19,6 +19,7 @@ PROJECT_WELL_CARD_STATUSES: dict[str, str] = {
 }
 PROJECT_WELL_COORDINATE_KEYS = ("x", "y", "latitude", "longitude")
 PROJECT_WELL_KB_METADATA_KEY = "kb_m"
+PROJECT_WELL_GL_METADATA_KEY = "gl_m"
 
 
 @dataclass(frozen=True)
@@ -64,16 +65,50 @@ class ProjectWellDepthReference:
     """
 
     kb_m: float | None = None
+    gl_m: float | None = None
 
     @property
     def has_kb(self) -> bool:
         return self.kb_m is not None
 
     @property
-    def kb_label(self) -> str:
-        if self.kb_m is None:
+    def has_gl(self) -> bool:
+        return self.gl_m is not None
+
+    @property
+    def has_any(self) -> bool:
+        return self.has_kb or self.has_gl
+
+    @staticmethod
+    def _format_elevation(label: str, value: float | None) -> str:
+        if value is None:
             return ""
-        return f"KB={self.kb_m:.3f} м".replace(".000 м", " м")
+        return f"{label}={value:.3f} м".replace(".000 м", " м")
+
+    @property
+    def kb_label(self) -> str:
+        return self._format_elevation("KB", self.kb_m)
+
+    @property
+    def gl_label(self) -> str:
+        return self._format_elevation("GL", self.gl_m)
+
+    @property
+    def datum_labels(self) -> tuple[str, ...]:
+        return tuple(label for label in (self.kb_label, self.gl_label) if label)
+
+    @property
+    def kb_above_gl_m(self) -> float | None:
+        if self.kb_m is None or self.gl_m is None:
+            return None
+        return self.kb_m - self.gl_m
+
+    @property
+    def kb_above_gl_label(self) -> str:
+        value = self.kb_above_gl_m
+        if value is None:
+            return ""
+        return f"KB-GL={value:.3f} м".replace(".000 м", " м")
 
 
 @dataclass(frozen=True)
@@ -122,6 +157,10 @@ class ProjectWellCardTableRow:
     coordinates_label: str = ""
     kb_m: float | None = None
     kb_label: str = ""
+    gl_m: float | None = None
+    gl_label: str = ""
+    kb_above_gl_m: float | None = None
+    kb_above_gl_label: str = ""
 
 
 
@@ -200,8 +239,8 @@ def merge_project_well_coordinates_metadata(
 
 
 
-def validate_project_well_kb(kb_m: Any = None) -> ProjectWellDepthReference:
-    """Validate optional KB elevation stored in meters.
+def validate_project_well_depth_reference(kb_m: Any = None, gl_m: Any = None) -> ProjectWellDepthReference:
+    """Validate optional KB and GL elevations stored in meters.
 
     The helper accepts UI strings with either comma or dot decimal separators.
     Empty values are stored as ``None``. A broad engineering range keeps the
@@ -210,17 +249,51 @@ def validate_project_well_kb(kb_m: Any = None) -> ProjectWellDepthReference:
     """
 
     kb_value = _optional_float(kb_m, "KB")
+    gl_value = _optional_float(gl_m, "GL")
     if kb_value is not None and not -1000.0 <= kb_value <= 10000.0:
         raise ValueError("KB должен быть в диапазоне от -1000 до 10000 м.")
-    return ProjectWellDepthReference(kb_m=kb_value)
+    if gl_value is not None and not -1000.0 <= gl_value <= 10000.0:
+        raise ValueError("GL должен быть в диапазоне от -1000 до 10000 м.")
+    return ProjectWellDepthReference(kb_m=kb_value, gl_m=gl_value)
+
+
+def validate_project_well_kb(kb_m: Any = None) -> ProjectWellDepthReference:
+    """Backward-compatible KB-only validation helper."""
+
+    return validate_project_well_depth_reference(kb_m=kb_m)
+
+
+def validate_project_well_gl(gl_m: Any = None) -> ProjectWellDepthReference:
+    """Validate optional GL elevation stored in meters."""
+
+    return validate_project_well_depth_reference(gl_m=gl_m)
 
 
 def depth_reference_to_metadata(reference: ProjectWellDepthReference) -> dict[str, float | None]:
-    return {PROJECT_WELL_KB_METADATA_KEY: reference.kb_m}
+    return {
+        PROJECT_WELL_KB_METADATA_KEY: reference.kb_m,
+        PROJECT_WELL_GL_METADATA_KEY: reference.gl_m,
+    }
 
 
 def depth_reference_from_metadata(metadata: dict[str, Any]) -> ProjectWellDepthReference:
-    return validate_project_well_kb(metadata.get(PROJECT_WELL_KB_METADATA_KEY))
+    return validate_project_well_depth_reference(
+        kb_m=metadata.get(PROJECT_WELL_KB_METADATA_KEY),
+        gl_m=metadata.get(PROJECT_WELL_GL_METADATA_KEY),
+    )
+
+
+def merge_project_well_depth_reference_metadata(
+    metadata: dict[str, Any] | None = None,
+    *,
+    kb_m: Any = None,
+    gl_m: Any = None,
+) -> dict[str, Any]:
+    """Return card metadata with validated KB/GL elevations updated."""
+
+    clean_metadata = dict(metadata or {})
+    clean_metadata.update(depth_reference_to_metadata(validate_project_well_depth_reference(kb_m=kb_m, gl_m=gl_m)))
+    return clean_metadata
 
 
 def merge_project_well_kb_metadata(
@@ -231,7 +304,25 @@ def merge_project_well_kb_metadata(
     """Return card metadata with validated KB elevation updated."""
 
     clean_metadata = dict(metadata or {})
-    clean_metadata.update(depth_reference_to_metadata(validate_project_well_kb(kb_m)))
+    reference = depth_reference_from_metadata(clean_metadata)
+    clean_metadata.update(
+        depth_reference_to_metadata(validate_project_well_depth_reference(kb_m=kb_m, gl_m=reference.gl_m))
+    )
+    return clean_metadata
+
+
+def merge_project_well_gl_metadata(
+    metadata: dict[str, Any] | None = None,
+    *,
+    gl_m: Any = None,
+) -> dict[str, Any]:
+    """Return card metadata with validated GL elevation updated."""
+
+    clean_metadata = dict(metadata or {})
+    reference = depth_reference_from_metadata(clean_metadata)
+    clean_metadata.update(
+        depth_reference_to_metadata(validate_project_well_depth_reference(kb_m=reference.kb_m, gl_m=gl_m))
+    )
     return clean_metadata
 
 
@@ -412,6 +503,10 @@ def build_project_well_card_table(
             ),
             kb_m=card.depth_reference.kb_m,
             kb_label=card.depth_reference.kb_label,
+            gl_m=card.depth_reference.gl_m,
+            gl_label=card.depth_reference.gl_label,
+            kb_above_gl_m=card.depth_reference.kb_above_gl_m,
+            kb_above_gl_label=card.depth_reference.kb_above_gl_label,
         )
         for card in list_project_well_cards(root, project_id)
     )
