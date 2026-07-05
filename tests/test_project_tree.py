@@ -920,3 +920,78 @@ def test_project_tree_shows_well_card_operator_in_status(tmp_path):
 
     assert "Оператор=KazMunayGas" in str(well_row["status"])
     assert well_node.metadata["operator"] == "KazMunayGas"
+
+
+def test_project_well_card_field_is_validated_and_listed(tmp_path):
+    project = create_project(tmp_path, name="Well Field", project_id="well-field")
+
+    from projects import (
+        build_project_well_card_table,
+        get_project_well_card,
+        merge_project_well_field_metadata,
+        save_project_well_card,
+    )
+
+    metadata = merge_project_well_field_metadata({"source": "manual"}, field="  Северный   участок  ")
+    save_project_well_card(
+        tmp_path,
+        project.id,
+        well_id="well-field",
+        name="Well Field",
+        status="review",
+        metadata=metadata,
+    )
+
+    stored = get_project_well_card(tmp_path, project.id, "well-field")
+    rows = build_project_well_card_table(tmp_path, project.id)
+
+    assert stored is not None
+    assert stored.metadata["source"] == "manual"
+    assert stored.field.field == "Северный участок"
+    assert stored.field.field_label == "Месторождение=Северный участок"
+    assert rows[0].field == "Северный участок"
+    assert rows[0].field_label == "Месторождение=Северный участок"
+
+
+def test_project_well_card_rejects_too_long_field(tmp_path):
+    create_project(tmp_path, name="Bad Field", project_id="bad-field")
+
+    from projects import merge_project_well_field_metadata
+
+    try:
+        merge_project_well_field_metadata(field="А" * 121)
+    except ValueError as exc:
+        assert "120" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("Too long field name was accepted")
+
+
+def test_project_tree_shows_well_card_field_in_status(tmp_path):
+    project = create_project(tmp_path, name="Tree Field", project_id="tree-field")
+    las_record = save_project_las_file(
+        b"~Version\nVERS. 2.0\n~Well\nNULL. -999.25\n~Curve\nDEPT.M : Depth\nC1. : C1\n~Ascii\n1000 80\n",
+        root=tmp_path,
+        project_id=project.id,
+        file_name="well_field.las",
+        well_name="Well Field",
+        version_label="Raw LAS",
+    )
+
+    from projects import merge_project_well_field_metadata, save_project_well_card
+
+    save_project_well_card(
+        tmp_path,
+        project.id,
+        well_id=las_record.well_id,
+        name="Well Field Official",
+        status="ready",
+        metadata=merge_project_well_field_metadata(field="Тенгиз"),
+    )
+
+    tree = build_project_tree(tmp_path, project.id)
+    rows = project_tree_table_rows(tree)
+    well_row = next(row for row in rows if row["id"] == f"well:{las_record.well_id}")
+    well_node = next(node for _level, node in flatten_project_tree(tree) if node.id == f"well:{las_record.well_id}")
+
+    assert "Месторождение=Тенгиз" in str(well_row["status"])
+    assert well_node.metadata["field"] == "Тенгиз"

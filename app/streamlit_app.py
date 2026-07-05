@@ -3022,6 +3022,7 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
             default_depth_reference = project_well_cards.depth_reference_from_metadata(default_metadata)
             default_drilling_dates = project_well_cards.drilling_dates_from_metadata(default_metadata)
             default_operator = project_well_cards.operator_from_metadata(default_metadata)
+            default_field = project_well_cards.field_from_metadata(default_metadata)
             status_options = tuple(PROJECT_WELL_CARD_STATUSES)
             try:
                 status_index = status_options.index(default_status)
@@ -3113,6 +3114,16 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
             if default_operator.operator_label:
                 st.caption(default_operator.operator_label)
             st.caption("Оператор хранится как короткая metadata-строка скважины и не меняет LAS-версии.")
+            st.caption("Месторождение")
+            well_card_field = st.text_input(
+                "Месторождение / участок",
+                value=default_field.field or "",
+                key=f"project_explorer_well_card_field_{project.id}_{selected_well_id}",
+                placeholder="например: Тенгиз",
+            )
+            if default_field.field_label:
+                st.caption(default_field.field_label)
+            st.caption("Месторождение хранится как короткая metadata-строка скважины и не меняет LAS-версии.")
             well_card_note = st.text_area(
                 "Комментарий",
                 value=default_note,
@@ -3146,6 +3157,10 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                     well_card_metadata = project_well_cards.merge_project_well_operator_metadata(
                         well_card_metadata,
                         operator=well_card_operator,
+                    )
+                    well_card_metadata = project_well_cards.merge_project_well_field_metadata(
+                        well_card_metadata,
+                        field=well_card_field,
                     )
                     save_project_well_card(
                         LAS_CORRELATION_PROJECTS_ROOT,

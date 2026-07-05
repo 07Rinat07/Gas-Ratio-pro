@@ -24,6 +24,7 @@ PROJECT_WELL_PLANNED_TD_METADATA_KEY = "planned_td_m"
 PROJECT_WELL_ACTUAL_TD_METADATA_KEY = "actual_td_m"
 PROJECT_WELL_SPUD_DATE_METADATA_KEY = "spud_date"
 PROJECT_WELL_OPERATOR_METADATA_KEY = "operator"
+PROJECT_WELL_FIELD_METADATA_KEY = "field"
 
 
 @dataclass(frozen=True)
@@ -203,6 +204,36 @@ class ProjectWellOperator:
 
 
 @dataclass(frozen=True)
+class ProjectWellField:
+    """Validated optional field metadata for a well card.
+
+    The field name is stored as a short human-readable project metadata value.
+    It is intentionally independent from LAS headers because one project may use
+    corrected field naming without rewriting source LAS files.
+    """
+
+    field: str | None = None
+
+    @property
+    def has_field(self) -> bool:
+        return self.field is not None
+
+    @property
+    def has_any(self) -> bool:
+        return self.has_field
+
+    @property
+    def field_label(self) -> str:
+        if not self.field:
+            return ""
+        return f"Месторождение={self.field}"
+
+    @property
+    def labels(self) -> tuple[str, ...]:
+        return tuple(label for label in (self.field_label,) if label)
+
+
+@dataclass(frozen=True)
 class ProjectWellCard:
     """Metadata-only well card stored inside a local project.
 
@@ -240,6 +271,10 @@ class ProjectWellCard:
     def operator(self) -> ProjectWellOperator:
         return operator_from_metadata(self.metadata or {})
 
+    @property
+    def field(self) -> ProjectWellField:
+        return field_from_metadata(self.metadata or {})
+
 
 @dataclass(frozen=True)
 class ProjectWellCardTableRow:
@@ -269,6 +304,8 @@ class ProjectWellCardTableRow:
     spud_date_label: str = ""
     operator: str | None = None
     operator_label: str = ""
+    field: str | None = None
+    field_label: str = ""
 
 
 def _optional_float(value: Any, field_label: str) -> float | None:
@@ -619,6 +656,33 @@ def merge_project_well_operator_metadata(
     clean_metadata.update(operator_to_metadata(validate_project_well_operator(operator=operator)))
     return clean_metadata
 
+
+def validate_project_well_field(field: Any = None) -> ProjectWellField:
+    """Validate optional well field metadata."""
+
+    return ProjectWellField(field=_optional_text(field, "Месторождение"))
+
+
+def field_to_metadata(field: ProjectWellField) -> dict[str, str | None]:
+    return {PROJECT_WELL_FIELD_METADATA_KEY: field.field}
+
+
+def field_from_metadata(metadata: dict[str, Any]) -> ProjectWellField:
+    return validate_project_well_field(field=metadata.get(PROJECT_WELL_FIELD_METADATA_KEY))
+
+
+def merge_project_well_field_metadata(
+    metadata: dict[str, Any] | None = None,
+    *,
+    field: Any = None,
+) -> dict[str, Any]:
+    """Return card metadata with validated field key updated."""
+
+    clean_metadata = dict(metadata or {})
+    clean_metadata.update(field_to_metadata(validate_project_well_field(field=field)))
+    return clean_metadata
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -809,6 +873,8 @@ def build_project_well_card_table(
             spud_date_label=card.drilling_dates.spud_date_label,
             operator=card.operator.operator,
             operator_label=card.operator.operator_label,
+            field=card.field.field,
+            field_label=card.field.field_label,
         )
         for card in list_project_well_cards(root, project_id)
     )
