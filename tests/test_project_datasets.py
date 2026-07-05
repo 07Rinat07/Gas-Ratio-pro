@@ -496,6 +496,11 @@ MUD_LOG_NO_DEPTH_BYTES = b"Time,TG,C1,Lithology\n00:00,12,8,Sandstone\n00:01,15,
 MUD_LOG_NO_GAS_BYTES = b"MD,Lithology,Description\n1000,Sandstone,show\n1001,Shale,background\n"
 MUD_LOG_DUP_GAP_BYTES = b"MD,TG,C1,Lithology\n1000,12,8,Sandstone\n1000,13,9,Sandstone\n1001,14,10,Sandstone\n1002,15,11,Sandstone\n1010,16,12,Shale\n"
 
+PRODUCTION_CSV_BYTES = b"DATE,OIL,GAS,WATER,THP\n2026-01-01,100,500,20,150\n2026-01-02,110,520,22,148\n"
+PRODUCTION_NO_DATE_BYTES = b"OIL,GAS,WATER\n100,500,20\n110,520,22\n"
+PRODUCTION_NO_RATE_BYTES = b"DATE,COMMENT\n2026-01-01,start\n2026-01-02,stable\n"
+PRODUCTION_DUP_GAP_NEGATIVE_BYTES = b"DATE,OIL,GAS,WATER\n2026-01-01,100,500,20\n2026-01-01,101,501,20\n2026-01-02,-5,502,21\n2026-01-03,120,510,22\n2026-01-15,130,530,23\n"
+
 
 def test_project_mud_log_dataset_manager_indexes_saved_csv_mud_log(tmp_path):
     from projects import list_project_mud_log_datasets, read_project_mud_log_dataset_dataframe, save_project_mud_log_dataset
@@ -653,3 +658,167 @@ def test_project_mud_log_dataset_rejects_empty_bytes(tmp_path):
 
     with pytest.raises(ValueError):
         save_project_mud_log_dataset(b"", root=tmp_path, project_id="demo")
+
+
+def test_project_production_dataset_manager_indexes_saved_csv_production(tmp_path):
+    from projects import list_project_production_datasets, read_project_production_dataset_dataframe, save_project_production_dataset
+
+    record = save_project_production_dataset(
+        PRODUCTION_CSV_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="Well A production.csv",
+        name="Well A production",
+        well_id="well-a",
+    )
+
+    datasets = list_project_production_datasets(tmp_path, "demo")
+
+    assert len(datasets) == 1
+    dataset = datasets[0]
+    assert dataset.id == f"production:{record.id}"
+    assert dataset.kind == "Production"
+    assert dataset.name == "Well A production"
+    assert dataset.source_id == record.id
+    assert dataset.well_id == "well-a"
+    assert dataset.row_count == 2
+    assert dataset.column_count == 5
+    assert dataset.depth_curve == ""
+    assert dataset.status == "ready"
+    assert dataset.warnings == ()
+    assert dataset.metadata["record_count"] == 2
+    assert dataset.metadata["date_column"] == "DATE"
+    assert dataset.metadata["date_min"] == "2026-01-01"
+    assert dataset.metadata["date_max"] == "2026-01-02"
+    assert "oil" in dataset.metadata["production_measurements"]
+    assert "gas" in dataset.metadata["production_measurements"]
+    assert "water" in dataset.metadata["production_measurements"]
+    assert "tubing_pressure" in dataset.metadata["production_measurements"]
+
+    dataframe = read_project_production_dataset_dataframe(tmp_path, "demo", record.id)
+    assert list(dataframe.columns) == ["DATE", "OIL", "GAS", "WATER", "THP"]
+
+
+def test_project_production_dataset_manager_indexes_saved_excel_production(tmp_path):
+    from io import BytesIO
+    from projects import list_project_production_datasets, save_project_production_dataset
+
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        pd.DataFrame(
+            {"Production Date": ["2026-01-01", "2026-01-02"], "Oil Rate": [100, 110], "Gas Rate": [500, 520]}
+        ).to_excel(writer, sheet_name="Prod", index=False)
+
+    record = save_project_production_dataset(
+        buffer.getvalue(),
+        root=tmp_path,
+        project_id="demo",
+        file_name="production.xlsx",
+        name="Production workbook",
+        well_id="well-a",
+        active_sheet="Prod",
+    )
+
+    dataset = list_project_production_datasets(tmp_path, "demo")[0]
+
+    assert record.file_format == "EXCEL"
+    assert record.active_sheet == "Prod"
+    assert dataset.kind == "Production"
+    assert dataset.version_label == "Prod"
+    assert dataset.metadata["file_format"] == "EXCEL"
+    assert dataset.metadata["active_sheet"] == "Prod"
+    assert dataset.metadata["date_column"] == "Production Date"
+    assert dataset.metadata["production_measurements"] == ["oil", "gas"]
+
+
+def test_project_production_dataset_manager_flags_missing_date_column(tmp_path):
+    from projects import list_project_production_datasets, save_project_production_dataset
+
+    save_project_production_dataset(
+        PRODUCTION_NO_DATE_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="No Date production.csv",
+        name="Production without date",
+        well_id="well-a",
+    )
+
+    dataset = list_project_production_datasets(tmp_path, "demo")[0]
+
+    assert dataset.status == "warning"
+    assert dataset.metadata["date_column"] == ""
+    assert "Не найдена дата Production dataset: DATE/DAY/PROD_DATE/PRODUCTION_DATE." in dataset.warnings
+
+
+def test_project_production_dataset_manager_flags_missing_measurements_and_well(tmp_path):
+    from projects import list_project_production_datasets, save_project_production_dataset
+
+    save_project_production_dataset(
+        PRODUCTION_NO_RATE_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="No Rate production.csv",
+        name="Production without rates",
+    )
+
+    dataset = list_project_production_datasets(tmp_path, "demo")[0]
+
+    assert dataset.status == "warning"
+    assert "Production dataset не привязан к скважине проекта." in dataset.warnings
+    assert "Не найдены производственные показатели: oil/gas/water/rate/pressure." in dataset.warnings
+
+
+def test_project_production_dataset_manager_flags_duplicate_dates_gaps_and_negative_values(tmp_path):
+    from projects import list_project_production_datasets, save_project_production_dataset
+
+    save_project_production_dataset(
+        PRODUCTION_DUP_GAP_NEGATIVE_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="Duplicate production.csv",
+        name="Duplicate production",
+        well_id="well-a",
+    )
+
+    dataset = list_project_production_datasets(tmp_path, "demo")[0]
+
+    assert dataset.status == "warning"
+    assert "Найдены дубли дат Production dataset; проверьте повторные суточные/месячные записи." in dataset.warnings
+    assert "Найдены возможные пропуски дат Production dataset." in dataset.warnings
+    assert "Production dataset содержит отрицательные числовые значения; проверьте дебиты и давления." in dataset.warnings
+
+
+def test_project_dataset_table_accepts_production_records(tmp_path):
+    from projects import build_project_dataset_table, list_project_production_datasets, save_project_production_dataset
+
+    save_project_production_dataset(
+        PRODUCTION_CSV_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="Well A production.csv",
+        name="Well A production",
+        well_id="well-a",
+    )
+
+    table = build_project_dataset_table(list_project_production_datasets(tmp_path, "demo"))
+
+    assert list(table["Тип"]) == ["Production"]
+    assert table.loc[0, "Dataset"] == "Well A production"
+    assert table.loc[0, "Скважина ID"] == "well-a"
+
+
+def test_project_production_dataset_duplicate_names_get_unique_ids(tmp_path):
+    from projects import save_project_production_dataset
+
+    first = save_project_production_dataset(PRODUCTION_CSV_BYTES, root=tmp_path, project_id="demo", file_name="production.csv", name="Production")
+    second = save_project_production_dataset(PRODUCTION_CSV_BYTES, root=tmp_path, project_id="demo", file_name="production.csv", name="Production")
+
+    assert first.id != second.id
+    assert second.id.endswith("-2")
+
+
+def test_project_production_dataset_rejects_empty_bytes(tmp_path):
+    from projects import save_project_production_dataset
+
+    with pytest.raises(ValueError):
+        save_project_production_dataset(b"", root=tmp_path, project_id="demo")
