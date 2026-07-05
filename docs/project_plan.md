@@ -590,3 +590,11 @@ Dashboard получил явную responsive-сетку для целевых 
 Добавлены presets `BACKGROUND_POSITION_PRESETS` и `BACKGROUND_OPACITY_PRESETS`, чтобы настройки позиции, overlay и glass-прозрачности были централизованы, а не размазаны по CSS. LAS Editor, correlation plots, interpretation graphs, таблицы, отчеты и mapping-панели остаются на темной инженерной поверхности через класс `background-rule-dark-workspace`, `background-image: none !important` и усиленный контраст data/plot surfaces. Это сохраняет фирменный вид приложения на стартовой странице и документации, но не мешает чтению чисел, осей, линий LAS-кривых и табличных данных.
 
 Текущий следующий незавершенный пункт: **UI Modernization Track → Glass UI System**.
+
+### Реализовано: UI Modernization Track → Glass UI System
+
+Добавлена общая glass UI-система для карточек, панелей, hero-блоков, sidebar, navbar, modal и tooltip. В коде появился реестр `GLASS_UI_TOKENS`, единые CSS-переменные прозрачности, границ, теней, blur и контрастного текста: `--glass-card-bg`, `--glass-panel-bg`, `--glass-border-token`, `--glass-shadow-token`, `--glass-blur-token`, `--glass-high-contrast-text` и `--glass-dark-overlay-control`.
+
+Dashboard, Documentation Center и общий page shell теперь используют shared transparency tokens вместо разрозненных локальных значений. Для рабочих инженерных экранов сохранена защита читаемости: в режиме `background-rule-dark-workspace` glass-поверхности становятся почти непрозрачными, blur отключается, а LAS Editor / Graphs / Reports / tables остаются на темном фоне без декоративной картинки. Добавлены smoke-тесты на наличие компонентов `glass-card`, `glass-panel`, `glass-hero`, `glass-sidebar`, `glass-navbar`, `glass-modal`, `glass-tooltip`, readability checks и документацию этапа.
+
+Текущий следующий незавершенный пункт: **UI Modernization Track → Navigation Animations**.

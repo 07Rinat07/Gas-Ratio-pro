@@ -361,6 +361,74 @@ BACKGROUND_OPACITY_PRESETS: dict[str, str] = {
 }
 
 
+GLASS_UI_TOKENS: dict[str, dict[str, str]] = {
+    "card": {
+        "class": "glass-card",
+        "background": "rgba(15, 23, 42, 0.62)",
+        "border": "rgba(148, 163, 184, 0.22)",
+        "shadow": "0 18px 52px rgba(0, 0, 0, 0.28)",
+        "blur": "14px",
+        "text": "#f8fafc",
+    },
+    "panel": {
+        "class": "glass-panel",
+        "background": "rgba(5, 10, 22, 0.70)",
+        "border": "rgba(255, 138, 0, 0.24)",
+        "shadow": "0 24px 72px rgba(0, 0, 0, 0.34)",
+        "blur": "16px",
+        "text": "#f8fafc",
+    },
+    "hero": {
+        "class": "glass-hero",
+        "background": "rgba(2, 6, 23, 0.54)",
+        "border": "rgba(255, 138, 0, 0.32)",
+        "shadow": "0 32px 90px rgba(0, 0, 0, 0.40)",
+        "blur": "18px",
+        "text": "#ffffff",
+    },
+    "sidebar": {
+        "class": "glass-sidebar",
+        "background": "rgba(15, 23, 42, 0.66)",
+        "border": "rgba(148, 163, 184, 0.24)",
+        "shadow": "0 18px 46px rgba(0, 0, 0, 0.26)",
+        "blur": "12px",
+        "text": "#f8fafc",
+    },
+    "navbar": {
+        "class": "glass-navbar",
+        "background": "rgba(2, 6, 23, 0.58)",
+        "border": "rgba(148, 163, 184, 0.24)",
+        "shadow": "0 18px 54px rgba(0, 0, 0, 0.28)",
+        "blur": "14px",
+        "text": "#f8fafc",
+    },
+    "modal": {
+        "class": "glass-modal",
+        "background": "rgba(5, 10, 22, 0.78)",
+        "border": "rgba(255, 138, 0, 0.28)",
+        "shadow": "0 34px 110px rgba(0, 0, 0, 0.46)",
+        "blur": "20px",
+        "text": "#f8fafc",
+    },
+    "tooltip": {
+        "class": "glass-tooltip",
+        "background": "rgba(15, 23, 42, 0.84)",
+        "border": "rgba(148, 163, 184, 0.30)",
+        "shadow": "0 12px 32px rgba(0, 0, 0, 0.34)",
+        "blur": "10px",
+        "text": "#f8fafc",
+    },
+}
+
+GLASS_UI_READABILITY_RULES: tuple[str, ...] = (
+    "Dashboard cards keep 55-70% glass opacity so the brand image stays visible while text remains readable.",
+    "Documentation panels keep 60-75% glass opacity for long text and quick links.",
+    "License and About blocks use 65-80% opacity because legal text must have stronger contrast.",
+    "LAS Editor, plots, reports and tables do not use decorative background imagery behind engineering data.",
+    "All shared glass surfaces use high contrast text, visible borders and controlled dark overlay tokens.",
+)
+
+
 START_ACTIONS: tuple[dict[str, str], ...] = (
     {
         "id": "project",
@@ -743,6 +811,34 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             margin-top: 0.35rem;
         }
 
+
+        .glass-card, .glass-panel, .glass-hero, .glass-sidebar, .glass-navbar, .glass-modal, .glass-tooltip {
+            color: var(--glass-high-contrast-text) !important;
+            border: 1px solid var(--glass-border-token);
+            box-shadow: var(--glass-shadow-token);
+            backdrop-filter: blur(var(--glass-blur-token));
+            -webkit-backdrop-filter: blur(var(--glass-blur-token));
+        }
+        .glass-card { background: var(--glass-card-bg); border-radius: 16px; }
+        .glass-panel { background: var(--glass-panel-bg); border-color: var(--glass-accent-border-token); border-radius: 18px; }
+        .glass-hero { background: var(--glass-hero-bg); border-color: rgba(255, 138, 0, 0.32); border-radius: 22px; }
+        .glass-sidebar { background: var(--glass-sidebar-bg); border-radius: 16px; }
+        .glass-navbar { background: var(--glass-navbar-bg); border-radius: 16px; }
+        .glass-modal { background: var(--glass-modal-bg); border-color: var(--glass-accent-border-token); border-radius: 20px; }
+        .glass-tooltip { background: var(--glass-tooltip-bg); border-radius: 12px; }
+        .glass-card p, .glass-panel p, .glass-hero p, .glass-sidebar p, .glass-navbar p, .glass-modal p, .glass-tooltip p,
+        .glass-card span, .glass-panel span, .glass-hero span, .glass-sidebar span, .glass-navbar span, .glass-modal span, .glass-tooltip span {
+            color: var(--glass-muted-text) !important;
+        }
+        .glass-readable-text, .glass-card b, .glass-panel b, .glass-hero b, .glass-sidebar b, .glass-navbar b, .glass-modal b {
+            color: var(--glass-high-contrast-text) !important;
+        }
+        .glass-readability-check { text-shadow: 0 1px 2px rgba(0,0,0,0.55); }
+        .background-rule-dark-workspace .glass-card, .background-rule-dark-workspace .glass-panel {
+            background: rgba(5, 10, 22, 0.90);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
         .app-page-shell {
             position: relative;
             border: 1px solid rgba(148, 163, 184, 0.20);
@@ -2857,6 +2953,21 @@ def _background_manager_branded_tabs() -> tuple[str, ...]:
     return tuple(tab for tab, rule in BACKGROUND_MANAGER_RULES.items() if rule["mode"] in {"branded", "documentation"})
 
 
+def _glass_ui_token_names() -> tuple[str, ...]:
+    """Return the shared glass component token names used by the UI system."""
+    return tuple(GLASS_UI_TOKENS.keys())
+
+
+def _glass_ui_css_classes() -> tuple[str, ...]:
+    """Return CSS classes for the shared glass surfaces."""
+    return tuple(token["class"] for token in GLASS_UI_TOKENS.values())
+
+
+def _glass_ui_readability_rules() -> tuple[str, ...]:
+    """Return readability constraints for branded and engineering surfaces."""
+    return GLASS_UI_READABILITY_RULES
+
+
 def _set_active_main_tab(tab_name: str) -> None:
     """Switch the single-page Streamlit workspace to a concrete application section."""
     if tab_name in APP_TABS:
@@ -2913,8 +3024,8 @@ def _open_page_shell(tab_name: str) -> None:
     background_rule = _background_manager_rule(tab_name)
     rule_class = f"background-rule-{background_rule['mode']}"
     st.markdown(
-        "<section class='app-page-shell " + rule_class + "' data-background-rule='" + _html_escape(background_rule["mode"]) + "' data-page='" + _html_escape(tab_name) + "'>"
-        "<header class='app-page-header'><div>"
+        "<section class='app-page-shell glass-panel " + rule_class + "' data-background-rule='" + _html_escape(background_rule["mode"]) + "' data-page='" + _html_escape(tab_name) + "'>"
+        "<header class='app-page-header glass-navbar'><div>"
         "<div class='app-page-kicker'>" + _html_escape(meta["kicker"]) + "</div>"
         "<h1 class='app-page-title'>" + _html_escape(meta["title"]) + "</h1>"
         "<p class='app-page-subtitle'>" + _html_escape(meta["subtitle"]) + "</p>"
@@ -2958,7 +3069,7 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
           {logo_img}
           <div class="dashboard-content">
             <main class="dashboard-main" id="dashboard-home">
-              <div class="dashboard-navbar">
+              <div class="dashboard-navbar glass-navbar">
                 <div class="dashboard-brand">Gas Ratio <span>Pro</span></div>
                 <div class="dashboard-navlinks">
                   <a href="#dashboard-projects">Проекты</a>

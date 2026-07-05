@@ -426,3 +426,44 @@ def test_background_manager_final_pass_is_documented() -> None:
     assert "Refine branded background manager" in plan
     assert "Background Manager Final Pass" in guide
     assert "LAS-редактор" in guide
+
+
+def test_shared_glass_ui_system_tokens_cover_required_components() -> None:
+    token_names = app._glass_ui_token_names()
+    css_classes = app._glass_ui_css_classes()
+
+    assert "card" in token_names
+    assert "panel" in token_names
+    assert "hero" in token_names
+    assert "sidebar" in token_names
+    assert "navbar" in token_names
+    assert "modal" in token_names
+    assert "tooltip" in token_names
+    assert "glass-card" in css_classes
+    assert "glass-panel" in css_classes
+    assert "glass-hero" in css_classes
+
+
+def test_shared_glass_ui_system_css_has_transparency_border_shadow_blur_and_contrast() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "--glass-card-bg" in source
+    assert "--glass-panel-bg" in source
+    assert "--glass-border-token" in source
+    assert "--glass-shadow-token" in source
+    assert "--glass-blur-token" in source
+    assert "--glass-high-contrast-text" in source
+    assert "--glass-dark-overlay-control" in source
+    assert ".glass-readability-check" in source
+    assert ".background-rule-dark-workspace .glass-card" in source
+
+
+def test_shared_glass_ui_system_is_documented() -> None:
+    plan = Path(app.ROOT_DIR / "docs" / "project_plan.md").read_text(encoding="utf-8")
+    guide = Path(app.ROOT_DIR / "docs" / "user_guide.md").read_text(encoding="utf-8")
+
+    assert "Glass UI System" in plan
+    assert "Add shared glass UI system" in plan
+    assert "shared transparency tokens" in plan
+    assert "Glass UI System" in guide
+    assert "LAS Editor / Graphs / Reports" in guide
