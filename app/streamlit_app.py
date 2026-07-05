@@ -86,12 +86,18 @@ from projects import (
     build_project_tree,
     create_project,
     ensure_default_project,
+    list_project_explorer_folder_targets,
+    list_project_explorer_move_options,
+    list_project_explorer_well_group_targets,
     list_projects,
+    move_project_explorer_item_to_folder,
+    move_project_explorer_well_to_group,
     project_tree_table_rows,
 )
 from projects import calculations as project_calculations
 from projects import exports as project_exports
 from projects import graph_settings as project_graph_settings
+from projects import project_labels as project_labels
 from projects import las_files as project_las_files
 from reports.export_csv import export_csv_bytes
 from reports.export_html import HtmlReportMetadata, HtmlReportTable, build_plotly_html_report
@@ -109,6 +115,7 @@ from wells.repository import DEFAULT_WELLS_ROOT, list_wells, read_well_file_byte
 project_calculations = importlib.reload(project_calculations)
 project_exports = importlib.reload(project_exports)
 project_las_files = importlib.reload(project_las_files)
+project_labels = importlib.reload(project_labels)
 list_project_calculations = project_calculations.list_project_calculations
 filter_project_calculations = project_calculations.filter_project_calculations
 summarize_project_calculations = project_calculations.summarize_project_calculations
@@ -142,6 +149,10 @@ read_project_las_file_bytes = project_las_files.read_project_las_file_bytes
 read_project_las_file_dataframe = project_las_files.read_project_las_file_dataframe
 save_project_las_file = project_las_files.save_project_las_file
 set_project_las_file_archived = project_las_files.set_project_las_file_archived
+PROJECT_EXPLORER_LABEL_COLORS = project_labels.PROJECT_EXPLORER_LABEL_COLORS
+PROJECT_EXPLORER_LABEL_ICONS = project_labels.PROJECT_EXPLORER_LABEL_ICONS
+set_project_explorer_label = project_labels.set_project_explorer_label
+clear_project_explorer_label = project_labels.clear_project_explorer_label
 
 SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xlsm", ".las"}
 WELLS_STORAGE_ROOT = ROOT_DIR / DEFAULT_WELLS_ROOT
@@ -2811,9 +2822,15 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                 "export": "⬇",
                 "empty": "—",
             }.get(kind, "•")
+            color_icon = str(row.get("color_label_icon", ""))
+            color_name = str(row.get("color_label_name", ""))
             line = f"{indent}{icon} {label}"
+            if color_icon:
+                line = f"{line} {color_icon}"
             if status:
                 line = f"{line} · {status}"
+            if color_name:
+                line = f"{line} · метка: {color_name}"
             st.caption(line)
 
         st.divider()
@@ -2909,6 +2926,72 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                     except Exception:
                         logger.exception("project_tree_move_to_group_failed project_id=%s", safe_log_value(project.id))
                         st.error("Не удалось переместить скважину в группу.")
+
+        st.divider()
+        st.caption("Цветовые метки")
+        color_options = tuple(PROJECT_EXPLORER_LABEL_COLORS)
+        color_labels = {
+            color: f"{PROJECT_EXPLORER_LABEL_ICONS.get(color, '🏷️')} {name}"
+            for color, name in PROJECT_EXPLORER_LABEL_COLORS.items()
+        }
+        selected_label_item_id = st.selectbox(
+            "Объект для метки",
+            options=tuple(option_labels),
+            format_func=lambda item_id: option_labels.get(item_id, item_id),
+            key=f"project_explorer_label_item_{project.id}",
+        )
+        selected_color = st.selectbox(
+            "Цвет метки",
+            options=color_options,
+            format_func=lambda color: color_labels.get(color, color),
+            key=f"project_explorer_label_color_{project.id}",
+        )
+        label_note = st.text_input(
+            "Комментарий к метке",
+            key=f"project_explorer_label_note_{project.id}",
+            placeholder="например: проверить, готово, важный интервал",
+        )
+        col_set_label, col_clear_label = st.columns(2)
+        with col_set_label:
+            if st.button("Поставить метку", key=f"project_explorer_set_label_{project.id}"):
+                try:
+                    set_project_explorer_label(
+                        LAS_CORRELATION_PROJECTS_ROOT,
+                        project.id,
+                        selected_label_item_id,
+                        selected_color,
+                        note=label_note,
+                    )
+                    logger.info(
+                        "project_tree_label_set project_id=%s item_id=%s color=%s",
+                        safe_log_value(project.id),
+                        safe_log_value(selected_label_item_id),
+                        safe_log_value(selected_color),
+                    )
+                    st.success("Цветовая метка сохранена.")
+                    st.rerun()
+                except Exception:
+                    logger.exception("project_tree_label_set_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось сохранить цветовую метку.")
+        with col_clear_label:
+            if st.button("Снять метку", key=f"project_explorer_clear_label_{project.id}"):
+                try:
+                    removed = clear_project_explorer_label(
+                        LAS_CORRELATION_PROJECTS_ROOT,
+                        project.id,
+                        selected_label_item_id,
+                    )
+                    logger.info(
+                        "project_tree_label_cleared project_id=%s item_id=%s removed=%s",
+                        safe_log_value(project.id),
+                        safe_log_value(selected_label_item_id),
+                        removed,
+                    )
+                    st.success("Цветовая метка снята." if removed else "У объекта не было цветовой метки.")
+                    st.rerun()
+                except Exception:
+                    logger.exception("project_tree_label_clear_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось снять цветовую метку.")
 
 
 def _load_project_las_correlation_settings(project_id: str) -> LasCorrelationSettings | None:

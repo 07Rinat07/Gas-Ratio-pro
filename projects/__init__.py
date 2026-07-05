@@ -48,6 +48,15 @@ from projects.project_folders import (
     list_project_folders,
     save_project_folder,
 )
+from projects.project_labels import (
+    PROJECT_EXPLORER_LABEL_COLORS,
+    PROJECT_EXPLORER_LABEL_ICONS,
+    ProjectExplorerLabel,
+    clear_project_explorer_label,
+    list_project_explorer_labels,
+    project_explorer_labels_by_object,
+    set_project_explorer_label,
+)
 from projects.project_moves import (
     ProjectExplorerMoveOption,
     ProjectExplorerMoveResult,
@@ -94,6 +103,13 @@ from projects.repository import (
 
 __all__ = [
     "ProjectFolder",
+    "PROJECT_EXPLORER_LABEL_COLORS",
+    "PROJECT_EXPLORER_LABEL_ICONS",
+    "ProjectExplorerLabel",
+    "clear_project_explorer_label",
+    "list_project_explorer_labels",
+    "project_explorer_labels_by_object",
+    "set_project_explorer_label",
     "ProjectExplorerMoveOption",
     "ProjectExplorerMoveResult",
     "list_project_explorer_folder_targets",

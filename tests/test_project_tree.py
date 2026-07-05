@@ -293,3 +293,69 @@ def test_project_explorer_rejects_non_well_group_move(tmp_path):
         assert "только объект скважины" in str(exc)
     else:
         raise AssertionError("Expected ValueError for non-well move into a well group")
+
+
+def test_project_tree_applies_color_labels_to_project_objects(tmp_path):
+    project = create_project(tmp_path, name="Labels", project_id="labels")
+    las_record = save_project_las_file(
+        b"~Version\nVERS. 2.0\n~Well\nNULL. -999.25\n~Curve\nDEPT.M : Depth\nC1. : C1\n~Ascii\n1000 80\n",
+        root=tmp_path,
+        project_id=project.id,
+        file_name="well_a.las",
+        well_name="Well A",
+        version_label="Raw LAS",
+    )
+
+    from projects import set_project_explorer_label
+
+    set_project_explorer_label(
+        root=tmp_path,
+        project_id=project.id,
+        object_id=f"well:{las_record.well_id}",
+        color="green",
+        note="ready for review",
+    )
+
+    rows = project_tree_table_rows(build_project_tree(tmp_path, project.id))
+    well_row = next(row for row in rows if row["id"] == f"well:{las_record.well_id}")
+
+    assert well_row["color_label"] == "green"
+    assert well_row["color_label_name"] == "Зеленая"
+    assert well_row["color_label_icon"] == "🟢"
+
+
+def test_project_tree_folder_items_inherit_source_color_labels(tmp_path):
+    project = create_project(tmp_path, name="Folder Label", project_id="folder-label")
+    calculation_record = save_project_calculation(
+        pd.DataFrame({"depth": [1000.0], "c1": [80.0]}),
+        root=tmp_path,
+        project_id=project.id,
+        source_label="Marked calculation",
+    )
+
+    from projects import save_project_folder, set_project_explorer_label
+
+    object_id = f"calculation:{calculation_record.id}"
+    save_project_folder(tmp_path, project.id, name="Review", item_ids=(object_id,), folder_id="review")
+    set_project_explorer_label(tmp_path, project.id, object_id=object_id, color="purple")
+
+    rows = project_tree_table_rows(build_project_tree(tmp_path, project.id))
+    folder_item_row = next(row for row in rows if row["kind"] == "folder_item")
+
+    assert folder_item_row["label"] == "Marked calculation"
+    assert folder_item_row["color_label"] == "purple"
+    assert folder_item_row["color_label_icon"] == "🟣"
+
+
+def test_project_explorer_color_label_can_be_cleared(tmp_path):
+    project = create_project(tmp_path, name="Clear Label", project_id="clear-label")
+
+    from projects import clear_project_explorer_label, list_project_explorer_labels, set_project_explorer_label
+
+    set_project_explorer_label(tmp_path, project.id, object_id="export:report", color="blue")
+    assert len(list_project_explorer_labels(tmp_path, project.id)) == 1
+
+    removed = clear_project_explorer_label(tmp_path, project.id, object_id="export:report")
+
+    assert removed is True
+    assert list_project_explorer_labels(tmp_path, project.id) == ()

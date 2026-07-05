@@ -7,6 +7,7 @@ from projects.calculations import list_project_calculations
 from projects.exports import list_project_exports
 from projects.las_files import ProjectLasWellCard, list_project_las_wells
 from projects.project_folders import ProjectFolder, list_project_folders
+from projects.project_labels import ProjectExplorerLabel, project_explorer_labels_by_object
 from projects.well_groups import list_grouped_project_wells
 from projects.repository import DEFAULT_PROJECT_ID, DEFAULT_PROJECTS_ROOT, ProjectRecord, load_project, safe_project_id
 
@@ -56,6 +57,49 @@ def _empty_node(node_id: str, label: str) -> ProjectTreeNode:
         status="пока нет данных",
     )
 
+
+
+def _label_lookup_id(node: ProjectTreeNode) -> str:
+    """Return the original object id used for inherited color labels."""
+
+    item_id = node.metadata.get("item_id")
+    if isinstance(item_id, str) and item_id:
+        return item_id
+    source_id = node.metadata.get("source_id")
+    if isinstance(source_id, str) and source_id:
+        return source_id
+    return node.id
+
+
+def _apply_project_labels(
+    node: ProjectTreeNode,
+    labels: dict[str, ProjectExplorerLabel],
+) -> ProjectTreeNode:
+    """Attach color label metadata to tree nodes without changing payloads."""
+
+    children = tuple(_apply_project_labels(child, labels) for child in node.children)
+    label = labels.get(_label_lookup_id(node))
+    if label is None and children == node.children:
+        return node
+
+    metadata = dict(node.metadata)
+    if label is not None:
+        metadata.update(
+            {
+                "color_label": label.color,
+                "color_label_name": label.color_name,
+                "color_label_icon": label.icon,
+                "color_label_note": label.note,
+            }
+        )
+    return ProjectTreeNode(
+        id=node.id,
+        label=node.label,
+        kind=node.kind,
+        status=node.status,
+        children=children,
+        metadata=metadata,
+    )
 
 def flatten_project_tree(node: ProjectTreeNode, level: int = 0) -> tuple[tuple[int, ProjectTreeNode], ...]:
     """Return a stable preorder representation for UI tables and tests."""
@@ -230,7 +274,7 @@ def build_project_tree(
         export_children or (_empty_node("folder:exports:empty", "Нет сохраненных экспортов"),),
     )
 
-    return ProjectTreeNode(
+    tree = ProjectTreeNode(
         id=f"project:{project.id}",
         label=project.name,
         kind="project",
@@ -243,6 +287,7 @@ def build_project_tree(
             "updated_at": project.updated_at,
         },
     )
+    return _apply_project_labels(tree, project_explorer_labels_by_object(root_path, clean_project_id))
 
 
 def project_tree_table_rows(tree: ProjectTreeNode) -> tuple[dict[str, str | int], ...]:
@@ -255,6 +300,9 @@ def project_tree_table_rows(tree: ProjectTreeNode) -> tuple[dict[str, str | int]
             "label": node.label,
             "status": node.status,
             "id": node.id,
+            "color_label": str(node.metadata.get("color_label", "")),
+            "color_label_name": str(node.metadata.get("color_label_name", "")),
+            "color_label_icon": str(node.metadata.get("color_label_icon", "")),
         }
         for level, node in flatten_project_tree(tree)
     )
