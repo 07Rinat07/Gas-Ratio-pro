@@ -582,3 +582,11 @@ Dashboard получил явную responsive-сетку для целевых 
 На узких экранах Dashboard переходит в одну колонку, quick actions становятся `auto-fit` карточками, sidebar скрывается, второстепенные блоки `Новости`, `Советы` и тяжелый preview-график отключаются, а `overflow-x: hidden` предотвращает горизонтальную прокрутку. На 2K/ultrawide/4K сетка получает ограничение плотности и увеличенные отступы, чтобы приложение не выглядело растянутым.
 
 Текущий следующий незавершенный пункт: **UI Modernization Track → Background Manager Final Pass**.
+
+### Реализовано: UI Modernization Track → Background Manager Final Pass
+
+Финальный проход Background Manager разделил страницы приложения на два режима: брендированные экраны и инженерные рабочие поверхности. В код добавлен реестр `BACKGROUND_MANAGER_RULES` с отдельными правилами для Dashboard, Documentation Center, Data Management, LAS-редактора, LAS-корреляции и интерпретационных графиков. Для брендированных экранов сохранены позиционирование, масштаб и прозрачность фона; для рабочих экранов включен `dark-workspace` без декоративного фонового изображения.
+
+Добавлены presets `BACKGROUND_POSITION_PRESETS` и `BACKGROUND_OPACITY_PRESETS`, чтобы настройки позиции, overlay и glass-прозрачности были централизованы, а не размазаны по CSS. LAS Editor, correlation plots, interpretation graphs, таблицы, отчеты и mapping-панели остаются на темной инженерной поверхности через класс `background-rule-dark-workspace`, `background-image: none !important` и усиленный контраст data/plot surfaces. Это сохраняет фирменный вид приложения на стартовой странице и документации, но не мешает чтению чисел, осей, линий LAS-кривых и табличных данных.
+
+Текущий следующий незавершенный пункт: **UI Modernization Track → Glass UI System**.

@@ -389,3 +389,40 @@ def test_responsive_dashboard_css_prevents_overflow_and_hides_low_priority_mobil
     assert ".dashboard-card.preview-card { display: none; }" in source
     assert "@media (min-width: 3440px)" in source
     assert "@media (min-width: 3840px)" in source
+
+
+def test_background_manager_final_pass_rules_separate_branded_and_engineering_pages() -> None:
+    branded_tabs = app._background_manager_branded_tabs()
+    workspace_tabs = app._background_manager_workspace_tabs()
+
+    assert "Старт" in branded_tabs
+    assert "Инструкции и документация" in branded_tabs
+    assert "LAS-редактор" in workspace_tabs
+    assert "LAS-корреляция" in workspace_tabs
+    assert "Интерпретационные графики" in workspace_tabs
+    assert app._background_manager_rule("LAS-редактор")["mode"] == "dark-workspace"
+    assert app._background_manager_rule("Инструкции и документация")["mode"] == "documentation"
+
+
+def test_background_manager_final_pass_css_disables_background_for_engineering_surfaces() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "BACKGROUND_MANAGER_RULES" in source
+    assert "BACKGROUND_POSITION_PRESETS" in source
+    assert "BACKGROUND_OPACITY_PRESETS" in source
+    assert "background-rule-dark-workspace" in source
+    assert "background-image: none !important" in source
+    assert "#las-editor-workspace" in source
+    assert "#correlation-workspace" in source
+    assert "#graphs-workspace" in source
+    assert "Preserve" not in source or "aspect ratio" in source
+
+
+def test_background_manager_final_pass_is_documented() -> None:
+    plan = Path(app.ROOT_DIR / "docs" / "project_plan.md").read_text(encoding="utf-8")
+    guide = Path(app.ROOT_DIR / "docs" / "user_guide.md").read_text(encoding="utf-8")
+
+    assert "Background Manager Final Pass" in plan
+    assert "Refine branded background manager" in plan
+    assert "Background Manager Final Pass" in guide
+    assert "LAS-редактор" in guide

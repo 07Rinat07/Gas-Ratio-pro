@@ -294,6 +294,73 @@ RESPONSIVE_DASHBOARD_TARGETS: tuple[dict[str, str], ...] = (
 
 
 
+BACKGROUND_MANAGER_RULES: dict[str, dict[str, str]] = {
+    "Старт": {
+        "mode": "branded",
+        "overlay": "0.25",
+        "glass": "0.58",
+        "position": "right 3vw bottom 1.2rem",
+        "size": "clamp(300px, 42vw, 720px) auto",
+        "reason": "Dashboard keeps the branded image visible behind glass cards without hiding text.",
+    },
+    "Инструкции и документация": {
+        "mode": "documentation",
+        "overlay": "0.22",
+        "glass": "0.64",
+        "position": "right 2vw top 6rem",
+        "size": "clamp(320px, 38vw, 760px) auto",
+        "reason": "Documentation can show the branded hero artwork while long text stays on readable glass panels.",
+    },
+    "Работа с данными": {
+        "mode": "dark-workspace",
+        "overlay": "1.00",
+        "glass": "0.88",
+        "position": "disabled",
+        "size": "disabled",
+        "reason": "Tables, mapping controls and numeric diagnostics use a solid workspace for readability.",
+    },
+    "LAS-редактор": {
+        "mode": "dark-workspace",
+        "overlay": "1.00",
+        "glass": "0.90",
+        "position": "disabled",
+        "size": "disabled",
+        "reason": "LAS curves and depth grids must not be placed over the branded image.",
+    },
+    "LAS-корреляция": {
+        "mode": "dark-workspace",
+        "overlay": "1.00",
+        "glass": "0.90",
+        "position": "disabled",
+        "size": "disabled",
+        "reason": "Correlation plots require maximum contrast and no decorative background.",
+    },
+    "Интерпретационные графики": {
+        "mode": "dark-workspace",
+        "overlay": "1.00",
+        "glass": "0.90",
+        "position": "disabled",
+        "size": "disabled",
+        "reason": "Engineering charts, reports and tablets use a plain dark background for data visibility.",
+    },
+}
+
+BACKGROUND_POSITION_PRESETS: dict[str, str] = {
+    "dashboard": "right 3vw bottom 1.2rem",
+    "documentation": "right 2vw top 6rem",
+    "center-mobile": "center top 5.6rem",
+}
+
+BACKGROUND_OPACITY_PRESETS: dict[str, str] = {
+    "dashboard_overlay": "0.25",
+    "documentation_overlay": "0.22",
+    "workspace_overlay": "1.00",
+    "dashboard_glass": "0.58",
+    "documentation_glass": "0.64",
+    "workspace_glass": "0.90",
+}
+
+
 START_ACTIONS: tuple[dict[str, str], ...] = (
     {
         "id": "project",
@@ -440,6 +507,12 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             --glass-dashboard: rgba(4, 10, 24, 0.08);
             --glass-readable: rgba(5, 10, 22, 0.18);
             --brand-overlay-dashboard: rgba(3, 7, 18, 0.04);
+            --background-manager-dashboard-overlay: 0.25;
+            --background-manager-documentation-overlay: 0.22;
+            --background-manager-workspace-overlay: 1.00;
+            --background-manager-dashboard-glass: 0.58;
+            --background-manager-documentation-glass: 0.64;
+            --background-manager-workspace-glass: 0.90;
             --responsive-card-gap: 0.72rem;
             --responsive-dashboard-columns: minmax(22rem, 0.82fr) minmax(36rem, 1.35fr) minmax(20rem, 0.68fr);
             --responsive-dashboard-padding: 0.82rem;
@@ -690,6 +763,28 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
                 linear-gradient(180deg, rgba(15, 23, 42, 0.16), rgba(15, 23, 42, 0.02));
         }
         .app-page-shell > * { position: relative; z-index: 1; }
+
+        .app-page-shell.background-rule-dark-workspace {
+            background: linear-gradient(180deg, rgba(5, 10, 22, 0.94), rgba(2, 6, 23, 0.92));
+            background-image: none !important;
+        }
+        .app-page-shell.background-rule-dark-workspace::before {
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.02));
+        }
+        .app-page-shell.background-rule-documentation {
+            background: linear-gradient(180deg, rgba(5, 10, 22, 0.64), rgba(2, 6, 23, 0.58));
+        }
+        .app-page-shell.background-rule-documentation::before {
+            background:
+                radial-gradient(circle at 86% 8%, rgba(255, 138, 0, 0.10), transparent 24%),
+                linear-gradient(180deg, rgba(15, 23, 42, 0.10), rgba(15, 23, 42, 0.02));
+        }
+        .no-brand-background, #las-editor-workspace, #correlation-workspace, #graphs-workspace, #data-workspace {
+            background-image: none !important;
+        }
+        .engineering-data-surface, .app-page-shell.background-rule-dark-workspace div[data-testid="stDataFrame"], .app-page-shell.background-rule-dark-workspace div[data-testid="stPlotlyChart"] {
+            background-color: rgba(5, 10, 22, 0.92) !important;
+        }
         .app-page-header {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
@@ -2743,6 +2838,25 @@ def _render_global_command_palette(active_project: ProjectRecord) -> None:
                 st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
+def _background_manager_rule(tab_name: str) -> dict[str, str]:
+    """Return the final branded background rule for a page.
+
+    The rule explicitly separates branded screens from engineering workspaces,
+    so decorative imagery is never applied behind LAS curves, plots, tables or reports.
+    """
+    return BACKGROUND_MANAGER_RULES.get(tab_name, BACKGROUND_MANAGER_RULES["Работа с данными"])
+
+
+def _background_manager_workspace_tabs() -> tuple[str, ...]:
+    """Return tabs where the branded background is intentionally disabled."""
+    return tuple(tab for tab, rule in BACKGROUND_MANAGER_RULES.items() if rule["mode"] == "dark-workspace")
+
+
+def _background_manager_branded_tabs() -> tuple[str, ...]:
+    """Return tabs where branded imagery is allowed by the final background manager."""
+    return tuple(tab for tab, rule in BACKGROUND_MANAGER_RULES.items() if rule["mode"] in {"branded", "documentation"})
+
+
 def _set_active_main_tab(tab_name: str) -> None:
     """Switch the single-page Streamlit workspace to a concrete application section."""
     if tab_name in APP_TABS:
@@ -2796,8 +2910,10 @@ def _page_layout_meta(tab_name: str) -> dict[str, str]:
 def _open_page_shell(tab_name: str) -> None:
     """Open the shared page shell used by all non-dashboard workspaces."""
     meta = _page_layout_meta(tab_name)
+    background_rule = _background_manager_rule(tab_name)
+    rule_class = f"background-rule-{background_rule['mode']}"
     st.markdown(
-        "<section class='app-page-shell' data-page='" + _html_escape(tab_name) + "'>"
+        "<section class='app-page-shell " + rule_class + "' data-background-rule='" + _html_escape(background_rule["mode"]) + "' data-page='" + _html_escape(tab_name) + "'>"
         "<header class='app-page-header'><div>"
         "<div class='app-page-kicker'>" + _html_escape(meta["kicker"]) + "</div>"
         "<h1 class='app-page-title'>" + _html_escape(meta["title"]) + "</h1>"
