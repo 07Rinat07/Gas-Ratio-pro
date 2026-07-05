@@ -277,3 +277,41 @@ def test_documentation_center_v2_is_documented_in_project_plan() -> None:
     assert "Quick Actions Wiring" in plan
     assert "Documentation Center v2" in guide
     assert "горячие клавиши" in guide
+
+
+def test_dashboard_quick_actions_are_wired_from_single_registry() -> None:
+    titles = app._start_action_titles()
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "Создать / открыть проект" in titles
+    assert "Импорт LAS / CSV / Excel" in titles
+    assert "Настройки интерфейса" in titles
+    assert "Лицензия" in titles
+    assert "DASHBOARD_LAST_QUICK_ACTION_KEY" in source
+    assert "dashboard_quick_action_" in source
+    assert "_trigger_quick_action(action)" in source
+    assert "help=action[\"tooltip\"]" in source
+    assert "quick-action-wired" in source
+
+
+def test_dashboard_quick_action_registry_targets_real_tabs() -> None:
+    valid_tabs = set(app.APP_TABS)
+
+    for action in app.START_ACTIONS:
+        assert action["id"]
+        assert action["button_label"]
+        assert action["tooltip"]
+        assert action["target_tab"] in valid_tabs
+
+    assert app._quick_action_by_id("las_editor")["target_tab"] == "LAS-редактор"
+    assert app._quick_action_by_id("missing") is None
+
+
+def test_quick_actions_wiring_is_documented() -> None:
+    plan = Path(app.ROOT_DIR / "docs" / "project_plan.md").read_text(encoding="utf-8")
+    guide = Path(app.ROOT_DIR / "docs" / "user_guide.md").read_text(encoding="utf-8")
+
+    assert "Quick Actions Wiring" in plan
+    assert "dashboard_quick_action_" in plan
+    assert "Quick Actions Wiring" in guide
+    assert "все кнопки быстрого доступа" in guide

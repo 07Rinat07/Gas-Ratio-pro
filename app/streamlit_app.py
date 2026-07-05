@@ -216,6 +216,7 @@ UI_SCALE_KEY = "ui_scale"
 UI_LAYOUT_KEY = "ui_layout"
 ACTIVE_MAIN_TAB_KEY = "active_main_tab"
 COMMAND_PALETTE_QUERY_KEY = "global_command_palette_query"
+DASHBOARD_LAST_QUICK_ACTION_KEY = "dashboard_last_quick_action"
 # Legacy compact sidebar width marker: 10.8rem. Current sidebar uses a wider modern project card.
 # Smoke-test marker for rendered navigation labels: Открыть: Старт.
 LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
@@ -280,34 +281,76 @@ UI_LAYOUT_PROFILES: dict[str, dict[str, str]] = {
 
 START_ACTIONS: tuple[dict[str, str], ...] = (
     {
-        "title": "Загрузить данные",
+        "id": "project",
+        "title": "Создать / открыть проект",
+        "button_label": "Создать / открыть проект",
         "target_tab": "Работа с данными",
-        "description": "Импорт LAS, CSV, XLSX/XLSM, проверка заголовков, mapping, расчет коэффициентов и первичная интерпретация.",
+        "description": "Открывает рабочий раздел выбора проекта, импорта и проектного workflow.",
+        "when": "Когда нужно создать новый проект, выбрать активный проект или продолжить сохраненную работу.",
+        "tooltip": "Перейти в раздел Работа с данными к проектному workflow.",
+    },
+    {
+        "id": "import",
+        "title": "Импорт LAS / CSV / Excel",
+        "button_label": "Импорт LAS / CSV / Excel",
+        "target_tab": "Работа с данными",
+        "description": "Открывает импорт LAS, CSV, XLSX/XLSM, проверку заголовков, mapping и расчет коэффициентов.",
         "when": "Когда есть файл с газовым каротажем или расчетная таблица.",
+        "tooltip": "Перейти к загрузке файла и mapping колонок.",
     },
     {
-        "title": "Открыть LAS-редактор",
+        "id": "las_editor",
+        "title": "LAS-редактор",
+        "button_label": "Открыть LAS-редактор",
         "target_tab": "LAS-редактор",
-        "description": "Проверка глубины, подготовка сетки, ручная правка LAS и сохранение подготовленной версии в проект.",
+        "description": "Проверка глубины, подготовка сетки, ручная правка LAS, rename/alias/merge кривых и сохранение версии в проект.",
         "when": "Когда LAS нужно привести в порядок перед расчетами или корреляцией.",
+        "tooltip": "Открыть редактор LAS-кривых и глубины.",
     },
     {
-        "title": "Открыть корреляцию",
+        "id": "correlation",
+        "title": "LAS-корреляция",
+        "button_label": "Открыть LAS-корреляцию",
         "target_tab": "LAS-корреляция",
         "description": "Сравнение нескольких скважин, группировка кривых, X-scale, интервал, печатный HTML и графический экспорт.",
         "when": "Когда нужно сопоставить несколько LAS по одному интервалу.",
+        "tooltip": "Открыть multi-LAS корреляцию.",
     },
     {
-        "title": "Открыть интерпретационные графики",
+        "id": "reports",
+        "title": "Графики и отчеты",
+        "button_label": "Графики и отчеты",
         "target_tab": "Интерпретационные графики",
         "description": "Планшет, маркеры, зоны интерпретации, interval report и экспорт PNG/PDF/SVG.",
         "when": "Когда расчет уже выполнен и нужно подготовить инженерный материал.",
+        "tooltip": "Открыть интерпретационный планшет и отчеты.",
     },
     {
-        "title": "Открыть документацию",
+        "id": "docs",
+        "title": "Инструкции",
+        "button_label": "Инструкции",
         "target_tab": "Инструкции и документация",
         "description": "Формулы, troubleshooting, формат данных, методика mud gas analysis и план проекта.",
         "when": "Когда нужно проверить ограничения методики или понять предупреждение.",
+        "tooltip": "Открыть Documentation Center v2.",
+    },
+    {
+        "id": "settings",
+        "title": "Настройки интерфейса",
+        "button_label": "Настройки",
+        "target_tab": "Старт",
+        "description": "Открывает стартовый экран, где доступны профиль компоновки, масштаб интерфейса и проверка Dashboard.",
+        "when": "Когда нужно переключить профиль экрана или проверить читаемость интерфейса.",
+        "tooltip": "Вернуться на стартовый Dashboard к настройкам интерфейса.",
+    },
+    {
+        "id": "license",
+        "title": "Лицензия",
+        "button_label": "Лицензия",
+        "target_tab": "Старт",
+        "description": "Показывает лицензионный блок Dashboard и правила коммерческого использования приложения.",
+        "when": "Когда нужно быстро проверить статус лицензии и copyright-блок.",
+        "tooltip": "Вернуться на Dashboard к блоку лицензии.",
     },
 )
 
@@ -771,6 +814,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
         }
         .dashboard-action-card strong { display: block; font-size: 1.02rem; margin-bottom: 0.25rem; }
+        .dashboard-action-card small { display:block; margin-top:0.45rem; color:#ffedd5; font-weight:800; }
+        .quick-action-wired { cursor: default; }
         .dashboard-action-card:hover { border-color: rgba(255, 138, 0, 0.55); transform: translateY(-1px); }
         .dashboard-preview { min-height: 12rem; }
         .dashboard-log-track { display: grid; grid-template-columns: 0.45fr repeat(5, 1fr); gap: 0.25rem; min-height: 10.2rem; margin-top: 0.55rem; }
@@ -969,6 +1014,16 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             background: linear-gradient(180deg, rgba(4, 10, 24, 0.22), rgba(5, 10, 22, 0.12));
             backdrop-filter: blur(3px);
         }
+        .quick-action-caption {
+            min-height: 5.7rem;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 14px;
+            padding: 0.62rem 0.72rem;
+            margin: 0.42rem 0 0.42rem 0;
+            background: rgba(15, 23, 42, 0.18);
+        }
+        .quick-action-caption b { display:block; color:#f8fafc; font-size:0.98rem; margin-bottom:0.28rem; }
+        .quick-action-caption span { display:block; color:#cbd5e1; font-size:0.86rem; line-height:1.32; }
         .project-search-result {
             border: 1px solid rgba(148,163,184,0.22);
             border-radius: 12px;
@@ -2104,6 +2159,36 @@ def _start_action_titles() -> tuple[str, ...]:
     return tuple(action["title"] for action in START_ACTIONS)
 
 
+def _quick_action_by_id(action_id: str) -> dict[str, str] | None:
+    """Return a dashboard quick action by stable identifier."""
+    normalized = str(action_id or "").strip()
+    for action in START_ACTIONS:
+        if action.get("id") == normalized:
+            return dict(action)
+    return None
+
+
+def _dashboard_quick_action_cards_html() -> str:
+    """Render non-decorative quick action cards from the same registry as Streamlit buttons."""
+    cards: list[str] = []
+    for action in START_ACTIONS:
+        cards.append(
+            "<div class='dashboard-action-card quick-action-wired' "
+            f"data-action='{_html_escape(action['id'])}' data-target='{_html_escape(action['target_tab'])}'>"
+            f"<strong>{_html_escape(action['title'])}</strong>"
+            f"<span class='dashboard-muted'>{_html_escape(action['description'])}</span>"
+            f"<small>Открывает: {_html_escape(action['target_tab'])}</small>"
+            "</div>"
+        )
+    return "".join(cards)
+
+
+def _trigger_quick_action(action: dict[str, str]) -> None:
+    """Switch to the quick action target and remember the latest executed action."""
+    st.session_state[DASHBOARD_LAST_QUICK_ACTION_KEY] = action["id"]
+    _set_active_main_tab(action["target_tab"])
+    st.rerun()
+
 
 def _asset_to_data_uri(path: Path) -> str:
     """Return an inline data URI for a local application asset."""
@@ -2463,6 +2548,7 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
     stats = _dashboard_project_statistics(active_project, projects)
     news_items = _dashboard_news_items(active_project)
     activity_items = _dashboard_activity_items(active_project)
+    quick_actions_html = _dashboard_quick_action_cards_html()
     tip = _dashboard_tip(active_project)
     now_label = datetime.now().strftime("%d.%m.%Y %H:%M")
 
@@ -2525,12 +2611,7 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
                 <article class="dashboard-card quick" id="dashboard-quick-actions">
                   <h3>Быстрый доступ</h3>
                   <div class="dashboard-actions">
-                    <div class="dashboard-action-card"><strong>Создать / открыть проект</strong><span class="dashboard-muted">Используйте рабочую кнопку над Dashboard</span></div>
-                    <div class="dashboard-action-card"><strong>Импорт LAS</strong><span class="dashboard-muted">Открывается кнопкой «Импорт LAS / CSV / Excel»</span></div>
-                    <div class="dashboard-action-card"><strong>LAS-редактор</strong><span class="dashboard-muted">Открывается рабочей кнопкой сверху</span></div>
-                    <div class="dashboard-action-card"><strong>LAS-корреляция</strong><span class="dashboard-muted">Открывается рабочей кнопкой сверху</span></div>
-                    <div class="dashboard-action-card"><strong>Графики и отчеты</strong><span class="dashboard-muted">Открывается рабочей кнопкой сверху</span></div>
-                    <div class="dashboard-action-card"><strong>Инструкции</strong><span class="dashboard-muted">Открывается рабочей кнопкой сверху</span></div>
+                    {quick_actions_html}
                   </div>
                 </article>
                 <article class="dashboard-card activity" id="dashboard-activity">
@@ -2584,20 +2665,24 @@ def _render_start_tab(active_project: ProjectRecord) -> None:
         st.caption("Эти кнопки реально переключают рабочие разделы приложения, а не являются декоративными ссылками.")
     with search_col:
         query = st.text_input("Поиск по проекту", key="dashboard_project_search", placeholder="скважина, LAS, расчет, экспорт")
-    action_targets = (
-        ("Работа с данными", "Создать / открыть проект"),
-        ("Работа с данными", "Импорт LAS / CSV / Excel"),
-        ("LAS-редактор", "Открыть LAS-редактор"),
-        ("LAS-корреляция", "Открыть LAS-корреляцию"),
-        ("Интерпретационные графики", "Графики и отчеты"),
-        ("Инструкции и документация", "Инструкции"),
-    )
-    cols = st.columns(6)
-    for index, (target, label) in enumerate(action_targets):
-        with cols[index % 6]:
-            if st.button(label, key=f"dashboard_jump_{index}_{target}", use_container_width=True):
-                _set_active_main_tab(target)
-                st.rerun()
+    cols = st.columns(4)
+    for index, action in enumerate(START_ACTIONS):
+        with cols[index % 4]:
+            st.markdown(
+                f"<div class='quick-action-caption'><b>{_html_escape(action['title'])}</b>"
+                f"<span>{_html_escape(action['when'])}</span></div>",
+                unsafe_allow_html=True,
+            )
+            if st.button(
+                action["button_label"],
+                key=f"dashboard_quick_action_{action['id']}",
+                use_container_width=True,
+                help=action["tooltip"],
+            ):
+                _trigger_quick_action(action)
+    last_action = _quick_action_by_id(st.session_state.get(DASHBOARD_LAST_QUICK_ACTION_KEY, ""))
+    if last_action:
+        st.caption(f"Последнее действие быстрого доступа: {last_action['title']} → {last_action['target_tab']}.")
     if query:
         results = _project_search_results(active_project, query, limit=8)
         if results:
