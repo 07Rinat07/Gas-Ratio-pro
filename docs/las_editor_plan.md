@@ -263,3 +263,10 @@ LAS Editor остается рабочей инженерной областью
 ## UI note: readable work panels
 
 LAS Editor remains a data-first workspace. The global branded background may exist behind the page shell, but LAS tables, curve controls, diagnostics and previews must stay on opaque/dark readable work panels. Do not place the branded image directly under curve values, depth tracks, editable grids or diagnostics tables.
+
+
+### Curve Manager: Curve categories
+
+Блок `Curve Manager · Curve categories` добавлен после ручной группировки кривых. Он решает задачу более крупной инженерной классификации: depth reference, petrophysics, mud gas, drilling, interpretation и uncategorized. Категория рассчитывается автоматически по активной группе кривой, но пользователь может вручную перенести отдельную кривую в другую категорию для отчетов, фильтров и будущих правил импорта/экспорта.
+
+Ручные назначения сохраняются в `curve_category_overrides`, история действий содержит `curve_name`, `category`, `previous_category`, `timestamp`, `reason` и `source`. Undo последней операции восстанавливает предыдущее состояние без изменения исходного DataFrame.

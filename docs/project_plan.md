@@ -162,7 +162,7 @@
 - [x] Alias curves.
 - [x] Merge curves.
 - [x] Curve grouping.
-- [ ] Curve categories.
+- [x] Curve categories.
 - [ ] Curve units manager.
 - [ ] Curve metadata editor.
 - [ ] Curve duplicate detection.
@@ -460,7 +460,17 @@ UI-блок `Curve Manager · Curve grouping` добавлен во вкладк
 
 ## Следующий пункт разработки
 
-Текущий следующий незавершенный пункт: **LAS Professional → Curve Manager → Curve categories**.
+### Реализовано: LAS Professional → Curve Manager → Curve categories
+
+LAS-редактор получил менеджер категорий кривых поверх существующих инженерных групп. Логика вынесена в `las_editor/curve_categories.py`: категории `depth_reference`, `petrophysics`, `mud_gas`, `drilling`, `interpretation` и `uncategorized` строятся автоматически на основе активных групп, включая ручные group overrides.
+
+Curve Categories Manager проверяет выбранную кривую, запрещает пустую или неподдерживаемую категорию, хранит ручные `curve_category_overrides` отдельно от DataFrame и ведет историю `curve_name/category/previous_category/timestamp/reason/source`. Одноуровневый undo возвращает кривую к предыдущей ручной категории или к автоматической категории, рассчитанной по текущей группе.
+
+UI-блок `Curve Manager · Curve categories` добавлен во вкладку `LAS-редактор` после grouping и до merge. Пользователь видит сводку категорий, таблицу кривых с alias, группой, авто-категорией, текущей категорией и признаком ручного правила. Reference-структуры `curve_categories`, `curve_category_overrides` и `manifest` обновляются без изменения исходных данных.
+
+## Следующий пункт разработки
+
+Текущий следующий незавершенный пункт: **LAS Professional → Curve Manager → Curve units manager**.
 
 
 ### Реализовано: UI Modernization Track → Dashboard background shell

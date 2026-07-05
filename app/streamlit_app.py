@@ -52,6 +52,15 @@ from las_correlation import (
     settings_to_dict,
 )
 from las_editor.curve_alias import assign_curve_alias, available_aliases, suggest_curve_aliases, undo_last_alias
+from las_editor.curve_categories import (
+    assign_curve_category,
+    available_curve_categories,
+    build_curve_categories,
+    category_summary_rows,
+    curve_category_label,
+    curve_category_table_rows,
+    undo_last_category_assignment,
+)
 from las_editor.curve_grouping import (
     assign_curve_group,
     available_curve_groups,
@@ -263,6 +272,8 @@ LAS_EDITOR_ALIAS_MAP_KEY = "las_editor_curve_alias_map"
 LAS_EDITOR_MERGE_HISTORY_KEY = "las_editor_curve_merge_history"
 LAS_EDITOR_GROUP_HISTORY_KEY = "las_editor_curve_group_history"
 LAS_EDITOR_GROUP_OVERRIDES_KEY = "las_editor_curve_group_overrides"
+LAS_EDITOR_CATEGORY_HISTORY_KEY = "las_editor_curve_category_history"
+LAS_EDITOR_CATEGORY_OVERRIDES_KEY = "las_editor_curve_category_overrides"
 PROJECT_SESSION_SHEETS_KEY = "project_session_sheets"
 PROJECT_SESSION_SUMMARY_KEY = "project_session_summary"
 PROJECT_SESSION_PROJECT_ID_KEY = "project_session_project_id"
@@ -1944,6 +1955,7 @@ def _las_editor_reference_state(column_names: list[str]) -> dict[str, object]:
         "manifest": {name: {"source": "las_editor"} for name in column_names},
         "curve_aliases": dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {})),
         "curve_group_overrides": dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {})),
+        "curve_category_overrides": dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {})),
     }
 
 
@@ -2177,6 +2189,148 @@ def _render_las_curve_grouping_manager(prepared_df: pd.DataFrame) -> None:
             )
         else:
             st.caption("История ручной группировки пока пуста.")
+
+
+def _render_las_curve_category_manager(prepared_df: pd.DataFrame) -> None:
+    st.markdown("### Curve Manager · Curve categories")
+    st.caption(
+        "Категории LAS-кривых над уровнем инженерных групп: depth reference, petrophysics, "
+        "mud gas, drilling, interpretation и uncategorized. Категории помогают готовить "
+        "отчеты, фильтры и будущие правила импорта/экспорта без изменения исходных данных."
+    )
+
+    if LAS_EDITOR_CATEGORY_HISTORY_KEY not in st.session_state:
+        st.session_state[LAS_EDITOR_CATEGORY_HISTORY_KEY] = ()
+    if LAS_EDITOR_CATEGORY_OVERRIDES_KEY not in st.session_state:
+        st.session_state[LAS_EDITOR_CATEGORY_OVERRIDES_KEY] = {}
+
+    column_names = [str(column) for column in prepared_df.columns]
+    aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
+    group_overrides = dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {}))
+    category_overrides = dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {}))
+    category_rows = curve_category_table_rows(
+        column_names,
+        group_overrides=group_overrides,
+        category_overrides=category_overrides,
+        aliases=aliases,
+    )
+    categories = build_curve_categories(
+        column_names,
+        group_overrides=group_overrides,
+        category_overrides=category_overrides,
+    )
+
+    summary_rows = category_summary_rows(categories)
+    with st.expander("Сводка категорий", expanded=True):
+        st.dataframe(
+            pd.DataFrame(summary_rows).rename(
+                columns={
+                    "category_label": "Категория",
+                    "curve_count": "Кривых",
+                    "curves": "Состав",
+                }
+            )[["Категория", "Кривых", "Состав"]],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    st.dataframe(
+        pd.DataFrame(category_rows).rename(
+            columns={
+                "curve_name": "Кривая",
+                "alias": "Alias",
+                "group_label": "Группа",
+                "auto_category_label": "Авто-категория",
+                "category_label": "Текущая категория",
+                "manual_override": "Ручное правило",
+            }
+        )[["Кривая", "Alias", "Группа", "Авто-категория", "Текущая категория", "Ручное правило"]],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    curve_col, category_col, action_col = st.columns([2, 2, 1])
+    curve_name = curve_col.selectbox(
+        "Кривая для категории",
+        options=column_names,
+        key="las_editor_category_curve",
+    )
+    category_options = list(available_curve_categories())
+    current_category = next((row["category"] for row in category_rows if row["curve_name"] == curve_name), "uncategorized")
+    category_index = category_options.index(current_category) if current_category in category_options else category_options.index("uncategorized")
+    selected_category = category_col.selectbox(
+        "Категория",
+        options=category_options,
+        index=category_index,
+        format_func=curve_category_label,
+        key="las_editor_category_value",
+    )
+
+    references = _las_editor_reference_state(column_names)
+    if action_col.button("Назначить категорию", use_container_width=True, key="las_editor_category_apply"):
+        try:
+            result = assign_curve_category(
+                prepared_df,
+                curve_name,
+                selected_category,
+                group_overrides=group_overrides,
+                category_overrides=category_overrides,
+                history=st.session_state.get(LAS_EDITOR_CATEGORY_HISTORY_KEY, ()),
+                references=references,
+                reason="manual",
+                source="las_editor_ui",
+            )
+            st.session_state[LAS_EDITOR_CATEGORY_OVERRIDES_KEY] = result.overrides
+            st.session_state[LAS_EDITOR_CATEGORY_HISTORY_KEY] = result.history
+            for message in result.diagnostics:
+                st.info(message)
+            if result.assigned:
+                st.success(f"Категория назначена: {result.curve_name} → {curve_category_label(result.category)}")
+            else:
+                st.warning("Категория не изменилась: назначение уже существовало.")
+        except ValueError as exc:
+            st.warning(str(exc))
+
+    history = tuple(st.session_state.get(LAS_EDITOR_CATEGORY_HISTORY_KEY, ()))
+    if st.button("Undo последней категории", disabled=not history, use_container_width=True, key="las_editor_category_undo"):
+        try:
+            result = undo_last_category_assignment(
+                prepared_df,
+                group_overrides=group_overrides,
+                category_overrides=dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {})),
+                history=history,
+                references=references,
+            )
+            st.session_state[LAS_EDITOR_CATEGORY_OVERRIDES_KEY] = result.overrides
+            st.session_state[LAS_EDITOR_CATEGORY_HISTORY_KEY] = result.history
+            for message in result.diagnostics:
+                st.info(message)
+            st.success("Последняя категория отменена.")
+        except ValueError as exc:
+            st.warning(str(exc))
+
+    history = tuple(st.session_state.get(LAS_EDITOR_CATEGORY_HISTORY_KEY, ()))
+    with st.expander("История категорий кривых", expanded=bool(history)):
+        if history:
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "curve_name": entry.curve_name,
+                            "category": curve_category_label(entry.category),
+                            "previous_category": curve_category_label(entry.previous_category),
+                            "timestamp": entry.timestamp,
+                            "reason": entry.reason,
+                            "source": entry.source,
+                        }
+                        for entry in history
+                    ]
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.caption("История ручных категорий пока пуста.")
 
 def _render_las_curve_rename_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
     st.markdown("### Curve Manager · Rename curves")
@@ -3796,6 +3950,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     prepared_df = _render_las_curve_rename_manager(prepared_df)
     _render_las_curve_alias_manager(prepared_df)
     _render_las_curve_grouping_manager(prepared_df)
+    _render_las_curve_category_manager(prepared_df)
     prepared_df = _render_las_curve_merge_manager(prepared_df)
 
     column_names = [str(column) for column in prepared_df.columns]

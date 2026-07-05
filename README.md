@@ -161,3 +161,5 @@ Project Database также поддерживает `project_uuids.json` — me
 ## Лицензия
 
 Gas Ratio Pro распространяется по proprietary-лицензии. Исходный код, ресурсы, документация и связанные материалы принадлежат Rinat Sarmuldin. Коммерческое использование, распространение, модификация, production/SaaS/internal company use допускаются только с предварительного письменного разрешения автора. Полный текст см. в файле `LICENSE`.
+
+- LAS Curve Manager: rename, alias, merge, grouping and category tools.

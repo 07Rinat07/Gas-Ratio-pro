@@ -1,4 +1,9 @@
 
+## Unreleased
+
+- Added Curve Manager category tools for LAS curves with automatic category suggestions, manual overrides, category history, undo support, UI summary tables, metadata references and tests.
+
+
 - Добавлена индексация файлов Project Database: `project_index.json` хранит metadata файлов активного проекта, SHA-256 и проверку отсутствующих/измененных файлов без копирования данных.
 
 ## Unreleased
