@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import base64
+import html
 import importlib
+import random
 import sys
 from datetime import datetime
 from io import BytesIO
@@ -199,6 +202,14 @@ WELLS_STORAGE_ROOT = ROOT_DIR / DEFAULT_WELLS_ROOT
 LAS_CORRELATION_PROJECTS_ROOT = ROOT_DIR / DEFAULT_PROJECTS_ROOT
 APP_LAUNCH_COMMAND = "python -m streamlit run app/streamlit_app.py"
 APP_LAUNCH_SCRIPT = ".\\run_app.ps1"
+DASHBOARD_BACKGROUND_PATH = ROOT_DIR / "assets" / "dashboard" / "rig_of_sea.png"
+DASHBOARD_TIPS = (
+    "Проверяйте единицы измерения перед расчетом газовых коэффициентов.",
+    "Используйте LAS-редактор для нормализации глубины перед корреляцией.",
+    "Сохраняйте расчет в проект, чтобы он появился в истории и отчетах.",
+    "Для сравнения скважин сначала настройте группы кривых в LAS-корреляции.",
+    "Экспортируйте interval report после проверки предупреждений по mapping и NULL-значениям.",
+)
 UI_SCALE_KEY = "ui_scale"
 UI_LAYOUT_KEY = "ui_layout"
 LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
@@ -315,10 +326,11 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         :root {
             --app-text: #f4f7fb;
             --app-muted: #c5ccd8;
-            --app-panel: #171b24;
-            --app-panel-strong: #202634;
-            --app-border: #364154;
-            --app-accent: #4ea1ff;
+            --app-panel: #0d1723;
+            --app-panel-strong: #132235;
+            --app-border: rgba(148, 163, 184, 0.28);
+            --app-accent: #ff8a00;
+            --app-accent-soft: rgba(255, 138, 0, 0.18);
         }
         .stApp {
             color: var(--app-text);
@@ -442,6 +454,178 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             color: var(--app-muted);
             display: block;
             margin-top: 0.35rem;
+        }
+        .dashboard-shell {
+            position: relative;
+            min-height: 780px;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 18px;
+            overflow: hidden;
+            background-size: cover;
+            background-position: center center;
+            box-shadow: 0 28px 80px rgba(0, 0, 0, 0.35);
+            margin-bottom: 1.25rem;
+        }
+        .dashboard-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, rgba(3, 7, 18, 0.88) 0%, rgba(15, 23, 42, 0.78) 43%, rgba(15, 23, 42, 0.36) 100%);
+        }
+        .dashboard-content {
+            position: relative;
+            z-index: 1;
+            padding: 1rem;
+        }
+        .dashboard-navbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.85rem 1rem;
+            margin-bottom: 1rem;
+            background: rgba(2, 6, 23, 0.74);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 14px;
+            backdrop-filter: blur(10px);
+        }
+        .dashboard-brand {
+            font-size: 1.12rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .dashboard-brand span { color: var(--app-accent); }
+        .dashboard-navlinks {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 0.45rem;
+        }
+        .dashboard-navlinks a,
+        .dashboard-action-link {
+            color: #e5e7eb;
+            text-decoration: none;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            background: rgba(15, 23, 42, 0.62);
+            border-radius: 10px;
+            padding: 0.45rem 0.7rem;
+            font-weight: 700;
+        }
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: minmax(230px, 0.82fr) minmax(360px, 1.82fr) minmax(230px, 0.82fr);
+            gap: 0.9rem;
+        }
+        .dashboard-column {
+            display: flex;
+            flex-direction: column;
+            gap: 0.9rem;
+        }
+        .dashboard-card {
+            background: rgba(7, 16, 31, 0.72);
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-radius: 14px;
+            padding: 1rem;
+            backdrop-filter: blur(12px);
+        }
+        .dashboard-card h3 {
+            color: var(--app-accent);
+            margin: 0 0 0.7rem 0;
+            font-size: 1.05rem !important;
+            text-transform: uppercase;
+        }
+        .dashboard-card p,
+        .dashboard-card li,
+        .dashboard-card div {
+            color: #e5e7eb;
+        }
+        .dashboard-list-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.7rem;
+            border-top: 1px solid rgba(148, 163, 184, 0.18);
+            padding: 0.65rem 0;
+        }
+        .dashboard-list-row:first-of-type { border-top: 0; }
+        .dashboard-muted { color: #bac4d2 !important; font-size: 0.92rem !important; }
+        .dashboard-actions {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(120px, 1fr));
+            gap: 0.65rem;
+        }
+        .dashboard-action-card {
+            min-height: 5.4rem;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.64);
+            padding: 0.8rem;
+        }
+        .dashboard-action-card strong {
+            display: block;
+            color: #fff;
+            margin-bottom: 0.25rem;
+        }
+        .dashboard-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.6rem;
+        }
+        .dashboard-metric {
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 12px;
+            padding: 0.8rem;
+            background: rgba(2, 6, 23, 0.42);
+        }
+        .dashboard-metric b {
+            display: block;
+            color: #ffffff;
+            font-size: 1.45rem;
+        }
+        .dashboard-preview {
+            min-height: 19rem;
+            background: rgba(2, 6, 23, 0.78);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 12px;
+            padding: 0.8rem;
+        }
+        .dashboard-log-track {
+            display: grid;
+            grid-template-columns: 3.2rem repeat(5, 1fr);
+            gap: 0.45rem;
+            height: 15rem;
+            align-items: stretch;
+        }
+        .dashboard-depth-track,
+        .dashboard-curve-track {
+            border-left: 1px solid rgba(148, 163, 184, 0.24);
+            border-right: 1px solid rgba(148, 163, 184, 0.18);
+            background: repeating-linear-gradient(to bottom, rgba(148, 163, 184, 0.11), rgba(148, 163, 184, 0.11) 1px, transparent 1px, transparent 34px);
+            border-radius: 8px;
+            position: relative;
+        }
+        .dashboard-curve-track::after {
+            content: "";
+            position: absolute;
+            inset: 8% 38% 6% 38%;
+            border-left: 2px solid var(--app-accent);
+            transform: skewX(-8deg);
+            filter: drop-shadow(0 0 8px rgba(255, 138, 0, 0.35));
+        }
+        .dashboard-curve-label {
+            text-align: center;
+            color: #e5e7eb;
+            font-size: 0.75rem !important;
+            font-weight: 800;
+            padding-top: 0.35rem;
+        }
+        @media (max-width: 1180px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+            .dashboard-actions { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+        }
+        @media (max-width: 760px) {
+            .dashboard-actions, .dashboard-metrics { grid-template-columns: 1fr; }
+            .dashboard-navbar { align-items: flex-start; flex-direction: column; }
         }
         div[data-testid="stDataFrame"] {
             border: 1px solid var(--app-border);
@@ -1410,55 +1594,229 @@ def _start_action_titles() -> tuple[str, ...]:
     return tuple(action["title"] for action in START_ACTIONS)
 
 
-def _render_start_tab(active_project: ProjectRecord) -> None:
-    st.subheader("Стартовый экран")
-    st.caption(
-        "Выберите рабочий сценарий. Streamlit не переключает вкладки программно, "
-        "поэтому карточка показывает, какую вкладку открыть дальше."
+
+def _asset_to_data_uri(path: Path) -> str:
+    """Return an inline data URI for a local application asset."""
+    if not path.exists() or not path.is_file():
+        return ""
+    suffix = path.suffix.lower().lstrip(".") or "png"
+    mime = "image/jpeg" if suffix in {"jpg", "jpeg"} else f"image/{suffix}"
+    return f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode('ascii')}"
+
+
+def _dashboard_background_data_uri() -> str:
+    """Expose the dashboard background for UI tests and CSS rendering."""
+    return _asset_to_data_uri(DASHBOARD_BACKGROUND_PATH)
+
+
+def _dashboard_recent_projects(projects: tuple[ProjectRecord, ...], limit: int = 3) -> tuple[ProjectRecord, ...]:
+    """Return the newest project cards shown on the dashboard."""
+    if limit <= 0:
+        return ()
+    return tuple(projects[:limit])
+
+
+def _dashboard_project_statistics(active_project: ProjectRecord, projects: tuple[ProjectRecord, ...]) -> dict[str, int]:
+    """Build dashboard statistics from real project storage and session data."""
+    return {
+        "projects": len(projects),
+        "wells": len(list_wells(WELLS_STORAGE_ROOT)),
+        "las_files": len(list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)),
+        "calculations": len(list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)),
+        "exports": len(list_project_exports(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)),
+    }
+
+
+def _dashboard_news_items(active_project: ProjectRecord) -> tuple[str, ...]:
+    """Return dynamic dashboard news derived from current project state."""
+    items = [f"Активный проект: {active_project.name}"]
+    if active_project.updated_at:
+        items.append(f"Проект обновлен: {active_project.updated_at}")
+    calculations_count = len(list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, active_project.id))
+    exports_count = len(list_project_exports(LAS_CORRELATION_PROJECTS_ROOT, active_project.id))
+    items.append(f"Сохраненных расчетов: {calculations_count}")
+    items.append(f"Сохраненных экспортов: {exports_count}")
+    return tuple(items)
+
+
+def _dashboard_activity_items(active_project: ProjectRecord, limit: int = 4) -> tuple[str, ...]:
+    """Return the latest available project activities for the dashboard."""
+    activities: list[tuple[str, str]] = []
+    for calculation in list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, active_project.id):
+        timestamp = getattr(calculation, "created_at", "") or getattr(calculation, "updated_at", "") or ""
+        name = getattr(calculation, "name", "") or getattr(calculation, "id", "расчет")
+        activities.append((timestamp, f"Расчет: {name}"))
+    for export in list_project_exports(LAS_CORRELATION_PROJECTS_ROOT, active_project.id):
+        timestamp = getattr(export, "created_at", "") or getattr(export, "updated_at", "") or ""
+        name = getattr(export, "file_name", "") or getattr(export, "name", "") or "экспорт"
+        activities.append((timestamp, f"Экспорт: {name}"))
+    if not activities:
+        return ("Пока нет проектной активности", "Импортируйте LAS/CSV/XLSX или сохраните расчет")
+    return tuple(message for _timestamp, message in sorted(activities, reverse=True)[: max(1, limit)])
+
+
+def _dashboard_tip(active_project: ProjectRecord) -> str:
+    """Return a stable daily tip for the active project."""
+    day_key = datetime.now().strftime("%Y-%m-%d")
+    rng = random.Random(f"{active_project.id}:{day_key}")
+    return rng.choice(DASHBOARD_TIPS)
+
+
+def _html_escape(value: object) -> str:
+    return html.escape(str(value), quote=True)
+
+
+def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[ProjectRecord, ...]) -> None:
+    """Render the redesigned Home dashboard with a protected background image."""
+    background_uri = _dashboard_background_data_uri()
+    style = f"background-image: url('{background_uri}');" if background_uri else ""
+    recent_projects = _dashboard_recent_projects(projects)
+    stats = _dashboard_project_statistics(active_project, projects)
+    news_items = _dashboard_news_items(active_project)
+    activity_items = _dashboard_activity_items(active_project)
+    tip = _dashboard_tip(active_project)
+
+    recent_html = "".join(
+        "<div class='dashboard-list-row'>"
+        f"<div><b>{_html_escape(project.name)}</b><div class='dashboard-muted'>{_html_escape(project.id)}</div></div>"
+        f"<div class='dashboard-muted'>{_html_escape(project.updated_at or 'без даты')}</div>"
+        "</div>"
+        for project in recent_projects
+    ) or "<div class='dashboard-muted'>Проекты пока не найдены.</div>"
+    news_html = "".join(f"<li>{_html_escape(item)}</li>" for item in news_items)
+    activity_html = "".join(f"<div class='dashboard-list-row'><div>{_html_escape(item)}</div></div>" for item in activity_items)
+
+    st.markdown(
+        f"""
+        <div class="dashboard-shell" style="{style}">
+          <div class="dashboard-overlay"></div>
+          <div class="dashboard-content">
+            <div class="dashboard-navbar">
+              <div class="dashboard-brand">Gas Ratio <span>Pro</span></div>
+              <div class="dashboard-navlinks">
+                <a href="#dashboard-projects">Проекты</a>
+                <a href="#dashboard-quick-actions">Быстрый доступ</a>
+                <a href="#dashboard-preview">Быстрый просмотр</a>
+                <a href="#dashboard-activity">Активность</a>
+                <a href="#dashboard-license">Лицензия</a>
+              </div>
+            </div>
+            <div class="dashboard-grid">
+              <div class="dashboard-column">
+                <div class="dashboard-card">
+                  <h3>Добро пожаловать</h3>
+                  <p>Gas Ratio Pro — профессиональное локальное решение для анализа газового каротажа, LAS-кривых и проектных данных.</p>
+                  <div class="dashboard-list-row"><div>LAS-редактор</div><div class="dashboard-muted">готов</div></div>
+                  <div class="dashboard-list-row"><div>Проект</div><div class="dashboard-muted">{_html_escape(active_project.name)}</div></div>
+                </div>
+                <div class="dashboard-card">
+                  <h3>Новости</h3>
+                  <ul>{news_html}</ul>
+                </div>
+                <div class="dashboard-card">
+                  <h3>Полезные советы</h3>
+                  <p>{_html_escape(tip)}</p>
+                  <div class="dashboard-muted">Совет меняется ежедневно и зависит от активного проекта.</div>
+                </div>
+              </div>
+              <div class="dashboard-column">
+                <div class="dashboard-card" id="dashboard-projects">
+                  <h3>Недавние проекты</h3>
+                  {recent_html}
+                </div>
+                <div class="dashboard-card" id="dashboard-quick-actions">
+                  <h3>Быстрый доступ</h3>
+                  <div class="dashboard-actions">
+                    <div class="dashboard-action-card"><strong>Создать проект</strong><span class="dashboard-muted">Левая панель проекта</span></div>
+                    <div class="dashboard-action-card"><strong>Импорт LAS</strong><span class="dashboard-muted">Вкладка Работа с данными</span></div>
+                    <div class="dashboard-action-card"><strong>LAS-редактор</strong><span class="dashboard-muted">Подготовка кривых</span></div>
+                    <div class="dashboard-action-card"><strong>Корреляция</strong><span class="dashboard-muted">Сравнение скважин</span></div>
+                    <div class="dashboard-action-card"><strong>Отчеты</strong><span class="dashboard-muted">Экспорт материалов</span></div>
+                    <div class="dashboard-action-card"><strong>Руководство</strong><span class="dashboard-muted">Инструкции и документация</span></div>
+                  </div>
+                </div>
+                <div class="dashboard-card" id="dashboard-preview">
+                  <h3>Быстрый просмотр: последний проект</h3>
+                  <div class="dashboard-preview">
+                    <div class="dashboard-muted">Мини-планшет показывает рабочую область без использования фонового изображения в настоящих графиках.</div>
+                    <div class="dashboard-log-track">
+                      <div class="dashboard-depth-track"><div class="dashboard-curve-label">Depth</div></div>
+                      <div class="dashboard-curve-track"><div class="dashboard-curve-label">GR</div></div>
+                      <div class="dashboard-curve-track"><div class="dashboard-curve-label">RT</div></div>
+                      <div class="dashboard-curve-track"><div class="dashboard-curve-label">RHOB</div></div>
+                      <div class="dashboard-curve-track"><div class="dashboard-curve-label">NPHI</div></div>
+                      <div class="dashboard-curve-track"><div class="dashboard-curve-label">DT</div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="dashboard-column">
+                <div class="dashboard-card">
+                  <h3>Статистика проекта</h3>
+                  <div class="dashboard-metrics">
+                    <div class="dashboard-metric"><b>{stats['projects']}</b><span>Проектов</span></div>
+                    <div class="dashboard-metric"><b>{stats['wells']}</b><span>Скважин</span></div>
+                    <div class="dashboard-metric"><b>{stats['las_files']}</b><span>LAS-файлов</span></div>
+                    <div class="dashboard-metric"><b>{stats['calculations']}</b><span>Расчетов</span></div>
+                    <div class="dashboard-metric"><b>{stats['exports']}</b><span>Экспортов</span></div>
+                  </div>
+                </div>
+                <div class="dashboard-card" id="dashboard-activity">
+                  <h3>Активность</h3>
+                  {activity_html}
+                </div>
+                <div class="dashboard-card" id="dashboard-license">
+                  <h3>Лицензия и авторские права</h3>
+                  <p>© Rinat Sarmuldin. Все права защищены. Коммерческое использование допускается только с разрешения автора.</p>
+                  <div class="dashboard-muted">Фоновое изображение используется только на главной странице, чтобы не мешать рабочим графикам и числам.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    st.markdown("### Что делать дальше")
-    layout_value = str(st.session_state.get(UI_LAYOUT_KEY, UI_LAYOUT_PROFILES["wide"]["label"]))
-    layout_key = layout_value if layout_value in UI_LAYOUT_PROFILES else _layout_profile_key(layout_value)
-    column_count = int(UI_LAYOUT_PROFILES.get(layout_key, UI_LAYOUT_PROFILES["wide"])["columns"])
-    action_columns = st.columns(column_count)
+def _render_start_tab(active_project: ProjectRecord) -> None:
+    projects = list_projects(LAS_CORRELATION_PROJECTS_ROOT)
+    if not projects:
+        projects = (active_project,)
+    _render_dashboard_shell(active_project, projects)
+
+    st.markdown("### Навигационные кнопки")
+    st.caption(
+        "Streamlit не переключает вкладки программно, поэтому кнопки показывают, "
+        "какой рабочий раздел открыть дальше. Основная навигация остается в верхних вкладках приложения."
+    )
+    action_columns = st.columns(3)
     for index, action in enumerate(START_ACTIONS):
-        with action_columns[index % len(action_columns)]:
+        with action_columns[index % 3]:
+            st.button(
+                action["title"],
+                key=f"dashboard_action_{index}",
+                use_container_width=True,
+                help=f"Откройте вкладку: {action['target_tab']}. {action['when']}",
+            )
+
+    with st.expander("Текущее состояние workflow", expanded=False):
+        for label, value, next_action in _workflow_status_detail_rows(active_project):
             st.markdown(
-                "<div class='workflow-card'>"
-                f"<strong>{action['title']}</strong>"
-                f"<p>{action['description']}</p>"
-                f"<small><b>Открыть вкладку:</b> {action['target_tab']}<br>"
-                f"<b>Когда использовать:</b> {action['when']}</small>"
-                "</div>",
+                f"<div class='workflow-status'><b>{label}</b><br>{value}<small><b>Дальше:</b> {next_action}</small></div>",
                 unsafe_allow_html=True,
             )
 
-    st.markdown("### Текущее состояние")
-    for label, value, next_action in _workflow_status_detail_rows(active_project):
-        st.markdown(
-            f"<div class='workflow-status'><b>{label}</b><br>{value}<small><b>Дальше:</b> {next_action}</small></div>",
-            unsafe_allow_html=True,
-        )
-
+    layout_value = str(st.session_state.get(UI_LAYOUT_KEY, UI_LAYOUT_PROFILES["wide"]["label"]))
+    layout_key = layout_value if layout_value in UI_LAYOUT_PROFILES else _layout_profile_key(layout_value)
     layout_label, layout_width, layout_description = _layout_profile_summary(layout_key)
     with st.expander("Проверка экрана и компоновки", expanded=False):
         st.markdown(
             f"**Активный режим:** {layout_label} (`max-width: {layout_width}`).\n\n"
             f"{layout_description}\n\n"
-            "Проверьте, что карточки не обрезаются, таблицы открываются без лишней горизонтальной прокрутки, "
-            "а планшет и correlation-графики читаются на вашем рабочем мониторе."
+            "Главная страница использует фоновую картинку с темным overlay. "
+            "Рабочие графики, планшеты, таблицы и редакторы остаются на однотонном фоне для читаемости."
         )
 
-    with st.expander("Рекомендуемый порядок работы", expanded=False):
-        st.markdown(
-            "1. Создайте или выберите проект в левой панели.\n"
-            "2. Если LAS проблемный, сначала откройте `LAS-редактор`.\n"
-            "3. Для расчета коэффициентов откройте `Работа с данными`.\n"
-            "4. Для нескольких скважин используйте `LAS-корреляция`.\n"
-            "5. Для печати и обсуждения откройте `Интерпретационные графики`.\n"
-            "6. При предупреждениях сверяйте формулы и ограничения во вкладке документации."
-        )
 
 def _read_documentation_markdown(relative_path: str) -> str:
     candidate = Path(relative_path)

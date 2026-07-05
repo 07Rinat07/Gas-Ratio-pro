@@ -25,6 +25,73 @@
 - [x] Well Manager: карточка скважины, координаты, KB, GL, TD, дата начала бурения, оператор и месторождение.
 - [x] Dataset Manager: LAS, CSV, Excel, Core, Mud Log и Production datasets.
 - [x] Project Database: индексация файлов, проверка дубликатов, версии файлов и автоматические UUID.
+- [x] Dashboard background shell: главная страница получила фон с морской буровой, темный overlay, навигационный navbar, интерактивные карточки, быстрый доступ, динамические новости, статистику, активность и блок авторских прав.
+
+---
+
+# Приоритетный UI Modernization Track
+
+Этот трек добавлен после решения изменить дизайн главной страницы и использовать фирменный фон с буровой. Он выполняется отдельными небольшими этапами, чтобы не ломать рабочие модули LAS, графики и таблицы.
+
+## UI.1 Application Shell
+
+- [x] Dashboard background shell.
+- [ ] Modern navigation bar.
+- [ ] Left sidebar.
+- [ ] Responsive central workspace.
+- [ ] Dynamic status bar.
+- [ ] Global command palette.
+- [ ] Keyboard shortcuts.
+
+## UI.2 Dashboard
+
+- [x] Background image integration.
+- [x] Dark overlay engine.
+- [x] Responsive widget layout.
+- [x] Glass panels.
+- [x] Welcome panel.
+- [ ] Project preview from real LAS data.
+- [ ] Dashboard widget settings.
+
+## UI.3 Dashboard Widgets
+
+- [x] Recent projects.
+- [x] Quick actions.
+- [x] Project statistics.
+- [x] Recent activity.
+- [x] Useful tips.
+- [x] What's new.
+- [ ] Recent reports.
+- [ ] License status widget.
+
+## UI.4 Dynamic Data
+
+- [x] Live project statistics.
+- [x] Live recent projects.
+- [x] Live recent activity.
+- [ ] Live reports.
+- [ ] Live calculations preview.
+- [ ] Live import history.
+
+## UI.5 Theme Engine
+
+- [ ] Theme manager.
+- [ ] Dark theme tokens.
+- [x] Dashboard background support.
+- [x] Adaptive transparency for dashboard panels.
+- [ ] Separate solid workspace background for plots, LAS editor, crossplots, tables and reports.
+
+## UI.6 Branding and Commercial Readiness
+
+- [x] Dashboard author/copyright block.
+- [ ] About dialog redesign.
+- [ ] Application identity metadata.
+- [ ] EULA document.
+- [ ] License manager.
+- [ ] Offline activation.
+- [ ] License validation.
+- [ ] Trial mode.
+- [ ] Build signing notes.
 
 ---
 
@@ -354,4 +421,15 @@ UI-блок `Curve Manager · Merge curves` добавлен во вкладку
 
 ## Следующий пункт разработки
 
-Текущий следующий незавершенный пункт: **LAS Professional → Curve Manager → Split curves**.
+Текущий следующий незавершенный пункт: **UI Modernization Track → Application Shell → Modern navigation bar**.
+
+
+### Реализовано: UI Modernization Track → Dashboard background shell
+
+Главная страница получила новый Dashboard shell на основе фонового изображения `assets/dashboard/rig_of_sea.png`. Изображение используется только на стартовой странице и накрывается темным gradient overlay, чтобы текст, карточки и кнопки оставались читаемыми. Рабочие области с графиками, LAS-кривыми, таблицами и числами не переводятся на фоновую картинку, чтобы не ухудшать видимость инженерных данных.
+
+Dashboard теперь содержит HTML/CSS shell с верхним navbar, glass-панелями, блоком приветствия, недавними проектами, быстрым доступом, динамическими новостями, статистикой проекта, активностью, ежедневным советом и блоком авторских прав. Значения в карточках строятся из реального состояния проекта: списка проектов, LAS-файлов, расчетов, экспортов, скважин и активности, если соответствующие данные уже есть в локальном хранилище.
+
+## Следующий пункт разработки
+
+Текущий следующий незавершенный пункт: **UI Modernization Track → Application Shell → Modern navigation bar**.
