@@ -99,6 +99,7 @@ from projects import exports as project_exports
 from projects import graph_settings as project_graph_settings
 from projects import datasets as project_datasets
 from projects import project_labels as project_labels
+from projects import project_index as project_index
 from projects import well_cards as project_well_cards
 from projects import las_files as project_las_files
 from reports.export_csv import export_csv_bytes
@@ -119,6 +120,7 @@ project_exports = importlib.reload(project_exports)
 project_datasets = importlib.reload(project_datasets)
 project_las_files = importlib.reload(project_las_files)
 project_labels = importlib.reload(project_labels)
+project_index = importlib.reload(project_index)
 project_well_cards = importlib.reload(project_well_cards)
 list_project_calculations = project_calculations.list_project_calculations
 filter_project_calculations = project_calculations.filter_project_calculations
@@ -154,6 +156,10 @@ save_project_mud_log_dataset = project_datasets.save_project_mud_log_dataset
 list_project_production_datasets = project_datasets.list_project_production_datasets
 save_project_production_dataset = project_datasets.save_project_production_dataset
 build_project_dataset_table = project_datasets.build_project_dataset_table
+build_project_file_index_table = project_index.build_project_file_index_table
+load_project_file_index = project_index.load_project_file_index
+save_project_file_index = project_index.save_project_file_index
+validate_project_file_index = project_index.validate_project_file_index
 DEFAULT_INTERPRETATION_TRACKS = project_graph_settings.DEFAULT_INTERPRETATION_TRACKS
 InterpretationGraphSettings = project_graph_settings.InterpretationGraphSettings
 load_project_interpretation_graph_settings = project_graph_settings.load_project_interpretation_graph_settings
@@ -3541,6 +3547,52 @@ def _render_project_dataset_manager(project: ProjectRecord, logger) -> None:
             )
 
 
+
+def _render_project_file_index(project: ProjectRecord, logger) -> None:
+    """Render Project Database file index for the active project."""
+
+    with st.expander("Project Database · Индексация файлов", expanded=False):
+        st.caption(
+            "Индекс собирает metadata файлов активного проекта: путь, тип, размер, "
+            "время изменения и SHA-256. Файлы не копируются и datasets не изменяются."
+        )
+        columns = st.columns(2)
+        with columns[0]:
+            if st.button("Обновить индекс файлов", key=f"project_file_index_refresh_{project.id}"):
+                try:
+                    entries = save_project_file_index(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+                except Exception:
+                    logger.exception("project_file_index_save_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось обновить индекс файлов проекта. Подробности записаны в logs/app.log.")
+                else:
+                    st.success(f"Индекс обновлен. Файлов: {len(entries)}.")
+        with columns[1]:
+            if st.button("Проверить сохраненный индекс", key=f"project_file_index_validate_{project.id}"):
+                try:
+                    entries = validate_project_file_index(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+                except Exception:
+                    logger.exception("project_file_index_validate_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось проверить индекс файлов проекта. Подробности записаны в logs/app.log.")
+                else:
+                    warnings = sum(1 for entry in entries if entry.status != "present")
+                    if warnings:
+                        st.warning(f"Проверка индекса завершена. Требуют внимания: {warnings}.")
+                    else:
+                        st.success(f"Проверка индекса завершена. Файлов на месте: {len(entries)}.")
+
+        entries = load_project_file_index(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+        if not entries:
+            st.caption("Индекс еще не создан. Нажмите `Обновить индекс файлов`.")
+            return
+
+        total_size = sum(entry.size_bytes for entry in entries)
+        indexed_kinds = sorted({entry.kind for entry in entries})
+        st.caption(
+            f"В индексе файлов: {len(entries)} · размер: {total_size:,} байт · "
+            f"типы: {', '.join(indexed_kinds)}"
+        )
+        st.dataframe(build_project_file_index_table(entries), use_container_width=True, height=260)
+
 def _project_workspace_summary_rows(project: ProjectRecord) -> tuple[tuple[str, str], ...]:
     all_well_cards = list_project_las_wells(
         LAS_CORRELATION_PROJECTS_ROOT,
@@ -3617,6 +3669,7 @@ def _render_project_workspace_loader(project: ProjectRecord, logger) -> None:
         st.caption(f"Открыт проект: {project.name} ({project.id})")
         st.dataframe(_project_workspace_summary_table(project), use_container_width=True, hide_index=True, height=210)
         _render_project_dataset_manager(project, logger)
+        _render_project_file_index(project, logger)
 
         if not active_records:
             st.caption("В активном проекте пока нет активных LAS-версий.")

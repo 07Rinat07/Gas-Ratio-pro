@@ -87,6 +87,17 @@ from projects.project_folders import (
     list_project_folders,
     save_project_folder,
 )
+
+from projects.project_index import (
+    PROJECT_INDEX_FILE_NAME,
+    ProjectFileIndexEntry,
+    build_project_file_index,
+    build_project_file_index_table,
+    load_project_file_index,
+    save_project_file_index,
+    validate_project_file_index,
+)
+
 from projects.project_labels import (
     PROJECT_EXPLORER_LABEL_COLORS,
     PROJECT_EXPLORER_LABEL_ICONS,
@@ -324,6 +335,13 @@ __all__ = [
     "ProjectCalculationIntegrityCheck",
     "ProjectCalculationsSummary",
     "summarize_project_calculations",
+    "PROJECT_INDEX_FILE_NAME",
+    "ProjectFileIndexEntry",
+    "build_project_file_index",
+    "build_project_file_index_table",
+    "load_project_file_index",
+    "save_project_file_index",
+    "validate_project_file_index",
     "DEFAULT_PROJECT_ID",
     "DEFAULT_PROJECTS_ROOT",
     "ProjectLasFile",
