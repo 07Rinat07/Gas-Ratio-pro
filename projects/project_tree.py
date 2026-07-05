@@ -8,6 +8,7 @@ from projects.exports import list_project_exports
 from projects.las_files import ProjectLasWellCard, list_project_las_wells
 from projects.project_folders import ProjectFolder, list_project_folders
 from projects.project_labels import ProjectExplorerLabel, project_explorer_labels_by_object
+from projects.well_cards import ProjectWellCard, project_well_cards_by_id
 from projects.well_groups import list_grouped_project_wells
 from projects.repository import DEFAULT_PROJECT_ID, DEFAULT_PROJECTS_ROOT, ProjectRecord, load_project, safe_project_id
 
@@ -150,7 +151,7 @@ def _custom_folder_node(folder: ProjectFolder, indexed_nodes: dict[str, ProjectT
     )
 
 
-def _well_node(well: ProjectLasWellCard) -> ProjectTreeNode:
+def _well_node(well: ProjectLasWellCard, card: ProjectWellCard | None = None) -> ProjectTreeNode:
     versions = tuple(
         ProjectTreeNode(
             id=f"las:{version.id}",
@@ -165,13 +166,24 @@ def _well_node(well: ProjectLasWellCard) -> ProjectTreeNode:
         )
         for version in well.versions
     )
+    status_parts = [f"{len(versions)} LAS-версий"]
+    metadata: dict[str, str | int] = {"well_id": well.id, "version_count": len(versions)}
+    if card is not None:
+        status_parts.append(f"карточка: {card.status_label}")
+        metadata.update(
+            {
+                "well_card_status": card.status,
+                "well_card_status_label": card.status_label,
+                "well_card_updated_at": card.updated_at,
+            }
+        )
     return ProjectTreeNode(
         id=f"well:{well.id}",
-        label=well.name,
+        label=card.name if card is not None and card.name else well.name,
         kind="well",
-        status=f"{len(versions)} LAS-версий",
+        status="; ".join(status_parts),
         children=versions or (_empty_node(f"well:{well.id}:empty", "Нет LAS-версий"),),
-        metadata={"well_id": well.id, "version_count": len(versions)},
+        metadata=metadata,
     )
 
 
@@ -191,9 +203,10 @@ def build_project_tree(
     project = load_project(root_path, clean_project_id)
 
     indexed_nodes: dict[str, ProjectTreeNode] = {}
+    well_cards = project_well_cards_by_id(root_path, clean_project_id)
     well_children: list[ProjectTreeNode] = []
     for group, wells in list_grouped_project_wells(root_path, clean_project_id):
-        group_well_nodes = tuple(_well_node(well) for well in wells)
+        group_well_nodes = tuple(_well_node(well, well_cards.get(well.id)) for well in wells)
         for well_node in group_well_nodes:
             indexed_nodes[well_node.id] = well_node
             for version_node in well_node.children:

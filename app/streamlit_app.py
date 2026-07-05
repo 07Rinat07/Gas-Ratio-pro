@@ -98,6 +98,7 @@ from projects import calculations as project_calculations
 from projects import exports as project_exports
 from projects import graph_settings as project_graph_settings
 from projects import project_labels as project_labels
+from projects import well_cards as project_well_cards
 from projects import las_files as project_las_files
 from reports.export_csv import export_csv_bytes
 from reports.export_html import HtmlReportMetadata, HtmlReportTable, build_plotly_html_report
@@ -116,6 +117,7 @@ project_calculations = importlib.reload(project_calculations)
 project_exports = importlib.reload(project_exports)
 project_las_files = importlib.reload(project_las_files)
 project_labels = importlib.reload(project_labels)
+project_well_cards = importlib.reload(project_well_cards)
 list_project_calculations = project_calculations.list_project_calculations
 filter_project_calculations = project_calculations.filter_project_calculations
 summarize_project_calculations = project_calculations.summarize_project_calculations
@@ -153,6 +155,10 @@ PROJECT_EXPLORER_LABEL_COLORS = project_labels.PROJECT_EXPLORER_LABEL_COLORS
 PROJECT_EXPLORER_LABEL_ICONS = project_labels.PROJECT_EXPLORER_LABEL_ICONS
 set_project_explorer_label = project_labels.set_project_explorer_label
 clear_project_explorer_label = project_labels.clear_project_explorer_label
+PROJECT_WELL_CARD_STATUSES = project_well_cards.PROJECT_WELL_CARD_STATUSES
+ensure_project_well_card = project_well_cards.ensure_project_well_card
+get_project_well_card = project_well_cards.get_project_well_card
+save_project_well_card = project_well_cards.save_project_well_card
 
 SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xlsm", ".las"}
 WELLS_STORAGE_ROOT = ROOT_DIR / DEFAULT_WELLS_ROOT
@@ -2992,6 +2998,72 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                 except Exception:
                     logger.exception("project_tree_label_clear_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось снять цветовую метку.")
+
+        st.divider()
+        st.caption("Карточка скважины")
+        well_options = tuple(option for option in move_options if option.kind == "well")
+        if not well_options:
+            st.caption("Нет сохраненных скважин для карточки.")
+        else:
+            well_labels = {option.id: option.label for option in well_options}
+            selected_well_node_id = st.selectbox(
+                "Скважина",
+                options=tuple(well_labels),
+                format_func=lambda item_id: well_labels.get(item_id, item_id),
+                key=f"project_explorer_well_card_item_{project.id}",
+            )
+            selected_well_id = selected_well_node_id.removeprefix("well:")
+            current_card = get_project_well_card(LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_well_id)
+            default_name = current_card.name if current_card else well_labels.get(selected_well_node_id, selected_well_id)
+            default_status = current_card.status if current_card else "draft"
+            default_note = current_card.note if current_card else ""
+            status_options = tuple(PROJECT_WELL_CARD_STATUSES)
+            try:
+                status_index = status_options.index(default_status)
+            except ValueError:
+                status_index = 0
+            well_card_name = st.text_input(
+                "Название в карточке",
+                value=default_name,
+                key=f"project_explorer_well_card_name_{project.id}_{selected_well_id}",
+            )
+            well_card_status = st.selectbox(
+                "Статус карточки",
+                options=status_options,
+                index=status_index,
+                format_func=lambda status: PROJECT_WELL_CARD_STATUSES.get(status, status),
+                key=f"project_explorer_well_card_status_{project.id}_{selected_well_id}",
+            )
+            well_card_note = st.text_area(
+                "Комментарий",
+                value=default_note,
+                height=80,
+                key=f"project_explorer_well_card_note_{project.id}_{selected_well_id}",
+            )
+            if current_card:
+                st.caption(f"Обновлена: {current_card.updated_at}")
+            else:
+                st.caption("Карточка еще не создана.")
+            if st.button("Сохранить карточку скважины", key=f"project_explorer_save_well_card_{project.id}"):
+                try:
+                    save_project_well_card(
+                        LAS_CORRELATION_PROJECTS_ROOT,
+                        project.id,
+                        well_id=selected_well_id,
+                        name=well_card_name,
+                        status=well_card_status,
+                        note=well_card_note,
+                    )
+                    logger.info(
+                        "project_well_card_saved project_id=%s well_id=%s",
+                        safe_log_value(project.id),
+                        safe_log_value(selected_well_id),
+                    )
+                    st.success("Карточка скважины сохранена.")
+                    st.rerun()
+                except Exception:
+                    logger.exception("project_well_card_save_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось сохранить карточку скважины.")
 
 
 def _load_project_las_correlation_settings(project_id: str) -> LasCorrelationSettings | None:

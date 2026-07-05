@@ -359,3 +359,79 @@ def test_project_explorer_color_label_can_be_cleared(tmp_path):
 
     assert removed is True
     assert list_project_explorer_labels(tmp_path, project.id) == ()
+
+
+def test_project_well_card_can_be_saved_and_listed_without_las_payload(tmp_path):
+    project = create_project(tmp_path, name="Well Cards", project_id="well-cards")
+
+    from projects import build_project_well_card_table, list_project_well_cards, save_project_well_card
+
+    card = save_project_well_card(
+        root=tmp_path,
+        project_id=project.id,
+        well_id="well-1",
+        name="Well 1",
+        status="review",
+        note="Check source LAS header",
+    )
+    cards = list_project_well_cards(tmp_path, project.id)
+    rows = build_project_well_card_table(tmp_path, project.id)
+
+    assert card.status_label == "На проверке"
+    assert len(cards) == 1
+    assert cards[0].well_id == "well-1"
+    assert cards[0].note == "Check source LAS header"
+    assert rows[0].status_label == "На проверке"
+
+
+def test_project_well_card_update_preserves_created_at_and_changes_metadata(tmp_path):
+    project = create_project(tmp_path, name="Well Card Update", project_id="well-card-update")
+
+    from projects import get_project_well_card, save_project_well_card
+
+    first = save_project_well_card(tmp_path, project.id, well_id="well-2", name="Well 2", status="draft")
+    second = save_project_well_card(
+        tmp_path,
+        project.id,
+        well_id="well-2",
+        name="Well 2A",
+        status="ready",
+        note="Approved metadata",
+        metadata={"source": "manual"},
+    )
+    stored = get_project_well_card(tmp_path, project.id, "well-2")
+
+    assert second.created_at == first.created_at
+    assert second.updated_at >= first.updated_at
+    assert stored is not None
+    assert stored.name == "Well 2A"
+    assert stored.status_label == "Готова"
+    assert stored.metadata == {"source": "manual"}
+
+
+def test_project_tree_shows_saved_well_card_status(tmp_path):
+    project = create_project(tmp_path, name="Tree Well Card", project_id="tree-well-card")
+    las_record = save_project_las_file(
+        b"~Version\nVERS. 2.0\n~Well\nNULL. -999.25\n~Curve\nDEPT.M : Depth\nC1. : C1\n~Ascii\n1000 80\n",
+        root=tmp_path,
+        project_id=project.id,
+        file_name="well_card.las",
+        well_name="Well Card",
+        version_label="Raw LAS",
+    )
+
+    from projects import save_project_well_card
+
+    save_project_well_card(
+        tmp_path,
+        project.id,
+        well_id=las_record.well_id,
+        name="Well Card Official",
+        status="ready",
+    )
+
+    rows = project_tree_table_rows(build_project_tree(tmp_path, project.id))
+    well_row = next(row for row in rows if row["id"] == f"well:{las_record.well_id}")
+
+    assert well_row["label"] == "Well Card Official"
+    assert "карточка: Готова" in str(well_row["status"])

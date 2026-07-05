@@ -66,6 +66,17 @@ from projects.project_moves import (
     move_project_explorer_item_to_folder,
     move_project_explorer_well_to_group,
 )
+from projects.well_cards import (
+    PROJECT_WELL_CARD_STATUSES,
+    ProjectWellCard,
+    ProjectWellCardTableRow,
+    build_project_well_card_table,
+    ensure_project_well_card,
+    get_project_well_card,
+    list_project_well_cards,
+    project_well_cards_by_id,
+    save_project_well_card,
+)
 from projects.well_groups import (
     ProjectWellGroup,
     assign_project_wells_to_group,
@@ -103,6 +114,15 @@ from projects.repository import (
 
 __all__ = [
     "ProjectFolder",
+    "PROJECT_WELL_CARD_STATUSES",
+    "ProjectWellCard",
+    "ProjectWellCardTableRow",
+    "build_project_well_card_table",
+    "ensure_project_well_card",
+    "get_project_well_card",
+    "list_project_well_cards",
+    "project_well_cards_by_id",
+    "save_project_well_card",
     "PROJECT_EXPLORER_LABEL_COLORS",
     "PROJECT_EXPLORER_LABEL_ICONS",
     "ProjectExplorerLabel",
