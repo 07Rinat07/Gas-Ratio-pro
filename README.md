@@ -108,6 +108,16 @@ examples/sample_gas_data.las
 - [Правила ведения документации](docs/documentation_policy.md)
 - [История изменений](CHANGELOG.md)
 
+## Development Roadmap
+
+Основная дорожная карта разработки находится в [`docs/project_plan.md`](docs/project_plan.md). После закрытия базового функционала Gas Ratio Interpreter проект развивается по **Project Plan v2**:
+
+- `Data Management` — проектное дерево, Well Manager, Dataset Manager и Project Database;
+- `LAS Professional` — профессиональное управление кривыми, единицами, качеством и обработкой LAS;
+- `Mud Gas Professional`, `Petrophysics`, `Interpretation`, `Tablet Professional`, `Reports`, `Visualization`, `Multi Well`, `Professional Features` и `Enterprise` — следующие крупные направления развития.
+
+Правило разработки: один завершенный пункт дорожной карты оформляется отдельным этапом с тестами, документацией и отдельным коммитом в ветке `main`.
+
 ## Основные команды
 
 ```powershell

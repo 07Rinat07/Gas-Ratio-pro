@@ -176,3 +176,7 @@
 
 Каждая подсказка реализована как правило в `las_editor/depth_grid.py` и покрыта
 unit-тестами в `tests/test_las_editor.py`.
+
+## Связь с Project Plan v2
+
+LAS-редактор остается базовым инструментом подготовки данных, а дальнейшие профессиональные функции LAS теперь ведутся в `docs/project_plan.md` в разделе **LAS Professional**. В этот раздел входят Curve Manager, Units Manager, Curve Quality и Curve Processing. Новые изменения LAS-логики должны обновлять этот документ только когда затрагивают уже существующий редакторский workflow; стратегический порядок новых LAS-функций фиксируется в Project Plan v2.
