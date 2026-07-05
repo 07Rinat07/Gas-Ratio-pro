@@ -48,6 +48,7 @@ from las_correlation import (
     settings_summary,
     settings_to_dict,
 )
+from las_editor.curve_rename import CurveRenameHistoryEntry, rename_curve, undo_last_rename
 from las_editor.depth_grid import (
     apply_las_bulk_operations,
     build_las_edit_audit_log,
@@ -200,6 +201,7 @@ UI_SCALE_KEY = "ui_scale"
 UI_LAYOUT_KEY = "ui_layout"
 LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
 LAS_EDITOR_SESSION_SUMMARY_KEY = "las_editor_session_summary"
+LAS_EDITOR_RENAME_HISTORY_KEY = "las_editor_curve_rename_history"
 PROJECT_SESSION_SHEETS_KEY = "project_session_sheets"
 PROJECT_SESSION_SUMMARY_KEY = "project_session_summary"
 PROJECT_SESSION_PROJECT_ID_KEY = "project_session_project_id"
@@ -741,6 +743,117 @@ def _render_static_export_controls(
             )
 
 
+
+def _las_editor_reference_state(column_names: list[str]) -> dict[str, object]:
+    """Collect currently existing curve-reference containers for safe rename."""
+
+    return {
+        "tablet_tracks": list(st.session_state.get("interpretation_tablet_columns", [])),
+        "templates": {},
+        "presets": {
+            "mud_gas": list(mud_gas_literature_tablet_columns(column_names)),
+            "default_tablet": list(default_tablet_columns(column_names)),
+        },
+        "saved_calculations": {},
+        "exports": {"columns": list(column_names)},
+        "manifest": {name: {"source": "las_editor"} for name in column_names},
+    }
+
+
+def _apply_las_editor_reference_state(references: dict[str, object]) -> None:
+    """Write back rename-aware references that are represented in session state."""
+
+    tablet_tracks = references.get("tablet_tracks")
+    if isinstance(tablet_tracks, list):
+        st.session_state["interpretation_tablet_columns"] = tablet_tracks
+
+
+def _render_las_curve_rename_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
+    st.markdown("### Curve Manager · Rename curves")
+    st.caption(
+        "Безопасное переименование LAS-кривых: проверка существования, пустого имени, "
+        "конфликтов, сохранение истории и одноуровневый undo."
+    )
+
+    if LAS_EDITOR_RENAME_HISTORY_KEY not in st.session_state:
+        st.session_state[LAS_EDITOR_RENAME_HISTORY_KEY] = ()
+
+    column_names = [str(column) for column in prepared_df.columns]
+    rename_col, new_col, action_col = st.columns([2, 2, 1])
+    old_name = rename_col.selectbox(
+        "Кривая для rename",
+        options=column_names,
+        key="las_editor_rename_old_curve",
+    )
+    new_name = new_col.text_input(
+        "Новое имя кривой",
+        value=old_name,
+        key="las_editor_rename_new_curve",
+    )
+
+    references = _las_editor_reference_state(column_names)
+    active_df = prepared_df
+    if action_col.button("Переименовать", use_container_width=True, key="las_editor_rename_apply"):
+        try:
+            result = rename_curve(
+                prepared_df,
+                old_name,
+                new_name,
+                history=st.session_state.get(LAS_EDITOR_RENAME_HISTORY_KEY, ()),
+                references=references,
+                reason="manual",
+                source="las_editor_ui",
+            )
+            active_df = result.data
+            st.session_state[LAS_EDITOR_RENAME_HISTORY_KEY] = result.history
+            _apply_las_editor_reference_state(result.references)
+            for message in result.diagnostics:
+                st.info(message)
+            if result.renamed:
+                st.success(f"Кривая переименована: {result.old_name} → {result.new_name}")
+            else:
+                st.warning("Имя не изменилось: rename не применялся.")
+        except ValueError as exc:
+            st.warning(str(exc))
+
+    history = tuple(st.session_state.get(LAS_EDITOR_RENAME_HISTORY_KEY, ()))
+    undo_disabled = not history
+    if st.button("Undo последнего rename", disabled=undo_disabled, use_container_width=True, key="las_editor_rename_undo"):
+        try:
+            result = undo_last_rename(prepared_df, history=history, references=references)
+            active_df = result.data
+            st.session_state[LAS_EDITOR_RENAME_HISTORY_KEY] = result.history
+            _apply_las_editor_reference_state(result.references)
+            for message in result.diagnostics:
+                st.info(message)
+            st.success(f"Rename отменен: {result.old_name} → {result.new_name}")
+        except ValueError as exc:
+            st.warning(str(exc))
+
+    history = tuple(st.session_state.get(LAS_EDITOR_RENAME_HISTORY_KEY, ()))
+    with st.expander("История rename", expanded=bool(history)):
+        if history:
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "old_name": entry.old_name,
+                            "new_name": entry.new_name,
+                            "timestamp": entry.timestamp,
+                            "reason": entry.reason,
+                            "source": entry.source,
+                        }
+                        for entry in history
+                    ]
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.caption("История переименований пока пуста.")
+
+    return active_df
+
 def _find_default_depth_column(df: pd.DataFrame) -> str:
     mapping = auto_map_columns(df.columns).mapping
     if mapping.get("depth") in df.columns:
@@ -1229,6 +1342,8 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
 
     st.markdown("### Исходные кривые")
     st.dataframe(prepared_df.head(20), use_container_width=True)
+
+    prepared_df = _render_las_curve_rename_manager(prepared_df)
 
     column_names = [str(column) for column in prepared_df.columns]
     default_depth_column = _find_default_depth_column(prepared_df)

@@ -71,7 +71,7 @@
 
 ## 2.1 Curve Manager
 
-- [ ] Rename curves.
+- [x] Rename curves.
 - [ ] Alias curves.
 - [ ] Merge curves.
 - [ ] Split curves.
@@ -326,6 +326,12 @@
 
 ---
 
+### Реализовано: LAS Professional → Curve Manager → Rename curves
+
+LAS-редактор получил отдельный Curve Manager для безопасного переименования кривых. Логика вынесена в `las_editor/curve_rename.py` и выполняет нормализацию имени, проверку существования исходной кривой, запрет пустого имени, проверку конфликтов с существующими колонками, запись истории `old_name/new_name/timestamp/reason/source` и одноуровневый undo последнего rename.
+
+После переименования обновляются реально существующие ссылочные структуры редакторского workflow: tablet tracks из session state, доступные preset-списки, export columns и manifest-представление текущих колонок. Общая функция обновления ссылок работает рекурсивно с dict/list/tuple/set, поэтому ее можно повторно использовать для templates, presets, saved calculations, exports и manifest при расширении проектного хранения.
+
 ## Следующий пункт разработки
 
-Текущий следующий незавершенный пункт: **LAS Professional → Curve Manager → Rename curves**.
+Текущий следующий незавершенный пункт: **LAS Professional → Curve Manager → Alias curves**.
