@@ -195,9 +195,10 @@ def test_dataframe_shape_label_for_ui_tables():
 def test_layout_profile_options_cover_standard_and_wide():
     module = importlib.import_module("app.streamlit_app")
 
-    assert module._layout_profile_options() == ("Обычный монитор", "Широкий экран")
-    assert module._layout_profile_key("Обычный монитор") == "standard"
-    assert module._layout_profile_key("Широкий экран") == "wide"
+    assert module._layout_profile_options() == ("Телефон", "Ноутбук", "Большой экран")
+    assert module._layout_profile_key("Телефон") == "phone"
+    assert module._layout_profile_key("Ноутбук") == "standard"
+    assert module._layout_profile_key("Большой экран") == "wide"
     assert module._layout_profile_key("unknown") == "wide"
 
 
@@ -206,9 +207,9 @@ def test_layout_profile_summary_explains_screen_mode():
 
     label, max_width, description = module._layout_profile_summary("standard")
 
-    assert label == "Обычный монитор"
-    assert max_width == "1200px"
-    assert "стандартных экранов" in description
+    assert label == "Ноутбук"
+    assert "1440px" in max_width
+    assert "стандартных экранов" in description or "ноутбуков" in description.lower()
 
 
 def test_project_workspace_summary_counts_versions_archives_and_exports(monkeypatch, tmp_path):

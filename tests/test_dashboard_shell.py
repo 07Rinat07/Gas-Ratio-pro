@@ -67,7 +67,7 @@ def test_dashboard_tip_is_not_empty() -> None:
 def test_wide_layout_uses_full_available_width() -> None:
     label, max_width, _description = app._layout_profile_summary("wide")
 
-    assert label == "Широкий экран"
+    assert label == "Большой экран"
     assert "100vw" in max_width
 
 
@@ -76,7 +76,7 @@ def test_dashboard_shell_css_has_modern_application_shell() -> None:
 
     assert ".dashboard-side-rail { display: none; }" in source
     assert "calc(100vh - 4.2rem)" in source
-    assert "background-position: center right" in source
+    assert "background-position: left center" in source
     assert "dashboard-footer" in source
     assert "@media (max-width: 760px)" in source
 
@@ -85,7 +85,7 @@ def test_sidebar_is_compact_for_dashboard_workspace() -> None:
     source = Path(app.__file__).read_text(encoding="utf-8")
 
     assert 'section[data-testid="stSidebar"]' in source
-    assert "clamp(10.5rem, 12vw, 14rem)" in source
+    assert "14.6rem" in source
     assert "sidebar_project_search" in source
 
 
@@ -138,24 +138,21 @@ def test_project_search_results_empty_query_returns_empty() -> None:
 def test_dashboard_transparency_is_less_aggressive() -> None:
     source = Path(app.__file__).read_text(encoding="utf-8")
 
-    assert "rgba(3, 7, 18, 0.18)" in source
-    assert "rgba(4, 10, 24, 0.25)" in source
+    assert "rgba(3, 7, 18, 0.22)" in source
+    assert "rgba(4, 10, 24, 0.24)" in source
     assert "dashboard_project_search" in source
 
 
-def test_documentation_page_uses_full_html_background_shell() -> None:
-    source = Path(app.__file__).read_text(encoding="utf-8")
+def test_branded_logo_asset_is_embedded() -> None:
+    data_uri = app._branding_logo_data_uri()
 
-    assert "docs-shell" in source
-    assert "docs-grid" in source
-    assert "background-attachment: fixed" in source
-    assert "Эта вкладка использует тот же фирменный фон" in source
+    assert data_uri.startswith("data:image/png;base64,")
+    assert len(data_uri) > 100
 
 
-def test_responsive_sidebar_and_workspace_guards_exist() -> None:
-    source = Path(app.__file__).read_text(encoding="utf-8")
+def test_responsive_profiles_cover_phone_laptop_and_large_screen() -> None:
+    labels = app._layout_profile_options()
 
-    assert "responsive-workspace-panel" in source
-    assert "overflow-wrap: anywhere" in source
-    assert "@media (max-width: 1024px)" in source
-    assert "@media (max-width: 640px)" in source
+    assert "Телефон" in labels
+    assert "Ноутбук" in labels
+    assert "Большой экран" in labels

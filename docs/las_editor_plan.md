@@ -241,3 +241,7 @@ Alias сохраняются в session state редактора и в reference
 ## UI readability note
 
 LAS Editor остается рабочей инженерной областью с темными панелями поверх общего фирменного фона приложения. Фоновое изображение не должно снижать читаемость LAS-кривых, таблиц глубины, диагностик, rename/alias/merge-блоков и числовых значений.
+
+## UI note: readable work panels
+
+LAS Editor remains a data-first workspace. The global branded background may exist behind the page shell, but LAS tables, curve controls, diagnostics and previews must stay on opaque/dark readable work panels. Do not place the branded image directly under curve values, depth tracks, editable grids or diagnostics tables.
