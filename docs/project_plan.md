@@ -73,7 +73,7 @@
 
 - [x] Rename curves.
 - [x] Alias curves.
-- [ ] Merge curves.
+- [x] Merge curves.
 - [ ] Split curves.
 - [ ] Curve statistics.
 
@@ -344,4 +344,14 @@ UI-блок `Curve Manager · Alias curves` добавлен во вкладку
 
 ## Следующий пункт разработки
 
-Текущий следующий незавершенный пункт: **LAS Professional → Curve Manager → Merge curves**.
+### Реализовано: LAS Professional → Curve Manager → Merge curves
+
+LAS-редактор получил менеджер объединения кривых. Логика вынесена в `las_editor/curve_merge.py` и позволяет выбрать минимум две существующие LAS-кривые, задать результирующее имя, нормализовать его и создать новую derived-кривую по одной из стратегий: `coalesce_first`, `coalesce_last`, `mean` или `sum`.
+
+Merge Manager проверяет существование всех исходных кривых, запрещает пустое имя результата, не допускает конфликт с существующими колонками и проверяет числовой тип исходных кривых для стратегий `mean` и `sum`. История хранит `source_names`, `target_name`, `strategy`, `timestamp`, `reason`, `source` и флаг `keep_sources`. Для последнего merge доступен одноуровневый undo: приложение удаляет созданную результирующую кривую и очищает metadata-ссылки на нее.
+
+UI-блок `Curve Manager · Merge curves` добавлен во вкладку `LAS-редактор` после rename и alias. Пользователь выбирает исходные кривые, стратегию объединения, имя результирующей кривой и режим сохранения исходников. Переданные reference-структуры `manifest` и `exports.columns` обновляются для новой кривой; при удалении исходников ссылки tablet tracks/templates/presets/saved calculations перенаправляются на результирующую кривую.
+
+## Следующий пункт разработки
+
+Текущий следующий незавершенный пункт: **LAS Professional → Curve Manager → Split curves**.

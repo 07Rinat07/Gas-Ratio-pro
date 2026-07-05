@@ -67,7 +67,7 @@ examples/sample_gas_data.las
 - Автоматический поиск строки заголовков среди первых 50 строк.
 - Ручной выбор строки заголовков.
 - Автоматическое и ручное сопоставление колонок.
-- Поддержка разных названий кривых: `Depth`, `DEPT`, `MD`, `CH4`, `Methane`, `i-C4`, `n-C4`, русские названия и другие алиасы.
+- Поддержка разных названий кривых: `Depth`, `DEPT`, `MD`, `CH4`, `Methane`, `i-C4`, `n-C4`, русские названия и другие алиасы; Curve Manager для rename, alias и merge LAS-кривых.
 - Расчет `Wh`, `Bh`, `BAR2`, Pixler ratios, ternary ratios, `oil_indicator`, `inverse_oil_indicator` и настраиваемого `Ch`.
 - Предварительная инженерная классификация интервалов по проверяемым правилам.
 - Pixler palette, ternary palette и depth tracks.

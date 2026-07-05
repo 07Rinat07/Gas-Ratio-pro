@@ -49,6 +49,7 @@ from las_correlation import (
     settings_to_dict,
 )
 from las_editor.curve_alias import assign_curve_alias, available_aliases, suggest_curve_aliases, undo_last_alias
+from las_editor.curve_merge import MERGE_STRATEGIES, merge_curves, undo_last_merge
 from las_editor.curve_rename import CurveRenameHistoryEntry, rename_curve, undo_last_rename
 from las_editor.depth_grid import (
     apply_las_bulk_operations,
@@ -205,6 +206,7 @@ LAS_EDITOR_SESSION_SUMMARY_KEY = "las_editor_session_summary"
 LAS_EDITOR_RENAME_HISTORY_KEY = "las_editor_curve_rename_history"
 LAS_EDITOR_ALIAS_HISTORY_KEY = "las_editor_curve_alias_history"
 LAS_EDITOR_ALIAS_MAP_KEY = "las_editor_curve_alias_map"
+LAS_EDITOR_MERGE_HISTORY_KEY = "las_editor_curve_merge_history"
 PROJECT_SESSION_SHEETS_KEY = "project_session_sheets"
 PROJECT_SESSION_SUMMARY_KEY = "project_session_summary"
 PROJECT_SESSION_PROJECT_ID_KEY = "project_session_project_id"
@@ -968,6 +970,115 @@ def _render_las_curve_rename_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
 
     return active_df
 
+
+def _render_las_curve_merge_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
+    st.markdown("### Curve Manager · Merge curves")
+    st.caption(
+        "Объединение нескольких LAS-кривых в одну расчетную кривую: coalesce-first, "
+        "coalesce-last, mean или sum с историей операций и undo последнего merge."
+    )
+
+    if LAS_EDITOR_MERGE_HISTORY_KEY not in st.session_state:
+        st.session_state[LAS_EDITOR_MERGE_HISTORY_KEY] = ()
+
+    column_names = [str(column) for column in prepared_df.columns]
+    active_df = prepared_df
+    source_col, target_col, strategy_col = st.columns([3, 2, 2])
+    selected_sources = source_col.multiselect(
+        "Исходные кривые для merge",
+        options=column_names,
+        default=column_names[:2] if len(column_names) >= 2 else column_names,
+        key="las_editor_merge_sources",
+    )
+    default_target = "_MERGED".join([]) or "MERGED_CURVE"
+    target_name = target_col.text_input(
+        "Результирующая кривая",
+        value=default_target,
+        key="las_editor_merge_target",
+    )
+    strategy_labels = {
+        "coalesce_first": "coalesce_first: первое непустое значение слева",
+        "coalesce_last": "coalesce_last: последнее непустое значение справа",
+        "mean": "mean: среднее по выбранным кривым",
+        "sum": "sum: сумма выбранных кривых",
+    }
+    selected_strategy_label = strategy_col.selectbox(
+        "Стратегия merge",
+        options=[strategy_labels[item] for item in MERGE_STRATEGIES],
+        key="las_editor_merge_strategy",
+    )
+    selected_strategy = next(key for key, label in strategy_labels.items() if label == selected_strategy_label)
+    keep_sources = st.checkbox(
+        "Оставить исходные кривые после merge",
+        value=True,
+        key="las_editor_merge_keep_sources",
+    )
+
+    references = _las_editor_reference_state(column_names)
+    action_col, undo_col = st.columns(2)
+    if action_col.button("Создать merged curve", use_container_width=True, key="las_editor_merge_apply"):
+        try:
+            result = merge_curves(
+                prepared_df,
+                selected_sources,
+                target_name,
+                strategy=selected_strategy,
+                keep_sources=keep_sources,
+                history=st.session_state.get(LAS_EDITOR_MERGE_HISTORY_KEY, ()),
+                references=references,
+                reason="manual",
+                source="las_editor_ui",
+            )
+            active_df = result.data
+            st.session_state[LAS_EDITOR_MERGE_HISTORY_KEY] = result.history
+            _apply_las_editor_reference_state(result.references)
+            for message in result.diagnostics:
+                st.info(message)
+            for message in result.warnings:
+                st.warning(message)
+            st.success(f"Merged curve создана: {result.target_name}")
+        except ValueError as exc:
+            st.warning(str(exc))
+
+    history = tuple(st.session_state.get(LAS_EDITOR_MERGE_HISTORY_KEY, ()))
+    if undo_col.button("Undo последнего merge", disabled=not history, use_container_width=True, key="las_editor_merge_undo"):
+        try:
+            result = undo_last_merge(prepared_df, history=history, references=references)
+            active_df = result.data
+            st.session_state[LAS_EDITOR_MERGE_HISTORY_KEY] = result.history
+            _apply_las_editor_reference_state(result.references)
+            for message in result.diagnostics:
+                st.info(message)
+            st.success("Последний merge отменен.")
+        except ValueError as exc:
+            st.warning(str(exc))
+
+    history = tuple(st.session_state.get(LAS_EDITOR_MERGE_HISTORY_KEY, ()))
+    with st.expander("История merge", expanded=bool(history)):
+        if history:
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "source_names": ", ".join(entry.source_names),
+                            "target_name": entry.target_name,
+                            "strategy": entry.strategy,
+                            "keep_sources": entry.keep_sources,
+                            "timestamp": entry.timestamp,
+                            "reason": entry.reason,
+                            "source": entry.source,
+                        }
+                        for entry in history
+                    ]
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.caption("История merge пока пуста.")
+
+    return active_df
+
 def _find_default_depth_column(df: pd.DataFrame) -> str:
     mapping = auto_map_columns(df.columns).mapping
     if mapping.get("depth") in df.columns:
@@ -1459,6 +1570,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
 
     prepared_df = _render_las_curve_rename_manager(prepared_df)
     _render_las_curve_alias_manager(prepared_df)
+    prepared_df = _render_las_curve_merge_manager(prepared_df)
 
     column_names = [str(column) for column in prepared_df.columns]
     default_depth_column = _find_default_depth_column(prepared_df)
