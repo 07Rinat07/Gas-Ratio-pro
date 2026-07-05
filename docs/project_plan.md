@@ -26,6 +26,7 @@
 - [x] Dataset Manager: LAS, CSV, Excel, Core, Mud Log и Production datasets.
 - [x] Project Database: индексация файлов, проверка дубликатов, версии файлов и автоматические UUID.
 - [x] Dashboard background shell: главная страница получила фон с морской буровой, темный overlay, навигационный navbar, интерактивные карточки, быстрый доступ, динамические новости, статистику, активность и блок авторских прав.
+- [x] Dashboard application shell: стартовая страница растягивается на всю ширину рабочей области, использует компактный rail-sidebar, современный navbar с поисковыми/action-чипами, glass-сетку карточек и status footer; рабочие модули остаются на однотонном фоне.
 
 ---
 
@@ -36,10 +37,10 @@
 ## UI.1 Application Shell
 
 - [x] Dashboard background shell.
-- [ ] Modern navigation bar.
-- [ ] Left sidebar.
-- [ ] Responsive central workspace.
-- [ ] Dynamic status bar.
+- [x] Modern navigation bar.
+- [x] Compact left rail-sidebar.
+- [x] Responsive central workspace.
+- [x] Dynamic status bar.
 - [ ] Global command palette.
 - [ ] Keyboard shortcuts.
 
@@ -79,7 +80,7 @@
 - [ ] Dark theme tokens.
 - [x] Dashboard background support.
 - [x] Adaptive transparency for dashboard panels.
-- [ ] Separate solid workspace background for plots, LAS editor, crossplots, tables and reports.
+- [x] Separate solid workspace background for plots, LAS editor, crossplots, tables and reports.
 
 ## UI.6 Branding and Commercial Readiness
 
@@ -421,7 +422,7 @@ UI-блок `Curve Manager · Merge curves` добавлен во вкладку
 
 ## Следующий пункт разработки
 
-Текущий следующий незавершенный пункт: **UI Modernization Track → Application Shell → Modern navigation bar**.
+Текущий следующий незавершенный пункт: **UI Modernization Track → Application Shell → Global command palette**.
 
 
 ### Реализовано: UI Modernization Track → Dashboard background shell
@@ -432,4 +433,15 @@ Dashboard теперь содержит HTML/CSS shell с верхним navbar,
 
 ## Следующий пункт разработки
 
-Текущий следующий незавершенный пункт: **UI Modernization Track → Application Shell → Modern navigation bar**.
+Текущий следующий незавершенный пункт: **UI Modernization Track → Application Shell → Global command palette**.
+
+
+### Реализовано: UI Modernization Track → Dashboard application shell
+
+Главная страница переработана из узкого прототипа в полноширинный application shell. Streamlit `block-container` в широком режиме больше не ограничивает Dashboard фиксированной шириной, поэтому стартовая область занимает доступное пространство экрана и не оставляет большие пустые поля по бокам. Нативный sidebar сделан компактнее, а внутри Dashboard добавлен отдельный вертикальный rail-sidebar примерно на 60–70 px для быстрых переходов по главным секциям.
+
+Dashboard получил современный navbar с брендом, навигационными кнопками, поисковым чипом `Ctrl+K` и чипом активного проекта. Фоновое изображение `assets/dashboard/rig_of_sea.png` растягивается на всю Dashboard-область, позиционируется по центру/правому краю и перекрывается менее агрессивным затемняющим overlay: карточки остаются читаемыми, но буровая и море визуально видны как часть дизайна, а не как скрытая картинка под блоками.
+
+Основные виджеты переведены в адаптивную glass-сетку: приветствие, недавние проекты, быстрый доступ, статистика проекта, активность, новости, полезные советы, mini log preview и лицензия. Статистика, проекты, новости, активность и советы строятся из реального состояния локального проекта и session state. Рабочие модули LAS Editor, графики, таблицы, correlation и reports не получают фоновое изображение и остаются на однотонной темной теме для читаемости кривых, чисел и инженерных таблиц.
+
+Текущий следующий незавершенный пункт: **UI Modernization Track → Application Shell → Global command palette**.

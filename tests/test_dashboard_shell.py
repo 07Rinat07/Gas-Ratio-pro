@@ -62,3 +62,27 @@ def test_dashboard_activity_empty_state(tmp_path, monkeypatch) -> None:
 
 def test_dashboard_tip_is_not_empty() -> None:
     assert app._dashboard_tip(_project("active", "Active")) in app.DASHBOARD_TIPS
+
+
+def test_wide_layout_uses_full_available_width() -> None:
+    label, max_width, _description = app._layout_profile_summary("wide")
+
+    assert label == "Широкий экран"
+    assert "100vw" in max_width
+
+
+def test_dashboard_shell_css_has_modern_application_shell() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert ".dashboard-side-rail" in source
+    assert "grid-template-columns: 4.4rem minmax(0, 1fr)" in source
+    assert "calc(100vh - 7rem)" in source
+    assert "background-position: center right" in source
+    assert "dashboard-footer" in source
+
+
+def test_sidebar_is_compact_for_dashboard_workspace() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert 'section[data-testid="stSidebar"]' in source
+    assert "13.5rem" in source

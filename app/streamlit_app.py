@@ -257,7 +257,7 @@ UI_LAYOUT_PROFILES: dict[str, dict[str, str]] = {
     },
     "wide": {
         "label": "Широкий экран",
-        "max_width": "1680px",
+        "max_width": "calc(100vw - 2rem)",
         "columns": "3",
         "description": "Для широких мониторов: больше места под планшеты, корреляцию и таблицы интервала.",
     },
@@ -338,8 +338,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         .block-container {
             max-width: {layout_tokens["max_width"]};
-            padding-top: 2.4rem;
-            padding-bottom: 3rem;
+            padding: 1.2rem 1rem 2.4rem 1rem;
         }
         @media (max-width: 1280px) {
             .block-container {
@@ -410,10 +409,18 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             font-size: 0.98rem !important;
         }
         section[data-testid="stSidebar"] {
-            min-width: 250px !important;
+            width: 13.5rem !important;
+            min-width: 13.5rem !important;
+            max-width: 13.5rem !important;
         }
         section[data-testid="stSidebar"] * {
-            font-size: {tokens["button"]} !important;
+            font-size: 0.82rem !important;
+            line-height: 1.35 !important;
+        }
+        section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+        section[data-testid="stSidebar"] label,
+        section[data-testid="stSidebar"] span {
+            font-size: 0.82rem !important;
         }
         div[data-testid="stTabs"] button p {
             font-size: {tokens["button"]} !important;
@@ -457,81 +464,141 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         .dashboard-shell {
             position: relative;
-            min-height: 780px;
-            border: 1px solid rgba(148, 163, 184, 0.25);
-            border-radius: 18px;
+            min-height: calc(100vh - 7rem);
+            width: 100%;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 22px;
             overflow: hidden;
             background-size: cover;
-            background-position: center center;
-            box-shadow: 0 28px 80px rgba(0, 0, 0, 0.35);
-            margin-bottom: 1.25rem;
+            background-position: center right;
+            background-repeat: no-repeat;
+            box-shadow: 0 34px 110px rgba(0, 0, 0, 0.45);
+            margin: 0 0 1.25rem 0;
         }
         .dashboard-overlay {
             position: absolute;
             inset: 0;
-            background: linear-gradient(90deg, rgba(3, 7, 18, 0.88) 0%, rgba(15, 23, 42, 0.78) 43%, rgba(15, 23, 42, 0.36) 100%);
+            background:
+                radial-gradient(circle at 78% 38%, rgba(255, 138, 0, 0.11), transparent 34%),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.92) 0%, rgba(7, 12, 24, 0.76) 38%, rgba(7, 12, 24, 0.42) 68%, rgba(7, 12, 24, 0.24) 100%);
         }
         .dashboard-content {
             position: relative;
             z-index: 1;
-            padding: 1rem;
+            min-height: calc(100vh - 7rem);
+            display: grid;
+            grid-template-columns: 4.4rem minmax(0, 1fr);
+        }
+        .dashboard-side-rail {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 1.05rem 0.45rem;
+            background: rgba(2, 6, 23, 0.62);
+            border-right: 1px solid rgba(148, 163, 184, 0.16);
+            backdrop-filter: blur(14px);
+        }
+        .dashboard-rail-button {
+            width: 2.8rem;
+            height: 2.8rem;
+            display: grid;
+            place-items: center;
+            border-radius: 14px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            background: rgba(15, 23, 42, 0.56);
+            color: #f8fafc !important;
+            text-decoration: none;
+            font-weight: 900;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+        .dashboard-rail-button.active,
+        .dashboard-rail-button:hover {
+            color: var(--app-accent) !important;
+            border-color: rgba(255, 138, 0, 0.46);
+            background: rgba(255, 138, 0, 0.13);
+        }
+        .dashboard-main {
+            min-width: 0;
+            padding: 1rem 1rem 1.1rem 1rem;
         }
         .dashboard-navbar {
-            display: flex;
+            display: grid;
+            grid-template-columns: minmax(11rem, 0.55fr) minmax(22rem, 1.5fr) minmax(16rem, 0.9fr);
             align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-            padding: 0.85rem 1rem;
+            gap: 0.8rem;
+            padding: 0.82rem 0.95rem;
             margin-bottom: 1rem;
-            background: rgba(2, 6, 23, 0.74);
+            background: rgba(2, 6, 23, 0.76);
             border: 1px solid rgba(148, 163, 184, 0.18);
-            border-radius: 14px;
-            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            backdrop-filter: blur(16px);
         }
         .dashboard-brand {
-            font-size: 1.12rem;
-            font-weight: 800;
+            font-size: 1.08rem;
+            font-weight: 900;
             letter-spacing: 0.04em;
             text-transform: uppercase;
+            white-space: nowrap;
         }
         .dashboard-brand span { color: var(--app-accent); }
         .dashboard-navlinks {
             display: flex;
             flex-wrap: wrap;
-            justify-content: flex-end;
-            gap: 0.45rem;
+            justify-content: center;
+            gap: 0.42rem;
         }
         .dashboard-navlinks a,
         .dashboard-action-link {
             color: #e5e7eb;
             text-decoration: none;
-            border: 1px solid rgba(148, 163, 184, 0.22);
+            border: 1px solid rgba(148, 163, 184, 0.2);
             background: rgba(15, 23, 42, 0.62);
-            border-radius: 10px;
-            padding: 0.45rem 0.7rem;
-            font-weight: 700;
+            border-radius: 999px;
+            padding: 0.44rem 0.72rem;
+            font-weight: 800;
+            font-size: 0.86rem !important;
         }
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: minmax(230px, 0.82fr) minmax(360px, 1.82fr) minmax(230px, 0.82fr);
-            gap: 0.9rem;
-        }
-        .dashboard-column {
+        .dashboard-search {
             display: flex;
-            flex-direction: column;
+            justify-content: flex-end;
+            gap: 0.45rem;
+        }
+        .dashboard-search-chip {
+            color: #dbeafe !important;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            background: rgba(15, 23, 42, 0.58);
+            border-radius: 999px;
+            padding: 0.42rem 0.7rem;
+            font-weight: 800;
+            font-size: 0.84rem !important;
+            white-space: nowrap;
+        }
+        .dashboard-layout {
+            display: grid;
+            grid-template-columns: minmax(28rem, 0.95fr) minmax(32rem, 1.25fr) minmax(17rem, 0.55fr);
+            grid-template-areas:
+                "welcome projects stats"
+                "news quick activity"
+                "tips preview license";
             gap: 0.9rem;
+            align-items: stretch;
         }
         .dashboard-card {
-            background: rgba(7, 16, 31, 0.72);
-            border: 1px solid rgba(148, 163, 184, 0.24);
-            border-radius: 14px;
+            background: linear-gradient(180deg, rgba(6, 14, 28, 0.72), rgba(5, 10, 22, 0.58));
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 18px;
             padding: 1rem;
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(14px);
+            box-shadow: 0 20px 48px rgba(0, 0, 0, 0.23), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        }
+        .dashboard-card:hover {
+            border-color: rgba(255, 138, 0, 0.34);
         }
         .dashboard-card h3 {
             color: var(--app-accent);
-            margin: 0 0 0.7rem 0;
-            font-size: 1.05rem !important;
+            margin: 0 0 0.75rem 0;
+            font-size: 1rem !important;
             text-transform: uppercase;
         }
         .dashboard-card p,
@@ -539,26 +606,35 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .dashboard-card div {
             color: #e5e7eb;
         }
+        .dashboard-card.welcome { grid-area: welcome; min-height: 12.8rem; }
+        .dashboard-card.projects { grid-area: projects; }
+        .dashboard-card.stats { grid-area: stats; }
+        .dashboard-card.news { grid-area: news; }
+        .dashboard-card.quick { grid-area: quick; }
+        .dashboard-card.activity { grid-area: activity; }
+        .dashboard-card.tips { grid-area: tips; }
+        .dashboard-card.preview-card { grid-area: preview; }
+        .dashboard-card.license { grid-area: license; }
         .dashboard-list-row {
             display: flex;
             align-items: flex-start;
             justify-content: space-between;
             gap: 0.7rem;
-            border-top: 1px solid rgba(148, 163, 184, 0.18);
-            padding: 0.65rem 0;
+            border-top: 1px solid rgba(148, 163, 184, 0.15);
+            padding: 0.68rem 0;
         }
         .dashboard-list-row:first-of-type { border-top: 0; }
-        .dashboard-muted { color: #bac4d2 !important; font-size: 0.92rem !important; }
+        .dashboard-muted { color: #bac4d2 !important; font-size: 0.82rem !important; }
         .dashboard-actions {
             display: grid;
-            grid-template-columns: repeat(3, minmax(120px, 1fr));
+            grid-template-columns: repeat(3, minmax(8rem, 1fr));
             gap: 0.65rem;
         }
         .dashboard-action-card {
-            min-height: 5.4rem;
-            border: 1px solid rgba(148, 163, 184, 0.25);
-            border-radius: 12px;
-            background: rgba(15, 23, 42, 0.64);
+            min-height: 5.6rem;
+            border: 1px solid rgba(148, 163, 184, 0.23);
+            border-radius: 14px;
+            background: rgba(15, 23, 42, 0.58);
             padding: 0.8rem;
         }
         .dashboard-action-card strong {
@@ -568,12 +644,12 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         .dashboard-metrics {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 0.6rem;
         }
         .dashboard-metric {
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            border-radius: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.19);
+            border-radius: 14px;
             padding: 0.8rem;
             background: rgba(2, 6, 23, 0.42);
         }
@@ -583,17 +659,17 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             font-size: 1.45rem;
         }
         .dashboard-preview {
-            min-height: 19rem;
+            min-height: 19.4rem;
             background: rgba(2, 6, 23, 0.78);
-            border: 1px solid rgba(148, 163, 184, 0.25);
-            border-radius: 12px;
-            padding: 0.8rem;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 14px;
+            padding: 0.85rem;
         }
         .dashboard-log-track {
             display: grid;
-            grid-template-columns: 3.2rem repeat(5, 1fr);
-            gap: 0.45rem;
-            height: 15rem;
+            grid-template-columns: 3.4rem repeat(5, 1fr);
+            gap: 0.5rem;
+            height: 15.8rem;
             align-items: stretch;
         }
         .dashboard-depth-track,
@@ -601,7 +677,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             border-left: 1px solid rgba(148, 163, 184, 0.24);
             border-right: 1px solid rgba(148, 163, 184, 0.18);
             background: repeating-linear-gradient(to bottom, rgba(148, 163, 184, 0.11), rgba(148, 163, 184, 0.11) 1px, transparent 1px, transparent 34px);
-            border-radius: 8px;
+            border-radius: 10px;
             position: relative;
         }
         .dashboard-curve-track::after {
@@ -616,16 +692,50 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             text-align: center;
             color: #e5e7eb;
             font-size: 0.75rem !important;
-            font-weight: 800;
+            font-weight: 900;
             padding-top: 0.35rem;
         }
+        .dashboard-footer {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 0.9rem;
+            padding: 0.65rem 0.85rem;
+            border-radius: 14px;
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            background: rgba(2, 6, 23, 0.62);
+            backdrop-filter: blur(14px);
+            color: #cbd5e1 !important;
+        }
+        @media (max-width: 1500px) {
+            .dashboard-layout {
+                grid-template-columns: minmax(22rem, 0.9fr) minmax(31rem, 1.2fr) minmax(16rem, 0.6fr);
+            }
+            .dashboard-actions { grid-template-columns: repeat(2, minmax(8rem, 1fr)); }
+        }
         @media (max-width: 1180px) {
-            .dashboard-grid { grid-template-columns: 1fr; }
-            .dashboard-actions { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+            .dashboard-content { grid-template-columns: 1fr; }
+            .dashboard-side-rail { display: none; }
+            .dashboard-navbar { grid-template-columns: 1fr; }
+            .dashboard-search { justify-content: flex-start; flex-wrap: wrap; }
+            .dashboard-layout {
+                grid-template-columns: 1fr;
+                grid-template-areas:
+                    "welcome"
+                    "projects"
+                    "quick"
+                    "preview"
+                    "stats"
+                    "activity"
+                    "news"
+                    "tips"
+                    "license";
+            }
         }
         @media (max-width: 760px) {
             .dashboard-actions, .dashboard-metrics { grid-template-columns: 1fr; }
-            .dashboard-navbar { align-items: flex-start; flex-direction: column; }
+            .dashboard-shell { border-radius: 16px; }
+            .dashboard-main { padding: 0.7rem; }
         }
         div[data-testid="stDataFrame"] {
             border: 1px solid var(--app-border);
@@ -1667,14 +1777,15 @@ def _html_escape(value: object) -> str:
 
 
 def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[ProjectRecord, ...]) -> None:
-    """Render the redesigned Home dashboard with a protected background image."""
+    """Render the full-width Home dashboard application shell."""
     background_uri = _dashboard_background_data_uri()
     style = f"background-image: url('{background_uri}');" if background_uri else ""
-    recent_projects = _dashboard_recent_projects(projects)
+    recent_projects = _dashboard_recent_projects(projects, limit=4)
     stats = _dashboard_project_statistics(active_project, projects)
     news_items = _dashboard_news_items(active_project)
     activity_items = _dashboard_activity_items(active_project)
     tip = _dashboard_tip(active_project)
+    now_label = datetime.now().strftime("%d.%m.%Y %H:%M")
 
     recent_html = "".join(
         "<div class='dashboard-list-row'>"
@@ -1691,40 +1802,55 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
         <div class="dashboard-shell" style="{style}">
           <div class="dashboard-overlay"></div>
           <div class="dashboard-content">
-            <div class="dashboard-navbar">
-              <div class="dashboard-brand">Gas Ratio <span>Pro</span></div>
-              <div class="dashboard-navlinks">
-                <a href="#dashboard-projects">Проекты</a>
-                <a href="#dashboard-quick-actions">Быстрый доступ</a>
-                <a href="#dashboard-preview">Быстрый просмотр</a>
-                <a href="#dashboard-activity">Активность</a>
-                <a href="#dashboard-license">Лицензия</a>
+            <nav class="dashboard-side-rail" aria-label="Dashboard sidebar">
+              <a class="dashboard-rail-button active" href="#dashboard-home" title="Старт">⌂</a>
+              <a class="dashboard-rail-button" href="#dashboard-projects" title="Проекты">▣</a>
+              <a class="dashboard-rail-button" href="#dashboard-quick-actions" title="Быстрый доступ">＋</a>
+              <a class="dashboard-rail-button" href="#dashboard-preview" title="Мини-планшет">⌁</a>
+              <a class="dashboard-rail-button" href="#dashboard-activity" title="Активность">◷</a>
+              <a class="dashboard-rail-button" href="#dashboard-license" title="Лицензия">©</a>
+            </nav>
+            <main class="dashboard-main" id="dashboard-home">
+              <div class="dashboard-navbar">
+                <div class="dashboard-brand">Gas Ratio <span>Pro</span></div>
+                <div class="dashboard-navlinks">
+                  <a href="#dashboard-projects">Проекты</a>
+                  <a href="#dashboard-quick-actions">Действия</a>
+                  <a href="#dashboard-preview">Просмотр</a>
+                  <a href="#dashboard-activity">Активность</a>
+                  <a href="#dashboard-license">Лицензия</a>
+                </div>
+                <div class="dashboard-search">
+                  <span class="dashboard-search-chip">Поиск Ctrl+K</span>
+                  <span class="dashboard-search-chip">{_html_escape(active_project.name)}</span>
+                </div>
               </div>
-            </div>
-            <div class="dashboard-grid">
-              <div class="dashboard-column">
-                <div class="dashboard-card">
+              <section class="dashboard-layout">
+                <article class="dashboard-card welcome">
                   <h3>Добро пожаловать</h3>
                   <p>Gas Ratio Pro — профессиональное локальное решение для анализа газового каротажа, LAS-кривых и проектных данных.</p>
                   <div class="dashboard-list-row"><div>LAS-редактор</div><div class="dashboard-muted">готов</div></div>
-                  <div class="dashboard-list-row"><div>Проект</div><div class="dashboard-muted">{_html_escape(active_project.name)}</div></div>
-                </div>
-                <div class="dashboard-card">
-                  <h3>Новости</h3>
-                  <ul>{news_html}</ul>
-                </div>
-                <div class="dashboard-card">
-                  <h3>Полезные советы</h3>
-                  <p>{_html_escape(tip)}</p>
-                  <div class="dashboard-muted">Совет меняется ежедневно и зависит от активного проекта.</div>
-                </div>
-              </div>
-              <div class="dashboard-column">
-                <div class="dashboard-card" id="dashboard-projects">
+                  <div class="dashboard-list-row"><div>Рабочий проект</div><div class="dashboard-muted">{_html_escape(active_project.name)}</div></div>
+                </article>
+                <article class="dashboard-card projects" id="dashboard-projects">
                   <h3>Недавние проекты</h3>
                   {recent_html}
-                </div>
-                <div class="dashboard-card" id="dashboard-quick-actions">
+                </article>
+                <article class="dashboard-card stats">
+                  <h3>Статистика проекта</h3>
+                  <div class="dashboard-metrics">
+                    <div class="dashboard-metric"><b>{stats['projects']}</b><span>Проектов</span></div>
+                    <div class="dashboard-metric"><b>{stats['wells']}</b><span>Скважин</span></div>
+                    <div class="dashboard-metric"><b>{stats['las_files']}</b><span>LAS-файлов</span></div>
+                    <div class="dashboard-metric"><b>{stats['calculations']}</b><span>Расчетов</span></div>
+                    <div class="dashboard-metric"><b>{stats['exports']}</b><span>Экспортов</span></div>
+                  </div>
+                </article>
+                <article class="dashboard-card news">
+                  <h3>Новости</h3>
+                  <ul>{news_html}</ul>
+                </article>
+                <article class="dashboard-card quick" id="dashboard-quick-actions">
                   <h3>Быстрый доступ</h3>
                   <div class="dashboard-actions">
                     <div class="dashboard-action-card"><strong>Создать проект</strong><span class="dashboard-muted">Левая панель проекта</span></div>
@@ -1734,11 +1860,20 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
                     <div class="dashboard-action-card"><strong>Отчеты</strong><span class="dashboard-muted">Экспорт материалов</span></div>
                     <div class="dashboard-action-card"><strong>Руководство</strong><span class="dashboard-muted">Инструкции и документация</span></div>
                   </div>
-                </div>
-                <div class="dashboard-card" id="dashboard-preview">
+                </article>
+                <article class="dashboard-card activity" id="dashboard-activity">
+                  <h3>Активность</h3>
+                  {activity_html}
+                </article>
+                <article class="dashboard-card tips">
+                  <h3>Полезные советы</h3>
+                  <p>{_html_escape(tip)}</p>
+                  <div class="dashboard-muted">Совет меняется ежедневно и зависит от активного проекта.</div>
+                </article>
+                <article class="dashboard-card preview-card" id="dashboard-preview">
                   <h3>Быстрый просмотр: последний проект</h3>
                   <div class="dashboard-preview">
-                    <div class="dashboard-muted">Мини-планшет показывает рабочую область без использования фонового изображения в настоящих графиках.</div>
+                    <div class="dashboard-muted">Мини-планшет показывает рабочую область без фонового изображения в настоящих графиках.</div>
                     <div class="dashboard-log-track">
                       <div class="dashboard-depth-track"><div class="dashboard-curve-label">Depth</div></div>
                       <div class="dashboard-curve-track"><div class="dashboard-curve-label">GR</div></div>
@@ -1748,30 +1883,18 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
                       <div class="dashboard-curve-track"><div class="dashboard-curve-label">DT</div></div>
                     </div>
                   </div>
-                </div>
-              </div>
-              <div class="dashboard-column">
-                <div class="dashboard-card">
-                  <h3>Статистика проекта</h3>
-                  <div class="dashboard-metrics">
-                    <div class="dashboard-metric"><b>{stats['projects']}</b><span>Проектов</span></div>
-                    <div class="dashboard-metric"><b>{stats['wells']}</b><span>Скважин</span></div>
-                    <div class="dashboard-metric"><b>{stats['las_files']}</b><span>LAS-файлов</span></div>
-                    <div class="dashboard-metric"><b>{stats['calculations']}</b><span>Расчетов</span></div>
-                    <div class="dashboard-metric"><b>{stats['exports']}</b><span>Экспортов</span></div>
-                  </div>
-                </div>
-                <div class="dashboard-card" id="dashboard-activity">
-                  <h3>Активность</h3>
-                  {activity_html}
-                </div>
-                <div class="dashboard-card" id="dashboard-license">
+                </article>
+                <article class="dashboard-card license" id="dashboard-license">
                   <h3>Лицензия и авторские права</h3>
                   <p>© Rinat Sarmuldin. Все права защищены. Коммерческое использование допускается только с разрешения автора.</p>
                   <div class="dashboard-muted">Фоновое изображение используется только на главной странице, чтобы не мешать рабочим графикам и числам.</div>
-                </div>
-              </div>
-            </div>
+                </article>
+              </section>
+              <footer class="dashboard-footer">
+                <span>Готов к работе</span>
+                <span>Версия: 2.0.0 · {now_label}</span>
+              </footer>
+            </main>
           </div>
         </div>
         """,
