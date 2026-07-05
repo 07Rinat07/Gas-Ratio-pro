@@ -344,23 +344,44 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             --app-accent: #ff8a00;
             --app-accent-soft: rgba(255, 138, 0, 0.18);
             --global-bg-image: {app_background_css};
-            --glass-dashboard: rgba(4, 10, 24, 0.24);
-            --glass-readable: rgba(5, 10, 22, 0.32);
-            --brand-overlay-dashboard: rgba(3, 7, 18, 0.22);
+            --brand-bg-size: clamp(300px, 42vw, 720px) auto;
+            --brand-bg-position: right 3vw bottom 1.2rem;
+            --glass-dashboard: rgba(4, 10, 24, 0.16);
+            --glass-readable: rgba(5, 10, 22, 0.24);
+            --brand-overlay-dashboard: rgba(3, 7, 18, 0.10);
         }
         .stApp {
             color: var(--app-text);
             font-size: {tokens["base"]};
             background-image:
-                linear-gradient(90deg, rgba(3, 7, 18, 0.28), rgba(3, 7, 18, 0.16), rgba(3, 7, 18, 0.06)),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.18), rgba(3, 7, 18, 0.08), rgba(3, 7, 18, 0.02)),
                 var(--global-bg-image);
-            background-size: cover;
-            background-position: left center;
-            background-attachment: fixed;
+            background-size: 100% 100%, var(--brand-bg-size);
+            background-position: center center, var(--brand-bg-position);
+            background-repeat: no-repeat, no-repeat;
+            background-attachment: fixed, fixed;
         }
         .block-container {
             max-width: {layout_tokens["max_width"]};
             padding: 0.35rem 0.7rem 2.2rem 0.7rem;
+        }
+        @media (min-width: 1920px) {
+            :root {
+                --brand-bg-size: clamp(520px, 36vw, 860px) auto;
+                --brand-bg-position: right 2.2vw bottom 1rem;
+            }
+        }
+        @media (max-width: 1440px) {
+            :root {
+                --brand-bg-size: clamp(280px, 38vw, 540px) auto;
+                --brand-bg-position: right 1.4vw bottom 1rem;
+            }
+        }
+        @media (max-width: 900px) {
+            :root {
+                --brand-bg-size: min(78vw, 420px) auto;
+                --brand-bg-position: center top 5.2rem;
+            }
         }
         @media (max-width: 1280px) {
             .block-container {
@@ -514,8 +535,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             border: 1px solid rgba(148, 163, 184, 0.16);
             border-radius: 18px;
             overflow: hidden;
-            background-size: cover;
-            background-position: left center;
+            background-size: var(--brand-bg-size);
+            background-position: var(--brand-bg-position);
             background-repeat: no-repeat;
             box-shadow: 0 34px 110px rgba(0, 0, 0, 0.45);
             margin: 0 0 1rem 0;
@@ -524,8 +545,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             position: absolute;
             inset: 0;
             background:
-                radial-gradient(circle at 78% 42%, rgba(255, 138, 0, 0.08), transparent 34%),
-                linear-gradient(90deg, rgba(3, 7, 18, 0.22) 0%, rgba(7, 12, 24, 0.12) 44%, rgba(7, 12, 24, 0.04) 74%, rgba(7, 12, 24, 0.00) 100%);
+                radial-gradient(circle at 78% 42%, rgba(255, 138, 0, 0.06), transparent 34%),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.12) 0%, rgba(7, 12, 24, 0.06) 44%, rgba(7, 12, 24, 0.02) 74%, rgba(7, 12, 24, 0.00) 100%);
         }
         .dashboard-watermark-logo {
             position: absolute;
@@ -556,10 +577,10 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             gap: 0.8rem;
             padding: 0.78rem 0.95rem;
             margin-bottom: 0.85rem;
-            background: rgba(2, 6, 23, 0.48);
+            background: rgba(2, 6, 23, 0.32);
             border: 1px solid rgba(148, 163, 184, 0.18);
             border-radius: 16px;
-            backdrop-filter: blur(18px);
+            backdrop-filter: blur(12px);
         }
         .dashboard-brand {
             font-size: 1.1rem;
@@ -619,11 +640,11 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             align-items: stretch;
         }
         .dashboard-card {
-            background: linear-gradient(180deg, rgba(4, 10, 24, 0.24), rgba(5, 10, 22, 0.14));
+            background: linear-gradient(180deg, rgba(4, 10, 24, 0.14), rgba(5, 10, 22, 0.08));
             border: 1px solid rgba(148, 163, 184, 0.20);
             border-radius: 16px;
             padding: 0.92rem;
-            backdrop-filter: blur(3px);
+            backdrop-filter: blur(2px);
             box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.04);
             transition: border-color 140ms ease, transform 140ms ease;
         }
@@ -830,17 +851,18 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             border-radius: 18px;
             border: 1px solid rgba(148, 163, 184, 0.20);
             background:
-                linear-gradient(90deg, rgba(3, 7, 18, 0.18), rgba(3, 7, 18, 0.10), rgba(3, 7, 18, 0.02)),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.10), rgba(3, 7, 18, 0.05), rgba(3, 7, 18, 0.00)),
                 var(--global-bg-image);
-            background-size: cover;
-            background-position: left center;
+            background-size: 100% 100%, clamp(260px, 34vw, 560px) auto;
+            background-position: center center, right 2vw bottom 1rem;
+            background-repeat: no-repeat, no-repeat;
             box-shadow: 0 28px 90px rgba(0,0,0,0.35);
         }
         .docs-panel {
             border: 1px solid rgba(148, 163, 184, 0.22);
             border-radius: 16px;
-            background: rgba(5, 10, 22, 0.32);
-            backdrop-filter: blur(7px);
+            background: rgba(5, 10, 22, 0.24);
+            backdrop-filter: blur(5px);
             padding: 1rem;
             margin-bottom: 0.8rem;
         }

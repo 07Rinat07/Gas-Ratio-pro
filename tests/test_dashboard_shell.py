@@ -76,7 +76,8 @@ def test_dashboard_shell_css_has_modern_application_shell() -> None:
 
     assert ".dashboard-side-rail { display: none; }" in source
     assert "calc(100vh - 4.2rem)" in source
-    assert "background-position: left center" in source
+    assert "--brand-bg-position: right 3vw bottom 1.2rem" in source
+    assert "background-size: 100% 100%, var(--brand-bg-size)" in source
     assert "dashboard-footer" in source
     assert "@media (max-width: 760px)" in source
 
@@ -138,9 +139,20 @@ def test_project_search_results_empty_query_returns_empty() -> None:
 def test_dashboard_transparency_is_less_aggressive() -> None:
     source = Path(app.__file__).read_text(encoding="utf-8")
 
-    assert "rgba(3, 7, 18, 0.22)" in source
-    assert "rgba(4, 10, 24, 0.24)" in source
+    assert "rgba(3, 7, 18, 0.10)" in source
+    assert "rgba(4, 10, 24, 0.16)" in source
+    assert "rgba(4, 10, 24, 0.14)" in source
     assert "dashboard_project_search" in source
+
+
+def test_brand_background_is_proportionally_scaled_not_cover_cropped() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "--brand-bg-size: clamp(300px, 42vw, 720px) auto" in source
+    assert "background-size: var(--brand-bg-size)" in source
+    assert "background-repeat: no-repeat, no-repeat" in source
+    assert "@media (min-width: 1920px)" in source
+    assert "@media (max-width: 900px)" in source
 
 
 def test_branded_logo_asset_is_embedded() -> None:

@@ -29,6 +29,7 @@
 - [x] Dashboard application shell: стартовая страница растягивается на всю ширину рабочей области, использует современный navbar с поисковыми/action-чипами, glass-сетку карточек и status footer; рабочие модули закрываются темными рабочими панелями для читаемости.
 - [x] Responsive dashboard navigation refresh: декоративный левый rail-sidebar убран, быстрый доступ переделан в крупные функциональные action-карточки, верхние вкладки оформлены как кнопки с hover-анимацией, фирменный фон доступен как общий бренд-слой приложения.
 - [x] Branded responsive background system: текущий морской фон заменен на фирменный вертикальный Gas Ratio Pro background, добавлен логотип приложения, прозрачность Dashboard/Instructions снижена, а layout-профили разделены на телефон, ноутбук и большой экран.
+- [x] Proportional branded background scaling: фирменная вертикальная картинка больше не растягивается `cover` на всю страницу, а масштабируется пропорционально по профилям телефон/ноутбук/большой экран с более прозрачными overlay/glass-слоями.
 
 ---
 
@@ -57,6 +58,7 @@
 - [x] Dark overlay engine.
 - [x] Responsive widget layout.
 - [x] Adaptive dashboard transparency so the branded background is clearly visible.
+- [x] Proportional background scaling without ugly crop/oversize.
 - [x] Glass panels.
 - [x] Welcome panel.
 - [ ] Project preview from real LAS data.
@@ -89,6 +91,7 @@
 - [x] Dashboard background support.
 - [x] Global branded background layer for all tabs.
 - [x] Branded instructions background.
+- [x] Adaptive proportional brand image size for phone, laptop and large screens.
 - [x] Adaptive transparency for dashboard panels.
 - [x] Dark readable work panels above branded background for plots, LAS editor, crossplots, tables and reports.
 
@@ -488,3 +491,12 @@ Dashboard получил современный navbar с брендом, нав
 Overlay и glass-слои на стартовой странице и во вкладке «Инструкции и документация» стали заметно прозрачнее, чтобы фирменная картинка была видна как часть дизайна, а не скрывалась за темными блоками. Для рабочих модулей с LAS-кривыми, графиками, таблицами и отчетами сохраняется темная рабочая поверхность поверх бренд-фона, чтобы инженерные данные оставались читаемыми.
 
 В план интерфейса добавлены отдельные layout-профили `Телефон`, `Ноутбук` и `Большой экран`. Dashboard, navigation cards и documentation page имеют media-breakpoints для узких экранов, ноутбуков и широких мониторов.
+
+### Реализовано: UI Modernization Track → Proportional branded background scaling
+
+Фирменный фон переведен из режима полноэкранного `cover` в пропорциональное позиционирование. На больших экранах картинка занимает контролируемую часть правой нижней области, на ноутбуках уменьшается до компактного размера, а на узких экранах центрируется сверху и не разрывает верстку. Это убирает некрасивое гигантское масштабирование и предотвращает грубое обрезание логотипа/буровой.
+
+Overlay и glass-слои дополнительно ослаблены: глобальный фон, Dashboard shell, Dashboard-карточки и вкладка «Инструкции и документация» используют более прозрачные значения, чтобы бренд-картинка была реально видна, но текст оставался читаемым. Рабочие инженерные области по-прежнему должны закрывать графики, LAS-кривые, таблицы и отчеты темными поверхностями.
+
+Текущий следующий незавершенный пункт: **UI Modernization Track → Application Shell → Global command palette**.
+
