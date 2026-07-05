@@ -281,6 +281,17 @@ UI_LAYOUT_PROFILES: dict[str, dict[str, str]] = {
 }
 
 
+RESPONSIVE_DASHBOARD_TARGETS: tuple[dict[str, str], ...] = (
+    {"name": "1366×768 laptop", "media": "@media (max-width: 1366px)", "layout": "compact two-column dashboard"},
+    {"name": "1440×900 laptop", "media": "@media (max-width: 1440px)", "layout": "balanced laptop dashboard"},
+    {"name": "1600×900 desktop", "media": "@media (max-width: 1600px)", "layout": "wide desktop dashboard"},
+    {"name": "1920×1080 Full HD", "media": "@media (min-width: 1920px)", "layout": "full-width engineering dashboard"},
+    {"name": "2560×1440 / 3440×1440 / 3840×2160", "media": "@media (min-width: 2560px)", "layout": "large monitor dashboard with capped content density"},
+    {"name": "Tablet", "media": "@media (max-width: 1024px)", "layout": "tablet stacked dashboard"},
+    {"name": "Mobile", "media": "@media (max-width: 760px)", "layout": "single-column mobile dashboard"},
+    {"name": "Narrow mobile", "media": "@media (max-width: 480px)", "layout": "minimal controls, no horizontal overflow"},
+)
+
 
 
 START_ACTIONS: tuple[dict[str, str], ...] = (
@@ -429,6 +440,9 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             --glass-dashboard: rgba(4, 10, 24, 0.08);
             --glass-readable: rgba(5, 10, 22, 0.18);
             --brand-overlay-dashboard: rgba(3, 7, 18, 0.04);
+            --responsive-card-gap: 0.72rem;
+            --responsive-dashboard-columns: minmax(22rem, 0.82fr) minmax(36rem, 1.35fr) minmax(20rem, 0.68fr);
+            --responsive-dashboard-padding: 0.82rem;
         }
         .stApp {
             color: var(--app-text);
@@ -444,18 +458,63 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .block-container {
             max-width: {layout_tokens["max_width"]};
             padding: 0.35rem 0.7rem 2.2rem 0.7rem;
+            overflow-x: hidden;
         }
         @media (min-width: 1920px) {
             :root {
                 --brand-bg-size: clamp(520px, 36vw, 860px) auto;
                 --brand-bg-position: right 2.2vw bottom 1rem;
+                --responsive-card-gap: 0.86rem;
+            }
+        }
+        @media (min-width: 2560px) {
+            :root {
+                --brand-bg-size: clamp(620px, 28vw, 980px) auto;
+                --brand-bg-position: right 3vw bottom 1.2rem;
+                --responsive-dashboard-columns: minmax(26rem, 0.82fr) minmax(42rem, 1.4fr) minmax(24rem, 0.72fr);
+                --responsive-card-gap: 1rem;
+            }
+            .dashboard-layout { max-width: min(100%, 2480px); margin-left: auto; margin-right: auto; }
+        }
+        @media (min-width: 3440px) {
+            .dashboard-layout { max-width: 2880px; }
+            .dashboard-card { padding: 1.08rem; }
+        }
+        @media (min-width: 3840px) {
+            .dashboard-layout { max-width: 3200px; }
+            .dashboard-log-track { min-height: 13rem; }
+        }
+        @media (max-width: 1600px) {
+            :root {
+                --responsive-dashboard-columns: minmax(19rem, 0.78fr) minmax(30rem, 1.28fr) minmax(18rem, 0.68fr);
+                --responsive-card-gap: 0.66rem;
             }
         }
         @media (max-width: 1440px) {
             :root {
                 --brand-bg-size: clamp(280px, 38vw, 540px) auto;
                 --brand-bg-position: right 1.4vw bottom 1rem;
+                --responsive-dashboard-columns: minmax(18rem, 0.75fr) minmax(28rem, 1.24fr) minmax(17rem, 0.64fr);
             }
+        }
+        @media (max-width: 1366px) {
+            :root {
+                --responsive-dashboard-padding: 0.62rem;
+                --responsive-card-gap: 0.56rem;
+            }
+            .dashboard-card { padding: 0.74rem; }
+            .dashboard-card.welcome { min-height: 9.8rem; }
+            .dashboard-action-card { min-height: 4.7rem; padding: 0.74rem; }
+            .dashboard-log-track { min-height: 8.8rem; }
+            .dashboard-muted { font-size: 0.78rem !important; }
+        }
+        @media (max-width: 1024px) {
+            :root {
+                --brand-bg-size: min(72vw, 440px) auto;
+                --brand-bg-position: center top 5.6rem;
+                --responsive-card-gap: 0.62rem;
+            }
+            .dashboard-search-chip:nth-child(n+3) { display: none; }
         }
         @media (max-width: 900px) {
             :root {
@@ -754,15 +813,17 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         .dashboard-layout {
             display: grid;
-            grid-template-columns: minmax(22rem, 0.82fr) minmax(36rem, 1.35fr) minmax(20rem, 0.68fr);
+            grid-template-columns: var(--responsive-dashboard-columns);
             grid-template-areas:
                 "welcome projects stats"
                 "news quick activity"
                 "tips preview license";
-            gap: 0.72rem;
+            gap: var(--responsive-card-gap);
             align-items: stretch;
+            min-width: 0;
         }
         .dashboard-card {
+            min-width: 0;
             background: linear-gradient(180deg, rgba(4, 10, 24, 0.08), rgba(5, 10, 22, 0.035));
             border: 1px solid rgba(148, 163, 184, 0.20);
             border-radius: 16px;
@@ -780,7 +841,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         .dashboard-card p,
         .dashboard-card li,
-        .dashboard-card div { color: #e5e7eb; }
+        .dashboard-card div { color: #e5e7eb; overflow-wrap: anywhere; }
         .dashboard-card.welcome { grid-area: welcome; min-height: 11.5rem; }
         .dashboard-card.projects { grid-area: projects; }
         .dashboard-card.stats { grid-area: stats; }
@@ -808,7 +869,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         .dashboard-metric b { display: block; font-size: 1.55rem; }
         .dashboard-metric span { color: #d1d5db; font-weight: 800; }
-        .dashboard-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; }
+        .dashboard-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr)); gap: 0.65rem; }
         .dashboard-action-card {
             min-height: 5.1rem;
             padding: 0.9rem;
@@ -869,7 +930,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             }
         }
         @media (max-width: 760px) {
-            .block-container { padding: 0.25rem 0.35rem 1.4rem 0.35rem; }
+            .block-container { padding: 0.25rem 0.35rem 1.4rem 0.35rem; max-width: 100vw; }
             section[data-testid="stSidebar"] { display: none; }
             .dashboard-shell { border-radius: 12px; min-height: auto; }
             .dashboard-main { padding: 0.55rem; }
@@ -890,6 +951,21 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             }
             .dashboard-actions { grid-template-columns: 1fr; }
             .dashboard-log-track { grid-template-columns: 0.5fr 1fr 1fr; }
+            .dashboard-card.news, .dashboard-card.tips { display: none; }
+            .dashboard-footer { flex-direction: column; gap: 0.35rem; }
+        }
+        @media (max-width: 480px) {
+            :root {
+                --brand-bg-size: min(86vw, 320px) auto;
+                --brand-bg-position: center top 4.8rem;
+                --responsive-dashboard-padding: 0.42rem;
+            }
+            .dashboard-brand { font-size: 0.92rem; }
+            .dashboard-navlinks { grid-template-columns: 1fr; }
+            .dashboard-search-chip:nth-child(n+2) { display: none; }
+            .dashboard-metrics { grid-template-columns: 1fr; }
+            .dashboard-log-track { display: none; }
+            .dashboard-card.preview-card { display: none; }
         }
         div[data-testid="stDataFrame"] {
             border: 1px solid var(--app-border);
@@ -1256,6 +1332,16 @@ def _layout_profile_summary(layout: str) -> tuple[str, str, str]:
     """Expose the active layout profile for tests and UI status blocks."""
     profile = UI_LAYOUT_PROFILES.get(layout, UI_LAYOUT_PROFILES["wide"])
     return profile["label"], profile["max_width"], profile["description"]
+
+
+def _responsive_dashboard_target_names() -> tuple[str, ...]:
+    """Expose supported responsive Dashboard targets for tests and documentation."""
+    return tuple(target["name"] for target in RESPONSIVE_DASHBOARD_TARGETS)
+
+
+def _responsive_dashboard_media_queries() -> tuple[str, ...]:
+    """Expose the CSS breakpoint queries used by the responsive Dashboard pass."""
+    return tuple(target["media"] for target in RESPONSIVE_DASHBOARD_TARGETS)
 
 
 def _load_raw_sheets(uploaded_file) -> dict[str, pd.DataFrame]:

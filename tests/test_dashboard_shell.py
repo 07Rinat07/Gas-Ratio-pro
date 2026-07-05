@@ -365,3 +365,27 @@ def test_command_palette_search_stage_documented() -> None:
     assert "UI Modernization Track → Command Palette Search" in project_plan
     assert "Недавние" in user_guide
     assert "Избранное" in user_guide
+
+
+def test_responsive_dashboard_layout_targets_declared() -> None:
+    targets = app._responsive_dashboard_target_names()
+    media_queries = app._responsive_dashboard_media_queries()
+
+    assert "1366×768 laptop" in targets
+    assert "1920×1080 Full HD" in targets
+    assert "2560×1440 / 3440×1440 / 3840×2160" in targets
+    assert "Mobile" in targets
+    assert "@media (max-width: 480px)" in media_queries
+    assert "@media (min-width: 2560px)" in media_queries
+
+
+def test_responsive_dashboard_css_prevents_overflow_and_hides_low_priority_mobile_widgets() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "--responsive-dashboard-columns" in source
+    assert "overflow-x: hidden" in source
+    assert "repeat(auto-fit, minmax(11.5rem, 1fr))" in source
+    assert ".dashboard-card.news, .dashboard-card.tips { display: none; }" in source
+    assert ".dashboard-card.preview-card { display: none; }" in source
+    assert "@media (min-width: 3440px)" in source
+    assert "@media (min-width: 3840px)" in source
