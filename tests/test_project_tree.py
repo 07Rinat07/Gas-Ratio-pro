@@ -528,3 +528,77 @@ def test_project_tree_shows_well_card_coordinates_in_status(tmp_path):
     well_row = next(row for row in rows if row["id"] == f"well:{las_record.well_id}")
 
     assert "координаты: X=100.5; Y=200.25; 47.000000, 71.000000" in str(well_row["status"])
+
+
+def test_project_well_card_kb_is_validated_and_listed(tmp_path):
+    project = create_project(tmp_path, name="Well KB", project_id="well-kb")
+
+    from projects import (
+        build_project_well_card_table,
+        get_project_well_card,
+        merge_project_well_kb_metadata,
+        save_project_well_card,
+    )
+
+    metadata = merge_project_well_kb_metadata({"source": "manual"}, kb_m="12,75")
+    save_project_well_card(
+        tmp_path,
+        project.id,
+        well_id="well-kb",
+        name="Well KB",
+        status="review",
+        metadata=metadata,
+    )
+
+    stored = get_project_well_card(tmp_path, project.id, "well-kb")
+    rows = build_project_well_card_table(tmp_path, project.id)
+
+    assert stored is not None
+    assert stored.metadata["source"] == "manual"
+    assert stored.depth_reference.kb_m == 12.75
+    assert stored.depth_reference.kb_label == "KB=12.750 м"
+    assert rows[0].kb_m == 12.75
+    assert rows[0].kb_label == "KB=12.750 м"
+
+
+def test_project_well_card_rejects_invalid_kb(tmp_path):
+    project = create_project(tmp_path, name="Bad KB", project_id="bad-kb")
+
+    from projects import merge_project_well_kb_metadata, save_project_well_card
+
+    try:
+        merge_project_well_kb_metadata(kb_m="10001")
+    except ValueError as exc:
+        assert "KB" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("Invalid KB was accepted")
+
+    assert save_project_well_card(tmp_path, project.id, well_id="safe-kb", name="Safe KB").metadata == {}
+
+
+def test_project_tree_shows_well_card_kb_in_status(tmp_path):
+    project = create_project(tmp_path, name="Tree KB", project_id="tree-kb")
+    las_record = save_project_las_file(
+        b"~Version\nVERS. 2.0\n~Well\nNULL. -999.25\n~Curve\nDEPT.M : Depth\nC1. : C1\n~Ascii\n1000 80\n",
+        root=tmp_path,
+        project_id=project.id,
+        file_name="well_kb.las",
+        well_name="Well KB",
+        version_label="Raw LAS",
+    )
+
+    from projects import merge_project_well_kb_metadata, save_project_well_card
+
+    save_project_well_card(
+        tmp_path,
+        project.id,
+        well_id=las_record.well_id,
+        name="Well KB Official",
+        status="ready",
+        metadata=merge_project_well_kb_metadata(kb_m="15"),
+    )
+
+    rows = project_tree_table_rows(build_project_tree(tmp_path, project.id))
+    well_row = next(row for row in rows if row["id"] == f"well:{las_record.well_id}")
+
+    assert "KB=15 м" in str(well_row["status"])

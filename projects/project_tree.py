@@ -171,9 +171,12 @@ def _well_node(well: ProjectLasWellCard, card: ProjectWellCard | None = None) ->
     if card is not None:
         status_parts.append(f"карточка: {card.status_label}")
         coords = card.coordinates
+        depth_reference = card.depth_reference
         if coords.has_any:
             coordinate_label = "; ".join(label for label in (coords.projected_label, coords.geographic_label) if label)
             status_parts.append(f"координаты: {coordinate_label}")
+        if depth_reference.has_kb:
+            status_parts.append(depth_reference.kb_label)
         metadata.update(
             {
                 "well_card_status": card.status,
@@ -189,6 +192,8 @@ def _well_node(well: ProjectLasWellCard, card: ProjectWellCard | None = None) ->
             metadata["latitude"] = str(coords.latitude)
         if coords.longitude is not None:
             metadata["longitude"] = str(coords.longitude)
+        if depth_reference.kb_m is not None:
+            metadata["kb_m"] = str(depth_reference.kb_m)
     return ProjectTreeNode(
         id=f"well:{well.id}",
         label=card.name if card is not None and card.name else well.name,

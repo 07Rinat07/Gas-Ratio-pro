@@ -3019,6 +3019,7 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
             default_note = current_card.note if current_card else ""
             default_metadata = dict(current_card.metadata or {}) if current_card else {}
             default_coords = project_well_cards.coordinates_from_metadata(default_metadata)
+            default_depth_reference = project_well_cards.depth_reference_from_metadata(default_metadata)
             status_options = tuple(PROJECT_WELL_CARD_STATUSES)
             try:
                 status_index = status_options.index(default_status)
@@ -3061,6 +3062,13 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                     key=f"project_explorer_well_card_longitude_{project.id}_{selected_well_id}",
                 )
             st.caption("X/Y — локальные или проектные координаты. Широта: -90..90, долгота: -180..180.")
+            st.caption("Отметки глубины")
+            well_card_kb = st.text_input(
+                "KB, м",
+                value="" if default_depth_reference.kb_m is None else f"{default_depth_reference.kb_m:g}",
+                key=f"project_explorer_well_card_kb_{project.id}_{selected_well_id}",
+            )
+            st.caption("KB хранится как metadata скважины в метрах и не меняет LAS-версии.")
             well_card_note = st.text_area(
                 "Комментарий",
                 value=default_note,
@@ -3079,6 +3087,10 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                         y=well_card_y,
                         latitude=well_card_latitude,
                         longitude=well_card_longitude,
+                    )
+                    well_card_metadata = project_well_cards.merge_project_well_kb_metadata(
+                        well_card_metadata,
+                        kb_m=well_card_kb,
                     )
                     save_project_well_card(
                         LAS_CORRELATION_PROJECTS_ROOT,

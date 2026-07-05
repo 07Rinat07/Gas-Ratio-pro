@@ -18,6 +18,7 @@ PROJECT_WELL_CARD_STATUSES: dict[str, str] = {
     "archived": "Архив",
 }
 PROJECT_WELL_COORDINATE_KEYS = ("x", "y", "latitude", "longitude")
+PROJECT_WELL_KB_METADATA_KEY = "kb_m"
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,29 @@ class ProjectWellCoordinates:
 
 
 @dataclass(frozen=True)
+class ProjectWellDepthReference:
+    """Validated optional depth reference metadata for a well card.
+
+    KB (Kelly Bushing / rotary table reference elevation) is stored in meters as
+    metadata only. The value is allowed to be negative for rare local datum
+    conventions, but the range is intentionally bounded to catch wrong units or
+    accidental text pasted into the field.
+    """
+
+    kb_m: float | None = None
+
+    @property
+    def has_kb(self) -> bool:
+        return self.kb_m is not None
+
+    @property
+    def kb_label(self) -> str:
+        if self.kb_m is None:
+            return ""
+        return f"KB={self.kb_m:.3f} м".replace(".000 м", " м")
+
+
+@dataclass(frozen=True)
 class ProjectWellCard:
     """Metadata-only well card stored inside a local project.
 
@@ -78,6 +102,10 @@ class ProjectWellCard:
     def coordinates(self) -> ProjectWellCoordinates:
         return coordinates_from_metadata(self.metadata or {})
 
+    @property
+    def depth_reference(self) -> ProjectWellDepthReference:
+        return depth_reference_from_metadata(self.metadata or {})
+
 
 @dataclass(frozen=True)
 class ProjectWellCardTableRow:
@@ -92,6 +120,8 @@ class ProjectWellCardTableRow:
     latitude: float | None = None
     longitude: float | None = None
     coordinates_label: str = ""
+    kb_m: float | None = None
+    kb_label: str = ""
 
 
 
@@ -166,6 +196,42 @@ def merge_project_well_coordinates_metadata(
     clean_metadata = dict(metadata or {})
     coords = validate_project_well_coordinates(x=x, y=y, latitude=latitude, longitude=longitude)
     clean_metadata.update(coordinates_to_metadata(coords))
+    return clean_metadata
+
+
+
+def validate_project_well_kb(kb_m: Any = None) -> ProjectWellDepthReference:
+    """Validate optional KB elevation stored in meters.
+
+    The helper accepts UI strings with either comma or dot decimal separators.
+    Empty values are stored as ``None``. A broad engineering range keeps the
+    metadata flexible while still catching accidental feet values with extra
+    symbols, infinities and obviously wrong numbers.
+    """
+
+    kb_value = _optional_float(kb_m, "KB")
+    if kb_value is not None and not -1000.0 <= kb_value <= 10000.0:
+        raise ValueError("KB должен быть в диапазоне от -1000 до 10000 м.")
+    return ProjectWellDepthReference(kb_m=kb_value)
+
+
+def depth_reference_to_metadata(reference: ProjectWellDepthReference) -> dict[str, float | None]:
+    return {PROJECT_WELL_KB_METADATA_KEY: reference.kb_m}
+
+
+def depth_reference_from_metadata(metadata: dict[str, Any]) -> ProjectWellDepthReference:
+    return validate_project_well_kb(metadata.get(PROJECT_WELL_KB_METADATA_KEY))
+
+
+def merge_project_well_kb_metadata(
+    metadata: dict[str, Any] | None = None,
+    *,
+    kb_m: Any = None,
+) -> dict[str, Any]:
+    """Return card metadata with validated KB elevation updated."""
+
+    clean_metadata = dict(metadata or {})
+    clean_metadata.update(depth_reference_to_metadata(validate_project_well_kb(kb_m)))
     return clean_metadata
 
 
@@ -344,6 +410,8 @@ def build_project_well_card_table(
             coordinates_label="; ".join(
                 label for label in (card.coordinates.projected_label, card.coordinates.geographic_label) if label
             ),
+            kb_m=card.depth_reference.kb_m,
+            kb_label=card.depth_reference.kb_label,
         )
         for card in list_project_well_cards(root, project_id)
     )
