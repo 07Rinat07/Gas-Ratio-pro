@@ -230,3 +230,24 @@ def test_global_command_palette_rendering_is_present() -> None:
     assert "_render_global_command_palette(active_project)" in source
     assert "command-palette-shell" in source
     assert "Ctrl+K / поиск по проекту" in source
+
+
+def test_unified_page_layout_shell_is_available() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "PAGE_LAYOUT_META" in source
+    assert "app-page-shell" in source
+    assert "app-page-header" in source
+    assert "app-page-badge" in source
+    assert "_open_page_shell(active_tab)" in source
+    assert "Темный workspace" in source
+
+
+def test_page_layout_meta_has_all_workspace_tabs() -> None:
+    for tab_name in app.APP_TABS:
+        if tab_name == "Старт":
+            continue
+        meta = app._page_layout_meta(tab_name)
+        assert meta["title"] == tab_name
+        assert meta["subtitle"]
+        assert meta["badge"]

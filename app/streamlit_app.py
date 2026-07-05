@@ -532,6 +532,47 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             display: block;
             margin-top: 0.35rem;
         }
+
+        .app-page-shell {
+            position: relative;
+            border: 1px solid rgba(148, 163, 184, 0.20);
+            border-radius: 18px;
+            padding: clamp(0.85rem, 1.8vw, 1.35rem);
+            margin: 0.85rem 0 1.25rem 0;
+            background: rgba(5, 10, 22, 0.82);
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+            overflow: hidden;
+        }
+        .app-page-shell::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(circle at 92% 0%, rgba(255, 138, 0, 0.08), transparent 28%),
+                linear-gradient(180deg, rgba(15, 23, 42, 0.16), rgba(15, 23, 42, 0.02));
+        }
+        .app-page-shell > * { position: relative; z-index: 1; }
+        .app-page-header {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 1rem;
+            align-items: start;
+            margin-bottom: 1rem;
+            padding-bottom: 0.9rem;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+        }
+        .app-page-kicker { color: var(--app-accent); font-size: 0.78rem !important; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.25rem; }
+        .app-page-title { color: #f8fafc; font-size: clamp(1.65rem, 2.4vw, 2.45rem) !important; line-height: 1.1 !important; font-weight: 950; margin: 0 !important; }
+        .app-page-subtitle { color: #cbd5e1 !important; font-size: 0.98rem !important; margin: 0.4rem 0 0 0 !important; max-width: 62rem; }
+        .app-page-badge { justify-self: end; min-width: 9.5rem; text-align: center; border: 1px solid rgba(255, 138, 0, 0.34); border-radius: 999px; padding: 0.48rem 0.8rem; color: #ffedd5; background: rgba(255, 138, 0, 0.12); font-weight: 850; white-space: nowrap; }
+        .app-section-card, div[data-testid="stDataFrame"], div[data-testid="stPlotlyChart"] { border-radius: 16px; }
+        .app-section-card { border: 1px solid rgba(148, 163, 184, 0.18); background: rgba(15, 23, 42, 0.56); padding: 1rem; margin: 0.85rem 0; }
+        .app-page-shell h2, .app-page-shell h3 { color: #f8fafc !important; }
+        .app-page-shell hr { border-color: rgba(148, 163, 184, 0.18) !important; }
+        .app-page-shell div[data-testid="stAlert"], .app-page-shell div[data-testid="stFileUploader"] section, .app-page-shell div[data-testid="stDataFrame"], .app-page-shell div[data-testid="stPlotlyChart"] { background-color: rgba(15, 23, 42, 0.72) !important; border-color: rgba(148, 163, 184, 0.20) !important; }
+        .app-page-shell div[data-testid="stExpander"] details { border-radius: 14px; border-color: rgba(148, 163, 184, 0.22); background: rgba(15, 23, 42, 0.42); }
+        @media (max-width: 760px) { .app-page-shell { border-radius: 14px; padding: 0.75rem; } .app-page-header { grid-template-columns: 1fr; } .app-page-badge { justify-self: start; } }
         .dashboard-shell {
             position: relative;
             min-height: calc(100vh - 4.2rem);
@@ -2298,6 +2339,39 @@ def _render_main_navigation() -> str:
     st.markdown('</div>', unsafe_allow_html=True)
     return _active_main_tab()
 
+
+
+PAGE_LAYOUT_META: dict[str, dict[str, str]] = {
+    "Работа с данными": {"kicker": "Data Management", "title": "Работа с данными", "subtitle": "Единый рабочий контейнер для загрузки LAS/CSV/Excel, project datasets, mapping, расчетов и snapshot-истории.", "badge": "Темный workspace"},
+    "LAS-редактор": {"kicker": "LAS Professional", "title": "LAS-редактор", "subtitle": "Нормализация глубины, правка кривых, rename/alias/merge и подготовка LAS перед расчетом.", "badge": "Без фонового шума"},
+    "LAS-корреляция": {"kicker": "Correlation", "title": "LAS-корреляция", "subtitle": "Сравнение скважин, групп кривых, глубинных интервалов и подготовка печатных корреляционных материалов.", "badge": "Графики читаемы"},
+    "Интерпретационные графики": {"kicker": "Interpretation", "title": "Интерпретационные графики", "subtitle": "Планшетные треки, Pixler/ternary, маркеры, зоны интерпретации и инженерные отчеты.", "badge": "Plot workspace"},
+    "Инструкции и документация": {"kicker": "Documentation", "title": "Инструкции и документация", "subtitle": "Единая справочная зона с брендированным hero-блоком, быстрым запуском и встроенными документами проекта.", "badge": "Docs center"},
+}
+
+
+def _page_layout_meta(tab_name: str) -> dict[str, str]:
+    """Return unified header metadata for a workspace tab."""
+    return PAGE_LAYOUT_META.get(tab_name, {"kicker": "Gas Ratio Pro", "title": tab_name, "subtitle": "Единая рабочая область приложения.", "badge": "Workspace"})
+
+
+def _open_page_shell(tab_name: str) -> None:
+    """Open the shared page shell used by all non-dashboard workspaces."""
+    meta = _page_layout_meta(tab_name)
+    st.markdown(
+        "<section class='app-page-shell' data-page='" + _html_escape(tab_name) + "'>"
+        "<header class='app-page-header'><div>"
+        "<div class='app-page-kicker'>" + _html_escape(meta["kicker"]) + "</div>"
+        "<h1 class='app-page-title'>" + _html_escape(meta["title"]) + "</h1>"
+        "<p class='app-page-subtitle'>" + _html_escape(meta["subtitle"]) + "</p>"
+        "</div><div class='app-page-badge'>" + _html_escape(meta["badge"]) + "</div></header>",
+        unsafe_allow_html=True,
+    )
+
+
+def _close_page_shell() -> None:
+    """Close the shared page shell opened for the active workspace."""
+    st.markdown("</section>", unsafe_allow_html=True)
 
 def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[ProjectRecord, ...]) -> None:
     """Render the full-width Home dashboard application shell."""
@@ -6513,20 +6587,30 @@ def main() -> None:
     if active_tab == "Старт":
         _render_start_tab(active_project)
     elif active_tab == "Работа с данными":
+        _open_page_shell(active_tab)
         st.markdown('<div id="data-workspace"></div>', unsafe_allow_html=True)
         _render_workspace(logger, active_project)
+        _close_page_shell()
     elif active_tab == "LAS-редактор":
+        _open_page_shell(active_tab)
         st.markdown('<div id="las-editor-workspace"></div>', unsafe_allow_html=True)
         _render_las_editor(logger, active_project)
+        _close_page_shell()
     elif active_tab == "LAS-корреляция":
+        _open_page_shell(active_tab)
         st.markdown('<div id="correlation-workspace"></div>', unsafe_allow_html=True)
         _render_las_correlation_tab(logger, active_project)
+        _close_page_shell()
     elif active_tab == "Интерпретационные графики":
+        _open_page_shell(active_tab)
         st.markdown('<div id="graphs-workspace"></div>', unsafe_allow_html=True)
         _render_interpretation_graphs_tab(logger, active_project)
+        _close_page_shell()
     else:
+        _open_page_shell(active_tab)
         st.markdown('<div id="documentation-workspace"></div>', unsafe_allow_html=True)
         _render_documentation_tab()
+        _close_page_shell()
 
 
 if __name__ == "__main__":
