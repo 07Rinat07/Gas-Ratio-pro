@@ -68,6 +68,15 @@ from las_editor.curve_grouping import (
     curve_group_table_rows,
     undo_last_group_assignment,
 )
+from las_editor.curve_units import (
+    assign_curve_unit,
+    available_curve_units,
+    build_curve_units,
+    curve_unit_label,
+    curve_unit_table_rows,
+    undo_last_unit_assignment,
+    unit_summary_rows,
+)
 from las_editor.curve_merge import MERGE_STRATEGIES, merge_curves, undo_last_merge
 from las_editor.curve_rename import CurveRenameHistoryEntry, rename_curve, undo_last_rename
 from las_editor.depth_grid import (
@@ -274,6 +283,8 @@ LAS_EDITOR_GROUP_HISTORY_KEY = "las_editor_curve_group_history"
 LAS_EDITOR_GROUP_OVERRIDES_KEY = "las_editor_curve_group_overrides"
 LAS_EDITOR_CATEGORY_HISTORY_KEY = "las_editor_curve_category_history"
 LAS_EDITOR_CATEGORY_OVERRIDES_KEY = "las_editor_curve_category_overrides"
+LAS_EDITOR_UNIT_HISTORY_KEY = "las_editor_curve_unit_history"
+LAS_EDITOR_UNIT_OVERRIDES_KEY = "las_editor_curve_unit_overrides"
 PROJECT_SESSION_SHEETS_KEY = "project_session_sheets"
 PROJECT_SESSION_SUMMARY_KEY = "project_session_summary"
 PROJECT_SESSION_PROJECT_ID_KEY = "project_session_project_id"
@@ -1956,6 +1967,7 @@ def _las_editor_reference_state(column_names: list[str]) -> dict[str, object]:
         "curve_aliases": dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {})),
         "curve_group_overrides": dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {})),
         "curve_category_overrides": dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {})),
+        "curve_unit_overrides": dict(st.session_state.get(LAS_EDITOR_UNIT_OVERRIDES_KEY, {})),
     }
 
 
@@ -2331,6 +2343,143 @@ def _render_las_curve_category_manager(prepared_df: pd.DataFrame) -> None:
             )
         else:
             st.caption("История ручных категорий пока пуста.")
+
+
+def _render_las_curve_units_manager(prepared_df: pd.DataFrame) -> None:
+    st.markdown("### Curve Manager · Curve units manager")
+    st.caption(
+        "Единицы LAS-кривых управляются metadata-only: исходные значения не пересчитываются, "
+        "а выбранные unit overrides сохраняются для отчетов, будущего импорта/экспорта и проверки расчетов."
+    )
+
+    if LAS_EDITOR_UNIT_HISTORY_KEY not in st.session_state:
+        st.session_state[LAS_EDITOR_UNIT_HISTORY_KEY] = ()
+    if LAS_EDITOR_UNIT_OVERRIDES_KEY not in st.session_state:
+        st.session_state[LAS_EDITOR_UNIT_OVERRIDES_KEY] = {}
+
+    column_names = [str(column) for column in prepared_df.columns]
+    aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
+    group_overrides = dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {}))
+    category_overrides = dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {}))
+    unit_overrides = dict(st.session_state.get(LAS_EDITOR_UNIT_OVERRIDES_KEY, {}))
+
+    unit_rows = curve_unit_table_rows(
+        column_names,
+        group_overrides=group_overrides,
+        category_overrides=category_overrides,
+        unit_overrides=unit_overrides,
+        aliases=aliases,
+    )
+    units = build_curve_units(
+        column_names,
+        group_overrides=group_overrides,
+        category_overrides=category_overrides,
+        unit_overrides=unit_overrides,
+    )
+
+    with st.expander("Сводка единиц измерения", expanded=True):
+        st.dataframe(
+            pd.DataFrame(unit_summary_rows(units)).rename(
+                columns={"unit_label": "Единица", "curve_count": "Кривых", "curves": "Состав"}
+            )[["Единица", "Кривых", "Состав"]],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    st.dataframe(
+        pd.DataFrame(unit_rows).rename(
+            columns={
+                "curve_name": "Кривая",
+                "alias": "Alias",
+                "category_label": "Категория",
+                "auto_unit_label": "Авто-единица",
+                "unit_label": "Текущая единица",
+                "manual_override": "Ручное правило",
+                "convertible_targets": "Безопасный пересчет",
+            }
+        )[["Кривая", "Alias", "Категория", "Авто-единица", "Текущая единица", "Ручное правило", "Безопасный пересчет"]],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    curve_col, unit_col, action_col = st.columns([2, 2, 1])
+    curve_name = curve_col.selectbox("Кривая для unit", options=column_names, key="las_editor_unit_curve")
+    unit_options = list(available_curve_units())
+    current_unit = next((row["unit"] for row in unit_rows if row["curve_name"] == curve_name), "unknown")
+    unit_index = unit_options.index(current_unit) if current_unit in unit_options else unit_options.index("unknown")
+    selected_unit = unit_col.selectbox(
+        "Единица измерения",
+        options=unit_options,
+        index=unit_index,
+        format_func=curve_unit_label,
+        key="las_editor_unit_value",
+    )
+
+    references = _las_editor_reference_state(column_names)
+    if action_col.button("Назначить unit", use_container_width=True, key="las_editor_unit_apply"):
+        try:
+            result = assign_curve_unit(
+                prepared_df,
+                curve_name,
+                selected_unit,
+                group_overrides=group_overrides,
+                category_overrides=category_overrides,
+                unit_overrides=unit_overrides,
+                history=st.session_state.get(LAS_EDITOR_UNIT_HISTORY_KEY, ()),
+                references=references,
+                reason="manual",
+                source="las_editor_ui",
+            )
+            st.session_state[LAS_EDITOR_UNIT_OVERRIDES_KEY] = result.overrides
+            st.session_state[LAS_EDITOR_UNIT_HISTORY_KEY] = result.history
+            for message in result.diagnostics:
+                st.info(message)
+            if result.assigned:
+                st.success(f"Единица назначена: {result.curve_name} → {curve_unit_label(result.unit)}")
+            else:
+                st.warning("Единица не изменилась: назначение уже существовало.")
+        except ValueError as exc:
+            st.warning(str(exc))
+
+    history = tuple(st.session_state.get(LAS_EDITOR_UNIT_HISTORY_KEY, ()))
+    if st.button("Undo последней единицы", disabled=not history, use_container_width=True, key="las_editor_unit_undo"):
+        try:
+            result = undo_last_unit_assignment(
+                prepared_df,
+                group_overrides=group_overrides,
+                category_overrides=category_overrides,
+                unit_overrides=dict(st.session_state.get(LAS_EDITOR_UNIT_OVERRIDES_KEY, {})),
+                history=history,
+                references=references,
+            )
+            st.session_state[LAS_EDITOR_UNIT_OVERRIDES_KEY] = result.overrides
+            st.session_state[LAS_EDITOR_UNIT_HISTORY_KEY] = result.history
+            for message in result.diagnostics:
+                st.info(message)
+            st.success("Последняя единица отменена.")
+        except ValueError as exc:
+            st.warning(str(exc))
+
+    history = tuple(st.session_state.get(LAS_EDITOR_UNIT_HISTORY_KEY, ()))
+    with st.expander("История единиц кривых", expanded=bool(history)):
+        if history:
+            st.dataframe(
+                pd.DataFrame([
+                    {
+                        "curve_name": entry.curve_name,
+                        "unit": curve_unit_label(entry.unit),
+                        "previous_unit": curve_unit_label(entry.previous_unit),
+                        "timestamp": entry.timestamp,
+                        "reason": entry.reason,
+                        "source": entry.source,
+                    }
+                    for entry in history
+                ]),
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.caption("История ручных единиц пока пуста.")
 
 def _render_las_curve_rename_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
     st.markdown("### Curve Manager · Rename curves")
@@ -3951,6 +4100,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     _render_las_curve_alias_manager(prepared_df)
     _render_las_curve_grouping_manager(prepared_df)
     _render_las_curve_category_manager(prepared_df)
+    _render_las_curve_units_manager(prepared_df)
     prepared_df = _render_las_curve_merge_manager(prepared_df)
 
     column_names = [str(column) for column in prepared_df.columns]

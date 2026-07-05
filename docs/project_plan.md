@@ -163,7 +163,7 @@
 - [x] Merge curves.
 - [x] Curve grouping.
 - [x] Curve categories.
-- [ ] Curve units manager.
+- [x] Curve units manager.
 - [ ] Curve metadata editor.
 - [ ] Curve duplicate detection.
 - [ ] Curve quality flags.
@@ -470,7 +470,13 @@ UI-блок `Curve Manager · Curve categories` добавлен во вклад
 
 ## Следующий пункт разработки
 
-Текущий следующий незавершенный пункт: **LAS Professional → Curve Manager → Curve units manager**.
+### Реализовано: LAS Professional → Curve Manager → Curve units manager
+
+Добавлен `las_editor/curve_units.py`: поддерживаются нормализация единиц, авто-подбор unit по группе/категории, ручные unit overrides, история изменений, undo последнего назначения, summary rows и безопасные коэффициенты пересчета для метр/фут, fraction/percent/ppm.
+
+UI-блок `Curve Manager · Curve units manager` добавлен во вкладку `LAS-редактор` после categories и до merge. Пользователь видит сводку единиц, таблицу кривых с alias, категорией, авто-единицей, текущей единицей, ручным правилом и доступными безопасными пересчетами. Reference-структуры `curve_units`, `curve_unit_overrides` и `manifest` обновляются без изменения исходных LAS-значений.
+
+Текущий следующий незавершенный пункт: **LAS Professional → Curve Manager → Curve metadata editor**.
 
 
 ### Реализовано: UI Modernization Track → Dashboard background shell

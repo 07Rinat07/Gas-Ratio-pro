@@ -232,6 +232,16 @@ Alias сохраняются в session state редактора и в reference
 
 Группировка сохраняется в session state как `curve_group_overrides` и в reference-представлениях `curve_groups`, `curve_group_overrides` и `manifest`. Это подготавливает следующие функции Curve Manager: категории, единицы, качество, bulk edit, import/export rules.
 
+
+
+### Curve Manager: Curve units manager
+
+Блок `Curve Manager · Curve units manager` добавлен после категорий кривых и перед merge. Он фиксирует единицы измерения LAS-кривых как metadata-only слой: данные DataFrame не пересчитываются и не перезаписываются, но выбранные единицы попадают в `curve_units`, `curve_unit_overrides` и `manifest`.
+
+Авто-подбор единиц использует активные группы и категории: depth получает `m`, gamma — `api`, resistivity — `ohmm`, gas component / total gas — `percent`, gas ratio и interpretation — `unitless`, drilling — `m_h`, неизвестные кривые — `unknown`. Пользователь может вручную назначить `m`, `ft`, `api`, `ohmm`, `g_cm3`, `v_v`, `percent`, `ppm`, `unitless`, `m_h` или `unknown`.
+
+Для безопасности пересчет значений не выполняется автоматически. В модуле есть только явные коэффициенты для проверяемых пар `m ↔ ft`, `v_v ↔ percent ↔ ppm`; остальные сочетания требуют отдельного подтверждения методики. История ручных назначений поддерживает одноуровневый undo.
+
 ## Curve Manager: merge кривых
 
 В LAS-редактор добавлен блок `Curve Manager · Merge curves`. Он используется после rename и alias, когда несколько технических или альтернативных кривых нужно объединить в одну derived-кривую перед дальнейшей подготовкой глубины, ручной правкой и сохранением версии LAS.
