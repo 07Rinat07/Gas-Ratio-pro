@@ -205,6 +205,31 @@ APP_LAUNCH_SCRIPT = ".\\run_app.ps1"
 DASHBOARD_BACKGROUND_PATH = ROOT_DIR / "assets" / "dashboard" / "gas_ratio_brand_background.png"
 DOCUMENTATION_HERO_PATH = ROOT_DIR / "assets" / "dashboard" / "documentation_hero.png"
 BRANDING_LOGO_PATH = ROOT_DIR / "assets" / "branding" / "gas_ratio_pro_logo.png"
+APP_ICON_PATH = BRANDING_LOGO_PATH
+APP_SPLASH_LOGO_PATH = BRANDING_LOGO_PATH
+EXPORT_WATERMARK_LOGO_PATH = BRANDING_LOGO_PATH
+APP_IDENTITY: dict[str, str] = {
+    "name": "Gas Ratio Pro",
+    "version": "2.0.0",
+    "author": "Rinat Sarmuldin",
+    "copyright": "Copyright (c) 2026 Rinat Sarmuldin. All rights reserved.",
+    "contact": "ura07srr@gmail.com",
+    "license": "Proprietary License",
+    "tagline": "Commercial mud gas and LAS interpretation workspace",
+}
+APP_BRANDING_PLACEMENTS: tuple[str, ...] = (
+    "navbar logo",
+    "sidebar logo",
+    "dashboard watermark 5-8%",
+    "documentation hero logo",
+    "about brand block",
+    "license header logo",
+    "splash screen",
+    "application icon",
+    "PDF/PNG export watermark option",
+    "official copyright block",
+)
+EXPORT_WATERMARK_DEFAULT_OPACITY = "0.06"
 DASHBOARD_TIPS = (
     "Проверяйте единицы измерения перед расчетом газовых коэффициентов.",
     "Используйте LAS-редактор для нормализации глубины перед корреляцией.",
@@ -971,6 +996,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             min-width: 0;
             padding: 0.85rem;
         }
+        .navbar-brand-logo { width: 2.15rem; height: 2.15rem; object-fit: contain; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.45)); }
         .dashboard-navbar {
             display: grid;
             grid-template-columns: minmax(12rem, 0.5fr) minmax(28rem, 1.5fr) minmax(16rem, 0.65fr);
@@ -984,6 +1010,9 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             backdrop-filter: blur(12px);
         }
         .dashboard-brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.58rem;
             font-size: 1.1rem;
             font-weight: 900;
             letter-spacing: 0.04em;
@@ -1293,6 +1322,30 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .sidebar-recent-item { border-left:3px solid rgba(255,138,0,0.74); padding:0.34rem 0.45rem; margin:0.28rem 0; background:rgba(15,23,42,0.18); border-radius:9px; }
         .sidebar-recent-item strong { display:block; color:#f8fafc; }
         .sidebar-recent-item span { color:#aeb8c8; font-size:0.74rem !important; }
+        .about-brand-block,
+        .license-brand-header,
+        .splash-screen-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            border: 1px solid rgba(255, 138, 0, 0.28);
+            border-radius: 18px;
+            padding: 0.85rem 1rem;
+            background: rgba(5, 10, 22, 0.72);
+            box-shadow: 0 18px 52px rgba(0,0,0,0.30);
+        }
+        .about-brand-logo,
+        .license-header-logo,
+        .splash-screen-logo { width: 3.4rem; height: 3.4rem; object-fit: contain; filter: drop-shadow(0 12px 22px rgba(0,0,0,0.50)); }
+        .about-brand-block strong,
+        .license-brand-header strong,
+        .splash-screen-brand strong { display:block; color:#f8fafc; font-weight:950; text-transform:uppercase; letter-spacing:0.04em; }
+        .about-brand-block span,
+        .license-brand-header span,
+        .splash-screen-brand span { display:block; color:#cbd5e1; margin-top:0.18rem; }
+        .about-brand-block small,
+        .license-brand-header small { display:block; color:#ffedd5; margin-top:0.22rem; }
+        .export-watermark-option { opacity: 0.06; pointer-events: none; }
 
         .command-palette-shell {
             border: 1px solid rgba(255, 138, 0, 0.30);
@@ -2583,6 +2636,94 @@ def _branding_logo_data_uri() -> str:
     return _asset_to_data_uri(BRANDING_LOGO_PATH)
 
 
+def _app_icon_data_uri() -> str:
+    """Expose the application icon asset used by browser/page branding."""
+    return _asset_to_data_uri(APP_ICON_PATH)
+
+
+def _export_watermark_data_uri() -> str:
+    """Expose the optional export watermark logo for PDF/PNG/report templates."""
+    return _asset_to_data_uri(EXPORT_WATERMARK_LOGO_PATH)
+
+
+def _branding_asset_manifest() -> tuple[dict[str, str], ...]:
+    """Return the branded asset inventory and approved placements."""
+    logo_exists = "yes" if BRANDING_LOGO_PATH.exists() else "no"
+    return (
+        {"name": "Application logo", "path": str(BRANDING_LOGO_PATH.relative_to(ROOT_DIR)), "placement": "navbar logo, sidebar logo, documentation hero logo, about brand block, license header logo", "available": logo_exists},
+        {"name": "Application icon", "path": str(APP_ICON_PATH.relative_to(ROOT_DIR)), "placement": "application icon", "available": logo_exists},
+        {"name": "Splash screen logo", "path": str(APP_SPLASH_LOGO_PATH.relative_to(ROOT_DIR)), "placement": "splash screen", "available": logo_exists},
+        {"name": "Export watermark", "path": str(EXPORT_WATERMARK_LOGO_PATH.relative_to(ROOT_DIR)), "placement": "PDF/PNG export watermark option", "available": logo_exists},
+    )
+
+
+def _branding_placement_names() -> tuple[str, ...]:
+    """Return approved UI surfaces where the logo may be shown."""
+    return APP_BRANDING_PLACEMENTS
+
+
+def _app_identity_metadata() -> dict[str, str]:
+    """Return official application identity metadata for About, License and exports."""
+    return dict(APP_IDENTITY)
+
+
+def _render_brand_logo_html(class_name: str, *, alt: str = "Gas Ratio Pro logo") -> str:
+    """Render the shared logo image with a caller-specific CSS class."""
+    logo_uri = _branding_logo_data_uri()
+    if not logo_uri:
+        return ""
+    safe_class = _html_escape(class_name)
+    return f'<img class="{safe_class}" src="{logo_uri}" alt="{_html_escape(alt)}">'
+
+
+def _render_about_brand_block_html() -> str:
+    """Render a compact branded About block for dashboard and future About page."""
+    identity = _app_identity_metadata()
+    logo_html = _render_brand_logo_html("about-brand-logo")
+    return (
+        "<section class='about-brand-block glass-panel'>"
+        f"{logo_html}"
+        "<div>"
+        f"<strong>{_html_escape(identity['name'])}</strong>"
+        f"<span>{_html_escape(identity['tagline'])}</span>"
+        f"<small>Автор: {_html_escape(identity['author'])} · {_html_escape(identity['contact'])}</small>"
+        "</div></section>"
+    )
+
+
+def _render_license_brand_header_html() -> str:
+    """Render the licensed product identity header with logo and copyright."""
+    identity = _app_identity_metadata()
+    logo_html = _render_brand_logo_html("license-header-logo")
+    return (
+        "<section class='license-brand-header glass-panel'>"
+        f"{logo_html}"
+        "<div>"
+        f"<strong>{_html_escape(identity['license'])}</strong>"
+        f"<span>{_html_escape(identity['copyright'])}</span>"
+        f"<small>Commercial use requires written permission: {_html_escape(identity['contact'])}</small>"
+        "</div></section>"
+    )
+
+
+def _render_splash_screen_html() -> str:
+    """Render a lightweight splash-screen placeholder for future startup packaging."""
+    identity = _app_identity_metadata()
+    logo_html = _render_brand_logo_html("splash-screen-logo")
+    return (
+        "<section class='splash-screen-brand'>"
+        f"{logo_html}"
+        f"<strong>{_html_escape(identity['name'])}</strong>"
+        f"<span>{_html_escape(identity['tagline'])}</span>"
+        "</section>"
+    )
+
+
+def _export_watermark_style() -> dict[str, str]:
+    """Return default watermark settings for future PDF/PNG/report export integration."""
+    return {"enabled": "optional", "opacity": EXPORT_WATERMARK_DEFAULT_OPACITY, "asset": str(EXPORT_WATERMARK_LOGO_PATH.relative_to(ROOT_DIR)), "avoid": "plots, LAS curves, tables, engineering data"}
+
+
 def _dashboard_recent_projects(projects: tuple[ProjectRecord, ...], limit: int = 3) -> tuple[ProjectRecord, ...]:
     """Return the newest project cards shown on the dashboard."""
     if limit <= 0:
@@ -3142,6 +3283,9 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
     logo_uri = _branding_logo_data_uri()
     style = f"background-image: url('{background_uri}');" if background_uri else ""
     logo_img = f"<img class='dashboard-watermark-logo' src='{logo_uri}' alt='Gas Ratio Pro logo' />" if logo_uri else ""
+    navbar_logo = _render_brand_logo_html("navbar-brand-logo")
+    about_brand = _render_about_brand_block_html()
+    license_header = _render_license_brand_header_html()
     recent_projects = _dashboard_recent_projects(projects, limit=4)
     stats = _dashboard_project_statistics(active_project, projects)
     news_items = _dashboard_news_items(active_project)
@@ -3168,7 +3312,7 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
           <div class="dashboard-content">
             <main class="dashboard-main" id="dashboard-home">
               <div class="dashboard-navbar glass-navbar">
-                <div class="dashboard-brand">Gas Ratio <span>Pro</span></div>
+                <div class="dashboard-brand">{navbar_logo}<div>Gas Ratio <span>Pro</span></div></div>
                 <div class="dashboard-navlinks">
                   <a href="#dashboard-projects">Проекты</a>
                   <a href="#dashboard-quick-actions">Действия</a>
@@ -3237,6 +3381,8 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
                 </article>
                 <article class="dashboard-card license" id="dashboard-license">
                   <h3>Лицензия и авторские права</h3>
+                  {license_header}
+                  {about_brand}
                   <p>© Rinat Sarmuldin. Все права защищены. Коммерческое использование допускается только с разрешения автора.</p>
                 </article>
               </section>
@@ -7406,7 +7552,7 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="Gas Ratio Interpreter v0.3", layout="wide")
+    st.set_page_config(page_title="Gas Ratio Pro", page_icon=_app_icon_data_uri() or None, layout="wide")
     ui_scale = _select_ui_scale()
     ui_layout = _select_ui_layout()
     _apply_app_style(ui_scale, ui_layout)

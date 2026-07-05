@@ -104,8 +104,8 @@
 - [x] Dashboard author/copyright block.
 - [x] Logo asset integrated into project assets.
 - [x] Dashboard logo watermark.
-- [ ] About dialog redesign.
-- [ ] Application identity metadata.
+- [x] About dialog redesign.
+- [x] Application identity metadata.
 - [ ] EULA document.
 - [ ] License manager.
 - [ ] Offline activation.

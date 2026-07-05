@@ -506,3 +506,52 @@ def test_navigation_animation_css_is_present_and_accessible() -> None:
     assert "scroll-behavior: smooth" in source
     assert "transform: translateY(-2px) scale(1.012)" in source
     assert "transform: translateY(0) scale(0.985)" in source
+
+
+def test_application_branding_assets_cover_required_surfaces() -> None:
+    placements = set(app._branding_placement_names())
+    manifest = app._branding_asset_manifest()
+    identity = app._app_identity_metadata()
+
+    assert "navbar logo" in placements
+    assert "sidebar logo" in placements
+    assert "dashboard watermark 5-8%" in placements
+    assert "documentation hero logo" in placements
+    assert "about brand block" in placements
+    assert "license header logo" in placements
+    assert "splash screen" in placements
+    assert "application icon" in placements
+    assert "PDF/PNG export watermark option" in placements
+    assert identity["author"] == "Rinat Sarmuldin"
+    assert identity["contact"] == "ura07srr@gmail.com"
+    assert any(item["placement"] == "application icon" for item in manifest)
+    assert all(item["available"] == "yes" for item in manifest)
+
+
+def test_branding_assets_render_navbar_license_about_splash_and_export_watermark() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+    about_html = app._render_about_brand_block_html()
+    license_html = app._render_license_brand_header_html()
+    splash_html = app._render_splash_screen_html()
+    watermark = app._export_watermark_style()
+
+    assert "navbar-brand-logo" in source
+    assert "sidebar-brand-logo" in source
+    assert "dashboard-watermark-logo" in source
+    assert "docs-hero-brand-badge" in source
+    assert "about-brand-block" in about_html
+    assert "license-brand-header" in license_html
+    assert "splash-screen-brand" in splash_html
+    assert watermark["opacity"] == "0.06"
+    assert "plots, LAS curves, tables, engineering data" in watermark["avoid"]
+
+
+def test_branding_assets_stage_is_documented() -> None:
+    plan = Path(app.ROOT_DIR / "docs" / "project_plan.md").read_text(encoding="utf-8")
+    guide = Path(app.ROOT_DIR / "docs" / "user_guide.md").read_text(encoding="utf-8")
+
+    assert "Branding Assets" in plan
+    assert "Add application branding assets" in plan
+    assert "navbar logo" in plan
+    assert "Branding Assets" in guide
+    assert "PDF/PNG export watermark option" in guide
