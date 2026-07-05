@@ -52,6 +52,13 @@ from las_correlation import (
     settings_to_dict,
 )
 from las_editor.curve_alias import assign_curve_alias, available_aliases, suggest_curve_aliases, undo_last_alias
+from las_editor.curve_grouping import (
+    assign_curve_group,
+    available_curve_groups,
+    curve_group_label,
+    curve_group_table_rows,
+    undo_last_group_assignment,
+)
 from las_editor.curve_merge import MERGE_STRATEGIES, merge_curves, undo_last_merge
 from las_editor.curve_rename import CurveRenameHistoryEntry, rename_curve, undo_last_rename
 from las_editor.depth_grid import (
@@ -254,6 +261,8 @@ LAS_EDITOR_RENAME_HISTORY_KEY = "las_editor_curve_rename_history"
 LAS_EDITOR_ALIAS_HISTORY_KEY = "las_editor_curve_alias_history"
 LAS_EDITOR_ALIAS_MAP_KEY = "las_editor_curve_alias_map"
 LAS_EDITOR_MERGE_HISTORY_KEY = "las_editor_curve_merge_history"
+LAS_EDITOR_GROUP_HISTORY_KEY = "las_editor_curve_group_history"
+LAS_EDITOR_GROUP_OVERRIDES_KEY = "las_editor_curve_group_overrides"
 PROJECT_SESSION_SHEETS_KEY = "project_session_sheets"
 PROJECT_SESSION_SUMMARY_KEY = "project_session_summary"
 PROJECT_SESSION_PROJECT_ID_KEY = "project_session_project_id"
@@ -1934,6 +1943,7 @@ def _las_editor_reference_state(column_names: list[str]) -> dict[str, object]:
         "exports": {"columns": list(column_names)},
         "manifest": {name: {"source": "las_editor"} for name in column_names},
         "curve_aliases": dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {})),
+        "curve_group_overrides": dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {})),
     }
 
 
@@ -2054,6 +2064,119 @@ def _render_las_curve_alias_manager(prepared_df: pd.DataFrame) -> None:
                 hide_index=True,
             )
 
+
+
+def _render_las_curve_grouping_manager(prepared_df: pd.DataFrame) -> None:
+    st.markdown("### Curve Manager · Curve grouping")
+    st.caption(
+        "Группировка LAS-кривых по инженерным категориям: глубина, GR, газ, "
+        "компоненты C1-C5, сопротивления, density/neutron, буровые параметры и прочие кривые."
+    )
+
+    if LAS_EDITOR_GROUP_HISTORY_KEY not in st.session_state:
+        st.session_state[LAS_EDITOR_GROUP_HISTORY_KEY] = ()
+    if LAS_EDITOR_GROUP_OVERRIDES_KEY not in st.session_state:
+        st.session_state[LAS_EDITOR_GROUP_OVERRIDES_KEY] = {}
+
+    column_names = [str(column) for column in prepared_df.columns]
+    aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
+    overrides = dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {}))
+    group_rows = curve_group_table_rows(column_names, overrides=overrides, aliases=aliases)
+
+    st.dataframe(
+        pd.DataFrame(group_rows).rename(
+            columns={
+                "curve_name": "Кривая",
+                "alias": "Alias",
+                "auto_group_label": "Авто-группа",
+                "group_label": "Текущая группа",
+                "manual_override": "Ручное правило",
+            }
+        )[["Кривая", "Alias", "Авто-группа", "Текущая группа", "Ручное правило"]],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    curve_col, group_col, action_col = st.columns([2, 2, 1])
+    curve_name = curve_col.selectbox(
+        "Кривая для группировки",
+        options=column_names,
+        key="las_editor_group_curve",
+    )
+    group_options = list(available_curve_groups())
+    current_group = next((row["group"] for row in group_rows if row["curve_name"] == curve_name), "other")
+    group_index = group_options.index(current_group) if current_group in group_options else group_options.index("other")
+    selected_group = group_col.selectbox(
+        "Инженерная группа",
+        options=group_options,
+        index=group_index,
+        format_func=curve_group_label,
+        key="las_editor_group_value",
+    )
+
+    references = _las_editor_reference_state(column_names)
+    if action_col.button("Назначить группу", use_container_width=True, key="las_editor_group_apply"):
+        try:
+            result = assign_curve_group(
+                prepared_df,
+                curve_name,
+                selected_group,
+                overrides=overrides,
+                history=st.session_state.get(LAS_EDITOR_GROUP_HISTORY_KEY, ()),
+                references=references,
+                reason="manual",
+                source="las_editor_ui",
+            )
+            st.session_state[LAS_EDITOR_GROUP_OVERRIDES_KEY] = result.overrides
+            st.session_state[LAS_EDITOR_GROUP_HISTORY_KEY] = result.history
+            for message in result.diagnostics:
+                st.info(message)
+            if result.assigned:
+                st.success(f"Группа назначена: {result.curve_name} → {curve_group_label(result.group)}")
+            else:
+                st.warning("Группа не изменилась: назначение уже существовало.")
+        except ValueError as exc:
+            st.warning(str(exc))
+
+    history = tuple(st.session_state.get(LAS_EDITOR_GROUP_HISTORY_KEY, ()))
+    if st.button("Undo последней группировки", disabled=not history, use_container_width=True, key="las_editor_group_undo"):
+        try:
+            result = undo_last_group_assignment(
+                prepared_df,
+                overrides=dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {})),
+                history=history,
+                references=references,
+            )
+            st.session_state[LAS_EDITOR_GROUP_OVERRIDES_KEY] = result.overrides
+            st.session_state[LAS_EDITOR_GROUP_HISTORY_KEY] = result.history
+            for message in result.diagnostics:
+                st.info(message)
+            st.success("Последняя группировка отменена.")
+        except ValueError as exc:
+            st.warning(str(exc))
+
+    history = tuple(st.session_state.get(LAS_EDITOR_GROUP_HISTORY_KEY, ()))
+    with st.expander("История группировки кривых", expanded=bool(history)):
+        if history:
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "curve_name": entry.curve_name,
+                            "group": curve_group_label(entry.group),
+                            "previous_group": curve_group_label(entry.previous_group),
+                            "timestamp": entry.timestamp,
+                            "reason": entry.reason,
+                            "source": entry.source,
+                        }
+                        for entry in history
+                    ]
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.caption("История ручной группировки пока пуста.")
 
 def _render_las_curve_rename_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
     st.markdown("### Curve Manager · Rename curves")
@@ -3672,6 +3795,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
 
     prepared_df = _render_las_curve_rename_manager(prepared_df)
     _render_las_curve_alias_manager(prepared_df)
+    _render_las_curve_grouping_manager(prepared_df)
     prepared_df = _render_las_curve_merge_manager(prepared_df)
 
     column_names = [str(column) for column in prepared_df.columns]

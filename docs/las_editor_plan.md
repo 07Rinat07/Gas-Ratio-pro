@@ -214,6 +214,24 @@ Alias сохраняются в session state редактора и в reference
 История хранит `old_name`, `new_name`, `timestamp`, `reason` и `source`. При rename обновляются ссылки в реально используемых структурах текущего редакторского workflow: tablet tracks, preset-представления, export columns и manifest текущих кривых. Базовая функция обновления ссылок рекурсивно поддерживает dict/list/tuple/set и подготовлена для дальнейших templates, saved calculations и export metadata.
 
 
+
+## Curve Manager: группировка кривых
+
+В LAS-редактор добавлен блок `Curve Manager · Curve grouping`. Он используется после alias и перед merge, когда нужно проверить автоматическую инженерную классификацию LAS-кривых и вручную перенести отдельную кривую в правильную группу без переименования данных.
+
+Поддерживаются группы из LAS-корреляции: `depth`, `gamma`, `total_gas`, `gas_component`, `gas_ratio`, `resistivity`, `density_neutron`, `drilling`, `lithology` и `other`. Таблица показывает имя кривой, alias, авто-группу, текущую группу и признак ручного правила.
+
+Правила безопасности:
+
+- выбранная кривая должна существовать в текущем LAS DataFrame;
+- группа не может быть пустой;
+- группа должна входить в поддерживаемый список Curve Manager;
+- исходные значения DataFrame не меняются;
+- история хранит `curve_name`, `group`, `previous_group`, `timestamp`, `reason` и `source`;
+- для последнего назначения доступен одноуровневый undo с возвратом к предыдущей или автоматической группе.
+
+Группировка сохраняется в session state как `curve_group_overrides` и в reference-представлениях `curve_groups`, `curve_group_overrides` и `manifest`. Это подготавливает следующие функции Curve Manager: категории, единицы, качество, bulk edit, import/export rules.
+
 ## Curve Manager: merge кривых
 
 В LAS-редактор добавлен блок `Curve Manager · Merge curves`. Он используется после rename и alias, когда несколько технических или альтернативных кривых нужно объединить в одну derived-кривую перед дальнейшей подготовкой глубины, ручной правкой и сохранением версии LAS.
@@ -240,7 +258,7 @@ Alias сохраняются в session state редактора и в reference
 
 ## UI readability note
 
-LAS Editor остается рабочей инженерной областью с темными панелями поверх общего фирменного фона приложения. Фоновое изображение не должно снижать читаемость LAS-кривых, таблиц глубины, диагностик, rename/alias/merge-блоков и числовых значений.
+LAS Editor остается рабочей инженерной областью с темными панелями поверх общего фирменного фона приложения. Фоновое изображение не должно снижать читаемость LAS-кривых, таблиц глубины, диагностик, rename/alias/grouping/merge-блоков и числовых значений.
 
 ## UI note: readable work panels
 

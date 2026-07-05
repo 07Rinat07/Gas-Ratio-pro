@@ -1,5 +1,18 @@
 from __future__ import annotations
 
+from las_editor.curve_grouping import (
+    CurveGroupingHistoryEntry,
+    CurveGroupingResult,
+    assign_curve_group,
+    available_curve_groups,
+    build_curve_groups,
+    curve_group_label,
+    curve_group_table_rows,
+    normalize_curve_group,
+    suggest_curve_group,
+    suggest_curve_groups,
+    undo_last_group_assignment,
+)
 from las_editor.depth_grid import (
     DepthDiagnostics,
     DepthGap,
@@ -15,6 +28,17 @@ from las_editor.depth_grid import (
 )
 
 __all__ = [
+    "CurveGroupingHistoryEntry",
+    "CurveGroupingResult",
+    "assign_curve_group",
+    "available_curve_groups",
+    "build_curve_groups",
+    "curve_group_label",
+    "curve_group_table_rows",
+    "normalize_curve_group",
+    "suggest_curve_group",
+    "suggest_curve_groups",
+    "undo_last_group_assignment",
     "DepthDiagnostics",
     "DepthGap",
     "DepthStepOutlier",
