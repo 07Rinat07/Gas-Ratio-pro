@@ -315,3 +315,53 @@ def test_quick_actions_wiring_is_documented() -> None:
     assert "dashboard_quick_action_" in plan
     assert "Quick Actions Wiring" in guide
     assert "все кнопки быстрого доступа" in guide
+
+
+def test_command_palette_search_categories_cover_project_objects() -> None:
+    categories = set(app.COMMAND_PALETTE_CATEGORY_ORDER)
+
+    assert "Команды" in categories
+    assert "Проекты" in categories
+    assert "Скважины" in categories
+    assert "LAS" in categories
+    assert "Кривые" in categories
+    assert "Расчеты" in categories
+    assert "Отчеты" in categories
+    assert "Документация" in categories
+    assert "Недавние" in categories
+    assert "Избранное" in categories
+
+
+def test_command_palette_filter_supports_categories_and_ranking() -> None:
+    entries = (
+        {"title": "Импорт LAS / CSV / Excel", "category": "Данные", "search_category": "Команды", "target_tab": "Работа с данными", "description": "Загрузка", "keywords": "импорт las csv"},
+        {"title": "Well A", "category": "Проект · well", "search_category": "Скважины", "target_tab": "Работа с данными", "description": "active", "keywords": "well скважина"},
+        {"title": "Troubleshooting", "category": "Документация", "search_category": "Документация", "target_tab": "Инструкции и документация", "description": "docs/troubleshooting.md", "keywords": "docs help"},
+    )
+
+    filtered = app._filter_command_palette_entries(entries, "well", category="Скважины", limit=4)
+
+    assert len(filtered) == 1
+    assert filtered[0]["title"] == "Well A"
+
+
+def test_command_palette_recent_and_favorite_resolution() -> None:
+    entries = (
+        {"title": "Импорт LAS / CSV / Excel", "category": "Данные", "search_category": "Команды", "target_tab": "Работа с данными", "description": "Загрузка", "keywords": "импорт las csv"},
+        {"title": "Troubleshooting", "category": "Документация", "search_category": "Документация", "target_tab": "Инструкции и документация", "description": "docs/troubleshooting.md", "keywords": "docs help"},
+    )
+    recent_id = app._command_entry_id(entries[1])
+
+    recent = app._filter_command_palette_entries(entries, "", category="Недавние", recent_ids=[recent_id], limit=4)
+
+    assert len(recent) == 1
+    assert recent[0]["title"] == "Troubleshooting"
+
+
+def test_command_palette_search_stage_documented() -> None:
+    project_plan = Path("docs/project_plan.md").read_text(encoding="utf-8")
+    user_guide = Path("docs/user_guide.md").read_text(encoding="utf-8")
+
+    assert "UI Modernization Track → Command Palette Search" in project_plan
+    assert "Недавние" in user_guide
+    assert "Избранное" in user_guide

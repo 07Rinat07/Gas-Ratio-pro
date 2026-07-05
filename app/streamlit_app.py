@@ -216,6 +216,10 @@ UI_SCALE_KEY = "ui_scale"
 UI_LAYOUT_KEY = "ui_layout"
 ACTIVE_MAIN_TAB_KEY = "active_main_tab"
 COMMAND_PALETTE_QUERY_KEY = "global_command_palette_query"
+COMMAND_PALETTE_CATEGORY_KEY = "global_command_palette_category"
+COMMAND_PALETTE_RECENT_KEY = "global_command_palette_recent_commands"
+COMMAND_PALETTE_FAVORITES_KEY = "global_command_palette_favorite_commands"
+COMMAND_PALETTE_ACTIVE_INDEX_KEY = "global_command_palette_active_index"
 DASHBOARD_LAST_QUICK_ACTION_KEY = "dashboard_last_quick_action"
 # Legacy compact sidebar width marker: 10.8rem. Current sidebar uses a wider modern project card.
 # Smoke-test marker for rendered navigation labels: Открыть: Старт.
@@ -2351,18 +2355,132 @@ COMMAND_PALETTE_STATIC_COMMANDS: tuple[dict[str, str], ...] = (
 )
 
 
+COMMAND_PALETTE_CATEGORY_ORDER: tuple[str, ...] = (
+    "Все",
+    "Команды",
+    "Разделы",
+    "Проекты",
+    "Скважины",
+    "LAS",
+    "Кривые",
+    "Расчеты",
+    "Отчеты",
+    "Документация",
+    "Недавние",
+    "Избранное",
+)
+
+COMMAND_PALETTE_KIND_CATEGORY_MAP: dict[str, str] = {
+    "project": "Проекты",
+    "folder": "Проекты",
+    "well": "Скважины",
+    "wells": "Скважины",
+    "las": "LAS",
+    "las_file": "LAS",
+    "curve": "Кривые",
+    "calculation": "Расчеты",
+    "calculations": "Расчеты",
+    "report": "Отчеты",
+    "export": "Отчеты",
+}
+
+COMMAND_PALETTE_RECENT_LIMIT = 8
+COMMAND_PALETTE_SEARCH_LIMIT = 10
+
+
+def _normalize_command_text(value: object) -> str:
+    """Normalize command palette text for predictable Russian/English search."""
+    return " ".join(str(value or "").replace("/", " ").replace("-", " ").lower().split())
+
+
+def _command_entry_id(entry: dict[str, str]) -> str:
+    """Build a stable command id without depending on Streamlit widget keys."""
+    return _normalize_command_text(f"{entry.get('category', '')}:{entry.get('title', '')}:{entry.get('target_tab', '')}")
+
+
+def _command_palette_entry_category(entry: dict[str, str]) -> str:
+    """Return the high-level searchable category for a command entry."""
+    explicit = str(entry.get("search_category", "")).strip()
+    if explicit:
+        return explicit
+    category = str(entry.get("category", "")).strip()
+    if category == "Раздел":
+        return "Разделы"
+    if category == "Документация":
+        return "Документация"
+    if category.startswith("Проект ·"):
+        kind = category.split("·", 1)[1].strip().lower()
+        return COMMAND_PALETTE_KIND_CATEGORY_MAP.get(kind, "Проекты")
+    return "Команды"
+
+
+def _command_palette_categories(entries: tuple[dict[str, str], ...]) -> tuple[str, ...]:
+    """Return available command palette filters in a stable product order."""
+    present = {_command_palette_entry_category(entry) for entry in entries}
+    categories = [category for category in COMMAND_PALETTE_CATEGORY_ORDER if category == "Все" or category in present]
+    return tuple(dict.fromkeys(categories))
+
+
+def _remember_command_palette_entry(entry: dict[str, str]) -> None:
+    """Store recent command ids and keep the list short."""
+    entry_id = _command_entry_id(entry)
+    recent = [item for item in st.session_state.get(COMMAND_PALETTE_RECENT_KEY, []) if item != entry_id]
+    st.session_state[COMMAND_PALETTE_RECENT_KEY] = [entry_id, *recent][:COMMAND_PALETTE_RECENT_LIMIT]
+
+
+def _toggle_command_palette_favorite(entry: dict[str, str]) -> None:
+    """Toggle command favorite state in Streamlit session state."""
+    entry_id = _command_entry_id(entry)
+    favorites = list(st.session_state.get(COMMAND_PALETTE_FAVORITES_KEY, []))
+    if entry_id in favorites:
+        favorites.remove(entry_id)
+    else:
+        favorites.insert(0, entry_id)
+    st.session_state[COMMAND_PALETTE_FAVORITES_KEY] = favorites[:COMMAND_PALETTE_RECENT_LIMIT]
+
+
+def _command_palette_recent_or_favorite_entries(
+    entries: tuple[dict[str, str], ...],
+    ids: object,
+) -> tuple[dict[str, str], ...]:
+    """Resolve stored command ids back to current entries."""
+    by_id = {_command_entry_id(entry): entry for entry in entries}
+    ordered: list[dict[str, str]] = []
+    for entry_id in ids if isinstance(ids, list) else []:
+        entry = by_id.get(str(entry_id))
+        if entry:
+            ordered.append(entry)
+    return tuple(ordered)
+
+
 def _command_palette_entries(active_project: ProjectRecord) -> tuple[dict[str, str], ...]:
-    """Build command palette entries from navigation, static actions and project objects."""
+    """Build command palette entries from navigation, actions, docs and project objects."""
     entries: list[dict[str, str]] = []
     for item in NAVIGATION_ITEMS:
         entries.append({
             "title": item["label"],
             "category": "Раздел",
+            "search_category": "Разделы",
             "target_tab": item["label"],
             "description": item["description"],
-            "keywords": f"{item['label']} {item['description']}",
+            "keywords": f"{item['label']} {item['description']} navigation tab вкладка раздел",
         })
-    entries.extend(dict(command) for command in COMMAND_PALETTE_STATIC_COMMANDS)
+
+    for command in COMMAND_PALETTE_STATIC_COMMANDS:
+        prepared = dict(command)
+        prepared.setdefault("search_category", "Команды")
+        prepared["keywords"] = f"{prepared.get('keywords', '')} команда действие быстрый доступ quick action"
+        entries.append(prepared)
+
+    for action in START_ACTIONS:
+        entries.append({
+            "title": action["title"],
+            "category": "Быстрый доступ",
+            "search_category": "Команды",
+            "target_tab": action["target_tab"],
+            "description": action["description"],
+            "keywords": f"{action['title']} {action['button_label']} {action['when']} {action['tooltip']} quick dashboard",
+        })
 
     try:
         tree_rows = project_tree_table_rows(build_project_tree(LAS_CORRELATION_PROJECTS_ROOT, active_project.id))
@@ -2374,101 +2492,170 @@ def _command_palette_entries(active_project: ProjectRecord) -> tuple[dict[str, s
             continue
         kind = str(row.get("kind", "project"))
         status = str(row.get("status", ""))
+        search_category = COMMAND_PALETTE_KIND_CATEGORY_MAP.get(kind.lower(), "Проекты")
         entries.append({
             "title": label,
             "category": f"Проект · {kind}",
+            "search_category": search_category,
             "target_tab": "Работа с данными",
             "description": status or "Объект активного проекта",
-            "keywords": f"{label} {kind} {status}",
+            "keywords": f"{label} {kind} {status} project well скважина las curve кривые calculation расчет report отчет export",
         })
 
     for doc_title, doc_path in DOCUMENTATION_TAB_DOCS:
         entries.append({
             "title": doc_title,
             "category": "Документация",
+            "search_category": "Документация",
             "target_tab": "Инструкции и документация",
             "description": doc_path,
-            "keywords": f"{doc_title} {doc_path} docs help",
+            "keywords": f"{doc_title} {doc_path} docs help guide руководство документация faq troubleshooting shortcuts hotkeys",
+        })
+
+    for link in DOCUMENTATION_QUICK_LINKS:
+        entries.append({
+            "title": link["title"],
+            "category": "Документация",
+            "search_category": "Документация",
+            "target_tab": "Инструкции и документация",
+            "description": link["description"],
+            "keywords": f"{link['title']} {link['anchor']} {link['description']} docs quick link",
         })
     return tuple(entries)
-
 
 def _filter_command_palette_entries(
     entries: tuple[dict[str, str], ...],
     query: str,
     *,
-    limit: int = 8,
+    category: str = "Все",
+    recent_ids: object = None,
+    favorite_ids: object = None,
+    limit: int = COMMAND_PALETTE_SEARCH_LIMIT,
 ) -> tuple[dict[str, str], ...]:
-    """Filter command palette entries by title, category, description and keywords."""
-    normalized_query = str(query or "").strip().lower()
+    """Filter and rank command palette entries by query, category and command state."""
+    normalized_query = _normalize_command_text(query)
+    selected_category = str(category or "Все")
+
+    if selected_category == "Недавние":
+        entries = _command_palette_recent_or_favorite_entries(entries, recent_ids or [])
+    elif selected_category == "Избранное":
+        entries = _command_palette_recent_or_favorite_entries(entries, favorite_ids or [])
+    elif selected_category != "Все":
+        entries = tuple(entry for entry in entries if _command_palette_entry_category(entry) == selected_category)
+
     if not normalized_query:
         return entries[: max(1, limit)]
 
     words = tuple(part for part in normalized_query.split() if part)
-    matches: list[tuple[int, dict[str, str]]] = []
+    matches: list[tuple[int, str, str, dict[str, str]]] = []
+    favorite_set = set(favorite_ids or []) if isinstance(favorite_ids, list) else set()
+    recent_set = set(recent_ids or []) if isinstance(recent_ids, list) else set()
+
     for entry in entries:
         title = entry.get("title", "")
-        category = entry.get("category", "")
+        category_label = entry.get("category", "")
         description = entry.get("description", "")
         keywords = entry.get("keywords", "")
-        haystack = f"{title} {category} {description} {keywords}".lower()
+        target_tab = entry.get("target_tab", "")
+        haystack = _normalize_command_text(f"{title} {category_label} {description} {keywords} {target_tab}")
         if not all(word in haystack for word in words):
             continue
+
+        lower_title = _normalize_command_text(title)
         score = 0
-        lower_title = title.lower()
         if lower_title.startswith(normalized_query):
-            score += 3
+            score += 50
         if normalized_query in lower_title:
-            score += 2
-        if entry.get("category") == "Раздел":
-            score += 1
-        matches.append((score, entry))
+            score += 25
+        if _normalize_command_text(category_label).startswith(normalized_query):
+            score += 12
+        if normalized_query in _normalize_command_text(keywords):
+            score += 8
+        entry_category = _command_palette_entry_category(entry)
+        if entry_category == "Разделы":
+            score += 5
+        if entry_category == "Команды":
+            score += 4
+        entry_id = _command_entry_id(entry)
+        if entry_id in favorite_set:
+            score += 6
+        if entry_id in recent_set:
+            score += 3
+        matches.append((score, entry_category, lower_title, entry))
 
-    matches.sort(key=lambda item: (-item[0], item[1].get("category", ""), item[1].get("title", "")))
-    return tuple(entry for _score, entry in matches[: max(1, limit)])
-
+    matches.sort(key=lambda item: (-item[0], item[1], item[2]))
+    return tuple(entry for _score, _category, _title, entry in matches[: max(1, limit)])
 
 def _render_global_command_palette(active_project: ProjectRecord) -> None:
-    """Render a lightweight global Ctrl+K-style command palette for Streamlit."""
+    """Render a searchable Ctrl+K-style command palette with categories and state."""
     st.markdown(
         "<div class='command-palette-shell'>"
-        "<div class='command-palette-title'><b>Командная палитра</b><span>Ctrl+K / поиск по проекту</span></div>",
+        "<div class='command-palette-title'><b>Командная палитра</b><span>Ctrl+K · поиск команд, проектов, скважин, LAS, расчетов, отчетов и документации</span></div>",
         unsafe_allow_html=True,
     )
-    query = st.text_input(
-        "Команда или объект проекта",
-        key=COMMAND_PALETTE_QUERY_KEY,
-        placeholder="например: импорт LAS, редактор, расчет, скважина, troubleshooting",
-        label_visibility="collapsed",
+    entries = _command_palette_entries(active_project)
+    category_options = _command_palette_categories(entries)
+    col_query, col_category = st.columns([3, 1])
+    with col_query:
+        query = st.text_input(
+            "Команда или объект проекта",
+            key=COMMAND_PALETTE_QUERY_KEY,
+            placeholder="например: импорт LAS, скважина, curve, расчет, отчет, troubleshooting",
+            label_visibility="collapsed",
+        )
+    with col_category:
+        selected_category = st.selectbox(
+            "Категория поиска",
+            category_options,
+            key=COMMAND_PALETTE_CATEGORY_KEY,
+            label_visibility="collapsed",
+        )
+
+    recent_ids = st.session_state.get(COMMAND_PALETTE_RECENT_KEY, [])
+    favorite_ids = st.session_state.get(COMMAND_PALETTE_FAVORITES_KEY, [])
+    results = _filter_command_palette_entries(
+        entries,
+        query,
+        category=selected_category,
+        recent_ids=recent_ids,
+        favorite_ids=favorite_ids,
+        limit=COMMAND_PALETTE_SEARCH_LIMIT if query else 6,
     )
-    entries = _filter_command_palette_entries(_command_palette_entries(active_project), query, limit=6 if query else 4)
-    if query and not entries:
-        st.warning("Команда или объект проекта не найдены. Попробуйте: LAS, импорт, графики, отчет, инструкции.")
+    if query and not results:
+        st.warning("Команда или объект проекта не найдены. Попробуйте: LAS, импорт, скважина, расчет, отчет, инструкции.")
         st.markdown("</div>", unsafe_allow_html=True)
         return
 
-    if query:
-        st.caption(f"Найдено команд: {len(entries)}")
-        for index, entry in enumerate(entries):
-            col_text, col_button = st.columns([4, 1])
-            with col_text:
-                st.markdown(
-                    "<div class='command-result-card'>"
-                    f"<b>{_html_escape(entry.get('title', ''))}</b> "
-                    f"<code>{_html_escape(entry.get('category', ''))}</code>"
-                    f"<small>{_html_escape(entry.get('description', ''))}</small>"
-                    "</div>",
-                    unsafe_allow_html=True,
-                )
-            with col_button:
-                target_tab = entry.get("target_tab", APP_TABS[0])
-                if st.button("Открыть", key=f"command_palette_open_{index}_{target_tab}_{entry.get('title', '')}", use_container_width=True):
-                    _set_active_main_tab(target_tab)
-                    st.rerun()
+    helper = "Enter выполняет выбранную кнопку Streamlit, Esc закрывает активное поле ввода браузера, Ctrl+K используется как основной shortcut поиска."
+    if query or selected_category != "Все":
+        st.caption(f"Найдено: {len(results)} · категория: {selected_category} · {helper}")
     else:
-        st.caption("Введите запрос, чтобы найти раздел, действие, объект проекта или документ. Быстрые подсказки: импорт LAS, редактор, графики, лицензия.")
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.caption("Введите запрос или выберите категорию. Доступны команды, проекты, скважины, LAS, кривые, расчеты, отчеты, документация, недавние и избранные.")
 
+    for index, entry in enumerate(results):
+        col_text, col_favorite, col_button = st.columns([4, 0.8, 1])
+        entry_id = _command_entry_id(entry)
+        is_favorite = entry_id in set(favorite_ids if isinstance(favorite_ids, list) else [])
+        with col_text:
+            st.markdown(
+                "<div class='command-result-card'>"
+                f"<b>{_html_escape(entry.get('title', ''))}</b> "
+                f"<code>{_html_escape(entry.get('category', ''))}</code>"
+                f"<small>{_html_escape(_command_palette_entry_category(entry))} · {_html_escape(entry.get('description', ''))}</small>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+        with col_favorite:
+            if st.button("★" if is_favorite else "☆", key=f"command_palette_fav_{index}_{entry_id}", help="Добавить или убрать команду из избранного"):
+                _toggle_command_palette_favorite(entry)
+                st.rerun()
+        with col_button:
+            target_tab = entry.get("target_tab", APP_TABS[0])
+            if st.button("Открыть", key=f"command_palette_open_{index}_{target_tab}_{entry.get('title', '')}", use_container_width=True):
+                _remember_command_palette_entry(entry)
+                _set_active_main_tab(target_tab)
+                st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
 def _set_active_main_tab(tab_name: str) -> None:
     """Switch the single-page Streamlit workspace to a concrete application section."""
