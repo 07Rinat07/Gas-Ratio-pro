@@ -145,6 +145,8 @@ save_project_export = project_exports.save_project_export
 list_project_las_datasets = project_datasets.list_project_las_datasets
 list_project_csv_datasets = project_datasets.list_project_csv_datasets
 save_project_csv_dataset = project_datasets.save_project_csv_dataset
+list_project_excel_datasets = project_datasets.list_project_excel_datasets
+save_project_excel_dataset = project_datasets.save_project_excel_dataset
 build_project_dataset_table = project_datasets.build_project_dataset_table
 DEFAULT_INTERPRETATION_TRACKS = project_graph_settings.DEFAULT_INTERPRETATION_TRACKS
 InterpretationGraphSettings = project_graph_settings.InterpretationGraphSettings
@@ -1763,6 +1765,38 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
                         )
                         st.success(f"CSV datasets сохранены в проект: {saved_count}.")
                         st.rerun()
+            excel_uploads = tuple(
+                uploaded_file
+                for uploaded_file in uploaded_files
+                if Path(str(getattr(uploaded_file, "name", ""))).suffix.lower() in {".xlsx", ".xlsm"}
+            )
+            if excel_uploads:
+                st.caption("Excel-файлы можно сохранить в Dataset Manager активного проекта без повторной загрузки.")
+                if st.button("Сохранить загруженные Excel в проект", key=f"save_uploaded_excel_datasets_{active_project.id}"):
+                    try:
+                        saved_count = 0
+                        for uploaded_file in excel_uploads:
+                            original_name = Path(str(getattr(uploaded_file, "name", "source.xlsx"))).name
+                            save_project_excel_dataset(
+                                data=bytes(uploaded_file.getvalue()),
+                                root=LAS_CORRELATION_PROJECTS_ROOT,
+                                project_id=active_project.id,
+                                file_name=original_name,
+                                name=Path(original_name).stem,
+                                metadata={"source": "workspace_upload"},
+                            )
+                            saved_count += 1
+                    except Exception:
+                        logger.exception("project_excel_datasets_save_failed project_id=%s", safe_log_value(active_project.id))
+                        st.error("Не удалось сохранить Excel datasets в проект. Подробности записаны в logs/app.log.")
+                    else:
+                        logger.info(
+                            "project_excel_datasets_saved project_id=%s count=%d",
+                            safe_log_value(active_project.id),
+                            saved_count,
+                        )
+                        st.success(f"Excel datasets сохранены в проект: {saved_count}.")
+                        st.rerun()
         except Exception:
             logger.exception("file_read_failed extensions=%s", safe_log_value(",".join(suffixes)))
             st.error("Не удалось прочитать файл. Проверьте формат и доступность данных.")
@@ -3342,6 +3376,21 @@ def _render_project_dataset_manager(project: ProjectRecord, logger) -> None:
                 select_key=f"project_dataset_csv_select_{project.id}",
                 empty_caption="В активном проекте пока нет CSV datasets.",
                 ready_message="CSV dataset готов к проверке mapping и расчетам.",
+            )
+
+    with st.expander("Dataset Manager · Excel", expanded=False):
+        try:
+            excel_datasets = list_project_excel_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+        except Exception:
+            logger.exception("project_dataset_manager_excel_failed project_id=%s", safe_log_value(project.id))
+            st.warning("Не удалось построить список Excel datasets.")
+        else:
+            _render_dataset_manager_table(
+                title="Excel datasets",
+                datasets=excel_datasets,
+                select_key=f"project_dataset_excel_select_{project.id}",
+                empty_caption="В активном проекте пока нет Excel datasets.",
+                ready_message="Excel dataset готов к проверке активного листа, mapping и расчетам.",
             )
 
 

@@ -11,6 +11,7 @@ from typing import Any
 import pandas as pd
 
 from importers.csv_importer import read_csv
+from importers.excel_importer import load_excel_sheets, read_excel_sheet
 from projects.las_files import ProjectLasFile, list_project_las_files, read_project_las_file_dataframe
 from projects.repository import DEFAULT_PROJECT_ID, DEFAULT_PROJECTS_ROOT, safe_project_id
 
@@ -20,6 +21,10 @@ PROJECT_CSV_DATASETS_DIR_NAME = "csv"
 PROJECT_CSV_DATASETS_MANIFEST_FILE_NAME = "csv_datasets.json"
 PROJECT_CSV_SOURCE_FILE_NAME = "source.csv"
 PROJECT_CSV_DATASETS_SCHEMA_VERSION = 1
+PROJECT_EXCEL_DATASETS_DIR_NAME = "excel"
+PROJECT_EXCEL_DATASETS_MANIFEST_FILE_NAME = "excel_datasets.json"
+PROJECT_EXCEL_SOURCE_FILE_NAME = "source.xlsx"
+PROJECT_EXCEL_DATASETS_SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True)
@@ -31,6 +36,26 @@ class ProjectCsvDataset:
     original_file_name: str
     saved_at: str
     size_bytes: int
+    row_count: int = 0
+    column_count: int = 0
+    well_id: str = ""
+    archived_at: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+
+
+@dataclass(frozen=True)
+class ProjectExcelDataset:
+    """Saved Excel dataset metadata for an active project."""
+
+    id: str
+    name: str
+    original_file_name: str
+    saved_at: str
+    size_bytes: int
+    sheet_count: int = 0
+    active_sheet: str = ""
     row_count: int = 0
     column_count: int = 0
     well_id: str = ""
@@ -114,6 +139,31 @@ def _csv_dataset_dir(root: Path | str, project_id: str, dataset_id: str) -> Path
     return _csv_datasets_dir(root, project_id) / _safe_csv_dataset_id(dataset_id)
 
 
+def _safe_excel_dataset_id(value: str) -> str:
+    if not re.fullmatch(r"[0-9A-Za-zА-Яа-я_-]+", value):
+        raise ValueError("Некорректный идентификатор Excel dataset проекта.")
+    return value
+
+
+def _excel_datasets_dir(root: Path | str, project_id: str) -> Path:
+    return Path(root) / safe_project_id(project_id) / PROJECT_DATASETS_DIR_NAME / PROJECT_EXCEL_DATASETS_DIR_NAME
+
+
+def _excel_manifest_path(root: Path | str, project_id: str) -> Path:
+    return _excel_datasets_dir(root, project_id) / PROJECT_EXCEL_DATASETS_MANIFEST_FILE_NAME
+
+
+def _excel_dataset_dir(root: Path | str, project_id: str, dataset_id: str) -> Path:
+    return _excel_datasets_dir(root, project_id) / _safe_excel_dataset_id(dataset_id)
+
+
+def _excel_source_file_name(original_file_name: str) -> str:
+    suffix = Path(original_file_name).suffix.lower()
+    if suffix in {".xlsx", ".xlsm", ".xls"}:
+        return f"source{suffix}"
+    return PROJECT_EXCEL_SOURCE_FILE_NAME
+
+
 def _find_depth_curve(columns: tuple[str, ...]) -> str:
     by_upper = {column.upper(): column for column in columns}
     for candidate in DEPTH_CURVE_CANDIDATES:
@@ -156,6 +206,40 @@ def _csv_record_to_dict(record: ProjectCsvDataset) -> dict[str, Any]:
     }
 
 
+def _excel_record_from_dict(raw: dict[str, Any]) -> ProjectExcelDataset:
+    return ProjectExcelDataset(
+        id=str(raw.get("id", "")),
+        name=str(raw.get("name", "")) or "Excel dataset",
+        original_file_name=str(raw.get("original_file_name", "")) or "source.xlsx",
+        saved_at=str(raw.get("saved_at", "")),
+        size_bytes=int(raw.get("size_bytes", 0) or 0),
+        sheet_count=int(raw.get("sheet_count", 0) or 0),
+        active_sheet=str(raw.get("active_sheet", "")),
+        row_count=int(raw.get("row_count", 0) or 0),
+        column_count=int(raw.get("column_count", 0) or 0),
+        well_id=str(raw.get("well_id", "")),
+        archived_at=str(raw.get("archived_at", "")),
+        metadata=dict(raw.get("metadata", {}) or {}),
+    )
+
+
+def _excel_record_to_dict(record: ProjectExcelDataset) -> dict[str, Any]:
+    return {
+        "id": record.id,
+        "name": record.name,
+        "original_file_name": record.original_file_name,
+        "saved_at": record.saved_at,
+        "size_bytes": record.size_bytes,
+        "sheet_count": record.sheet_count,
+        "active_sheet": record.active_sheet,
+        "row_count": record.row_count,
+        "column_count": record.column_count,
+        "well_id": record.well_id,
+        "archived_at": record.archived_at,
+        "metadata": dict(record.metadata),
+    }
+
+
 def _read_csv_manifest(root: Path | str, project_id: str) -> tuple[ProjectCsvDataset, ...]:
     path = _csv_manifest_path(root, project_id)
     if not path.exists():
@@ -173,6 +257,28 @@ def _write_csv_manifest(root: Path | str, project_id: str, records: tuple[Projec
         "project_id": safe_project_id(project_id),
         "updated_at": _utc_now(),
         "csv_datasets": [_csv_record_to_dict(record) for record in records],
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return path
+
+
+def _read_excel_manifest(root: Path | str, project_id: str) -> tuple[ProjectExcelDataset, ...]:
+    path = _excel_manifest_path(root, project_id)
+    if not path.exists():
+        return ()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    records = payload.get("excel_datasets", ()) if isinstance(payload, dict) else ()
+    return tuple(_excel_record_from_dict(record) for record in records)
+
+
+def _write_excel_manifest(root: Path | str, project_id: str, records: tuple[ProjectExcelDataset, ...]) -> Path:
+    path = _excel_manifest_path(root, project_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": PROJECT_EXCEL_DATASETS_SCHEMA_VERSION,
+        "project_id": safe_project_id(project_id),
+        "updated_at": _utc_now(),
+        "excel_datasets": [_excel_record_to_dict(record) for record in records],
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
@@ -300,6 +406,50 @@ def build_project_csv_dataset_record(
     )
 
 
+def build_project_excel_dataset_record(
+    record: ProjectExcelDataset,
+    dataframe: pd.DataFrame | None = None,
+    *,
+    error: str = "",
+) -> ProjectDatasetRecord:
+    """Build a Dataset Manager card for one saved project Excel dataset."""
+
+    metadata = dict(record.metadata)
+    if record.sheet_count:
+        metadata.setdefault("sheet_count", record.sheet_count)
+    if record.active_sheet:
+        metadata.setdefault("active_sheet", record.active_sheet)
+
+    dataset = _build_dataset_record_from_dataframe(
+        dataset_id=f"excel:{record.id}",
+        kind="Excel",
+        name=record.name,
+        source_id=record.id,
+        well_id=record.well_id,
+        version_label=record.active_sheet or "Excel",
+        original_file_name=record.original_file_name,
+        saved_at=record.saved_at,
+        archived_at=record.archived_at,
+        dataframe=dataframe,
+        metadata=metadata,
+        missing_depth_warning="Не найдена глубинная колонка DEPT/DEPTH/MD на активном листе Excel.",
+        empty_rows_warning="Excel dataset не содержит строк данных на активном листе.",
+        empty_columns_warning="Excel dataset не содержит колонок на активном листе.",
+        error=error,
+    )
+    warnings = list(dataset.warnings)
+    if not error and record.sheet_count == 0:
+        warnings.append("Excel dataset не содержит листов для проверки.")
+    if not error and not record.active_sheet:
+        warnings.append("Для Excel dataset не задан активный лист.")
+    if len(warnings) != len(dataset.warnings):
+        status = "warning" if dataset.status == "ready" else dataset.status
+        return ProjectDatasetRecord(
+            **{**dataset.__dict__, "status": status, "warnings": tuple(warnings)}
+        )
+    return dataset
+
+
 def save_project_csv_dataset(
     data: bytes,
     root: Path | str = DEFAULT_PROJECTS_ROOT,
@@ -386,6 +536,142 @@ def read_project_csv_dataset_dataframe(
     if dataset_id not in records:
         raise FileNotFoundError(f"Project CSV dataset not found: {dataset_id}")
     return read_csv(_csv_dataset_dir(root, project_id, dataset_id) / PROJECT_CSV_SOURCE_FILE_NAME)
+
+
+def save_project_excel_dataset(
+    data: bytes,
+    root: Path | str = DEFAULT_PROJECTS_ROOT,
+    project_id: str = DEFAULT_PROJECT_ID,
+    file_name: str = "source.xlsx",
+    name: str = "",
+    well_id: str = "",
+    active_sheet: str = "",
+    metadata: dict[str, Any] | None = None,
+) -> ProjectExcelDataset:
+    """Save uploaded Excel bytes as a project dataset metadata record.
+
+    The workbook is stored once under ``datasets/excel/<dataset_id>/``. The
+    manifest keeps only workbook metadata, sheet names and active-sheet summary
+    so Dataset Manager can index Excel files without duplicating uploaded data.
+    """
+
+    if not data:
+        raise ValueError("Нет данных Excel для сохранения в проект.")
+
+    safe_original_name = _safe_file_name(file_name)
+    clean_name = name.strip() or Path(safe_original_name).stem or "Excel dataset"
+    now = _utc_now()
+    base_id = f"{now[:10].replace('-', '')}-excel-{_slugify(clean_name)}"
+    dataset_id = base_id
+    counter = 2
+    while _excel_dataset_dir(root, project_id, dataset_id).exists():
+        dataset_id = f"{base_id}-{counter}"
+        counter += 1
+
+    excel_dir = _excel_dataset_dir(root, project_id, dataset_id)
+    excel_dir.mkdir(parents=True, exist_ok=True)
+    source_file_name = _excel_source_file_name(safe_original_name)
+    (excel_dir / source_file_name).write_bytes(data)
+
+    row_count = 0
+    column_count = 0
+    sheet_count = 0
+    sheet_names: tuple[str, ...] = ()
+    selected_sheet = active_sheet.strip()
+    try:
+        raw_sheets = load_excel_sheets(BytesIO(data))
+    except Exception:
+        raw_sheets = {}
+    if raw_sheets:
+        sheet_names = tuple(str(sheet_name) for sheet_name in raw_sheets)
+        sheet_count = len(sheet_names)
+        if not selected_sheet or selected_sheet not in raw_sheets:
+            selected_sheet = sheet_names[0]
+        try:
+            dataframe = read_excel_sheet(BytesIO(data), selected_sheet)
+        except Exception:
+            dataframe = raw_sheets[selected_sheet]
+        row_count = int(len(dataframe))
+        column_count = int(len(dataframe.columns))
+
+    clean_metadata = dict(metadata or {})
+    clean_metadata["source_file_name"] = source_file_name
+    clean_metadata["sheet_names"] = list(sheet_names)
+
+    record = ProjectExcelDataset(
+        id=dataset_id,
+        name=clean_name,
+        original_file_name=safe_original_name,
+        saved_at=now,
+        size_bytes=len(data),
+        sheet_count=sheet_count,
+        active_sheet=selected_sheet,
+        row_count=row_count,
+        column_count=column_count,
+        well_id=well_id.strip(),
+        metadata=clean_metadata,
+    )
+    records = (record, *tuple(item for item in _read_excel_manifest(root, project_id) if item.id != record.id))
+    _write_excel_manifest(root, project_id, records)
+    return record
+
+
+def list_project_excel_records(
+    root: Path | str = DEFAULT_PROJECTS_ROOT,
+    project_id: str = DEFAULT_PROJECT_ID,
+    include_archived: bool = False,
+) -> tuple[ProjectExcelDataset, ...]:
+    """Return saved Excel dataset metadata records for a project."""
+
+    try:
+        records = _read_excel_manifest(root, project_id)
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return ()
+    if not include_archived:
+        records = tuple(record for record in records if not record.archived_at)
+    return tuple(sorted(records, key=lambda record: record.saved_at, reverse=True))
+
+
+def read_project_excel_dataset_dataframe(
+    root: Path | str,
+    project_id: str,
+    dataset_id: str,
+    sheet_name: str | None = None,
+) -> pd.DataFrame:
+    """Read a saved project Excel dataset active sheet as a prepared dataframe."""
+
+    records = {record.id: record for record in list_project_excel_records(root, project_id, include_archived=True)}
+    if dataset_id not in records:
+        raise FileNotFoundError(f"Project Excel dataset not found: {dataset_id}")
+    record = records[dataset_id]
+    selected_sheet = sheet_name or record.active_sheet
+    if not selected_sheet:
+        raise ValueError("Для Excel dataset не задан активный лист.")
+    source_file_name = str(record.metadata.get("source_file_name") or _excel_source_file_name(record.original_file_name))
+    return read_excel_sheet(_excel_dataset_dir(root, project_id, dataset_id) / source_file_name, selected_sheet)
+
+
+def list_project_excel_datasets(
+    root: Path | str = DEFAULT_PROJECTS_ROOT,
+    project_id: str = DEFAULT_PROJECT_ID,
+    include_archived: bool = False,
+) -> tuple[ProjectDatasetRecord, ...]:
+    """Return Excel dataset cards for the active project."""
+
+    datasets: list[ProjectDatasetRecord] = []
+    for record in list_project_excel_records(root, project_id, include_archived=include_archived):
+        try:
+            dataframe = read_project_excel_dataset_dataframe(root, project_id, record.id)
+        except Exception as exc:  # pragma: no cover - exact parser errors vary by workbook
+            datasets.append(
+                build_project_excel_dataset_record(
+                    record,
+                    error=f"Не удалось прочитать Excel: {exc}",
+                )
+            )
+        else:
+            datasets.append(build_project_excel_dataset_record(record, dataframe))
+    return tuple(datasets)
 
 
 def list_project_las_datasets(
