@@ -85,7 +85,7 @@ def test_sidebar_is_compact_for_dashboard_workspace() -> None:
     source = Path(app.__file__).read_text(encoding="utf-8")
 
     assert 'section[data-testid="stSidebar"]' in source
-    assert "13.2rem" in source
+    assert "clamp(10.5rem, 12vw, 14rem)" in source
     assert "sidebar_project_search" in source
 
 
@@ -138,6 +138,24 @@ def test_project_search_results_empty_query_returns_empty() -> None:
 def test_dashboard_transparency_is_less_aggressive() -> None:
     source = Path(app.__file__).read_text(encoding="utf-8")
 
-    assert "rgba(3, 7, 18, 0.38)" in source
-    assert "rgba(4, 10, 24, 0.38)" in source
+    assert "rgba(3, 7, 18, 0.18)" in source
+    assert "rgba(4, 10, 24, 0.25)" in source
     assert "dashboard_project_search" in source
+
+
+def test_documentation_page_uses_full_html_background_shell() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "docs-shell" in source
+    assert "docs-grid" in source
+    assert "background-attachment: fixed" in source
+    assert "Эта вкладка использует тот же фирменный фон" in source
+
+
+def test_responsive_sidebar_and_workspace_guards_exist() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "responsive-workspace-panel" in source
+    assert "overflow-wrap: anywhere" in source
+    assert "@media (max-width: 1024px)" in source
+    assert "@media (max-width: 640px)" in source

@@ -342,7 +342,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             color: var(--app-text);
             font-size: {tokens["base"]};
             background-image:
-                linear-gradient(90deg, rgba(3, 7, 18, 0.60), rgba(3, 7, 18, 0.34), rgba(3, 7, 18, 0.18)),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.44), rgba(3, 7, 18, 0.22), rgba(3, 7, 18, 0.08)),
                 var(--global-bg-image);
             background-size: cover;
             background-position: center right;
@@ -421,20 +421,20 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             font-size: 0.98rem !important;
         }
         section[data-testid="stSidebar"] {
-            width: 13.2rem !important;
-            min-width: 13.2rem !important;
-            max-width: 13.2rem !important;
+            width: clamp(10.5rem, 12vw, 14rem) !important;
+            min-width: clamp(10.5rem, 12vw, 14rem) !important;
+            max-width: clamp(10.5rem, 12vw, 14rem) !important;
             background: linear-gradient(180deg, rgba(7, 12, 24, 0.92), rgba(10, 16, 30, 0.86)) !important;
             border-right: 1px solid rgba(148, 163, 184, 0.18);
         }
         section[data-testid="stSidebar"] * {
-            font-size: 0.82rem !important;
-            line-height: 1.35 !important;
+            font-size: clamp(0.72rem, 0.72vw, 0.86rem) !important;
+            line-height: 1.28 !important;
         }
         section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
         section[data-testid="stSidebar"] label,
         section[data-testid="stSidebar"] span {
-            font-size: 0.82rem !important;
+            font-size: clamp(0.72rem, 0.72vw, 0.86rem) !important;
         }
         div[data-testid="stTabs"] div[role="tablist"] {
             gap: 0.55rem;
@@ -514,8 +514,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             position: absolute;
             inset: 0;
             background:
-                radial-gradient(circle at 78% 42%, rgba(255, 138, 0, 0.08), transparent 34%),
-                linear-gradient(90deg, rgba(3, 7, 18, 0.38) 0%, rgba(7, 12, 24, 0.22) 44%, rgba(7, 12, 24, 0.08) 74%, rgba(7, 12, 24, 0.02) 100%);
+                radial-gradient(circle at 78% 42%, rgba(255, 138, 0, 0.05), transparent 34%),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.18) 0%, rgba(7, 12, 24, 0.10) 44%, rgba(7, 12, 24, 0.08) 74%, rgba(7, 12, 24, 0.02) 100%);
         }
         .dashboard-content {
             position: relative;
@@ -535,7 +535,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             gap: 0.8rem;
             padding: 0.78rem 0.95rem;
             margin-bottom: 0.85rem;
-            background: rgba(2, 6, 23, 0.74);
+            background: rgba(2, 6, 23, 0.86);
             border: 1px solid rgba(148, 163, 184, 0.18);
             border-radius: 16px;
             backdrop-filter: blur(18px);
@@ -598,11 +598,11 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             align-items: stretch;
         }
         .dashboard-card {
-            background: linear-gradient(180deg, rgba(4, 10, 24, 0.38), rgba(5, 10, 22, 0.24));
+            background: linear-gradient(180deg, rgba(4, 10, 24, 0.25), rgba(5, 10, 22, 0.13));
             border: 1px solid rgba(148, 163, 184, 0.20);
             border-radius: 16px;
             padding: 0.92rem;
-            backdrop-filter: blur(5px);
+            backdrop-filter: blur(3px);
             box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.04);
             transition: border-color 140ms ease, transform 140ms ease;
         }
@@ -632,14 +632,14 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             padding: 0.55rem 0;
             border-bottom: 1px solid rgba(148, 163, 184, 0.16);
         }
-        .dashboard-muted { color: #aeb8c8 !important; font-size: 0.82rem !important; }
+        .dashboard-muted { color: #aeb8c8 !important; font-size: clamp(0.72rem, 0.72vw, 0.86rem) !important; }
         .dashboard-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; }
         .dashboard-metric {
             min-height: 4rem;
             padding: 0.75rem;
             border: 1px solid rgba(148, 163, 184, 0.20);
             border-radius: 13px;
-            background: rgba(15, 23, 42, 0.42);
+            background: rgba(15, 23, 42, 0.28);
         }
         .dashboard-metric b { display: block; font-size: 1.55rem; }
         .dashboard-metric span { color: #d1d5db; font-weight: 800; }
@@ -649,7 +649,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             padding: 0.9rem;
             border: 1px solid rgba(148, 163, 184, 0.24);
             border-radius: 14px;
-            background: linear-gradient(180deg, rgba(15, 23, 42, 0.48), rgba(15, 23, 42, 0.30));
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.30), rgba(15, 23, 42, 0.16));
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
         }
         .dashboard-action-card strong { display: block; font-size: 1.02rem; margin-bottom: 0.25rem; }
@@ -660,7 +660,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             position: relative;
             border: 1px solid rgba(148, 163, 184, 0.18);
             border-radius: 8px;
-            background: rgba(2, 6, 23, 0.74);
+            background: rgba(2, 6, 23, 0.86);
             overflow: hidden;
         }
         .dashboard-depth-track::before, .dashboard-curve-track::before {
@@ -786,20 +786,20 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             padding: 0.85rem;
             margin: 0.3rem 0 0.9rem 0;
             background: linear-gradient(180deg, rgba(4, 10, 24, 0.34), rgba(5, 10, 22, 0.22));
-            backdrop-filter: blur(5px);
+            backdrop-filter: blur(3px);
         }
         .project-search-result {
             border: 1px solid rgba(148,163,184,0.22);
             border-radius: 12px;
             padding: 0.55rem 0.7rem;
             margin: 0.35rem 0;
-            background: rgba(15, 23, 42, 0.42);
+            background: rgba(15, 23, 42, 0.28);
         }
         .sidebar-search-hit {
             border-left: 3px solid rgba(255, 138, 0, 0.75);
             padding: 0.35rem 0.45rem;
             margin: 0.25rem 0;
-            background: rgba(15, 23, 42, 0.42);
+            background: rgba(15, 23, 42, 0.28);
             border-radius: 8px;
         }
         .docs-hero {
@@ -809,7 +809,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             border-radius: 18px;
             border: 1px solid rgba(148, 163, 184, 0.20);
             background:
-                linear-gradient(90deg, rgba(3, 7, 18, 0.48), rgba(3, 7, 18, 0.28), rgba(3, 7, 18, 0.12)),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.20), rgba(3, 7, 18, 0.10), rgba(3, 7, 18, 0.04)),
                 var(--global-bg-image);
             background-size: cover;
             background-position: center right;
@@ -818,7 +818,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .docs-panel {
             border: 1px solid rgba(148, 163, 184, 0.22);
             border-radius: 16px;
-            background: rgba(5, 10, 22, 0.46);
+            background: rgba(5, 10, 22, 0.38);
             backdrop-filter: blur(12px);
             padding: 1rem;
             margin-bottom: 0.8rem;
@@ -832,6 +832,103 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             .app-nav-wrap { grid-template-columns: 1fr; }
             .docs-hero { padding: 0.75rem; }
         }
+
+        .responsive-workspace-panel {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            border-radius: 16px;
+        }
+        .modern-sidebar-card,
+        .modern-sidebar-card * {
+            box-sizing: border-box;
+            max-width: 100%;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        .modern-sidebar-metrics {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .modern-sidebar-metric {
+            min-width: 0;
+        }
+        .sidebar-search-hit {
+            max-width: 100%;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        .docs-shell {
+            min-height: calc(100vh - 8rem);
+            margin-top: 0.55rem;
+            padding: clamp(0.9rem, 1.8vw, 1.6rem);
+            border-radius: 20px;
+            border: 1px solid rgba(148, 163, 184, 0.20);
+            background-image:
+                radial-gradient(circle at 74% 34%, rgba(255, 138, 0, 0.09), transparent 30%),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.22), rgba(3, 7, 18, 0.10), rgba(3, 7, 18, 0.03)),
+                var(--global-bg-image);
+            background-size: cover;
+            background-position: center right;
+            background-attachment: fixed;
+            box-shadow: 0 30px 90px rgba(0,0,0,0.32);
+        }
+        .docs-grid {
+            display: grid;
+            grid-template-columns: minmax(18rem, 1fr) minmax(18rem, 1fr);
+            gap: clamp(0.75rem, 1.2vw, 1.1rem);
+            align-items: start;
+        }
+        .docs-card {
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-radius: 18px;
+            background: rgba(5, 10, 22, 0.42);
+            backdrop-filter: blur(9px);
+            padding: clamp(0.85rem, 1.4vw, 1.25rem);
+            box-shadow: 0 18px 54px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .docs-card h2,
+        .docs-card h3 {
+            color: var(--app-accent);
+            margin-top: 0;
+        }
+        .docs-card pre {
+            white-space: pre-wrap;
+            overflow-x: auto;
+            border-radius: 12px;
+            padding: 0.75rem;
+            background: rgba(2, 6, 23, 0.72);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+        }
+        @media (max-width: 1024px) {
+            .dashboard-layout {
+                grid-template-columns: 1fr;
+                grid-template-areas:
+                    "welcome"
+                    "quick"
+                    "projects"
+                    "stats"
+                    "preview"
+                    "activity"
+                    "news"
+                    "tips"
+                    "license";
+            }
+            .dashboard-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .docs-grid { grid-template-columns: 1fr; }
+            section[data-testid="stSidebar"] {
+                width: 10.8rem !important;
+                min-width: 10.8rem !important;
+                max-width: 10.8rem !important;
+            }
+        }
+        @media (max-width: 640px) {
+            .dashboard-actions { grid-template-columns: 1fr; }
+            .dashboard-card { padding: 0.72rem; }
+            .docs-shell { padding: 0.65rem; border-radius: 14px; background-attachment: scroll; }
+            .docs-card { padding: 0.7rem; }
+            .modern-sidebar-metrics { grid-template-columns: 1fr; }
+        }
+
         </style>
         """
         .replace('{tokens["base"]}', tokens["base"])
@@ -2123,65 +2220,58 @@ def _read_documentation_markdown(relative_path: str) -> str:
 
 
 def _render_documentation_tab() -> None:
-    st.markdown('<div class="docs-hero">', unsafe_allow_html=True)
-    st.markdown('<div class="docs-panel">', unsafe_allow_html=True)
-    st.subheader("Инструкции и документация")
-    st.caption(
-        "Эта вкладка нужна, чтобы новый пользователь мог развернуть проект, "
-        "загрузить файл, понять предупреждения и работать без внешних инструкций."
+    """Render documentation over the same branded background as the dashboard."""
+    quick_code = _html_escape(
+        "cd C:\\OSPanel\\home\\gas-ratio-pro\n"
+        f"{APP_LAUNCH_SCRIPT}\n"
+        "# или без скрипта:\n"
+        f"{APP_LAUNCH_COMMAND}"
     )
-
-    quick_start, verification = st.columns(2)
-    with quick_start:
-        st.markdown("### Быстрый запуск")
-        st.code(
-            "cd C:\\OSPanel\\home\\gas-ratio-pro\n"
-            f"{APP_LAUNCH_SCRIPT}\n"
-            f"# или без скрипта:\n"
-            f"{APP_LAUNCH_COMMAND}",
-            language="powershell",
-        )
-        st.markdown(
-            "1. Запустите проект командой `./run_app.ps1` или `python -m streamlit run app/streamlit_app.py`.\n"
-            "2. Откройте в браузере `http://localhost:8501`.\n"
-            "3. Загрузите LAS (рекомендуется), CSV, XLSX или XLSM.\n"
-            "4. Проверьте строку заголовков и mapping.\n"
-            "5. Выберите интервал и смотрите расчеты, палетки и графики."
-        )
-
-    with verification:
-        st.markdown("### Проверка готовности")
-        st.code(
-            "python -m pytest\n"
-            "python scripts/preflight.py",
-            language="powershell",
-        )
-        st.markdown(
-            "Preflight проверяет Python, зависимости, ключевые файлы, конфиг палеток "
-            "и доступность папки логов."
-        )
-
-    st.markdown("### Основной рабочий сценарий")
+    verification_code = _html_escape("python -m pytest\npython scripts/preflight.py")
     st.markdown(
-        "1. Загрузите LAS, CSV или Excel-файл и выберите набор данных.\n"
-        "2. Проверьте первые строки и строку заголовков.\n"
-        "3. Исправьте сопоставление колонок, если авто-mapping ошибся.\n"
-        "4. Проверьте предупреждения и режим `Ch`.\n"
-        "5. Выберите интервал, проверьте Pixler/ternary и depth-графики.\n"
-        "6. Скачайте расчетную таблицу через `Экспорт CSV`, если результат нужен дальше."
+        f"""
+        <section class="docs-shell">
+          <div class="docs-grid">
+            <article class="docs-card">
+              <h2>Инструкции и документация</h2>
+              <p>Эта вкладка использует тот же фирменный фон, что и стартовая страница. Текст вынесен на стеклянные панели, поэтому фотография видна, но руководство остается читаемым.</p>
+              <h3>Быстрый запуск</h3>
+              <pre>{quick_code}</pre>
+              <ol>
+                <li>Запустите проект командой <code>./run_app.ps1</code> или <code>python -m streamlit run app/streamlit_app.py</code>.</li>
+                <li>Откройте в браузере <code>http://localhost:8501</code>.</li>
+                <li>Загрузите LAS, CSV, XLSX или XLSM.</li>
+                <li>Проверьте строку заголовков, mapping, предупреждения и режим <code>Ch</code>.</li>
+                <li>Выберите интервал и смотрите расчеты, палетки, графики и отчеты.</li>
+              </ol>
+            </article>
+            <article class="docs-card">
+              <h3>Проверка готовности</h3>
+              <pre>{verification_code}</pre>
+              <p>Preflight проверяет Python, зависимости, ключевые файлы, конфиг палеток и доступность папки логов.</p>
+              <h3>Основной рабочий сценарий</h3>
+              <ol>
+                <li>Загрузите LAS, CSV или Excel-файл и выберите набор данных.</li>
+                <li>Проверьте первые строки и строку заголовков.</li>
+                <li>Исправьте сопоставление колонок, если авто-mapping ошибся.</li>
+                <li>Проверьте предупреждения и диагностические сообщения.</li>
+                <li>Выберите интервал, проверьте Pixler/ternary и depth-графики.</li>
+                <li>Сохраните расчет или экспортируйте CSV/HTML/PDF-материалы.</li>
+              </ol>
+            </article>
+          </div>
+          <div class="docs-card" style="margin-top: 1rem;">
+            <h3>Подсказки и диагностика</h3>
+            <p>Проект опирается на проверяемые правила, документацию, предупреждения и логи. Если нужен новый тип подсказки, добавляем явное правило, тест и описание в документацию.</p>
+          </div>
+        </section>
+        """,
+        unsafe_allow_html=True,
     )
-
-    st.markdown("### Подсказки и диагностика")
-    st.markdown(
-        "Проект опирается на проверяемые правила, документацию, предупреждения и логи. "
-        "Если нужен новый тип подсказки, добавляем явное правило, тест и описание в документацию."
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("### Документы проекта")
     for index, (title, relative_path) in enumerate(DOCUMENTATION_TAB_DOCS):
         with st.expander(title, expanded=index == 0):
             st.markdown(_read_documentation_markdown(relative_path))
-    st.markdown('</div>', unsafe_allow_html=True)
-
 
 def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     st.subheader("LAS-редактор")

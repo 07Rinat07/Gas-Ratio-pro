@@ -43,8 +43,10 @@
 - [x] Remove unproductive dashboard rail-sidebar.
 - [x] Responsive central workspace.
 - [x] Mobile/tablet dashboard breakpoints.
+- [x] Cross-page responsive sidebar guards.
 - [x] Dynamic status bar.
 - [x] Responsive branded navigation and documentation background.
+- [x] Start and documentation background visibility tuning.
 - [ ] Global command palette.
 - [ ] Keyboard shortcuts.
 
@@ -85,6 +87,7 @@
 - [x] Dashboard background support.
 - [x] Global branded background layer for all tabs.
 - [x] Adaptive transparency for dashboard panels.
+- [x] Documentation full-screen branded background.
 - [x] Dark readable work panels above branded background for plots, LAS editor, crossplots, tables and reports.
 
 ## UI.6 Branding and Commercial Readiness
@@ -472,3 +475,14 @@ Dashboard получил современный navbar с брендом, нав
 ### Реализовано: UI Modernization Track → Dashboard visibility and project search refresh
 
 Фоновое изображение Dashboard сделано заметнее: основной overlay и glass-карточки стали прозрачнее, чтобы буровая и море читались как полноценный фирменный фон, но текст оставался контрастным. Вкладка «Инструкции и документация» использует тот же полноэкранный бренд-фон с отдельными читаемыми panel-блоками. Быстрый доступ на стартовой странице вынесен в реальные Streamlit-кнопки, которые переключают рабочие разделы приложения. Добавлен рабочий поиск по проекту на стартовой странице и в боковом проектном виджете: поиск фильтрует элементы структуры проекта по имени, статусу и типу объекта. Боковой виджет стал компактнее: настройки интерфейса свернуты, основная карточка показывает активный проект и ключевые счетчики.
+
+
+### Реализовано: UI Modernization Track → Background visibility and responsive sidebar pass
+
+По результатам проверки на широком экране уменьшена плотность затемняющего слоя на вкладке `Старт`: общий app background, dashboard overlay, glass-карточки, быстрые действия и metric-блоки стали прозрачнее, чтобы изображение морской буровой было хорошо видно сквозь первый слой, но контраст текста сохранился.
+
+Вкладка `Инструкции и документация` переведена на отдельный полноэкранный `docs-shell` с тем же фоновым изображением `assets/dashboard/rig_of_sea.png`. Черный пустой контейнер убран: быстрый запуск, проверка готовности и рабочий сценарий теперь размещены на читаемых glass-карточках поверх фирменного фона.
+
+Добавлены защитные responsive-правила для боковой панели и рабочих областей: sidebar получает ограничение через `clamp(...)`, длинные имена проектов/объектов переносятся через `overflow-wrap`, а сетка Dashboard/документации перестраивается для широкого экрана, ноутбука, планшета и мобильной ширины.
+
+Текущий следующий незавершенный пункт: **UI Modernization Track → Application Shell → Global command palette**.
