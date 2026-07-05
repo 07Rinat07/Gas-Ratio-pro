@@ -3020,6 +3020,7 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
             default_metadata = dict(current_card.metadata or {}) if current_card else {}
             default_coords = project_well_cards.coordinates_from_metadata(default_metadata)
             default_depth_reference = project_well_cards.depth_reference_from_metadata(default_metadata)
+            default_drilling_dates = project_well_cards.drilling_dates_from_metadata(default_metadata)
             status_options = tuple(PROJECT_WELL_CARD_STATUSES)
             try:
                 status_index = status_options.index(default_status)
@@ -3091,6 +3092,16 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
             if default_depth_reference.has_td:
                 st.caption("TD: " + "; ".join(default_depth_reference.td_labels))
             st.caption("KB, GL и TD хранятся как metadata скважины в метрах и не меняют LAS-версии.")
+            st.caption("Дата бурения")
+            well_card_spud_date = st.text_input(
+                "Дата начала бурения, YYYY-MM-DD",
+                value=default_drilling_dates.spud_date or "",
+                key=f"project_explorer_well_card_spud_date_{project.id}_{selected_well_id}",
+                placeholder="например: 2026-01-19",
+            )
+            if default_drilling_dates.spud_date_label:
+                st.caption(default_drilling_dates.spud_date_label)
+            st.caption("Дата хранится как metadata скважины и не меняет LAS-версии.")
             well_card_note = st.text_area(
                 "Комментарий",
                 value=default_note,
@@ -3116,6 +3127,10 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                         gl_m=well_card_gl,
                         planned_td_m=well_card_planned_td,
                         actual_td_m=well_card_actual_td,
+                    )
+                    well_card_metadata = project_well_cards.merge_project_well_drilling_dates_metadata(
+                        well_card_metadata,
+                        spud_date=well_card_spud_date,
                     )
                     save_project_well_card(
                         LAS_CORRELATION_PROJECTS_ROOT,

@@ -763,3 +763,85 @@ def test_project_tree_shows_well_card_td_in_status(tmp_path):
     assert "Факт TD=3188.500 м" in str(well_row["status"])
     assert well_node.metadata["planned_td_m"] == "3200.0"
     assert well_node.metadata["actual_td_m"] == "3188.5"
+
+
+def test_project_well_card_spud_date_is_validated_and_listed(tmp_path):
+    project = create_project(tmp_path, name="Well Spud", project_id="well-spud")
+
+    from projects import (
+        build_project_well_card_table,
+        get_project_well_card,
+        merge_project_well_drilling_dates_metadata,
+        save_project_well_card,
+    )
+
+    metadata = merge_project_well_drilling_dates_metadata({"source": "manual"}, spud_date="2026-01-19")
+    save_project_well_card(
+        tmp_path,
+        project.id,
+        well_id="well-spud",
+        name="Well Spud",
+        status="review",
+        metadata=metadata,
+    )
+
+    stored = get_project_well_card(tmp_path, project.id, "well-spud")
+    rows = build_project_well_card_table(tmp_path, project.id)
+
+    assert stored is not None
+    assert stored.metadata["source"] == "manual"
+    assert stored.drilling_dates.spud_date == "2026-01-19"
+    assert stored.drilling_dates.spud_date_label == "Дата бурения=2026-01-19"
+    assert rows[0].spud_date == "2026-01-19"
+    assert rows[0].spud_date_label == "Дата бурения=2026-01-19"
+
+
+def test_project_well_card_rejects_invalid_spud_date(tmp_path):
+    create_project(tmp_path, name="Bad Spud", project_id="bad-spud")
+
+    from projects import merge_project_well_drilling_dates_metadata
+
+    try:
+        merge_project_well_drilling_dates_metadata(spud_date="19.01.2026")
+    except ValueError as exc:
+        assert "YYYY-MM-DD" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("Invalid spud date was accepted")
+
+    try:
+        merge_project_well_drilling_dates_metadata(spud_date="1800-01-01")
+    except ValueError as exc:
+        assert "1900..2100" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("Out-of-range spud year was accepted")
+
+
+def test_project_tree_shows_well_card_spud_date_in_status(tmp_path):
+    project = create_project(tmp_path, name="Tree Spud", project_id="tree-spud")
+    las_record = save_project_las_file(
+        b"~Version\nVERS. 2.0\n~Well\nNULL. -999.25\n~Curve\nDEPT.M : Depth\nC1. : C1\n~Ascii\n1000 80\n",
+        root=tmp_path,
+        project_id=project.id,
+        file_name="well_spud.las",
+        well_name="Well Spud",
+        version_label="Raw LAS",
+    )
+
+    from projects import merge_project_well_drilling_dates_metadata, save_project_well_card
+
+    save_project_well_card(
+        tmp_path,
+        project.id,
+        well_id=las_record.well_id,
+        name="Well Spud Official",
+        status="ready",
+        metadata=merge_project_well_drilling_dates_metadata(spud_date="2026-01-19"),
+    )
+
+    tree = build_project_tree(tmp_path, project.id)
+    rows = project_tree_table_rows(tree)
+    well_row = next(row for row in rows if row["id"] == f"well:{las_record.well_id}")
+    well_node = next(node for _level, node in flatten_project_tree(tree) if node.id == f"well:{las_record.well_id}")
+
+    assert "Дата бурения=2026-01-19" in str(well_row["status"])
+    assert well_node.metadata["spud_date"] == "2026-01-19"

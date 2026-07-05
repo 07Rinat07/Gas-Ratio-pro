@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +22,7 @@ PROJECT_WELL_KB_METADATA_KEY = "kb_m"
 PROJECT_WELL_GL_METADATA_KEY = "gl_m"
 PROJECT_WELL_PLANNED_TD_METADATA_KEY = "planned_td_m"
 PROJECT_WELL_ACTUAL_TD_METADATA_KEY = "actual_td_m"
+PROJECT_WELL_SPUD_DATE_METADATA_KEY = "spud_date"
 
 
 @dataclass(frozen=True)
@@ -138,6 +139,38 @@ class ProjectWellDepthReference:
         return f"KB-GL={value:.3f} м".replace(".000 м", " м")
 
 
+
+
+@dataclass(frozen=True)
+class ProjectWellDrillingDates:
+    """Validated optional drilling date metadata for a well card.
+
+    Dates are stored as ISO ``YYYY-MM-DD`` strings so JSON metadata remains
+    stable, readable and easy to compare in audits. Empty UI fields are stored
+    as ``None`` and do not make the card invalid.
+    """
+
+    spud_date: str | None = None
+
+    @property
+    def has_spud_date(self) -> bool:
+        return self.spud_date is not None
+
+    @property
+    def has_any(self) -> bool:
+        return self.has_spud_date
+
+    @property
+    def spud_date_label(self) -> str:
+        if not self.spud_date:
+            return ""
+        return f"Дата бурения={self.spud_date}"
+
+    @property
+    def labels(self) -> tuple[str, ...]:
+        return tuple(label for label in (self.spud_date_label,) if label)
+
+
 @dataclass(frozen=True)
 class ProjectWellCard:
     """Metadata-only well card stored inside a local project.
@@ -168,6 +201,10 @@ class ProjectWellCard:
     def depth_reference(self) -> ProjectWellDepthReference:
         return depth_reference_from_metadata(self.metadata or {})
 
+    @property
+    def drilling_dates(self) -> ProjectWellDrillingDates:
+        return drilling_dates_from_metadata(self.metadata or {})
+
 
 @dataclass(frozen=True)
 class ProjectWellCardTableRow:
@@ -193,7 +230,8 @@ class ProjectWellCardTableRow:
     td_status_label: str = ""
     kb_above_gl_m: float | None = None
     kb_above_gl_label: str = ""
-
+    spud_date: str | None = None
+    spud_date_label: str = ""
 
 
 def _optional_float(value: Any, field_label: str) -> float | None:
@@ -453,6 +491,55 @@ def build_project_well_td_status_label(reference: ProjectWellDepthReference, max
     return "TD указана"
 
 
+
+def _optional_iso_date(value: Any, field_label: str) -> str | None:
+    """Normalize optional ISO date metadata from UI strings or JSON values."""
+
+    if value is None:
+        return None
+    if isinstance(value, str):
+        clean = value.strip()
+        if not clean:
+            return None
+        value = clean
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value.isoformat()
+    if not isinstance(value, str):
+        raise ValueError(f"{field_label}: ожидается дата в формате YYYY-MM-DD.")
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"{field_label}: ожидается дата в формате YYYY-MM-DD.") from exc
+    if parsed.year < 1900 or parsed.year > 2100:
+        raise ValueError(f"{field_label}: год должен быть в диапазоне 1900..2100.")
+    return parsed.isoformat()
+
+
+def validate_project_well_drilling_dates(spud_date: Any = None) -> ProjectWellDrillingDates:
+    """Validate optional drilling dates stored in the well card metadata."""
+
+    return ProjectWellDrillingDates(spud_date=_optional_iso_date(spud_date, "Дата бурения"))
+
+
+def drilling_dates_to_metadata(dates: ProjectWellDrillingDates) -> dict[str, str | None]:
+    return {PROJECT_WELL_SPUD_DATE_METADATA_KEY: dates.spud_date}
+
+
+def drilling_dates_from_metadata(metadata: dict[str, Any]) -> ProjectWellDrillingDates:
+    return validate_project_well_drilling_dates(spud_date=metadata.get(PROJECT_WELL_SPUD_DATE_METADATA_KEY))
+
+
+def merge_project_well_drilling_dates_metadata(
+    metadata: dict[str, Any] | None = None,
+    *,
+    spud_date: Any = None,
+) -> dict[str, Any]:
+    """Return card metadata with validated drilling date keys updated."""
+
+    clean_metadata = dict(metadata or {})
+    clean_metadata.update(drilling_dates_to_metadata(validate_project_well_drilling_dates(spud_date=spud_date)))
+    return clean_metadata
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -639,6 +726,8 @@ def build_project_well_card_table(
             td_status_label=build_project_well_td_status_label(card.depth_reference),
             kb_above_gl_m=card.depth_reference.kb_above_gl_m,
             kb_above_gl_label=card.depth_reference.kb_above_gl_label,
+            spud_date=card.drilling_dates.spud_date,
+            spud_date_label=card.drilling_dates.spud_date_label,
         )
         for card in list_project_well_cards(root, project_id)
     )
