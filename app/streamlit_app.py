@@ -324,6 +324,37 @@ DOCUMENTATION_TAB_DOCS: tuple[tuple[str, str], ...] = (
 )
 
 
+DOCUMENTATION_QUICK_LINKS: tuple[dict[str, str], ...] = (
+    {"title": "Быстрый старт", "anchor": "docs-quick-start", "description": "Запуск приложения, входной файл и первый расчет.", "icon": "🚀"},
+    {"title": "Формат данных", "anchor": "docs-data-format", "description": "LAS/CSV/Excel, заголовки, mapping и обязательные поля.", "icon": "📄"},
+    {"title": "LAS workflow", "anchor": "docs-las-workflow", "description": "Редактор, корреляция, кривые и сохранение версий.", "icon": "🧰"},
+    {"title": "Диагностика", "anchor": "docs-troubleshooting", "description": "Preflight, pytest, логи и типовые ошибки запуска.", "icon": "🩺"},
+)
+
+DOCUMENTATION_TOC: tuple[dict[str, str], ...] = (
+    {"title": "Быстрый запуск", "anchor": "docs-quick-start"},
+    {"title": "Проверка готовности", "anchor": "docs-verification"},
+    {"title": "Рабочий сценарий", "anchor": "docs-workflow"},
+    {"title": "Формат данных", "anchor": "docs-data-format"},
+    {"title": "LAS workflow", "anchor": "docs-las-workflow"},
+    {"title": "Горячие клавиши", "anchor": "docs-shortcuts"},
+    {"title": "FAQ", "anchor": "docs-faq"},
+    {"title": "Troubleshooting", "anchor": "docs-troubleshooting"},
+)
+
+DOCUMENTATION_SHORTCUTS: tuple[dict[str, str], ...] = (
+    {"keys": "Ctrl+K", "action": "Открыть глобальную командную палитру и найти раздел, документ или объект проекта."},
+    {"keys": "Esc", "action": "Закрыть активное окно Streamlit или вернуться из поля поиска после ввода запроса."},
+    {"keys": "Enter", "action": "Подтвердить выбранное поле ввода, поиск, mapping или команду в активном блоке."},
+)
+
+DOCUMENTATION_FAQ: tuple[dict[str, str], ...] = (
+    {"question": "Почему фон виден на документации, но не должен мешать графикам?", "answer": "Документация является справочным экраном и может использовать брендированный hero. LAS-кривые, таблицы и инженерные графики закрываются темным workspace, чтобы числа и линии оставались читаемыми."},
+    {"question": "Что проверять перед расчетом?", "answer": "Сначала проверьте строку заголовков, mapping обязательных колонок, предупреждения, режим Ch и выбранный интервал глубин."},
+    {"question": "Что делать, если pytest или preflight падают?", "answer": "Проверьте виртуальное окружение, установку зависимостей из requirements.txt, наличие Streamlit, Kaleido для экспорта и последние строки logs/app.log."},
+)
+
+
 def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
     scale_tokens = {
         "standard": {"base": "17px", "body": "1rem", "caption": "0.95rem", "button": "1rem", "h1": "2.35rem"},
@@ -1052,6 +1083,55 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             margin: 0.9rem 1rem;
         }
         .docs-panel h3 { color: var(--app-accent); margin-top: 0; }
+        .docs-v2-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin: 0.85rem 0 1rem 0;
+        }
+        .docs-v2-card {
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 16px;
+            padding: 0.85rem;
+            min-height: 8.2rem;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.58), rgba(2, 6, 23, 0.42));
+            box-shadow: 0 16px 42px rgba(0, 0, 0, 0.20);
+        }
+        .docs-v2-card b { color: #f8fafc; display:block; margin: 0.25rem 0; }
+        .docs-v2-card span { color: #cbd5e1; font-size: 0.92rem; line-height: 1.35; }
+        .docs-v2-icon { font-size: 1.55rem; }
+        .docs-toc {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin: 0.4rem 0 1rem 0;
+        }
+        .docs-toc a {
+            color: #ffedd5 !important;
+            text-decoration: none;
+            border: 1px solid rgba(255, 138, 0, 0.30);
+            border-radius: 999px;
+            padding: 0.34rem 0.62rem;
+            background: rgba(255, 138, 0, 0.09);
+            font-weight: 800;
+            font-size: 0.86rem;
+        }
+        .docs-section-anchor { scroll-margin-top: 5rem; }
+        .docs-info-row {
+            border-left: 3px solid rgba(255, 138, 0, 0.80);
+            border-radius: 10px;
+            padding: 0.6rem 0.75rem;
+            margin: 0.45rem 0;
+            background: rgba(15, 23, 42, 0.42);
+        }
+        .docs-info-row b { color: #f8fafc; }
+        .docs-info-row span { color: #cbd5e1; }
+        @media (max-width: 1100px) {
+            .docs-v2-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 760px) {
+            .docs-v2-grid { grid-template-columns: 1fr; }
+        }
         @media (max-width: 1100px) {
             .app-nav-wrap { grid-template-columns: repeat(3, minmax(0, 1fr)); }
             section[data-testid="stSidebar"] { width: 12.6rem !important; min-width: 12.6rem !important; max-width: 12.6rem !important; }
@@ -2562,6 +2642,21 @@ def _read_documentation_markdown(relative_path: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _render_docs_anchor(anchor: str) -> None:
+    """Render a stable anchor inside the Documentation Center."""
+    st.markdown(f'<div id="{_html_escape(anchor)}" class="docs-section-anchor"></div>', unsafe_allow_html=True)
+
+
+def _documentation_quick_link_titles() -> tuple[str, ...]:
+    """Expose Documentation Center v2 quick-link titles for tests and command search."""
+    return tuple(item["title"] for item in DOCUMENTATION_QUICK_LINKS)
+
+
+def _documentation_table_of_contents() -> tuple[dict[str, str], ...]:
+    """Return the in-page Documentation Center table of contents."""
+    return DOCUMENTATION_TOC
+
+
 def _render_documentation_tab() -> None:
     hero_uri = _documentation_hero_data_uri() or _dashboard_background_data_uri()
     logo_uri = _branding_logo_data_uri()
@@ -2575,29 +2670,50 @@ def _render_documentation_tab() -> None:
         if hero_uri
         else ""
     )
-    st.markdown(
-        f'''
+    hero_html = f"""
         <div class="docs-hero">
           <section class="docs-hero-banner">
             {image_html}
             {logo_html}
             <div class="docs-hero-content">
-              <div class="docs-hero-kicker">Gas Ratio Pro</div>
+              <div class="docs-hero-kicker">Gas Ratio Pro Documentation Center v2</div>
               <h1 class="docs-hero-title">Инструкции и документация</h1>
-              <p class="docs-hero-subtitle">Руководство, быстрый старт, проверка готовности и методика работы с LAS-данными.</p>
+              <p class="docs-hero-subtitle">Быстрый старт, методика работы, LAS workflow, FAQ, горячие клавиши и troubleshooting в одном справочном центре.</p>
             </div>
           </section>
-        ''',
-        unsafe_allow_html=True,
-    )
+        """
+    st.markdown(hero_html, unsafe_allow_html=True)
     st.markdown('<div class="docs-panel">', unsafe_allow_html=True)
     st.caption(
-        "Эта вкладка нужна, чтобы новый пользователь мог развернуть проект, "
-        "загрузить файл, понять предупреждения и работать без внешних инструкций."
+        "Documentation Center v2 объединяет вводные инструкции, быстрые переходы, "
+        "таблицу содержания и встроенные документы проекта без пустых темных блоков."
     )
+
+    quick_cards = "".join(
+        "<a href='#{anchor}' class='docs-v2-card'><div class='docs-v2-icon'>{icon}</div>"
+        "<b>{title}</b><span>{description}</span></a>".format(
+            anchor=_html_escape(item["anchor"]),
+            icon=_html_escape(item["icon"]),
+            title=_html_escape(item["title"]),
+            description=_html_escape(item["description"]),
+        )
+        for item in DOCUMENTATION_QUICK_LINKS
+    )
+    st.markdown(f'<div class="docs-v2-grid">{quick_cards}</div>', unsafe_allow_html=True)
+
+    toc_links = "".join(
+        "<a href='#{anchor}'>{title}</a>".format(
+            anchor=_html_escape(item["anchor"]),
+            title=_html_escape(item["title"]),
+        )
+        for item in DOCUMENTATION_TOC
+    )
+    st.markdown("### Содержание раздела")
+    st.markdown(f'<nav class="docs-toc">{toc_links}</nav>', unsafe_allow_html=True)
 
     quick_start, verification = st.columns(2)
     with quick_start:
+        _render_docs_anchor("docs-quick-start")
         st.markdown("### Быстрый запуск")
         st.code(
             "cd C:\\OSPanel\\home\\gas-ratio-pro\n"
@@ -2609,12 +2725,13 @@ def _render_documentation_tab() -> None:
         st.markdown(
             "1. Запустите проект командой `./run_app.ps1` или `python -m streamlit run app/streamlit_app.py`.\n"
             "2. Откройте в браузере `http://localhost:8501`.\n"
-            "3. Загрузите LAS (рекомендуется), CSV, XLSX или XLSM.\n"
-            "4. Проверьте строку заголовков и mapping.\n"
-            "5. Выберите интервал и смотрите расчеты, палетки и графики."
+            "3. Загрузите LAS, CSV, XLSX или XLSM.\n"
+            "4. Проверьте строку заголовков, mapping и предупреждения.\n"
+            "5. Выберите интервал и откройте расчеты, палетки и графики."
         )
 
     with verification:
+        _render_docs_anchor("docs-verification")
         st.markdown("### Проверка готовности")
         st.code(
             "python -m pytest\n"
@@ -2622,26 +2739,60 @@ def _render_documentation_tab() -> None:
             language="powershell",
         )
         st.markdown(
-            "Preflight проверяет Python, зависимости, ключевые файлы, конфиг палеток "
-            "и доступность папки логов."
+            "Preflight проверяет Python, зависимости, ключевые файлы, конфиг палеток, "
+            "экспортные зависимости и доступность папки логов."
         )
 
+    _render_docs_anchor("docs-workflow")
     st.markdown("### Основной рабочий сценарий")
     st.markdown(
         "1. Загрузите LAS, CSV или Excel-файл и выберите набор данных.\n"
         "2. Проверьте первые строки и строку заголовков.\n"
-        "3. Исправьте сопоставление колонок, если авто-mapping ошибся.\n"
+        "3. Исправьте сопоставление колонок, если auto-mapping ошибся.\n"
         "4. Проверьте предупреждения и режим `Ch`.\n"
         "5. Выберите интервал, проверьте Pixler/ternary и depth-графики.\n"
-        "6. Скачайте расчетную таблицу через `Экспорт CSV`, если результат нужен дальше."
+        "6. Сохраните snapshot в проект и скачайте CSV/HTML/XLSX, если результат нужен для отчета."
     )
 
-    st.markdown("### Подсказки и диагностика")
+    _render_docs_anchor("docs-data-format")
+    st.markdown("### Формат данных и mapping")
     st.markdown(
-        "Проект опирается на проверяемые правила, документацию, предупреждения и логи. "
-        "Если нужен новый тип подсказки, добавляем явное правило, тест и описание в документацию."
+        "Документация принимает LAS, CSV, XLSX и XLSM. Для надежного расчета проверьте depth-колонку, "
+        "газовые компоненты, автоматический mapping, единицы и предупреждения о пропусках."
+    )
+
+    _render_docs_anchor("docs-las-workflow")
+    st.markdown("### LAS workflow")
+    st.markdown(
+        "LAS-редактор используется для проверки глубины, шага, NULL-значений и ручных правок. "
+        "LAS-корреляция нужна для сравнения скважин, группировки кривых, подготовки интервала и печатного HTML-отчета."
+    )
+
+    _render_docs_anchor("docs-shortcuts")
+    st.markdown("### Горячие клавиши")
+    for shortcut in DOCUMENTATION_SHORTCUTS:
+        st.markdown(
+            f"<div class='docs-info-row'><b>{_html_escape(shortcut['keys'])}</b><br>"
+            f"<span>{_html_escape(shortcut['action'])}</span></div>",
+            unsafe_allow_html=True,
+        )
+
+    _render_docs_anchor("docs-faq")
+    st.markdown("### FAQ")
+    for item in DOCUMENTATION_FAQ:
+        with st.expander(item["question"], expanded=False):
+            st.markdown(item["answer"])
+
+    _render_docs_anchor("docs-troubleshooting")
+    st.markdown("### Troubleshooting")
+    st.markdown(
+        "Если приложение показывает ошибку, сначала проверьте `python scripts/preflight.py`, "
+        "затем установку зависимостей из `requirements.txt` и последние строки `logs/app.log`. "
+        "Для статического экспорта PNG/PDF/SVG нужна зависимость `kaleido`."
     )
     st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("### Полные документы проекта")
     for index, (title, relative_path) in enumerate(DOCUMENTATION_TAB_DOCS):
         with st.expander(title, expanded=index == 0):
             st.markdown(_read_documentation_markdown(relative_path))

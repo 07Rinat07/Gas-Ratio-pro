@@ -251,3 +251,29 @@ def test_page_layout_meta_has_all_workspace_tabs() -> None:
         assert meta["title"] == tab_name
         assert meta["subtitle"]
         assert meta["badge"]
+
+
+def test_documentation_center_v2_has_quick_links_toc_faq_and_shortcuts() -> None:
+    titles = app._documentation_quick_link_titles()
+    toc = app._documentation_table_of_contents()
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "Быстрый старт" in titles
+    assert "Диагностика" in titles
+    assert any(item["anchor"] == "docs-shortcuts" for item in toc)
+    assert any(item["anchor"] == "docs-faq" for item in toc)
+    assert "DOCUMENTATION_FAQ" in source
+    assert "DOCUMENTATION_SHORTCUTS" in source
+    assert "docs-v2-grid" in source
+    assert "docs-toc" in source
+    assert "Gas Ratio Pro Documentation Center v2" in source
+
+
+def test_documentation_center_v2_is_documented_in_project_plan() -> None:
+    plan = Path(app.ROOT_DIR / "docs" / "project_plan.md").read_text(encoding="utf-8")
+    guide = Path(app.ROOT_DIR / "docs" / "user_guide.md").read_text(encoding="utf-8")
+
+    assert "Documentation Center v2" in plan
+    assert "Quick Actions Wiring" in plan
+    assert "Documentation Center v2" in guide
+    assert "горячие клавиши" in guide
