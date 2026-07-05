@@ -21,6 +21,7 @@ PROJECT_CALCULATIONS_MANIFEST_FILE_NAME = "calculations.json"
 PROJECT_CALCULATION_METADATA_FILE_NAME = "metadata.json"
 PROJECT_CALCULATION_CSV_FILE_NAME = "calculation.csv"
 PROJECT_CALCULATION_XLSX_FILE_NAME = "calculation.xlsx"
+PROJECT_CALCULATION_ACTION_LOG_FILE_NAME = "actions.json"
 PROJECT_CALCULATIONS_SCHEMA_VERSION = 1
 PROJECT_CALCULATION_CARD_WARNING_LIMIT = 5
 PROJECT_CALCULATION_CARD_COLUMN_LIMIT = 12
@@ -61,7 +62,13 @@ PROJECT_CALCULATION_REQUIRED_MAPPING_FIELDS = (
 )
 PROJECT_CALCULATION_DEPTH_COLUMN_ALIASES = ("depth", "dept", "md")
 PROJECT_CALCULATION_KEY_GAS_MAPPING_FIELDS = ("c1", "c2", "c3", "ic4", "nc4")
-
+PROJECT_CALCULATION_ACTION_LOG_LIMIT = 30
+PROJECT_CALCULATION_ACTION_LABELS = {
+    "save_snapshot": "Сохранение snapshot",
+    "open_snapshot": "Открытие snapshot в графиках",
+    "compare_snapshots": "Сравнение snapshots",
+    "download_export": "Скачивание выгрузки",
+}
 
 
 @dataclass(frozen=True)
@@ -128,6 +135,32 @@ class ProjectCalculationComparison:
 
 
 @dataclass(frozen=True)
+class ProjectCalculationAction:
+    action: str
+    action_label: str
+    happened_at: str
+    calculation_id: str = ""
+    calculation_label: str = ""
+    related_calculation_id: str = ""
+    related_calculation_label: str = ""
+    export_format: str = ""
+    details: str = ""
+
+
+@dataclass(frozen=True)
+class ProjectCalculationIntegrityCheck:
+    calculation_id: str
+    ok: bool
+    checked_files: tuple[str, ...] = ()
+    missing_files: tuple[str, ...] = ()
+    empty_files: tuple[str, ...] = ()
+    corrupted_files: tuple[str, ...] = ()
+    row_count_mismatch: str = ""
+    column_mismatch: str = ""
+    messages: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class ProjectCalculationRecord:
     id: str
     source_label: str
@@ -162,8 +195,353 @@ def _manifest_path(root: Path | str, project_id: str) -> Path:
     return _calculations_dir(root, project_id) / PROJECT_CALCULATIONS_MANIFEST_FILE_NAME
 
 
+def _action_log_path(root: Path | str, project_id: str) -> Path:
+    return _calculations_dir(root, project_id) / PROJECT_CALCULATION_ACTION_LOG_FILE_NAME
+
+
 def _calculation_dir(root: Path | str, project_id: str, calculation_id: str) -> Path:
     return _calculations_dir(root, project_id) / _safe_calculation_id(calculation_id)
+
+
+
+def _action_from_dict(raw: dict[str, Any]) -> ProjectCalculationAction:
+    action = str(raw.get("action", "")).strip()
+    return ProjectCalculationAction(
+        action=action,
+        action_label=str(raw.get("action_label", "")).strip()
+        or PROJECT_CALCULATION_ACTION_LABELS.get(action, action or "Действие"),
+        happened_at=str(raw.get("happened_at", "")),
+        calculation_id=str(raw.get("calculation_id", "")).strip(),
+        calculation_label=str(raw.get("calculation_label", "")).strip(),
+        related_calculation_id=str(raw.get("related_calculation_id", "")).strip(),
+        related_calculation_label=str(raw.get("related_calculation_label", "")).strip(),
+        export_format=str(raw.get("export_format", "")).strip(),
+        details=str(raw.get("details", "")).strip(),
+    )
+
+
+def _action_to_dict(action: ProjectCalculationAction) -> dict[str, Any]:
+    return {
+        "action": action.action,
+        "action_label": action.action_label,
+        "happened_at": action.happened_at,
+        "calculation_id": action.calculation_id,
+        "calculation_label": action.calculation_label,
+        "related_calculation_id": action.related_calculation_id,
+        "related_calculation_label": action.related_calculation_label,
+        "export_format": action.export_format,
+        "details": action.details,
+    }
+
+
+def list_project_calculation_actions(
+    root: Path | str = DEFAULT_PROJECTS_ROOT,
+    project_id: str = DEFAULT_PROJECT_ID,
+    limit: int = PROJECT_CALCULATION_ACTION_LOG_LIMIT,
+) -> tuple[ProjectCalculationAction, ...]:
+    """Return newest saved-calculation workflow actions for a project."""
+
+    try:
+        payload = json.loads(_action_log_path(root, project_id).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return ()
+
+    raw_actions = payload.get("actions", ()) if isinstance(payload, dict) else ()
+    actions = tuple(_action_from_dict(raw) for raw in raw_actions if isinstance(raw, dict))
+    clean_limit = max(1, int(limit or PROJECT_CALCULATION_ACTION_LOG_LIMIT))
+    return tuple(sorted(actions, key=lambda item: item.happened_at, reverse=True)[:clean_limit])
+
+
+
+
+def build_project_calculation_actions_table(actions: tuple[ProjectCalculationAction, ...] | list[ProjectCalculationAction]) -> pd.DataFrame:
+    """Build a compact export table for saved-calculation workflow actions.
+
+    The table is metadata-only by design: it contains timestamps, action labels,
+    snapshot identifiers/labels, export format and short details. It never reads
+    or embeds raw calculation rows.
+    """
+
+    return pd.DataFrame(
+        [
+            {
+                "Время": action.happened_at,
+                "Действие": action.action_label,
+                "Код действия": action.action,
+                "Расчет": action.calculation_label or action.calculation_id,
+                "ID расчета": action.calculation_id,
+                "Связанный расчет": action.related_calculation_label or action.related_calculation_id,
+                "ID связанного расчета": action.related_calculation_id,
+                "Формат": action.export_format,
+                "Детали": action.details,
+            }
+            for action in actions
+        ]
+    )
+
+
+def export_project_calculation_actions_csv(actions: tuple[ProjectCalculationAction, ...] | list[ProjectCalculationAction]) -> bytes:
+    """Export saved-calculation action log to CSV bytes."""
+
+    return export_csv_bytes(build_project_calculation_actions_table(actions))
+
+
+def export_project_calculation_actions_html(actions: tuple[ProjectCalculationAction, ...] | list[ProjectCalculationAction]) -> bytes:
+    """Export saved-calculation action log to a standalone HTML report."""
+
+    rows = []
+    for row in build_project_calculation_actions_table(actions).to_dict("records"):
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(row['Время']))}</td>"
+            f"<td>{html.escape(str(row['Действие']))}</td>"
+            f"<td>{html.escape(str(row['Расчет']))}</td>"
+            f"<td>{html.escape(str(row['Связанный расчет']))}</td>"
+            f"<td>{html.escape(str(row['Формат']))}</td>"
+            f"<td>{html.escape(str(row['Детали']))}</td>"
+            "</tr>"
+        )
+
+    empty_row = (
+        '<tr><td colspan="6">Действий по сохраненным расчетам пока нет.</td></tr>'
+        if not rows
+        else ""
+    )
+    document = f"""<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Журнал действий по сохраненным расчетам</title>
+  <style>
+    body {{ font-family: Arial, sans-serif; margin: 24px; color: #222; }}
+    h1 {{ margin-bottom: 8px; }}
+    .summary {{ margin: 12px 0 20px; padding: 10px 12px; border: 1px solid #999; }}
+    table {{ border-collapse: collapse; width: 100%; }}
+    th, td {{ border: 1px solid #ccc; padding: 8px; vertical-align: top; text-align: left; }}
+    th {{ background: #f3f3f3; }}
+    .note {{ margin-top: 20px; font-size: 12px; color: #555; }}
+  </style>
+</head>
+<body>
+  <h1>Журнал действий по сохраненным расчетам проекта</h1>
+  <div class="summary"><strong>Записей:</strong> {len(actions)}</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Время</th>
+        <th>Действие</th>
+        <th>Расчет</th>
+        <th>Связанный расчет</th>
+        <th>Формат</th>
+        <th>Детали</th>
+      </tr>
+    </thead>
+    <tbody>
+      {''.join(rows)}{empty_row}
+    </tbody>
+  </table>
+  <p class="note">Журнал содержит только metadata действий: сохранение, открытие snapshot, сравнение и скачивание выгрузок. Сырые расчетные таблицы в отчет не включаются.</p>
+</body>
+</html>
+"""
+    return document.encode("utf-8")
+
+
+def _html_list(items: tuple[str, ...] | list[str], empty_text: str) -> str:
+    clean_items = tuple(str(item).strip() for item in items if str(item).strip())
+    if not clean_items:
+        return f"<p>{html.escape(empty_text)}</p>"
+    return "<ul>" + "".join(f"<li>{html.escape(item)}</li>" for item in clean_items) + "</ul>"
+
+
+
+
+def build_project_calculation_card_table(
+    root: Path | str,
+    project_id: str,
+    calculation_id: str,
+) -> pd.DataFrame:
+    """Build a one-row metadata table for a saved project calculation card.
+
+    The CSV-oriented table mirrors the compact card shown in the project UI and
+    intentionally avoids reading the full calculation dataframe. This keeps the
+    export lightweight and safe for quick metadata checks in spreadsheet tools.
+    """
+
+    card = build_project_calculation_card(root, project_id, calculation_id)
+    metadata = read_project_calculation_metadata(root, project_id, calculation_id)
+    columns = tuple(str(column).strip() for column in metadata.get("columns", ()) if str(column).strip())
+
+    return pd.DataFrame(
+        [
+            {
+                "Snapshot ID": card.id,
+                "Источник": card.source_label,
+                "Набор данных": card.sheet_name,
+                "Сохранено": card.saved_at,
+                "Строк": card.row_count,
+                "Предупреждений": card.warnings_count,
+                "Режим Ch": card.ch_mode_label,
+                "Готов к графикам": "да" if card.graph_ready else "нет",
+                "Mapping": card.mapping_count,
+                "Mapping preview": "; ".join(card.mapping_preview),
+                "Не найдены ключевые поля mapping": ", ".join(card.missing_mapping_fields),
+                "Ключевые колонки": ", ".join(card.key_columns),
+                "Все колонки metadata": ", ".join(columns),
+                "Выгрузки": ", ".join(card.available_exports),
+                "Предупреждения перед открытием": " | ".join(card.open_warnings),
+                "Первые предупреждения расчета": " | ".join(card.warning_preview),
+            }
+        ]
+    )
+
+
+def export_project_calculation_card_csv(
+    root: Path | str,
+    project_id: str,
+    calculation_id: str,
+) -> bytes:
+    """Export a compact saved-calculation card to CSV bytes."""
+
+    return export_csv_bytes(build_project_calculation_card_table(root, project_id, calculation_id))
+
+def export_project_calculation_card_html(
+    root: Path | str,
+    project_id: str,
+    calculation_id: str,
+) -> bytes:
+    """Export a short HTML report for one saved project calculation.
+
+    The report contains only snapshot metadata: card values, key columns,
+    mapping preview and saved warnings. It intentionally does not embed the full
+    calculation table, so the file can be attached to a project report without
+    exposing raw rows or creating a heavy HTML document.
+    """
+
+    card = build_project_calculation_card(root, project_id, calculation_id)
+    metadata = read_project_calculation_metadata(root, project_id, calculation_id)
+    mapping = _normalize_project_calculation_mapping(metadata.get("mapping", {}))
+    warnings = tuple(str(warning).strip() for warning in metadata.get("warnings", ()) if str(warning).strip())
+    columns = tuple(str(column).strip() for column in metadata.get("columns", ()) if str(column).strip())
+
+    mapping_rows = []
+    for target, source in mapping.items():
+        mapping_rows.append(
+            "<tr>"
+            f"<th>{html.escape(str(target))}</th>"
+            f"<td>{html.escape(str(source))}</td>"
+            "</tr>"
+        )
+    mapping_body = "".join(mapping_rows) or '<tr><td colspan="2">Mapping не сохранен.</td></tr>'
+
+    status = "Готов к открытию в графиках" if card.graph_ready else "Требует проверки перед открытием в графиках"
+    document = f"""<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Карточка сохраненного расчета</title>
+  <style>
+    body {{ font-family: Arial, sans-serif; margin: 24px; color: #222; }}
+    h1, h2 {{ margin-bottom: 8px; }}
+    .summary {{ margin: 12px 0 20px; padding: 12px; border: 1px solid #999; }}
+    .grid {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0 20px; }}
+    .metric {{ border: 1px solid #ccc; padding: 10px; }}
+    .metric strong {{ display: block; font-size: 18px; margin-top: 4px; }}
+    table {{ border-collapse: collapse; width: 100%; margin-bottom: 18px; }}
+    th, td {{ border: 1px solid #ccc; padding: 8px; vertical-align: top; text-align: left; }}
+    th {{ background: #f3f3f3; width: 28%; }}
+    ul {{ margin-top: 6px; }}
+    .note {{ margin-top: 20px; font-size: 12px; color: #555; }}
+  </style>
+</head>
+<body>
+  <h1>Карточка сохраненного расчета проекта</h1>
+  <div class="summary">
+    <strong>{html.escape(card.source_label)}</strong><br>
+    Snapshot ID: {html.escape(card.id)}<br>
+    Сохранено: {html.escape(card.saved_at)}<br>
+    Набор данных: {html.escape(card.sheet_name or 'не указан')}<br>
+    Статус: {html.escape(status)}
+  </div>
+  <div class="grid">
+    <div class="metric">Строк<strong>{card.row_count}</strong></div>
+    <div class="metric">Предупреждений<strong>{card.warnings_count}</strong></div>
+    <div class="metric">Mapping<strong>{card.mapping_count}</strong></div>
+    <div class="metric">Выгрузки<strong>{html.escape(', '.join(card.available_exports) or 'нет')}</strong></div>
+  </div>
+  <table>
+    <tbody>
+      <tr><th>Режим Ch</th><td>{html.escape(card.ch_mode_label)}</td></tr>
+      <tr><th>Ключевые колонки</th><td>{html.escape(', '.join(card.key_columns) or 'не найдены')}</td></tr>
+      <tr><th>Все колонки metadata</th><td>{html.escape(', '.join(columns) or 'не сохранены')}</td></tr>
+      <tr><th>Не найдены ключевые поля mapping</th><td>{html.escape(', '.join(card.missing_mapping_fields) or 'нет')}</td></tr>
+    </tbody>
+  </table>
+  <h2>Mapping snapshot</h2>
+  <table>
+    <thead><tr><th>Стандартное поле</th><th>Колонка источника</th></tr></thead>
+    <tbody>{mapping_body}</tbody>
+  </table>
+  <h2>Предупреждения перед открытием snapshot</h2>
+  {_html_list(card.open_warnings, 'Предупреждений перед открытием snapshot нет.')}
+  <h2>Предупреждения расчета</h2>
+  {_html_list(warnings, 'Сохраненный расчет не содержит предупреждений.')}
+  <p class="note">Отчет содержит только карточку, mapping, список колонок и предупреждения сохраненного snapshot. Полная расчетная таблица в HTML не включается.</p>
+</body>
+</html>
+"""
+    return document.encode("utf-8")
+
+def append_project_calculation_action(
+    root: Path | str,
+    project_id: str,
+    action: str,
+    *,
+    calculation_id: str = "",
+    related_calculation_id: str = "",
+    export_format: str = "",
+    details: str = "",
+) -> ProjectCalculationAction:
+    """Append a compact audit action for saved project calculations.
+
+    The log is intentionally small and metadata-only. It records workflow events
+    around saved snapshots, not raw table data, so it is safe to show in the
+    project screen and safe to keep inside the project folder.
+    """
+
+    clean_action = str(action).strip()
+    if not clean_action:
+        raise ValueError("Не указан тип действия журнала расчетов проекта.")
+
+    records = {record.id: record for record in list_project_calculations(root, project_id)}
+    clean_calculation_id = _safe_calculation_id(calculation_id) if calculation_id else ""
+    clean_related_id = _safe_calculation_id(related_calculation_id) if related_calculation_id else ""
+    calculation_label = records.get(clean_calculation_id).source_label if clean_calculation_id in records else ""
+    related_label = records.get(clean_related_id).source_label if clean_related_id in records else ""
+    entry = ProjectCalculationAction(
+        action=clean_action,
+        action_label=PROJECT_CALCULATION_ACTION_LABELS.get(clean_action, clean_action),
+        happened_at=_utc_now(),
+        calculation_id=clean_calculation_id,
+        calculation_label=calculation_label,
+        related_calculation_id=clean_related_id,
+        related_calculation_label=related_label,
+        export_format=str(export_format).strip().upper(),
+        details=str(details).strip(),
+    )
+
+    existing = list(list_project_calculation_actions(root, project_id, limit=500))
+    actions = (entry, *tuple(existing))[:PROJECT_CALCULATION_ACTION_LOG_LIMIT]
+    path = _action_log_path(root, project_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": PROJECT_CALCULATIONS_SCHEMA_VERSION,
+        "project_id": safe_project_id(project_id),
+        "updated_at": _utc_now(),
+        "actions": [_action_to_dict(item) for item in actions],
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return entry
 
 
 def _record_from_dict(raw: dict[str, Any]) -> ProjectCalculationRecord:
@@ -698,7 +1076,125 @@ def save_project_calculation(
     )
     records = (record, *tuple(item for item in _read_manifest(root, project_id) if item.id != record.id))
     _write_manifest(root, project_id, records)
+    append_project_calculation_action(
+        root,
+        project_id,
+        "save_snapshot",
+        calculation_id=record.id,
+        details=f"rows={record.row_count}; warnings={record.warnings_count}; ch_mode={record.ch_mode or 'not_set'}",
+    )
     return record
+
+
+def check_project_calculation_integrity(
+    root: Path | str,
+    project_id: str,
+    calculation_id: str,
+) -> ProjectCalculationIntegrityCheck:
+    """Check saved calculation files before export download.
+
+    The check is deliberately compact and metadata-oriented: it verifies that
+    manifest-referenced CSV/XLSX/metadata files exist, are non-empty, and that
+    metadata row/column counters still match the saved CSV snapshot. It does not
+    mutate project files and does not log or export raw rows.
+    """
+
+    clean_id = _safe_calculation_id(calculation_id)
+    records = {record.id: record for record in list_project_calculations(root, project_id)}
+    record = records.get(clean_id)
+    if record is None:
+        raise FileNotFoundError(f"Project calculation not found: {calculation_id}")
+
+    required_keys = ("csv", "xlsx", "metadata")
+    base_dir = _calculation_dir(root, project_id, clean_id)
+    checked_files: list[str] = []
+    missing_files: list[str] = []
+    empty_files: list[str] = []
+    corrupted_files: list[str] = []
+    messages: list[str] = []
+
+    for file_key in required_keys:
+        file_name = record.files.get(file_key)
+        if not file_name:
+            missing_files.append(file_key)
+            messages.append(f"В manifest snapshot нет ссылки на файл {file_key}.")
+            continue
+
+        file_path = base_dir / Path(file_name).name
+        checked_files.append(file_key)
+        if not file_path.exists():
+            missing_files.append(file_key)
+            messages.append(f"Файл {Path(file_name).name} отсутствует в папке snapshot.")
+            continue
+
+        try:
+            size = file_path.stat().st_size
+        except OSError:
+            corrupted_files.append(file_key)
+            messages.append(f"Не удалось прочитать размер файла {Path(file_name).name}.")
+            continue
+
+        if size <= 0:
+            empty_files.append(file_key)
+            messages.append(f"Файл {Path(file_name).name} пустой.")
+            continue
+
+        if file_key == "xlsx":
+            try:
+                if not file_path.read_bytes().startswith(b"PK"):
+                    corrupted_files.append(file_key)
+                    messages.append(f"Файл {Path(file_name).name} не похож на корректный XLSX-архив.")
+            except OSError:
+                corrupted_files.append(file_key)
+                messages.append(f"Не удалось проверить файл {Path(file_name).name}.")
+
+    metadata: dict[str, Any] = {}
+    dataframe: pd.DataFrame | None = None
+    row_count_mismatch = ""
+    column_mismatch = ""
+
+    if "metadata" not in missing_files and "metadata" not in empty_files:
+        try:
+            metadata = read_project_calculation_metadata(root, project_id, clean_id)
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError, TypeError, ValueError):
+            corrupted_files.append("metadata")
+            messages.append("metadata.json поврежден или не читается как JSON.")
+
+    if "csv" not in missing_files and "csv" not in empty_files:
+        try:
+            dataframe = read_project_calculation_dataframe(root, project_id, clean_id)
+        except Exception:
+            corrupted_files.append("csv")
+            messages.append("calculation.csv поврежден или не читается как таблица.")
+
+    if metadata and dataframe is not None:
+        metadata_rows = int(metadata.get("row_count", -1) or 0)
+        if metadata_rows != len(dataframe):
+            row_count_mismatch = f"metadata row_count={metadata_rows}, CSV rows={len(dataframe)}"
+            messages.append("Количество строк в metadata не совпадает с CSV snapshot.")
+
+        metadata_columns = tuple(str(column) for column in metadata.get("columns", ()) if str(column))
+        csv_columns = tuple(str(column) for column in dataframe.columns)
+        if metadata_columns and metadata_columns != csv_columns:
+            column_mismatch = "metadata columns не совпадают с CSV columns"
+            messages.append("Список колонок в metadata не совпадает с CSV snapshot.")
+
+    clean_corrupted = tuple(dict.fromkeys(corrupted_files))
+    ok = not (missing_files or empty_files or clean_corrupted or row_count_mismatch or column_mismatch)
+    if ok:
+        messages.append("Файлы выбранного сохраненного расчета прошли проверку целостности.")
+
+    return ProjectCalculationIntegrityCheck(
+        calculation_id=clean_id,
+        ok=ok,
+        checked_files=tuple(dict.fromkeys(checked_files)),
+        missing_files=tuple(dict.fromkeys(missing_files)),
+        empty_files=tuple(dict.fromkeys(empty_files)),
+        corrupted_files=clean_corrupted,
+        row_count_mismatch=row_count_mismatch,
+        column_mismatch=column_mismatch,
+        messages=tuple(messages),
+    )
 
 
 def read_project_calculation_file_bytes(

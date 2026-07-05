@@ -11,6 +11,13 @@ from projects import (
     build_project_calculation_comparison_table,
     export_project_calculation_comparison_csv,
     export_project_calculation_comparison_html,
+    export_project_calculation_actions_html,
+    export_project_calculation_actions_csv,
+    export_project_calculation_card_html,
+    export_project_calculation_card_csv,
+    build_project_calculation_card_table,
+    build_project_calculation_actions_table,
+    check_project_calculation_integrity,
     read_project_calculation_dataframe,
     read_project_calculation_file_bytes,
     read_project_calculation_metadata,
@@ -372,3 +379,284 @@ def test_project_calculation_comparison_exports_csv_and_html(tmp_path):
     assert "Before &lt;A&gt;" in html_text
     assert "After &amp; B" in html_text
     assert "Исходные файлы проекта не изменялись" in html_text
+
+
+def test_project_calculation_action_log_records_save_and_manual_actions(tmp_path):
+    from projects import append_project_calculation_action, list_project_calculation_actions
+
+    first = save_project_calculation(
+        pd.DataFrame({"depth": [1000.0], "c1": [80.0]}),
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well A save",
+        warnings=("check c2",),
+        ch_mode="ratio",
+    )
+    second = save_project_calculation(
+        pd.DataFrame({"depth": [1000.0], "c1": [81.0]}),
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well A after",
+    )
+
+    append_project_calculation_action(
+        tmp_path,
+        "demo",
+        "open_snapshot",
+        calculation_id=first.id,
+        details="opened from project panel",
+    )
+    append_project_calculation_action(
+        tmp_path,
+        "demo",
+        "compare_snapshots",
+        calculation_id=first.id,
+        related_calculation_id=second.id,
+    )
+    append_project_calculation_action(
+        tmp_path,
+        "demo",
+        "download_export",
+        calculation_id=second.id,
+        export_format="csv",
+    )
+
+    actions = list_project_calculation_actions(tmp_path, "demo")
+
+    assert [action.action for action in actions[:4]] == [
+        "download_export",
+        "compare_snapshots",
+        "open_snapshot",
+        "save_snapshot",
+    ]
+    assert actions[0].action_label == "Скачивание выгрузки"
+    assert actions[0].export_format == "CSV"
+    assert actions[0].calculation_label == "Well A after"
+    assert actions[1].calculation_label == "Well A save"
+    assert actions[1].related_calculation_label == "Well A after"
+    assert actions[3].details == "rows=1; warnings=0; ch_mode=not_set"
+    assert any(action.details == "rows=1; warnings=1; ch_mode=ratio" for action in actions)
+
+
+def test_project_calculation_action_log_is_compact_and_tolerates_missing_file(tmp_path):
+    from projects import append_project_calculation_action, list_project_calculation_actions
+
+    assert list_project_calculation_actions(tmp_path, "demo") == ()
+
+    record = save_project_calculation(
+        pd.DataFrame({"depth": [1000.0], "c1": [80.0]}),
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well A",
+    )
+    for index in range(35):
+        append_project_calculation_action(
+            tmp_path,
+            "demo",
+            "download_export",
+            calculation_id=record.id,
+            export_format="csv",
+            details=f"download {index}",
+        )
+
+    actions = list_project_calculation_actions(tmp_path, "demo", limit=100)
+
+    assert len(actions) == 30
+    assert actions[0].details == "download 34"
+    assert actions[-1].details == "download 5"
+
+
+def test_project_calculation_action_log_exports_csv_and_html(tmp_path):
+    from projects import append_project_calculation_action, list_project_calculation_actions
+
+    first = save_project_calculation(
+        pd.DataFrame({"depth": [1000.0], "c1": [80.0]}),
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well <A>",
+    )
+    second = save_project_calculation(
+        pd.DataFrame({"depth": [1000.0], "c1": [82.0]}),
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well & B",
+    )
+    append_project_calculation_action(
+        tmp_path,
+        "demo",
+        "compare_snapshots",
+        calculation_id=first.id,
+        related_calculation_id=second.id,
+        details="safe metadata/csv comparison",
+    )
+    append_project_calculation_action(
+        tmp_path,
+        "demo",
+        "download_export",
+        calculation_id=second.id,
+        export_format="html",
+        details="journal export",
+    )
+
+    actions = list_project_calculation_actions(tmp_path, "demo")
+    table = build_project_calculation_actions_table(actions)
+    csv_text = export_project_calculation_actions_csv(actions).decode("utf-8-sig")
+    html_text = export_project_calculation_actions_html(actions).decode("utf-8")
+
+    assert list(table.columns) == [
+        "Время",
+        "Действие",
+        "Код действия",
+        "Расчет",
+        "ID расчета",
+        "Связанный расчет",
+        "ID связанного расчета",
+        "Формат",
+        "Детали",
+    ]
+    assert "Скачивание выгрузки" in csv_text
+    assert "Сравнение snapshots" in csv_text
+    assert "Well <A>" in csv_text
+    assert "<!doctype html>" in html_text
+    assert "Well &lt;A&gt;" in html_text
+    assert "Well &amp; B" in html_text
+    assert "Сырые расчетные таблицы" in html_text
+
+
+def test_project_calculation_action_log_html_handles_empty_actions():
+    html_text = export_project_calculation_actions_html(()).decode("utf-8")
+
+    assert "Записей:</strong> 0" in html_text
+    assert "Действий по сохраненным расчетам пока нет" in html_text
+
+
+def test_project_calculation_card_html_report_contains_metadata_without_full_table(tmp_path):
+    record = save_project_calculation(
+        pd.DataFrame(
+            {
+                "depth": [1000.0, 1001.0, 1002.0],
+                "c1": [80.0, 81.0, 82.0],
+                "c2": [10.0, 11.0, 12.0],
+                "secret_raw_value": ["raw-a", "raw-b", "raw-c"],
+            }
+        ),
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well <A> final",
+        sheet_name="Prepared & checked",
+        mapping={"depth": "DEPT", "c1": "C1", "c2": "C2"},
+        ch_mode="ratio",
+        warnings=("check <C3>", "check units"),
+    )
+
+    html_text = export_project_calculation_card_html(tmp_path, "demo", record.id).decode("utf-8")
+
+    assert "<!doctype html>" in html_text
+    assert "Карточка сохраненного расчета проекта" in html_text
+    assert "Well &lt;A&gt; final" in html_text
+    assert "Prepared &amp; checked" in html_text
+    assert "ratio / расчетный режим Ch" in html_text
+    assert "depth" in html_text
+    assert "DEPT" in html_text
+    assert "check &lt;C3&gt;" in html_text
+    assert "Полная расчетная таблица в HTML не включается" in html_text
+    assert "raw-a" not in html_text
+    assert "raw-b" not in html_text
+
+
+def test_project_calculation_card_exports_csv_metadata_without_full_table(tmp_path):
+    record = save_project_calculation(
+        pd.DataFrame(
+            {
+                "depth": [1000.0, 1001.0],
+                "c1": [80.0, 81.0],
+                "c2": [10.0, 11.0],
+                "secret_raw_value": ["raw-a", "raw-b"],
+            }
+        ),
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well <A> final",
+        sheet_name="Prepared & checked",
+        mapping={"depth": "DEPT", "c1": "C1", "c2": "C2"},
+        ch_mode="ratio",
+        warnings=("check <C3>",),
+    )
+
+    table = build_project_calculation_card_table(tmp_path, "demo", record.id)
+    csv_text = export_project_calculation_card_csv(tmp_path, "demo", record.id).decode("utf-8-sig")
+
+    assert len(table) == 1
+    assert table.loc[0, "Snapshot ID"] == record.id
+    assert table.loc[0, "Источник"] == "Well <A> final"
+    assert table.loc[0, "Набор данных"] == "Prepared & checked"
+    assert table.loc[0, "Строк"] == 2
+    assert table.loc[0, "Предупреждений"] == 1
+    assert table.loc[0, "Режим Ch"] == "ratio / расчетный режим Ch"
+    assert "depth → DEPT" in table.loc[0, "Mapping preview"]
+    assert "c3" in table.loc[0, "Не найдены ключевые поля mapping"]
+    assert "Well <A> final" in csv_text
+    assert "Prepared & checked" in csv_text
+    assert "check <C3>" in csv_text
+    assert "raw-a" not in csv_text
+
+
+def test_project_calculation_integrity_check_accepts_valid_snapshot(tmp_path):
+    record = save_project_calculation(
+        pd.DataFrame({"depth": [1000.0, 1001.0], "c1": [80.0, 81.0]}),
+        root=tmp_path,
+        project_id="demo",
+        source_label="Well A",
+    )
+
+    integrity = check_project_calculation_integrity(tmp_path, "demo", record.id)
+
+    assert integrity.calculation_id == record.id
+    assert integrity.ok is True
+    assert integrity.checked_files == ("csv", "xlsx", "metadata")
+    assert integrity.missing_files == ()
+    assert integrity.empty_files == ()
+    assert integrity.corrupted_files == ()
+    assert integrity.row_count_mismatch == ""
+    assert integrity.column_mismatch == ""
+    assert integrity.messages == ("Файлы выбранного сохраненного расчета прошли проверку целостности.",)
+
+
+def test_project_calculation_integrity_check_reports_missing_and_mismatched_files(tmp_path):
+    record = save_project_calculation(
+        pd.DataFrame({"depth": [1000.0, 1001.0], "c1": [80.0, 81.0]}),
+        root=tmp_path,
+        project_id="demo",
+    )
+    calculation_dir = tmp_path / "demo" / "calculations" / record.id
+    (calculation_dir / "calculation.xlsx").unlink()
+    metadata_path = calculation_dir / "metadata.json"
+    metadata_text = metadata_path.read_text(encoding="utf-8")
+    metadata_path.write_text(metadata_text.replace('"row_count": 2', '"row_count": 3'), encoding="utf-8")
+
+    integrity = check_project_calculation_integrity(tmp_path, "demo", record.id)
+
+    assert integrity.ok is False
+    assert integrity.missing_files == ("xlsx",)
+    assert integrity.row_count_mismatch == "metadata row_count=3, CSV rows=2"
+    assert any("calculation.xlsx" in message for message in integrity.messages)
+    assert any("Количество строк" in message for message in integrity.messages)
+
+
+def test_project_calculation_integrity_check_reports_empty_and_corrupted_files(tmp_path):
+    record = save_project_calculation(
+        pd.DataFrame({"depth": [1000.0], "c1": [80.0]}),
+        root=tmp_path,
+        project_id="demo",
+    )
+    calculation_dir = tmp_path / "demo" / "calculations" / record.id
+    (calculation_dir / "calculation.csv").write_bytes(b"")
+    (calculation_dir / "metadata.json").write_text("not-json", encoding="utf-8")
+
+    integrity = check_project_calculation_integrity(tmp_path, "demo", record.id)
+
+    assert integrity.ok is False
+    assert integrity.empty_files == ("csv",)
+    assert "metadata" in integrity.corrupted_files
+    assert any("пустой" in message for message in integrity.messages)
+    assert any("metadata.json поврежден" in message for message in integrity.messages)

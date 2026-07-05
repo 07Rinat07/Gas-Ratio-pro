@@ -215,4 +215,219 @@ Gas Ratio Interpreter — локальное инженерное приложе
 
 Выполнено: добавлено предупреждение при открытии сохраненного snapshot в графиках, если в карточке отсутствуют depth/DEPT/MD или ключевые газовые поля mapping.
 
-Следующий рабочий шаг: добавить компактный журнал действий по сохраненным расчетам проекта: сохранение snapshot, открытие snapshot в графиках, сравнение snapshots и скачивание выгрузок.
+Выполнено: добавлен компактный журнал действий по сохраненным расчетам проекта: сохранение snapshot, открытие snapshot в графиках, сравнение snapshots и скачивание выгрузок без записи сырых таблиц в журнал.
+
+Выполнено: добавлен экспорт журнала действий по сохраненным расчетам в CSV/HTML для приложения к проектному отчету.
+
+Выполнено: добавлен короткий HTML-отчет по выбранному сохраненному расчету с карточкой, mapping, списком колонок и предупреждениями без включения полной расчетной таблицы.
+
+Выполнено: добавлена CSV-выгрузка краткой карточки выбранного сохраненного расчета для быстрой проверки metadata в таблице.
+
+Выполнено: добавлена компактная проверка целостности файлов выбранного сохраненного расчета перед скачиванием выгрузок: наличие `CSV/XLSX/metadata.json`, непустые файлы, читаемость metadata/CSV, XLSX-сигнатура и совпадение строк/колонок metadata с CSV snapshot.
+
+Следующий рабочий шаг: добавить отдельную кнопку повторной проверки целостности сохраненного расчета и краткий отчет проверки для приложения к проектной папке.
+
+
+---
+
+## Project Plan v2
+
+Новый план продолжает закрытый базовый roadmap и развивает Gas Ratio Pro в сторону профессиональной системы управления скважинными данными, LAS, интерпретацией, отчетами и multi-well workflow. Правило выполнения остается прежним: один законченный пункт плана — один отдельный этап, тесты и документация обновляются вместе с кодом.
+
+### Этап 1. Data Management
+
+#### 1.1 Project Explorer
+
+- [x] Дерево проекта: read-only sidebar Project Explorer с корнем проекта, папками `Скважины`, `Расчеты`, `Отчеты и экспорты`, сохраненными LAS-версиями, расчетными snapshots и проектными выгрузками.
+- [x] Группы скважин: Project Explorer поддерживает сохраненный `well_groups.json`, показывает группы скважин и отдельную корзину `Без группы` без чтения сырых LAS-таблиц.
+- [ ] Папки.
+- [ ] Перетаскивание объектов.
+- [ ] Цветовые метки.
+
+#### 1.2 Well Manager
+
+- [ ] Карточка скважины.
+- [ ] Координаты.
+- [ ] KB.
+- [ ] GL.
+- [ ] TD.
+- [ ] Дата бурения.
+- [ ] Оператор.
+- [ ] Месторождение.
+
+#### 1.3 Dataset Manager
+
+- [ ] LAS.
+- [ ] CSV.
+- [ ] Excel.
+- [ ] Core.
+- [ ] Mud Log.
+- [ ] Production.
+
+#### 1.4 Project Database
+
+- [ ] Индексация файлов.
+- [ ] Проверка дубликатов.
+- [ ] Версии файлов.
+- [ ] Автоматические UUID.
+
+### Этап 2. LAS Professional
+
+#### 2.1 Curve Manager
+
+- [ ] Rename curves.
+- [ ] Alias curves.
+- [ ] Merge curves.
+- [ ] Split curves.
+- [ ] Curve statistics.
+
+#### 2.2 Units Manager
+
+- [ ] Автоматическая конвертация единиц.
+- [ ] Пользовательские единицы.
+- [ ] Проверка несовместимости.
+
+#### 2.3 Curve Quality
+
+- [ ] Spike detector.
+- [ ] Flat detector.
+- [ ] Missing intervals.
+- [ ] Duplicate depth.
+- [ ] Sampling diagnostics.
+
+#### 2.4 Curve Processing
+
+- [ ] Moving Average.
+- [ ] Median.
+- [ ] Savitzky-Golay.
+- [ ] Gaussian.
+- [ ] Low-pass.
+
+### Этап 3. Mud Gas Professional
+
+#### 3.1 Gas Normalization
+
+- [ ] C1 normalization.
+- [ ] Background correction.
+- [ ] Lag correction.
+- [ ] Flow correction.
+
+#### 3.2 Gas Quality
+
+- [ ] Air contamination.
+- [ ] Sample quality.
+- [ ] Gas stability.
+- [ ] Mud circulation check.
+
+#### 3.3 Gas Diagnostics
+
+- [ ] Automatic anomaly detection.
+- [ ] Gas peaks.
+- [ ] Gas drops.
+- [ ] Missing gas.
+
+### Этап 4. Petrophysics
+
+- [ ] Lithology calculator.
+- [ ] Clay estimation.
+- [ ] Sand/Shale split.
+- [ ] Density porosity.
+- [ ] Neutron porosity.
+- [ ] Sonic porosity.
+- [ ] Combined porosity.
+- [ ] Archie saturation.
+- [ ] Simandoux saturation.
+- [ ] Indonesia saturation.
+- [ ] Dual Water saturation.
+- [ ] Timur permeability.
+- [ ] Coates permeability.
+- [ ] SDR permeability.
+
+### Этап 5. Interpretation
+
+- [ ] Reservoirs.
+- [ ] Layers.
+- [ ] Tops.
+- [ ] Bottoms.
+- [ ] Compare wells.
+- [ ] Shared tops.
+- [ ] Marker matching.
+- [ ] Net Pay.
+- [ ] Gross.
+- [ ] NTG.
+- [ ] HC Columns.
+
+### Этап 6. Tablet Professional
+
+- [ ] Drag & Drop tracks.
+- [ ] Templates.
+- [ ] Track locking.
+- [ ] Track synchronization.
+- [ ] Notes.
+- [ ] Symbols.
+- [ ] Images.
+- [ ] Comments.
+- [ ] Multi-page print.
+- [ ] A0/A1/A3 scale presets.
+
+### Этап 7. Reports
+
+- [ ] Word reports.
+- [ ] PDF reports.
+- [ ] HTML reports.
+- [ ] Company templates.
+- [ ] User templates.
+- [ ] Logo/Header/Footer.
+- [ ] Interval reports.
+- [ ] Gas reports.
+- [ ] Project summary.
+
+### Этап 8. Visualization
+
+- [ ] Pickett crossplot.
+- [ ] M-N crossplot.
+- [ ] RHOB-NPHI crossplot.
+- [ ] Custom crossplots.
+- [ ] Single-curve histograms.
+- [ ] Multi-curve histograms.
+- [ ] Scatter plots.
+- [ ] Color mapping.
+- [ ] Bubble plots.
+
+### Этап 9. Multi Well
+
+- [ ] Side-by-side comparison.
+- [ ] Overlay comparison.
+- [ ] Shared depth.
+- [ ] Batch calculations for selected wells.
+- [ ] Batch calculations for entire project.
+- [ ] Background processing.
+- [ ] Batch PDF/PNG/CSV/LAS export.
+
+### Этап 10. Professional Features
+
+- [ ] Autosave.
+- [ ] Automatic recovery.
+- [ ] Backup.
+- [ ] Version history.
+- [ ] Plugin loader.
+- [ ] Python plugins.
+- [ ] User scripts.
+- [ ] Workspace presets.
+- [ ] Themes.
+- [ ] Keyboard shortcuts.
+- [ ] Cache.
+- [ ] Lazy loading.
+- [ ] Large LAS optimization.
+
+### Этап 11. Enterprise
+
+- [ ] Operation history.
+- [ ] Change history.
+- [ ] User actions.
+- [ ] Project lock.
+- [ ] Read only.
+- [ ] Integrity check.
+- [ ] Import package.
+- [ ] Export package.
+- [ ] Validation.

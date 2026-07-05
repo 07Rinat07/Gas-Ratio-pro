@@ -81,7 +81,14 @@ from palettes.well_log_tablet import (
 )
 from palettes.pixler import build_pixler_palette
 from palettes.ternary import build_ternary_palette
-from projects import ProjectRecord, create_project, ensure_default_project, list_projects
+from projects import (
+    ProjectRecord,
+    build_project_tree,
+    create_project,
+    ensure_default_project,
+    list_projects,
+    project_tree_table_rows,
+)
 from projects import calculations as project_calculations
 from projects import exports as project_exports
 from projects import graph_settings as project_graph_settings
@@ -109,11 +116,18 @@ read_project_calculation_dataframe = project_calculations.read_project_calculati
 read_project_calculation_file_bytes = project_calculations.read_project_calculation_file_bytes
 read_project_calculation_metadata = project_calculations.read_project_calculation_metadata
 build_project_calculation_card = project_calculations.build_project_calculation_card
+check_project_calculation_integrity = project_calculations.check_project_calculation_integrity
 compare_project_calculations = project_calculations.compare_project_calculations
 build_project_calculation_comparison_table = project_calculations.build_project_calculation_comparison_table
 export_project_calculation_comparison_csv = project_calculations.export_project_calculation_comparison_csv
 export_project_calculation_comparison_html = project_calculations.export_project_calculation_comparison_html
+export_project_calculation_actions_csv = project_calculations.export_project_calculation_actions_csv
+export_project_calculation_actions_html = project_calculations.export_project_calculation_actions_html
+export_project_calculation_card_html = project_calculations.export_project_calculation_card_html
+export_project_calculation_card_csv = project_calculations.export_project_calculation_card_csv
 save_project_calculation = project_calculations.save_project_calculation
+append_project_calculation_action = project_calculations.append_project_calculation_action
+list_project_calculation_actions = project_calculations.list_project_calculation_actions
 list_project_exports = project_exports.list_project_exports
 read_project_export_file_bytes = project_exports.read_project_export_file_bytes
 save_project_export = project_exports.save_project_export
@@ -2765,6 +2779,41 @@ def _render_las_correlation_project_selector(logger) -> ProjectRecord:
     return _render_project_selector(logger, key_prefix="las_correlation", expanded=True)
 
 
+def _render_project_explorer(project: ProjectRecord, logger) -> None:
+    """Render a compact read-only Project Explorer in the sidebar."""
+
+    with st.sidebar.expander("Project Explorer", expanded=True):
+        try:
+            tree = build_project_tree(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+        except Exception:
+            logger.exception("project_tree_load_failed project_id=%s", safe_log_value(project.id))
+            st.warning("Не удалось построить дерево проекта.")
+            return
+
+        rows = project_tree_table_rows(tree)
+        st.caption(f"{project.name} · объектов: {max(len(rows) - 1, 0)}")
+        for row in rows:
+            level = int(row["level"])
+            label = str(row["label"])
+            status = str(row["status"])
+            kind = str(row["kind"])
+            indent = " " * level
+            icon = {
+                "project": "📁",
+                "folder": "▸",
+                "well_group": "🗂️",
+                "well": "🛢️",
+                "las_version": "LAS",
+                "calculation": "Σ",
+                "export": "⬇",
+                "empty": "—",
+            }.get(kind, "•")
+            line = f"{indent}{icon} {label}"
+            if status:
+                line = f"{line} · {status}"
+            st.caption(line)
+
+
 def _load_project_las_correlation_settings(project_id: str) -> LasCorrelationSettings | None:
     try:
         return load_project_correlation_settings(
@@ -3026,6 +3075,85 @@ def _save_project_export_with_feedback(
         st.success(f"Экспорт сохранен в проект: {record.label}.")
 
 
+
+def _project_calculation_actions_table(actions: tuple[object, ...]) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "Время": action.happened_at,
+                "Действие": action.action_label,
+                "Расчет": action.calculation_label or action.calculation_id,
+                "Связанный расчет": action.related_calculation_label or action.related_calculation_id,
+                "Формат": action.export_format,
+                "Детали": action.details,
+            }
+            for action in actions
+        ]
+    )
+
+
+def _record_project_calculation_action(
+    project: ProjectRecord,
+    action: str,
+    logger,
+    *,
+    calculation_id: str = "",
+    related_calculation_id: str = "",
+    export_format: str = "",
+    details: str = "",
+) -> None:
+    try:
+        append_project_calculation_action(
+            LAS_CORRELATION_PROJECTS_ROOT,
+            project.id,
+            action,
+            calculation_id=calculation_id,
+            related_calculation_id=related_calculation_id,
+            export_format=export_format,
+            details=details,
+        )
+    except Exception:
+        logger.exception(
+            "project_calculation_action_log_failed project_id=%s action=%s",
+            safe_log_value(project.id),
+            safe_log_value(action),
+        )
+
+
+def _render_project_calculation_actions(project: ProjectRecord, logger) -> None:
+    try:
+        actions = list_project_calculation_actions(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+    except Exception:
+        logger.exception("project_calculation_actions_read_failed project_id=%s", safe_log_value(project.id))
+        st.warning("Не удалось прочитать журнал действий по сохраненным расчетам.")
+        return
+
+    with st.expander("Журнал действий по сохраненным расчетам", expanded=False):
+        st.caption(
+            "Компактный журнал фиксирует сохранение snapshot, открытие в графиках, "
+            "сравнение snapshots и скачивание выгрузок. Сырые таблицы в журнал не записываются."
+        )
+        if not actions:
+            st.caption("Действий по сохраненным расчетам пока нет.")
+            return
+        st.dataframe(_project_calculation_actions_table(actions), use_container_width=True, hide_index=True, height=220)
+        csv_col, html_col = st.columns(2)
+        csv_col.download_button(
+            "Скачать журнал CSV",
+            data=export_project_calculation_actions_csv(actions),
+            file_name=f"calculation-actions-{project.id}.csv",
+            mime="text/csv",
+            key=f"project_calculation_actions_csv_{project.id}",
+        )
+        html_col.download_button(
+            "Скачать журнал HTML",
+            data=export_project_calculation_actions_html(actions),
+            file_name=f"calculation-actions-{project.id}.html",
+            mime="text/html",
+            key=f"project_calculation_actions_html_{project.id}",
+        )
+
+
 def _project_calculation_option_label(record) -> str:
     warning_label = f" | предупреждений: {record.warnings_count}" if record.warnings_count else ""
     return f"{record.source_label} | {record.saved_at} | строк: {record.row_count}{warning_label}"
@@ -3185,6 +3313,17 @@ def _render_project_calculation_comparison(project: ProjectRecord, records: tupl
 
         try:
             comparison = compare_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id, left_id, right_id)
+            compare_log_key = f"project_calculation_compare_logged_{project.id}_{left_id}_{right_id}"
+            if not st.session_state.get(compare_log_key):
+                _record_project_calculation_action(
+                    project,
+                    "compare_snapshots",
+                    logger,
+                    calculation_id=left_id,
+                    related_calculation_id=right_id,
+                    details="safe metadata/csv comparison",
+                )
+                st.session_state[compare_log_key] = True
         except Exception:
             logger.exception(
                 "project_calculation_compare_failed project_id=%s left_id=%s right_id=%s",
@@ -3214,20 +3353,38 @@ def _render_project_calculation_comparison(project: ProjectRecord, records: tupl
         st.dataframe(diff_table, use_container_width=True, hide_index=True)
 
         csv_export_col, html_export_col = st.columns(2)
-        csv_export_col.download_button(
+        if csv_export_col.download_button(
             "Скачать сравнение CSV",
             data=export_project_calculation_comparison_csv(comparison),
             file_name=f"calculation-comparison-{comparison.left_id}-vs-{comparison.right_id}.csv",
             mime="text/csv",
             key=f"project_calculation_compare_csv_{project.id}_{comparison.left_id}_{comparison.right_id}",
-        )
-        html_export_col.download_button(
+        ):
+            _record_project_calculation_action(
+                project,
+                "download_export",
+                logger,
+                calculation_id=comparison.left_id,
+                related_calculation_id=comparison.right_id,
+                export_format="CSV",
+                details="comparison export",
+            )
+        if html_export_col.download_button(
             "Скачать сравнение HTML",
             data=export_project_calculation_comparison_html(comparison),
             file_name=f"calculation-comparison-{comparison.left_id}-vs-{comparison.right_id}.html",
             mime="text/html",
             key=f"project_calculation_compare_html_{project.id}_{comparison.left_id}_{comparison.right_id}",
-        )
+        ):
+            _record_project_calculation_action(
+                project,
+                "download_export",
+                logger,
+                calculation_id=comparison.left_id,
+                related_calculation_id=comparison.right_id,
+                export_format="HTML",
+                details="comparison export",
+            )
 
 def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
     all_records = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)
@@ -3242,7 +3399,10 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
             metric_columns.metric("Колонок", len(summary.columns))
         if not all_records:
             st.caption("В активном проекте пока нет сохраненных расчетов.")
+            _render_project_calculation_actions(project, logger)
             return
+
+        _render_project_calculation_actions(project, logger)
 
         with st.expander("Быстрый фильтр расчетов", expanded=False):
             filter_source, filter_warnings = st.columns(2)
@@ -3301,28 +3461,102 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
         selected_record = records_by_id[selected_id]
         _render_project_calculation_metadata(project, selected_id, logger)
 
-        csv_col, xlsx_col, open_col = st.columns(3)
         try:
-            csv_col.download_button(
+            integrity = check_project_calculation_integrity(LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id)
+        except Exception:
+            integrity = None
+            logger.exception(
+                "project_calculation_integrity_check_failed project_id=%s calculation_id=%s",
+                safe_log_value(project.id),
+                safe_log_value(selected_id),
+            )
+            st.error("Не удалось проверить файлы сохраненного расчета перед выгрузкой. Подробности записаны в logs/app.log.")
+
+        downloads_disabled = integrity is None or not integrity.ok
+        if integrity is not None:
+            if integrity.ok:
+                st.success("Файлы выбранного сохраненного расчета прошли проверку целостности перед выгрузкой.")
+            else:
+                st.warning("Выгрузки выбранного расчета временно отключены: проверка целостности нашла проблему.")
+                for message in integrity.messages:
+                    st.caption(f"• {message}")
+
+        csv_col, xlsx_col, csv_card_col, html_card_col, open_col = st.columns(5)
+        try:
+            csv_data = (
+                read_project_calculation_file_bytes(LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id, "csv")
+                if not downloads_disabled
+                else b""
+            )
+            xlsx_data = (
+                read_project_calculation_file_bytes(LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id, "xlsx")
+                if not downloads_disabled
+                else b""
+            )
+            card_csv_data = (
+                export_project_calculation_card_csv(LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id)
+                if not downloads_disabled
+                else b""
+            )
+            card_html_data = (
+                export_project_calculation_card_html(LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id)
+                if not downloads_disabled
+                else b""
+            )
+            if csv_col.download_button(
                 "Скачать CSV",
-                data=read_project_calculation_file_bytes(
-                    LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id, "csv"
-                ),
+                data=csv_data,
                 file_name=f"{selected_record.id}.csv",
                 mime="text/csv",
                 use_container_width=True,
+                disabled=downloads_disabled,
                 key=f"project_calculation_csv_{project.id}_{selected_id}",
-            )
-            xlsx_col.download_button(
+            ):
+                _record_project_calculation_action(project, "download_export", logger, calculation_id=selected_id, export_format="CSV")
+            if xlsx_col.download_button(
                 "Скачать XLSX",
-                data=read_project_calculation_file_bytes(
-                    LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id, "xlsx"
-                ),
+                data=xlsx_data,
                 file_name=f"{selected_record.id}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
+                disabled=downloads_disabled,
                 key=f"project_calculation_xlsx_{project.id}_{selected_id}",
-            )
+            ):
+                _record_project_calculation_action(project, "download_export", logger, calculation_id=selected_id, export_format="XLSX")
+            if csv_card_col.download_button(
+                "Скачать карточку CSV",
+                data=card_csv_data,
+                file_name=f"{selected_record.id}-card.csv",
+                mime="text/csv",
+                use_container_width=True,
+                disabled=downloads_disabled,
+                key=f"project_calculation_card_csv_{project.id}_{selected_id}",
+            ):
+                _record_project_calculation_action(
+                    project,
+                    "download_export",
+                    logger,
+                    calculation_id=selected_id,
+                    export_format="CSV",
+                    details="calculation card metadata",
+                )
+            if html_card_col.download_button(
+                "Скачать карточку HTML",
+                data=card_html_data,
+                file_name=f"{selected_record.id}-card.html",
+                mime="text/html",
+                use_container_width=True,
+                disabled=downloads_disabled,
+                key=f"project_calculation_card_html_{project.id}_{selected_id}",
+            ):
+                _record_project_calculation_action(
+                    project,
+                    "download_export",
+                    logger,
+                    calculation_id=selected_id,
+                    export_format="HTML",
+                    details="calculation card report",
+                )
         except Exception:
             logger.exception(
                 "project_calculation_download_failed project_id=%s calculation_id=%s",
@@ -3355,6 +3589,7 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
                 )
                 st.error("Не удалось открыть сохраненный расчет. Подробности записаны в logs/app.log.")
             else:
+                _record_project_calculation_action(project, "open_snapshot", logger, calculation_id=selected_id)
                 st.success("Сохраненный расчет открыт во вкладке `Интерпретационные графики`.")
 
 
@@ -3895,6 +4130,7 @@ def main() -> None:
     logger.info("streamlit_app_started")
 
     active_project = _render_project_selector(logger, key_prefix="global", expanded=True)
+    _render_project_explorer(active_project, logger)
 
     start_tab, workspace_tab, las_editor_tab, correlation_tab, graphs_tab, docs_tab = st.tabs(list(APP_TABS))
     with start_tab:
