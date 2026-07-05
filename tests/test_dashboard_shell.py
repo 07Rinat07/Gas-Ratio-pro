@@ -103,3 +103,28 @@ def test_global_background_layer_is_available_for_all_tabs() -> None:
     assert "--global-bg-image" in source
     assert "background-attachment: fixed" in source
     assert 'button[role="tab"]' in source
+
+
+def test_main_navigation_replaces_small_streamlit_tabs() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "ACTIVE_MAIN_TAB_KEY" in source
+    assert "_render_main_navigation" in source
+    assert "st.tabs(list(APP_TABS))" not in source
+    assert "Открыть: Старт" in source
+
+
+def test_documentation_tab_uses_branded_background() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "docs-hero" in source
+    assert "docs-panel" in source
+    assert "var(--global-bg-image)" in source
+
+
+def test_proprietary_license_file_exists() -> None:
+    license_text = Path(app.ROOT_DIR / "LICENSE").read_text(encoding="utf-8")
+
+    assert "Proprietary License" in license_text
+    assert "Rinat Sarmuldin" in license_text
+    assert "ura07srr@gmail.com" in license_text

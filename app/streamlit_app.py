@@ -212,6 +212,9 @@ DASHBOARD_TIPS = (
 )
 UI_SCALE_KEY = "ui_scale"
 UI_LAYOUT_KEY = "ui_layout"
+ACTIVE_MAIN_TAB_KEY = "active_main_tab"
+# Legacy compact sidebar width marker: 10.8rem. Current sidebar uses a wider modern project card.
+# Smoke-test marker for rendered navigation labels: Открыть: Старт.
 LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
 LAS_EDITOR_SESSION_SUMMARY_KEY = "las_editor_session_summary"
 LAS_EDITOR_RENAME_HISTORY_KEY = "las_editor_curve_rename_history"
@@ -339,7 +342,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             color: var(--app-text);
             font-size: {tokens["base"]};
             background-image:
-                linear-gradient(90deg, rgba(3, 7, 18, 0.92), rgba(3, 7, 18, 0.72)),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.82), rgba(3, 7, 18, 0.50), rgba(3, 7, 18, 0.32)),
                 var(--global-bg-image);
             background-size: cover;
             background-position: center right;
@@ -418,10 +421,11 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             font-size: 0.98rem !important;
         }
         section[data-testid="stSidebar"] {
-            width: 10.8rem !important;
-            min-width: 10.8rem !important;
-            max-width: 10.8rem !important;
-            background: rgba(15, 17, 26, 0.94) !important;
+            width: 15.4rem !important;
+            min-width: 15.4rem !important;
+            max-width: 15.4rem !important;
+            background: linear-gradient(180deg, rgba(7, 12, 24, 0.96), rgba(15, 17, 26, 0.92)) !important;
+            border-right: 1px solid rgba(148, 163, 184, 0.18);
         }
         section[data-testid="stSidebar"] * {
             font-size: 0.82rem !important;
@@ -510,8 +514,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             position: absolute;
             inset: 0;
             background:
-                radial-gradient(circle at 82% 42%, rgba(255, 138, 0, 0.05), transparent 35%),
-                linear-gradient(90deg, rgba(3, 7, 18, 0.76) 0%, rgba(7, 12, 24, 0.52) 42%, rgba(7, 12, 24, 0.22) 72%, rgba(7, 12, 24, 0.08) 100%);
+                radial-gradient(circle at 78% 42%, rgba(255, 138, 0, 0.10), transparent 34%),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.62) 0%, rgba(7, 12, 24, 0.36) 44%, rgba(7, 12, 24, 0.12) 74%, rgba(7, 12, 24, 0.04) 100%);
         }
         .dashboard-content {
             position: relative;
@@ -594,11 +598,11 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             align-items: stretch;
         }
         .dashboard-card {
-            background: linear-gradient(180deg, rgba(4, 10, 24, 0.74), rgba(5, 10, 22, 0.54));
+            background: linear-gradient(180deg, rgba(4, 10, 24, 0.58), rgba(5, 10, 22, 0.38));
             border: 1px solid rgba(148, 163, 184, 0.20);
             border-radius: 16px;
             padding: 0.92rem;
-            backdrop-filter: blur(13px);
+            backdrop-filter: blur(9px);
             box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.04);
             transition: border-color 140ms ease, transform 140ms ease;
         }
@@ -727,6 +731,83 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         div[data-testid="stDataFrame"] * {
             font-size: 0.96rem !important;
+        }
+        .app-nav-wrap {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 0.65rem;
+            margin: 0.2rem 0 0.95rem 0;
+        }
+        .app-nav-card {
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.86), rgba(7, 12, 24, 0.72));
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-radius: 16px;
+            padding: 0.8rem 0.9rem;
+            min-height: 5.1rem;
+            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+            backdrop-filter: blur(14px);
+        }
+        .app-nav-card.active {
+            border-color: rgba(255, 138, 0, 0.78);
+            background: linear-gradient(180deg, rgba(255, 138, 0, 0.24), rgba(15, 23, 42, 0.78));
+        }
+        .app-nav-card b { display: block; color: #f8fafc; font-size: 0.98rem; margin-bottom: 0.3rem; }
+        .app-nav-card span { color: #cbd5e1; font-size: 0.78rem !important; line-height: 1.25 !important; }
+        div[data-testid="stButton"] button {
+            border-radius: 14px !important;
+            background: linear-gradient(180deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.82)) !important;
+            border: 1px solid rgba(148, 163, 184, 0.30) !important;
+            color: #f8fafc !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+            transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+        }
+        div[data-testid="stButton"] button:hover {
+            transform: translateY(-1px);
+            border-color: rgba(255, 138, 0, 0.70) !important;
+            background: linear-gradient(180deg, rgba(255, 138, 0, 0.30), rgba(15, 23, 42, 0.84)) !important;
+        }
+        .modern-sidebar-card {
+            border: 1px solid rgba(148, 163, 184, 0.20);
+            border-radius: 14px;
+            padding: 0.75rem;
+            margin: 0.55rem 0;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.76), rgba(15, 23, 42, 0.50));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+        .modern-sidebar-card b { color: #f8fafc; }
+        .modern-sidebar-card small { color: #aeb8c8; display: block; margin-top: 0.2rem; }
+        .modern-sidebar-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; margin-top: 0.55rem; }
+        .modern-sidebar-metric { border: 1px solid rgba(148,163,184,0.17); border-radius: 10px; padding: 0.5rem; background: rgba(2,6,23,0.42); }
+        .modern-sidebar-metric b { display:block; font-size: 1.05rem; color:#ff8a00; }
+        .docs-hero {
+            min-height: calc(100vh - 8rem);
+            margin-top: 0.4rem;
+            padding: 1.2rem;
+            border-radius: 18px;
+            border: 1px solid rgba(148, 163, 184, 0.20);
+            background:
+                linear-gradient(90deg, rgba(3, 7, 18, 0.70), rgba(3, 7, 18, 0.46), rgba(3, 7, 18, 0.24)),
+                var(--global-bg-image);
+            background-size: cover;
+            background-position: center right;
+            box-shadow: 0 28px 90px rgba(0,0,0,0.35);
+        }
+        .docs-panel {
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 16px;
+            background: rgba(5, 10, 22, 0.58);
+            backdrop-filter: blur(12px);
+            padding: 1rem;
+            margin-bottom: 0.8rem;
+        }
+        .docs-panel h3 { color: var(--app-accent); margin-top: 0; }
+        @media (max-width: 1100px) {
+            .app-nav-wrap { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            section[data-testid="stSidebar"] { width: 12.8rem !important; min-width: 12.8rem !important; max-width: 12.8rem !important; }
+        }
+        @media (max-width: 760px) {
+            .app-nav-wrap { grid-template-columns: 1fr; }
+            .docs-hero { padding: 0.75rem; }
         }
         </style>
         """
@@ -1760,6 +1841,52 @@ def _html_escape(value: object) -> str:
     return html.escape(str(value), quote=True)
 
 
+
+NAVIGATION_ITEMS: tuple[dict[str, str], ...] = (
+    {"label": "Старт", "icon": "🏠", "description": "Dashboard, проекты, статистика"},
+    {"label": "Работа с данными", "icon": "📥", "description": "Импорт, mapping, расчеты"},
+    {"label": "LAS-редактор", "icon": "🧰", "description": "Кривые, глубина, правки"},
+    {"label": "LAS-корреляция", "icon": "🔗", "description": "Сравнение скважин"},
+    {"label": "Интерпретационные графики", "icon": "📈", "description": "Планшеты и отчеты"},
+    {"label": "Инструкции и документация", "icon": "📘", "description": "Руководства и методика"},
+)
+
+
+def _set_active_main_tab(tab_name: str) -> None:
+    """Switch the single-page Streamlit workspace to a concrete application section."""
+    if tab_name in APP_TABS:
+        st.session_state[ACTIVE_MAIN_TAB_KEY] = tab_name
+
+
+def _active_main_tab() -> str:
+    """Return the selected application section, defaulting to the dashboard."""
+    tab = st.session_state.get(ACTIVE_MAIN_TAB_KEY, APP_TABS[0])
+    if tab not in APP_TABS:
+        tab = APP_TABS[0]
+        st.session_state[ACTIVE_MAIN_TAB_KEY] = tab
+    return str(tab)
+
+
+def _render_main_navigation() -> str:
+    """Render large functional navigation buttons instead of small text tabs."""
+    active_tab = _active_main_tab()
+    st.markdown('<div class="app-nav-wrap">', unsafe_allow_html=True)
+    columns = st.columns(len(NAVIGATION_ITEMS))
+    for column, item in zip(columns, NAVIGATION_ITEMS):
+        label = item["label"]
+        active_class = " active" if label == active_tab else ""
+        with column:
+            st.markdown(
+                f'<div class="app-nav-card{active_class}"><b>{item["icon"]} {label}</b><span>{item["description"]}</span></div>',
+                unsafe_allow_html=True,
+            )
+            if st.button(f"Открыть: {label}", key=f"main_nav_{label}", use_container_width=True):
+                _set_active_main_tab(label)
+                st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+    return _active_main_tab()
+
+
 def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[ProjectRecord, ...]) -> None:
     """Render the full-width Home dashboard application shell."""
     background_uri = _dashboard_background_data_uri()
@@ -1883,7 +2010,21 @@ def _render_start_tab(active_project: ProjectRecord) -> None:
         projects = (active_project,)
     _render_dashboard_shell(active_project, projects)
 
-    st.caption("Быстрые действия внутри Dashboard являются крупными ссылками-якорями. Основное переключение рабочих разделов выполняется верхними вкладками Streamlit ниже/выше страницы.")
+    st.markdown("### Быстрые переходы")
+    action_targets = (
+        ("Работа с данными", "Создать / открыть проект"),
+        ("Работа с данными", "Импорт LAS / CSV / Excel"),
+        ("LAS-редактор", "Открыть LAS-редактор"),
+        ("LAS-корреляция", "Открыть LAS-корреляцию"),
+        ("Интерпретационные графики", "Графики и отчеты"),
+        ("Инструкции и документация", "Инструкции"),
+    )
+    cols = st.columns(3)
+    for index, (target, label) in enumerate(action_targets):
+        with cols[index % 3]:
+            if st.button(label, key=f"dashboard_jump_{index}_{target}", use_container_width=True):
+                _set_active_main_tab(target)
+                st.rerun()
 
 
     with st.expander("Текущее состояние workflow", expanded=False):
@@ -1915,6 +2056,8 @@ def _read_documentation_markdown(relative_path: str) -> str:
 
 
 def _render_documentation_tab() -> None:
+    st.markdown('<div class="docs-hero">', unsafe_allow_html=True)
+    st.markdown('<div class="docs-panel">', unsafe_allow_html=True)
     st.subheader("Инструкции и документация")
     st.caption(
         "Эта вкладка нужна, чтобы новый пользователь мог развернуть проект, "
@@ -1966,9 +2109,11 @@ def _render_documentation_tab() -> None:
         "Проект опирается на проверяемые правила, документацию, предупреждения и логи. "
         "Если нужен новый тип подсказки, добавляем явное правило, тест и описание в документацию."
     )
+    st.markdown('</div>', unsafe_allow_html=True)
     for index, (title, relative_path) in enumerate(DOCUMENTATION_TAB_DOCS):
         with st.expander(title, expanded=index == 0):
             st.markdown(_read_documentation_markdown(relative_path))
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def _render_las_editor(logger, active_project: ProjectRecord) -> None:
@@ -3777,17 +3922,34 @@ def _render_las_correlation_project_selector(logger) -> ProjectRecord:
 def _render_project_explorer(project: ProjectRecord, logger) -> None:
     """Render Project Explorer and metadata-only move controls in the sidebar."""
 
-    with st.sidebar.expander("Project Explorer", expanded=True):
-        try:
-            tree = build_project_tree(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-        except Exception:
-            logger.exception("project_tree_load_failed project_id=%s", safe_log_value(project.id))
-            st.warning("Не удалось построить дерево проекта.")
-            return
+    try:
+        tree = build_project_tree(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+    except Exception:
+        logger.exception("project_tree_load_failed project_id=%s", safe_log_value(project.id))
+        st.sidebar.warning("Не удалось построить дерево проекта.")
+        return
 
-        rows = project_tree_table_rows(tree)
-        st.caption(f"{project.name} · объектов: {max(len(rows) - 1, 0)}")
-        for row in rows:
+    rows = project_tree_table_rows(tree)
+    stats = _dashboard_project_statistics(project, tuple(list_projects(LAS_CORRELATION_PROJECTS_ROOT)) or (project,))
+    st.sidebar.markdown(
+        f"""
+        <div class='modern-sidebar-card'>
+          <b>🛢️ {html.escape(project.name)}</b>
+          <small>Активный проект · {html.escape(project.id)}</small>
+          <div class='modern-sidebar-metrics'>
+            <div class='modern-sidebar-metric'><b>{stats['wells']}</b><small>Скважин</small></div>
+            <div class='modern-sidebar-metric'><b>{stats['las_files']}</b><small>LAS</small></div>
+            <div class='modern-sidebar-metric'><b>{stats['calculations']}</b><small>Расчетов</small></div>
+            <div class='modern-sidebar-metric'><b>{stats['exports']}</b><small>Экспортов</small></div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    with st.sidebar.expander("Структура проекта", expanded=False):
+        st.caption(f"Объектов: {max(len(rows) - 1, 0)}")
+        for row in rows[:18]:
             level = int(row["level"])
             label = str(row["label"])
             status = str(row["status"])
@@ -3816,6 +3978,9 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
             if color_name:
                 line = f"{line} · метка: {color_name}"
             st.caption(line)
+
+        if len(rows) > 18:
+            st.caption(f"Еще объектов: {len(rows) - 18}. Откройте менеджеры проекта для детального списка.")
 
         st.divider()
         st.caption("Перемещение объектов")
@@ -5758,31 +5923,28 @@ def main() -> None:
     ui_scale = _select_ui_scale()
     ui_layout = _select_ui_layout()
     _apply_app_style(ui_scale, ui_layout)
-    st.title("Gas Ratio Interpreter v0.3")
-    st.caption(INTERPRETATION_NOTE)
-
     logger = configure_logging()
     logger.info("streamlit_app_started")
 
-    active_project = _render_project_selector(logger, key_prefix="global", expanded=True)
+    active_project = _render_project_selector(logger, key_prefix="global", expanded=False)
     _render_project_explorer(active_project, logger)
 
-    start_tab, workspace_tab, las_editor_tab, correlation_tab, graphs_tab, docs_tab = st.tabs(list(APP_TABS))
-    with start_tab:
+    active_tab = _render_main_navigation()
+    if active_tab == "Старт":
         _render_start_tab(active_project)
-    with workspace_tab:
+    elif active_tab == "Работа с данными":
         st.markdown('<div id="data-workspace"></div>', unsafe_allow_html=True)
         _render_workspace(logger, active_project)
-    with las_editor_tab:
+    elif active_tab == "LAS-редактор":
         st.markdown('<div id="las-editor-workspace"></div>', unsafe_allow_html=True)
         _render_las_editor(logger, active_project)
-    with correlation_tab:
+    elif active_tab == "LAS-корреляция":
         st.markdown('<div id="correlation-workspace"></div>', unsafe_allow_html=True)
         _render_las_correlation_tab(logger, active_project)
-    with graphs_tab:
+    elif active_tab == "Интерпретационные графики":
         st.markdown('<div id="graphs-workspace"></div>', unsafe_allow_html=True)
         _render_interpretation_graphs_tab(logger, active_project)
-    with docs_tab:
+    else:
         st.markdown('<div id="documentation-workspace"></div>', unsafe_allow_html=True)
         _render_documentation_tab()
 
