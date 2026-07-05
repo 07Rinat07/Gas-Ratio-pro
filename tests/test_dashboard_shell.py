@@ -85,15 +85,16 @@ def test_sidebar_is_compact_for_dashboard_workspace() -> None:
     source = Path(app.__file__).read_text(encoding="utf-8")
 
     assert 'section[data-testid="stSidebar"]' in source
-    assert "10.8rem" in source
+    assert "13.2rem" in source
+    assert "sidebar_project_search" in source
 
 
 def test_dashboard_has_large_functional_action_cards() -> None:
     source = Path(app.__file__).read_text(encoding="utf-8")
 
     assert "Создать / открыть проект" in source
-    assert 'href="#data-workspace"' in source
-    assert 'href="#las-editor-workspace"' in source
+    assert "functional-quick-actions" in source
+    assert "dashboard_jump_" in source
     assert "dashboard-action-card" in source
 
 
@@ -128,3 +129,15 @@ def test_proprietary_license_file_exists() -> None:
     assert "Proprietary License" in license_text
     assert "Rinat Sarmuldin" in license_text
     assert "ura07srr@gmail.com" in license_text
+
+
+def test_project_search_results_empty_query_returns_empty() -> None:
+    assert app._project_search_results(_project("active", "Active"), "") == ()
+
+
+def test_dashboard_transparency_is_less_aggressive() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "rgba(3, 7, 18, 0.38)" in source
+    assert "rgba(4, 10, 24, 0.38)" in source
+    assert "dashboard_project_search" in source

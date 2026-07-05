@@ -342,7 +342,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             color: var(--app-text);
             font-size: {tokens["base"]};
             background-image:
-                linear-gradient(90deg, rgba(3, 7, 18, 0.82), rgba(3, 7, 18, 0.50), rgba(3, 7, 18, 0.32)),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.60), rgba(3, 7, 18, 0.34), rgba(3, 7, 18, 0.18)),
                 var(--global-bg-image);
             background-size: cover;
             background-position: center right;
@@ -421,10 +421,10 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             font-size: 0.98rem !important;
         }
         section[data-testid="stSidebar"] {
-            width: 15.4rem !important;
-            min-width: 15.4rem !important;
-            max-width: 15.4rem !important;
-            background: linear-gradient(180deg, rgba(7, 12, 24, 0.96), rgba(15, 17, 26, 0.92)) !important;
+            width: 13.2rem !important;
+            min-width: 13.2rem !important;
+            max-width: 13.2rem !important;
+            background: linear-gradient(180deg, rgba(7, 12, 24, 0.92), rgba(10, 16, 30, 0.86)) !important;
             border-right: 1px solid rgba(148, 163, 184, 0.18);
         }
         section[data-testid="stSidebar"] * {
@@ -514,8 +514,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             position: absolute;
             inset: 0;
             background:
-                radial-gradient(circle at 78% 42%, rgba(255, 138, 0, 0.10), transparent 34%),
-                linear-gradient(90deg, rgba(3, 7, 18, 0.62) 0%, rgba(7, 12, 24, 0.36) 44%, rgba(7, 12, 24, 0.12) 74%, rgba(7, 12, 24, 0.04) 100%);
+                radial-gradient(circle at 78% 42%, rgba(255, 138, 0, 0.08), transparent 34%),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.38) 0%, rgba(7, 12, 24, 0.22) 44%, rgba(7, 12, 24, 0.08) 74%, rgba(7, 12, 24, 0.02) 100%);
         }
         .dashboard-content {
             position: relative;
@@ -598,11 +598,11 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             align-items: stretch;
         }
         .dashboard-card {
-            background: linear-gradient(180deg, rgba(4, 10, 24, 0.58), rgba(5, 10, 22, 0.38));
+            background: linear-gradient(180deg, rgba(4, 10, 24, 0.38), rgba(5, 10, 22, 0.24));
             border: 1px solid rgba(148, 163, 184, 0.20);
             border-radius: 16px;
             padding: 0.92rem;
-            backdrop-filter: blur(9px);
+            backdrop-filter: blur(5px);
             box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.04);
             transition: border-color 140ms ease, transform 140ms ease;
         }
@@ -639,7 +639,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             padding: 0.75rem;
             border: 1px solid rgba(148, 163, 184, 0.20);
             border-radius: 13px;
-            background: rgba(15, 23, 42, 0.62);
+            background: rgba(15, 23, 42, 0.42);
         }
         .dashboard-metric b { display: block; font-size: 1.55rem; }
         .dashboard-metric span { color: #d1d5db; font-weight: 800; }
@@ -649,7 +649,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             padding: 0.9rem;
             border: 1px solid rgba(148, 163, 184, 0.24);
             border-radius: 14px;
-            background: linear-gradient(180deg, rgba(15, 23, 42, 0.72), rgba(15, 23, 42, 0.50));
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.48), rgba(15, 23, 42, 0.30));
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
         }
         .dashboard-action-card strong { display: block; font-size: 1.02rem; margin-bottom: 0.25rem; }
@@ -779,6 +779,29 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .modern-sidebar-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; margin-top: 0.55rem; }
         .modern-sidebar-metric { border: 1px solid rgba(148,163,184,0.17); border-radius: 10px; padding: 0.5rem; background: rgba(2,6,23,0.42); }
         .modern-sidebar-metric b { display:block; font-size: 1.05rem; color:#ff8a00; }
+
+        .functional-quick-actions {
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 18px;
+            padding: 0.85rem;
+            margin: 0.3rem 0 0.9rem 0;
+            background: linear-gradient(180deg, rgba(4, 10, 24, 0.34), rgba(5, 10, 22, 0.22));
+            backdrop-filter: blur(5px);
+        }
+        .project-search-result {
+            border: 1px solid rgba(148,163,184,0.22);
+            border-radius: 12px;
+            padding: 0.55rem 0.7rem;
+            margin: 0.35rem 0;
+            background: rgba(15, 23, 42, 0.42);
+        }
+        .sidebar-search-hit {
+            border-left: 3px solid rgba(255, 138, 0, 0.75);
+            padding: 0.35rem 0.45rem;
+            margin: 0.25rem 0;
+            background: rgba(15, 23, 42, 0.42);
+            border-radius: 8px;
+        }
         .docs-hero {
             min-height: calc(100vh - 8rem);
             margin-top: 0.4rem;
@@ -786,7 +809,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             border-radius: 18px;
             border: 1px solid rgba(148, 163, 184, 0.20);
             background:
-                linear-gradient(90deg, rgba(3, 7, 18, 0.70), rgba(3, 7, 18, 0.46), rgba(3, 7, 18, 0.24)),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.48), rgba(3, 7, 18, 0.28), rgba(3, 7, 18, 0.12)),
                 var(--global-bg-image);
             background-size: cover;
             background-position: center right;
@@ -795,7 +818,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .docs-panel {
             border: 1px solid rgba(148, 163, 184, 0.22);
             border-radius: 16px;
-            background: rgba(5, 10, 22, 0.58);
+            background: rgba(5, 10, 22, 0.46);
             backdrop-filter: blur(12px);
             padding: 1rem;
             margin-bottom: 0.8rem;
@@ -803,7 +826,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .docs-panel h3 { color: var(--app-accent); margin-top: 0; }
         @media (max-width: 1100px) {
             .app-nav-wrap { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-            section[data-testid="stSidebar"] { width: 12.8rem !important; min-width: 12.8rem !important; max-width: 12.8rem !important; }
+            section[data-testid="stSidebar"] { width: 11.8rem !important; min-width: 11.8rem !important; max-width: 11.8rem !important; }
         }
         @media (max-width: 760px) {
             .app-nav-wrap { grid-template-columns: 1fr; }
@@ -823,13 +846,14 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
 
 
 def _select_ui_scale() -> str:
-    selected = st.sidebar.radio(
-        "Размер интерфейса",
-        options=("Крупный", "Очень крупный", "Стандартный"),
-        index=0,
-        key=UI_SCALE_KEY,
-        horizontal=False,
-    )
+    with st.sidebar.expander("Вид интерфейса", expanded=False):
+        selected = st.radio(
+            "Размер",
+            options=("Крупный", "Очень крупный", "Стандартный"),
+            index=0,
+            key=UI_SCALE_KEY,
+            horizontal=False,
+        )
     return {"Стандартный": "standard", "Крупный": "large", "Очень крупный": "xlarge"}[selected]
 
 
@@ -847,14 +871,15 @@ def _layout_profile_key(label: str) -> str:
 
 
 def _select_ui_layout() -> str:
-    selected = st.sidebar.radio(
-        "Режим экрана",
-        options=_layout_profile_options(),
-        index=1,
-        key=UI_LAYOUT_KEY,
-        horizontal=False,
-        help="Обычный монитор ограничивает ширину рабочих блоков, широкий экран дает больше места под планшеты и таблицы.",
-    )
+    with st.sidebar.expander("Компоновка", expanded=False):
+        selected = st.radio(
+            "Экран",
+            options=_layout_profile_options(),
+            index=1,
+            key=UI_LAYOUT_KEY,
+            horizontal=False,
+            help="Обычный монитор ограничивает ширину рабочих блоков, широкий экран дает больше места под планшеты и таблицы.",
+        )
     return _layout_profile_key(selected)
 
 
@@ -1841,6 +1866,29 @@ def _html_escape(value: object) -> str:
     return html.escape(str(value), quote=True)
 
 
+def _project_search_results(project: ProjectRecord, query: str, *, limit: int = 12) -> tuple[dict[str, str], ...]:
+    """Search visible project explorer rows by label, status, and kind."""
+    normalized_query = str(query or "").strip().lower()
+    if not normalized_query:
+        return ()
+    try:
+        tree = build_project_tree(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+        rows = project_tree_table_rows(tree)
+    except Exception:
+        return ()
+
+    matches: list[dict[str, str]] = []
+    for row in rows:
+        label = str(row.get("label", ""))
+        status = str(row.get("status", ""))
+        kind = str(row.get("kind", ""))
+        haystack = f"{label} {status} {kind}".lower()
+        if normalized_query in haystack:
+            matches.append({"label": label, "status": status, "kind": kind})
+        if len(matches) >= max(1, limit):
+            break
+    return tuple(matches)
+
 
 NAVIGATION_ITEMS: tuple[dict[str, str], ...] = (
     {"label": "Старт", "icon": "🏠", "description": "Dashboard, проекты, статистика"},
@@ -1956,12 +2004,12 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
                 <article class="dashboard-card quick" id="dashboard-quick-actions">
                   <h3>Быстрый доступ</h3>
                   <div class="dashboard-actions">
-                    <a class="dashboard-action-card" href="#data-workspace"><strong>Создать / открыть проект</strong><span class="dashboard-muted">Работа с проектом и импортом</span></a>
-                    <a class="dashboard-action-card" href="#data-workspace"><strong>Импорт LAS</strong><span class="dashboard-muted">Перейти к загрузке данных</span></a>
-                    <a class="dashboard-action-card" href="#las-editor-workspace"><strong>LAS-редактор</strong><span class="dashboard-muted">Подготовка и правка кривых</span></a>
-                    <a class="dashboard-action-card" href="#correlation-workspace"><strong>LAS-корреляция</strong><span class="dashboard-muted">Сравнение скважин</span></a>
-                    <a class="dashboard-action-card" href="#graphs-workspace"><strong>Графики и отчеты</strong><span class="dashboard-muted">Планшеты и экспорт</span></a>
-                    <a class="dashboard-action-card" href="#documentation-workspace"><strong>Инструкции</strong><span class="dashboard-muted">Руководство пользователя</span></a>
+                    <div class="dashboard-action-card"><strong>Создать / открыть проект</strong><span class="dashboard-muted">Используйте рабочую кнопку над Dashboard</span></div>
+                    <div class="dashboard-action-card"><strong>Импорт LAS</strong><span class="dashboard-muted">Открывается кнопкой «Импорт LAS / CSV / Excel»</span></div>
+                    <div class="dashboard-action-card"><strong>LAS-редактор</strong><span class="dashboard-muted">Открывается рабочей кнопкой сверху</span></div>
+                    <div class="dashboard-action-card"><strong>LAS-корреляция</strong><span class="dashboard-muted">Открывается рабочей кнопкой сверху</span></div>
+                    <div class="dashboard-action-card"><strong>Графики и отчеты</strong><span class="dashboard-muted">Открывается рабочей кнопкой сверху</span></div>
+                    <div class="dashboard-action-card"><strong>Инструкции</strong><span class="dashboard-muted">Открывается рабочей кнопкой сверху</span></div>
                   </div>
                 </article>
                 <article class="dashboard-card activity" id="dashboard-activity">
@@ -2008,9 +2056,14 @@ def _render_start_tab(active_project: ProjectRecord) -> None:
     projects = list_projects(LAS_CORRELATION_PROJECTS_ROOT)
     if not projects:
         projects = (active_project,)
-    _render_dashboard_shell(active_project, projects)
 
-    st.markdown("### Быстрые переходы")
+    st.markdown('<div class="functional-quick-actions">', unsafe_allow_html=True)
+    top_col, search_col = st.columns([2, 1])
+    with top_col:
+        st.markdown("### Быстрый доступ")
+        st.caption("Эти кнопки реально переключают рабочие разделы приложения, а не являются декоративными ссылками.")
+    with search_col:
+        query = st.text_input("Поиск по проекту", key="dashboard_project_search", placeholder="скважина, LAS, расчет, экспорт")
     action_targets = (
         ("Работа с данными", "Создать / открыть проект"),
         ("Работа с данными", "Импорт LAS / CSV / Excel"),
@@ -2019,13 +2072,27 @@ def _render_start_tab(active_project: ProjectRecord) -> None:
         ("Интерпретационные графики", "Графики и отчеты"),
         ("Инструкции и документация", "Инструкции"),
     )
-    cols = st.columns(3)
+    cols = st.columns(6)
     for index, (target, label) in enumerate(action_targets):
-        with cols[index % 3]:
+        with cols[index % 6]:
             if st.button(label, key=f"dashboard_jump_{index}_{target}", use_container_width=True):
                 _set_active_main_tab(target)
                 st.rerun()
+    if query:
+        results = _project_search_results(active_project, query, limit=8)
+        if results:
+            st.caption(f"Найдено объектов: {len(results)}")
+            for result in results:
+                st.markdown(
+                    f"<div class='project-search-result'><b>{_html_escape(result['label'])}</b>"
+                    f"<br><span class='dashboard-muted'>{_html_escape(result['kind'])} · {_html_escape(result['status'])}</span></div>",
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.warning("По проекту ничего не найдено. Проверьте название скважины, LAS-файла, расчета или экспорта.")
+    st.markdown('</div>', unsafe_allow_html=True)
 
+    _render_dashboard_shell(active_project, projects)
 
     with st.expander("Текущее состояние workflow", expanded=False):
         for label, value, next_action in _workflow_status_detail_rows(active_project):
@@ -3949,7 +4016,21 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
 
     with st.sidebar.expander("Структура проекта", expanded=False):
         st.caption(f"Объектов: {max(len(rows) - 1, 0)}")
-        for row in rows[:18]:
+        sidebar_query = st.text_input(
+            "Поиск в проекте",
+            key="sidebar_project_search",
+            placeholder="скважина, LAS, расчет",
+        )
+        visible_rows = rows
+        if sidebar_query:
+            query = sidebar_query.strip().lower()
+            visible_rows = tuple(
+                row for row in rows
+                if query in f"{row.get('label', '')} {row.get('status', '')} {row.get('kind', '')}".lower()
+            )
+            if not visible_rows:
+                st.warning("Ничего не найдено в структуре проекта.")
+        for row in list(visible_rows)[:18]:
             level = int(row["level"])
             label = str(row["label"])
             status = str(row["status"])
@@ -3977,10 +4058,10 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                 line = f"{line} · {status}"
             if color_name:
                 line = f"{line} · метка: {color_name}"
-            st.caption(line)
+            st.markdown(f"<div class='sidebar-search-hit'>{_html_escape(line)}</div>", unsafe_allow_html=True)
 
-        if len(rows) > 18:
-            st.caption(f"Еще объектов: {len(rows) - 18}. Откройте менеджеры проекта для детального списка.")
+        if len(visible_rows) > 18:
+            st.caption(f"Еще объектов: {len(visible_rows) - 18}. Уточните поиск или откройте менеджеры проекта.")
 
         st.divider()
         st.caption("Перемещение объектов")
