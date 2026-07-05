@@ -173,6 +173,7 @@ def _well_node(well: ProjectLasWellCard, card: ProjectWellCard | None = None) ->
         coords = card.coordinates
         depth_reference = card.depth_reference
         drilling_dates = card.drilling_dates
+        operator = card.operator
         if coords.has_any:
             coordinate_label = "; ".join(label for label in (coords.projected_label, coords.geographic_label) if label)
             status_parts.append(f"координаты: {coordinate_label}")
@@ -181,6 +182,7 @@ def _well_node(well: ProjectLasWellCard, card: ProjectWellCard | None = None) ->
         if depth_reference.kb_above_gl_label:
             status_parts.append(depth_reference.kb_above_gl_label)
         status_parts.extend(drilling_dates.labels)
+        status_parts.extend(operator.labels)
         metadata.update(
             {
                 "well_card_status": card.status,
@@ -208,6 +210,8 @@ def _well_node(well: ProjectLasWellCard, card: ProjectWellCard | None = None) ->
             metadata["kb_above_gl_m"] = str(depth_reference.kb_above_gl_m)
         if drilling_dates.spud_date is not None:
             metadata["spud_date"] = drilling_dates.spud_date
+        if operator.operator is not None:
+            metadata["operator"] = operator.operator
     return ProjectTreeNode(
         id=f"well:{well.id}",
         label=card.name if card is not None and card.name else well.name,

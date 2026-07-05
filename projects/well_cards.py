@@ -23,6 +23,7 @@ PROJECT_WELL_GL_METADATA_KEY = "gl_m"
 PROJECT_WELL_PLANNED_TD_METADATA_KEY = "planned_td_m"
 PROJECT_WELL_ACTUAL_TD_METADATA_KEY = "actual_td_m"
 PROJECT_WELL_SPUD_DATE_METADATA_KEY = "spud_date"
+PROJECT_WELL_OPERATOR_METADATA_KEY = "operator"
 
 
 @dataclass(frozen=True)
@@ -172,6 +173,36 @@ class ProjectWellDrillingDates:
 
 
 @dataclass(frozen=True)
+class ProjectWellOperator:
+    """Validated optional operator metadata for a well card.
+
+    The operator is stored as a short human-readable organization name. It is
+    deliberately metadata-only: saving it does not touch LAS versions, saved
+    calculations or project exports.
+    """
+
+    operator: str | None = None
+
+    @property
+    def has_operator(self) -> bool:
+        return self.operator is not None
+
+    @property
+    def has_any(self) -> bool:
+        return self.has_operator
+
+    @property
+    def operator_label(self) -> str:
+        if not self.operator:
+            return ""
+        return f"Оператор={self.operator}"
+
+    @property
+    def labels(self) -> tuple[str, ...]:
+        return tuple(label for label in (self.operator_label,) if label)
+
+
+@dataclass(frozen=True)
 class ProjectWellCard:
     """Metadata-only well card stored inside a local project.
 
@@ -205,6 +236,10 @@ class ProjectWellCard:
     def drilling_dates(self) -> ProjectWellDrillingDates:
         return drilling_dates_from_metadata(self.metadata or {})
 
+    @property
+    def operator(self) -> ProjectWellOperator:
+        return operator_from_metadata(self.metadata or {})
+
 
 @dataclass(frozen=True)
 class ProjectWellCardTableRow:
@@ -232,6 +267,8 @@ class ProjectWellCardTableRow:
     kb_above_gl_label: str = ""
     spud_date: str | None = None
     spud_date_label: str = ""
+    operator: str | None = None
+    operator_label: str = ""
 
 
 def _optional_float(value: Any, field_label: str) -> float | None:
@@ -540,6 +577,48 @@ def merge_project_well_drilling_dates_metadata(
     clean_metadata.update(drilling_dates_to_metadata(validate_project_well_drilling_dates(spud_date=spud_date)))
     return clean_metadata
 
+
+def _optional_text(value: Any, field_label: str, *, max_length: int = 120) -> str | None:
+    """Normalize optional short text metadata from UI strings or JSON values."""
+
+    if value is None:
+        return None
+    clean = str(value).strip()
+    if not clean:
+        return None
+    clean = re.sub(r"\s+", " ", clean)
+    if len(clean) > max_length:
+        raise ValueError(f"{field_label}: длина не должна превышать {max_length} символов.")
+    if any(ch in clean for ch in "\r\n\t"):
+        raise ValueError(f"{field_label}: значение должно быть одной строкой.")
+    return clean
+
+
+def validate_project_well_operator(operator: Any = None) -> ProjectWellOperator:
+    """Validate optional well operator metadata."""
+
+    return ProjectWellOperator(operator=_optional_text(operator, "Оператор"))
+
+
+def operator_to_metadata(operator: ProjectWellOperator) -> dict[str, str | None]:
+    return {PROJECT_WELL_OPERATOR_METADATA_KEY: operator.operator}
+
+
+def operator_from_metadata(metadata: dict[str, Any]) -> ProjectWellOperator:
+    return validate_project_well_operator(operator=metadata.get(PROJECT_WELL_OPERATOR_METADATA_KEY))
+
+
+def merge_project_well_operator_metadata(
+    metadata: dict[str, Any] | None = None,
+    *,
+    operator: Any = None,
+) -> dict[str, Any]:
+    """Return card metadata with validated operator key updated."""
+
+    clean_metadata = dict(metadata or {})
+    clean_metadata.update(operator_to_metadata(validate_project_well_operator(operator=operator)))
+    return clean_metadata
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -728,6 +807,8 @@ def build_project_well_card_table(
             kb_above_gl_label=card.depth_reference.kb_above_gl_label,
             spud_date=card.drilling_dates.spud_date,
             spud_date_label=card.drilling_dates.spud_date_label,
+            operator=card.operator.operator,
+            operator_label=card.operator.operator_label,
         )
         for card in list_project_well_cards(root, project_id)
     )

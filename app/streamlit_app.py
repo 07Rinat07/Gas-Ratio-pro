@@ -3021,6 +3021,7 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
             default_coords = project_well_cards.coordinates_from_metadata(default_metadata)
             default_depth_reference = project_well_cards.depth_reference_from_metadata(default_metadata)
             default_drilling_dates = project_well_cards.drilling_dates_from_metadata(default_metadata)
+            default_operator = project_well_cards.operator_from_metadata(default_metadata)
             status_options = tuple(PROJECT_WELL_CARD_STATUSES)
             try:
                 status_index = status_options.index(default_status)
@@ -3102,6 +3103,16 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
             if default_drilling_dates.spud_date_label:
                 st.caption(default_drilling_dates.spud_date_label)
             st.caption("Дата хранится как metadata скважины и не меняет LAS-версии.")
+            st.caption("Оператор")
+            well_card_operator = st.text_input(
+                "Оператор / компания",
+                value=default_operator.operator or "",
+                key=f"project_explorer_well_card_operator_{project.id}_{selected_well_id}",
+                placeholder="например: КазМунайГаз",
+            )
+            if default_operator.operator_label:
+                st.caption(default_operator.operator_label)
+            st.caption("Оператор хранится как короткая metadata-строка скважины и не меняет LAS-версии.")
             well_card_note = st.text_area(
                 "Комментарий",
                 value=default_note,
@@ -3131,6 +3142,10 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                     well_card_metadata = project_well_cards.merge_project_well_drilling_dates_metadata(
                         well_card_metadata,
                         spud_date=well_card_spud_date,
+                    )
+                    well_card_metadata = project_well_cards.merge_project_well_operator_metadata(
+                        well_card_metadata,
+                        operator=well_card_operator,
                     )
                     save_project_well_card(
                         LAS_CORRELATION_PROJECTS_ROOT,

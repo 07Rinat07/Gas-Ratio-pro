@@ -845,3 +845,78 @@ def test_project_tree_shows_well_card_spud_date_in_status(tmp_path):
 
     assert "Дата бурения=2026-01-19" in str(well_row["status"])
     assert well_node.metadata["spud_date"] == "2026-01-19"
+
+
+def test_project_well_card_operator_is_validated_and_listed(tmp_path):
+    project = create_project(tmp_path, name="Well Operator", project_id="well-operator")
+
+    from projects import (
+        build_project_well_card_table,
+        get_project_well_card,
+        merge_project_well_operator_metadata,
+        save_project_well_card,
+    )
+
+    metadata = merge_project_well_operator_metadata({"source": "manual"}, operator="  KazMunayGas   E&P  ")
+    save_project_well_card(
+        tmp_path,
+        project.id,
+        well_id="well-operator",
+        name="Well Operator",
+        status="review",
+        metadata=metadata,
+    )
+
+    stored = get_project_well_card(tmp_path, project.id, "well-operator")
+    rows = build_project_well_card_table(tmp_path, project.id)
+
+    assert stored is not None
+    assert stored.metadata["source"] == "manual"
+    assert stored.operator.operator == "KazMunayGas E&P"
+    assert stored.operator.operator_label == "Оператор=KazMunayGas E&P"
+    assert rows[0].operator == "KazMunayGas E&P"
+    assert rows[0].operator_label == "Оператор=KazMunayGas E&P"
+
+
+def test_project_well_card_rejects_too_long_operator(tmp_path):
+    create_project(tmp_path, name="Bad Operator", project_id="bad-operator")
+
+    from projects import merge_project_well_operator_metadata
+
+    try:
+        merge_project_well_operator_metadata(operator="A" * 121)
+    except ValueError as exc:
+        assert "120" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("Too long operator name was accepted")
+
+
+def test_project_tree_shows_well_card_operator_in_status(tmp_path):
+    project = create_project(tmp_path, name="Tree Operator", project_id="tree-operator")
+    las_record = save_project_las_file(
+        b"~Version\nVERS. 2.0\n~Well\nNULL. -999.25\n~Curve\nDEPT.M : Depth\nC1. : C1\n~Ascii\n1000 80\n",
+        root=tmp_path,
+        project_id=project.id,
+        file_name="well_operator.las",
+        well_name="Well Operator",
+        version_label="Raw LAS",
+    )
+
+    from projects import merge_project_well_operator_metadata, save_project_well_card
+
+    save_project_well_card(
+        tmp_path,
+        project.id,
+        well_id=las_record.well_id,
+        name="Well Operator Official",
+        status="ready",
+        metadata=merge_project_well_operator_metadata(operator="KazMunayGas"),
+    )
+
+    tree = build_project_tree(tmp_path, project.id)
+    rows = project_tree_table_rows(tree)
+    well_row = next(row for row in rows if row["id"] == f"well:{las_record.well_id}")
+    well_node = next(node for _level, node in flatten_project_tree(tree) if node.id == f"well:{las_record.well_id}")
+
+    assert "Оператор=KazMunayGas" in str(well_row["status"])
+    assert well_node.metadata["operator"] == "KazMunayGas"
