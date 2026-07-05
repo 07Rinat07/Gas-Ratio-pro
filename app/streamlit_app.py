@@ -48,6 +48,7 @@ from las_correlation import (
     settings_summary,
     settings_to_dict,
 )
+from las_editor.curve_alias import assign_curve_alias, available_aliases, suggest_curve_aliases, undo_last_alias
 from las_editor.curve_rename import CurveRenameHistoryEntry, rename_curve, undo_last_rename
 from las_editor.depth_grid import (
     apply_las_bulk_operations,
@@ -202,6 +203,8 @@ UI_LAYOUT_KEY = "ui_layout"
 LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
 LAS_EDITOR_SESSION_SUMMARY_KEY = "las_editor_session_summary"
 LAS_EDITOR_RENAME_HISTORY_KEY = "las_editor_curve_rename_history"
+LAS_EDITOR_ALIAS_HISTORY_KEY = "las_editor_curve_alias_history"
+LAS_EDITOR_ALIAS_MAP_KEY = "las_editor_curve_alias_map"
 PROJECT_SESSION_SHEETS_KEY = "project_session_sheets"
 PROJECT_SESSION_SUMMARY_KEY = "project_session_summary"
 PROJECT_SESSION_PROJECT_ID_KEY = "project_session_project_id"
@@ -757,6 +760,7 @@ def _las_editor_reference_state(column_names: list[str]) -> dict[str, object]:
         "saved_calculations": {},
         "exports": {"columns": list(column_names)},
         "manifest": {name: {"source": "las_editor"} for name in column_names},
+        "curve_aliases": dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {})),
     }
 
 
@@ -766,6 +770,116 @@ def _apply_las_editor_reference_state(references: dict[str, object]) -> None:
     tablet_tracks = references.get("tablet_tracks")
     if isinstance(tablet_tracks, list):
         st.session_state["interpretation_tablet_columns"] = tablet_tracks
+
+
+def _render_las_curve_alias_manager(prepared_df: pd.DataFrame) -> None:
+    st.markdown("### Curve Manager · Alias curves")
+    st.caption(
+        "Назначение стандартных alias без переименования колонок: depth, c1, c2, c3, "
+        "i/n C4-C5, CO2, H2S, ROP и литология."
+    )
+
+    if LAS_EDITOR_ALIAS_HISTORY_KEY not in st.session_state:
+        st.session_state[LAS_EDITOR_ALIAS_HISTORY_KEY] = ()
+    if LAS_EDITOR_ALIAS_MAP_KEY not in st.session_state:
+        st.session_state[LAS_EDITOR_ALIAS_MAP_KEY] = {}
+
+    column_names = [str(column) for column in prepared_df.columns]
+    current_aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
+    suggestions = suggest_curve_aliases(column_names)
+
+    if st.button("Автоопределить alias", use_container_width=True, key="las_editor_alias_autodetect"):
+        st.session_state[LAS_EDITOR_ALIAS_MAP_KEY] = {**current_aliases, **suggestions}
+        current_aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
+        st.success(f"Автоопределено alias: {len(suggestions)}")
+
+    curve_col, alias_col, action_col = st.columns([2, 2, 1])
+    curve_name = curve_col.selectbox(
+        "Кривая для alias",
+        options=column_names,
+        key="las_editor_alias_curve",
+    )
+    alias_options = list(available_aliases())
+    suggested_alias = current_aliases.get(curve_name) or suggestions.get(curve_name) or ""
+    alias_index = alias_options.index(suggested_alias) if suggested_alias in alias_options else 0
+    alias = alias_col.selectbox(
+        "Стандартный alias",
+        options=alias_options,
+        index=alias_index,
+        key="las_editor_alias_value",
+    )
+
+    references = _las_editor_reference_state(column_names)
+    if action_col.button("Назначить", use_container_width=True, key="las_editor_alias_apply"):
+        try:
+            result = assign_curve_alias(
+                prepared_df,
+                curve_name,
+                alias,
+                aliases=current_aliases,
+                history=st.session_state.get(LAS_EDITOR_ALIAS_HISTORY_KEY, ()),
+                references=references,
+                reason="manual",
+                source="las_editor_ui",
+            )
+            st.session_state[LAS_EDITOR_ALIAS_MAP_KEY] = result.aliases
+            st.session_state[LAS_EDITOR_ALIAS_HISTORY_KEY] = result.history
+            for message in result.diagnostics:
+                st.info(message)
+            for message in result.warnings:
+                st.warning(message)
+            if result.assigned:
+                st.success(f"Alias назначен: {result.curve_name} → {result.alias}")
+            else:
+                st.warning("Alias не изменился: назначение уже существовало.")
+        except ValueError as exc:
+            st.warning(str(exc))
+
+    history = tuple(st.session_state.get(LAS_EDITOR_ALIAS_HISTORY_KEY, ()))
+    if st.button("Undo последнего alias", disabled=not history, use_container_width=True, key="las_editor_alias_undo"):
+        try:
+            result = undo_last_alias(
+                aliases=dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {})),
+                history=history,
+                references=references,
+            )
+            st.session_state[LAS_EDITOR_ALIAS_MAP_KEY] = result.aliases
+            st.session_state[LAS_EDITOR_ALIAS_HISTORY_KEY] = result.history
+            for message in result.diagnostics:
+                st.info(message)
+            st.success("Последнее alias-назначение отменено.")
+        except ValueError as exc:
+            st.warning(str(exc))
+
+    current_aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
+    with st.expander("Текущие alias и история", expanded=bool(current_aliases or history)):
+        if current_aliases:
+            st.dataframe(
+                pd.DataFrame([{"curve_name": key, "alias": value} for key, value in current_aliases.items()]),
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.caption("Alias пока не назначены.")
+        history = tuple(st.session_state.get(LAS_EDITOR_ALIAS_HISTORY_KEY, ()))
+        if history:
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "curve_name": entry.curve_name,
+                            "alias": entry.alias,
+                            "previous_alias": entry.previous_alias,
+                            "timestamp": entry.timestamp,
+                            "reason": entry.reason,
+                            "source": entry.source,
+                        }
+                        for entry in history
+                    ]
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
 
 
 def _render_las_curve_rename_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
@@ -1344,6 +1458,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     st.dataframe(prepared_df.head(20), use_container_width=True)
 
     prepared_df = _render_las_curve_rename_manager(prepared_df)
+    _render_las_curve_alias_manager(prepared_df)
 
     column_names = [str(column) for column in prepared_df.columns]
     default_depth_column = _find_default_depth_column(prepared_df)

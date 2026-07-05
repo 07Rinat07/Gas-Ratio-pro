@@ -72,7 +72,7 @@
 ## 2.1 Curve Manager
 
 - [x] Rename curves.
-- [ ] Alias curves.
+- [x] Alias curves.
 - [ ] Merge curves.
 - [ ] Split curves.
 - [ ] Curve statistics.
@@ -334,4 +334,14 @@ LAS-редактор получил отдельный Curve Manager для бе
 
 ## Следующий пункт разработки
 
-Текущий следующий незавершенный пункт: **LAS Professional → Curve Manager → Alias curves**.
+### Реализовано: LAS Professional → Curve Manager → Alias curves
+
+LAS-редактор получил менеджер стандартных alias для LAS-кривых. Логика вынесена в `las_editor/curve_alias.py` и назначает канонические роли кривым без переименования исходных колонок: `depth`, `depth_from`, `depth_to`, `c1`, `c2`, `c3`, `ic4`, `nc4`, `ic5`, `nc5`, `co2`, `h2s`, `rop`, `lithology` и другие ключи из существующего словаря `mapping/curve_aliases.py`.
+
+Alias Manager проверяет существование выбранной кривой, запрещает пустой или неподдерживаемый alias, нормализует имя alias, показывает предупреждение при конфликте классификации и сохраняет историю `curve_name/alias/previous_alias/timestamp/reason/source`. Для последнего назначения доступен одноуровневый undo: если alias был новым, он удаляется; если он заменял старое назначение, восстанавливается предыдущий alias.
+
+UI-блок `Curve Manager · Alias curves` добавлен во вкладку `LAS-редактор`. Пользователь может автоматически определить alias по существующему словарю авто-маппинга, вручную назначить alias выбранной кривой, посмотреть текущие назначения и историю, а также отменить последнее назначение. Alias записываются в session state и переданные reference-структуры (`curve_aliases`, `manifest`) без изменения данных DataFrame.
+
+## Следующий пункт разработки
+
+Текущий следующий незавершенный пункт: **LAS Professional → Curve Manager → Merge curves**.
