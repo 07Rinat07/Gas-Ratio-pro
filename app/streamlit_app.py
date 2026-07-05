@@ -347,15 +347,15 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             --global-bg-image: {app_background_css};
             --brand-bg-size: clamp(300px, 42vw, 720px) auto;
             --brand-bg-position: right 3vw bottom 1.2rem;
-            --glass-dashboard: rgba(4, 10, 24, 0.16);
-            --glass-readable: rgba(5, 10, 22, 0.24);
-            --brand-overlay-dashboard: rgba(3, 7, 18, 0.10);
+            --glass-dashboard: rgba(4, 10, 24, 0.08);
+            --glass-readable: rgba(5, 10, 22, 0.18);
+            --brand-overlay-dashboard: rgba(3, 7, 18, 0.04);
         }
         .stApp {
             color: var(--app-text);
             font-size: {tokens["base"]};
             background-image:
-                linear-gradient(90deg, rgba(3, 7, 18, 0.18), rgba(3, 7, 18, 0.08), rgba(3, 7, 18, 0.02)),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.10), rgba(3, 7, 18, 0.04), rgba(3, 7, 18, 0.00)),
                 var(--global-bg-image);
             background-size: 100% 100%, var(--brand-bg-size);
             background-position: center center, var(--brand-bg-position);
@@ -546,8 +546,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             position: absolute;
             inset: 0;
             background:
-                radial-gradient(circle at 78% 42%, rgba(255, 138, 0, 0.06), transparent 34%),
-                linear-gradient(90deg, rgba(3, 7, 18, 0.12) 0%, rgba(7, 12, 24, 0.06) 44%, rgba(7, 12, 24, 0.02) 74%, rgba(7, 12, 24, 0.00) 100%);
+                radial-gradient(circle at 78% 42%, rgba(255, 138, 0, 0.035), transparent 34%),
+                linear-gradient(90deg, rgba(3, 7, 18, 0.055) 0%, rgba(7, 12, 24, 0.025) 44%, rgba(7, 12, 24, 0.00) 100%);
         }
         .dashboard-watermark-logo {
             position: absolute;
@@ -578,7 +578,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             gap: 0.8rem;
             padding: 0.78rem 0.95rem;
             margin-bottom: 0.85rem;
-            background: rgba(2, 6, 23, 0.32);
+            background: rgba(2, 6, 23, 0.22);
             border: 1px solid rgba(148, 163, 184, 0.18);
             border-radius: 16px;
             backdrop-filter: blur(12px);
@@ -641,11 +641,11 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             align-items: stretch;
         }
         .dashboard-card {
-            background: linear-gradient(180deg, rgba(4, 10, 24, 0.14), rgba(5, 10, 22, 0.08));
+            background: linear-gradient(180deg, rgba(4, 10, 24, 0.08), rgba(5, 10, 22, 0.035));
             border: 1px solid rgba(148, 163, 184, 0.20);
             border-radius: 16px;
             padding: 0.92rem;
-            backdrop-filter: blur(2px);
+            backdrop-filter: blur(1.4px);
             box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.04);
             transition: border-color 140ms ease, transform 140ms ease;
         }
@@ -682,7 +682,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             padding: 0.75rem;
             border: 1px solid rgba(148, 163, 184, 0.20);
             border-radius: 13px;
-            background: rgba(15, 23, 42, 0.28);
+            background: rgba(15, 23, 42, 0.18);
         }
         .dashboard-metric b { display: block; font-size: 1.55rem; }
         .dashboard-metric span { color: #d1d5db; font-weight: 800; }
@@ -692,7 +692,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             padding: 0.9rem;
             border: 1px solid rgba(148, 163, 184, 0.24);
             border-radius: 14px;
-            background: linear-gradient(180deg, rgba(15, 23, 42, 0.36), rgba(15, 23, 42, 0.20));
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.22), rgba(15, 23, 42, 0.12));
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
         }
         .dashboard-action-card strong { display: block; font-size: 1.02rem; margin-bottom: 0.25rem; }
@@ -703,7 +703,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             position: relative;
             border: 1px solid rgba(148, 163, 184, 0.18);
             border-radius: 8px;
-            background: rgba(2, 6, 23, 0.48);
+            background: rgba(2, 6, 23, 0.38);
             overflow: hidden;
         }
         .dashboard-depth-track::before, .dashboard-curve-track::before {
@@ -836,13 +836,13 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             border-radius: 12px;
             padding: 0.55rem 0.7rem;
             margin: 0.35rem 0;
-            background: rgba(15, 23, 42, 0.28);
+            background: rgba(15, 23, 42, 0.18);
         }
         .sidebar-search-hit {
             border-left: 3px solid rgba(255, 138, 0, 0.75);
             padding: 0.35rem 0.45rem;
             margin: 0.25rem 0;
-            background: rgba(15, 23, 42, 0.28);
+            background: rgba(15, 23, 42, 0.18);
             border-radius: 8px;
         }
         .docs-hero {

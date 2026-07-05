@@ -149,9 +149,9 @@ def test_project_search_results_empty_query_returns_empty() -> None:
 def test_dashboard_transparency_is_less_aggressive() -> None:
     source = Path(app.__file__).read_text(encoding="utf-8")
 
-    assert "rgba(3, 7, 18, 0.10)" in source
-    assert "rgba(4, 10, 24, 0.16)" in source
-    assert "rgba(4, 10, 24, 0.14)" in source
+    assert "rgba(3, 7, 18, 0.04)" in source
+    assert "rgba(4, 10, 24, 0.08)" in source
+    assert "rgba(5, 10, 22, 0.035)" in source
     assert "dashboard_project_search" in source
 
 
@@ -178,3 +178,12 @@ def test_responsive_profiles_cover_phone_laptop_and_large_screen() -> None:
     assert "Телефон" in labels
     assert "Ноутбук" in labels
     assert "Большой экран" in labels
+
+
+def test_dashboard_brand_visibility_layers_are_tuned() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "rgba(3, 7, 18, 0.04)" in source
+    assert "rgba(4, 10, 24, 0.08)" in source
+    assert "rgba(5, 10, 22, 0.035)" in source
+    assert "backdrop-filter: blur(1.4px)" in source
