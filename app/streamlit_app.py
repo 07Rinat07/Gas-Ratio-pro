@@ -143,6 +143,8 @@ list_project_exports = project_exports.list_project_exports
 read_project_export_file_bytes = project_exports.read_project_export_file_bytes
 save_project_export = project_exports.save_project_export
 list_project_las_datasets = project_datasets.list_project_las_datasets
+list_project_csv_datasets = project_datasets.list_project_csv_datasets
+save_project_csv_dataset = project_datasets.save_project_csv_dataset
 build_project_dataset_table = project_datasets.build_project_dataset_table
 DEFAULT_INTERPRETATION_TRACKS = project_graph_settings.DEFAULT_INTERPRETATION_TRACKS
 InterpretationGraphSettings = project_graph_settings.InterpretationGraphSettings
@@ -1729,6 +1731,38 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
             sheets = _load_uploaded_files_sheets(uploaded_files)
             suffix = ",".join(suffixes)
             logger.info("file_read_success extensions=%s sheet_count=%d", safe_log_value(suffix), len(sheets))
+            csv_uploads = tuple(
+                uploaded_file
+                for uploaded_file in uploaded_files
+                if Path(str(getattr(uploaded_file, "name", ""))).suffix.lower() == ".csv"
+            )
+            if csv_uploads:
+                st.caption("CSV-файлы можно сохранить в Dataset Manager активного проекта без повторной загрузки.")
+                if st.button("Сохранить загруженные CSV в проект", key=f"save_uploaded_csv_datasets_{active_project.id}"):
+                    try:
+                        saved_count = 0
+                        for uploaded_file in csv_uploads:
+                            original_name = Path(str(getattr(uploaded_file, "name", "source.csv"))).name
+                            save_project_csv_dataset(
+                                data=bytes(uploaded_file.getvalue()),
+                                root=LAS_CORRELATION_PROJECTS_ROOT,
+                                project_id=active_project.id,
+                                file_name=original_name,
+                                name=Path(original_name).stem,
+                                metadata={"source": "workspace_upload"},
+                            )
+                            saved_count += 1
+                    except Exception:
+                        logger.exception("project_csv_datasets_save_failed project_id=%s", safe_log_value(active_project.id))
+                        st.error("Не удалось сохранить CSV datasets в проект. Подробности записаны в logs/app.log.")
+                    else:
+                        logger.info(
+                            "project_csv_datasets_saved project_id=%s count=%d",
+                            safe_log_value(active_project.id),
+                            saved_count,
+                        )
+                        st.success(f"CSV datasets сохранены в проект: {saved_count}.")
+                        st.rerun()
         except Exception:
             logger.exception("file_read_failed extensions=%s", safe_log_value(",".join(suffixes)))
             st.error("Не удалось прочитать файл. Проверьте формат и доступность данных.")
@@ -3223,58 +3257,92 @@ def _project_las_records_table(well_cards: tuple[ProjectLasWellCard, ...]) -> pd
     return pd.DataFrame(rows)
 
 
+def _render_dataset_manager_table(
+    *,
+    title: str,
+    datasets: tuple[project_datasets.ProjectDatasetRecord, ...],
+    select_key: str,
+    empty_caption: str,
+    ready_message: str,
+) -> None:
+    """Render one Dataset Manager table and selected dataset details."""
+
+    if not datasets:
+        st.caption(empty_caption)
+        return
+
+    ready_count = sum(1 for dataset in datasets if dataset.status == "ready")
+    warning_count = sum(1 for dataset in datasets if dataset.status == "warning")
+    error_count = sum(1 for dataset in datasets if dataset.status == "error")
+    st.caption(
+        f"{title}: {len(datasets)} · готово: {ready_count} · "
+        f"требует проверки: {warning_count} · ошибок чтения: {error_count}"
+    )
+    st.dataframe(build_project_dataset_table(datasets), use_container_width=True, height=260)
+
+    datasets_by_id = {dataset.id: dataset for dataset in datasets}
+    selected_dataset_id = st.selectbox(
+        title,
+        options=tuple(datasets_by_id),
+        format_func=lambda dataset_id: datasets_by_id[dataset_id].name,
+        key=select_key,
+    )
+    selected_dataset = datasets_by_id[selected_dataset_id]
+    detail_rows = [
+        ("Тип", selected_dataset.kind),
+        ("Статус", selected_dataset.status_label),
+        ("Скважина ID", selected_dataset.well_id or "—"),
+        ("Версия", selected_dataset.version_label or "—"),
+        ("Файл", selected_dataset.original_file_name),
+        ("Строк", str(selected_dataset.row_count)),
+        ("Колонок", str(selected_dataset.column_count)),
+        ("Глубинная колонка", selected_dataset.depth_curve or "не найдена"),
+    ]
+    st.dataframe(
+        pd.DataFrame([{"Показатель": label, "Значение": value} for label, value in detail_rows]),
+        use_container_width=True,
+        hide_index=True,
+        height=280,
+    )
+    if selected_dataset.warnings:
+        for warning in selected_dataset.warnings:
+            st.warning(warning)
+    else:
+        st.success(ready_message)
+
+
 def _render_project_dataset_manager(project: ProjectRecord, logger) -> None:
-    """Render Dataset Manager section for saved project LAS datasets."""
+    """Render Dataset Manager sections for active project datasets."""
 
     with st.expander("Dataset Manager · LAS", expanded=False):
         try:
-            datasets = list_project_las_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+            las_datasets = list_project_las_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
         except Exception:
             logger.exception("project_dataset_manager_las_failed project_id=%s", safe_log_value(project.id))
             st.warning("Не удалось построить список LAS datasets.")
-            return
-
-        if not datasets:
-            st.caption("В активном проекте пока нет LAS datasets.")
-            return
-
-        ready_count = sum(1 for dataset in datasets if dataset.status == "ready")
-        warning_count = sum(1 for dataset in datasets if dataset.status == "warning")
-        error_count = sum(1 for dataset in datasets if dataset.status == "error")
-        st.caption(
-            f"LAS datasets: {len(datasets)} · готово: {ready_count} · "
-            f"требует проверки: {warning_count} · ошибок чтения: {error_count}"
-        )
-        st.dataframe(build_project_dataset_table(datasets), use_container_width=True, height=260)
-
-        datasets_by_id = {dataset.id: dataset for dataset in datasets}
-        selected_dataset_id = st.selectbox(
-            "LAS dataset",
-            options=tuple(datasets_by_id),
-            format_func=lambda dataset_id: datasets_by_id[dataset_id].name,
-            key=f"project_dataset_las_select_{project.id}",
-        )
-        selected_dataset = datasets_by_id[selected_dataset_id]
-        detail_rows = [
-            ("Статус", selected_dataset.status_label),
-            ("Скважина ID", selected_dataset.well_id),
-            ("Версия", selected_dataset.version_label),
-            ("Файл", selected_dataset.original_file_name),
-            ("Строк", str(selected_dataset.row_count)),
-            ("Кривых", str(selected_dataset.column_count)),
-            ("Глубинная кривая", selected_dataset.depth_curve or "не найдена"),
-        ]
-        st.dataframe(
-            pd.DataFrame([{"Показатель": label, "Значение": value} for label, value in detail_rows]),
-            use_container_width=True,
-            hide_index=True,
-            height=250,
-        )
-        if selected_dataset.warnings:
-            for warning in selected_dataset.warnings:
-                st.warning(warning)
         else:
-            st.success("LAS dataset готов к открытию в рабочем workflow и выгрузке.")
+            _render_dataset_manager_table(
+                title="LAS datasets",
+                datasets=las_datasets,
+                select_key=f"project_dataset_las_select_{project.id}",
+                empty_caption="В активном проекте пока нет LAS datasets.",
+                ready_message="LAS dataset готов к открытию в рабочем workflow и выгрузке.",
+            )
+
+    with st.expander("Dataset Manager · CSV", expanded=False):
+        try:
+            csv_datasets = list_project_csv_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+        except Exception:
+            logger.exception("project_dataset_manager_csv_failed project_id=%s", safe_log_value(project.id))
+            st.warning("Не удалось построить список CSV datasets.")
+        else:
+            _render_dataset_manager_table(
+                title="CSV datasets",
+                datasets=csv_datasets,
+                select_key=f"project_dataset_csv_select_{project.id}",
+                empty_caption="В активном проекте пока нет CSV datasets.",
+                ready_message="CSV dataset готов к проверке mapping и расчетам.",
+            )
 
 
 def _project_workspace_summary_rows(project: ProjectRecord) -> tuple[tuple[str, str], ...]:
