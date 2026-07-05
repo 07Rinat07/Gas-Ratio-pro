@@ -97,6 +97,7 @@ from projects import (
 from projects import calculations as project_calculations
 from projects import exports as project_exports
 from projects import graph_settings as project_graph_settings
+from projects import datasets as project_datasets
 from projects import project_labels as project_labels
 from projects import well_cards as project_well_cards
 from projects import las_files as project_las_files
@@ -115,6 +116,7 @@ from wells.repository import DEFAULT_WELLS_ROOT, list_wells, read_well_file_byte
 
 project_calculations = importlib.reload(project_calculations)
 project_exports = importlib.reload(project_exports)
+project_datasets = importlib.reload(project_datasets)
 project_las_files = importlib.reload(project_las_files)
 project_labels = importlib.reload(project_labels)
 project_well_cards = importlib.reload(project_well_cards)
@@ -140,6 +142,8 @@ list_project_calculation_actions = project_calculations.list_project_calculation
 list_project_exports = project_exports.list_project_exports
 read_project_export_file_bytes = project_exports.read_project_export_file_bytes
 save_project_export = project_exports.save_project_export
+list_project_las_datasets = project_datasets.list_project_las_datasets
+build_project_dataset_table = project_datasets.build_project_dataset_table
 DEFAULT_INTERPRETATION_TRACKS = project_graph_settings.DEFAULT_INTERPRETATION_TRACKS
 InterpretationGraphSettings = project_graph_settings.InterpretationGraphSettings
 load_project_interpretation_graph_settings = project_graph_settings.load_project_interpretation_graph_settings
@@ -3219,6 +3223,60 @@ def _project_las_records_table(well_cards: tuple[ProjectLasWellCard, ...]) -> pd
     return pd.DataFrame(rows)
 
 
+def _render_project_dataset_manager(project: ProjectRecord, logger) -> None:
+    """Render Dataset Manager section for saved project LAS datasets."""
+
+    with st.expander("Dataset Manager · LAS", expanded=False):
+        try:
+            datasets = list_project_las_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+        except Exception:
+            logger.exception("project_dataset_manager_las_failed project_id=%s", safe_log_value(project.id))
+            st.warning("Не удалось построить список LAS datasets.")
+            return
+
+        if not datasets:
+            st.caption("В активном проекте пока нет LAS datasets.")
+            return
+
+        ready_count = sum(1 for dataset in datasets if dataset.status == "ready")
+        warning_count = sum(1 for dataset in datasets if dataset.status == "warning")
+        error_count = sum(1 for dataset in datasets if dataset.status == "error")
+        st.caption(
+            f"LAS datasets: {len(datasets)} · готово: {ready_count} · "
+            f"требует проверки: {warning_count} · ошибок чтения: {error_count}"
+        )
+        st.dataframe(build_project_dataset_table(datasets), use_container_width=True, height=260)
+
+        datasets_by_id = {dataset.id: dataset for dataset in datasets}
+        selected_dataset_id = st.selectbox(
+            "LAS dataset",
+            options=tuple(datasets_by_id),
+            format_func=lambda dataset_id: datasets_by_id[dataset_id].name,
+            key=f"project_dataset_las_select_{project.id}",
+        )
+        selected_dataset = datasets_by_id[selected_dataset_id]
+        detail_rows = [
+            ("Статус", selected_dataset.status_label),
+            ("Скважина ID", selected_dataset.well_id),
+            ("Версия", selected_dataset.version_label),
+            ("Файл", selected_dataset.original_file_name),
+            ("Строк", str(selected_dataset.row_count)),
+            ("Кривых", str(selected_dataset.column_count)),
+            ("Глубинная кривая", selected_dataset.depth_curve or "не найдена"),
+        ]
+        st.dataframe(
+            pd.DataFrame([{"Показатель": label, "Значение": value} for label, value in detail_rows]),
+            use_container_width=True,
+            hide_index=True,
+            height=250,
+        )
+        if selected_dataset.warnings:
+            for warning in selected_dataset.warnings:
+                st.warning(warning)
+        else:
+            st.success("LAS dataset готов к открытию в рабочем workflow и выгрузке.")
+
+
 def _project_workspace_summary_rows(project: ProjectRecord) -> tuple[tuple[str, str], ...]:
     all_well_cards = list_project_las_wells(
         LAS_CORRELATION_PROJECTS_ROOT,
@@ -3294,6 +3352,7 @@ def _render_project_workspace_loader(project: ProjectRecord, logger) -> None:
     with st.expander("Данные активного проекта", expanded=bool(active_records)):
         st.caption(f"Открыт проект: {project.name} ({project.id})")
         st.dataframe(_project_workspace_summary_table(project), use_container_width=True, hide_index=True, height=210)
+        _render_project_dataset_manager(project, logger)
 
         if not active_records:
             st.caption("В активном проекте пока нет активных LAS-версий.")

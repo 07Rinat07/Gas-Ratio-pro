@@ -27,6 +27,15 @@ from projects.calculations import (
     read_project_calculation_metadata,
     save_project_calculation,
 )
+
+from projects.datasets import (
+    DEPTH_CURVE_CANDIDATES,
+    ProjectDatasetRecord,
+    build_project_dataset_table,
+    build_project_las_dataset_record,
+    list_project_las_datasets,
+)
+
 from projects.exports import (
     ProjectExportRecord,
     list_project_exports,
@@ -212,6 +221,11 @@ __all__ = [
     "build_project_tree",
     "flatten_project_tree",
     "project_tree_table_rows",
+    "DEPTH_CURVE_CANDIDATES",
+    "ProjectDatasetRecord",
+    "build_project_dataset_table",
+    "build_project_las_dataset_record",
+    "list_project_las_datasets",
     "ProjectExportRecord",
     "list_project_exports",
     "read_project_export_file_bytes",
