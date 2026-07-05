@@ -82,12 +82,23 @@ def test_dashboard_shell_css_has_modern_application_shell() -> None:
     assert "@media (max-width: 760px)" in source
 
 
-def test_sidebar_is_compact_for_dashboard_workspace() -> None:
+def test_sidebar_is_modern_project_control_center() -> None:
     source = Path(app.__file__).read_text(encoding="utf-8")
 
     assert 'section[data-testid="stSidebar"]' in source
-    assert "14.6rem" in source
+    assert "18.2rem" in source
+    assert "sidebar-brand-card" in source
+    assert "sidebar_quick_nav_" in source
     assert "sidebar_project_search" in source
+
+
+def test_sidebar_helpers_report_health_and_recent_empty_state(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(app, "LAS_CORRELATION_PROJECTS_ROOT", tmp_path / "projects")
+    project = _project("active", "Active")
+
+    assert app._sidebar_project_health({"las_files": 0, "calculations": 0, "wells": 0}, 0)[0] == "Пустой проект"
+    assert app._sidebar_project_health({"las_files": 1, "calculations": 0, "wells": 0}, 1)[0] == "Готов к работе"
+    assert app._sidebar_recent_project_items(project)[0]["label"] == "Нет недавних материалов"
 
 
 def test_dashboard_has_large_functional_action_cards() -> None:

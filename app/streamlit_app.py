@@ -453,20 +453,22 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             font-size: 0.98rem !important;
         }
         section[data-testid="stSidebar"] {
-            width: 14.6rem !important;
-            min-width: 14.6rem !important;
-            max-width: 14.6rem !important;
-            background: linear-gradient(180deg, rgba(5, 10, 22, 0.86), rgba(8, 14, 26, 0.72)) !important;
-            border-right: 1px solid rgba(148, 163, 184, 0.18);
+            width: 18.2rem !important;
+            min-width: 18.2rem !important;
+            max-width: 18.2rem !important;
+            background:
+                radial-gradient(circle at 30% 0%, rgba(255, 138, 0, 0.10), transparent 30%),
+                linear-gradient(180deg, rgba(5, 10, 22, 0.90), rgba(8, 14, 26, 0.76)) !important;
+            border-right: 1px solid rgba(255, 138, 0, 0.18);
         }
         section[data-testid="stSidebar"] * {
-            font-size: 0.82rem !important;
+            font-size: 0.84rem !important;
             line-height: 1.35 !important;
         }
         section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
         section[data-testid="stSidebar"] label,
         section[data-testid="stSidebar"] span {
-            font-size: 0.82rem !important;
+            font-size: 0.84rem !important;
         }
         div[data-testid="stTabs"] div[role="tablist"] {
             gap: 0.55rem;
@@ -809,19 +811,45 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             border-color: rgba(255, 138, 0, 0.70) !important;
             background: linear-gradient(180deg, rgba(255, 138, 0, 0.30), rgba(15, 23, 42, 0.84)) !important;
         }
-        .modern-sidebar-card {
+        .modern-sidebar-card,
+        .sidebar-brand-card,
+        .sidebar-status-card,
+        .sidebar-recent-card {
             border: 1px solid rgba(148, 163, 184, 0.20);
-            border-radius: 14px;
-            padding: 0.75rem;
+            border-radius: 16px;
+            padding: 0.78rem;
             margin: 0.55rem 0;
-            background: linear-gradient(180deg, rgba(15, 23, 42, 0.58), rgba(15, 23, 42, 0.34));
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.44), rgba(15, 23, 42, 0.24));
+            box-shadow: 0 18px 46px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.05);
+            backdrop-filter: blur(8px);
         }
-        .modern-sidebar-card b { color: #f8fafc; }
-        .modern-sidebar-card small { color: #aeb8c8; display: block; margin-top: 0.2rem; }
+        .sidebar-brand-card {
+            border-color: rgba(255, 138, 0, 0.32);
+            background: linear-gradient(150deg, rgba(255, 138, 0, 0.14), rgba(15, 23, 42, 0.34));
+        }
+        .sidebar-brand-row { display: flex; gap: 0.65rem; align-items: center; }
+        .sidebar-brand-logo { width: 3.1rem; height: 3.1rem; object-fit: contain; filter: drop-shadow(0 10px 18px rgba(0,0,0,0.45)); }
+        .sidebar-brand-title { color: #f8fafc; font-weight: 950; text-transform: uppercase; letter-spacing: 0.04em; }
+        .sidebar-brand-title span { color: #ff8a00; }
+        .sidebar-brand-subtitle { display:block; color: #cbd5e1; margin-top: 0.15rem; font-size: 0.74rem !important; }
+        .modern-sidebar-card b,
+        .sidebar-status-card b,
+        .sidebar-recent-card b { color: #f8fafc; }
+        .modern-sidebar-card small,
+        .sidebar-status-card small,
+        .sidebar-recent-card small { color: #aeb8c8; display: block; margin-top: 0.2rem; }
         .modern-sidebar-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; margin-top: 0.55rem; }
-        .modern-sidebar-metric { border: 1px solid rgba(148,163,184,0.17); border-radius: 10px; padding: 0.5rem; background: rgba(2,6,23,0.42); }
-        .modern-sidebar-metric b { display:block; font-size: 1.05rem; color:#ff8a00; }
+        .modern-sidebar-metric { border: 1px solid rgba(148,163,184,0.17); border-radius: 12px; padding: 0.5rem; background: rgba(2,6,23,0.28); }
+        .modern-sidebar-metric b { display:block; font-size: 1.08rem; color:#ff8a00; }
+        .sidebar-status-grid { display: grid; gap: 0.38rem; margin-top: 0.55rem; }
+        .sidebar-status-row { display:flex; justify-content:space-between; gap:0.5rem; border-bottom:1px solid rgba(148,163,184,0.12); padding-bottom:0.32rem; }
+        .sidebar-status-row span:first-child { color:#aeb8c8; }
+        .sidebar-status-row span:last-child { color:#f8fafc; font-weight:850; text-align:right; }
+        .sidebar-state-pill { display:inline-flex; align-items:center; gap:0.35rem; margin-top:0.45rem; padding:0.34rem 0.55rem; border-radius:999px; background:rgba(34,197,94,0.12); color:#bbf7d0 !important; border:1px solid rgba(34,197,94,0.24); font-weight:900; }
+        .sidebar-action-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.45rem; margin:0.55rem 0; }
+        .sidebar-recent-item { border-left:3px solid rgba(255,138,0,0.74); padding:0.34rem 0.45rem; margin:0.28rem 0; background:rgba(15,23,42,0.18); border-radius:9px; }
+        .sidebar-recent-item strong { display:block; color:#f8fafc; }
+        .sidebar-recent-item span { color:#aeb8c8; font-size:0.74rem !important; }
 
         .functional-quick-actions {
             border: 1px solid rgba(148, 163, 184, 0.22);
@@ -4146,6 +4174,97 @@ def _render_las_correlation_project_selector(logger) -> ProjectRecord:
     return _render_project_selector(logger, key_prefix="las_correlation", expanded=True)
 
 
+
+def _sidebar_recent_project_items(project: ProjectRecord, limit: int = 5) -> tuple[dict[str, str], ...]:
+    """Return compact recent project items for the Sidebar 2.0 panel."""
+    items: list[dict[str, str]] = []
+    for calculation in list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id):
+        name = getattr(calculation, "name", "") or getattr(calculation, "id", "расчет")
+        timestamp = getattr(calculation, "created_at", "") or getattr(calculation, "updated_at", "") or ""
+        items.append({"kind": "Расчет", "label": str(name), "time": str(timestamp)})
+    for export in list_project_exports(LAS_CORRELATION_PROJECTS_ROOT, project.id):
+        name = getattr(export, "file_name", "") or getattr(export, "name", "") or "экспорт"
+        timestamp = getattr(export, "created_at", "") or getattr(export, "updated_at", "") or ""
+        items.append({"kind": "Экспорт", "label": str(name), "time": str(timestamp)})
+    for las_file in list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, project.id):
+        name = getattr(las_file, "file_name", "") or getattr(las_file, "name", "") or getattr(las_file, "id", "LAS")
+        timestamp = getattr(las_file, "created_at", "") or getattr(las_file, "updated_at", "") or ""
+        items.append({"kind": "LAS", "label": str(name), "time": str(timestamp)})
+
+    items.sort(key=lambda item: item.get("time", ""), reverse=True)
+    if not items:
+        return ({"kind": "Статус", "label": "Нет недавних материалов", "time": "Импортируйте LAS или сохраните расчет"},)
+    return tuple(items[:limit])
+
+
+def _sidebar_project_health(stats: dict[str, int], rows_count: int) -> tuple[str, str]:
+    """Return a short human-readable health label and detail for the active project."""
+    if stats.get("las_files", 0) > 0 or stats.get("calculations", 0) > 0:
+        return "Готов к работе", "есть данные для анализа"
+    if rows_count > 1 or stats.get("wells", 0) > 0:
+        return "Проект создан", "добавьте LAS или расчет"
+    return "Пустой проект", "начните с импорта данных"
+
+
+def _render_sidebar_brand(project: ProjectRecord) -> None:
+    logo_uri = _branding_logo_data_uri()
+    logo_html = f'<img class="sidebar-brand-logo" src="{logo_uri}" alt="Gas Ratio Pro logo">' if logo_uri else ""
+    st.sidebar.markdown(
+        f"""
+        <div class='sidebar-brand-card'>
+          <div class='sidebar-brand-row'>
+            {logo_html}
+            <div>
+              <div class='sidebar-brand-title'>Gas Ratio <span>Pro</span></div>
+              <span class='sidebar-brand-subtitle'>Project control center</span>
+            </div>
+          </div>
+          <span class='sidebar-brand-subtitle'>Активный проект: {html.escape(project.name)}</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_sidebar_quick_navigation() -> None:
+    """Render functional sidebar shortcut buttons for common workspaces."""
+    st.sidebar.markdown("<div class='sidebar-action-grid'>", unsafe_allow_html=True)
+    actions = (
+        ("📥 Данные", "Работа с данными"),
+        ("🧰 LAS", "LAS-редактор"),
+        ("🔗 Корреляция", "LAS-корреляция"),
+        ("📘 Docs", "Инструкции и документация"),
+    )
+    columns = st.sidebar.columns(2)
+    for index, (label, target) in enumerate(actions):
+        with columns[index % 2]:
+            if st.button(label, key=f"sidebar_quick_nav_{target}", use_container_width=True):
+                _set_active_main_tab(target)
+                st.rerun()
+    st.sidebar.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_sidebar_recent_items(project: ProjectRecord) -> None:
+    recent_items = _sidebar_recent_project_items(project)
+    item_html = "".join(
+        "<div class='sidebar-recent-item'>"
+        f"<strong>{_html_escape(item['label'])}</strong>"
+        f"<span>{_html_escape(item['kind'])} · {_html_escape(item.get('time', '') or 'без даты')}</span>"
+        "</div>"
+        for item in recent_items
+    )
+    st.sidebar.markdown(
+        f"""
+        <div class='sidebar-recent-card'>
+          <b>Последние материалы</b>
+          <small>Короткая история активного проекта</small>
+          {item_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def _render_project_explorer(project: ProjectRecord, logger) -> None:
     """Render Project Explorer and metadata-only move controls in the sidebar."""
 
@@ -4158,11 +4277,15 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
 
     rows = project_tree_table_rows(tree)
     stats = _dashboard_project_statistics(project, tuple(list_projects(LAS_CORRELATION_PROJECTS_ROOT)) or (project,))
+    rows_count = max(len(rows) - 1, 0)
+    health_label, health_detail = _sidebar_project_health(stats, rows_count)
+
+    _render_sidebar_brand(project)
     st.sidebar.markdown(
         f"""
         <div class='modern-sidebar-card'>
-          <b>🛢️ {html.escape(project.name)}</b>
-          <small>Активный проект · {html.escape(project.id)}</small>
+          <b>Проектная сводка</b>
+          <small>{html.escape(project.id)} · объектов: {rows_count}</small>
           <div class='modern-sidebar-metrics'>
             <div class='modern-sidebar-metric'><b>{stats['wells']}</b><small>Скважин</small></div>
             <div class='modern-sidebar-metric'><b>{stats['las_files']}</b><small>LAS</small></div>
@@ -4170,9 +4293,21 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
             <div class='modern-sidebar-metric'><b>{stats['exports']}</b><small>Экспортов</small></div>
           </div>
         </div>
+        <div class='sidebar-status-card'>
+          <b>Состояние</b>
+          <span class='sidebar-state-pill'>● {html.escape(health_label)}</span>
+          <div class='sidebar-status-grid'>
+            <div class='sidebar-status-row'><span>Данные</span><span>{html.escape(health_detail)}</span></div>
+            <div class='sidebar-status-row'><span>База</span><span>локальная</span></div>
+            <div class='sidebar-status-row'><span>Лицензия</span><span>Proprietary</span></div>
+            <div class='sidebar-status-row'><span>Ветка</span><span>main</span></div>
+          </div>
+        </div>
         """,
         unsafe_allow_html=True,
     )
+    _render_sidebar_quick_navigation()
+    _render_sidebar_recent_items(project)
 
     with st.sidebar.expander("Структура проекта", expanded=False):
         st.caption(f"Объектов: {max(len(rows) - 1, 0)}")
