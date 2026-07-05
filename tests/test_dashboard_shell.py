@@ -198,3 +198,35 @@ def test_dashboard_brand_visibility_layers_are_tuned() -> None:
     assert "rgba(4, 10, 24, 0.08)" in source
     assert "rgba(5, 10, 22, 0.035)" in source
     assert "backdrop-filter: blur(1.4px)" in source
+
+
+def test_global_command_palette_entries_include_navigation_and_docs(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(app, "LAS_CORRELATION_PROJECTS_ROOT", tmp_path / "projects")
+    entries = app._command_palette_entries(_project("active", "Active"))
+
+    titles = {entry["title"] for entry in entries}
+
+    assert "LAS-редактор" in titles
+    assert "Импорт LAS / CSV / Excel" in titles
+    assert "Troubleshooting" in titles
+
+
+def test_global_command_palette_filter_matches_keywords() -> None:
+    entries = (
+        {"title": "Импорт LAS / CSV / Excel", "category": "Данные", "target_tab": "Работа с данными", "description": "Загрузка", "keywords": "импорт las csv"},
+        {"title": "Инструкции и документация", "category": "Справка", "target_tab": "Инструкции и документация", "description": "Help", "keywords": "docs help"},
+    )
+
+    filtered = app._filter_command_palette_entries(entries, "las", limit=4)
+
+    assert len(filtered) == 1
+    assert filtered[0]["target_tab"] == "Работа с данными"
+
+
+def test_global_command_palette_rendering_is_present() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "COMMAND_PALETTE_QUERY_KEY" in source
+    assert "_render_global_command_palette(active_project)" in source
+    assert "command-palette-shell" in source
+    assert "Ctrl+K / поиск по проекту" in source

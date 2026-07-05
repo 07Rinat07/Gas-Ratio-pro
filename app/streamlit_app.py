@@ -215,6 +215,7 @@ DASHBOARD_TIPS = (
 UI_SCALE_KEY = "ui_scale"
 UI_LAYOUT_KEY = "ui_layout"
 ACTIVE_MAIN_TAB_KEY = "active_main_tab"
+COMMAND_PALETTE_QUERY_KEY = "global_command_palette_query"
 # Legacy compact sidebar width marker: 10.8rem. Current sidebar uses a wider modern project card.
 # Smoke-test marker for rendered navigation labels: Открыть: Старт.
 LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
@@ -850,6 +851,43 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .sidebar-recent-item { border-left:3px solid rgba(255,138,0,0.74); padding:0.34rem 0.45rem; margin:0.28rem 0; background:rgba(15,23,42,0.18); border-radius:9px; }
         .sidebar-recent-item strong { display:block; color:#f8fafc; }
         .sidebar-recent-item span { color:#aeb8c8; font-size:0.74rem !important; }
+
+        .command-palette-shell {
+            border: 1px solid rgba(255, 138, 0, 0.30);
+            border-radius: 18px;
+            padding: 0.82rem 0.95rem;
+            margin: 0.15rem 0 0.9rem 0;
+            background: linear-gradient(135deg, rgba(2, 6, 23, 0.58), rgba(15, 23, 42, 0.34));
+            box-shadow: 0 18px 50px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+        }
+        .command-palette-title {
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:0.8rem;
+            margin-bottom:0.35rem;
+        }
+        .command-palette-title b { color:#f8fafc; font-size:1.02rem; }
+        .command-palette-title span {
+            border:1px solid rgba(148,163,184,0.28);
+            border-radius:999px;
+            padding:0.32rem 0.55rem;
+            color:#cbd5e1;
+            background:rgba(15,23,42,0.42);
+            font-size:0.78rem !important;
+            font-weight:900;
+        }
+        .command-result-card {
+            border: 1px solid rgba(148,163,184,0.20);
+            border-radius: 13px;
+            padding: 0.62rem 0.72rem;
+            margin: 0.32rem 0;
+            background: rgba(15, 23, 42, 0.24);
+        }
+        .command-result-card b { color: #f8fafc; }
+        .command-result-card small { color: #aeb8c8; display:block; margin-top:0.18rem; }
+        .command-result-card code { color:#ffedd5; background:rgba(255,138,0,0.10); border-radius:6px; padding:0.08rem 0.28rem; }
 
         .functional-quick-actions {
             border: 1px solid rgba(148, 163, 184, 0.22);
@@ -2059,6 +2097,171 @@ NAVIGATION_ITEMS: tuple[dict[str, str], ...] = (
     {"label": "Интерпретационные графики", "icon": "📈", "description": "Планшеты и отчеты"},
     {"label": "Инструкции и документация", "icon": "📘", "description": "Руководства и методика"},
 )
+
+
+COMMAND_PALETTE_STATIC_COMMANDS: tuple[dict[str, str], ...] = (
+    {
+        "title": "Создать или открыть проект",
+        "category": "Проекты",
+        "target_tab": "Работа с данными",
+        "description": "Перейти к выбору активного проекта, импорту и проектному workflow.",
+        "keywords": "проект открыть создать project import",
+    },
+    {
+        "title": "Импорт LAS / CSV / Excel",
+        "category": "Данные",
+        "target_tab": "Работа с данными",
+        "description": "Загрузить файл, проверить заголовки, mapping и выполнить расчет.",
+        "keywords": "импорт загрузить las csv xlsx mapping расчет",
+    },
+    {
+        "title": "Открыть LAS-редактор",
+        "category": "LAS",
+        "target_tab": "LAS-редактор",
+        "description": "Проверить глубину, шаг, NULL-значения, rename/alias/merge кривых.",
+        "keywords": "las редактор curve rename alias merge глубина",
+    },
+    {
+        "title": "Открыть LAS-корреляцию",
+        "category": "Корреляция",
+        "target_tab": "LAS-корреляция",
+        "description": "Сравнить несколько скважин и настроить группы кривых.",
+        "keywords": "корреляция multi well сравнение скважины",
+    },
+    {
+        "title": "Интерпретационные графики и отчеты",
+        "category": "Графики",
+        "target_tab": "Интерпретационные графики",
+        "description": "Открыть планшет, маркеры, зоны интерпретации и exports.",
+        "keywords": "графики планшет report отчет export png pdf svg",
+    },
+    {
+        "title": "Инструкции и документация",
+        "category": "Справка",
+        "target_tab": "Инструкции и документация",
+        "description": "Открыть руководство, быстрый старт, формулы и troubleshooting.",
+        "keywords": "инструкции документация help руководство формулы troubleshooting",
+    },
+)
+
+
+def _command_palette_entries(active_project: ProjectRecord) -> tuple[dict[str, str], ...]:
+    """Build command palette entries from navigation, static actions and project objects."""
+    entries: list[dict[str, str]] = []
+    for item in NAVIGATION_ITEMS:
+        entries.append({
+            "title": item["label"],
+            "category": "Раздел",
+            "target_tab": item["label"],
+            "description": item["description"],
+            "keywords": f"{item['label']} {item['description']}",
+        })
+    entries.extend(dict(command) for command in COMMAND_PALETTE_STATIC_COMMANDS)
+
+    try:
+        tree_rows = project_tree_table_rows(build_project_tree(LAS_CORRELATION_PROJECTS_ROOT, active_project.id))
+    except Exception:
+        tree_rows = ()
+    for row in tree_rows:
+        label = str(row.get("label", "")).strip()
+        if not label:
+            continue
+        kind = str(row.get("kind", "project"))
+        status = str(row.get("status", ""))
+        entries.append({
+            "title": label,
+            "category": f"Проект · {kind}",
+            "target_tab": "Работа с данными",
+            "description": status or "Объект активного проекта",
+            "keywords": f"{label} {kind} {status}",
+        })
+
+    for doc_title, doc_path in DOCUMENTATION_TAB_DOCS:
+        entries.append({
+            "title": doc_title,
+            "category": "Документация",
+            "target_tab": "Инструкции и документация",
+            "description": doc_path,
+            "keywords": f"{doc_title} {doc_path} docs help",
+        })
+    return tuple(entries)
+
+
+def _filter_command_palette_entries(
+    entries: tuple[dict[str, str], ...],
+    query: str,
+    *,
+    limit: int = 8,
+) -> tuple[dict[str, str], ...]:
+    """Filter command palette entries by title, category, description and keywords."""
+    normalized_query = str(query or "").strip().lower()
+    if not normalized_query:
+        return entries[: max(1, limit)]
+
+    words = tuple(part for part in normalized_query.split() if part)
+    matches: list[tuple[int, dict[str, str]]] = []
+    for entry in entries:
+        title = entry.get("title", "")
+        category = entry.get("category", "")
+        description = entry.get("description", "")
+        keywords = entry.get("keywords", "")
+        haystack = f"{title} {category} {description} {keywords}".lower()
+        if not all(word in haystack for word in words):
+            continue
+        score = 0
+        lower_title = title.lower()
+        if lower_title.startswith(normalized_query):
+            score += 3
+        if normalized_query in lower_title:
+            score += 2
+        if entry.get("category") == "Раздел":
+            score += 1
+        matches.append((score, entry))
+
+    matches.sort(key=lambda item: (-item[0], item[1].get("category", ""), item[1].get("title", "")))
+    return tuple(entry for _score, entry in matches[: max(1, limit)])
+
+
+def _render_global_command_palette(active_project: ProjectRecord) -> None:
+    """Render a lightweight global Ctrl+K-style command palette for Streamlit."""
+    st.markdown(
+        "<div class='command-palette-shell'>"
+        "<div class='command-palette-title'><b>Командная палитра</b><span>Ctrl+K / поиск по проекту</span></div>",
+        unsafe_allow_html=True,
+    )
+    query = st.text_input(
+        "Команда или объект проекта",
+        key=COMMAND_PALETTE_QUERY_KEY,
+        placeholder="например: импорт LAS, редактор, расчет, скважина, troubleshooting",
+        label_visibility="collapsed",
+    )
+    entries = _filter_command_palette_entries(_command_palette_entries(active_project), query, limit=6 if query else 4)
+    if query and not entries:
+        st.warning("Команда или объект проекта не найдены. Попробуйте: LAS, импорт, графики, отчет, инструкции.")
+        st.markdown("</div>", unsafe_allow_html=True)
+        return
+
+    if query:
+        st.caption(f"Найдено команд: {len(entries)}")
+        for index, entry in enumerate(entries):
+            col_text, col_button = st.columns([4, 1])
+            with col_text:
+                st.markdown(
+                    "<div class='command-result-card'>"
+                    f"<b>{_html_escape(entry.get('title', ''))}</b> "
+                    f"<code>{_html_escape(entry.get('category', ''))}</code>"
+                    f"<small>{_html_escape(entry.get('description', ''))}</small>"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+            with col_button:
+                target_tab = entry.get("target_tab", APP_TABS[0])
+                if st.button("Открыть", key=f"command_palette_open_{index}_{target_tab}_{entry.get('title', '')}", use_container_width=True):
+                    _set_active_main_tab(target_tab)
+                    st.rerun()
+    else:
+        st.caption("Введите запрос, чтобы найти раздел, действие, объект проекта или документ. Быстрые подсказки: импорт LAS, редактор, графики, лицензия.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _set_active_main_tab(tab_name: str) -> None:
@@ -6304,6 +6507,7 @@ def main() -> None:
 
     active_project = _render_project_selector(logger, key_prefix="global", expanded=False)
     _render_project_explorer(active_project, logger)
+    _render_global_command_palette(active_project)
 
     active_tab = _render_main_navigation()
     if active_tab == "Старт":
