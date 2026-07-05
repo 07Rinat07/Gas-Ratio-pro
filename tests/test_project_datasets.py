@@ -490,3 +490,166 @@ def test_project_core_dataset_rejects_empty_bytes(tmp_path):
 
     with pytest.raises(ValueError):
         save_project_core_dataset(b"", root=tmp_path, project_id="demo")
+
+MUD_LOG_CSV_BYTES = b"MD,TG,C1,C2,Lithology,Description\n1000,12,8,2,Sandstone,gas show\n1001,15,10,3,Shale,background\n"
+MUD_LOG_NO_DEPTH_BYTES = b"Time,TG,C1,Lithology\n00:00,12,8,Sandstone\n00:01,15,10,Shale\n"
+MUD_LOG_NO_GAS_BYTES = b"MD,Lithology,Description\n1000,Sandstone,show\n1001,Shale,background\n"
+MUD_LOG_DUP_GAP_BYTES = b"MD,TG,C1,Lithology\n1000,12,8,Sandstone\n1000,13,9,Sandstone\n1001,14,10,Sandstone\n1002,15,11,Sandstone\n1010,16,12,Shale\n"
+
+
+def test_project_mud_log_dataset_manager_indexes_saved_csv_mud_log(tmp_path):
+    from projects import list_project_mud_log_datasets, read_project_mud_log_dataset_dataframe, save_project_mud_log_dataset
+
+    record = save_project_mud_log_dataset(
+        MUD_LOG_CSV_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="Well A mud log.csv",
+        name="Well A mud log",
+        well_id="well-a",
+    )
+
+    datasets = list_project_mud_log_datasets(tmp_path, "demo")
+
+    assert len(datasets) == 1
+    dataset = datasets[0]
+    assert dataset.id == f"mud_log:{record.id}"
+    assert dataset.kind == "Mud Log"
+    assert dataset.name == "Well A mud log"
+    assert dataset.source_id == record.id
+    assert dataset.well_id == "well-a"
+    assert dataset.row_count == 2
+    assert dataset.column_count == 6
+    assert dataset.depth_curve == "MD"
+    assert dataset.status == "ready"
+    assert dataset.warnings == ()
+    assert dataset.metadata["record_count"] == 2
+    assert dataset.metadata["depth_min"] == 1000.0
+    assert dataset.metadata["depth_max"] == 1001.0
+    assert "total_gas" in dataset.metadata["gas_columns"]
+    assert "c1" in dataset.metadata["gas_columns"]
+    assert "lithology" in dataset.metadata["text_columns"]
+    assert "description" in dataset.metadata["text_columns"]
+
+    dataframe = read_project_mud_log_dataset_dataframe(tmp_path, "demo", record.id)
+    assert list(dataframe.columns) == ["MD", "TG", "C1", "C2", "Lithology", "Description"]
+
+
+def test_project_mud_log_dataset_manager_indexes_saved_excel_mud_log(tmp_path):
+    from io import BytesIO
+    from projects import list_project_mud_log_datasets, save_project_mud_log_dataset
+
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        pd.DataFrame(
+            {"Depth": [1000, 1001], "Total Gas": [12, 13], "Methane": [8, 9], "Lithology": ["Sand", "Shale"]}
+        ).to_excel(writer, sheet_name="MudLog", index=False)
+
+    record = save_project_mud_log_dataset(
+        buffer.getvalue(),
+        root=tmp_path,
+        project_id="demo",
+        file_name="mud_log.xlsx",
+        name="Mud log workbook",
+        active_sheet="MudLog",
+    )
+
+    dataset = list_project_mud_log_datasets(tmp_path, "demo")[0]
+
+    assert record.file_format == "EXCEL"
+    assert record.active_sheet == "MudLog"
+    assert dataset.kind == "Mud Log"
+    assert dataset.version_label == "MudLog"
+    assert dataset.depth_curve == "Depth"
+    assert dataset.metadata["file_format"] == "EXCEL"
+    assert dataset.metadata["active_sheet"] == "MudLog"
+    assert dataset.metadata["gas_columns"] == ["total_gas", "c1"]
+    assert dataset.metadata["text_columns"] == ["lithology"]
+
+
+def test_project_mud_log_dataset_manager_flags_missing_depth_column(tmp_path):
+    from projects import list_project_mud_log_datasets, save_project_mud_log_dataset
+
+    save_project_mud_log_dataset(
+        MUD_LOG_NO_DEPTH_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="No Depth mud log.csv",
+        name="Mud log without depth",
+    )
+
+    dataset = list_project_mud_log_datasets(tmp_path, "demo")[0]
+
+    assert dataset.status == "warning"
+    assert dataset.depth_curve == ""
+    assert "Не найдена глубинная колонка DEPT/DEPTH/MD для привязки mud log к разрезу." in dataset.warnings
+
+
+def test_project_mud_log_dataset_manager_flags_missing_gas_columns(tmp_path):
+    from projects import list_project_mud_log_datasets, save_project_mud_log_dataset
+
+    save_project_mud_log_dataset(
+        MUD_LOG_NO_GAS_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="No Gas mud log.csv",
+        name="Mud log without gas",
+    )
+
+    dataset = list_project_mud_log_datasets(tmp_path, "demo")[0]
+
+    assert dataset.status == "warning"
+    assert "Не найдены газовые колонки Mud Log: TG/C1/C2/C3/C4/C5." in dataset.warnings
+
+
+def test_project_mud_log_dataset_manager_flags_duplicate_depths_and_gaps(tmp_path):
+    from projects import list_project_mud_log_datasets, save_project_mud_log_dataset
+
+    save_project_mud_log_dataset(
+        MUD_LOG_DUP_GAP_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="Duplicate mud log.csv",
+        name="Duplicate mud log",
+    )
+
+    dataset = list_project_mud_log_datasets(tmp_path, "demo")[0]
+
+    assert dataset.status == "warning"
+    assert "Найдены дубли глубин Mud Log; проверьте повторные записи по интервалу." in dataset.warnings
+    assert "Найдены возможные пропущенные интервалы Mud Log по шагу глубины." in dataset.warnings
+
+
+def test_project_dataset_table_accepts_mud_log_records(tmp_path):
+    from projects import build_project_dataset_table, list_project_mud_log_datasets, save_project_mud_log_dataset
+
+    save_project_mud_log_dataset(
+        MUD_LOG_CSV_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="Well A mud log.csv",
+        name="Well A mud log",
+    )
+
+    table = build_project_dataset_table(list_project_mud_log_datasets(tmp_path, "demo"))
+
+    assert list(table["Тип"]) == ["Mud Log"]
+    assert table.loc[0, "Dataset"] == "Well A mud log"
+    assert table.loc[0, "Глубина"] == "MD"
+
+
+def test_project_mud_log_dataset_duplicate_names_get_unique_ids(tmp_path):
+    from projects import save_project_mud_log_dataset
+
+    first = save_project_mud_log_dataset(MUD_LOG_CSV_BYTES, root=tmp_path, project_id="demo", file_name="mud_log.csv", name="Mud Log")
+    second = save_project_mud_log_dataset(MUD_LOG_CSV_BYTES, root=tmp_path, project_id="demo", file_name="mud_log.csv", name="Mud Log")
+
+    assert first.id != second.id
+    assert second.id.endswith("-2")
+
+
+def test_project_mud_log_dataset_rejects_empty_bytes(tmp_path):
+    from projects import save_project_mud_log_dataset
+
+    with pytest.raises(ValueError):
+        save_project_mud_log_dataset(b"", root=tmp_path, project_id="demo")

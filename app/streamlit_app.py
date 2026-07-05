@@ -149,6 +149,8 @@ list_project_excel_datasets = project_datasets.list_project_excel_datasets
 save_project_excel_dataset = project_datasets.save_project_excel_dataset
 list_project_core_datasets = project_datasets.list_project_core_datasets
 save_project_core_dataset = project_datasets.save_project_core_dataset
+list_project_mud_log_datasets = project_datasets.list_project_mud_log_datasets
+save_project_mud_log_dataset = project_datasets.save_project_mud_log_dataset
 build_project_dataset_table = project_datasets.build_project_dataset_table
 DEFAULT_INTERPRETATION_TRACKS = project_graph_settings.DEFAULT_INTERPRETATION_TRACKS
 InterpretationGraphSettings = project_graph_settings.InterpretationGraphSettings
@@ -1831,6 +1833,38 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
                         )
                         st.success(f"Core datasets сохранены в проект: {saved_count}.")
                         st.rerun()
+            mud_log_uploads = tuple(
+                uploaded_file
+                for uploaded_file in uploaded_files
+                if Path(str(getattr(uploaded_file, "name", ""))).suffix.lower() in {".csv", ".xlsx", ".xlsm"}
+            )
+            if mud_log_uploads:
+                st.caption("CSV/Excel с mud log-данными можно сохранить как Mud Log dataset проекта.")
+                if st.button("Сохранить загруженные файлы как Mud Log datasets", key=f"save_uploaded_mud_log_datasets_{active_project.id}"):
+                    try:
+                        saved_count = 0
+                        for uploaded_file in mud_log_uploads:
+                            original_name = Path(str(getattr(uploaded_file, "name", "mud_log.csv"))).name
+                            save_project_mud_log_dataset(
+                                data=bytes(uploaded_file.getvalue()),
+                                root=LAS_CORRELATION_PROJECTS_ROOT,
+                                project_id=active_project.id,
+                                file_name=original_name,
+                                name=Path(original_name).stem,
+                                metadata={"source": "workspace_upload", "dataset_role": "mud_log"},
+                            )
+                            saved_count += 1
+                    except Exception:
+                        logger.exception("project_mud_log_datasets_save_failed project_id=%s", safe_log_value(active_project.id))
+                        st.error("Не удалось сохранить Mud Log datasets в проект. Подробности записаны в logs/app.log.")
+                    else:
+                        logger.info(
+                            "project_mud_log_datasets_saved project_id=%s count=%d",
+                            safe_log_value(active_project.id),
+                            saved_count,
+                        )
+                        st.success(f"Mud Log datasets сохранены в проект: {saved_count}.")
+                        st.rerun()
         except Exception:
             logger.exception("file_read_failed extensions=%s", safe_log_value(",".join(suffixes)))
             st.error("Не удалось прочитать файл. Проверьте формат и доступность данных.")
@@ -3440,6 +3474,21 @@ def _render_project_dataset_manager(project: ProjectRecord, logger) -> None:
                 select_key=f"project_dataset_core_select_{project.id}",
                 empty_caption="В активном проекте пока нет Core datasets.",
                 ready_message="Core dataset готов к сопоставлению образцов с LAS по глубине.",
+            )
+
+    with st.expander("Dataset Manager · Mud Log", expanded=False):
+        try:
+            mud_log_datasets = list_project_mud_log_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+        except Exception:
+            logger.exception("project_dataset_manager_mud_log_failed project_id=%s", safe_log_value(project.id))
+            st.warning("Не удалось построить список Mud Log datasets.")
+        else:
+            _render_dataset_manager_table(
+                title="Mud Log datasets",
+                datasets=mud_log_datasets,
+                select_key=f"project_dataset_mud_log_select_{project.id}",
+                empty_caption="В активном проекте пока нет Mud Log datasets.",
+                ready_message="Mud Log dataset готов к сопоставлению газов, литологии и описаний с LAS по глубине.",
             )
 
 

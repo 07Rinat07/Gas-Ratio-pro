@@ -36,6 +36,27 @@ CORE_MEASUREMENT_ALIASES = {
     "grain_density": ("RHOG", "GRAIN_DENSITY", "GRAIN DENSITY"),
     "sample_id": ("SAMPLE", "SAMPLE_ID", "PLUG", "PLUG_ID", "CORE_ID"),
 }
+PROJECT_MUD_LOG_DATASETS_DIR_NAME = "mud_log"
+PROJECT_MUD_LOG_DATASETS_MANIFEST_FILE_NAME = "mud_log_datasets.json"
+PROJECT_MUD_LOG_SOURCE_CSV_FILE_NAME = "source.csv"
+PROJECT_MUD_LOG_SOURCE_EXCEL_FILE_NAME = "source.xlsx"
+PROJECT_MUD_LOG_DATASETS_SCHEMA_VERSION = 1
+MUD_LOG_GAS_ALIASES = {
+    "total_gas": ("TG", "TOTAL_GAS", "TOTAL GAS", "GAS", "GAS_TOTAL"),
+    "c1": ("C1", "METHANE", "CH4"),
+    "c2": ("C2", "ETHANE"),
+    "c3": ("C3", "PROPANE"),
+    "ic4": ("IC4", "I_C4", "ISO_C4", "ISOBUTANE"),
+    "nc4": ("NC4", "N_C4", "NORMAL_C4", "N-BUTANE"),
+    "c4": ("C4", "BUTANE"),
+    "ic5": ("IC5", "I_C5", "ISO_C5", "ISOPENTANE"),
+    "nc5": ("NC5", "N_C5", "NORMAL_C5", "N-PENTANE"),
+    "c5": ("C5", "PENTANE"),
+}
+MUD_LOG_TEXT_ALIASES = {
+    "lithology": ("LITH", "LITHO", "LITHOLOGY", "ROCK", "ROCK_TYPE"),
+    "description": ("DESC", "DESCRIPTION", "COMMENT", "COMMENTS", "SHOW", "SHOWS"),
+}
 
 
 @dataclass(frozen=True)
@@ -79,6 +100,24 @@ class ProjectExcelDataset:
 @dataclass(frozen=True)
 class ProjectCoreDataset:
     """Saved core laboratory dataset metadata for an active project."""
+
+    id: str
+    name: str
+    original_file_name: str
+    saved_at: str
+    size_bytes: int
+    file_format: str = "CSV"
+    active_sheet: str = ""
+    row_count: int = 0
+    column_count: int = 0
+    well_id: str = ""
+    archived_at: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ProjectMudLogDataset:
+    """Saved mud log dataset metadata for an active project."""
 
     id: str
     name: str
@@ -207,6 +246,24 @@ def _core_dataset_dir(root: Path | str, project_id: str, dataset_id: str) -> Pat
     return _core_datasets_dir(root, project_id) / _safe_core_dataset_id(dataset_id)
 
 
+def _safe_mud_log_dataset_id(value: str) -> str:
+    if not re.fullmatch(r"[0-9A-Za-zА-Яа-я_-]+", value):
+        raise ValueError("Некорректный идентификатор Mud Log dataset проекта.")
+    return value
+
+
+def _mud_log_datasets_dir(root: Path | str, project_id: str) -> Path:
+    return Path(root) / safe_project_id(project_id) / PROJECT_DATASETS_DIR_NAME / PROJECT_MUD_LOG_DATASETS_DIR_NAME
+
+
+def _mud_log_manifest_path(root: Path | str, project_id: str) -> Path:
+    return _mud_log_datasets_dir(root, project_id) / PROJECT_MUD_LOG_DATASETS_MANIFEST_FILE_NAME
+
+
+def _mud_log_dataset_dir(root: Path | str, project_id: str, dataset_id: str) -> Path:
+    return _mud_log_datasets_dir(root, project_id) / _safe_mud_log_dataset_id(dataset_id)
+
+
 def _core_source_file_name(original_file_name: str, file_format: str) -> str:
     suffix = Path(original_file_name).suffix.lower()
     if file_format.upper() == "EXCEL":
@@ -214,6 +271,15 @@ def _core_source_file_name(original_file_name: str, file_format: str) -> str:
             return f"source{suffix}"
         return PROJECT_CORE_SOURCE_EXCEL_FILE_NAME
     return PROJECT_CORE_SOURCE_CSV_FILE_NAME
+
+
+def _mud_log_source_file_name(original_file_name: str, file_format: str) -> str:
+    suffix = Path(original_file_name).suffix.lower()
+    if file_format.upper() == "EXCEL":
+        if suffix in {".xlsx", ".xlsm", ".xls"}:
+            return f"source{suffix}"
+        return PROJECT_MUD_LOG_SOURCE_EXCEL_FILE_NAME
+    return PROJECT_MUD_LOG_SOURCE_CSV_FILE_NAME
 
 
 def _normalise_column_name(value: str) -> str:
@@ -248,6 +314,27 @@ def _core_depth_range(dataframe: pd.DataFrame, depth_curve: str) -> tuple[float 
     if values.empty:
         return (None, None)
     return (float(values.min()), float(values.max()))
+
+
+def _mud_log_depth_range(dataframe: pd.DataFrame, depth_curve: str) -> tuple[float | None, float | None]:
+    return _core_depth_range(dataframe, depth_curve)
+
+
+def _find_alias_columns(columns: tuple[str, ...], aliases_by_label: dict[str, tuple[str, ...]]) -> tuple[str, ...]:
+    normalized = {_normalise_column_name(column): column for column in columns}
+    found: list[str] = []
+    for label, aliases in aliases_by_label.items():
+        if any(alias in normalized for alias in aliases):
+            found.append(label)
+    return tuple(found)
+
+
+def _mud_log_gas_columns(columns: tuple[str, ...]) -> tuple[str, ...]:
+    return _find_alias_columns(columns, MUD_LOG_GAS_ALIASES)
+
+
+def _mud_log_text_columns(columns: tuple[str, ...]) -> tuple[str, ...]:
+    return _find_alias_columns(columns, MUD_LOG_TEXT_ALIASES)
 
 
 def _excel_source_file_name(original_file_name: str) -> str:
@@ -368,6 +455,40 @@ def _core_record_to_dict(record: ProjectCoreDataset) -> dict[str, Any]:
     }
 
 
+def _mud_log_record_from_dict(raw: dict[str, Any]) -> ProjectMudLogDataset:
+    return ProjectMudLogDataset(
+        id=str(raw.get("id", "")),
+        name=str(raw.get("name", "")) or "Mud Log dataset",
+        original_file_name=str(raw.get("original_file_name", "")) or "mud_log.csv",
+        saved_at=str(raw.get("saved_at", "")),
+        size_bytes=int(raw.get("size_bytes", 0) or 0),
+        file_format=str(raw.get("file_format", "CSV")) or "CSV",
+        active_sheet=str(raw.get("active_sheet", "")),
+        row_count=int(raw.get("row_count", 0) or 0),
+        column_count=int(raw.get("column_count", 0) or 0),
+        well_id=str(raw.get("well_id", "")),
+        archived_at=str(raw.get("archived_at", "")),
+        metadata=dict(raw.get("metadata", {}) or {}),
+    )
+
+
+def _mud_log_record_to_dict(record: ProjectMudLogDataset) -> dict[str, Any]:
+    return {
+        "id": record.id,
+        "name": record.name,
+        "original_file_name": record.original_file_name,
+        "saved_at": record.saved_at,
+        "size_bytes": record.size_bytes,
+        "file_format": record.file_format,
+        "active_sheet": record.active_sheet,
+        "row_count": record.row_count,
+        "column_count": record.column_count,
+        "well_id": record.well_id,
+        "archived_at": record.archived_at,
+        "metadata": dict(record.metadata),
+    }
+
+
 def _read_csv_manifest(root: Path | str, project_id: str) -> tuple[ProjectCsvDataset, ...]:
     path = _csv_manifest_path(root, project_id)
     if not path.exists():
@@ -430,6 +551,28 @@ def _write_core_manifest(root: Path | str, project_id: str, records: tuple[Proje
         "project_id": safe_project_id(project_id),
         "updated_at": _utc_now(),
         "core_datasets": [_core_record_to_dict(record) for record in records],
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return path
+
+
+def _read_mud_log_manifest(root: Path | str, project_id: str) -> tuple[ProjectMudLogDataset, ...]:
+    path = _mud_log_manifest_path(root, project_id)
+    if not path.exists():
+        return ()
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    records = payload.get("mud_log_datasets", ()) if isinstance(payload, dict) else ()
+    return tuple(_mud_log_record_from_dict(record) for record in records)
+
+
+def _write_mud_log_manifest(root: Path | str, project_id: str, records: tuple[ProjectMudLogDataset, ...]) -> Path:
+    path = _mud_log_manifest_path(root, project_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": PROJECT_MUD_LOG_DATASETS_SCHEMA_VERSION,
+        "project_id": safe_project_id(project_id),
+        "updated_at": _utc_now(),
+        "mud_log_datasets": [_mud_log_record_to_dict(record) for record in records],
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
@@ -662,6 +805,89 @@ def build_project_core_dataset_record(
             warnings.append("Найдены дубли глубин core-образцов; проверьте повторные plug samples.")
     if not measurement_columns and not known_measurements:
         warnings.append("Не найдены измерительные колонки core, кроме глубины и идентификаторов образцов.")
+
+    status = "warning" if warnings else "ready"
+    return ProjectDatasetRecord(
+        **{**dataset.__dict__, "status": status, "warnings": tuple(warnings), "metadata": metadata}
+    )
+
+
+
+
+def build_project_mud_log_dataset_record(
+    record: ProjectMudLogDataset,
+    dataframe: pd.DataFrame | None = None,
+    *,
+    error: str = "",
+) -> ProjectDatasetRecord:
+    """Build a Dataset Manager card for one saved project Mud Log dataset."""
+
+    metadata = dict(record.metadata)
+    if record.file_format:
+        metadata.setdefault("file_format", record.file_format)
+    if record.active_sheet:
+        metadata.setdefault("active_sheet", record.active_sheet)
+
+    dataset = _build_dataset_record_from_dataframe(
+        dataset_id=f"mud_log:{record.id}",
+        kind="Mud Log",
+        name=record.name,
+        source_id=record.id,
+        well_id=record.well_id,
+        version_label=record.active_sheet or record.file_format,
+        original_file_name=record.original_file_name,
+        saved_at=record.saved_at,
+        archived_at=record.archived_at,
+        dataframe=dataframe,
+        metadata=metadata,
+        missing_depth_warning="Не найдена глубинная колонка DEPT/DEPTH/MD для привязки mud log к разрезу.",
+        empty_rows_warning="Mud Log dataset не содержит строк наблюдений.",
+        empty_columns_warning="Mud Log dataset не содержит колонок.",
+        error=error,
+    )
+    if error or dataframe is None:
+        return dataset
+
+    warnings = list(dataset.warnings)
+    metadata = dict(dataset.metadata or {})
+    columns = tuple(str(column) for column in dataframe.columns)
+    depth_curve = dataset.depth_curve
+    depth_min, depth_max = _mud_log_depth_range(dataframe, depth_curve)
+    gas_columns = _mud_log_gas_columns(columns)
+    text_columns = _mud_log_text_columns(columns)
+    metadata.update(
+        {
+            "record_count": int(len(dataframe)),
+            "depth_min": depth_min,
+            "depth_max": depth_max,
+            "gas_columns": list(gas_columns),
+            "text_columns": list(text_columns),
+        }
+    )
+
+    if depth_curve:
+        depth_values = pd.to_numeric(dataframe[depth_curve], errors="coerce")
+        valid_depths = depth_values.dropna()
+        if depth_values.isna().any():
+            warnings.append("Глубинная колонка Mud Log содержит пустые или нечисловые значения.")
+        if not valid_depths.empty and valid_depths.duplicated().any():
+            warnings.append("Найдены дубли глубин Mud Log; проверьте повторные записи по интервалу.")
+        if len(valid_depths) >= 3:
+            sorted_depths = valid_depths.sort_values()
+            positive_steps = sorted_depths.diff().dropna()
+            positive_steps = positive_steps[positive_steps > 0]
+            if not positive_steps.empty:
+                typical_step = float(positive_steps.median())
+                large_gaps = positive_steps[positive_steps > typical_step * 3]
+                if not large_gaps.empty:
+                    warnings.append("Найдены возможные пропущенные интервалы Mud Log по шагу глубины.")
+                metadata["typical_depth_step"] = typical_step
+                metadata["large_gap_count"] = int(len(large_gaps))
+
+    if not gas_columns:
+        warnings.append("Не найдены газовые колонки Mud Log: TG/C1/C2/C3/C4/C5.")
+    if not text_columns:
+        warnings.append("Не найдены литологические или описательные колонки Mud Log.")
 
     status = "warning" if warnings else "ready"
     return ProjectDatasetRecord(
@@ -988,6 +1214,150 @@ def read_project_core_dataset_dataframe(
             raise ValueError("Для Core Excel dataset не задан активный лист.")
         return read_excel_sheet(source_path, selected_sheet)
     return read_csv(source_path)
+
+
+
+
+def save_project_mud_log_dataset(
+    data: bytes,
+    root: Path | str = DEFAULT_PROJECTS_ROOT,
+    project_id: str = DEFAULT_PROJECT_ID,
+    file_name: str = "mud_log.csv",
+    name: str = "",
+    well_id: str = "",
+    active_sheet: str = "",
+    metadata: dict[str, Any] | None = None,
+) -> ProjectMudLogDataset:
+    """Save uploaded mud log data as a project dataset record.
+
+    Mud Log datasets may be CSV or Excel sources. The file is stored once under
+    ``datasets/mud_log/<dataset_id>/`` and the manifest keeps compact metadata
+    for Dataset Manager indexing.
+    """
+
+    if not data:
+        raise ValueError("Нет данных Mud Log dataset для сохранения в проект.")
+
+    safe_original_name = _safe_file_name(file_name)
+    suffix = Path(safe_original_name).suffix.lower()
+    file_format = "EXCEL" if suffix in {".xlsx", ".xlsm", ".xls"} else "CSV"
+    clean_name = name.strip() or Path(safe_original_name).stem or "Mud Log dataset"
+    now = _utc_now()
+    base_id = f"{now[:10].replace('-', '')}-mud-log-{_slugify(clean_name)}"
+    dataset_id = base_id
+    counter = 2
+    while _mud_log_dataset_dir(root, project_id, dataset_id).exists():
+        dataset_id = f"{base_id}-{counter}"
+        counter += 1
+
+    dataset_dir = _mud_log_dataset_dir(root, project_id, dataset_id)
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+    source_file_name = _mud_log_source_file_name(safe_original_name, file_format)
+    (dataset_dir / source_file_name).write_bytes(data)
+
+    row_count = 0
+    column_count = 0
+    selected_sheet = active_sheet.strip()
+    try:
+        if file_format == "EXCEL":
+            raw_sheets = load_excel_sheets(BytesIO(data))
+            sheet_names = tuple(str(sheet_name) for sheet_name in raw_sheets)
+            if sheet_names:
+                if not selected_sheet or selected_sheet not in raw_sheets:
+                    selected_sheet = sheet_names[0]
+                dataframe = read_excel_sheet(BytesIO(data), selected_sheet)
+            else:
+                dataframe = pd.DataFrame()
+        else:
+            sheet_names = ()
+            dataframe = read_csv(BytesIO(data))
+    except Exception:
+        sheet_names = ()
+        dataframe = pd.DataFrame()
+    row_count = int(len(dataframe))
+    column_count = int(len(dataframe.columns))
+
+    clean_metadata = dict(metadata or {})
+    clean_metadata["source_file_name"] = source_file_name
+    clean_metadata["sheet_names"] = list(sheet_names)
+
+    record = ProjectMudLogDataset(
+        id=dataset_id,
+        name=clean_name,
+        original_file_name=safe_original_name,
+        saved_at=now,
+        size_bytes=len(data),
+        file_format=file_format,
+        active_sheet=selected_sheet,
+        row_count=row_count,
+        column_count=column_count,
+        well_id=well_id.strip(),
+        metadata=clean_metadata,
+    )
+    records = (record, *tuple(item for item in _read_mud_log_manifest(root, project_id) if item.id != record.id))
+    _write_mud_log_manifest(root, project_id, records)
+    return record
+
+
+def list_project_mud_log_records(
+    root: Path | str = DEFAULT_PROJECTS_ROOT,
+    project_id: str = DEFAULT_PROJECT_ID,
+    include_archived: bool = False,
+) -> tuple[ProjectMudLogDataset, ...]:
+    """Return saved Mud Log dataset metadata records for a project."""
+
+    try:
+        records = _read_mud_log_manifest(root, project_id)
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return ()
+    if not include_archived:
+        records = tuple(record for record in records if not record.archived_at)
+    return tuple(sorted(records, key=lambda record: record.saved_at, reverse=True))
+
+
+def read_project_mud_log_dataset_dataframe(
+    root: Path | str,
+    project_id: str,
+    dataset_id: str,
+    sheet_name: str | None = None,
+) -> pd.DataFrame:
+    """Read a saved project Mud Log dataset as a prepared dataframe."""
+
+    records = {record.id: record for record in list_project_mud_log_records(root, project_id, include_archived=True)}
+    if dataset_id not in records:
+        raise FileNotFoundError(f"Project Mud Log dataset not found: {dataset_id}")
+    record = records[dataset_id]
+    source_file_name = str(record.metadata.get("source_file_name") or _mud_log_source_file_name(record.original_file_name, record.file_format))
+    source_path = _mud_log_dataset_dir(root, project_id, dataset_id) / source_file_name
+    if record.file_format.upper() == "EXCEL":
+        selected_sheet = sheet_name or record.active_sheet
+        if not selected_sheet:
+            raise ValueError("Для Mud Log Excel dataset не задан активный лист.")
+        return read_excel_sheet(source_path, selected_sheet)
+    return read_csv(source_path)
+
+
+def list_project_mud_log_datasets(
+    root: Path | str = DEFAULT_PROJECTS_ROOT,
+    project_id: str = DEFAULT_PROJECT_ID,
+    include_archived: bool = False,
+) -> tuple[ProjectDatasetRecord, ...]:
+    """Return Mud Log dataset cards for the active project."""
+
+    datasets: list[ProjectDatasetRecord] = []
+    for record in list_project_mud_log_records(root, project_id, include_archived=include_archived):
+        try:
+            dataframe = read_project_mud_log_dataset_dataframe(root, project_id, record.id)
+        except Exception as exc:  # pragma: no cover - exact parser errors vary by source file
+            datasets.append(
+                build_project_mud_log_dataset_record(
+                    record,
+                    error=f"Не удалось прочитать Mud Log dataset: {exc}",
+                )
+            )
+        else:
+            datasets.append(build_project_mud_log_dataset_record(record, dataframe))
+    return tuple(datasets)
 
 
 def list_project_core_datasets(
