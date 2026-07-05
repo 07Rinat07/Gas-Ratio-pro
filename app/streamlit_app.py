@@ -2780,7 +2780,7 @@ def _render_las_correlation_project_selector(logger) -> ProjectRecord:
 
 
 def _render_project_explorer(project: ProjectRecord, logger) -> None:
-    """Render a compact read-only Project Explorer in the sidebar."""
+    """Render Project Explorer and metadata-only move controls in the sidebar."""
 
     with st.sidebar.expander("Project Explorer", expanded=True):
         try:
@@ -2801,6 +2801,9 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
             icon = {
                 "project": "📁",
                 "folder": "▸",
+                "custom_folder": "📂",
+                "folder_item": "↳",
+                "missing": "⚠️",
                 "well_group": "🗂️",
                 "well": "🛢️",
                 "las_version": "LAS",
@@ -2812,6 +2815,100 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
             if status:
                 line = f"{line} · {status}"
             st.caption(line)
+
+        st.divider()
+        st.caption("Перемещение объектов")
+        try:
+            move_options = list_project_explorer_move_options(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+            folder_targets = list_project_explorer_folder_targets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+            group_targets = list_project_explorer_well_group_targets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+        except Exception:
+            logger.exception("project_tree_move_options_failed project_id=%s", safe_log_value(project.id))
+            st.warning("Не удалось прочитать варианты перемещения.")
+            return
+
+        if not move_options:
+            st.caption("Нет объектов для перемещения.")
+            return
+
+        option_labels = {option.id: f"{option.label} · {option.kind}" for option in move_options}
+        selected_item_id = st.selectbox(
+            "Объект",
+            options=tuple(option_labels),
+            format_func=lambda item_id: option_labels.get(item_id, item_id),
+            key=f"project_explorer_move_item_{project.id}",
+        )
+        selected_option = next(option for option in move_options if option.id == selected_item_id)
+
+        move_modes = ["Добавить в папку"]
+        if selected_option.kind == "well":
+            move_modes.append("Переместить в группу скважин")
+        selected_mode = st.selectbox(
+            "Действие",
+            options=move_modes,
+            key=f"project_explorer_move_mode_{project.id}",
+        )
+
+        if selected_mode == "Добавить в папку":
+            if not folder_targets:
+                st.caption("Сначала создайте пользовательскую папку проекта.")
+            else:
+                folder_labels = {folder.id: folder.name for folder in folder_targets}
+                selected_folder_id = st.selectbox(
+                    "Папка",
+                    options=tuple(folder_labels),
+                    format_func=lambda folder_id: folder_labels.get(folder_id, folder_id),
+                    key=f"project_explorer_move_folder_{project.id}",
+                )
+                if st.button("Добавить объект в папку", key=f"project_explorer_move_to_folder_{project.id}"):
+                    try:
+                        result = move_project_explorer_item_to_folder(
+                            LAS_CORRELATION_PROJECTS_ROOT,
+                            project.id,
+                            selected_item_id,
+                            selected_folder_id,
+                        )
+                        logger.info(
+                            "project_tree_item_moved_to_folder project_id=%s item_id=%s folder_id=%s",
+                            safe_log_value(project.id),
+                            safe_log_value(selected_item_id),
+                            safe_log_value(selected_folder_id),
+                        )
+                        st.success(result.message)
+                        st.rerun()
+                    except Exception:
+                        logger.exception("project_tree_move_to_folder_failed project_id=%s", safe_log_value(project.id))
+                        st.error("Не удалось добавить объект в папку.")
+        else:
+            if not group_targets:
+                st.caption("Сначала создайте группу скважин проекта.")
+            else:
+                group_labels = {group.id: group.name for group in group_targets}
+                selected_group_id = st.selectbox(
+                    "Группа",
+                    options=tuple(group_labels),
+                    format_func=lambda group_id: group_labels.get(group_id, group_id),
+                    key=f"project_explorer_move_group_{project.id}",
+                )
+                if st.button("Переместить скважину", key=f"project_explorer_move_to_group_{project.id}"):
+                    try:
+                        result = move_project_explorer_well_to_group(
+                            LAS_CORRELATION_PROJECTS_ROOT,
+                            project.id,
+                            selected_item_id,
+                            selected_group_id,
+                        )
+                        logger.info(
+                            "project_tree_well_moved_to_group project_id=%s well_node_id=%s group_id=%s",
+                            safe_log_value(project.id),
+                            safe_log_value(selected_item_id),
+                            safe_log_value(selected_group_id),
+                        )
+                        st.success(result.message)
+                        st.rerun()
+                    except Exception:
+                        logger.exception("project_tree_move_to_group_failed project_id=%s", safe_log_value(project.id))
+                        st.error("Не удалось переместить скважину в группу.")
 
 
 def _load_project_las_correlation_settings(project_id: str) -> LasCorrelationSettings | None:

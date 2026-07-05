@@ -6,6 +6,7 @@ from pathlib import Path
 from projects.calculations import list_project_calculations
 from projects.exports import list_project_exports
 from projects.las_files import ProjectLasWellCard, list_project_las_wells
+from projects.project_folders import ProjectFolder, list_project_folders
 from projects.well_groups import list_grouped_project_wells
 from projects.repository import DEFAULT_PROJECT_ID, DEFAULT_PROJECTS_ROOT, ProjectRecord, load_project, safe_project_id
 
@@ -65,6 +66,46 @@ def flatten_project_tree(node: ProjectTreeNode, level: int = 0) -> tuple[tuple[i
     return tuple(rows)
 
 
+def _folder_item_node(folder: ProjectFolder, item_id: str, indexed_nodes: dict[str, ProjectTreeNode]) -> ProjectTreeNode:
+    source = indexed_nodes.get(item_id)
+    if source is None:
+        return ProjectTreeNode(
+            id=f"folder:{folder.id}:missing:{item_id}",
+            label=item_id,
+            kind="missing",
+            status="объект не найден",
+            metadata={"folder_id": folder.id, "item_id": item_id},
+        )
+    return ProjectTreeNode(
+        id=f"folder:{folder.id}:item:{item_id}",
+        label=source.label,
+        kind="folder_item",
+        status=source.status,
+        metadata={
+            "folder_id": folder.id,
+            "item_id": item_id,
+            "source_kind": source.kind,
+            "source_id": source.id,
+        },
+    )
+
+
+def _custom_folder_node(folder: ProjectFolder, indexed_nodes: dict[str, ProjectTreeNode]) -> ProjectTreeNode:
+    children = tuple(_folder_item_node(folder, item_id, indexed_nodes) for item_id in folder.item_ids)
+    return ProjectTreeNode(
+        id=f"folder:custom:{folder.id}",
+        label=folder.name,
+        kind="custom_folder",
+        status=f"{len(children)} объект(ов)",
+        children=children or (_empty_node(f"folder:custom:{folder.id}:empty", "Нет объектов в папке"),),
+        metadata={
+            "folder_id": folder.id,
+            "count": len(children),
+            "description": folder.description,
+        },
+    )
+
+
 def _well_node(well: ProjectLasWellCard) -> ProjectTreeNode:
     versions = tuple(
         ProjectTreeNode(
@@ -105,9 +146,15 @@ def build_project_tree(
     clean_project_id = safe_project_id(project_id)
     project = load_project(root_path, clean_project_id)
 
+    indexed_nodes: dict[str, ProjectTreeNode] = {}
     well_children: list[ProjectTreeNode] = []
     for group, wells in list_grouped_project_wells(root_path, clean_project_id):
         group_well_nodes = tuple(_well_node(well) for well in wells)
+        for well_node in group_well_nodes:
+            indexed_nodes[well_node.id] = well_node
+            for version_node in well_node.children:
+                if version_node.kind == "las_version":
+                    indexed_nodes[version_node.id] = version_node
         well_children.append(
             ProjectTreeNode(
                 id=f"well_group:{group.id}",
@@ -138,6 +185,7 @@ def build_project_tree(
         )
         for record in list_project_calculations(root_path, clean_project_id)
     )
+    indexed_nodes.update((node.id, node) for node in calculation_children)
 
     export_children = tuple(
         ProjectTreeNode(
@@ -154,7 +202,18 @@ def build_project_tree(
         )
         for record in list_project_exports(root_path, clean_project_id)
     )
+    indexed_nodes.update((node.id, node) for node in export_children)
 
+    custom_folder_children = tuple(
+        _custom_folder_node(folder, indexed_nodes)
+        for folder in list_project_folders(root_path, clean_project_id)
+    )
+
+    custom_folders_folder = _folder_node(
+        "folder:custom",
+        "Папки",
+        custom_folder_children or (_empty_node("folder:custom:empty", "Нет пользовательских папок"),),
+    )
     wells_folder = _folder_node(
         "folder:wells",
         "Скважины",
@@ -176,7 +235,7 @@ def build_project_tree(
         label=project.name,
         kind="project",
         status=project.updated_at,
-        children=(wells_folder, calculations_folder, exports_folder),
+        children=(custom_folders_folder, wells_folder, calculations_folder, exports_folder),
         metadata={
             "project_id": project.id,
             "description": project.description,

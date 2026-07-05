@@ -42,6 +42,21 @@ from projects.graph_settings import (
     settings_from_dict as graph_settings_from_dict,
     settings_to_dict as graph_settings_to_dict,
 )
+from projects.project_folders import (
+    ProjectFolder,
+    assign_project_items_to_folder,
+    list_project_folders,
+    save_project_folder,
+)
+from projects.project_moves import (
+    ProjectExplorerMoveOption,
+    ProjectExplorerMoveResult,
+    list_project_explorer_folder_targets,
+    list_project_explorer_move_options,
+    list_project_explorer_well_group_targets,
+    move_project_explorer_item_to_folder,
+    move_project_explorer_well_to_group,
+)
 from projects.well_groups import (
     ProjectWellGroup,
     assign_project_wells_to_group,
@@ -78,6 +93,17 @@ from projects.repository import (
 )
 
 __all__ = [
+    "ProjectFolder",
+    "ProjectExplorerMoveOption",
+    "ProjectExplorerMoveResult",
+    "list_project_explorer_folder_targets",
+    "list_project_explorer_move_options",
+    "list_project_explorer_well_group_targets",
+    "move_project_explorer_item_to_folder",
+    "move_project_explorer_well_to_group",
+    "assign_project_items_to_folder",
+    "list_project_folders",
+    "save_project_folder",
     "ProjectTreeNode",
     "ProjectWellGroup",
     "assign_project_wells_to_group",

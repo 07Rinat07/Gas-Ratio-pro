@@ -15,7 +15,7 @@ from projects import (
 
 def test_project_tree_groups_saved_project_objects_without_reading_raw_tables(tmp_path):
     project = create_project(tmp_path, name="Demo Project", description="Tree test", project_id="demo")
-    save_project_las_file(
+    las_record = save_project_las_file(
         b"~Version\nVERS. 2.0\n~Well\nNULL. -999.25\n~Curve\nDEPT.M : Depth\nC1. : C1\n~Ascii\n1000 80\n",
         root=tmp_path,
         project_id=project.id,
@@ -23,14 +23,14 @@ def test_project_tree_groups_saved_project_objects_without_reading_raw_tables(tm
         well_name="Well A",
         version_label="Raw LAS",
     )
-    save_project_calculation(
+    calculation_record = save_project_calculation(
         pd.DataFrame({"depth": [1000.0, 1001.0], "c1": [80.0, 81.0]}),
         root=tmp_path,
         project_id=project.id,
         source_label="Well A calculation",
         warnings=("check mapping",),
     )
-    save_project_export(
+    export_record = save_project_export(
         b"<html>report</html>",
         root=tmp_path,
         project_id=project.id,
@@ -49,6 +49,7 @@ def test_project_tree_groups_saved_project_objects_without_reading_raw_tables(tm
     assert tree.metadata["project_id"] == "demo"
     assert "Скважины" in labels
     assert "Расчеты" in labels
+    assert "Папки" in labels
     assert "Отчеты и экспорты" in labels
     assert "Well A" in labels
     assert "Raw LAS" in labels
@@ -68,6 +69,7 @@ def test_project_tree_returns_empty_folders_for_new_project(tmp_path):
     empty_labels = {row["label"] for row in rows if row["kind"] == "empty"}
 
     assert empty_labels == {
+        "Нет пользовательских папок",
         "Нет сохраненных скважин",
         "Нет сохраненных расчетов",
         "Нет сохраненных экспортов",
@@ -130,3 +132,164 @@ def test_well_group_assignment_moves_wells_between_groups(tmp_path):
     assert updated.well_ids == ("well-3", "well-2")
     assert groups["a"].well_ids == ("well-1",)
     assert groups["b"].well_ids == ("well-3", "well-2")
+
+
+def test_project_tree_shows_custom_project_folders_with_metadata_refs(tmp_path):
+    project = create_project(tmp_path, name="Folder Project", project_id="foldered")
+    las_record = save_project_las_file(
+        b"~Version\nVERS. 2.0\n~Well\nNULL. -999.25\n~Curve\nDEPT.M : Depth\nC1. : C1\n~Ascii\n1000 80\n",
+        root=tmp_path,
+        project_id=project.id,
+        file_name="well_a.las",
+        well_name="Well A",
+        version_label="Raw LAS",
+    )
+    calculation_record = save_project_calculation(
+        pd.DataFrame({"depth": [1000.0], "c1": [80.0]}),
+        root=tmp_path,
+        project_id=project.id,
+        source_label="Well A calculation",
+        warnings=(),
+    )
+
+    from projects import save_project_folder
+
+    save_project_folder(
+        root=tmp_path,
+        project_id=project.id,
+        name="Рабочий набор",
+        item_ids=(f"well:{las_record.well_id}", f"calculation:{calculation_record.id}"),
+        description="Папка для текущей проверки",
+    )
+
+    rows = project_tree_table_rows(build_project_tree(tmp_path, project.id))
+    labels = [str(row["label"]) for row in rows]
+    kinds = [str(row["kind"]) for row in rows]
+
+    assert "Папки" in labels
+    assert "Рабочий набор" in labels
+    assert "Well A" in labels
+    assert "Well A calculation" in labels
+    assert "custom_folder" in kinds
+    assert "folder_item" in kinds
+    assert labels.index("Рабочий набор") < labels.index("Well A calculation")
+
+
+def test_assign_project_items_to_folder_replaces_folder_contents(tmp_path):
+    project = create_project(tmp_path, name="Assign Folder", project_id="assign-folder")
+
+    from projects import assign_project_items_to_folder, save_project_folder
+
+    save_project_folder(
+        root=tmp_path,
+        project_id=project.id,
+        name="Контроль",
+        folder_id="control",
+        item_ids=("well:old",),
+    )
+
+    updated = assign_project_items_to_folder(
+        root=tmp_path,
+        project_id=project.id,
+        folder_id="control",
+        item_ids=("well:new", "calculation:latest", "well:new"),
+    )
+
+    assert updated.item_ids == ("well:new", "calculation:latest")
+
+
+def test_project_explorer_move_options_include_safe_metadata_objects(tmp_path):
+    project = create_project(tmp_path, name="Move Options", project_id="move-options")
+    las_record = save_project_las_file(
+        b"~Version\nVERS. 2.0\n~Well\nNULL. -999.25\n~Curve\nDEPT.M : Depth\nC1. : C1\n~Ascii\n1000 80\n",
+        root=tmp_path,
+        project_id=project.id,
+        file_name="well_a.las",
+        well_name="Well A",
+        version_label="Raw LAS",
+    )
+    calculation_record = save_project_calculation(
+        pd.DataFrame({"depth": [1000.0], "c1": [80.0]}),
+        root=tmp_path,
+        project_id=project.id,
+        source_label="Well A calculation",
+    )
+    export_record = save_project_export(
+        b"csv,data",
+        root=tmp_path,
+        project_id=project.id,
+        label="CSV export",
+        file_name="export.csv",
+        mime_type="text/csv",
+        kind="csv",
+    )
+
+    from projects import list_project_explorer_move_options
+
+    options = list_project_explorer_move_options(tmp_path, project.id)
+    option_ids = {option.id for option in options}
+    option_targets = {option.id: option.target_type for option in options}
+
+    assert f"well:{las_record.well_id}" in option_ids
+    assert f"las:{las_record.id}" in option_ids
+    assert f"calculation:{calculation_record.id}" in option_ids
+    assert f"export:{export_record.id}" in option_ids
+    assert option_targets[f"well:{las_record.well_id}"] == "well_group_or_folder"
+    assert option_targets[f"calculation:{calculation_record.id}"] == "folder"
+
+
+def test_project_explorer_move_item_to_folder_appends_without_duplicates(tmp_path):
+    project = create_project(tmp_path, name="Folder Move", project_id="folder-move")
+
+    from projects import list_project_folders, move_project_explorer_item_to_folder, save_project_folder
+
+    save_project_folder(
+        root=tmp_path,
+        project_id=project.id,
+        name="Контроль",
+        folder_id="control",
+        item_ids=("well:old",),
+    )
+
+    first = move_project_explorer_item_to_folder(tmp_path, project.id, "calculation:latest", "control")
+    second = move_project_explorer_item_to_folder(tmp_path, project.id, "calculation:latest", "control")
+    folders = {folder.id: folder for folder in list_project_folders(tmp_path, project.id)}
+
+    assert first.message == "Объект добавлен в папку: Контроль"
+    assert second.updated_folder is not None
+    assert folders["control"].item_ids == ("well:old", "calculation:latest")
+
+
+def test_project_explorer_move_well_to_group_updates_group_assignment(tmp_path):
+    project = create_project(tmp_path, name="Group Move UI", project_id="group-move-ui")
+
+    from projects import (
+        list_project_well_groups,
+        move_project_explorer_well_to_group,
+        save_project_well_group,
+    )
+
+    save_project_well_group(tmp_path, project.id, name="Север", well_ids=("well-1", "well-2"), group_id="north")
+    save_project_well_group(tmp_path, project.id, name="Юг", well_ids=(), group_id="south")
+
+    result = move_project_explorer_well_to_group(tmp_path, project.id, "well:well-2", "south")
+    groups = {group.id: group for group in list_project_well_groups(tmp_path, project.id)}
+
+    assert result.message == "Скважина перемещена в группу: Юг"
+    assert groups["north"].well_ids == ("well-1",)
+    assert groups["south"].well_ids == ("well-2",)
+
+
+def test_project_explorer_rejects_non_well_group_move(tmp_path):
+    project = create_project(tmp_path, name="Bad Group Move", project_id="bad-group-move")
+
+    from projects import move_project_explorer_well_to_group, save_project_well_group
+
+    save_project_well_group(tmp_path, project.id, name="Группа", well_ids=(), group_id="group")
+
+    try:
+        move_project_explorer_well_to_group(tmp_path, project.id, "calculation:abc", "group")
+    except ValueError as exc:
+        assert "только объект скважины" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError for non-well move into a well group")

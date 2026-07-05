@@ -1,6 +1,10 @@
 
 ## Unreleased
 
+- Добавлено metadata-only перемещение объектов в Project Explorer: скважины можно переносить между группами, а скважины, LAS-версии, расчеты и экспорты добавлять в пользовательские папки без копирования данных.
+
+- Добавлены пользовательские папки Project Explorer: `project_folders.json` хранит metadata-ссылки на объекты дерева без копирования LAS или расчетных таблиц.
+
 - Добавлен компактный журнал действий по сохраненным расчетам проекта: сохранение snapshot, открытие snapshot в графиках, сравнение snapshots и скачивание CSV/XLSX/HTML-выгрузок.
 
 - Added project calculation open warnings for saved snapshots that have no depth/DEPT/MD column or incomplete key gas mapping before sending them to interpretation graphs.
