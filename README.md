@@ -28,6 +28,7 @@
 - Statistics Center
 - Formula Builder
 - Interpretation Workspace
+- Report Studio
 - Dashboard Workspace
 - Documentation Center
 - Petrophysical Calculations

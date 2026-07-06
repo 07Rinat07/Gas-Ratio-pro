@@ -294,6 +294,32 @@ from projects.statistics_center import (
 )
 
 
+
+from projects.report_studio import (
+    PROJECT_REPORT_STUDIO_FILE_NAME,
+    REPORT_EXPORT_FORMATS,
+    REPORT_SECTION_TYPES,
+    REPORT_PAGE_SIZES,
+    REPORT_ORIENTATIONS,
+    ReportSection,
+    ReportTemplate,
+    ReportExportJob,
+    ReportStudioSummary,
+    normalize_report_sections,
+    normalize_report_formats,
+    create_report_template,
+    list_report_templates,
+    get_report_template,
+    create_report_export_job,
+    list_report_export_jobs,
+    build_report_output_prefix,
+    build_report_export_manifest,
+    build_report_template_table,
+    build_report_sections_table,
+    build_report_export_jobs_table,
+    summarize_report_studio,
+)
+
 from projects.formula_builder import (
     PROJECT_FORMULA_BUILDER_FILE_NAME,
     FORMULA_TEMPLATE_CATEGORIES,
@@ -329,6 +355,30 @@ from projects.formation_manager import (
 )
 
 __all__ = [
+
+    "PROJECT_REPORT_STUDIO_FILE_NAME",
+    "REPORT_EXPORT_FORMATS",
+    "REPORT_SECTION_TYPES",
+    "REPORT_PAGE_SIZES",
+    "REPORT_ORIENTATIONS",
+    "ReportSection",
+    "ReportTemplate",
+    "ReportExportJob",
+    "ReportStudioSummary",
+    "normalize_report_sections",
+    "normalize_report_formats",
+    "create_report_template",
+    "list_report_templates",
+    "get_report_template",
+    "create_report_export_job",
+    "list_report_export_jobs",
+    "build_report_output_prefix",
+    "build_report_export_manifest",
+    "build_report_template_table",
+    "build_report_sections_table",
+    "build_report_export_jobs_table",
+    "summarize_report_studio",
+
     "PROJECT_FORMULA_BUILDER_FILE_NAME",
     "FORMULA_TEMPLATE_CATEGORIES",
     "FORMULA_ALLOWED_FUNCTIONS",
