@@ -780,10 +780,9 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             }
             .dashboard-layout {
                 grid-template-areas:
-                    "welcome quick"
-                    "projects stats"
-                    "preview activity"
-                    "news tips"
+                    "status projects"
+                    "las quick"
+                    "calculations activity"
                     "license license";
             }
         }
@@ -804,14 +803,16 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             .dashboard-layout {
                 grid-template-columns: minmax(7.4rem, 0.30fr) minmax(0, 1.70fr);
                 grid-template-areas:
-                    "welcome projects"
-                    "stats quick"
-                    "activity quick"
-                    "license preview";
+                    "status projects"
+                    "las quick"
+                    "calculations activity"
+                    "license license";
             }
             .dashboard-card { padding: 0.56rem; border-radius: 13px; }
             .dashboard-card.news,
-            .dashboard-card.tips { display: none; }
+            .dashboard-card.tips,
+            .dashboard-card.preview-card,
+            .dashboard-card.welcome { display: none; }
             .dashboard-card.welcome { min-height: 5.8rem; }
             .dashboard-card.welcome p:nth-of-type(1) { font-size: 0.76rem !important; line-height: 1.28 !important; }
             .dashboard-card.welcome p:nth-of-type(n+2) { display: none; }
@@ -819,7 +820,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             .dashboard-card.stats, .dashboard-card.activity, .dashboard-card.quick, .dashboard-card.projects { overflow: hidden; }
             .dashboard-list-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.38rem; padding: 0.34rem 0; }
             .dashboard-list-row > * { min-width: 0; overflow-wrap: anywhere; }
-            .dashboard-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.36rem; }
+            .dashboard-metrics, .dashboard-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.36rem; }
             .dashboard-metric { min-height: 2.92rem; padding: 0.42rem; }
             .dashboard-metric b { font-size: 0.98rem; line-height: 1.05; }
             .dashboard-metric span { font-size: 0.66rem !important; line-height: 1.12 !important; }
@@ -1090,15 +1091,17 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             .dashboard-layout {
                 grid-template-columns: minmax(8.2rem, 0.34fr) minmax(0, 1.36fr) minmax(11rem, 0.48fr);
                 grid-template-areas:
-                    "welcome projects stats"
-                    "activity quick quick"
-                    "license preview preview";
+                    "status projects quick"
+                    "las calculations activity"
+                    "license license license";
             }
             .dashboard-card { padding: 0.66rem; border-radius: 14px; }
             .dashboard-card.welcome { min-height: 6.2rem; }
             .dashboard-card.welcome p:nth-of-type(n+2) { display: none; }
             .dashboard-card.news,
-            .dashboard-card.tips { display: none; }
+            .dashboard-card.tips,
+            .dashboard-card.preview-card,
+            .dashboard-card.welcome { display: none; }
             .dashboard-card.stats,
             .dashboard-card.activity,
             .dashboard-card.quick { max-width: 100%; overflow: hidden; }
@@ -1226,9 +1229,9 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             display: grid;
             grid-template-columns: var(--responsive-dashboard-columns);
             grid-template-areas:
-                "welcome projects stats"
-                "news quick activity"
-                "tips preview license";
+                "status projects activity"
+                "las quick calculations"
+                "license license license";
             gap: var(--responsive-card-gap);
             align-items: stretch;
             min-width: 0;
@@ -1253,15 +1256,30 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .dashboard-card p,
         .dashboard-card li,
         .dashboard-card div { color: #e5e7eb; overflow-wrap: anywhere; min-width: 0; }
-        .dashboard-card.welcome { grid-area: welcome; min-height: 11.5rem; }
+        .dashboard-card.welcome { grid-area: welcome; min-height: 8.5rem; }
         .dashboard-card.projects { grid-area: projects; }
-        .dashboard-card.stats { grid-area: stats; }
+        .dashboard-card.stats { grid-area: status; }
         .dashboard-card.news { grid-area: news; }
+        .dashboard-card.recent-las { grid-area: las; }
+        .dashboard-card.calculations { grid-area: calculations; }
         .dashboard-card.quick { grid-area: quick; }
         .dashboard-card.activity { grid-area: activity; }
         .dashboard-card.tips { grid-area: tips; }
         .dashboard-card.preview-card { grid-area: preview; }
         .dashboard-card.license { grid-area: license; }
+        .dashboard-information-hierarchy .dashboard-card.news,
+        .dashboard-information-hierarchy .dashboard-card.tips,
+        .dashboard-information-hierarchy .dashboard-card.preview-card,
+        .dashboard-information-hierarchy .dashboard-card.welcome { display: none !important; }
+        .dashboard-status-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.42rem; }
+        .dashboard-status-pill { border:1px solid rgba(148,163,184,0.18); border-radius: 11px; padding:0.48rem; background:rgba(15,23,42,0.18); }
+        .dashboard-status-pill b { display:block; font-size:0.88rem; color:#f8fafc; }
+        .dashboard-status-pill span { display:block; font-size:0.68rem; color:#cbd5e1; font-weight:800; margin-top:0.12rem; }
+        .dashboard-information-hierarchy .dashboard-card { min-height: 7.4rem; }
+        .dashboard-information-hierarchy .dashboard-card.license { min-height: auto; }
+        .dashboard-information-hierarchy .dashboard-list-row { min-width: 0; }
+        .dashboard-information-hierarchy .dashboard-muted { color:#cbd5e1 !important; }
+        .dashboard-empty-state { color:#cbd5e1 !important; font-size:0.78rem !important; line-height:1.35 !important; border:1px dashed rgba(148,163,184,0.22); border-radius:12px; padding:0.62rem; background:rgba(15,23,42,0.12); }
         .dashboard-list-row {
             display: flex;
             justify-content: space-between;
@@ -1371,7 +1389,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             }
             .dashboard-actions { grid-template-columns: 1fr; }
             .dashboard-log-track { grid-template-columns: 0.5fr 1fr 1fr; }
-            .dashboard-card.news, .dashboard-card.tips { display: none; }
+            .dashboard-card.news, .dashboard-card.tips, .dashboard-card.preview-card, .dashboard-card.welcome { display: none; }
             .dashboard-footer { flex-direction: column; gap: 0.35rem; }
         }
         @media (max-width: 480px) {
@@ -4622,9 +4640,36 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
     news_html = "".join(f"<li>{_html_escape(item)}</li>" for item in news_items)
     activity_html = "".join(f"<div class='dashboard-list-row'><div>{_html_escape(item)}</div></div>" for item in activity_items)
 
+    las_files = list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:3]
+    calculations = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:3]
+    recent_las_html = "".join(
+        "<div class='dashboard-list-row'>"
+        f"<div><b>{_html_escape(getattr(item, 'file_name', '') or getattr(item, 'name', '') or getattr(item, 'id', 'LAS файл'))}</b>"
+        f"<div class='dashboard-muted'>{_html_escape(getattr(item, 'updated_at', '') or getattr(item, 'created_at', '') or 'без даты')}</div></div>"
+        "</div>"
+        for item in las_files
+    ) or "<div class='dashboard-empty-state'>LAS-файлы пока не импортированы.</div>"
+    calculations_html = "".join(
+        "<div class='dashboard-list-row'>"
+        f"<div><b>{_html_escape(getattr(item, 'name', '') or getattr(item, 'id', 'Расчет'))}</b>"
+        f"<div class='dashboard-muted'>{_html_escape(getattr(item, 'created_at', '') or getattr(item, 'updated_at', '') or 'без даты')}</div></div>"
+        "</div>"
+        for item in calculations
+    ) or "<div class='dashboard-empty-state'>Расчеты появятся после сохранения интерпретации.</div>"
+
+    project_status_html = f"""
+      <div class='dashboard-status-grid'>
+        <div class='dashboard-status-pill'><b>{stats['projects']}</b><span>Проекты</span></div>
+        <div class='dashboard-status-pill'><b>{stats['wells']}</b><span>Скважины</span></div>
+        <div class='dashboard-status-pill'><b>{stats['las_files']}</b><span>LAS</span></div>
+        <div class='dashboard-status-pill'><b>{stats['calculations']}</b><span>Расчеты</span></div>
+      </div>
+      <div class='dashboard-list-row'><div>Активный проект</div><div class='dashboard-muted'>{_html_escape(active_project.name)}</div></div>
+    """
+
     st.markdown(
         f"""
-        <div class="dashboard-shell dashboard-grid-optimized" data-dashboard-grid="optimized" style="{style}">
+        <div class="dashboard-shell dashboard-grid-optimized dashboard-information-hierarchy" data-dashboard-grid="optimized" data-dashboard-hierarchy="information" style="{style}">
           <div class="dashboard-overlay"></div>
           {logo_img}
           <div class="dashboard-content">
@@ -4643,66 +4688,38 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
                   <span class="dashboard-search-chip">{_html_escape(active_project.name)}</span>
                 </div>
               </div>
-              <section class="dashboard-layout">
-                <article class="dashboard-card welcome">
-                  <h3>Добро пожаловать</h3>
-                  <p>Gas Ratio Pro — профессиональное локальное решение для анализа газового каротажа, LAS-кривых и проектных данных.</p>
-                  <div class="dashboard-list-row"><div>LAS-редактор</div><div class="dashboard-muted">готов</div></div>
-                  <div class="dashboard-list-row"><div>Рабочий проект</div><div class="dashboard-muted">{_html_escape(active_project.name)}</div></div>
+              <section class="dashboard-layout dashboard-information-priority" data-dashboard-information-hierarchy="v4">
+                <article class="dashboard-card stats" id="dashboard-project-status">
+                  <h3>Статус проекта</h3>
+                  {project_status_html}
                 </article>
                 <article class="dashboard-card projects" id="dashboard-projects">
-                  <h3>Недавние проекты</h3>
+                  <h3>Последние проекты</h3>
                   {recent_html}
                 </article>
-                <article class="dashboard-card stats">
-                  <h3>Статистика проекта</h3>
-                  <div class="dashboard-metrics">
-                    <div class="dashboard-metric"><b>{stats['projects']}</b><span>Проектов</span></div>
-                    <div class="dashboard-metric"><b>{stats['wells']}</b><span>Скважин</span></div>
-                    <div class="dashboard-metric"><b>{stats['las_files']}</b><span>LAS-файлов</span></div>
-                    <div class="dashboard-metric"><b>{stats['calculations']}</b><span>Расчетов</span></div>
-                    <div class="dashboard-metric"><b>{stats['exports']}</b><span>Экспортов</span></div>
-                  </div>
+                <article class="dashboard-card activity" id="dashboard-activity">
+                  <h3>Последняя активность</h3>
+                  {activity_html}
                 </article>
-                <article class="dashboard-card news">
-                  <h3>Новости</h3>
-                  <ul>{news_html}</ul>
+                <article class="dashboard-card recent-las" id="dashboard-recent-las">
+                  <h3>Последние LAS</h3>
+                  {recent_las_html}
                 </article>
                 <article class="dashboard-card quick" id="dashboard-quick-actions">
                   <h3>Быстрые действия</h3>
-                  <p class="dashboard-muted">Рабочая панель действий находится сверху. Здесь показана краткая сводка без повторных кнопок.</p>
+                  <p class="dashboard-muted">Компактные действия без дублирующих кнопок. Основная навигация остается единой.</p>
                   <div class="dashboard-actions quick-actions-redesigned">
                     {quick_actions_html}
                   </div>
                 </article>
-                <article class="dashboard-card activity" id="dashboard-activity">
-                  <h3>Активность</h3>
-                  {activity_html}
-                </article>
-                <article class="dashboard-card tips">
-                  <h3>Полезные советы</h3>
-                  <p>{_html_escape(tip)}</p>
-                  <div class="dashboard-muted">Совет меняется ежедневно и зависит от активного проекта.</div>
-                </article>
-                <article class="dashboard-card preview-card" id="dashboard-preview">
-                  <h3>Быстрый просмотр: последний проект</h3>
-                  <div class="dashboard-preview">
-                    <div class="dashboard-muted">Мини-планшет показывает рабочую область без фонового изображения в настоящих графиках.</div>
-                    <div class="dashboard-log-track">
-                      <div class="dashboard-depth-track"><div class="dashboard-curve-label">Depth</div></div>
-                      <div class="dashboard-curve-track"><div class="dashboard-curve-label">GR</div></div>
-                      <div class="dashboard-curve-track"><div class="dashboard-curve-label">RT</div></div>
-                      <div class="dashboard-curve-track"><div class="dashboard-curve-label">RHOB</div></div>
-                      <div class="dashboard-curve-track"><div class="dashboard-curve-label">NPHI</div></div>
-                      <div class="dashboard-curve-track"><div class="dashboard-curve-label">DT</div></div>
-                    </div>
-                  </div>
+                <article class="dashboard-card calculations" id="dashboard-calculations">
+                  <h3>Последние расчеты</h3>
+                  {calculations_html}
                 </article>
                 <article class="dashboard-card license" id="dashboard-license">
-                  <h3>Лицензия и авторские права</h3>
+                  <h3>Статус лицензии</h3>
                   {license_header}
-                  {about_brand}
-                  <p>© Rinat Sarmuldin. Все права защищены. Коммерческое использование допускается только с разрешения автора.</p>
+                  <p>Proprietary License · © Rinat Sarmuldin · коммерческое использование только с письменного разрешения автора.</p>
                 </article>
               </section>
               <footer class="dashboard-footer">

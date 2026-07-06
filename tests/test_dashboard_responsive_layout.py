@@ -17,8 +17,8 @@ def test_notebook_dashboard_grid_prevents_horizontal_overflow():
 
     assert "minmax(7.4rem, 0.30fr)" in source
     assert "minmax(0, 1.70fr)" in source
-    assert "grid-template-areas:\n                    \"welcome projects\"\n                    \"stats quick\"\n                    \"activity quick\"\n                    \"license preview\"" in source
-    assert ".dashboard-card.news,\n            .dashboard-card.tips { display: none; }" in source
+    assert "grid-template-areas:\n                    \"status projects\"\n                    \"las quick\"\n                    \"calculations activity\"\n                    \"license license\"" in source
+    assert ".dashboard-card.news,\n            .dashboard-card.tips,\n            .dashboard-card.preview-card,\n            .dashboard-card.welcome { display: none; }" in source
 
 
 def test_dashboard_cards_have_compact_laptop_metrics_and_actions():
