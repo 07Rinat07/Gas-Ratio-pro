@@ -1405,7 +1405,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (max-width: 1366px) {
             .dashboard-3 { --d3-side: 8.85rem; --d3-gap: 0.52rem; border-radius: 16px; background-size: 100% 100%, 100% 100%, 100% 100%, clamp(145px, 13vw, 205px) auto; background-position: center center, center center, center center, center bottom 0.72rem; }
-            .dashboard-3 .dashboard-main { padding: 0.68rem; }
+            .dashboard-3 .dashboard-main { padding: 0.48rem; }
             .dashboard-3 .dashboard-rail-brand { min-height: 7.2rem; font-size: 0.78rem !important; }
             .dashboard-3 .dashboard-layout {
                 grid-template-areas:
@@ -1415,8 +1415,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
                     "favorites favorites favorites favorites favorites favorites favorites favorites favorites favorites favorites favorites";
             }
             .dashboard-3 .dashboard-status-grid, .dashboard-3 .dashboard-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.42rem; }
-            .dashboard-3 .dashboard-status-pill, .dashboard-3 .dashboard-metric { min-height: 3.15rem; padding: 0.46rem; }
-            .dashboard-3 .dashboard-status-pill b, .dashboard-3 .dashboard-metric b { font-size: 1.02rem; }
+            .dashboard-3 .dashboard-status-pill, .dashboard-3 .dashboard-metric { min-height: 2.65rem; padding: 0.36rem 0.44rem; }
+            .dashboard-3 .dashboard-status-pill b, .dashboard-3 .dashboard-metric b { font-size: 0.92rem; }
             .dashboard-3 .dashboard-status-pill span, .dashboard-3 .dashboard-metric span { font-size: 0.66rem !important; }
             .dashboard-3 .dashboard-title-icon { width: 2.6rem; height: 2.6rem; }
             .dashboard-3 .dashboard-page-title { font-size: 1.38rem !important; }
@@ -1480,11 +1480,11 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
            Requirements: no duplicated Open buttons, visible information hierarchy,
            dashboard-background-refinement: centered contained background art, laptop-safe grid for 1366x768 and 1440x900. */
         .dashboard-3 {
-            --d3-gap: clamp(0.72rem, 1vw, 1rem);
+            --d3-gap: clamp(0.52rem, 0.78vw, 0.82rem);
             --d3-side: clamp(12.2rem, 14vw, 15rem);
             --d3-card-min: 0;
             --d3-content-max: 100%;
-            min-height: calc(100vh - 3rem);
+            min-height: calc(100vh - 4.6rem);
             width: min(100%, 100vw);
             max-width: 100%;
             box-sizing: border-box;
@@ -1551,14 +1551,14 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             background-position: center center, center center;
             background-repeat: no-repeat;
         }
-        .dashboard-3 .dashboard-main { padding: clamp(0.85rem, 1.2vw, 1.35rem); min-width: 0; }
+        .dashboard-3 .dashboard-main { padding: clamp(0.58rem, 0.86vw, 0.95rem); min-width: 0; }
         .dashboard-3 .dashboard-navbar {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
-            gap: 0.75rem;
+            gap: 0.55rem;
             align-items: center;
             min-width: 0;
-            margin-bottom: 1rem;
+            margin-bottom: 0.58rem;
             padding: 0;
             border: 0;
             background: transparent;
@@ -1566,18 +1566,18 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         .dashboard-3 .dashboard-title-row { display: flex; gap: 0.82rem; align-items: center; min-width: 0; }
         .dashboard-3 .dashboard-title-icon {
-            width: 3.25rem;
-            height: 3.25rem;
+            width: 2.55rem;
+            height: 2.55rem;
             display: grid;
             place-items: center;
-            border-radius: 15px;
+            border-radius: 12px;
             color: #38bdf8;
             background: rgba(14, 165, 233, 0.12);
             border: 1px solid rgba(56, 189, 248, 0.22);
-            font-size: 1.6rem;
+            font-size: 1.2rem;
         }
-        .dashboard-3 .dashboard-page-title { font-size: clamp(1.55rem, 2.1vw, 2.3rem) !important; color: #f8fafc; margin: 0 !important; line-height: 1.08 !important; }
-        .dashboard-3 .dashboard-page-subtitle { color: #cbd5e1 !important; margin: 0.22rem 0 0 0 !important; font-size: 0.92rem !important; }
+        .dashboard-3 .dashboard-page-title { font-size: clamp(1.22rem, 1.62vw, 1.74rem) !important; color: #f8fafc; margin: 0 !important; line-height: 1.06 !important; }
+        .dashboard-3 .dashboard-page-subtitle { color: #cbd5e1 !important; margin: 0.12rem 0 0 0 !important; font-size: 0.78rem !important; line-height: 1.22 !important; max-width: 72rem; }
         .dashboard-3 .dashboard-search { justify-content: flex-end; align-items: center; flex-wrap: wrap; }
         .dashboard-3 .dashboard-search-chip { background: rgba(15, 23, 42, 0.72); }
         .dashboard-3 .dashboard-layout {
@@ -1624,18 +1624,18 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .dashboard-3 .dashboard-card.license { grid-area: license; }
         .dashboard-3 .dashboard-card.reports { grid-area: reports; }
         .dashboard-3 .dashboard-card.favorites { grid-area: favorites; }
-        .dashboard-3 .workspace-search-card { margin-bottom: var(--d3-gap); }
+        .dashboard-3 .workspace-search-card { margin-bottom: var(--d3-gap); padding-top: 0.62rem; padding-bottom: 0.62rem; }
         .dashboard-3 .workspace-search-box {
             display: grid;
             grid-template-columns: minmax(0, 1fr);
             gap: 0.22rem;
-            padding: 0.82rem 0.95rem;
+            padding: 0.52rem 0.68rem;
             border-radius: 14px;
             background: rgba(15, 23, 42, 0.58);
             border: 1px solid rgba(56, 189, 248, 0.18);
         }
-        .dashboard-3 .workspace-search-box b { color: #f8fafc; font-size: 0.92rem !important; }
-        .dashboard-3 .workspace-search-box span { color: #94a3b8; font-size: 0.78rem !important; }
+        .dashboard-3 .workspace-search-box b { color: #f8fafc; font-size: 0.82rem !important; line-height: 1.18 !important; }
+        .dashboard-3 .workspace-search-box span { color: #94a3b8; font-size: 0.68rem !important; line-height: 1.18 !important; }
         .dashboard-3 .workspace-search-results { margin-bottom: var(--d3-gap); }
         .dashboard-3 .workspace-search-result-row { border-left: 2px solid rgba(125, 211, 252, 0.42); }
         .dashboard-3 .dashboard-row-badge {
@@ -1656,23 +1656,23 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .dashboard-3 .dashboard-metrics {
             display: grid;
             grid-template-columns: repeat(5, minmax(0, 1fr));
-            gap: 0.82rem;
+            gap: 0.52rem;
             min-width: 0;
             max-width: 100%;
         }
         .dashboard-3 .dashboard-status-pill,
         .dashboard-3 .dashboard-metric {
-            min-height: 4.4rem;
+            min-height: 3.25rem;
             min-width: 0;
-            padding: 0.8rem;
+            padding: 0.52rem 0.62rem;
             border-radius: 14px;
             border: 1px solid rgba(148, 163, 184, 0.18);
             background: linear-gradient(135deg, rgba(30, 64, 175, 0.18), rgba(15, 23, 42, 0.30));
         }
         .dashboard-3 .dashboard-status-pill b,
-        .dashboard-3 .dashboard-metric b { display:block; font-size: 1.48rem; color:#f8fafc; line-height:1.05; }
+        .dashboard-3 .dashboard-metric b { display:block; font-size: 1.08rem; color:#f8fafc; line-height:1.02; }
         .dashboard-3 .dashboard-status-pill span,
-        .dashboard-3 .dashboard-metric span { color:#cbd5e1; font-weight:850; font-size:0.78rem !important; }
+        .dashboard-3 .dashboard-metric span { color:#cbd5e1; font-weight:850; font-size:0.68rem !important; line-height: 1.1 !important; }
         .dashboard-3 .dashboard-list-row {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
@@ -1693,6 +1693,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .dashboard-3 .dashboard-footer { margin-top: 0.95rem; }
         .dashboard-3 .quick-actions-redesigned { display:none; }
         .dashboard-3-branch-marker { display:none; }
+        .dashboard-3.dashboard-compact-workspace-fix { --dashboard-compact-fix: screenshot-top-density; }
         @media (max-width: 1440px) {
             .dashboard-3 { --d3-side: 9.75rem; --d3-gap: 0.62rem; background-size: 100% 100%, 100% 100%, 100% 100%, clamp(160px, 14vw, 230px) auto; background-position: center center, center center, center center, center bottom 0.85rem; }
             .dashboard-3 .dashboard-side-rail { padding: 0.62rem; gap: 0.42rem; }
@@ -1706,8 +1707,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             }
             .dashboard-3 .dashboard-card { padding: 0.72rem; }
             .dashboard-3 .dashboard-status-grid, .dashboard-3 .dashboard-metrics { gap:0.5rem; }
-            .dashboard-3 .dashboard-status-pill, .dashboard-3 .dashboard-metric { min-height: 3.65rem; padding:0.58rem; }
-            .dashboard-3 .dashboard-status-pill b, .dashboard-3 .dashboard-metric b { font-size:1.16rem; }
+            .dashboard-3 .dashboard-status-pill, .dashboard-3 .dashboard-metric { min-height: 2.85rem; padding:0.42rem 0.5rem; }
+            .dashboard-3 .dashboard-status-pill b, .dashboard-3 .dashboard-metric b { font-size:0.98rem; }
             .dashboard-3 .dashboard-card h3 { font-size:0.92rem !important; margin-bottom:0.5rem; }
             .dashboard-3 .dashboard-list-row { padding:0.42rem 0; gap:0.45rem; }
         }
@@ -1722,7 +1723,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (max-width: 1366px) {
             .dashboard-3 { --d3-side: 8.85rem; --d3-gap: 0.52rem; border-radius: 16px; background-size: 100% 100%, 100% 100%, 100% 100%, clamp(145px, 13vw, 205px) auto; background-position: center center, center center, center center, center bottom 0.72rem; }
-            .dashboard-3 .dashboard-main { padding: 0.68rem; }
+            .dashboard-3 .dashboard-main { padding: 0.48rem; }
             .dashboard-3 .dashboard-rail-brand { min-height: 7.2rem; font-size: 0.78rem !important; }
             .dashboard-3 .dashboard-layout {
                 grid-template-areas:
@@ -1732,8 +1733,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
                     "favorites favorites favorites favorites favorites favorites favorites favorites favorites favorites favorites favorites";
             }
             .dashboard-3 .dashboard-status-grid, .dashboard-3 .dashboard-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.42rem; }
-            .dashboard-3 .dashboard-status-pill, .dashboard-3 .dashboard-metric { min-height: 3.15rem; padding: 0.46rem; }
-            .dashboard-3 .dashboard-status-pill b, .dashboard-3 .dashboard-metric b { font-size: 1.02rem; }
+            .dashboard-3 .dashboard-status-pill, .dashboard-3 .dashboard-metric { min-height: 2.65rem; padding: 0.36rem 0.44rem; }
+            .dashboard-3 .dashboard-status-pill b, .dashboard-3 .dashboard-metric b { font-size: 0.92rem; }
             .dashboard-3 .dashboard-status-pill span, .dashboard-3 .dashboard-metric span { font-size: 0.66rem !important; }
             .dashboard-3 .dashboard-title-icon { width: 2.6rem; height: 2.6rem; }
             .dashboard-3 .dashboard-page-title { font-size: 1.38rem !important; }
@@ -1962,7 +1963,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .command-palette-shell {
             border: 1px solid rgba(255, 138, 0, 0.30);
             border-radius: 18px;
-            padding: 0.82rem 0.95rem;
+            padding: 0.52rem 0.68rem;
             margin: 0.15rem 0 0.9rem 0;
             background: linear-gradient(135deg, rgba(2, 6, 23, 0.58), rgba(15, 23, 42, 0.34));
             box-shadow: 0 18px 50px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.05);
@@ -5309,19 +5310,19 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
 
     st.markdown(
         f"""
-        <div class="dashboard-shell dashboard-3 project-workspace-1 dashboard-grid-optimized dashboard-information-hierarchy dashboard-responsive-audit dashboard-3-branch" data-dashboard-branch="Project Workspace 1.0" data-dashboard-workspace="project-workspace-1" data-dashboard-background-refinement="center-contained" data-dashboard-grid="optimized" data-dashboard-hierarchy="information" data-dashboard-responsive-audit="notebook-validated" style="{style}">
+        <div class="dashboard-shell dashboard-3 project-workspace-1 dashboard-compact-workspace-fix dashboard-grid-optimized dashboard-information-hierarchy dashboard-responsive-audit dashboard-3-branch" data-dashboard-branch="Project Workspace 1.0" data-dashboard-workspace="project-workspace-1" data-dashboard-background-refinement="center-contained" data-dashboard-grid="optimized" data-dashboard-hierarchy="information" data-dashboard-responsive-audit="notebook-validated" style="{style}">
           <span class="dashboard-3-branch-marker">Dashboard 3.0 branch · Project Workspace 1.0</span>
           <main class="dashboard-main dashboard-workspace-main" id="dashboard-home">
             <div class="dashboard-navbar glass-navbar">
               <div class="dashboard-title-row">
                 <div class="dashboard-title-icon">▦</div>
-                <div><h1 class="dashboard-page-title">Project Workspace</h1><p class="dashboard-page-subtitle">Рабочий обзор инженера: проекты, LAS, расчеты, отчеты, избранное и история без дублирования Sidebar.</p></div>
+                <div><h1 class="dashboard-page-title">Project Workspace</h1><p class="dashboard-page-subtitle">Инженерный обзор: проекты, LAS, расчеты, отчеты, избранное и история.</p></div>
               </div>
               <div class="dashboard-search"><span class="dashboard-search-chip">Ctrl+K</span><span class="dashboard-search-chip">{_html_escape(active_project.name)}</span></div>
             </div>
             <section class="dashboard-card workspace-search-card" aria-label="Universal search">
               <h3>Глобальный поиск <span>Universal Search</span></h3>
-              <div class="workspace-search-box"><b>🔎 Поиск по проектам, скважинам, LAS, кривым, расчетам, отчетам, документации и истории</b><span>Введите запрос в поле Streamlit выше или используйте Ctrl+K. Центральная область не содержит повторных навигационных карточек.</span></div>
+              <div class="workspace-search-box"><b>🔎 Поиск по проектам, скважинам, LAS, кривым, расчетам, отчетам, документации и истории</b><span>Введите запрос в поле выше или используйте Ctrl+K.</span></div>
             </section>
             {workspace_search_results_html}
             <section class="dashboard-layout dashboard-information-priority" data-dashboard-information-hierarchy="workspace-v1">
