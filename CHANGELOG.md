@@ -1,4 +1,13 @@
 
+## Dashboard 3.0
+
+- Replaced the failed sparse dashboard regression with a complete Dashboard 3.0 layout.
+- Restored useful information panels: project statistics, recent projects, recent LAS files, recent calculations, recent activity, project health and license status.
+- Added a product-style left navigation rail and a compact overview header.
+- Centered and constrained the branded background image for the dashboard shell.
+- Kept duplicate `Open...` buttons out of the dashboard.
+
+
 ## Unreleased
 
 - Added Curve Manager category tools for LAS curves with automatic category suggestions, manual overrides, category history, undo support, UI summary tables, metadata references and tests.

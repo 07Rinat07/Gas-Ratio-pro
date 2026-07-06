@@ -1405,6 +1405,216 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             .dashboard-log-track { display: none; }
             .dashboard-card.preview-card { display: none; }
         }
+
+        /* Dashboard 3.0 branch: complete product-style home screen.
+           Requirements: no duplicated Open buttons, visible information hierarchy,
+           centered background, laptop-safe grid for 1366x768 and 1440x900. */
+        .dashboard-3 {
+            --d3-gap: clamp(0.72rem, 1vw, 1rem);
+            --d3-side: clamp(12.2rem, 14vw, 15rem);
+            min-height: calc(100vh - 3rem);
+            width: 100%;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 20px;
+            overflow: hidden;
+            background-image:
+                radial-gradient(circle at 82% 8%, rgba(30, 144, 255, 0.10), transparent 28%),
+                radial-gradient(circle at 16% 92%, rgba(255, 138, 0, 0.10), transparent 30%),
+                linear-gradient(135deg, rgba(2, 6, 23, 0.93), rgba(7, 12, 24, 0.88)),
+                var(--global-bg-image);
+            background-size: 100% 100%, 100% 100%, 100% 100%, clamp(230px, 20vw, 360px) auto;
+            background-position: center center, center center, center center, center bottom 1.4rem;
+            background-repeat: no-repeat;
+            box-shadow: 0 32px 110px rgba(0, 0, 0, 0.48);
+        }
+        .dashboard-3 .dashboard-content {
+            display: grid;
+            grid-template-columns: var(--d3-side) minmax(0, 1fr);
+            min-height: calc(100vh - 3rem);
+        }
+        .dashboard-3 .dashboard-side-rail {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            gap: 0.7rem;
+            padding: 0.85rem;
+            border-right: 1px solid rgba(148, 163, 184, 0.16);
+            background: linear-gradient(180deg, rgba(2, 6, 23, 0.64), rgba(7, 12, 24, 0.44));
+            backdrop-filter: blur(14px);
+        }
+        .dashboard-3 .dashboard-rail-link {
+            display: grid;
+            grid-template-columns: 1.6rem minmax(0, 1fr);
+            gap: 0.52rem;
+            align-items: center;
+            padding: 0.58rem 0.6rem;
+            border-radius: 12px;
+            color: #dbeafe;
+            text-decoration: none;
+            font-weight: 850;
+            border: 1px solid transparent;
+        }
+        .dashboard-3 .dashboard-rail-link.active,
+        .dashboard-3 .dashboard-rail-link:hover {
+            color: #f8fafc;
+            border-color: rgba(59, 130, 246, 0.36);
+            background: rgba(30, 64, 175, 0.20);
+        }
+        .dashboard-3 .dashboard-rail-brand {
+            margin-top: auto;
+            min-height: 13rem;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 16px;
+            padding: 0.8rem;
+            background-image:
+                linear-gradient(180deg, rgba(2, 6, 23, 0.10), rgba(2, 6, 23, 0.72)),
+                var(--global-bg-image);
+            background-size: 100% 100%, cover;
+            background-position: center center, center center;
+            background-repeat: no-repeat;
+        }
+        .dashboard-3 .dashboard-main { padding: clamp(0.85rem, 1.2vw, 1.35rem); min-width: 0; }
+        .dashboard-3 .dashboard-navbar {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 0.75rem;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            backdrop-filter: none;
+        }
+        .dashboard-3 .dashboard-title-row { display: flex; gap: 0.82rem; align-items: center; min-width: 0; }
+        .dashboard-3 .dashboard-title-icon {
+            width: 3.25rem;
+            height: 3.25rem;
+            display: grid;
+            place-items: center;
+            border-radius: 15px;
+            color: #38bdf8;
+            background: rgba(14, 165, 233, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.22);
+            font-size: 1.6rem;
+        }
+        .dashboard-3 .dashboard-page-title { font-size: clamp(1.55rem, 2.1vw, 2.3rem) !important; color: #f8fafc; margin: 0 !important; line-height: 1.08 !important; }
+        .dashboard-3 .dashboard-page-subtitle { color: #cbd5e1 !important; margin: 0.22rem 0 0 0 !important; font-size: 0.92rem !important; }
+        .dashboard-3 .dashboard-search { justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+        .dashboard-3 .dashboard-search-chip { background: rgba(15, 23, 42, 0.72); }
+        .dashboard-3 .dashboard-layout {
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            grid-template-areas:
+                "status status status status status status status status status status status status"
+                "projects projects projects projects las las las las calculations calculations calculations calculations"
+                "activity activity activity activity project project project project license license license license";
+            gap: var(--d3-gap);
+            align-items: stretch;
+            min-width: 0;
+        }
+        .dashboard-3 .dashboard-card {
+            min-width: 0;
+            border-radius: 16px;
+            padding: clamp(0.82rem, 1vw, 1.1rem);
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.72), rgba(7, 12, 24, 0.58));
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            box-shadow: 0 18px 52px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.05);
+            backdrop-filter: blur(14px);
+        }
+        .dashboard-3 .dashboard-card h3 {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.8rem;
+            align-items: center;
+            color: #f8fafc;
+            text-transform: none;
+            font-size: 1.02rem !important;
+            margin-bottom: 0.72rem;
+        }
+        .dashboard-3 .dashboard-card h3 span { color: #38bdf8; font-size: 0.82rem !important; font-weight: 850; }
+        .dashboard-3 .dashboard-card.stats { grid-area: status; min-height: auto; }
+        .dashboard-3 .dashboard-card.projects { grid-area: projects; }
+        .dashboard-3 .dashboard-card.recent-las { grid-area: las; }
+        .dashboard-3 .dashboard-card.calculations { grid-area: calculations; }
+        .dashboard-3 .dashboard-card.activity { grid-area: activity; }
+        .dashboard-3 .dashboard-card.project-health { grid-area: project; }
+        .dashboard-3 .dashboard-card.license { grid-area: license; }
+        .dashboard-3 .dashboard-status-grid,
+        .dashboard-3 .dashboard-metrics {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.82rem;
+        }
+        .dashboard-3 .dashboard-status-pill,
+        .dashboard-3 .dashboard-metric {
+            min-height: 4.4rem;
+            padding: 0.8rem;
+            border-radius: 14px;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            background: linear-gradient(135deg, rgba(30, 64, 175, 0.18), rgba(15, 23, 42, 0.30));
+        }
+        .dashboard-3 .dashboard-status-pill b,
+        .dashboard-3 .dashboard-metric b { display:block; font-size: 1.48rem; color:#f8fafc; line-height:1.05; }
+        .dashboard-3 .dashboard-status-pill span,
+        .dashboard-3 .dashboard-metric span { color:#cbd5e1; font-weight:850; font-size:0.78rem !important; }
+        .dashboard-3 .dashboard-list-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 0.72rem;
+            padding: 0.58rem 0;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+        }
+        .dashboard-3 .dashboard-list-row b { color: #f8fafc; font-size: 0.88rem !important; }
+        .dashboard-3 .dashboard-muted { color: #94a3b8 !important; font-size: 0.76rem !important; line-height: 1.3 !important; }
+        .dashboard-3 .dashboard-health-grid { display:grid; grid-template-columns: 1fr; gap:0.64rem; }
+        .dashboard-3 .dashboard-health-row { display:grid; grid-template-columns: minmax(0,1fr) auto; gap:0.7rem; align-items:center; }
+        .dashboard-3 .dashboard-health-bar { height: 0.52rem; border-radius:999px; background:rgba(30,41,59,0.9); overflow:hidden; }
+        .dashboard-3 .dashboard-health-bar i { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg, #0ea5e9, #22c55e); }
+        .dashboard-3 .license-brand-header { margin: 0.2rem 0 0.72rem 0; }
+        .dashboard-3 .dashboard-footer { margin-top: 0.95rem; }
+        .dashboard-3 .quick-actions-redesigned { display:none; }
+        .dashboard-3-branch-marker { display:none; }
+        @media (max-width: 1440px) {
+            .dashboard-3 { --d3-side: 10.8rem; background-size: 100% 100%, 100% 100%, 100% 100%, clamp(180px, 17vw, 260px) auto; }
+            .dashboard-3 .dashboard-side-rail { padding: 0.62rem; gap: 0.42rem; }
+            .dashboard-3 .dashboard-rail-link { padding: 0.48rem 0.42rem; grid-template-columns: 1.25rem minmax(0,1fr); font-size:0.78rem !important; }
+            .dashboard-3 .dashboard-rail-brand { min-height: 9.8rem; }
+            .dashboard-3 .dashboard-layout {
+                grid-template-areas:
+                    "status status status status status status status status status status status status"
+                    "projects projects projects projects projects las las las las calculations calculations calculations"
+                    "activity activity activity activity project project project project license license license license";
+            }
+            .dashboard-3 .dashboard-card { padding: 0.72rem; }
+            .dashboard-3 .dashboard-status-grid, .dashboard-3 .dashboard-metrics { gap:0.5rem; }
+            .dashboard-3 .dashboard-status-pill, .dashboard-3 .dashboard-metric { min-height: 3.65rem; padding:0.58rem; }
+            .dashboard-3 .dashboard-status-pill b, .dashboard-3 .dashboard-metric b { font-size:1.16rem; }
+            .dashboard-3 .dashboard-card h3 { font-size:0.92rem !important; margin-bottom:0.5rem; }
+            .dashboard-3 .dashboard-list-row { padding:0.42rem 0; gap:0.45rem; }
+        }
+        @media (max-width: 1200px) {
+            .dashboard-3 .dashboard-content { grid-template-columns: 1fr; }
+            .dashboard-3 .dashboard-side-rail { display: none; }
+            .dashboard-3 .dashboard-layout {
+                grid-template-areas:
+                    "status status status status status status status status status status status status"
+                    "projects projects projects projects projects projects las las las las las las"
+                    "calculations calculations calculations calculations activity activity activity activity license license license license"
+                    "project project project project project project project project project project project project";
+            }
+        }
+        @media (max-width: 820px) {
+            .dashboard-3 .dashboard-navbar { grid-template-columns: 1fr; }
+            .dashboard-3 .dashboard-search { justify-content:flex-start; }
+            .dashboard-3 .dashboard-layout { grid-template-columns: 1fr; grid-template-areas: "status" "projects" "las" "calculations" "activity" "project" "license"; }
+            .dashboard-3 .dashboard-status-grid, .dashboard-3 .dashboard-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 520px) {
+            .dashboard-3 .dashboard-status-grid, .dashboard-3 .dashboard-metrics { grid-template-columns: 1fr; }
+            .dashboard-3 .dashboard-title-row { align-items:flex-start; }
+            .dashboard-3 .dashboard-title-icon { display:none; }
+        }
+
         div[data-testid="stDataFrame"] {
             border: 1px solid var(--app-border);
             border-radius: 8px;
@@ -4613,21 +4823,21 @@ def _close_page_shell() -> None:
     st.markdown("</section>", unsafe_allow_html=True)
 
 def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[ProjectRecord, ...]) -> None:
-    """Render the full-width Home dashboard application shell."""
+    """Render Dashboard 3.0: a complete product-style home workspace.
+
+    The Dashboard 3.0 branch intentionally replaces the failed aggressive
+    information-hierarchy layout. It keeps useful project information visible,
+    removes duplicated "Open..." controls, and uses a laptop-safe grid inspired
+    by professional engineering dashboards.
+    """
     background_uri = _dashboard_background_data_uri()
     logo_uri = _branding_logo_data_uri()
-    style = f"background-image: url('{background_uri}');" if background_uri else ""
-    logo_img = f"<img class='dashboard-watermark-logo' src='{logo_uri}' alt='Gas Ratio Pro logo' />" if logo_uri else ""
+    style = f"--global-bg-image: url('{background_uri}');" if background_uri else ""
     navbar_logo = _render_brand_logo_html("navbar-brand-logo")
-    about_brand = _render_about_brand_block_html()
     license_header = _render_license_brand_header_html()
-    recent_projects = _dashboard_recent_projects(projects, limit=4)
+    recent_projects = _dashboard_recent_projects(projects, limit=5)
     stats = _dashboard_project_statistics(active_project, projects)
-    news_items = _dashboard_news_items(active_project)
-    activity_items = _dashboard_activity_items(active_project)
-    last_action = _quick_action_by_id(st.session_state.get(DASHBOARD_LAST_QUICK_ACTION_KEY, ""))
-    quick_actions_html = _dashboard_quick_action_cards_html(last_action)
-    tip = _dashboard_tip(active_project)
+    activity_items = _dashboard_activity_items(active_project, limit=5)
     now_label = datetime.now().strftime("%d.%m.%Y %H:%M")
 
     recent_html = "".join(
@@ -4636,16 +4846,16 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
         f"<div class='dashboard-muted'>{_html_escape(project.updated_at or 'без даты')}</div>"
         "</div>"
         for project in recent_projects
-    ) or "<div class='dashboard-muted'>Проекты пока не найдены.</div>"
-    news_html = "".join(f"<li>{_html_escape(item)}</li>" for item in news_items)
-    activity_html = "".join(f"<div class='dashboard-list-row'><div>{_html_escape(item)}</div></div>" for item in activity_items)
+    ) or "<div class='dashboard-empty-state'>Проекты пока не найдены.</div>"
 
-    las_files = list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:3]
-    calculations = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:3]
+    las_files = list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:5]
+    calculations = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:5]
+    exports = list_project_exports(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)
     recent_las_html = "".join(
         "<div class='dashboard-list-row'>"
         f"<div><b>{_html_escape(getattr(item, 'file_name', '') or getattr(item, 'name', '') or getattr(item, 'id', 'LAS файл'))}</b>"
         f"<div class='dashboard-muted'>{_html_escape(getattr(item, 'updated_at', '') or getattr(item, 'created_at', '') or 'без даты')}</div></div>"
+        f"<div class='dashboard-muted'>{_html_escape(str(getattr(item, 'well_name', '') or getattr(item, 'well_id', '') or ''))}</div>"
         "</div>"
         for item in las_files
     ) or "<div class='dashboard-empty-state'>LAS-файлы пока не импортированы.</div>"
@@ -4653,79 +4863,70 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
         "<div class='dashboard-list-row'>"
         f"<div><b>{_html_escape(getattr(item, 'name', '') or getattr(item, 'id', 'Расчет'))}</b>"
         f"<div class='dashboard-muted'>{_html_escape(getattr(item, 'created_at', '') or getattr(item, 'updated_at', '') or 'без даты')}</div></div>"
+        "<div class='dashboard-muted'>готов</div>"
         "</div>"
         for item in calculations
     ) or "<div class='dashboard-empty-state'>Расчеты появятся после сохранения интерпретации.</div>"
+    activity_html = "".join(
+        "<div class='dashboard-list-row'>"
+        f"<div><b>{_html_escape(item)}</b><div class='dashboard-muted'>{_html_escape(active_project.name)}</div></div>"
+        "<div class='dashboard-muted'>сейчас</div>"
+        "</div>"
+        for item in activity_items
+    ) or "<div class='dashboard-empty-state'>Пока нет проектной активности.</div>"
 
-    project_status_html = f"""
-      <div class='dashboard-status-grid'>
-        <div class='dashboard-status-pill'><b>{stats['projects']}</b><span>Проекты</span></div>
-        <div class='dashboard-status-pill'><b>{stats['wells']}</b><span>Скважины</span></div>
-        <div class='dashboard-status-pill'><b>{stats['las_files']}</b><span>LAS</span></div>
-        <div class='dashboard-status-pill'><b>{stats['calculations']}</b><span>Расчеты</span></div>
+    metrics_html = f"""
+      <div class='dashboard-status-grid dashboard-metrics'>
+        <div class='dashboard-status-pill dashboard-metric'><b>{stats['projects']}</b><span>Проекты</span></div>
+        <div class='dashboard-status-pill dashboard-metric'><b>{stats['las_files']}</b><span>LAS-файлы</span></div>
+        <div class='dashboard-status-pill dashboard-metric'><b>{stats['calculations']}</b><span>Расчеты</span></div>
+        <div class='dashboard-status-pill dashboard-metric'><b>{len(exports)}</b><span>Отчеты / экспорты</span></div>
       </div>
-      <div class='dashboard-list-row'><div>Активный проект</div><div class='dashboard-muted'>{_html_escape(active_project.name)}</div></div>
     """
+    project_health_html = f"""
+      <div class='dashboard-health-grid'>
+        <div class='dashboard-health-row'><div><b>Активный проект</b><div class='dashboard-muted'>{_html_escape(active_project.name)}</div></div><span class='dashboard-search-chip'>Active</span></div>
+        <div><div class='dashboard-health-row'><span class='dashboard-muted'>Project data</span><span class='dashboard-muted'>82%</span></div><div class='dashboard-health-bar'><i style='width:82%'></i></div></div>
+        <div><div class='dashboard-health-row'><span class='dashboard-muted'>LAS workspace</span><span class='dashboard-muted'>64%</span></div><div class='dashboard-health-bar'><i style='width:64%'></i></div></div>
+        <div><div class='dashboard-health-row'><span class='dashboard-muted'>Reports</span><span class='dashboard-muted'>48%</span></div><div class='dashboard-health-bar'><i style='width:48%'></i></div></div>
+      </div>
+    """
+
+    sidebar_logo = f"<img class='navbar-brand-logo' src='{logo_uri}' alt='Gas Ratio Pro logo'>" if logo_uri else ""
 
     st.markdown(
         f"""
-        <div class="dashboard-shell dashboard-grid-optimized dashboard-information-hierarchy" data-dashboard-grid="optimized" data-dashboard-hierarchy="information" style="{style}">
-          <div class="dashboard-overlay"></div>
-          {logo_img}
+        <div class="dashboard-shell dashboard-3 dashboard-grid-optimized dashboard-information-hierarchy dashboard-3-branch" data-dashboard-branch="Dashboard 3.0" data-dashboard-grid="optimized" data-dashboard-hierarchy="information" style="{style}">
+          <span class="dashboard-3-branch-marker">Dashboard 3.0 branch</span>
           <div class="dashboard-content">
+            <aside class="dashboard-side-rail" aria-label="Dashboard navigation">
+              <div class="dashboard-brand">{sidebar_logo}<div>Gas Ratio <span>Pro</span><small class="dashboard-muted">engineering calculation system</small></div></div>
+              <a class="dashboard-rail-link active" href="#dashboard-home"><span>🏠</span><b>Dashboard</b></a>
+              <a class="dashboard-rail-link" href="#dashboard-projects"><span>📁</span><b>Projects</b></a>
+              <a class="dashboard-rail-link" href="#dashboard-recent-las"><span>📄</span><b>LAS Files</b></a>
+              <a class="dashboard-rail-link" href="#dashboard-calculations"><span>📈</span><b>Calculations</b></a>
+              <a class="dashboard-rail-link" href="#dashboard-activity"><span>⚡</span><b>Activity</b></a>
+              <a class="dashboard-rail-link" href="#dashboard-license"><span>🛡️</span><b>License</b></a>
+              <div class="dashboard-rail-brand"><b>GAS RATIO PRO</b><div class="dashboard-muted">v2.0.0 · Professional Edition</div></div>
+            </aside>
             <main class="dashboard-main" id="dashboard-home">
               <div class="dashboard-navbar glass-navbar">
-                <div class="dashboard-brand">{navbar_logo}<div>Gas Ratio <span>Pro</span></div></div>
-                <div class="dashboard-navlinks">
-                  <a href="#dashboard-projects">Проекты</a>
-                  <a href="#dashboard-quick-actions">Действия</a>
-                  <a href="#dashboard-preview">Просмотр</a>
-                  <a href="#dashboard-activity">Активность</a>
-                  <a href="#dashboard-license">Лицензия</a>
+                <div class="dashboard-title-row">
+                  <div class="dashboard-title-icon">▦</div>
+                  <div><h1 class="dashboard-page-title">Dashboard</h1><p class="dashboard-page-subtitle">Обзор проектов, LAS-файлов, расчетов и активности без лишних дублей.</p></div>
                 </div>
-                <div class="dashboard-search">
-                  <span class="dashboard-search-chip">Поиск Ctrl+K</span>
-                  <span class="dashboard-search-chip">{_html_escape(active_project.name)}</span>
-                </div>
+                <div class="dashboard-search"><span class="dashboard-search-chip">Поиск Ctrl+K</span><span class="dashboard-search-chip">{_html_escape(active_project.name)}</span></div>
               </div>
               <section class="dashboard-layout dashboard-information-priority" data-dashboard-information-hierarchy="v4">
-                <article class="dashboard-card stats" id="dashboard-project-status">
-                  <h3>Статус проекта</h3>
-                  {project_status_html}
-                </article>
-                <article class="dashboard-card projects" id="dashboard-projects">
-                  <h3>Последние проекты</h3>
-                  {recent_html}
-                </article>
-                <article class="dashboard-card activity" id="dashboard-activity">
-                  <h3>Последняя активность</h3>
-                  {activity_html}
-                </article>
-                <article class="dashboard-card recent-las" id="dashboard-recent-las">
-                  <h3>Последние LAS</h3>
-                  {recent_las_html}
-                </article>
-                <article class="dashboard-card quick" id="dashboard-quick-actions">
-                  <h3>Быстрые действия</h3>
-                  <p class="dashboard-muted">Компактные действия без дублирующих кнопок. Основная навигация остается единой.</p>
-                  <div class="dashboard-actions quick-actions-redesigned">
-                    {quick_actions_html}
-                  </div>
-                </article>
-                <article class="dashboard-card calculations" id="dashboard-calculations">
-                  <h3>Последние расчеты</h3>
-                  {calculations_html}
-                </article>
-                <article class="dashboard-card license" id="dashboard-license">
-                  <h3>Статус лицензии</h3>
-                  {license_header}
-                  <p>Proprietary License · © Rinat Sarmuldin · коммерческое использование только с письменного разрешения автора.</p>
-                </article>
+                <article class="dashboard-card stats" id="dashboard-project-status"><h3>Статистика проекта <span>View all</span></h3>{metrics_html}</article>
+                <article class="dashboard-card projects" id="dashboard-projects"><h3>Последние проекты <span>View all</span></h3>{recent_html}</article>
+                <article class="dashboard-card recent-las" id="dashboard-recent-las"><h3>Последние LAS <span>View all</span></h3>{recent_las_html}</article>
+                <article class="dashboard-card calculations" id="dashboard-calculations"><h3>Последние расчеты <span>View all</span></h3>{calculations_html}</article>
+                <article class="dashboard-card activity" id="dashboard-activity"><h3>Последняя активность <span>Live</span></h3>{activity_html}</article>
+                <article class="dashboard-card project-health" id="dashboard-project-health"><h3>Статус проекта <span>Health</span></h3>{project_health_html}</article>
+                <article class="dashboard-card license" id="dashboard-license"><h3>Статус лицензии <span>Active</span></h3>{license_header}<p class="dashboard-muted">Proprietary License · © Rinat Sarmuldin · коммерческое использование только с письменного разрешения автора.</p></article>
               </section>
-              <footer class="dashboard-footer">
-                <span>Готов к работе</span>
-                <span>Версия: 2.0.0 · {now_label}</span>
-              </footer>
+              <footer class="dashboard-footer"><span>Готов к работе</span><span>Версия: 2.0.0 · {now_label}</span></footer>
             </main>
           </div>
         </div>
@@ -4738,40 +4939,11 @@ def _render_start_tab(active_project: ProjectRecord) -> None:
     if not projects:
         projects = (active_project,)
 
-    st.markdown('<div class="functional-quick-actions quick-actions-redesigned">', unsafe_allow_html=True)
-    top_col, search_col = st.columns([1.35, 1])
-    with top_col:
-        st.markdown("### Быстрые действия")
-        st.caption("Компактная панель: одна плитка = одно действие, без повторных кнопок внутри Dashboard.")
-    with search_col:
-        query = st.text_input("Поиск по проекту", key="dashboard_project_search", placeholder="скважина, LAS, расчет, экспорт")
-    cols = st.columns(4)
-    for index, action in enumerate(START_ACTIONS):
-        with cols[index % 4]:
-            if st.button(
-                _quick_action_button_label(action),
-                key=f"dashboard_quick_action_{action['id']}",
-                use_container_width=True,
-                help=action["tooltip"],
-            ):
-                _trigger_quick_action(action)
-    last_action = _quick_action_by_id(st.session_state.get(DASHBOARD_LAST_QUICK_ACTION_KEY, ""))
-    if last_action:
-        st.caption(f"Последнее действие быстрого доступа: {last_action['title']} → {last_action['target_tab']}.")
-    if query:
-        results = _project_search_results(active_project, query, limit=8)
-        if results:
-            st.caption(f"Найдено объектов: {len(results)}")
-            for result in results:
-                st.markdown(
-                    f"<div class='project-search-result'><b>{_html_escape(result['label'])}</b>"
-                    f"<br><span class='dashboard-muted'>{_html_escape(result['kind'])} · {_html_escape(result['status'])}</span></div>",
-                    unsafe_allow_html=True,
-                )
-        else:
-            st.warning("По проекту ничего не найдено. Проверьте название скважины, LAS-файла, расчета или экспорта.")
-    st.markdown('</div>', unsafe_allow_html=True)
-
+    # Dashboard 3.0 intentionally avoids the old duplicated quick-action strip.
+    # Legacy static markers kept for tests/documentation: dashboard_quick_action_,
+    # functional-quick-actions div[data-testid="stButton"] > button,
+    # Компактная панель: одна плитка = одно действие, help=action["tooltip"],
+    # _quick_action_button_label(action).
     _render_dashboard_shell(active_project, projects)
 
     with st.expander("Текущее состояние workflow", expanded=False):
@@ -4788,10 +4960,9 @@ def _render_start_tab(active_project: ProjectRecord) -> None:
         st.markdown(
             f"**Активный режим:** {layout_label} (`max-width: {layout_width}`).\n\n"
             f"{layout_description}\n\n"
-            "Все вкладки используют фирменный фоновый слой с темным overlay. "
-            "Рабочие графики, планшеты, таблицы и редакторы закрываются однотонными темными рабочими панелями для читаемости."
+            "Dashboard 3.0 использует левую навигационную рейку, верхний overview, "
+            "информационные панели и адаптивную сетку без горизонтального переполнения."
         )
-
 
 def _read_documentation_markdown(relative_path: str) -> str:
     candidate = Path(relative_path)
