@@ -834,7 +834,7 @@ Commit: Clean dashboard navigation cards
 - [ ] Расчет общей мощности.
 - [ ] Расчет эффективной мощности.
 - [ ] Экспорт интервалов.
-- [ ] Geological Validation.
+- [x] Geological Validation foundation.
 - [ ] Проверка пересечения интервалов.
 - [ ] Проверка отсутствующих tops.
 - [ ] Проверка некорректного порядка горизонтов.
@@ -872,34 +872,34 @@ Improve geological modeling tools
 
 Планируемый состав:
 
-- [ ] LAS Quality Control.
-- [ ] Проверка направления глубины.
-- [ ] Проверка монотонности глубины.
-- [ ] Проверка дубликатов глубин.
-- [ ] Проверка пропусков глубины.
-- [ ] Проверка шага дискретизации.
-- [ ] Проверка пустых и константных кривых.
-- [ ] Проверка выбросов и spike-кандидатов.
-- [ ] Curve Quality Center.
+- [x] LAS Quality Control foundation.
+- [x] Проверка направления глубины.
+- [x] Проверка монотонности глубины.
+- [x] Проверка дубликатов глубин.
+- [x] Проверка пропусков глубины.
+- [x] Проверка шага дискретизации.
+- [x] Проверка пустых и константных кривых.
+- [x] Проверка выбросов и spike-кандидатов.
+- [x] Curve Quality Center foundation.
 - [ ] Проверка единиц измерения.
-- [ ] Проверка ожидаемых диапазонов GR, RHOB, NPHI, DT, RT, газовых кривых и расчетных параметров.
+- [x] Проверка ожидаемых диапазонов GR, RHOB, NPHI, DT, RT, газовых кривых и расчетных параметров.
 - [ ] Проверка дублирующихся curve mnemonics.
 - [ ] Проверка alias и canonical roles.
-- [ ] Petrophysical Validation.
-- [ ] Контроль диапазонов VSH, PHIE, SW, PERM и Net Pay.
+- [x] Petrophysical Validation foundation.
+- [x] Контроль диапазонов VSH, PHIE, SW, PERM и Net Pay.
 - [ ] Контроль зависимостей расчетов.
 - [ ] Контроль missing input curves.
 - [ ] Контроль некорректных cut-off параметров.
-- [ ] Geological Validation.
-- [ ] Проверка пересечений зон.
-- [ ] Проверка порядка tops/horizons.
+- [x] Geological Validation foundation.
+- [x] Проверка пересечений зон.
+- [x] Проверка порядка tops/horizons.
 - [ ] Проверка пропущенных markers.
-- [ ] Проверка разрывов между интервалами.
-- [ ] QC Dashboard.
-- [ ] Severity levels: info, warning, error, critical.
+- [x] Проверка разрывов между интервалами.
+- [x] QC Dashboard data model.
+- [x] Severity levels: info, warning, error, critical.
 - [ ] Фильтрация по проекту, скважине, LAS, кривой и типу проверки.
-- [ ] Экспорт QC-отчета в Report Studio.
-- [ ] Сохранение истории проверок.
+- [x] Экспорт QC-отчета в HTML/JSON для Report Studio.
+- [x] Сохранение истории проверок.
 
 Рекомендуемое название коммита:
 
@@ -907,4 +907,4 @@ Improve geological modeling tools
 Add data quality validation center
 ```
 
-Текущий следующий незавершенный пункт: **Geological Modeling Professional**.
+Текущий следующий незавершенный пункт: **Data Quality & Validation Center**.
