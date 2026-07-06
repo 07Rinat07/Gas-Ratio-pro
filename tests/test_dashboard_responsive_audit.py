@@ -28,9 +28,9 @@ def test_dashboard_prevents_horizontal_overflow_without_deleting_blocks():
         'id="dashboard-projects"',
         'id="dashboard-recent-las"',
         'id="dashboard-calculations"',
+        'id="dashboard-reports"',
         'id="dashboard-activity"',
-        'id="dashboard-project-health"',
-        'id="dashboard-license"',
+        'id="dashboard-favorites"',
     ):
         assert section_id in SOURCE
 

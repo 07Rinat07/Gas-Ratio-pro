@@ -5,15 +5,18 @@ SOURCE = Path("app/streamlit_app.py").read_text(encoding="utf-8")
 
 def test_dashboard_information_hierarchy_marker_and_core_sections():
     assert 'data-dashboard-hierarchy="information"' in SOURCE
-    assert 'data-dashboard-information-hierarchy="v4"' in SOURCE
+    assert 'data-dashboard-information-hierarchy="workspace-v1"' in SOURCE
     assert 'id="dashboard-project-status"' in SOURCE
     assert 'id="dashboard-recent-las"' in SOURCE
     assert 'id="dashboard-calculations"' in SOURCE
+    assert 'id="dashboard-reports"' in SOURCE
+    assert 'id="dashboard-favorites"' in SOURCE
     assert 'Последние проекты' in SOURCE
     assert 'Последние LAS' in SOURCE
     assert 'Последние расчеты' in SOURCE
-    assert 'Последняя активность' in SOURCE
-    assert 'Статус лицензии' in SOURCE
+    assert 'Последние отчеты' in SOURCE
+    assert 'Недавние действия' in SOURCE
+    assert 'Избранное' in SOURCE
 
 
 def test_dashboard_removes_decorative_panels_from_hierarchy():
@@ -25,9 +28,10 @@ def test_dashboard_removes_decorative_panels_from_hierarchy():
     assert 'Быстрый просмотр: последний проект' not in SOURCE
 
 
-def test_dashboard_hierarchy_grid_uses_productive_areas():
-    assert '"status projects activity"' in SOURCE
-    assert '"las quick calculations"' in SOURCE
-    assert '"license license license"' in SOURCE
+def test_dashboard_hierarchy_grid_uses_productive_workspace_areas():
+    assert '"projects projects projects projects las las las las calculations calculations calculations calculations"' in SOURCE
+    assert '"reports reports reports reports activity activity activity activity favorites favorites favorites favorites"' in SOURCE
     assert '.dashboard-card.recent-las { grid-area: las; }' in SOURCE
     assert '.dashboard-card.calculations { grid-area: calculations; }' in SOURCE
+    assert '.dashboard-3 .dashboard-card.reports { grid-area: reports; }' in SOURCE
+    assert '.dashboard-3 .dashboard-card.favorites { grid-area: favorites; }' in SOURCE

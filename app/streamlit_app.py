@@ -1396,8 +1396,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
                 grid-template-areas:
                     "status status status status status status status status status status status status"
                     "projects projects projects projects projects projects las las las las las las"
-                    "calculations calculations calculations calculations activity activity activity activity license license license license"
-                    "project project project project project project project project project project project project";
+                    "calculations calculations calculations calculations reports reports reports reports activity activity activity activity"
+                    "favorites favorites favorites favorites favorites favorites favorites favorites favorites favorites favorites favorites";
             }
             .dashboard-3 .dashboard-status-grid, .dashboard-3 .dashboard-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.42rem; }
             .dashboard-3 .dashboard-status-pill, .dashboard-3 .dashboard-metric { min-height: 3.15rem; padding: 0.46rem; }
@@ -1489,11 +1489,12 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         .dashboard-3 .dashboard-content {
             display: grid;
-            grid-template-columns: var(--d3-side) minmax(0, 1fr);
+            grid-template-columns: minmax(0, 1fr);
             min-height: calc(100vh - 3rem);
             max-width: var(--d3-content-max);
             overflow-x: clip;
         }
+        .dashboard-3.project-workspace-1 { padding: 0; }
         .dashboard-3 .dashboard-side-rail {
             display: flex;
             flex-direction: column;
@@ -1570,7 +1571,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             grid-template-areas:
                 "status status status status status status status status status status status status"
                 "projects projects projects projects las las las las calculations calculations calculations calculations"
-                "activity activity activity activity project project project project license license license license";
+                "reports reports reports reports activity activity activity activity favorites favorites favorites favorites";
             gap: var(--d3-gap);
             align-items: stretch;
             min-width: 0;
@@ -1606,10 +1607,38 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .dashboard-3 .dashboard-card.activity { grid-area: activity; }
         .dashboard-3 .dashboard-card.project-health { grid-area: project; }
         .dashboard-3 .dashboard-card.license { grid-area: license; }
+        .dashboard-3 .dashboard-card.reports { grid-area: reports; }
+        .dashboard-3 .dashboard-card.favorites { grid-area: favorites; }
+        .dashboard-3 .workspace-search-card { margin-bottom: var(--d3-gap); }
+        .dashboard-3 .workspace-search-box {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 0.22rem;
+            padding: 0.82rem 0.95rem;
+            border-radius: 14px;
+            background: rgba(15, 23, 42, 0.58);
+            border: 1px solid rgba(56, 189, 248, 0.18);
+        }
+        .dashboard-3 .workspace-search-box b { color: #f8fafc; font-size: 0.92rem !important; }
+        .dashboard-3 .workspace-search-box span { color: #94a3b8; font-size: 0.78rem !important; }
+        .dashboard-3 .dashboard-row-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            max-width: 9.5rem;
+            padding: 0.18rem 0.46rem;
+            border-radius: 999px;
+            color: #bae6fd;
+            background: rgba(14, 165, 233, 0.12);
+            border: 1px solid rgba(14, 165, 233, 0.20);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         .dashboard-3 .dashboard-status-grid,
         .dashboard-3 .dashboard-metrics {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(5, minmax(0, 1fr));
             gap: 0.82rem;
             min-width: 0;
             max-width: 100%;
@@ -1655,8 +1684,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             .dashboard-3 .dashboard-layout {
                 grid-template-areas:
                     "status status status status status status status status status status status status"
-                    "projects projects projects projects projects las las las las calculations calculations calculations"
-                    "activity activity activity activity project project project project license license license license";
+                    "projects projects projects projects las las las las calculations calculations calculations calculations"
+                    "reports reports reports reports activity activity activity activity favorites favorites favorites favorites";
             }
             .dashboard-3 .dashboard-card { padding: 0.72rem; }
             .dashboard-3 .dashboard-status-grid, .dashboard-3 .dashboard-metrics { gap:0.5rem; }
@@ -1682,8 +1711,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
                 grid-template-areas:
                     "status status status status status status status status status status status status"
                     "projects projects projects projects projects projects las las las las las las"
-                    "calculations calculations calculations calculations activity activity activity activity license license license license"
-                    "project project project project project project project project project project project project";
+                    "calculations calculations calculations calculations reports reports reports reports activity activity activity activity"
+                    "favorites favorites favorites favorites favorites favorites favorites favorites favorites favorites favorites favorites";
             }
             .dashboard-3 .dashboard-status-grid, .dashboard-3 .dashboard-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.42rem; }
             .dashboard-3 .dashboard-status-pill, .dashboard-3 .dashboard-metric { min-height: 3.15rem; padding: 0.46rem; }
@@ -1700,14 +1729,14 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
                 grid-template-areas:
                     "status status status status status status status status status status status status"
                     "projects projects projects projects projects projects las las las las las las"
-                    "calculations calculations calculations calculations activity activity activity activity license license license license"
-                    "project project project project project project project project project project project project";
+                    "calculations calculations calculations calculations reports reports reports reports activity activity activity activity"
+                    "favorites favorites favorites favorites favorites favorites favorites favorites favorites favorites favorites favorites";
             }
         }
         @media (max-width: 820px) {
             .dashboard-3 .dashboard-navbar { grid-template-columns: 1fr; }
             .dashboard-3 .dashboard-search { justify-content:flex-start; }
-            .dashboard-3 .dashboard-layout { grid-template-columns: 1fr; grid-template-areas: "status" "projects" "las" "calculations" "activity" "project" "license"; }
+            .dashboard-3 .dashboard-layout { grid-template-columns: 1fr; grid-template-areas: "status" "projects" "las" "calculations" "reports" "activity" "favorites"; }
             .dashboard-3 .dashboard-status-grid, .dashboard-3 .dashboard-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (max-width: 520px) {
@@ -5088,112 +5117,118 @@ def _close_page_shell() -> None:
     st.markdown("</section>", unsafe_allow_html=True)
 
 def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[ProjectRecord, ...]) -> None:
-    """Render Dashboard 3.0: a complete product-style home workspace.
+    """Render Project Workspace 1.0 as the application home screen.
 
-    The Dashboard 3.0 branch intentionally replaces the failed aggressive
-    information-hierarchy layout. It keeps useful project information visible,
-    removes duplicated "Open..." controls, and uses a laptop-safe grid inspired
-    by professional engineering dashboards.
+    Project Workspace 1.0 removes the duplicated central navigation model from
+    Dashboard 3.0. The Sidebar remains the only primary navigation surface, while
+    the central area is reserved for engineering work context: recent projects,
+    LAS files, calculations, reports, favorites, activity and universal search.
     """
     background_uri = _dashboard_background_data_uri()
-    logo_uri = _branding_logo_data_uri()
     style = f"--global-bg-image: url('{background_uri}');" if background_uri else ""
-    navbar_logo = _render_brand_logo_html("navbar-brand-logo")
-    license_header = _render_license_brand_header_html()
     recent_projects = _dashboard_recent_projects(projects, limit=5)
     stats = _dashboard_project_statistics(active_project, projects)
-    activity_items = _dashboard_activity_items(active_project, limit=5)
+    activity_items = _dashboard_activity_items(active_project, limit=6)
+    las_files = list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:5]
+    calculations = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:5]
+    exports = list_project_exports(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:5]
     now_label = datetime.now().strftime("%d.%m.%Y %H:%M")
 
+    def _row(title: str, meta: str, badge: str = "") -> str:
+        badge_html = f"<span class='dashboard-row-badge'>{_html_escape(badge)}</span>" if badge else ""
+        return (
+            "<div class='dashboard-list-row'>"
+            f"<div><b>{_html_escape(title)}</b><div class='dashboard-muted'>{_html_escape(meta)}</div></div>"
+            f"<div class='dashboard-muted'>{badge_html}</div>"
+            "</div>"
+        )
+
     recent_html = "".join(
-        "<div class='dashboard-list-row'>"
-        f"<div><b>{_html_escape(project.name)}</b><div class='dashboard-muted'>{_html_escape(project.id)}</div></div>"
-        f"<div class='dashboard-muted'>{_html_escape(project.updated_at or 'без даты')}</div>"
-        "</div>"
+        _row(
+            project.name,
+            f"Изменен: {project.updated_at or 'без даты'} · ID: {project.id}",
+            "проект",
+        )
         for project in recent_projects
     ) or "<div class='dashboard-empty-state'>Проекты пока не найдены.</div>"
 
-    las_files = list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:5]
-    calculations = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:5]
-    exports = list_project_exports(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)
     recent_las_html = "".join(
-        "<div class='dashboard-list-row'>"
-        f"<div><b>{_html_escape(getattr(item, 'file_name', '') or getattr(item, 'name', '') or getattr(item, 'id', 'LAS файл'))}</b>"
-        f"<div class='dashboard-muted'>{_html_escape(getattr(item, 'updated_at', '') or getattr(item, 'created_at', '') or 'без даты')}</div></div>"
-        f"<div class='dashboard-muted'>{_html_escape(str(getattr(item, 'well_name', '') or getattr(item, 'well_id', '') or ''))}</div>"
-        "</div>"
+        _row(
+            getattr(item, "file_name", "") or getattr(item, "original_file_name", "") or getattr(item, "name", "") or getattr(item, "id", "LAS файл"),
+            f"Скважина: {getattr(item, 'well_name', '') or getattr(item, 'well_id', '') or 'не указана'} · Кривые: {getattr(item, 'curve_count', '—')}",
+            getattr(item, "saved_at", "") or getattr(item, "updated_at", "") or "LAS",
+        )
         for item in las_files
     ) or "<div class='dashboard-empty-state'>LAS-файлы пока не импортированы.</div>"
+
     calculations_html = "".join(
-        "<div class='dashboard-list-row'>"
-        f"<div><b>{_html_escape(getattr(item, 'name', '') or getattr(item, 'id', 'Расчет'))}</b>"
-        f"<div class='dashboard-muted'>{_html_escape(getattr(item, 'created_at', '') or getattr(item, 'updated_at', '') or 'без даты')}</div></div>"
-        "<div class='dashboard-muted'>готов</div>"
-        "</div>"
+        _row(
+            getattr(item, "name", "") or getattr(item, "source_label", "") or getattr(item, "id", "Расчет"),
+            f"Тип: {getattr(item, 'ch_mode_label', '') or getattr(item, 'ch_mode', '') or 'gas ratio'} · Проект: {active_project.name}",
+            getattr(item, "saved_at", "") or getattr(item, "created_at", "") or "готов",
+        )
         for item in calculations
     ) or "<div class='dashboard-empty-state'>Расчеты появятся после сохранения интерпретации.</div>"
+
+    reports_html = "".join(
+        _row(
+            getattr(item, "label", "") or getattr(item, "file_name", "") or getattr(item, "id", "Отчет"),
+            f"Формат: {getattr(item, 'kind', '') or getattr(item, 'mime_type', '') or 'export'} · Файл: {getattr(item, 'file_name', '') or '—'}",
+            getattr(item, "saved_at", "") or "отчет",
+        )
+        for item in exports
+    ) or "<div class='dashboard-empty-state'>Отчеты и экспорты пока не созданы.</div>"
+
     activity_html = "".join(
-        "<div class='dashboard-list-row'>"
-        f"<div><b>{_html_escape(item)}</b><div class='dashboard-muted'>{_html_escape(active_project.name)}</div></div>"
-        "<div class='dashboard-muted'>сейчас</div>"
-        "</div>"
+        _row(item, f"Проект: {active_project.name}", "history")
         for item in activity_items
     ) or "<div class='dashboard-empty-state'>Пока нет проектной активности.</div>"
+
+    favorite_items = (
+        ("Активный проект", active_project.name, "проект"),
+        ("Шаблон расчета", "Gas ratio / Pixler / interpretation", "шаблон"),
+        ("Рабочий каталог", str(LAS_CORRELATION_PROJECTS_ROOT), "workspace"),
+        ("Документация", "Руководство пользователя и план проекта", "док"),
+    )
+    favorites_html = "".join(_row(title, meta, badge) for title, meta, badge in favorite_items)
 
     metrics_html = f"""
       <div class='dashboard-status-grid dashboard-metrics'>
         <div class='dashboard-status-pill dashboard-metric'><b>{stats['projects']}</b><span>Проекты</span></div>
+        <div class='dashboard-status-pill dashboard-metric'><b>{stats['wells']}</b><span>Скважины</span></div>
         <div class='dashboard-status-pill dashboard-metric'><b>{stats['las_files']}</b><span>LAS-файлы</span></div>
         <div class='dashboard-status-pill dashboard-metric'><b>{stats['calculations']}</b><span>Расчеты</span></div>
-        <div class='dashboard-status-pill dashboard-metric'><b>{len(exports)}</b><span>Отчеты / экспорты</span></div>
+        <div class='dashboard-status-pill dashboard-metric'><b>{stats['exports']}</b><span>Отчеты</span></div>
       </div>
     """
-    project_health_html = f"""
-      <div class='dashboard-health-grid'>
-        <div class='dashboard-health-row'><div><b>Активный проект</b><div class='dashboard-muted'>{_html_escape(active_project.name)}</div></div><span class='dashboard-search-chip'>Active</span></div>
-        <div><div class='dashboard-health-row'><span class='dashboard-muted'>Project data</span><span class='dashboard-muted'>82%</span></div><div class='dashboard-health-bar'><i style='width:82%'></i></div></div>
-        <div><div class='dashboard-health-row'><span class='dashboard-muted'>LAS workspace</span><span class='dashboard-muted'>64%</span></div><div class='dashboard-health-bar'><i style='width:64%'></i></div></div>
-        <div><div class='dashboard-health-row'><span class='dashboard-muted'>Reports</span><span class='dashboard-muted'>48%</span></div><div class='dashboard-health-bar'><i style='width:48%'></i></div></div>
-      </div>
-    """
-
-    sidebar_logo = f"<img class='navbar-brand-logo' src='{logo_uri}' alt='Gas Ratio Pro logo'>" if logo_uri else ""
 
     st.markdown(
         f"""
-        <div class="dashboard-shell dashboard-3 dashboard-grid-optimized dashboard-information-hierarchy dashboard-responsive-audit dashboard-3-branch" data-dashboard-branch="Dashboard 3.0" data-dashboard-background-refinement="center-contained" data-dashboard-grid="optimized" data-dashboard-hierarchy="information" data-dashboard-responsive-audit="notebook-validated" style="{style}">
-          <span class="dashboard-3-branch-marker">Dashboard 3.0 branch</span>
-          <div class="dashboard-content">
-            <aside class="dashboard-side-rail" aria-label="Dashboard navigation">
-              <div class="dashboard-brand">{sidebar_logo}<div>Gas Ratio <span>Pro</span><small class="dashboard-muted">engineering calculation system</small></div></div>
-              <a class="dashboard-rail-link active" href="#dashboard-home"><span>🏠</span><b>Dashboard</b></a>
-              <a class="dashboard-rail-link" href="#dashboard-projects"><span>📁</span><b>Projects</b></a>
-              <a class="dashboard-rail-link" href="#dashboard-recent-las"><span>📄</span><b>LAS Files</b></a>
-              <a class="dashboard-rail-link" href="#dashboard-calculations"><span>📈</span><b>Calculations</b></a>
-              <a class="dashboard-rail-link" href="#dashboard-activity"><span>⚡</span><b>Activity</b></a>
-              <a class="dashboard-rail-link" href="#dashboard-license"><span>🛡️</span><b>License</b></a>
-              <div class="dashboard-rail-brand"><b>GAS RATIO PRO</b><div class="dashboard-muted">v2.0.0 · Professional Edition</div></div>
-            </aside>
-            <main class="dashboard-main" id="dashboard-home">
-              <div class="dashboard-navbar glass-navbar">
-                <div class="dashboard-title-row">
-                  <div class="dashboard-title-icon">▦</div>
-                  <div><h1 class="dashboard-page-title">Dashboard</h1><p class="dashboard-page-subtitle">Обзор проектов, LAS-файлов, расчетов и активности без лишних дублей.</p></div>
-                </div>
-                <div class="dashboard-search"><span class="dashboard-search-chip">Поиск Ctrl+K</span><span class="dashboard-search-chip">{_html_escape(active_project.name)}</span></div>
+        <div class="dashboard-shell dashboard-3 project-workspace-1 dashboard-grid-optimized dashboard-information-hierarchy dashboard-responsive-audit dashboard-3-branch" data-dashboard-branch="Project Workspace 1.0" data-dashboard-workspace="project-workspace-1" data-dashboard-background-refinement="center-contained" data-dashboard-grid="optimized" data-dashboard-hierarchy="information" data-dashboard-responsive-audit="notebook-validated" style="{style}">
+          <span class="dashboard-3-branch-marker">Dashboard 3.0 branch · Project Workspace 1.0</span>
+          <main class="dashboard-main dashboard-workspace-main" id="dashboard-home">
+            <div class="dashboard-navbar glass-navbar">
+              <div class="dashboard-title-row">
+                <div class="dashboard-title-icon">▦</div>
+                <div><h1 class="dashboard-page-title">Project Workspace</h1><p class="dashboard-page-subtitle">Рабочий обзор инженера: проекты, LAS, расчеты, отчеты, избранное и история без дублирования Sidebar.</p></div>
               </div>
-              <section class="dashboard-layout dashboard-information-priority" data-dashboard-information-hierarchy="v4">
-                <article class="dashboard-card stats" id="dashboard-project-status"><h3>Статистика проекта <span>View all</span></h3>{metrics_html}</article>
-                <article class="dashboard-card projects" id="dashboard-projects"><h3>Последние проекты <span>View all</span></h3>{recent_html}</article>
-                <article class="dashboard-card recent-las" id="dashboard-recent-las"><h3>Последние LAS <span>View all</span></h3>{recent_las_html}</article>
-                <article class="dashboard-card calculations" id="dashboard-calculations"><h3>Последние расчеты <span>View all</span></h3>{calculations_html}</article>
-                <article class="dashboard-card activity" id="dashboard-activity"><h3>Последняя активность <span>Live</span></h3>{activity_html}</article>
-                <article class="dashboard-card project-health" id="dashboard-project-health"><h3>Статус проекта <span>Health</span></h3>{project_health_html}</article>
-                <article class="dashboard-card license" id="dashboard-license"><h3>Статус лицензии <span>Active</span></h3>{license_header}<p class="dashboard-muted">Proprietary License · © Rinat Sarmuldin · коммерческое использование только с письменного разрешения автора.</p></article>
-              </section>
-              <footer class="dashboard-footer"><span>Готов к работе</span><span>Версия: 2.0.0 · {now_label}</span></footer>
-            </main>
-          </div>
+              <div class="dashboard-search"><span class="dashboard-search-chip">Ctrl+K</span><span class="dashboard-search-chip">{_html_escape(active_project.name)}</span></div>
+            </div>
+            <section class="dashboard-card workspace-search-card" aria-label="Universal search">
+              <h3>Глобальный поиск <span>Universal Search</span></h3>
+              <div class="workspace-search-box"><b>🔎 Поиск по проектам, скважинам, LAS, кривым, расчетам, отчетам, документации и истории</b><span>Используйте верхнюю командную палитру Ctrl+K или Sidebar. Центральная область не содержит повторных навигационных карточек.</span></div>
+            </section>
+            <section class="dashboard-layout dashboard-information-priority" data-dashboard-information-hierarchy="workspace-v1">
+              <article class="dashboard-card stats" id="dashboard-project-status"><h3>Сводка workspace <span>{now_label}</span></h3>{metrics_html}</article>
+              <article class="dashboard-card projects" id="dashboard-projects"><h3>Последние проекты <span>recent</span></h3>{recent_html}</article>
+              <article class="dashboard-card recent-las" id="dashboard-recent-las"><h3>Последние LAS <span>files</span></h3>{recent_las_html}</article>
+              <article class="dashboard-card calculations" id="dashboard-calculations"><h3>Последние расчеты <span>calc</span></h3>{calculations_html}</article>
+              <article class="dashboard-card reports" id="dashboard-reports"><h3>Последние отчеты <span>export</span></h3>{reports_html}</article>
+              <article class="dashboard-card activity" id="dashboard-activity"><h3>Недавние действия <span>history</span></h3>{activity_html}</article>
+              <article class="dashboard-card favorites" id="dashboard-favorites"><h3>Избранное <span>pinned</span></h3>{favorites_html}</article>
+            </section>
+            <footer class="dashboard-footer"><span>Готов к работе · навигация только в Sidebar</span><span>Версия: 2.0.0 · {now_label}</span></footer>
+          </main>
         </div>
         """,
         unsafe_allow_html=True,
