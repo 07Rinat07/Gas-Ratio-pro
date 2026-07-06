@@ -529,3 +529,277 @@ def correlation_panel_summary(panel: CorrelationPanel) -> dict[str, object]:
         "grid_points": len(panel.shared_depth_grid),
         "warnings": panel.warnings,
     }
+
+@dataclass(frozen=True)
+class CorrelationLine:
+    """Manual or generated correlation tie between two wells at marker depths."""
+
+    source_well: str
+    target_well: str
+    name: str
+    source_depth: float
+    target_depth: float
+    kind: str = "correlation"
+    color: str = "#38BDF8"
+    style: str = "solid"
+    confidence: float = 1.0
+    note: str = ""
+
+
+@dataclass(frozen=True)
+class DepthAlignment:
+    """Depth shift definition used to align a well to a reference horizon."""
+
+    well: str
+    shift: float = 0.0
+    reference: str = "manual"
+    note: str = ""
+
+
+def normalize_correlation_lines(rows: Iterable[dict[str, object]]) -> tuple[CorrelationLine, ...]:
+    """Normalize editable correlation line rows from UI/import tables."""
+
+    lines: list[CorrelationLine] = []
+    for row in rows:
+        try:
+            source_depth = float(row.get("source_depth", row.get("from_depth", "")))
+            target_depth = float(row.get("target_depth", row.get("to_depth", "")))
+        except (TypeError, ValueError):
+            continue
+        if pd.isna(source_depth) or pd.isna(target_depth):
+            continue
+
+        source_well = str(row.get("source_well") or row.get("from_well") or "").strip()
+        target_well = str(row.get("target_well") or row.get("to_well") or "").strip()
+        if not source_well or not target_well or source_well == target_well:
+            continue
+
+        try:
+            confidence = float(row.get("confidence", 1.0))
+        except (TypeError, ValueError):
+            confidence = 1.0
+        confidence = max(0.0, min(1.0, confidence))
+
+        lines.append(
+            CorrelationLine(
+                source_well=source_well,
+                target_well=target_well,
+                name=str(row.get("name") or row.get("marker") or "Correlation").strip() or "Correlation",
+                source_depth=source_depth,
+                target_depth=target_depth,
+                kind=str(row.get("kind") or row.get("type") or "correlation").strip() or "correlation",
+                color=str(row.get("color") or "#38BDF8").strip() or "#38BDF8",
+                style=str(row.get("style") or "solid").strip() or "solid",
+                confidence=confidence,
+                note=str(row.get("note") or "").strip(),
+            )
+        )
+    return tuple(sorted(lines, key=lambda line: (line.source_well, line.target_well, line.source_depth, line.name)))
+
+
+def normalize_depth_alignments(rows: Iterable[dict[str, object]]) -> tuple[DepthAlignment, ...]:
+    """Normalize manual depth alignment rows from UI/import tables."""
+
+    alignments: list[DepthAlignment] = []
+    for row in rows:
+        well = str(row.get("well") or row.get("name") or "").strip()
+        if not well:
+            continue
+        try:
+            shift = float(row.get("shift", row.get("depth_shift", 0.0)))
+        except (TypeError, ValueError):
+            shift = 0.0
+        if pd.isna(shift):
+            shift = 0.0
+        alignments.append(
+            DepthAlignment(
+                well=well,
+                shift=shift,
+                reference=str(row.get("reference") or "manual").strip() or "manual",
+                note=str(row.get("note") or "").strip(),
+            )
+        )
+    return tuple(alignments)
+
+
+def apply_depth_alignment(well: LasCorrelationWell, alignment: DepthAlignment | float) -> LasCorrelationWell:
+    """Return a copy of the well with its depth curve shifted by alignment.shift."""
+
+    shift = float(alignment.shift if isinstance(alignment, DepthAlignment) else alignment)
+    if well.data.empty or not well.depth_column or well.depth_column not in well.data.columns:
+        return well
+    data = well.data.copy()
+    depth = _numeric_depth(data, well.depth_column) + shift
+    data[well.depth_column] = depth
+    data = data.dropna(subset=[well.depth_column]).sort_values(well.depth_column).reset_index(drop=True)
+    min_depth = float(data[well.depth_column].min()) if not data.empty else None
+    max_depth = float(data[well.depth_column].max()) if not data.empty else None
+    warning = f"Скважина {well.name}: применено смещение глубины {shift:+.3f} м."
+    return replace(
+        well,
+        data=data,
+        min_depth=min_depth,
+        max_depth=max_depth,
+        warnings=tuple(dict.fromkeys((*well.warnings, warning))),
+    )
+
+
+def apply_depth_alignments(
+    wells: Iterable[LasCorrelationWell],
+    alignments: Iterable[DepthAlignment] | dict[str, float],
+) -> tuple[LasCorrelationWell, ...]:
+    """Apply per-well depth shifts and preserve wells without configured shifts."""
+
+    if isinstance(alignments, dict):
+        alignment_map = {str(well): DepthAlignment(well=str(well), shift=float(shift)) for well, shift in alignments.items()}
+    else:
+        alignment_map = {alignment.well: alignment for alignment in alignments}
+
+    aligned_wells: list[LasCorrelationWell] = []
+    for well in wells:
+        alignment = alignment_map.get(well.name)
+        aligned_wells.append(apply_depth_alignment(well, alignment) if alignment is not None else well)
+    return tuple(aligned_wells)
+
+
+def build_correlation_lines_from_markers(
+    markers: Iterable[CorrelationMarker],
+    *,
+    well_order: Iterable[str] = (),
+) -> tuple[CorrelationLine, ...]:
+    """Create adjacent-well correlation lines from markers with matching names."""
+
+    order = {well: index for index, well in enumerate(well_order)}
+    grouped: dict[tuple[str, str], list[CorrelationMarker]] = {}
+    for marker in markers:
+        if not marker.well:
+            continue
+        grouped.setdefault((marker.kind, marker.name), []).append(marker)
+
+    lines: list[CorrelationLine] = []
+    for (kind, name), marker_group in grouped.items():
+        sorted_group = sorted(marker_group, key=lambda item: (order.get(item.well, 10_000), item.well, item.depth))
+        for left, right in zip(sorted_group, sorted_group[1:]):
+            lines.append(
+                CorrelationLine(
+                    source_well=left.well,
+                    target_well=right.well,
+                    name=name,
+                    kind=kind,
+                    source_depth=left.depth,
+                    target_depth=right.depth,
+                    color=left.color or right.color,
+                    confidence=1.0,
+                )
+            )
+    return tuple(lines)
+
+
+def correlation_line_rows(lines: Iterable[CorrelationLine]) -> tuple[dict[str, object], ...]:
+    """Return tabular rows suitable for Streamlit/CSV export."""
+
+    return tuple(
+        {
+            "source_well": line.source_well,
+            "target_well": line.target_well,
+            "name": line.name,
+            "source_depth": line.source_depth,
+            "target_depth": line.target_depth,
+            "kind": line.kind,
+            "color": line.color,
+            "style": line.style,
+            "confidence": line.confidence,
+            "note": line.note,
+        }
+        for line in lines
+    )
+
+
+def validate_correlation_lines(
+    lines: Iterable[CorrelationLine],
+    wells: Iterable[LasCorrelationWell],
+) -> dict[str, tuple[str, ...]]:
+    """Validate well names, depth intervals and line crossing within pair groups."""
+
+    well_ranges = {
+        well.name: (well.min_depth, well.max_depth)
+        for well in wells
+        if well.min_depth is not None and well.max_depth is not None
+    }
+    errors: list[str] = []
+    warnings: list[str] = []
+    by_pair: dict[tuple[str, str], list[CorrelationLine]] = {}
+
+    for line in lines:
+        if line.source_well not in well_ranges:
+            errors.append(f"Линия {line.name}: исходная скважина {line.source_well} отсутствует.")
+            continue
+        if line.target_well not in well_ranges:
+            errors.append(f"Линия {line.name}: целевая скважина {line.target_well} отсутствует.")
+            continue
+        source_top, source_bottom = well_ranges[line.source_well]
+        target_top, target_bottom = well_ranges[line.target_well]
+        if not (float(source_top) <= line.source_depth <= float(source_bottom)):
+            warnings.append(f"Линия {line.name}: глубина {line.source_depth:g} вне интервала {line.source_well}.")
+        if not (float(target_top) <= line.target_depth <= float(target_bottom)):
+            warnings.append(f"Линия {line.name}: глубина {line.target_depth:g} вне интервала {line.target_well}.")
+        if line.confidence < 0.5:
+            warnings.append(f"Линия {line.name}: низкая уверенность {line.confidence:.2f}.")
+        by_pair.setdefault((line.source_well, line.target_well), []).append(line)
+
+    for (source_well, target_well), pair_lines in by_pair.items():
+        ordered = sorted(pair_lines, key=lambda item: item.source_depth)
+        previous_target = None
+        previous_name = ""
+        for line in ordered:
+            if previous_target is not None and line.target_depth < previous_target:
+                warnings.append(
+                    f"Пара {source_well}→{target_well}: возможное пересечение линий {previous_name} и {line.name}."
+                )
+            previous_target = line.target_depth
+            previous_name = line.name
+
+    return {"errors": tuple(dict.fromkeys(errors)), "warnings": tuple(dict.fromkeys(warnings))}
+
+
+def build_correlation_studio_state(
+    wells: Iterable[LasCorrelationWell],
+    *,
+    marker_rows: Iterable[dict[str, object]] = (),
+    line_rows: Iterable[dict[str, object]] = (),
+    alignment_rows: Iterable[dict[str, object]] = (),
+    depth_step: float | None = None,
+    groups: Iterable[str] | None = None,
+    grid_mode: str = "union",
+) -> dict[str, object]:
+    """Build a single serializable state object for Correlation Studio Professional."""
+
+    alignments = normalize_depth_alignments(alignment_rows)
+    aligned_wells = apply_depth_alignments(tuple(wells), alignments)
+    markers = normalize_correlation_markers(marker_rows)
+    manual_lines = normalize_correlation_lines(line_rows)
+    generated_lines = build_correlation_lines_from_markers(markers, well_order=[well.name for well in aligned_wells])
+    panel = build_correlation_panel(
+        aligned_wells,
+        markers=markers,
+        depth_step=depth_step,
+        groups=groups,
+        grid_mode=grid_mode,
+    )
+    lines = tuple(dict.fromkeys((*manual_lines, *generated_lines)))
+    validation = validate_correlation_lines(lines, aligned_wells)
+    return {
+        "wells": aligned_wells,
+        "panel": panel,
+        "markers": markers,
+        "lines": lines,
+        "alignments": alignments,
+        "validation": validation,
+        "summary": {
+            **correlation_panel_summary(panel),
+            "lines": len(lines),
+            "aligned_wells": len(alignments),
+            "errors": len(validation["errors"]),
+            "warnings": len(validation["warnings"]),
+        },
+    }
