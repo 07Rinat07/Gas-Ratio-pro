@@ -97,6 +97,13 @@ from las_editor.curve_bulk_edit import (
     apply_curve_bulk_edit,
     curve_bulk_edit_operation_rows,
 )
+from las_editor.curve_export_rules import (
+    apply_curve_export_rules,
+    available_export_profiles,
+    curve_export_preview_rows,
+    export_profile_rows,
+    get_export_profile,
+)
 from las_editor.curve_metadata import (
     assign_curve_metadata,
     available_metadata_fields,
@@ -325,6 +332,7 @@ LAS_EDITOR_QUALITY_FLAGS_KEY = "las_editor_curve_quality_flags"
 LAS_EDITOR_QUALITY_SUMMARY_KEY = "las_editor_curve_quality_summary"
 LAS_EDITOR_MNEMONICS_KEY = "las_editor_curve_mnemonics"
 LAS_EDITOR_BULK_EDIT_LOG_KEY = "las_editor_curve_bulk_edit_log"
+LAS_EDITOR_EXPORT_RULES_KEY = "las_editor_curve_export_rules"
 PROJECT_SESSION_SHEETS_KEY = "project_session_sheets"
 PROJECT_SESSION_SUMMARY_KEY = "project_session_summary"
 PROJECT_SESSION_PROJECT_ID_KEY = "project_session_project_id"
@@ -2844,6 +2852,145 @@ def _render_las_curve_bulk_edit_manager(prepared_df: pd.DataFrame) -> pd.DataFra
 
     return prepared_df
 
+
+def _render_las_curve_export_rules_manager(prepared_df: pd.DataFrame) -> None:
+    st.markdown("### Curve Manager · Curve export rules")
+    st.caption(
+        "Правила экспорта готовят LAS-кривые перед выгрузкой: переименование мнемоник, "
+        "конвертация единиц, обработка дублей, metadata и preview. Данные редактора не меняются до явного экспорта."
+    )
+
+    columns = [str(column) for column in prepared_df.columns]
+    if not columns:
+        st.info("Нет кривых для подготовки экспорта.")
+        return
+
+    profile_options = available_export_profiles()
+    profile_col, mode_col, duplicate_col = st.columns([1.2, 1, 1])
+    profile_id = profile_col.selectbox(
+        "Профиль экспорта",
+        options=profile_options,
+        format_func=lambda value: get_export_profile(value).label,
+        key="las_editor_export_profile",
+    )
+    curve_mode = mode_col.selectbox(
+        "Кривые",
+        options=("all", "selected", "source_only", "calculated_only"),
+        format_func=lambda value: {
+            "all": "Все",
+            "selected": "Выбранные",
+            "source_only": "Только исходные",
+            "calculated_only": "Только расчетные",
+        }.get(value, value),
+        key="las_editor_export_curve_mode",
+    )
+    duplicate_strategy = duplicate_col.selectbox(
+        "Дубликаты",
+        options=("rename", "exclude", "keep"),
+        format_func=lambda value: {
+            "rename": "Переименовать",
+            "exclude": "Исключить",
+            "keep": "Оставить",
+        }.get(value, value),
+        key="las_editor_export_duplicate_strategy",
+    )
+
+    selected_curves = st.multiselect(
+        "Кривые для экспорта",
+        options=columns,
+        default=columns,
+        key="las_editor_export_selected_curves",
+    )
+
+    with st.expander("Профили экспорта", expanded=False):
+        st.dataframe(
+            pd.DataFrame(export_profile_rows()).rename(
+                columns={
+                    "profile_id": "ID",
+                    "label": "Профиль",
+                    "description": "Описание",
+                    "null_value": "NULL",
+                    "duplicate_strategy": "Дубликаты",
+                    "curve_mode": "Режим",
+                }
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    null_col, metadata_col = st.columns([1, 2])
+    null_value = null_col.number_input(
+        "NULL value",
+        value=float(get_export_profile(profile_id).null_value),
+        key="las_editor_export_null_value",
+    )
+    metadata_text = metadata_col.text_input(
+        "WELL metadata override",
+        value="",
+        placeholder="Например: WELL=Well-01; COMPANY=Gas Ratio Pro",
+        key="las_editor_export_metadata_text",
+    )
+
+    metadata: dict[str, str] = {}
+    for item in metadata_text.split(";"):
+        if "=" in item:
+            key, value = item.split("=", 1)
+            if key.strip() and value.strip():
+                metadata[key.strip().upper()] = value.strip()
+
+    if st.button("Построить preview export rules", use_container_width=True, key="las_editor_export_rules_preview"):
+        try:
+            result = apply_curve_export_rules(
+                prepared_df,
+                profile_id=profile_id,
+                selected_curves=selected_curves,
+                aliases=dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {})),
+                unit_overrides=dict(st.session_state.get(LAS_EDITOR_UNIT_OVERRIDES_KEY, {})),
+                metadata=metadata,
+                null_value=null_value,
+                curve_mode=curve_mode,
+                duplicate_strategy=duplicate_strategy,
+                references=_las_editor_reference_state(columns),
+            )
+            st.session_state[LAS_EDITOR_EXPORT_RULES_KEY] = result
+            for warning in result.warnings:
+                st.warning(warning)
+            st.success(
+                "Export rules preview готов: "
+                f"{result.summary['exported']} кривых, "
+                f"{result.summary['renamed']} rename, "
+                f"{result.summary['unit_converted']} unit conversions."
+            )
+        except ValueError as exc:
+            st.warning(str(exc))
+
+    result = st.session_state.get(LAS_EDITOR_EXPORT_RULES_KEY)
+    if result is not None:
+        rows = curve_export_preview_rows(result.preview)
+        if rows:
+            st.dataframe(
+                pd.DataFrame(rows).rename(
+                    columns={
+                        "source_curve": "Исходная кривая",
+                        "export_curve": "Экспортная кривая",
+                        "source_unit": "Исходная единица",
+                        "export_unit": "Экспортная единица",
+                        "export": "Экспорт",
+                        "action": "Действие",
+                        "message": "Сообщение",
+                    }
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+        st.caption(
+            "Export summary: "
+            f"exported={result.summary['exported']}, "
+            f"renamed={result.summary['renamed']}, "
+            f"converted={result.summary['unit_converted']}, "
+            f"skipped={result.summary['skipped']}."
+        )
+
 def _render_las_curve_quality_flags(prepared_df: pd.DataFrame) -> None:
     st.markdown("### Curve Manager · Curve quality flags")
     st.caption(
@@ -4755,6 +4902,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     _render_las_curve_duplicate_detection(prepared_df)
     _render_las_curve_quality_flags(prepared_df)
     prepared_df = _render_las_curve_bulk_edit_manager(prepared_df)
+    _render_las_curve_export_rules_manager(prepared_df)
     prepared_df = _render_las_curve_merge_manager(prepared_df)
 
     column_names = [str(column) for column in prepared_df.columns]

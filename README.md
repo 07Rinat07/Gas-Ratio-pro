@@ -27,7 +27,7 @@ http://localhost:8501
 - Импорт LAS, CSV, XLSX/XLSM.
 - Автоматическое определение строки заголовков и mapping колонок.
 - Расчет газовых коэффициентов и предварительная интерпретация интервалов.
-- LAS Editor: depth grid, ручная правка, rename/alias/merge кривых, grouping, categories, units, metadata, duplicate detection, quality flags и mnemonic dictionary.
+- LAS Editor: depth grid, ручная правка, rename/alias/merge кривых, grouping, categories, units, metadata, duplicate detection, quality flags, mnemonic dictionary, bulk edit и export rules.
 - LAS-корреляция нескольких скважин.
 - Project Explorer, Well Manager, Dataset Manager и Project Database.
 - Экспорт CSV, HTML, XLSX, LAS и статических графиков.

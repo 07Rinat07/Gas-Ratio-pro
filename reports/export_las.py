@@ -33,6 +33,8 @@ def export_las_bytes(
     well_name: str = "WELL",
     depth_column: str | None = None,
     null_value: float = -999.25,
+    curve_units: dict[str, str] | None = None,
+    well_metadata: dict[str, object] | None = None,
 ) -> bytes:
     if df is None or df.empty:
         return b""
@@ -43,22 +45,34 @@ def export_las_bytes(
     export_df = df[ordered_columns].copy()
 
     sanitized_columns = [_sanitize_curve_name(column) for column in ordered_columns]
+    metadata = {str(key).upper(): value for key, value in dict(well_metadata or {}).items()}
+    resolved_well = str(metadata.get("WELL", well_name)).strip() or "WELL"
+    resolved_null = metadata.get("NULL", null_value)
+    try:
+        resolved_null_value = float(resolved_null)
+    except (TypeError, ValueError):
+        resolved_null_value = float(null_value)
+
     lines = [
         "~Version",
         "VERS. 2.0 : CWLS LAS version",
         "WRAP. NO  : One line per depth step",
         "~Well",
-        f"WELL. {str(well_name).strip() or 'WELL'} : Well name",
-        f"NULL. {null_value} : Null value",
-        "~Curve",
+        f"WELL. {resolved_well} : Well name",
+        f"NULL. {resolved_null_value} : Null value",
     ]
+    for key in ("COMPANY", "FIELD", "LOCATION", "DATE", "SERVICE_COMPANY"):
+        if key in metadata and str(metadata[key]).strip():
+            lines.append(f"{key}. {str(metadata[key]).strip()} : Export metadata")
+    lines.append("~Curve")
     for original, sanitized in zip(ordered_columns, sanitized_columns):
-        unit = "M" if original == depth_name else ""
+        raw_unit = dict(curve_units or {}).get(original, "M" if original == depth_name else "")
+        unit = _sanitize_curve_name(raw_unit) if raw_unit else ""
         lines.append(f"{sanitized}.{unit} : {original}")
 
     lines.append("~ASCII")
     for _index, row in export_df.iterrows():
-        values = [_format_las_value(row[column], null_value) for column in ordered_columns]
+        values = [_format_las_value(row[column], resolved_null_value) for column in ordered_columns]
         lines.append(" ".join(values))
 
     return ("\n".join(lines) + "\n").encode("utf-8")

@@ -68,6 +68,18 @@
 - [ ] Project preview from real LAS data.
 - [ ] Dashboard widget settings.
 
+
+## 3.14 Dashboard UX Refactoring
+
+- [ ] Remove duplicated navigation buttons.
+- [ ] Make dashboard cards clickable.
+- [ ] Remove duplicate `Open` buttons from dashboard cards.
+- [ ] Optimize dashboard grid for 1366×768 and 1440×900 notebooks.
+- [ ] Redesign quick actions as compact clickable shortcuts.
+- [ ] Improve dashboard information hierarchy.
+- [ ] Run responsive layout audit after each UI stage.
+- [ ] Refine dashboard background centering and scaling.
+
 ## UI.3 Dashboard Widgets
 
 - [x] Recent projects.
@@ -170,7 +182,7 @@
 - [x] Curve mnemonics dictionary.
 - [x] Curve bulk edit.
 - [ ] Curve import rules.
-- [ ] Curve export rules.
+- [x] Curve export rules.
 - [ ] Split curves.
 - [ ] Curve statistics.
 
