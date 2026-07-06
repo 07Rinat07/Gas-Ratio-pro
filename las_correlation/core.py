@@ -328,3 +328,204 @@ def prepare_las_correlation_wells(files: Iterable[object]) -> tuple[LasCorrelati
         used_names.add(name)
         wells.append(prepare_las_correlation_well(file_or_path, name=name))
     return tuple(wells)
+
+
+@dataclass(frozen=True)
+class CorrelationMarker:
+    well: str
+    name: str
+    depth: float
+    kind: str = "marker"
+    color: str = "#FBBF24"
+    note: str = ""
+
+
+@dataclass(frozen=True)
+class CorrelationPanel:
+    wells: tuple[LasCorrelationWell, ...]
+    markers: tuple[CorrelationMarker, ...]
+    depth_range: tuple[float, float] | None
+    common_curves: tuple[str, ...]
+    shared_depth_grid: tuple[float, ...]
+    warnings: tuple[str, ...] = ()
+
+
+def normalize_correlation_markers(rows: Iterable[dict[str, object]]) -> tuple[CorrelationMarker, ...]:
+    markers: list[CorrelationMarker] = []
+    for row in rows:
+        try:
+            depth = float(row.get("depth", ""))
+        except (TypeError, ValueError):
+            continue
+        if pd.isna(depth):
+            continue
+        name = str(row.get("name") or row.get("marker") or row.get("top") or "Marker").strip()
+        well = str(row.get("well") or "").strip()
+        kind = str(row.get("kind") or row.get("type") or "marker").strip() or "marker"
+        color = str(row.get("color") or "#FBBF24").strip() or "#FBBF24"
+        note = str(row.get("note") or "").strip()
+        markers.append(CorrelationMarker(well=well, name=name, depth=depth, kind=kind, color=color, note=note))
+    return tuple(sorted(markers, key=lambda marker: (marker.well, marker.depth, marker.name)))
+
+
+def shared_depth_range(wells: Iterable[LasCorrelationWell]) -> tuple[float, float] | None:
+    valid_ranges = [
+        (well.min_depth, well.max_depth)
+        for well in wells
+        if well.min_depth is not None and well.max_depth is not None
+    ]
+    if not valid_ranges:
+        return None
+    top = min(float(start) for start, _ in valid_ranges)
+    bottom = max(float(stop) for _, stop in valid_ranges)
+    return (top, bottom)
+
+
+def overlapping_depth_range(wells: Iterable[LasCorrelationWell]) -> tuple[float, float] | None:
+    valid_ranges = [
+        (well.min_depth, well.max_depth)
+        for well in wells
+        if well.min_depth is not None and well.max_depth is not None
+    ]
+    if not valid_ranges:
+        return None
+    top = max(float(start) for start, _ in valid_ranges)
+    bottom = min(float(stop) for _, stop in valid_ranges)
+    if top > bottom:
+        return None
+    return (top, bottom)
+
+
+def build_shared_depth_grid(
+    wells: Iterable[LasCorrelationWell],
+    *,
+    step: float | None = None,
+    depth_range: tuple[float, float] | None = None,
+    mode: str = "union",
+) -> tuple[float, ...]:
+    selected_wells = tuple(wells)
+    if depth_range is None:
+        depth_range = overlapping_depth_range(selected_wells) if mode == "overlap" else shared_depth_range(selected_wells)
+    if depth_range is None:
+        return ()
+
+    top, bottom = sorted((float(depth_range[0]), float(depth_range[1])))
+    if step is None or step <= 0:
+        deltas: list[float] = []
+        for well in selected_wells:
+            if well.data.empty or well.depth_column not in well.data.columns:
+                continue
+            depth = _numeric_depth(well.data, well.depth_column).dropna().sort_values()
+            diff = depth.diff().dropna()
+            diff = diff[diff > 0]
+            if not diff.empty:
+                deltas.append(float(diff.median()))
+        step = min(deltas) if deltas else max((bottom - top), 1.0)
+    if step <= 0:
+        return ()
+
+    values: list[float] = []
+    current = top
+    guard = 0
+    while current <= bottom + step / 2 and guard < 1_000_000:
+        values.append(round(current, 6))
+        current += step
+        guard += 1
+    return tuple(values)
+
+
+def common_curve_names(
+    wells: Iterable[LasCorrelationWell],
+    *,
+    groups: Iterable[str] | None = None,
+    require_all_wells: bool = False,
+) -> tuple[str, ...]:
+    selected_wells = [well for well in wells if not well.data.empty]
+    if not selected_wells:
+        return ()
+
+    curve_sets: list[set[str]] = []
+    for well in selected_wells:
+        curves = set(curve_names_for_comparison([well], groups=groups))
+        curve_sets.append(curves)
+    if not curve_sets:
+        return ()
+    if require_all_wells:
+        selected = set.intersection(*curve_sets) if curve_sets else set()
+    else:
+        selected = set.union(*curve_sets) if curve_sets else set()
+    ordered: list[str] = []
+    for well in selected_wells:
+        for curve in curve_names_for_comparison([well], groups=groups):
+            if curve in selected and curve not in ordered:
+                ordered.append(curve)
+    return tuple(ordered)
+
+
+def build_correlation_panel(
+    wells: Iterable[LasCorrelationWell],
+    *,
+    markers: Iterable[dict[str, object]] | Iterable[CorrelationMarker] = (),
+    depth_range: tuple[float, float] | None = None,
+    depth_step: float | None = None,
+    groups: Iterable[str] | None = None,
+    require_common_curves: bool = False,
+    grid_mode: str = "union",
+) -> CorrelationPanel:
+    selected_wells = tuple(wells)
+    warnings: list[str] = []
+    if depth_range is None:
+        depth_range = overlapping_depth_range(selected_wells) if grid_mode == "overlap" else shared_depth_range(selected_wells)
+    if depth_range is None:
+        warnings.append("Нет общего диапазона глубин для корреляционной панели.")
+
+    normalized_markers: list[CorrelationMarker] = []
+    for marker in markers:
+        if isinstance(marker, CorrelationMarker):
+            normalized_markers.append(marker)
+        else:
+            normalized_markers.extend(normalize_correlation_markers([marker]))
+
+    common_curves = common_curve_names(selected_wells, groups=groups, require_all_wells=require_common_curves)
+    if not common_curves:
+        warnings.append("Нет числовых кривых для межскважинного сравнения.")
+
+    grid = build_shared_depth_grid(selected_wells, step=depth_step, depth_range=depth_range, mode=grid_mode)
+    if not grid:
+        warnings.append("Не удалось построить общую глубинную сетку.")
+
+    return CorrelationPanel(
+        wells=selected_wells,
+        markers=tuple(sorted(normalized_markers, key=lambda item: (item.depth, item.well, item.name))),
+        depth_range=depth_range,
+        common_curves=common_curves,
+        shared_depth_grid=grid,
+        warnings=tuple(dict.fromkeys(warnings)),
+    )
+
+
+def correlation_marker_rows(panel: CorrelationPanel) -> tuple[dict[str, object], ...]:
+    rows: list[dict[str, object]] = []
+    for marker in panel.markers:
+        rows.append(
+            {
+                "well": marker.well or "Все скважины",
+                "name": marker.name,
+                "depth": marker.depth,
+                "kind": marker.kind,
+                "color": marker.color,
+                "note": marker.note,
+            }
+        )
+    return tuple(rows)
+
+
+def correlation_panel_summary(panel: CorrelationPanel) -> dict[str, object]:
+    return {
+        "wells": len(panel.wells),
+        "markers": len(panel.markers),
+        "depth_range": panel.depth_range,
+        "common_curves": panel.common_curves,
+        "grid_points": len(panel.shared_depth_grid),
+        "warnings": panel.warnings,
+    }

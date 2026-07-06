@@ -41,6 +41,11 @@ from las_correlation import (
     DEFAULT_GIS_GROUPS,
     LasCorrelationSettings,
     apply_curve_group_overrides,
+    build_correlation_panel,
+    build_correlation_panel_figure,
+    common_curve_names,
+    correlation_marker_rows,
+    correlation_panel_summary,
     build_las_correlation_figure,
     build_las_correlation_interval_table,
     build_las_curve_comparison_figure,
@@ -9684,6 +9689,69 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         key="las_correlation_height_per_well",
     )
     selected_groups = tuple(dict.fromkeys((*gis_groups, *gas_groups)))
+
+    with st.expander("Correlation Studio · tops/markers и общая глубинная сетка", expanded=False):
+        st.caption("Профессиональная панель корреляции: один трек на скважину, синхронная глубина и маркеры пластов.")
+        studio_grid_mode = st.radio(
+            "Глубинная сетка",
+            options=("union", "overlap"),
+            format_func=lambda value: "Весь объединенный интервал" if value == "union" else "Только общий перекрывающийся интервал",
+            horizontal=True,
+            key="las_correlation_studio_grid_mode",
+        )
+        studio_depth_step = st.number_input(
+            "Шаг общей сетки, м",
+            min_value=0.01,
+            value=0.5,
+            step=0.01,
+            key="las_correlation_studio_depth_step",
+        )
+        default_marker_rows = st.session_state.get(
+            "las_correlation_studio_markers",
+            [{"well": "", "name": "Top", "depth": float(valid_depths[0]) if valid_depths else 0.0, "kind": "top", "color": "#FBBF24", "note": ""}],
+        )
+        marker_rows = st.data_editor(
+            pd.DataFrame(default_marker_rows),
+            num_rows="dynamic",
+            use_container_width=True,
+            key="las_correlation_studio_marker_editor",
+        )
+        marker_records = marker_rows.to_dict("records") if isinstance(marker_rows, pd.DataFrame) else []
+        st.session_state["las_correlation_studio_markers"] = marker_records
+
+        studio_panel = build_correlation_panel(
+            selected_wells,
+            markers=marker_records,
+            depth_range=depth_range,
+            depth_step=float(studio_depth_step),
+            groups=selected_groups,
+            grid_mode=studio_grid_mode,
+        )
+        studio_summary = correlation_panel_summary(studio_panel)
+        st.caption(
+            f"Скважин: {studio_summary['wells']} · Маркеров: {studio_summary['markers']} · "
+            f"Точек сетки: {studio_summary['grid_points']}"
+        )
+        if studio_panel.warnings:
+            for warning in studio_panel.warnings:
+                st.warning(warning)
+        studio_curve_options = common_curve_names(selected_wells, groups=selected_groups)
+        if studio_curve_options:
+            studio_curve = st.selectbox(
+                "Кривая для correlation-панели",
+                options=studio_curve_options,
+                key="las_correlation_studio_curve",
+            )
+            studio_figure = build_correlation_panel_figure(
+                studio_panel,
+                studio_curve,
+                height_per_well=max(480, int(height_per_well)),
+            )
+            st.plotly_chart(studio_figure, use_container_width=True)
+            if studio_panel.markers:
+                st.dataframe(pd.DataFrame(correlation_marker_rows(studio_panel)), use_container_width=True)
+        else:
+            st.info("Для Correlation Studio выберите группы с числовыми кривыми.")
     view_mode = st.radio(
         "Представление графика",
         options=SUPPORTED_VIEW_MODES,
