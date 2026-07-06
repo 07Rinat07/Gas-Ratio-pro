@@ -5079,10 +5079,10 @@ def _workspace_search_results_html(results: tuple[dict[str, str], ...], query: s
         return ""
     if not results:
         return (
-            "<section class='dashboard-card workspace-search-results' id='dashboard-workspace-search-results'>"
+            "<div class='dashboard-card workspace-search-results' id='dashboard-workspace-search-results'>"
             "<h3>Результаты поиска <span>0</span></h3>"
             "<div class='dashboard-empty-state'>Ничего не найдено. Попробуйте LAS, скважина, расчет, отчет, docs или curve.</div>"
-            "</section>"
+            "</div>"
         )
 
     rows = []
@@ -5095,10 +5095,10 @@ def _workspace_search_results_html(results: tuple[dict[str, str], ...], query: s
             "</div>"
         )
     return (
-        "<section class='dashboard-card workspace-search-results' id='dashboard-workspace-search-results'>"
+        "<div class='dashboard-card workspace-search-results' id='dashboard-workspace-search-results'>"
         f"<h3>Результаты поиска <span>{len(results)}</span></h3>"
         + "".join(rows)
-        + "</section>"
+        + "</div>"
     )
 
 def _background_manager_rule(tab_name: str) -> dict[str, str]:
@@ -5313,7 +5313,7 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
         dedent(f"""
         <div class="dashboard-shell dashboard-3 project-workspace-1 dashboard-compact-workspace-fix dashboard-grid-optimized dashboard-information-hierarchy dashboard-responsive-audit dashboard-3-branch" data-dashboard-branch="Project Workspace 1.0" data-dashboard-workspace="project-workspace-1" data-dashboard-background-refinement="center-contained" data-dashboard-grid="optimized" data-dashboard-hierarchy="information" data-dashboard-responsive-audit="notebook-validated" style="{style}">
           <span class="dashboard-3-branch-marker">Dashboard 3.0 branch · Project Workspace 1.0</span>
-          <main class="dashboard-main dashboard-workspace-main" id="dashboard-home">
+          <div class="dashboard-main dashboard-workspace-main" id="dashboard-home">
             <div class="dashboard-navbar glass-navbar">
               <div class="dashboard-title-row">
                 <div class="dashboard-title-icon">▦</div>
@@ -5321,22 +5321,22 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
               </div>
               <div class="dashboard-search"><span class="dashboard-search-chip">Ctrl+K</span><span class="dashboard-search-chip">{_html_escape(active_project.name)}</span></div>
             </div>
-            <section class="dashboard-card workspace-search-card" aria-label="Universal search">
+            <div class="dashboard-card workspace-search-card" aria-label="Universal search">
               <h3>Глобальный поиск <span>Universal Search</span></h3>
               <div class="workspace-search-box"><b>🔎 Поиск по проектам, скважинам, LAS, кривым, расчетам, отчетам, документации и истории</b><span>Введите запрос в поле выше или используйте Ctrl+K.</span></div>
-            </section>
+            </div>
             {workspace_search_results_html}
-            <section class="dashboard-layout dashboard-information-priority" data-dashboard-information-hierarchy="workspace-v1">
-              <article class="dashboard-card stats" id="dashboard-project-status"><h3>Сводка workspace <span>{now_label}</span></h3>{metrics_html}</article>
-              <article class="dashboard-card projects" id="dashboard-projects"><h3>Последние проекты <span>recent</span></h3>{recent_html}</article>
-              <article class="dashboard-card recent-las" id="dashboard-recent-las"><h3>Последние LAS <span>files</span></h3>{recent_las_html}</article>
-              <article class="dashboard-card calculations" id="dashboard-calculations"><h3>Последние расчеты <span>calc</span></h3>{calculations_html}</article>
-              <article class="dashboard-card reports" id="dashboard-reports"><h3>Последние отчеты <span>export</span></h3>{reports_html}</article>
-              <article class="dashboard-card activity" id="dashboard-activity"><h3>Недавние действия <span>history</span></h3>{activity_html}</article>
-              <article class="dashboard-card favorites" id="dashboard-favorites"><h3>Избранное <span>pinned</span></h3>{favorites_html}</article>
-            </section>
-            <footer class="dashboard-footer"><span>Готов к работе · навигация только в Sidebar</span><span>Версия: 2.0.0 · {now_label}</span></footer>
-          </main>
+            <div class="dashboard-layout dashboard-information-priority" data-dashboard-information-hierarchy="workspace-v1">
+              <div class="dashboard-card stats" id="dashboard-project-status"><h3>Сводка workspace <span>{now_label}</span></h3>{metrics_html}</div>
+              <div class="dashboard-card projects" id="dashboard-projects"><h3>Последние проекты <span>recent</span></h3>{recent_html}</div>
+              <div class="dashboard-card recent-las" id="dashboard-recent-las"><h3>Последние LAS <span>files</span></h3>{recent_las_html}</div>
+              <div class="dashboard-card calculations" id="dashboard-calculations"><h3>Последние расчеты <span>calc</span></h3>{calculations_html}</div>
+              <div class="dashboard-card reports" id="dashboard-reports"><h3>Последние отчеты <span>export</span></h3>{reports_html}</div>
+              <div class="dashboard-card activity" id="dashboard-activity"><h3>Недавние действия <span>history</span></h3>{activity_html}</div>
+              <div class="dashboard-card favorites" id="dashboard-favorites"><h3>Избранное <span>pinned</span></h3>{favorites_html}</div>
+            </div>
+            <div class="dashboard-footer"><span>Готов к работе · навигация только в Sidebar</span><span>Версия: 2.0.0 · {now_label}</span></div>
+          </div>
         </div>
         """).strip(),
         unsafe_allow_html=True,
