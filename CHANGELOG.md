@@ -164,3 +164,10 @@ git status --short
 - Reduced the low-content welcome rail on laptop widths so project statistics and activity panels fit without horizontal clipping.
 - Centered the branded dashboard background and reduced its visual footprint for better readability.
 - Added regression checks for laptop dashboard layout CSS rules.
+
+## Dashboard UX Refactoring → Background Refinement
+
+- Centered and contained the Dashboard 3.0 branded background artwork.
+- Reduced dashboard background scale for notebook breakpoints.
+- Added explicit 1366px, 1440px and 1600px background rules.
+- Switched sidebar brand art from cover to contain to prevent cropping.

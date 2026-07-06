@@ -465,6 +465,21 @@ BACKGROUND_OPACITY_PRESETS: dict[str, str] = {
     "workspace_glass": "0.90",
 }
 
+DASHBOARD_BACKGROUND_REFINEMENT: dict[str, str] = {
+    "stage": "Dashboard UX Refactoring → Refine dashboard background",
+    "marker": "dashboard-background-refinement",
+    "desktop_position": "center bottom 1.1rem",
+    "desktop_size": "clamp(210px, 18vw, 330px) auto",
+    "laptop_position": "center bottom 0.85rem",
+    "laptop_size": "clamp(160px, 14vw, 230px) auto",
+    "tablet_position": "center bottom 0.65rem",
+    "tablet_size": "min(34vw, 190px) auto",
+    "mobile_position": "center bottom 0.45rem",
+    "mobile_size": "min(42vw, 150px) auto",
+    "overlay": "0.90 dark gradient over brand art",
+    "rule": "center, contain and dim dashboard artwork without hiding readable cards",
+}
+
 
 GLASS_UI_TOKENS: dict[str, dict[str, str]] = {
     "card": {
@@ -719,7 +734,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             --app-accent: #ff8a00;
             --app-accent-soft: rgba(255, 138, 0, 0.18);
             --global-bg-image: {app_background_css};
-            --brand-bg-size: clamp(170px, 21vw, 352px) auto;
+            --brand-bg-size: clamp(210px, 18vw, 330px) auto;
             --brand-bg-position: center bottom 1.1rem;
             --glass-dashboard: rgba(4, 10, 24, 0.08);
             --glass-readable: rgba(5, 10, 22, 0.18);
@@ -738,7 +753,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             color: var(--app-text);
             font-size: {tokens["base"]};
             background-image:
-                linear-gradient(90deg, rgba(3, 7, 18, 0.10), rgba(3, 7, 18, 0.04), rgba(3, 7, 18, 0.00)),
+                linear-gradient(180deg, rgba(3, 7, 18, 0.88), rgba(3, 7, 18, 0.92)),
                 var(--global-bg-image);
             background-size: 100% 100%, var(--brand-bg-size);
             background-position: center center, var(--brand-bg-position);
@@ -752,14 +767,14 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (min-width: 1920px) {
             :root {
-                --brand-bg-size: clamp(255px, 18vw, 421px) auto;
+                --brand-bg-size: clamp(230px, 16vw, 360px) auto;
                 --brand-bg-position: center bottom 1rem;
                 --responsive-card-gap: 0.86rem;
             }
         }
         @media (min-width: 2560px) {
             :root {
-                --brand-bg-size: clamp(304px, 14vw, 480px) auto;
+                --brand-bg-size: clamp(260px, 12vw, 420px) auto;
                 --brand-bg-position: center bottom 1.2rem;
                 --responsive-dashboard-columns: minmax(15rem, 0.55fr) minmax(48rem, 1.6fr) minmax(18rem, 0.7fr);
                 --responsive-card-gap: 1rem;
@@ -789,7 +804,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (max-width: 1440px) {
             :root {
-                --brand-bg-size: clamp(150px, 19vw, 265px) auto;
+                --brand-bg-size: clamp(160px, 14vw, 230px) auto;
                 --brand-bg-position: center bottom 0.85rem;
                 --responsive-dashboard-columns: minmax(11.5rem, 0.50fr) minmax(34rem, 1.50fr);
             }
@@ -838,7 +853,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (max-width: 1024px) {
             :root {
-                --brand-bg-size: min(35vw, 216px) auto;
+                --brand-bg-size: min(34vw, 190px) auto;
                 --brand-bg-position: center bottom 0.75rem;
                 --responsive-card-gap: 0.62rem;
             }
@@ -846,7 +861,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (max-width: 900px) {
             :root {
-                --brand-bg-size: min(38vw, 206px) auto;
+                --brand-bg-size: min(36vw, 180px) auto;
                 --brand-bg-position: center bottom 0.65rem;
             }
         }
@@ -1361,11 +1376,11 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             .dashboard-3 .dashboard-layout { grid-template-columns: repeat(12, minmax(0, 1fr)); }
         }
         @media (min-width: 1441px) and (max-width: 1600px) {
-            .dashboard-3 { --d3-side: 11.4rem; --d3-gap: 0.78rem; background-size: 100% 100%, 100% 100%, 100% 100%, clamp(185px, 17vw, 280px) auto; }
+            .dashboard-3 { --d3-side: 11.4rem; --d3-gap: 0.78rem; background-size: 100% 100%, 100% 100%, 100% 100%, clamp(190px, 16vw, 285px) auto; background-position: center center, center center, center center, center bottom 1rem; }
             .dashboard-3 .dashboard-card { padding: 0.86rem; }
         }
         @media (max-width: 1366px) {
-            .dashboard-3 { --d3-side: 8.85rem; --d3-gap: 0.52rem; border-radius: 16px; }
+            .dashboard-3 { --d3-side: 8.85rem; --d3-gap: 0.52rem; border-radius: 16px; background-size: 100% 100%, 100% 100%, 100% 100%, clamp(145px, 13vw, 205px) auto; background-position: center center, center center, center center, center bottom 0.72rem; }
             .dashboard-3 .dashboard-main { padding: 0.68rem; }
             .dashboard-3 .dashboard-rail-brand { min-height: 7.2rem; font-size: 0.78rem !important; }
             .dashboard-3 .dashboard-layout {
@@ -1425,8 +1440,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (max-width: 480px) {
             :root {
-                --brand-bg-size: min(42vw, 157px) auto;
-                --brand-bg-position: center bottom 0.5rem;
+                --brand-bg-size: min(42vw, 150px) auto;
+                --brand-bg-position: center bottom 0.45rem;
                 --responsive-dashboard-padding: 0.42rem;
             }
             .dashboard-brand { font-size: 0.92rem; }
@@ -1439,7 +1454,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
 
         /* Dashboard 3.0 branch: complete product-style home screen.
            Requirements: no duplicated Open buttons, visible information hierarchy,
-           centered background, laptop-safe grid for 1366x768 and 1440x900. */
+           dashboard-background-refinement: centered contained background art, laptop-safe grid for 1366x768 and 1440x900. */
         .dashboard-3 {
             --d3-gap: clamp(0.72rem, 1vw, 1rem);
             --d3-side: clamp(12.2rem, 14vw, 15rem);
@@ -1458,8 +1473,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
                 radial-gradient(circle at 16% 92%, rgba(255, 138, 0, 0.10), transparent 30%),
                 linear-gradient(135deg, rgba(2, 6, 23, 0.93), rgba(7, 12, 24, 0.88)),
                 var(--global-bg-image);
-            background-size: 100% 100%, 100% 100%, 100% 100%, clamp(230px, 20vw, 360px) auto;
-            background-position: center center, center center, center center, center bottom 1.4rem;
+            background-size: 100% 100%, 100% 100%, 100% 100%, clamp(210px, 18vw, 330px) auto;
+            background-position: center center, center center, center center, center bottom 1.1rem;
             background-repeat: no-repeat;
             box-shadow: 0 32px 110px rgba(0, 0, 0, 0.48);
         }
@@ -1507,7 +1522,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             background-image:
                 linear-gradient(180deg, rgba(2, 6, 23, 0.10), rgba(2, 6, 23, 0.72)),
                 var(--global-bg-image);
-            background-size: 100% 100%, cover;
+            background-size: 100% 100%, contain;
             background-position: center center, center center;
             background-repeat: no-repeat;
         }
@@ -1624,7 +1639,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .dashboard-3 .quick-actions-redesigned { display:none; }
         .dashboard-3-branch-marker { display:none; }
         @media (max-width: 1440px) {
-            .dashboard-3 { --d3-side: 9.75rem; --d3-gap: 0.62rem; background-size: 100% 100%, 100% 100%, 100% 100%, clamp(170px, 15vw, 235px) auto; }
+            .dashboard-3 { --d3-side: 9.75rem; --d3-gap: 0.62rem; background-size: 100% 100%, 100% 100%, 100% 100%, clamp(160px, 14vw, 230px) auto; background-position: center center, center center, center center, center bottom 0.85rem; }
             .dashboard-3 .dashboard-side-rail { padding: 0.62rem; gap: 0.42rem; }
             .dashboard-3 .dashboard-rail-link { padding: 0.48rem 0.42rem; grid-template-columns: 1.25rem minmax(0,1fr); font-size:0.78rem !important; }
             .dashboard-3 .dashboard-rail-brand { min-height: 9.8rem; }
@@ -1647,11 +1662,11 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             .dashboard-3 .dashboard-layout { grid-template-columns: repeat(12, minmax(0, 1fr)); }
         }
         @media (min-width: 1441px) and (max-width: 1600px) {
-            .dashboard-3 { --d3-side: 11.4rem; --d3-gap: 0.78rem; background-size: 100% 100%, 100% 100%, 100% 100%, clamp(185px, 17vw, 280px) auto; }
+            .dashboard-3 { --d3-side: 11.4rem; --d3-gap: 0.78rem; background-size: 100% 100%, 100% 100%, 100% 100%, clamp(190px, 16vw, 285px) auto; background-position: center center, center center, center center, center bottom 1rem; }
             .dashboard-3 .dashboard-card { padding: 0.86rem; }
         }
         @media (max-width: 1366px) {
-            .dashboard-3 { --d3-side: 8.85rem; --d3-gap: 0.52rem; border-radius: 16px; }
+            .dashboard-3 { --d3-side: 8.85rem; --d3-gap: 0.52rem; border-radius: 16px; background-size: 100% 100%, 100% 100%, 100% 100%, clamp(145px, 13vw, 205px) auto; background-position: center center, center center, center center, center bottom 0.72rem; }
             .dashboard-3 .dashboard-main { padding: 0.68rem; }
             .dashboard-3 .dashboard-rail-brand { min-height: 7.2rem; font-size: 0.78rem !important; }
             .dashboard-3 .dashboard-layout {
@@ -4968,7 +4983,7 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
 
     st.markdown(
         f"""
-        <div class="dashboard-shell dashboard-3 dashboard-grid-optimized dashboard-information-hierarchy dashboard-responsive-audit dashboard-3-branch" data-dashboard-branch="Dashboard 3.0" data-dashboard-grid="optimized" data-dashboard-hierarchy="information" data-dashboard-responsive-audit="notebook-validated" style="{style}">
+        <div class="dashboard-shell dashboard-3 dashboard-grid-optimized dashboard-information-hierarchy dashboard-responsive-audit dashboard-3-branch" data-dashboard-branch="Dashboard 3.0" data-dashboard-background-refinement="center-contained" data-dashboard-grid="optimized" data-dashboard-hierarchy="information" data-dashboard-responsive-audit="notebook-validated" style="{style}">
           <span class="dashboard-3-branch-marker">Dashboard 3.0 branch</span>
           <div class="dashboard-content">
             <aside class="dashboard-side-rail" aria-label="Dashboard navigation">

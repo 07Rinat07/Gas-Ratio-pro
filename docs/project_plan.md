@@ -87,15 +87,22 @@ Dashboard использует одну навигационную модель:
 - [x] Add product-style left navigation rail, overview metrics, recent project/LAS/calculation/activity panels, project health and license status.
 - [x] Center and contain the branded background inside the Dashboard 3.0 layout.
 - [x] Run responsive layout audit after each UI stage.
-- [ ] Refine dashboard background centering and scaling.
+- [x] Refine dashboard background centering and scaling.
 
 
 ### Реализовано: Dashboard UX Refactoring → Dashboard 3.0
 
 Создана отдельная ветка интерфейса Dashboard 3.0: вместо агрессивного удаления блоков главный экран восстановлен как полноценная рабочая панель. Dashboard теперь содержит левую навигационную рейку, верхний обзор, статистику проекта, последние проекты, последние LAS-файлы, последние расчеты, последнюю активность, статус проекта и лицензионный блок. Дублирующие кнопки `Открыть...` не возвращались. Сетка построена через адаптивный CSS Grid с отдельными правилами для 1440px, 1200px и мобильных экранов.
 
-Текущий следующий незавершенный пункт: **Dashboard UX Refactoring → Background refinement**.
+Текущий следующий незавершенный пункт: **следующий модуль после Dashboard UX Refactoring**.
 
+
+
+### Реализовано: Dashboard UX Refactoring → Background Refinement
+
+Dashboard 3.0 получил отдельный проход по фоновому изображению: брендовый арт теперь центрирован, уменьшен и переведен в режим `contain`, чтобы не вылезать из сетки и не конкурировать с карточками. Для 1366×768, 1440×900, 1600×900, Full HD и мобильных экранов заданы отдельные размеры и позиции фона. Левый brand-card также использует `contain`, а не `cover`, чтобы логотип и буровая не обрезались внутри карточки.
+
+Текущий следующий незавершенный пункт: **следующий модуль после Dashboard UX Refactoring**.
 
 ### Реализовано: Dashboard UX Refactoring → Quick Actions Redesign
 
