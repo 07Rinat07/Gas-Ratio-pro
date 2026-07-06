@@ -238,6 +238,29 @@ from projects.repository import (
     load_project,
 )
 
+
+from projects.plot_studio import (
+    PROJECT_PLOT_STUDIO_FILE_NAME,
+    PLOT_AXIS_SCALES,
+    PLOT_LINE_STYLES,
+    PLOT_EXPORT_FORMATS,
+    PlotAxisConfig,
+    PlotCurveConfig,
+    PlotTrackConfig,
+    PlotAnnotation,
+    PlotTemplate,
+    PlotStudioSummary,
+    save_plot_template,
+    list_plot_templates,
+    get_plot_template,
+    add_plot_track,
+    add_plot_curve,
+    add_plot_annotation,
+    summarize_plot_studio,
+    build_plot_studio_template_table,
+    build_plot_studio_track_table,
+    build_plot_studio_curve_table,
+)
 from projects.formation_manager import (
     PROJECT_FORMATION_MANAGER_FILE_NAME,
     FORMATION_OBJECT_TYPES,
@@ -253,6 +276,27 @@ from projects.formation_manager import (
 )
 
 __all__ = [
+    'PROJECT_PLOT_STUDIO_FILE_NAME',
+    'PLOT_AXIS_SCALES',
+    'PLOT_LINE_STYLES',
+    'PLOT_EXPORT_FORMATS',
+    'PlotAxisConfig',
+    'PlotCurveConfig',
+    'PlotTrackConfig',
+    'PlotAnnotation',
+    'PlotTemplate',
+    'PlotStudioSummary',
+    'save_plot_template',
+    'list_plot_templates',
+    'get_plot_template',
+    'add_plot_track',
+    'add_plot_curve',
+    'add_plot_annotation',
+    'summarize_plot_studio',
+    'build_plot_studio_template_table',
+    'build_plot_studio_track_table',
+    'build_plot_studio_curve_table',
+
     "import_formation_objects_csv",
     "export_formation_objects_csv",
     "summarize_formation_manager",
