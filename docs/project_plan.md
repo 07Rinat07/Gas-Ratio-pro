@@ -944,3 +944,51 @@ Add batch processing center
 ```
 
 Текущий следующий незавершенный пункт: **Template & Workflow Manager**.
+
+## 12.5 Template & Workflow Manager
+
+Статус: реализовано как foundation-слой пользовательских шаблонов обработки и автоматизированных инженерных сценариев.
+
+Цель: дать пользователю возможность сохранять типовые последовательности операций и запускать их повторно для одиночных LAS, batch-очередей и интерпретационных сценариев.
+
+Реализованный состав:
+
+- [x] Workflow Template data model.
+- [x] Workflow Step data model с order, enabled, stop_on_error и parameters.
+- [x] Библиотека встроенных шаблонов:
+  - Standard LAS Cleanup;
+  - Complete Petrophysical Interpretation;
+  - Quality Control.
+- [x] Создание пользовательских workflow-шаблонов.
+- [x] Клонирование встроенных и пользовательских workflow.
+- [x] Импорт/экспорт workflow в JSON-схеме `gas-ratio-pro.workflow.v1`.
+- [x] Категории workflow: las, depth, petrophysics, quality, reporting, batch, custom.
+- [x] Избранные workflow.
+- [x] Workflow validation:
+  - отсутствие активных шагов;
+  - неправильный resample step;
+  - shift depth без величины смещения;
+  - расчеты без предварительной проверки LAS;
+  - export/report без явно заданного output_dir.
+- [x] Workflow run log: queued, running, done, failed, cancelled, paused.
+- [x] Прогресс выполнения по количеству шагов.
+- [x] Планировочный executor для безопасной симуляции запуска workflow.
+- [x] Преобразование совместимых workflow-шагов в Batch Processing operations.
+- [x] Табличные представления для UI: templates, steps, issues, runs.
+
+Интеграция:
+
+- Batch Processing Center через `workflow_to_batch_operations`.
+- LAS Editor через шаги глубины, alias, rename и export_las.
+- Interpretation Workspace через VSH, PHIE, SW, PERM и Net Pay.
+- Data Quality & Validation Center через validate_las и data_quality_report.
+- Report Studio через generate_report и export_results.
+- Project Manager через историю проекта.
+
+Рекомендуемое название коммита:
+
+```text
+Add template workflow manager
+```
+
+Текущий следующий незавершенный пункт: **Data Exchange Center**.
