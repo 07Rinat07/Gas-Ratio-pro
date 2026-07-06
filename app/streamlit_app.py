@@ -780,34 +780,43 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (max-width: 1366px) {
             :root {
-                --responsive-dashboard-padding: 0.62rem;
-                --responsive-card-gap: 0.56rem;
+                --responsive-dashboard-padding: 0.52rem;
+                --responsive-card-gap: 0.48rem;
             }
+            .dashboard-main { padding: 0.52rem; }
+            .dashboard-navbar { padding: 0.62rem 0.72rem; margin-bottom: 0.58rem; gap: 0.55rem; }
             .dashboard-layout {
-                grid-template-columns: minmax(10.5rem, 0.48fr) minmax(0, 1.52fr);
+                grid-template-columns: minmax(7.4rem, 0.30fr) minmax(0, 1.70fr);
                 grid-template-areas:
                     "welcome projects"
                     "stats quick"
                     "activity quick"
-                    "news preview"
-                    "tips license";
+                    "license preview";
             }
-            .dashboard-card { padding: 0.68rem; }
-            .dashboard-card.welcome { min-height: 7.2rem; }
-            .dashboard-card.welcome p:nth-of-type(1) { font-size: 0.82rem !important; line-height: 1.38 !important; }
+            .dashboard-card { padding: 0.56rem; border-radius: 13px; }
+            .dashboard-card.news,
+            .dashboard-card.tips { display: none; }
+            .dashboard-card.welcome { min-height: 5.8rem; }
+            .dashboard-card.welcome p:nth-of-type(1) { font-size: 0.76rem !important; line-height: 1.28 !important; }
             .dashboard-card.welcome p:nth-of-type(n+2) { display: none; }
-            .dashboard-card.news li { font-size: 0.78rem !important; line-height: 1.34 !important; }
-            .dashboard-card.stats, .dashboard-card.activity { overflow: hidden; }
-            .dashboard-metrics { grid-template-columns: repeat(2, minmax(5.4rem, 1fr)); gap: 0.45rem; }
-            .dashboard-metric { min-height: 3.45rem; padding: 0.56rem; }
-            .dashboard-metric b { font-size: 1.18rem; }
-            .dashboard-metric span { font-size: 0.74rem !important; line-height: 1.22 !important; }
-            .dashboard-action-card { min-height: 4.5rem; padding: 0.68rem; }
-            .dashboard-actions { grid-template-columns: repeat(3, minmax(8.2rem, 1fr)); gap: 0.52rem; }
+            .dashboard-card h3 { font-size: 0.82rem !important; margin-bottom: 0.42rem; }
+            .dashboard-card.stats, .dashboard-card.activity, .dashboard-card.quick, .dashboard-card.projects { overflow: hidden; }
+            .dashboard-list-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.38rem; padding: 0.34rem 0; }
+            .dashboard-list-row > * { min-width: 0; overflow-wrap: anywhere; }
+            .dashboard-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.36rem; }
+            .dashboard-metric { min-height: 2.92rem; padding: 0.42rem; }
+            .dashboard-metric b { font-size: 0.98rem; line-height: 1.05; }
+            .dashboard-metric span { font-size: 0.66rem !important; line-height: 1.12 !important; }
+            .dashboard-action-card { min-height: 3.45rem; padding: 0.46rem; }
+            .dashboard-actions { grid-template-columns: repeat(auto-fit, minmax(7.2rem, 1fr)); gap: 0.38rem; }
+            .dashboard-action-card strong { font-size: 0.76rem !important; }
+            .dashboard-action-card p { font-size: 0.67rem !important; line-height: 1.18 !important; }
+            .dashboard-action-card small { margin-top: 0.22rem; font-size: 0.64rem !important; }
             .simplified-dashboard-navigation .app-nav-description { display: none; }
-            .simplified-dashboard-navigation div[data-testid="stButton"] > button { min-height: 2.8rem; padding-left: 0.25rem; padding-right: 0.25rem; }
-            .dashboard-log-track { min-height: 7.6rem; }
-            .dashboard-muted { font-size: 0.74rem !important; }
+            .simplified-dashboard-navigation div[data-testid="stButton"] > button { min-height: 2.6rem; padding-left: 0.2rem; padding-right: 0.2rem; }
+            .dashboard-preview { min-height: 7.2rem; }
+            .dashboard-log-track { min-height: 6.2rem; }
+            .dashboard-muted { font-size: 0.70rem !important; }
         }
         @media (max-width: 1024px) {
             :root {
@@ -1061,20 +1070,35 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .app-page-shell div[data-testid="stAlert"], .app-page-shell div[data-testid="stFileUploader"] section, .app-page-shell div[data-testid="stDataFrame"], .app-page-shell div[data-testid="stPlotlyChart"] { background-color: rgba(15, 23, 42, 0.72) !important; border-color: rgba(148, 163, 184, 0.20) !important; }
         .app-page-shell div[data-testid="stExpander"] details { border-radius: 14px; border-color: rgba(148, 163, 184, 0.22); background: rgba(15, 23, 42, 0.42); }
         @media (min-width: 1201px) and (max-width: 1440px) {
+            .dashboard-main { padding: 0.64rem; }
             .dashboard-layout {
-                grid-template-columns: minmax(11rem, 0.46fr) minmax(0, 1.22fr) minmax(13.2rem, 0.58fr);
+                grid-template-columns: minmax(8.2rem, 0.34fr) minmax(0, 1.36fr) minmax(11rem, 0.48fr);
                 grid-template-areas:
                     "welcome projects stats"
-                    "news quick activity"
-                    "tips quick license";
+                    "activity quick quick"
+                    "license preview preview";
             }
-            .dashboard-card.welcome { min-height: 8rem; }
+            .dashboard-card { padding: 0.66rem; border-radius: 14px; }
+            .dashboard-card.welcome { min-height: 6.2rem; }
             .dashboard-card.welcome p:nth-of-type(n+2) { display: none; }
-            .dashboard-card.stats { max-width: 100%; }
-            .dashboard-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .dashboard-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-            .dashboard-action-card strong { font-size: 0.86rem !important; }
-            .dashboard-action-card p { font-size: 0.73rem !important; line-height: 1.34 !important; }
+            .dashboard-card.news,
+            .dashboard-card.tips { display: none; }
+            .dashboard-card.stats,
+            .dashboard-card.activity,
+            .dashboard-card.quick { max-width: 100%; overflow: hidden; }
+            .dashboard-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.42rem; }
+            .dashboard-metric { min-height: 3.2rem; padding: 0.48rem; }
+            .dashboard-metric b { font-size: 1.08rem; line-height: 1.05; }
+            .dashboard-metric span { font-size: 0.68rem !important; line-height: 1.16 !important; }
+            .dashboard-actions { grid-template-columns: repeat(auto-fit, minmax(7.4rem, 1fr)); gap: 0.48rem; }
+            .dashboard-action-card { min-height: 3.9rem; padding: 0.58rem; }
+            .dashboard-action-card strong { font-size: 0.82rem !important; }
+            .dashboard-action-card p { font-size: 0.70rem !important; line-height: 1.24 !important; }
+            .dashboard-action-card small { font-size: 0.68rem !important; }
+            .dashboard-list-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.45rem; padding: 0.42rem 0; }
+            .dashboard-list-row > * { min-width: 0; overflow-wrap: anywhere; }
+            .dashboard-preview { min-height: 9rem; }
+            .dashboard-log-track { min-height: 7.6rem; }
         }
         @media (max-width: 760px) { .app-page-shell { border-radius: 14px; padding: 0.75rem; } .app-page-header { grid-template-columns: 1fr; } .app-page-badge { justify-self: start; } }
         .dashboard-shell {
@@ -4548,7 +4572,7 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
 
     st.markdown(
         f"""
-        <div class="dashboard-shell" style="{style}">
+        <div class="dashboard-shell dashboard-grid-optimized" data-dashboard-grid="optimized" style="{style}">
           <div class="dashboard-overlay"></div>
           {logo_img}
           <div class="dashboard-content">

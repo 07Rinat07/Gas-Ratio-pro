@@ -79,7 +79,7 @@ Dashboard использует одну навигационную модель:
 - [x] Remove duplicated navigation buttons.
 - [x] Make dashboard navigation cards clickable.
 - [x] Remove duplicate `Open` buttons from dashboard cards.
-- [ ] Optimize dashboard grid for 1366×768 and 1440×900 notebooks.
+- [x] Optimize dashboard grid for 1366×768 and 1440×900 notebooks.
 - [ ] Redesign quick actions as compact clickable shortcuts.
 - [ ] Improve dashboard information hierarchy.
 - [ ] Run responsive layout audit after each UI stage.
