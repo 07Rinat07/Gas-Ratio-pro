@@ -1621,6 +1621,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         .dashboard-3 .workspace-search-box b { color: #f8fafc; font-size: 0.92rem !important; }
         .dashboard-3 .workspace-search-box span { color: #94a3b8; font-size: 0.78rem !important; }
+        .dashboard-3 .workspace-search-results { margin-bottom: var(--d3-gap); }
+        .dashboard-3 .workspace-search-result-row { border-left: 2px solid rgba(125, 211, 252, 0.42); }
         .dashboard-3 .dashboard-row-badge {
             display: inline-flex;
             align-items: center;
@@ -5005,6 +5007,83 @@ def _render_global_command_palette(active_project: ProjectRecord) -> None:
                 st.rerun()
     st.markdown("</div>", unsafe_allow_html=True)
 
+
+def _workspace_universal_search_results(
+    active_project: ProjectRecord,
+    query: str,
+    *,
+    limit: int = 8,
+) -> tuple[dict[str, str], ...]:
+    """Search all workspace entities that matter on the home screen.
+
+    The workspace search intentionally reuses the command-palette index so one
+    query covers projects, wells, LAS files, curves, calculations, reports,
+    documentation, history-oriented actions and pinned commands.
+    """
+    if not str(query or "").strip():
+        return ()
+    return _filter_command_palette_entries(
+        _command_palette_entries(active_project),
+        query,
+        category="Все",
+        recent_ids=st.session_state.get(COMMAND_PALETTE_RECENT_KEY, []),
+        favorite_ids=st.session_state.get(COMMAND_PALETTE_FAVORITES_KEY, []),
+        limit=limit,
+    )
+
+
+def _workspace_favorite_entries(active_project: ProjectRecord, *, limit: int = 5) -> tuple[dict[str, str], ...]:
+    """Return pinned workspace entries with safe defaults for a new install."""
+    entries = _command_palette_entries(active_project)
+    favorite_ids = st.session_state.get(COMMAND_PALETTE_FAVORITES_KEY, [])
+    pinned = _command_palette_recent_or_favorite_entries(entries, favorite_ids)
+    if pinned:
+        return pinned[: max(1, limit)]
+
+    defaults = (
+        "Создать или открыть проект",
+        "Импорт LAS / CSV / Excel",
+        "LAS Curve Manager",
+        "Documentation Center",
+        active_project.name,
+    )
+    selected: list[dict[str, str]] = []
+    for title in defaults:
+        for entry in entries:
+            if entry.get("title") == title and entry not in selected:
+                selected.append(entry)
+                break
+    return tuple(selected[: max(1, limit)])
+
+
+def _workspace_search_results_html(results: tuple[dict[str, str], ...], query: str) -> str:
+    """Render compact workspace search results without adding duplicated navigation cards."""
+    if not str(query or "").strip():
+        return ""
+    if not results:
+        return (
+            "<section class='dashboard-card workspace-search-results' id='dashboard-workspace-search-results'>"
+            "<h3>Результаты поиска <span>0</span></h3>"
+            "<div class='dashboard-empty-state'>Ничего не найдено. Попробуйте LAS, скважина, расчет, отчет, docs или curve.</div>"
+            "</section>"
+        )
+
+    rows = []
+    for entry in results:
+        rows.append(
+            "<div class='dashboard-list-row workspace-search-result-row'>"
+            f"<div><b>{_html_escape(entry.get('title', ''))}</b>"
+            f"<div class='dashboard-muted'>{_html_escape(entry.get('description', ''))}</div></div>"
+            f"<div class='dashboard-row-badge'>{_html_escape(_command_palette_entry_category(entry))}</div>"
+            "</div>"
+        )
+    return (
+        "<section class='dashboard-card workspace-search-results' id='dashboard-workspace-search-results'>"
+        f"<h3>Результаты поиска <span>{len(results)}</span></h3>"
+        + "".join(rows)
+        + "</section>"
+    )
+
 def _background_manager_rule(tab_name: str) -> dict[str, str]:
     """Return the final branded background rule for a page.
 
@@ -5184,13 +5263,24 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
         for item in activity_items
     ) or "<div class='dashboard-empty-state'>Пока нет проектной активности.</div>"
 
-    favorite_items = (
-        ("Активный проект", active_project.name, "проект"),
-        ("Шаблон расчета", "Gas ratio / Pixler / interpretation", "шаблон"),
-        ("Рабочий каталог", str(LAS_CORRELATION_PROJECTS_ROOT), "workspace"),
-        ("Документация", "Руководство пользователя и план проекта", "док"),
+    favorite_entries = _workspace_favorite_entries(active_project)
+    favorites_html = "".join(
+        _row(
+            entry.get("title", "Закрепленный объект"),
+            entry.get("description", "Workspace favorite"),
+            _command_palette_entry_category(entry),
+        )
+        for entry in favorite_entries
+    ) or "<div class='dashboard-empty-state'>Закрепите команды и объекты через Ctrl+K.</div>"
+
+    workspace_query = st.text_input(
+        "Глобальный поиск workspace",
+        key="workspace_universal_search_query",
+        placeholder="Поиск: проект, скважина, LAS, кривая, расчет, отчет, документация, история",
+        help="Поиск использует единый индекс Workspace и Ctrl+K: проекты, скважины, LAS, кривые, расчеты, отчеты, документация, история и избранное.",
     )
-    favorites_html = "".join(_row(title, meta, badge) for title, meta, badge in favorite_items)
+    workspace_search_results = _workspace_universal_search_results(active_project, workspace_query)
+    workspace_search_results_html = _workspace_search_results_html(workspace_search_results, workspace_query)
 
     metrics_html = f"""
       <div class='dashboard-status-grid dashboard-metrics'>
@@ -5216,8 +5306,9 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
             </div>
             <section class="dashboard-card workspace-search-card" aria-label="Universal search">
               <h3>Глобальный поиск <span>Universal Search</span></h3>
-              <div class="workspace-search-box"><b>🔎 Поиск по проектам, скважинам, LAS, кривым, расчетам, отчетам, документации и истории</b><span>Используйте верхнюю командную палитру Ctrl+K или Sidebar. Центральная область не содержит повторных навигационных карточек.</span></div>
+              <div class="workspace-search-box"><b>🔎 Поиск по проектам, скважинам, LAS, кривым, расчетам, отчетам, документации и истории</b><span>Введите запрос в поле Streamlit выше или используйте Ctrl+K. Центральная область не содержит повторных навигационных карточек.</span></div>
             </section>
+            {workspace_search_results_html}
             <section class="dashboard-layout dashboard-information-priority" data-dashboard-information-hierarchy="workspace-v1">
               <article class="dashboard-card stats" id="dashboard-project-status"><h3>Сводка workspace <span>{now_label}</span></h3>{metrics_html}</article>
               <article class="dashboard-card projects" id="dashboard-projects"><h3>Последние проекты <span>recent</span></h3>{recent_html}</article>
