@@ -312,6 +312,7 @@ COMMAND_PALETTE_ACTIVE_INDEX_KEY = "global_command_palette_active_index"
 DASHBOARD_LAST_QUICK_ACTION_KEY = "dashboard_last_quick_action"
 # Legacy compact sidebar width marker: 10.8rem. Current sidebar uses a wider modern project card.
 # Smoke-test marker for simplified clickable navigation labels: Старт.
+# Dashboard 3.0 nav fix marker: no-empty-nav-cards removes blank rectangles above navigation buttons.
 LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
 LAS_EDITOR_SESSION_SUMMARY_KEY = "las_editor_session_summary"
 LAS_EDITOR_RENAME_HISTORY_KEY = "las_editor_curve_rename_history"
@@ -830,7 +831,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             .dashboard-action-card p { font-size: 0.67rem !important; line-height: 1.18 !important; }
             .dashboard-action-card small { margin-top: 0.22rem; font-size: 0.64rem !important; }
             .simplified-dashboard-navigation .app-nav-description { display: none; }
-            .simplified-dashboard-navigation div[data-testid="stButton"] > button { min-height: 2.6rem; padding-left: 0.2rem; padding-right: 0.2rem; }
+            .simplified-dashboard-navigation.no-empty-nav-cards div[data-testid="stButton"] > button { min-height: 2.65rem; padding-left: 0.2rem; padding-right: 0.2rem; }
             .dashboard-preview { min-height: 7.2rem; }
             .dashboard-log-track { min-height: 6.2rem; }
             .dashboard-muted { font-size: 0.70rem !important; }
@@ -1313,12 +1314,12 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .quick-action-summary { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:0.42rem; }
         .quick-action-summary .dashboard-muted { font-size:0.72rem !important; line-height:1.22 !important; }
         .dashboard-action-card:hover { border-color: rgba(255, 138, 0, 0.55); transform: translateY(-1px); }
-        .simplified-dashboard-navigation .app-nav-card { padding: 0.32rem; border-radius: 15px; border: 1px solid rgba(148, 163, 184, 0.18); background: rgba(15, 23, 42, 0.16); transition: transform 150ms ease, border-color 150ms ease, background 150ms ease; }
-        .simplified-dashboard-navigation .app-nav-card.active { border-color: rgba(255, 138, 0, 0.58); background: rgba(255, 138, 0, 0.10); }
-        .simplified-dashboard-navigation .app-nav-card:hover { transform: translateY(-1px); border-color: rgba(255, 138, 0, 0.42); }
-        .simplified-dashboard-navigation .app-nav-description { display: block; margin: 0.28rem 0.18rem 0.08rem; color: #cbd5e1; font-size: 0.72rem; line-height: 1.25; min-height: 2.1em; overflow: hidden; }
-        .simplified-dashboard-navigation div[data-testid="stButton"] > button { min-height: 3.15rem; border-radius: 12px; font-weight: 900; }
-        .simplified-dashboard-navigation div[data-testid="stButton"] > button p { font-size: 0.92rem; }
+        .simplified-dashboard-navigation.no-empty-nav-cards .app-nav-card { display: none !important; }
+        .simplified-dashboard-navigation.no-empty-nav-cards { gap: 0.55rem; margin-bottom: 0.64rem; }
+        .simplified-dashboard-navigation.no-empty-nav-cards .app-nav-description { display: block; margin: 0.30rem 0.10rem 0; color: #cbd5e1; font-size: 0.72rem; line-height: 1.20; min-height: 2.0em; overflow: hidden; }
+        .simplified-dashboard-navigation.no-empty-nav-cards div[data-testid="stButton"] > button { min-height: 3.45rem; border-radius: 15px !important; font-weight: 950; border-color: rgba(148, 163, 184, 0.28) !important; background: linear-gradient(180deg, rgba(15, 23, 42, 0.88), rgba(12, 20, 35, 0.78)) !important; }
+        .simplified-dashboard-navigation.no-empty-nav-cards div[data-testid="stButton"] > button:hover { border-color: rgba(255, 138, 0, 0.65) !important; background: linear-gradient(180deg, rgba(255, 138, 0, 0.24), rgba(15, 23, 42, 0.82)) !important; }
+        .simplified-dashboard-navigation.no-empty-nav-cards div[data-testid="stButton"] > button p { font-size: 0.88rem; line-height: 1.18; }
         .dashboard-preview { min-height: 12rem; }
         .dashboard-log-track { display: grid; grid-template-columns: 0.45fr repeat(5, minmax(2.2rem, 1fr)); gap: 0.25rem; min-height: 10.2rem; margin-top: 0.55rem; overflow: hidden; }
         .dashboard-depth-track, .dashboard-curve-track {
@@ -4756,31 +4757,26 @@ def _active_main_tab() -> str:
 
 
 def _render_main_navigation() -> str:
-    """Render one simplified clickable navigation control per application section.
+    """Render one compact navigation button per application section.
 
-    The dashboard UX refactoring removes the old duplicated pattern where a
-    decorative card was followed by a second ``Открыть: ...`` button. In
-    Streamlit the real accessible click target is the button itself, so each
-    navigation item is represented by a single compact card-like button plus a
-    short caption.
+    Dashboard 3.0 must not draw an empty decorative rectangle above the real
+    Streamlit button. Each section is now represented by one accessible button
+    and one short text caption below it. The active page is shown in the button
+    label itself, which avoids fragile half-open HTML wrappers around widgets.
     """
     active_tab = _active_main_tab()
-    st.markdown('<div class="app-nav-wrap simplified-dashboard-navigation">', unsafe_allow_html=True)
+    st.markdown('<div class="app-nav-wrap simplified-dashboard-navigation no-empty-nav-cards">', unsafe_allow_html=True)
     columns = st.columns(len(NAVIGATION_ITEMS))
     for column, item in zip(columns, NAVIGATION_ITEMS):
         label = item["label"]
-        active_class = " active" if label == active_tab else ""
-        button_label = f"{item['icon']} {label}"
+        active_prefix = "▸ " if label == active_tab else ""
+        button_label = f"{active_prefix}{item['icon']} {label}"
         with column:
-            st.markdown(
-                f'<div class="app-nav-card{active_class}" data-target="{_html_escape(label)}">',
-                unsafe_allow_html=True,
-            )
             if st.button(button_label, key=f"main_nav_{label}", use_container_width=True, help=item["description"]):
                 _set_active_main_tab(label)
                 st.rerun()
             st.markdown(
-                f'<span class="app-nav-description">{_html_escape(item["description"])}</span></div>',
+                f'<span class="app-nav-description" data-target="{_html_escape(label)}">{_html_escape(item["description"])}</span>',
                 unsafe_allow_html=True,
             )
     st.markdown('</div>', unsafe_allow_html=True)

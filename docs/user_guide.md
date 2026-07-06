@@ -654,3 +654,6 @@ Gas Ratio Pro использует единый фирменный пакет as
 ### Адаптивность Dashboard
 
 Dashboard оптимизирован для ноутбуков 1366×768 и 1440×900: левая колонка компактная, центральная рабочая область занимает больше места, статистика и активность не выходят за границы экрана, а второстепенные блоки скрываются на узких экранах.
+
+## Dashboard 3.0 navigation
+The top Dashboard navigation uses one compact clickable control per section. Empty decorative boxes above buttons are intentionally removed to preserve vertical space on laptop screens.
