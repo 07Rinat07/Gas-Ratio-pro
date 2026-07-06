@@ -136,7 +136,12 @@ class InterpretationZone:
 
 
 def numeric_tablet_columns(df: pd.DataFrame) -> tuple[str, ...]:
-    if df is None or df.empty:
+    if df is None:
+        return ()
+    if isinstance(df, (list, tuple)):
+        if not df:
+            return ()
+    elif df.empty:
         return ()
 
     columns: list[str] = []
@@ -176,16 +181,20 @@ def _canonical_column_token(column: object) -> str:
     return "".join(char for char in str(column).lower() if char.isalnum())
 
 
-def _column_lookup_by_alias(df: pd.DataFrame) -> dict[str, str]:
+def _column_lookup_by_alias(df: pd.DataFrame | list[str] | tuple[str, ...]) -> dict[str, str]:
     lookup: dict[str, str] = {}
-    for column in numeric_tablet_columns(df):
+    if isinstance(df, (list, tuple)):
+        source_columns = list(df)
+    else:
+        source_columns = numeric_tablet_columns(df)
+    for column in source_columns:
         token = _canonical_column_token(column)
         if token and token not in lookup:
             lookup[token] = column
     return lookup
 
 
-def mud_gas_literature_tablet_columns(df: pd.DataFrame, *, limit: int | None = None) -> tuple[str, ...]:
+def mud_gas_literature_tablet_columns(df: pd.DataFrame | list[str] | tuple[str, ...], *, limit: int | None = None) -> tuple[str, ...]:
     """Return available tablet tracks in the order recommended by mud-gas literature.
 
     The preset follows ``docs/mud_gas_analysis_literature.md``: GR/lithology,
@@ -195,7 +204,12 @@ def mud_gas_literature_tablet_columns(df: pd.DataFrame, *, limit: int | None = N
     the engineer.
     """
 
-    if df is None or df.empty:
+    if df is None:
+        return ()
+    if isinstance(df, (list, tuple)):
+        if not df:
+            return ()
+    elif df.empty:
         return ()
 
     lookup = _column_lookup_by_alias(df)
@@ -265,16 +279,20 @@ def _canonical_column_token(column: object) -> str:
     return "".join(char for char in str(column).lower() if char.isalnum())
 
 
-def _column_lookup_by_alias(df: pd.DataFrame) -> dict[str, str]:
+def _column_lookup_by_alias(df: pd.DataFrame | list[str] | tuple[str, ...]) -> dict[str, str]:
     lookup: dict[str, str] = {}
-    for column in numeric_tablet_columns(df):
+    if isinstance(df, (list, tuple)):
+        source_columns = list(df)
+    else:
+        source_columns = numeric_tablet_columns(df)
+    for column in source_columns:
         token = _canonical_column_token(column)
         if token and token not in lookup:
             lookup[token] = column
     return lookup
 
 
-def mud_gas_literature_tablet_columns(df: pd.DataFrame, *, limit: int | None = None) -> tuple[str, ...]:
+def mud_gas_literature_tablet_columns(df: pd.DataFrame | list[str] | tuple[str, ...], *, limit: int | None = None) -> tuple[str, ...]:
     """Return available tablet tracks in the order recommended by mud-gas literature.
 
     The preset follows ``docs/mud_gas_analysis_literature.md``: GR/lithology,
@@ -284,7 +302,12 @@ def mud_gas_literature_tablet_columns(df: pd.DataFrame, *, limit: int | None = N
     the engineer.
     """
 
-    if df is None or df.empty:
+    if df is None:
+        return ()
+    if isinstance(df, (list, tuple)):
+        if not df:
+            return ()
+    elif df.empty:
         return ()
 
     lookup = _column_lookup_by_alias(df)

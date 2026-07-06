@@ -219,3 +219,12 @@ def test_legacy_tablet_fill_still_maps_to_zero_fill():
 
     assert configs[0].fill is True
     assert configs[0].fill_mode == "to_zero"
+
+
+def test_mud_gas_literature_tablet_columns_accepts_column_name_list() -> None:
+    from palettes.well_log_tablet import mud_gas_literature_tablet_columns
+
+    selected = mud_gas_literature_tablet_columns(["DEPT", "GR", "GAS", "C1", "C2"])
+
+    assert "GR" in selected
+    assert "GAS" in selected
