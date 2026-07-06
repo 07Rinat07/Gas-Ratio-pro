@@ -682,8 +682,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             --app-accent: #ff8a00;
             --app-accent-soft: rgba(255, 138, 0, 0.18);
             --global-bg-image: {app_background_css};
-            --brand-bg-size: clamp(210px, 29vw, 504px) auto;
-            --brand-bg-position: right 3vw bottom 1.2rem;
+            --brand-bg-size: clamp(170px, 21vw, 352px) auto;
+            --brand-bg-position: center bottom 1.1rem;
             --glass-dashboard: rgba(4, 10, 24, 0.08);
             --glass-readable: rgba(5, 10, 22, 0.18);
             --brand-overlay-dashboard: rgba(3, 7, 18, 0.04);
@@ -694,7 +694,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             --background-manager-documentation-glass: 0.64;
             --background-manager-workspace-glass: 0.90;
             --responsive-card-gap: 0.72rem;
-            --responsive-dashboard-columns: minmax(18rem, 0.82fr) minmax(28rem, 1.35fr) minmax(17rem, 0.68fr);
+            --responsive-dashboard-columns: minmax(12.5rem, 0.55fr) minmax(30rem, 1.55fr) minmax(15rem, 0.72fr);
             --responsive-dashboard-padding: 0.82rem;
         }
         .stApp {
@@ -715,16 +715,16 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (min-width: 1920px) {
             :root {
-                --brand-bg-size: clamp(364px, 25vw, 602px) auto;
-                --brand-bg-position: right 2.2vw bottom 1rem;
+                --brand-bg-size: clamp(255px, 18vw, 421px) auto;
+                --brand-bg-position: center bottom 1rem;
                 --responsive-card-gap: 0.86rem;
             }
         }
         @media (min-width: 2560px) {
             :root {
-                --brand-bg-size: clamp(434px, 20vw, 686px) auto;
-                --brand-bg-position: right 3vw bottom 1.2rem;
-                --responsive-dashboard-columns: minmax(26rem, 0.82fr) minmax(42rem, 1.4fr) minmax(24rem, 0.72fr);
+                --brand-bg-size: clamp(304px, 14vw, 480px) auto;
+                --brand-bg-position: center bottom 1.2rem;
+                --responsive-dashboard-columns: minmax(15rem, 0.55fr) minmax(48rem, 1.6fr) minmax(18rem, 0.7fr);
                 --responsive-card-gap: 1rem;
             }
             .dashboard-layout { max-width: min(100%, 2480px); margin-left: auto; margin-right: auto; }
@@ -739,7 +739,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (max-width: 1600px) {
             :root {
-                --responsive-dashboard-columns: minmax(16rem, 0.82fr) minmax(24rem, 1.28fr);
+                --responsive-dashboard-columns: minmax(13rem, 0.58fr) minmax(31rem, 1.42fr);
                 --responsive-card-gap: 0.66rem;
             }
             .dashboard-layout {
@@ -753,9 +753,9 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (max-width: 1440px) {
             :root {
-                --brand-bg-size: clamp(196px, 27vw, 378px) auto;
-                --brand-bg-position: right 1.4vw bottom 1rem;
-                --responsive-dashboard-columns: minmax(15rem, 0.85fr) minmax(23rem, 1.15fr);
+                --brand-bg-size: clamp(150px, 19vw, 265px) auto;
+                --brand-bg-position: center bottom 0.85rem;
+                --responsive-dashboard-columns: minmax(11.5rem, 0.50fr) minmax(34rem, 1.50fr);
             }
         }
         @media (max-width: 1366px) {
@@ -764,32 +764,41 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
                 --responsive-card-gap: 0.56rem;
             }
             .dashboard-layout {
+                grid-template-columns: minmax(10.5rem, 0.48fr) minmax(0, 1.52fr);
                 grid-template-areas:
-                    "welcome welcome"
-                    "quick quick"
-                    "projects stats"
-                    "activity activity"
-                    "preview license"
-                    "news tips";
+                    "welcome projects"
+                    "stats quick"
+                    "activity quick"
+                    "news preview"
+                    "tips license";
             }
-            .dashboard-card { padding: 0.74rem; }
-            .dashboard-card.welcome { min-height: 9.8rem; }
-            .dashboard-action-card { min-height: 4.7rem; padding: 0.74rem; }
-            .dashboard-log-track { min-height: 8.8rem; }
-            .dashboard-muted { font-size: 0.78rem !important; }
+            .dashboard-card { padding: 0.68rem; }
+            .dashboard-card.welcome { min-height: 7.2rem; }
+            .dashboard-card.welcome p:nth-of-type(1) { font-size: 0.82rem !important; line-height: 1.38 !important; }
+            .dashboard-card.welcome p:nth-of-type(n+2) { display: none; }
+            .dashboard-card.news li { font-size: 0.78rem !important; line-height: 1.34 !important; }
+            .dashboard-card.stats, .dashboard-card.activity { overflow: hidden; }
+            .dashboard-metrics { grid-template-columns: repeat(2, minmax(5.4rem, 1fr)); gap: 0.45rem; }
+            .dashboard-metric { min-height: 3.45rem; padding: 0.56rem; }
+            .dashboard-metric b { font-size: 1.18rem; }
+            .dashboard-metric span { font-size: 0.74rem !important; line-height: 1.22 !important; }
+            .dashboard-action-card { min-height: 4.5rem; padding: 0.68rem; }
+            .dashboard-actions { grid-template-columns: repeat(3, minmax(9.2rem, 1fr)); gap: 0.52rem; }
+            .dashboard-log-track { min-height: 7.6rem; }
+            .dashboard-muted { font-size: 0.74rem !important; }
         }
         @media (max-width: 1024px) {
             :root {
-                --brand-bg-size: min(50vw, 308px) auto;
-                --brand-bg-position: center top 5.6rem;
+                --brand-bg-size: min(35vw, 216px) auto;
+                --brand-bg-position: center bottom 0.75rem;
                 --responsive-card-gap: 0.62rem;
             }
             .dashboard-search-chip:nth-child(n+3) { display: none; }
         }
         @media (max-width: 900px) {
             :root {
-                --brand-bg-size: min(55vw, 294px) auto;
-                --brand-bg-position: center top 5.2rem;
+                --brand-bg-size: min(38vw, 206px) auto;
+                --brand-bg-position: center bottom 0.65rem;
             }
         }
         @media (max-width: 1280px) {
@@ -1029,6 +1038,22 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .app-page-shell hr { border-color: rgba(148, 163, 184, 0.18) !important; }
         .app-page-shell div[data-testid="stAlert"], .app-page-shell div[data-testid="stFileUploader"] section, .app-page-shell div[data-testid="stDataFrame"], .app-page-shell div[data-testid="stPlotlyChart"] { background-color: rgba(15, 23, 42, 0.72) !important; border-color: rgba(148, 163, 184, 0.20) !important; }
         .app-page-shell div[data-testid="stExpander"] details { border-radius: 14px; border-color: rgba(148, 163, 184, 0.22); background: rgba(15, 23, 42, 0.42); }
+        @media (min-width: 1201px) and (max-width: 1440px) {
+            .dashboard-layout {
+                grid-template-columns: minmax(11rem, 0.46fr) minmax(0, 1.22fr) minmax(13.2rem, 0.58fr);
+                grid-template-areas:
+                    "welcome projects stats"
+                    "news quick activity"
+                    "tips quick license";
+            }
+            .dashboard-card.welcome { min-height: 8rem; }
+            .dashboard-card.welcome p:nth-of-type(n+2) { display: none; }
+            .dashboard-card.stats { max-width: 100%; }
+            .dashboard-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .dashboard-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .dashboard-action-card strong { font-size: 0.86rem !important; }
+            .dashboard-action-card p { font-size: 0.73rem !important; line-height: 1.34 !important; }
+        }
         @media (max-width: 760px) { .app-page-shell { border-radius: 14px; padding: 0.75rem; } .app-page-header { grid-template-columns: 1fr; } .app-page-badge { justify-self: start; } }
         .dashboard-shell {
             position: relative;
@@ -1075,7 +1100,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .navbar-brand-logo { width: 2.15rem; height: 2.15rem; object-fit: contain; filter: drop-shadow(0 8px 16px rgba(0,0,0,0.45)); }
         .dashboard-navbar {
             display: grid;
-            grid-template-columns: minmax(12rem, 0.5fr) minmax(28rem, 1.5fr) minmax(16rem, 0.65fr);
+            grid-template-columns: minmax(10rem, 0.48fr) minmax(24rem, 1.48fr) minmax(14rem, 0.64fr);
             align-items: center;
             gap: 0.8rem;
             padding: 0.78rem 0.95rem;
@@ -1183,7 +1208,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             border-bottom: 1px solid rgba(148, 163, 184, 0.16);
         }
         .dashboard-muted { color: #aeb8c8 !important; font-size: 0.82rem !important; }
-        .dashboard-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.2rem, 1fr)); gap: 0.55rem; }
+        .dashboard-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(6.2rem, 1fr)); gap: 0.55rem; }
         .dashboard-metric {
             min-height: 4rem;
             padding: 0.75rem;
@@ -1193,7 +1218,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         .dashboard-metric b { display: block; font-size: 1.55rem; }
         .dashboard-metric span { color: #d1d5db; font-weight: 800; }
-        .dashboard-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr)); gap: 0.65rem; }
+        .dashboard-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(10.2rem, 1fr)); gap: 0.65rem; }
         .dashboard-action-card {
             min-height: 5.1rem;
             padding: 0.9rem;
@@ -1243,15 +1268,16 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             .dashboard-navbar { grid-template-columns: 1fr; }
             .dashboard-search { justify-content: flex-start; flex-wrap: wrap; }
             .dashboard-layout {
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: minmax(9.5rem, 0.46fr) minmax(0, 1.54fr);
                 grid-template-areas:
-                    "welcome stats"
-                    "projects projects"
-                    "quick quick"
-                    "preview preview"
-                    "news activity"
+                    "welcome projects"
+                    "stats quick"
+                    "activity quick"
+                    "news preview"
                     "tips license";
             }
+            .dashboard-actions { grid-template-columns: repeat(2, minmax(9rem, 1fr)); }
+            .dashboard-card.welcome p:nth-of-type(n+2) { display: none; }
         }
         @media (max-width: 760px) {
             .block-container { padding: 0.25rem 0.35rem 1.4rem 0.35rem; max-width: 100vw; }
@@ -1280,8 +1306,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (max-width: 480px) {
             :root {
-                --brand-bg-size: min(60vw, 224px) auto;
-                --brand-bg-position: center top 4.8rem;
+                --brand-bg-size: min(42vw, 157px) auto;
+                --brand-bg-position: center bottom 0.5rem;
                 --responsive-dashboard-padding: 0.42rem;
             }
             .dashboard-brand { font-size: 0.92rem; }

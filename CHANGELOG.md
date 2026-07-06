@@ -149,3 +149,9 @@ git status --short
 ```
 
 - Добавлены координаты скважины в Well Manager: X/Y, широта/долгота, проверка диапазонов и отображение в Project Explorer.
+
+## Dashboard responsive correction
+
+- Reduced the low-content welcome rail on laptop widths so project statistics and activity panels fit without horizontal clipping.
+- Centered the branded dashboard background and reduced its visual footprint for better readability.
+- Added regression checks for laptop dashboard layout CSS rules.
