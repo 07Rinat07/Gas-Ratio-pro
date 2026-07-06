@@ -12,6 +12,7 @@ from textwrap import dedent
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
@@ -5309,10 +5310,64 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
       </div>
     """
 
-    st.markdown(
-        dedent(f"""
+    # Render the workspace inside a Streamlit HTML component instead of Markdown.
+    # This avoids a Streamlit/Markdown regression where layout tags can be shown
+    # as plain text on the page (<section>/<article>/<div> visible to the user).
+    workspace_component_html = dedent(f"""
+    <!doctype html>
+    <html lang="ru">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          :root {{ color-scheme: dark; }}
+          * {{ box-sizing: border-box; }}
+          html, body {{ margin: 0; padding: 0; overflow-x: hidden; background: transparent; font-family: Inter, Segoe UI, Roboto, Arial, sans-serif; }}
+          .dashboard-shell {{ width: 100%; max-width: 100%; border: 1px solid rgba(148,163,184,.18); border-radius: 18px; overflow: hidden; background: radial-gradient(circle at 82% 8%, rgba(30,144,255,.10), transparent 28%), radial-gradient(circle at 16% 92%, rgba(255,138,0,.10), transparent 30%), linear-gradient(135deg, rgba(2,6,23,.96), rgba(7,12,24,.91)); box-shadow: 0 24px 82px rgba(0,0,0,.42); }}
+          .dashboard-main {{ padding: clamp(.56rem, .9vw, .92rem); min-width: 0; }}
+          .dashboard-navbar {{ display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .55rem; align-items: center; margin-bottom: .62rem; }}
+          .dashboard-title-row {{ display: flex; gap: .78rem; align-items: center; min-width: 0; }}
+          .dashboard-title-icon {{ width: 2.45rem; height: 2.45rem; display: grid; place-items: center; border-radius: 12px; color: #38bdf8; background: rgba(14,165,233,.12); border: 1px solid rgba(56,189,248,.22); font-size: 1.12rem; flex: 0 0 auto; }}
+          .dashboard-page-title {{ margin: 0; color: #f8fafc; font-size: clamp(1.14rem, 1.42vw, 1.62rem); line-height: 1.06; font-weight: 950; }}
+          .dashboard-page-subtitle {{ margin: .12rem 0 0; color: #cbd5e1; font-size: .77rem; line-height: 1.22; }}
+          .dashboard-search {{ display: flex; justify-content: flex-end; gap: .42rem; flex-wrap: wrap; }}
+          .dashboard-search-chip {{ color: #dbeafe; border: 1px solid rgba(148,163,184,.22); background: rgba(15,23,42,.72); border-radius: 999px; padding: .46rem .68rem; font-weight: 850; font-size: .76rem; white-space: nowrap; }}
+          .dashboard-card {{ min-width: 0; max-width: 100%; border-radius: 15px; padding: clamp(.66rem, .82vw, .88rem); background: linear-gradient(180deg, rgba(15,23,42,.76), rgba(7,12,24,.62)); border: 1px solid rgba(148,163,184,.18); box-shadow: 0 14px 38px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.04); }}
+          .dashboard-card h3 {{ display: flex; justify-content: space-between; align-items: center; gap: .6rem; margin: 0 0 .52rem; color: #f8fafc; font-size: .92rem; line-height: 1.12; }}
+          .dashboard-card h3 span {{ color: #38bdf8; font-size: .74rem; font-weight: 850; }}
+          .workspace-search-card {{ margin-bottom: .62rem; }}
+          .workspace-search-box {{ display: grid; gap: .18rem; padding: .48rem .58rem; border-radius: 13px; background: rgba(15,23,42,.58); border: 1px solid rgba(56,189,248,.18); }}
+          .workspace-search-box b {{ color: #f8fafc; font-size: .76rem; line-height: 1.18; }}
+          .workspace-search-box span {{ color: #94a3b8; font-size: .66rem; line-height: 1.18; }}
+          .dashboard-layout {{ display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: .62rem; align-items: stretch; min-width: 0; max-width: 100%; overflow: hidden; }}
+          .dashboard-card.stats {{ grid-column: 1 / -1; }}
+          .dashboard-card.projects {{ grid-column: span 4; }}
+          .dashboard-card.recent-las {{ grid-column: span 4; }}
+          .dashboard-card.calculations {{ grid-column: span 4; }}
+          .dashboard-card.reports {{ grid-column: span 4; }}
+          .dashboard-card.activity {{ grid-column: span 4; }}
+          .dashboard-card.favorites {{ grid-column: span 4; }}
+          .dashboard-status-grid, .dashboard-metrics {{ display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .5rem; min-width: 0; max-width: 100%; }}
+          .dashboard-status-pill, .dashboard-metric {{ min-height: 2.58rem; min-width: 0; padding: .36rem .44rem; border-radius: 13px; border: 1px solid rgba(148,163,184,.18); background: linear-gradient(135deg, rgba(30,64,175,.18), rgba(15,23,42,.30)); }}
+          .dashboard-status-pill b, .dashboard-metric b {{ display: block; color: #f8fafc; font-size: .96rem; line-height: 1.02; }}
+          .dashboard-status-pill span, .dashboard-metric span {{ color: #cbd5e1; font-weight: 850; font-size: .64rem; line-height: 1.08; }}
+          .dashboard-list-row {{ display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .58rem; padding: .42rem 0; border-bottom: 1px solid rgba(148,163,184,.12); }}
+          .dashboard-list-row:last-child {{ border-bottom: 0; }}
+          .dashboard-list-row b {{ color: #f8fafc; font-size: .82rem; line-height: 1.22; }}
+          .dashboard-list-row > div:first-child, .dashboard-list-row b, .dashboard-muted {{ min-width: 0; overflow-wrap: anywhere; }}
+          .dashboard-muted {{ color: #94a3b8; font-size: .70rem; line-height: 1.26; }}
+          .dashboard-row-badge {{ display: inline-flex; align-items: center; justify-content: center; max-width: 8.6rem; padding: .16rem .42rem; border-radius: 999px; color: #bae6fd; background: rgba(14,165,233,.12); border: 1px solid rgba(14,165,233,.20); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .68rem; }}
+          .dashboard-empty-state {{ color: #94a3b8; font-size: .74rem; line-height: 1.28; padding: .2rem 0; }}
+          .workspace-search-results {{ margin-bottom: .62rem; }}
+          .workspace-search-result-row {{ border-left: 2px solid rgba(125,211,252,.42); padding-left: .52rem; }}
+          .dashboard-footer {{ display: flex; justify-content: space-between; gap: .8rem; margin-top: .78rem; color: #aeb8c8; font-size: .74rem; }}
+          @media (max-width: 1366px) {{ .dashboard-main {{ padding: .48rem; }} .dashboard-layout {{ gap: .52rem; }} .dashboard-card {{ padding: .58rem; }} .dashboard-status-grid, .dashboard-metrics {{ grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .38rem; }} .dashboard-status-pill, .dashboard-metric {{ min-height: 2.28rem; padding: .30rem .38rem; }} .dashboard-card.projects, .dashboard-card.recent-las {{ grid-column: span 6; }} .dashboard-card.calculations, .dashboard-card.reports, .dashboard-card.activity {{ grid-column: span 4; }} .dashboard-card.favorites {{ grid-column: 1 / -1; }} }}
+          @media (max-width: 920px) {{ .dashboard-navbar {{ grid-template-columns: 1fr; }} .dashboard-search {{ justify-content: flex-start; }} .dashboard-card.projects, .dashboard-card.recent-las, .dashboard-card.calculations, .dashboard-card.reports, .dashboard-card.activity, .dashboard-card.favorites {{ grid-column: 1 / -1; }} .dashboard-status-grid, .dashboard-metrics {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} .dashboard-footer {{ flex-direction: column; gap: .25rem; }} }}
+        </style>
+      </head>
+      <body>
         <div class="dashboard-shell dashboard-3 project-workspace-1 dashboard-compact-workspace-fix dashboard-grid-optimized dashboard-information-hierarchy dashboard-responsive-audit dashboard-3-branch" data-dashboard-branch="Project Workspace 1.0" data-dashboard-workspace="project-workspace-1" data-dashboard-background-refinement="center-contained" data-dashboard-grid="optimized" data-dashboard-hierarchy="information" data-dashboard-responsive-audit="notebook-validated" style="{style}">
-          <span class="dashboard-3-branch-marker">Dashboard 3.0 branch · Project Workspace 1.0</span>
+          <span class="dashboard-3-branch-marker" hidden>Dashboard 3.0 branch · Project Workspace 1.0</span>
           <div class="dashboard-main dashboard-workspace-main" id="dashboard-home">
             <div class="dashboard-navbar glass-navbar">
               <div class="dashboard-title-row">
@@ -5338,9 +5393,10 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
             <div class="dashboard-footer"><span>Готов к работе · навигация только в Sidebar</span><span>Версия: 2.0.0 · {now_label}</span></div>
           </div>
         </div>
-        """).strip(),
-        unsafe_allow_html=True,
-    )
+      </body>
+    </html>
+    """).strip()
+    components.html(workspace_component_html, height=760, scrolling=False)
 
 def _render_start_tab(active_project: ProjectRecord) -> None:
     projects = list_projects(LAS_CORRELATION_PROJECTS_ROOT)
