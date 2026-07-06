@@ -82,6 +82,11 @@ from las_editor.curve_duplicates import (
     curve_duplicate_table_rows,
     detect_curve_duplicates,
 )
+from las_editor.curve_quality import (
+    curve_quality_flag_rows,
+    curve_quality_summary_rows,
+    detect_curve_quality_flags,
+)
 from las_editor.curve_metadata import (
     assign_curve_metadata,
     available_metadata_fields,
@@ -306,6 +311,8 @@ LAS_EDITOR_METADATA_HISTORY_KEY = "las_editor_curve_metadata_history"
 LAS_EDITOR_METADATA_KEY = "las_editor_curve_metadata"
 LAS_EDITOR_DUPLICATES_KEY = "las_editor_curve_duplicate_candidates"
 LAS_EDITOR_DUPLICATE_SUMMARY_KEY = "las_editor_curve_duplicate_summary"
+LAS_EDITOR_QUALITY_FLAGS_KEY = "las_editor_curve_quality_flags"
+LAS_EDITOR_QUALITY_SUMMARY_KEY = "las_editor_curve_quality_summary"
 PROJECT_SESSION_SHEETS_KEY = "project_session_sheets"
 PROJECT_SESSION_SUMMARY_KEY = "project_session_summary"
 PROJECT_SESSION_PROJECT_ID_KEY = "project_session_project_id"
@@ -377,7 +384,7 @@ BACKGROUND_MANAGER_RULES: dict[str, dict[str, str]] = {
         "overlay": "0.25",
         "glass": "0.58",
         "position": "right 3vw bottom 1.2rem",
-        "size": "clamp(300px, 42vw, 720px) auto",
+        "size": "clamp(210px, 29vw, 504px) auto",
         "reason": "Dashboard keeps the branded image visible behind glass cards without hiding text.",
     },
     "Инструкции и документация": {
@@ -385,7 +392,7 @@ BACKGROUND_MANAGER_RULES: dict[str, dict[str, str]] = {
         "overlay": "0.22",
         "glass": "0.64",
         "position": "right 2vw top 6rem",
-        "size": "clamp(320px, 38vw, 760px) auto",
+        "size": "clamp(224px, 27vw, 532px) auto",
         "reason": "Documentation can show the branded hero artwork while long text stays on readable glass panels.",
     },
     "Работа с данными": {
@@ -675,7 +682,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             --app-accent: #ff8a00;
             --app-accent-soft: rgba(255, 138, 0, 0.18);
             --global-bg-image: {app_background_css};
-            --brand-bg-size: clamp(300px, 42vw, 720px) auto;
+            --brand-bg-size: clamp(210px, 29vw, 504px) auto;
             --brand-bg-position: right 3vw bottom 1.2rem;
             --glass-dashboard: rgba(4, 10, 24, 0.08);
             --glass-readable: rgba(5, 10, 22, 0.18);
@@ -687,7 +694,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             --background-manager-documentation-glass: 0.64;
             --background-manager-workspace-glass: 0.90;
             --responsive-card-gap: 0.72rem;
-            --responsive-dashboard-columns: minmax(22rem, 0.82fr) minmax(36rem, 1.35fr) minmax(20rem, 0.68fr);
+            --responsive-dashboard-columns: minmax(18rem, 0.82fr) minmax(28rem, 1.35fr) minmax(17rem, 0.68fr);
             --responsive-dashboard-padding: 0.82rem;
         }
         .stApp {
@@ -708,14 +715,14 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (min-width: 1920px) {
             :root {
-                --brand-bg-size: clamp(520px, 36vw, 860px) auto;
+                --brand-bg-size: clamp(364px, 25vw, 602px) auto;
                 --brand-bg-position: right 2.2vw bottom 1rem;
                 --responsive-card-gap: 0.86rem;
             }
         }
         @media (min-width: 2560px) {
             :root {
-                --brand-bg-size: clamp(620px, 28vw, 980px) auto;
+                --brand-bg-size: clamp(434px, 20vw, 686px) auto;
                 --brand-bg-position: right 3vw bottom 1.2rem;
                 --responsive-dashboard-columns: minmax(26rem, 0.82fr) minmax(42rem, 1.4fr) minmax(24rem, 0.72fr);
                 --responsive-card-gap: 1rem;
@@ -732,21 +739,38 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (max-width: 1600px) {
             :root {
-                --responsive-dashboard-columns: minmax(19rem, 0.78fr) minmax(30rem, 1.28fr) minmax(18rem, 0.68fr);
+                --responsive-dashboard-columns: minmax(16rem, 0.82fr) minmax(24rem, 1.28fr);
                 --responsive-card-gap: 0.66rem;
+            }
+            .dashboard-layout {
+                grid-template-areas:
+                    "welcome quick"
+                    "projects stats"
+                    "preview activity"
+                    "news tips"
+                    "license license";
             }
         }
         @media (max-width: 1440px) {
             :root {
-                --brand-bg-size: clamp(280px, 38vw, 540px) auto;
+                --brand-bg-size: clamp(196px, 27vw, 378px) auto;
                 --brand-bg-position: right 1.4vw bottom 1rem;
-                --responsive-dashboard-columns: minmax(18rem, 0.75fr) minmax(28rem, 1.24fr) minmax(17rem, 0.64fr);
+                --responsive-dashboard-columns: minmax(15rem, 0.85fr) minmax(23rem, 1.15fr);
             }
         }
         @media (max-width: 1366px) {
             :root {
                 --responsive-dashboard-padding: 0.62rem;
                 --responsive-card-gap: 0.56rem;
+            }
+            .dashboard-layout {
+                grid-template-areas:
+                    "welcome welcome"
+                    "quick quick"
+                    "projects stats"
+                    "activity activity"
+                    "preview license"
+                    "news tips";
             }
             .dashboard-card { padding: 0.74rem; }
             .dashboard-card.welcome { min-height: 9.8rem; }
@@ -756,7 +780,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (max-width: 1024px) {
             :root {
-                --brand-bg-size: min(72vw, 440px) auto;
+                --brand-bg-size: min(50vw, 308px) auto;
                 --brand-bg-position: center top 5.6rem;
                 --responsive-card-gap: 0.62rem;
             }
@@ -764,7 +788,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (max-width: 900px) {
             :root {
-                --brand-bg-size: min(78vw, 420px) auto;
+                --brand-bg-size: min(55vw, 294px) auto;
                 --brand-bg-position: center top 5.2rem;
             }
         }
@@ -1141,7 +1165,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         .dashboard-card p,
         .dashboard-card li,
-        .dashboard-card div { color: #e5e7eb; overflow-wrap: anywhere; }
+        .dashboard-card div { color: #e5e7eb; overflow-wrap: anywhere; min-width: 0; }
         .dashboard-card.welcome { grid-area: welcome; min-height: 11.5rem; }
         .dashboard-card.projects { grid-area: projects; }
         .dashboard-card.stats { grid-area: stats; }
@@ -1159,7 +1183,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             border-bottom: 1px solid rgba(148, 163, 184, 0.16);
         }
         .dashboard-muted { color: #aeb8c8 !important; font-size: 0.82rem !important; }
-        .dashboard-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; }
+        .dashboard-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.2rem, 1fr)); gap: 0.55rem; }
         .dashboard-metric {
             min-height: 4rem;
             padding: 0.75rem;
@@ -1183,7 +1207,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .quick-action-wired { cursor: default; }
         .dashboard-action-card:hover { border-color: rgba(255, 138, 0, 0.55); transform: translateY(-1px); }
         .dashboard-preview { min-height: 12rem; }
-        .dashboard-log-track { display: grid; grid-template-columns: 0.45fr repeat(5, 1fr); gap: 0.25rem; min-height: 10.2rem; margin-top: 0.55rem; }
+        .dashboard-log-track { display: grid; grid-template-columns: 0.45fr repeat(5, minmax(2.2rem, 1fr)); gap: 0.25rem; min-height: 10.2rem; margin-top: 0.55rem; overflow: hidden; }
         .dashboard-depth-track, .dashboard-curve-track {
             position: relative;
             border: 1px solid rgba(148, 163, 184, 0.18);
@@ -1256,7 +1280,7 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         @media (max-width: 480px) {
             :root {
-                --brand-bg-size: min(86vw, 320px) auto;
+                --brand-bg-size: min(60vw, 224px) auto;
                 --brand-bg-position: center top 4.8rem;
                 --responsive-dashboard-padding: 0.42rem;
             }
@@ -2616,6 +2640,120 @@ def _render_las_curve_duplicate_detection(prepared_df: pd.DataFrame) -> None:
             hide_index=True,
         )
     st.caption("Duplicate detection — диагностический этап перед merge/rename. Удаление кривых здесь намеренно не выполняется.")
+
+
+def _render_las_curve_quality_flags(prepared_df: pd.DataFrame) -> None:
+    st.markdown("### Curve Manager · Curve quality flags")
+    st.caption(
+        "Quality flags показывают пропуски, плоские интервалы, выбросы и нечисловые кривые. "
+        "Это диагностический слой: исходные LAS-значения не изменяются."
+    )
+
+    column_names = [str(column) for column in prepared_df.columns]
+    group_overrides = dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {}))
+    category_overrides = dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {}))
+    unit_overrides = dict(st.session_state.get(LAS_EDITOR_UNIT_OVERRIDES_KEY, {}))
+
+    missing_col, flat_col, spike_col, action_col = st.columns([1, 1, 1, 1])
+    missing_threshold = missing_col.slider(
+        "Порог пропусков",
+        min_value=0.01,
+        max_value=0.80,
+        value=0.15,
+        step=0.01,
+        format="%.2f",
+        key="las_editor_quality_missing_threshold",
+    )
+    flat_min_length = flat_col.number_input(
+        "Мин. длина flat",
+        min_value=3,
+        max_value=200,
+        value=4,
+        step=1,
+        key="las_editor_quality_flat_min_length",
+    )
+    spike_threshold = spike_col.slider(
+        "Порог spike z-score",
+        min_value=3.0,
+        max_value=12.0,
+        value=6.0,
+        step=0.5,
+        key="las_editor_quality_spike_threshold",
+    )
+    should_run = action_col.button(
+        "Проверить качество кривых",
+        use_container_width=True,
+        key="las_editor_quality_flags_apply",
+    )
+
+    if LAS_EDITOR_QUALITY_FLAGS_KEY not in st.session_state or should_run:
+        result = detect_curve_quality_flags(
+            prepared_df,
+            group_overrides=group_overrides,
+            category_overrides=category_overrides,
+            unit_overrides=unit_overrides,
+            missing_ratio_threshold=missing_threshold,
+            flat_run_min_length=int(flat_min_length),
+            spike_zscore_threshold=spike_threshold,
+            references=_las_editor_reference_state(column_names),
+        )
+        st.session_state[LAS_EDITOR_QUALITY_FLAGS_KEY] = result.flags
+        st.session_state[LAS_EDITOR_QUALITY_SUMMARY_KEY] = result.summary
+        if should_run:
+            for message in result.diagnostics:
+                st.info(message)
+
+    flags = tuple(st.session_state.get(LAS_EDITOR_QUALITY_FLAGS_KEY, ()))
+    summary = dict(st.session_state.get(LAS_EDITOR_QUALITY_SUMMARY_KEY, {}))
+    summary.setdefault("total", len(flags))
+
+    if flags:
+        st.warning(f"Найдено quality flags: {summary.get('total', len(flags))}.")
+    else:
+        st.success("Quality flags не найдены при текущих порогах.")
+
+    st.dataframe(
+        pd.DataFrame(curve_quality_summary_rows(summary)).rename(
+            columns={"flag_label": "Тип", "flag_count": "Флагов"}
+        )[["Тип", "Флагов"]],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    rows = curve_quality_flag_rows(flags)
+    if rows:
+        st.dataframe(
+            pd.DataFrame(rows).rename(
+                columns={
+                    "curve_name": "Кривая",
+                    "flag_label": "Флаг",
+                    "severity_label": "Уровень",
+                    "message": "Что найдено",
+                    "sample_count": "Точек",
+                    "affected_count": "Затронуто",
+                    "affected_ratio": "Доля",
+                    "group": "Группа",
+                    "category": "Категория",
+                    "unit": "Единица",
+                    "recommendation": "Рекомендация",
+                }
+            )[[
+                "Кривая",
+                "Флаг",
+                "Уровень",
+                "Что найдено",
+                "Точек",
+                "Затронуто",
+                "Доля",
+                "Группа",
+                "Категория",
+                "Единица",
+                "Рекомендация",
+            ]],
+            use_container_width=True,
+            hide_index=True,
+        )
+    st.caption("Quality flags помогают проверить кривые перед bulk edit, import/export rules и отчетами.")
 
 
 def _render_las_curve_metadata_editor(prepared_df: pd.DataFrame) -> None:
@@ -4412,6 +4550,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     _render_las_curve_units_manager(prepared_df)
     _render_las_curve_metadata_editor(prepared_df)
     _render_las_curve_duplicate_detection(prepared_df)
+    _render_las_curve_quality_flags(prepared_df)
     prepared_df = _render_las_curve_merge_manager(prepared_df)
 
     column_names = [str(column) for column in prepared_df.columns]

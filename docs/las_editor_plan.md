@@ -289,3 +289,10 @@ LAS Editor remains a data-first workspace. The global branded background may exi
 ### Этап Curve Manager · Curve duplicate detection
 
 Статус: реализовано. Добавлен diagnostic-only поиск дубликатов LAS-кривых. Логика находится в `las_editor/curve_duplicates.py`, UI-блок — во вкладке `LAS-редактор`, тесты — в `tests/test_curve_duplicates.py`. Проверка сравнивает mnemonic/alias, точное совпадение значений, high correlation и shared samples, но не удаляет и не объединяет кривые автоматически.
+
+
+## Curve quality flags
+
+Блок `Curve Manager · Curve quality flags` в LAS-редакторе выполняет диагностическую проверку кривых без изменения исходных LAS-данных. Проверяются пропуски, длинные плоские интервалы, spike-кандидаты и нечисловые кривые. Для каждого флага показываются severity, число затронутых точек, доля интервала, группа, категория, единица измерения и рекомендация инженеру.
+
+Инструмент нужен перед bulk edit, правилами импорта/экспорта и отчетами: он помогает увидеть проблемные кривые до сохранения версии или дальнейшей интерпретации.
