@@ -92,6 +92,11 @@ from las_editor.curve_mnemonics import (
     mnemonic_reference_manifest,
     mnemonic_summary_rows,
 )
+from las_editor.curve_bulk_edit import (
+    BULK_EDIT_ACTION_LABELS,
+    apply_curve_bulk_edit,
+    curve_bulk_edit_operation_rows,
+)
 from las_editor.curve_metadata import (
     assign_curve_metadata,
     available_metadata_fields,
@@ -319,6 +324,7 @@ LAS_EDITOR_DUPLICATE_SUMMARY_KEY = "las_editor_curve_duplicate_summary"
 LAS_EDITOR_QUALITY_FLAGS_KEY = "las_editor_curve_quality_flags"
 LAS_EDITOR_QUALITY_SUMMARY_KEY = "las_editor_curve_quality_summary"
 LAS_EDITOR_MNEMONICS_KEY = "las_editor_curve_mnemonics"
+LAS_EDITOR_BULK_EDIT_LOG_KEY = "las_editor_curve_bulk_edit_log"
 PROJECT_SESSION_SHEETS_KEY = "project_session_sheets"
 PROJECT_SESSION_SUMMARY_KEY = "project_session_summary"
 PROJECT_SESSION_PROJECT_ID_KEY = "project_session_project_id"
@@ -2732,6 +2738,112 @@ def _render_las_curve_duplicate_detection(prepared_df: pd.DataFrame) -> None:
     st.caption("Duplicate detection — диагностический этап перед merge/rename. Удаление кривых здесь намеренно не выполняется.")
 
 
+
+def _render_las_curve_bulk_edit_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
+    st.markdown("### Curve Manager · Curve bulk edit")
+    st.caption(
+        "Массовое редактирование применяет одно явное действие к выбранным кривым: "
+        "назначение группы, категории, единицы, metadata или аккуратный prefix/suffix rename. "
+        "Все операции пишутся в журнал и не выполняются молча."
+    )
+
+    columns = [str(column) for column in prepared_df.columns]
+    if not columns:
+        st.info("Нет кривых для массового редактирования.")
+        return prepared_df
+
+    selected_curves = st.multiselect(
+        "Кривые для bulk edit",
+        options=columns,
+        default=columns[: min(3, len(columns))],
+        key="las_editor_bulk_edit_selected_curves",
+    )
+    action = st.selectbox(
+        "Действие",
+        options=tuple(BULK_EDIT_ACTION_LABELS),
+        format_func=lambda value: BULK_EDIT_ACTION_LABELS.get(value, value),
+        key="las_editor_bulk_edit_action",
+    )
+
+    value_col1, value_col2, value_col3 = st.columns(3)
+    group = value_col1.text_input("Группа", value="", key="las_editor_bulk_edit_group")
+    category = value_col2.text_input("Категория", value="", key="las_editor_bulk_edit_category")
+    unit = value_col3.text_input("Единица", value="", key="las_editor_bulk_edit_unit")
+
+    affix_col1, affix_col2 = st.columns(2)
+    prefix = affix_col1.text_input("Prefix", value="", key="las_editor_bulk_edit_prefix")
+    suffix = affix_col2.text_input("Suffix", value="", key="las_editor_bulk_edit_suffix")
+
+    with st.expander("Metadata patch", expanded=False):
+        description = st.text_input("Описание", value="", key="las_editor_bulk_edit_metadata_description")
+        status = st.text_input("Статус", value="", key="las_editor_bulk_edit_metadata_status")
+        quality = st.text_input("Качество", value="", key="las_editor_bulk_edit_metadata_quality")
+        comment = st.text_area("Комментарий", value="", key="las_editor_bulk_edit_metadata_comment")
+
+    metadata_patch = {
+        key: value
+        for key, value in {
+            "description": description,
+            "status": status,
+            "quality": quality,
+            "comment": comment,
+        }.items()
+        if str(value).strip()
+    }
+
+    if st.button("Применить bulk edit", use_container_width=True, key="las_editor_bulk_edit_apply"):
+        try:
+            result = apply_curve_bulk_edit(
+                prepared_df,
+                selected_curves=selected_curves,
+                action=action,
+                group=group.strip() or None,
+                category=category.strip() or None,
+                unit=unit.strip() or None,
+                metadata_patch=metadata_patch,
+                prefix=prefix,
+                suffix=suffix,
+                group_overrides=dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {})),
+                category_overrides=dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {})),
+                unit_overrides=dict(st.session_state.get(LAS_EDITOR_UNIT_OVERRIDES_KEY, {})),
+                metadata=dict(st.session_state.get(LAS_EDITOR_METADATA_KEY, {})),
+                references=_las_editor_reference_state(columns),
+            )
+            st.session_state[LAS_EDITOR_GROUP_OVERRIDES_KEY] = result.group_overrides
+            st.session_state[LAS_EDITOR_CATEGORY_OVERRIDES_KEY] = result.category_overrides
+            st.session_state[LAS_EDITOR_UNIT_OVERRIDES_KEY] = result.unit_overrides
+            st.session_state[LAS_EDITOR_METADATA_KEY] = result.metadata
+            st.session_state[LAS_EDITOR_BULK_EDIT_LOG_KEY] = tuple(st.session_state.get(LAS_EDITOR_BULK_EDIT_LOG_KEY, ())) + result.operations
+            for warning in result.warnings:
+                st.warning(warning)
+            st.success(f"Bulk edit применен: {result.references['curve_bulk_edit_summary']['applied']} операций.")
+            prepared_df = result.data
+        except ValueError as exc:
+            st.warning(str(exc))
+
+    log = tuple(st.session_state.get(LAS_EDITOR_BULK_EDIT_LOG_KEY, ()))
+    with st.expander("Журнал Curve bulk edit", expanded=bool(log)):
+        if log:
+            st.dataframe(
+                pd.DataFrame(curve_bulk_edit_operation_rows(log)).rename(
+                    columns={
+                        "curve_name": "Кривая",
+                        "action_label": "Действие",
+                        "previous_value": "Было",
+                        "new_value": "Стало",
+                        "status": "Статус",
+                        "message": "Сообщение",
+                        "timestamp": "Время",
+                    }
+                )[["Кривая", "Действие", "Было", "Стало", "Статус", "Сообщение", "Время"]],
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.caption("Журнал bulk edit пока пуст.")
+
+    return prepared_df
+
 def _render_las_curve_quality_flags(prepared_df: pd.DataFrame) -> None:
     st.markdown("### Curve Manager · Curve quality flags")
     st.caption(
@@ -4642,6 +4754,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     _render_las_curve_mnemonics_dictionary(prepared_df)
     _render_las_curve_duplicate_detection(prepared_df)
     _render_las_curve_quality_flags(prepared_df)
+    prepared_df = _render_las_curve_bulk_edit_manager(prepared_df)
     prepared_df = _render_las_curve_merge_manager(prepared_df)
 
     column_names = [str(column) for column in prepared_df.columns]

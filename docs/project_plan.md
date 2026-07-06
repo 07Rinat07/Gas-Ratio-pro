@@ -168,7 +168,7 @@
 - [x] Curve duplicate detection.
 - [x] Curve quality flags.
 - [x] Curve mnemonics dictionary.
-- [ ] Curve bulk edit.
+- [x] Curve bulk edit.
 - [ ] Curve import rules.
 - [ ] Curve export rules.
 - [ ] Split curves.
