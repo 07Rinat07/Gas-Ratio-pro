@@ -365,6 +365,155 @@ def add_plot_annotation(root: Path | str, project_id: str, template_id: str, tex
     return save_plot_template(root, project_id, template.name, template_id=template.id, well_id=template.well_id, tracks=template.tracks, curves=template.curves, annotations=annotations, grid_major_step=template.grid_major_step, grid_minor_step=template.grid_minor_step, show_grid=template.show_grid, export_formats=template.export_formats)
 
 
+
+def remove_plot_track(root: Path | str, project_id: str, template_id: str, track_id: str, *, remove_curves: bool = True) -> PlotTemplate:
+    """Remove a track from a plot template.
+
+    By default curves assigned to the deleted track are removed as well. This keeps
+    the template internally consistent and prevents hidden orphan curves from
+    appearing during export or rendering.
+    """
+    template = get_plot_template(root, project_id, template_id)
+    clean_track_id = _safe_id(track_id, "track")
+    if clean_track_id not in {track.id for track in template.tracks}:
+        raise ValueError(f"Трек {clean_track_id} не найден.")
+    tracks = tuple(track for track in template.tracks if track.id != clean_track_id)
+    if not tracks:
+        raise ValueError("В шаблоне должен остаться хотя бы один трек.")
+    if remove_curves:
+        curves = tuple(curve for curve in template.curves if curve.track_id != clean_track_id)
+    else:
+        fallback_track_id = tracks[0].id
+        curves = tuple(
+            curve if curve.track_id != clean_track_id else PlotCurveConfig(
+                id=curve.id,
+                mnemonic=curve.mnemonic,
+                track_id=fallback_track_id,
+                color=curve.color,
+                line_width=curve.line_width,
+                line_style=curve.line_style,
+                axis=curve.axis,
+            )
+            for curve in template.curves
+        )
+    cleaned_tracks = []
+    curve_ids_by_track: dict[str, list[str]] = {track.id: [] for track in tracks}
+    for curve in curves:
+        curve_ids_by_track.setdefault(curve.track_id, []).append(curve.id)
+    for track in tracks:
+        cleaned_tracks.append(PlotTrackConfig(id=track.id, title=track.title, width=track.width, visible=track.visible, curve_ids=tuple(curve_ids_by_track.get(track.id, []))))
+    annotations = tuple(annotation for annotation in template.annotations if annotation.track_id != clean_track_id)
+    return save_plot_template(root, project_id, template.name, template_id=template.id, well_id=template.well_id, tracks=cleaned_tracks, curves=curves, annotations=annotations, grid_major_step=template.grid_major_step, grid_minor_step=template.grid_minor_step, show_grid=template.show_grid, export_formats=template.export_formats)
+
+
+def reorder_plot_track(root: Path | str, project_id: str, template_id: str, track_id: str, direction: str) -> PlotTemplate:
+    """Move a track left/right in the template order."""
+    template = get_plot_template(root, project_id, template_id)
+    clean_track_id = _safe_id(track_id, "track")
+    tracks = list(template.tracks)
+    index = next((idx for idx, track in enumerate(tracks) if track.id == clean_track_id), -1)
+    if index < 0:
+        raise ValueError(f"Трек {clean_track_id} не найден.")
+    clean_direction = _clean_text(direction, "Направление", max_length=16).lower()
+    if clean_direction in {"left", "up", "previous", "prev"}:
+        target = max(0, index - 1)
+    elif clean_direction in {"right", "down", "next"}:
+        target = min(len(tracks) - 1, index + 1)
+    else:
+        raise ValueError("Направление должно быть left/up или right/down.")
+    if target != index:
+        tracks[index], tracks[target] = tracks[target], tracks[index]
+    return save_plot_template(root, project_id, template.name, template_id=template.id, well_id=template.well_id, tracks=tracks, curves=template.curves, annotations=template.annotations, grid_major_step=template.grid_major_step, grid_minor_step=template.grid_minor_step, show_grid=template.show_grid, export_formats=template.export_formats)
+
+
+def update_plot_track(root: Path | str, project_id: str, template_id: str, track_id: str, *, title: str | None = None, width: Any | None = None, visible: bool | None = None) -> PlotTemplate:
+    """Update track title, width or visibility without changing curve assignment."""
+    template = get_plot_template(root, project_id, template_id)
+    clean_track_id = _safe_id(track_id, "track")
+    updated: list[PlotTrackConfig] = []
+    found = False
+    for track in template.tracks:
+        if track.id != clean_track_id:
+            updated.append(track)
+            continue
+        found = True
+        updated.append(PlotTrackConfig(
+            id=track.id,
+            title=_clean_text(title, "Название трека", required=True) if title is not None else track.title,
+            width=_positive_float(width, "Ширина трека", default=track.width) if width is not None else track.width,
+            visible=bool(visible) if visible is not None else track.visible,
+            curve_ids=track.curve_ids,
+        ))
+    if not found:
+        raise ValueError(f"Трек {clean_track_id} не найден.")
+    return save_plot_template(root, project_id, template.name, template_id=template.id, well_id=template.well_id, tracks=updated, curves=template.curves, annotations=template.annotations, grid_major_step=template.grid_major_step, grid_minor_step=template.grid_minor_step, show_grid=template.show_grid, export_formats=template.export_formats)
+
+
+def remove_plot_curve(root: Path | str, project_id: str, template_id: str, curve_id: str) -> PlotTemplate:
+    """Remove a curve from a template and from its track curve list."""
+    template = get_plot_template(root, project_id, template_id)
+    clean_curve_id = _safe_id(curve_id, "curve")
+    if clean_curve_id not in {curve.id for curve in template.curves}:
+        raise ValueError(f"Кривая {clean_curve_id} не найдена.")
+    curves = tuple(curve for curve in template.curves if curve.id != clean_curve_id)
+    tracks = tuple(PlotTrackConfig(id=track.id, title=track.title, width=track.width, visible=track.visible, curve_ids=tuple(value for value in track.curve_ids if value != clean_curve_id)) for track in template.tracks)
+    return save_plot_template(root, project_id, template.name, template_id=template.id, well_id=template.well_id, tracks=tracks, curves=curves, annotations=template.annotations, grid_major_step=template.grid_major_step, grid_minor_step=template.grid_minor_step, show_grid=template.show_grid, export_formats=template.export_formats)
+
+
+def update_plot_curve(root: Path | str, project_id: str, template_id: str, curve_id: str, *, mnemonic: str | None = None, track_id: str | None = None, color: str | None = None, line_width: Any | None = None, line_style: str | None = None, axis: PlotAxisConfig | dict[str, Any] | None = None) -> PlotTemplate:
+    """Update curve visual settings and optionally move it to another track."""
+    template = get_plot_template(root, project_id, template_id)
+    clean_curve_id = _safe_id(curve_id, "curve")
+    track_ids = {track.id for track in template.tracks}
+    updated_curves: list[PlotCurveConfig] = []
+    found = False
+    for curve in template.curves:
+        if curve.id != clean_curve_id:
+            updated_curves.append(curve)
+            continue
+        found = True
+        next_track_id = _safe_id(track_id, "track") if track_id is not None else curve.track_id
+        if next_track_id not in track_ids:
+            raise ValueError(f"Трек {next_track_id} не найден.")
+        updated_curves.append(PlotCurveConfig(
+            id=curve.id,
+            mnemonic=_clean_text(mnemonic, "Кривая", max_length=80, required=True).upper() if mnemonic is not None else curve.mnemonic,
+            track_id=next_track_id,
+            color=_clean_text(color, "Цвет", max_length=32) if color is not None else curve.color,
+            line_width=_positive_float(line_width, "Толщина линии", default=curve.line_width) if line_width is not None else curve.line_width,
+            line_style=_clean_line_style(line_style) if line_style is not None else curve.line_style,
+            axis=axis if isinstance(axis, PlotAxisConfig) else (_axis_from_dict(axis) if axis is not None else curve.axis),
+        ))
+    if not found:
+        raise ValueError(f"Кривая {clean_curve_id} не найдена.")
+    curve_ids_by_track: dict[str, list[str]] = {track.id: [] for track in template.tracks}
+    for curve in updated_curves:
+        curve_ids_by_track.setdefault(curve.track_id, []).append(curve.id)
+    tracks = tuple(PlotTrackConfig(id=track.id, title=track.title, width=track.width, visible=track.visible, curve_ids=tuple(curve_ids_by_track.get(track.id, []))) for track in template.tracks)
+    return save_plot_template(root, project_id, template.name, template_id=template.id, well_id=template.well_id, tracks=tracks, curves=updated_curves, annotations=template.annotations, grid_major_step=template.grid_major_step, grid_minor_step=template.grid_minor_step, show_grid=template.show_grid, export_formats=template.export_formats)
+
+
+def build_plot_export_manifest(template: PlotTemplate) -> dict[str, Any]:
+    """Build a serializable export manifest for future PDF/PNG/SVG renderers."""
+    visible_tracks = [track for track in template.tracks if track.visible]
+    visible_track_ids = {track.id for track in visible_tracks}
+    curves = [curve for curve in template.curves if curve.track_id in visible_track_ids]
+    return {
+        "template_id": template.id,
+        "name": template.name,
+        "well_id": template.well_id,
+        "tracks": [_track_to_dict(track) for track in visible_tracks],
+        "curves": [_curve_to_dict(curve) for curve in curves],
+        "annotations": [_annotation_to_dict(annotation) for annotation in template.annotations if not annotation.track_id or annotation.track_id in visible_track_ids],
+        "grid": {
+            "enabled": template.show_grid,
+            "major_step": template.grid_major_step,
+            "minor_step": template.grid_minor_step,
+        },
+        "export_formats": list(template.export_formats),
+        "updated_at": template.updated_at,
+    }
+
 def get_plot_template(root: Path | str, project_id: str, template_id: str) -> PlotTemplate:
     clean_id = _safe_id(template_id, "template")
     for template in list_plot_templates(root, project_id):

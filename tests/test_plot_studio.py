@@ -75,3 +75,82 @@ def test_plot_studio_validates_axis_tracks_and_exports(tmp_path: Path):
 
     with pytest.raises(ValueError, match="Формат экспорта"):
         save_plot_template(tmp_path, project.id, "Bad Export", export_formats=["exe"])
+
+
+def test_plot_studio_track_curve_editing_and_export_manifest(tmp_path: Path):
+    project = create_project(tmp_path, name="Plot Studio Editing")
+    template = save_plot_template(tmp_path, project.id, "Editing", template_id="editing")
+    template = add_plot_track(tmp_path, project.id, template.id, "Sonic", track_id="track-sonic", width=0.9)
+    template = add_plot_curve(tmp_path, project.id, template.id, "DT", "track-sonic", curve_id="curve-dt")
+
+    from projects.plot_studio import (
+        build_plot_export_manifest,
+        remove_plot_curve,
+        remove_plot_track,
+        reorder_plot_track,
+        update_plot_curve,
+        update_plot_track,
+    )
+
+    template = update_plot_track(tmp_path, project.id, template.id, "track-sonic", title="Acoustic", width=1.4, visible=False)
+    assert template.tracks[-1].title == "Acoustic"
+    assert template.tracks[-1].width == 1.4
+    assert template.tracks[-1].visible is False
+
+    template = update_plot_curve(
+        tmp_path,
+        project.id,
+        template.id,
+        "curve-dt",
+        mnemonic="DTC",
+        track_id="track-gamma",
+        line_width=2.0,
+        line_style="dot",
+        axis={"scale": "log", "min_value": 1, "max_value": 1000},
+    )
+    moved_curve = next(curve for curve in template.curves if curve.id == "curve-dt")
+    assert moved_curve.mnemonic == "DTC"
+    assert moved_curve.track_id == "track-gamma"
+    assert moved_curve.axis.scale == "log"
+    assert "curve-dt" in next(track.curve_ids for track in template.tracks if track.id == "track-gamma")
+
+    template = reorder_plot_track(tmp_path, project.id, template.id, "track-sonic", "left")
+    assert [track.id for track in template.tracks][-2] == "track-sonic"
+
+    manifest = build_plot_export_manifest(template)
+    assert manifest["template_id"] == "editing"
+    assert "pdf" in manifest["export_formats"]
+    assert all(track["visible"] for track in manifest["tracks"])
+
+    template = remove_plot_curve(tmp_path, project.id, template.id, "curve-dt")
+    assert template.curves == ()
+    assert all("curve-dt" not in track.curve_ids for track in template.tracks)
+
+    template = remove_plot_track(tmp_path, project.id, template.id, "track-sonic")
+    assert "track-sonic" not in {track.id for track in template.tracks}
+
+
+def test_plot_studio_prevents_invalid_deletions_and_moves(tmp_path: Path):
+    project = create_project(tmp_path, name="Plot Studio Guards")
+    template = save_plot_template(
+        tmp_path,
+        project.id,
+        "Single",
+        template_id="single",
+        tracks=[{"id": "track-only", "title": "Only", "width": 1.0}],
+    )
+
+    from projects.plot_studio import remove_plot_curve, remove_plot_track, reorder_plot_track, update_plot_curve
+
+    with pytest.raises(ValueError, match="хотя бы один трек"):
+        remove_plot_track(tmp_path, project.id, template.id, "track-only")
+
+    with pytest.raises(ValueError, match="Направление"):
+        reorder_plot_track(tmp_path, project.id, template.id, "track-only", "sideways")
+
+    with pytest.raises(ValueError, match="Кривая missing не найдена"):
+        remove_plot_curve(tmp_path, project.id, template.id, "missing")
+
+    template = add_plot_curve(tmp_path, project.id, template.id, "GR", "track-only", curve_id="curve-gr")
+    with pytest.raises(ValueError, match="Трек missing-track не найден"):
+        update_plot_curve(tmp_path, project.id, template.id, "curve-gr", track_id="missing-track")
