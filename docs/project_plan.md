@@ -80,10 +80,19 @@ Dashboard использует одну навигационную модель:
 - [x] Make dashboard navigation cards clickable.
 - [x] Remove duplicate `Open` buttons from dashboard cards.
 - [x] Optimize dashboard grid for 1366×768 and 1440×900 notebooks.
-- [ ] Redesign quick actions as compact clickable shortcuts.
+- [x] Redesign quick actions as compact clickable shortcuts.
 - [ ] Improve dashboard information hierarchy.
 - [ ] Run responsive layout audit after each UI stage.
 - [ ] Refine dashboard background centering and scaling.
+
+
+### Реализовано: Dashboard UX Refactoring → Quick Actions Redesign
+
+Стартовая панель быстрых действий переработана в компактные кликабельные плитки: каждая плитка теперь является единственным рабочим действием и переключает нужный раздел через общий механизм `ACTIVE_MAIN_TAB_KEY`. Дублирующие большие карточки и текст `Нажмите одноименную кнопку ниже` удалены из Dashboard, чтобы быстрый доступ не повторял собственные функции два раза на одной странице.
+
+В реестр `START_ACTIONS` добавлены `icon` и `short_title`, поэтому кнопки стали короче и лучше помещаются на ноутбуках 1366×768 и 1440×900. Внутренний блок Dashboard показывает только краткую сводку и последнее действие без повторных кнопок. README не изменялся и не засорялся журналом этапа.
+
+Текущий следующий незавершенный пункт: **Dashboard UX Refactoring → Dashboard Information Hierarchy**.
 
 ## UI.3 Dashboard Widgets
 

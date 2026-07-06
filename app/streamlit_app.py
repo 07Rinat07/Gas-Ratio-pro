@@ -565,6 +565,8 @@ START_ACTIONS: tuple[dict[str, str], ...] = (
     {
         "id": "project",
         "title": "Создать / открыть проект",
+        "short_title": "Проект",
+        "icon": "📁",
         "button_label": "Создать / открыть проект",
         "target_tab": "Работа с данными",
         "description": "Открывает рабочий раздел выбора проекта, импорта и проектного workflow.",
@@ -574,6 +576,8 @@ START_ACTIONS: tuple[dict[str, str], ...] = (
     {
         "id": "import",
         "title": "Импорт LAS / CSV / Excel",
+        "short_title": "Импорт",
+        "icon": "⬆️",
         "button_label": "Импорт LAS / CSV / Excel",
         "target_tab": "Работа с данными",
         "description": "Открывает импорт LAS, CSV, XLSX/XLSM, проверку заголовков, mapping и расчет коэффициентов.",
@@ -583,6 +587,8 @@ START_ACTIONS: tuple[dict[str, str], ...] = (
     {
         "id": "las_editor",
         "title": "LAS-редактор",
+        "short_title": "LAS Editor",
+        "icon": "🧰",
         "button_label": "Открыть LAS-редактор",
         "target_tab": "LAS-редактор",
         "description": "Проверка глубины, подготовка сетки, ручная правка LAS, rename/alias/merge кривых и сохранение версии в проект.",
@@ -592,6 +598,8 @@ START_ACTIONS: tuple[dict[str, str], ...] = (
     {
         "id": "correlation",
         "title": "LAS-корреляция",
+        "short_title": "Корреляция",
+        "icon": "📈",
         "button_label": "Открыть LAS-корреляцию",
         "target_tab": "LAS-корреляция",
         "description": "Сравнение нескольких скважин, группировка кривых, X-scale, интервал, печатный HTML и графический экспорт.",
@@ -601,6 +609,8 @@ START_ACTIONS: tuple[dict[str, str], ...] = (
     {
         "id": "reports",
         "title": "Графики и отчеты",
+        "short_title": "Отчеты",
+        "icon": "📊",
         "button_label": "Графики и отчеты",
         "target_tab": "Интерпретационные графики",
         "description": "Планшет, маркеры, зоны интерпретации, interval report и экспорт PNG/PDF/SVG.",
@@ -610,6 +620,8 @@ START_ACTIONS: tuple[dict[str, str], ...] = (
     {
         "id": "docs",
         "title": "Инструкции",
+        "short_title": "Документы",
+        "icon": "📚",
         "button_label": "Инструкции",
         "target_tab": "Инструкции и документация",
         "description": "Формулы, troubleshooting, формат данных, методика mud gas analysis и план проекта.",
@@ -619,6 +631,8 @@ START_ACTIONS: tuple[dict[str, str], ...] = (
     {
         "id": "settings",
         "title": "Настройки интерфейса",
+        "short_title": "Настройки",
+        "icon": "⚙️",
         "button_label": "Настройки",
         "target_tab": "Старт",
         "description": "Открывает стартовый экран, где доступны профиль компоновки, масштаб интерфейса и проверка Dashboard.",
@@ -628,6 +642,8 @@ START_ACTIONS: tuple[dict[str, str], ...] = (
     {
         "id": "license",
         "title": "Лицензия",
+        "short_title": "Лицензия",
+        "icon": "🔒",
         "button_label": "Лицензия",
         "target_tab": "Старт",
         "description": "Показывает лицензионный блок Dashboard и правила коммерческого использования приложения.",
@@ -1264,18 +1280,20 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         .dashboard-metric b { display: block; font-size: 1.55rem; }
         .dashboard-metric span { color: #d1d5db; font-weight: 800; }
-        .dashboard-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(10.2rem, 1fr)); gap: 0.65rem; }
+        .dashboard-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.8rem, 1fr)); gap: 0.42rem; }
         .dashboard-action-card {
-            min-height: 5.1rem;
-            padding: 0.9rem;
-            border: 1px solid rgba(148, 163, 184, 0.24);
-            border-radius: 14px;
-            background: linear-gradient(180deg, rgba(15, 23, 42, 0.22), rgba(15, 23, 42, 0.12));
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+            min-height: 3.25rem;
+            padding: 0.52rem 0.58rem;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 12px;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.20), rgba(15, 23, 42, 0.10));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
         }
-        .dashboard-action-card strong { display: block; font-size: 1.02rem; margin-bottom: 0.25rem; }
-        .dashboard-action-card small { display:block; margin-top:0.38rem; color:#ffedd5; font-weight:800; }
+        .dashboard-action-card strong { display: block; font-size: 0.86rem; margin-bottom: 0.12rem; }
+        .dashboard-action-card small { display:block; margin-top:0.18rem; color:#ffedd5; font-weight:800; font-size:0.68rem; }
         .quick-action-wired { cursor: pointer; }
+        .quick-action-summary { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:0.42rem; }
+        .quick-action-summary .dashboard-muted { font-size:0.72rem !important; line-height:1.22 !important; }
         .dashboard-action-card:hover { border-color: rgba(255, 138, 0, 0.55); transform: translateY(-1px); }
         .simplified-dashboard-navigation .app-nav-card { padding: 0.32rem; border-radius: 15px; border: 1px solid rgba(148, 163, 184, 0.18); background: rgba(15, 23, 42, 0.16); transition: transform 150ms ease, border-color 150ms ease, background 150ms ease; }
         .simplified-dashboard-navigation .app-nav-card.active { border-color: rgba(255, 138, 0, 0.58); background: rgba(255, 138, 0, 0.10); }
@@ -1540,22 +1558,40 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
 
         .functional-quick-actions {
             border: 1px solid rgba(148, 163, 184, 0.22);
-            border-radius: 18px;
-            padding: 0.85rem;
-            margin: 0.3rem 0 0.9rem 0;
-            background: linear-gradient(180deg, rgba(4, 10, 24, 0.22), rgba(5, 10, 22, 0.12));
+            border-radius: 16px;
+            padding: 0.58rem 0.64rem 0.50rem;
+            margin: 0.25rem 0 0.62rem 0;
+            background: linear-gradient(180deg, rgba(4, 10, 24, 0.20), rgba(5, 10, 22, 0.10));
             backdrop-filter: blur(3px);
         }
-        .quick-action-caption {
-            min-height: 5.7rem;
-            border: 1px solid rgba(148, 163, 184, 0.18);
-            border-radius: 14px;
-            padding: 0.62rem 0.72rem;
-            margin: 0.42rem 0 0.42rem 0;
-            background: rgba(15, 23, 42, 0.18);
+        .functional-quick-actions div[data-testid="stButton"] > button {
+            min-height: 2.85rem;
+            padding: 0.34rem 0.42rem;
+            border-radius: 12px;
+            font-size: 0.82rem;
+            font-weight: 900;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            background: rgba(15, 23, 42, 0.22);
         }
-        .quick-action-caption b { display:block; color:#f8fafc; font-size:0.98rem; margin-bottom:0.28rem; }
-        .quick-action-caption span { display:block; color:#cbd5e1; font-size:0.86rem; line-height:1.32; }
+        .functional-quick-actions div[data-testid="stButton"] > button:hover {
+            border-color: rgba(255, 138, 0, 0.55);
+            transform: translateY(-1px);
+        }
+        .functional-quick-actions div[data-testid="stButton"] > button:active {
+            transform: translateY(0);
+            background: rgba(255, 138, 0, 0.12);
+        }
+        .quick-actions-redesigned { display: block; }
+        .quick-action-caption {
+            min-height: 3.2rem;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 12px;
+            padding: 0.48rem 0.56rem;
+            margin: 0.30rem 0 0.30rem 0;
+            background: rgba(15, 23, 42, 0.16);
+        }
+        .quick-action-caption b { display:block; color:#f8fafc; font-size:0.88rem; margin-bottom:0.16rem; }
+        .quick-action-caption span { display:block; color:#cbd5e1; font-size:0.74rem; line-height:1.24; }
         .project-search-result {
             border: 1px solid rgba(148,163,184,0.22);
             border-radius: 12px;
@@ -3844,19 +3880,34 @@ def _quick_action_by_id(action_id: str) -> dict[str, str] | None:
     return None
 
 
-def _dashboard_quick_action_cards_html() -> str:
-    """Render compact quick action summaries without duplicate open controls."""
+def _quick_action_button_label(action: dict[str, str]) -> str:
+    """Return a compact button label for the redesigned quick actions panel."""
+    icon = action.get("icon", "•")
+    title = action.get("short_title") or action.get("title", "Действие")
+    return f"{icon} {title}"
+
+
+def _dashboard_quick_action_cards_html(last_action: dict[str, str] | None = None) -> str:
+    """Render a compact quick-action summary without duplicating executable buttons."""
+    primary_actions = tuple(START_ACTIONS[:4])
     cards: list[str] = []
-    for action in START_ACTIONS:
+    for action in primary_actions:
         cards.append(
-            "<div class='dashboard-action-card quick-action-wired simplified-quick-action' "
+            "<div class='dashboard-action-card quick-action-wired simplified-quick-action compact-quick-action-summary' "
             f"data-action='{_html_escape(action['id'])}' data-target='{_html_escape(action['target_tab'])}'>"
-            f"<strong>{_html_escape(action['title'])}</strong>"
-            f"<span class='dashboard-muted'>{_html_escape(action['description'])}</span>"
-            "<small>Нажмите одноименную кнопку ниже</small>"
+            f"<strong>{_html_escape(_quick_action_button_label(action))}</strong>"
+            f"<span class='dashboard-muted'>{_html_escape(action['target_tab'])}</span>"
             "</div>"
         )
-    return "".join(cards)
+    last_html = ""
+    if last_action:
+        last_html = (
+            "<div class='dashboard-action-card compact-quick-action-summary'>"
+            "<strong>Последнее действие</strong>"
+            f"<span class='dashboard-muted'>{_html_escape(last_action['title'])} → {_html_escape(last_action['target_tab'])}</span>"
+            "</div>"
+        )
+    return "<div class='quick-action-summary'>" + "".join(cards) + last_html + "</div>"
 
 
 def _trigger_quick_action(action: dict[str, str]) -> None:
@@ -4556,7 +4607,8 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
     stats = _dashboard_project_statistics(active_project, projects)
     news_items = _dashboard_news_items(active_project)
     activity_items = _dashboard_activity_items(active_project)
-    quick_actions_html = _dashboard_quick_action_cards_html()
+    last_action = _quick_action_by_id(st.session_state.get(DASHBOARD_LAST_QUICK_ACTION_KEY, ""))
+    quick_actions_html = _dashboard_quick_action_cards_html(last_action)
     tip = _dashboard_tip(active_project)
     now_label = datetime.now().strftime("%d.%m.%Y %H:%M")
 
@@ -4617,8 +4669,9 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
                   <ul>{news_html}</ul>
                 </article>
                 <article class="dashboard-card quick" id="dashboard-quick-actions">
-                  <h3>Быстрый доступ</h3>
-                  <div class="dashboard-actions">
+                  <h3>Быстрые действия</h3>
+                  <p class="dashboard-muted">Рабочая панель действий находится сверху. Здесь показана краткая сводка без повторных кнопок.</p>
+                  <div class="dashboard-actions quick-actions-redesigned">
                     {quick_actions_html}
                   </div>
                 </article>
@@ -4668,21 +4721,21 @@ def _render_start_tab(active_project: ProjectRecord) -> None:
     if not projects:
         projects = (active_project,)
 
-    st.markdown('<div class="functional-quick-actions">', unsafe_allow_html=True)
-    top_col, search_col = st.columns([2, 1])
+    st.markdown('<div class="functional-quick-actions quick-actions-redesigned">', unsafe_allow_html=True)
+    top_col, search_col = st.columns([1.35, 1])
     with top_col:
-        st.markdown("### Быстрый доступ")
-        st.caption("Эти кнопки реально переключают рабочие разделы приложения, а не являются декоративными ссылками.")
+        st.markdown("### Быстрые действия")
+        st.caption("Компактная панель: одна плитка = одно действие, без повторных кнопок внутри Dashboard.")
     with search_col:
         query = st.text_input("Поиск по проекту", key="dashboard_project_search", placeholder="скважина, LAS, расчет, экспорт")
     cols = st.columns(4)
     for index, action in enumerate(START_ACTIONS):
         with cols[index % 4]:
             if st.button(
-                action["title"],
+                _quick_action_button_label(action),
                 key=f"dashboard_quick_action_{action['id']}",
                 use_container_width=True,
-                help=f"{action['tooltip']} {action['when']}",
+                help=action["tooltip"],
             ):
                 _trigger_quick_action(action)
     last_action = _quick_action_by_id(st.session_state.get(DASHBOARD_LAST_QUICK_ACTION_KEY, ""))
