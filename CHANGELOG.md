@@ -1,3 +1,11 @@
+# Changelog
+
+## gas-ratio-pro-updated-97
+
+- Added `docs/eula.md` as the application End User License Agreement.
+- Replaced the licensing page EULA placeholder with a real in-app EULA document panel.
+- Updated project plan and user guide to point to License manager as the next licensing item.
+
 ## Application Licensing Page
 
 - Added a dedicated `Лицензия` application tab for proprietary licensing and commercial-use rules.

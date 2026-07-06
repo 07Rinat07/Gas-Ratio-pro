@@ -671,7 +671,7 @@ START_ACTIONS: tuple[dict[str, str], ...] = (
         "icon": "🔒",
         "button_label": "Лицензия",
         "target_tab": "Лицензия",
-        "description": "Открывает отдельную лицензионную страницу: права автора, ограничения использования, EULA placeholder и контакт.",
+        "description": "Открывает отдельную лицензионную страницу: права автора, ограничения использования, EULA document и контакт.",
         "when": "Когда нужно быстро проверить статус лицензии, copyright и правила коммерческого использования.",
         "tooltip": "Открыть отдельную страницу лицензии приложения.",
     },
@@ -1867,7 +1867,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         .license-rule-card h3 { margin:0 0 0.4rem 0; font-size:1rem; color:#ffedd5; }
         .license-rule-card p, .license-rule-card li { color:#cbd5e1; line-height:1.45; font-size:0.94rem; }
-        .license-text-panel {
+        .license-text-panel,
+        .eula-text-panel {
             border:1px solid rgba(148,163,184,0.22);
             border-radius:1.05rem;
             padding:1rem;
@@ -1875,7 +1876,9 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             max-height:32rem;
             overflow:auto;
         }
-        .license-text-panel pre { white-space:pre-wrap; color:#dbeafe; font-size:0.92rem; line-height:1.45; margin:0; }
+        .eula-text-panel { border-color:rgba(255,138,0,0.28); background:rgba(8,18,34,0.82); }
+        .license-text-panel h3, .eula-text-panel h3 { margin:0 0 0.75rem 0; color:#ffedd5; font-size:1rem; }
+        .license-text-panel pre, .eula-text-panel pre { white-space:pre-wrap; color:#dbeafe; font-size:0.92rem; line-height:1.45; margin:0; }
         @media (max-width: 1366px) {
             .application-license-hero { grid-template-columns: 1fr; padding:0.95rem; }
             .license-cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -4411,6 +4414,15 @@ def _read_application_license_text() -> str:
         return "LICENSE file is missing. Contact the copyright owner before using the software."
 
 
+def _read_application_eula_text() -> str:
+    """Read the project EULA document for the in-app licensing page."""
+    eula_path = ROOT_DIR / "docs" / "eula.md"
+    try:
+        return eula_path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return "EULA document is missing. Contact the copyright owner before using the software."
+
+
 def _license_page_rule_cards() -> tuple[dict[str, str], ...]:
     """Return concise legal rule cards shown above the full license text."""
     return (
@@ -4431,8 +4443,8 @@ def _license_page_rule_cards() -> tuple[dict[str, str], ...]:
             "body": "Сторонние библиотеки сохраняют собственные лицензии; этот экран фиксирует права на Gas Ratio Pro materials.",
         },
         {
-            "title": "EULA placeholder",
-            "body": "Полная EULA-страница будет подключена отдельным этапом; до этого действует proprietary LICENSE в репозитории.",
+            "title": "EULA document",
+            "body": "Встроенный EULA фиксирует разрешенное evaluation-use, запрет production/commercial use без письменного разрешения и отказ от гарантий.",
         },
         {
             "title": "Contact",
@@ -4445,6 +4457,7 @@ def _render_application_licensing_page() -> None:
     """Render the dedicated high-contrast application licensing page."""
     identity = _app_identity_metadata()
     license_text = _read_application_license_text()
+    eula_text = _read_application_eula_text()
     cards_html = "".join(
         "<article class='license-rule-card'>"
         f"<h3>{_html_escape(card['title'])}</h3>"
@@ -4474,7 +4487,12 @@ def _render_application_licensing_page() -> None:
             </aside>
           </div>
           <div class='license-cards-grid'>{cards_html}</div>
+          <section class='eula-text-panel' aria-label='Full EULA text'>
+            <h3>End User License Agreement</h3>
+            <pre>{_html_escape(eula_text)}</pre>
+          </section>
           <section class='license-text-panel' aria-label='Full LICENSE text'>
+            <h3>Repository LICENSE</h3>
             <pre>{_html_escape(license_text)}</pre>
           </section>
         </section>
@@ -4650,7 +4668,7 @@ COMMAND_PALETTE_STATIC_COMMANDS: tuple[dict[str, str], ...] = (
         "title": "Лицензия и коммерческое использование",
         "category": "Лицензия",
         "target_tab": "Лицензия",
-        "description": "Открыть отдельную лицензионную страницу с Proprietary License, EULA placeholder и контактом автора.",
+        "description": "Открыть отдельную лицензионную страницу с Proprietary License, EULA document и контактом автора.",
         "keywords": "license лицензия proprietary eula commercial коммерческое copyright права автор",
     },
 )
