@@ -861,11 +861,21 @@ def resample_depth_step(
 
 
 def build_safe_las_filename(source_name: str, suffix: str) -> str:
-    """Build a non-destructive LAS filename for editor exports."""
+    """Build a safe, non-destructive filename for LAS editor exports.
 
-    source_stem = str(source_name or "prepared").strip().rsplit(".", 1)[0] or "prepared"
-    safe_stem = "_".join(source_stem.replace("\\", "/").split("/")[-1].split())
+    The helper is intentionally kept in ``las_editor.depth_grid`` because
+    ``app.streamlit_app`` imports it together with the depth-correction tools.
+    It never returns the original filename: every export receives an operation
+    suffix such as ``depth_fixed``, ``resampled`` or ``shifted``.
+    """
+
+    raw_name = str(source_name or "prepared.las").strip() or "prepared.las"
+    basename = raw_name.replace("\\", "/").split("/")[-1]
+    stem = basename.rsplit(".", 1)[0] or "prepared"
+
+    safe_stem = "_".join(stem.replace(".", "_").split()) or "prepared"
     clean_suffix = "_".join(str(suffix or "edited").strip().lower().replace(".", "_").split()) or "edited"
+
     return f"{safe_stem}_{clean_suffix}.las"
 
 def _coerce_optional_depth(value, field_name: str) -> float | None:
