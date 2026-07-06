@@ -26,6 +26,7 @@
 - Formation Manager
 - Plot Studio
 - Statistics Center
+- Formula Builder
 - Dashboard Workspace
 - Documentation Center
 - Petrophysical Calculations

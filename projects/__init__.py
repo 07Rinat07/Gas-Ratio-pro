@@ -293,6 +293,27 @@ from projects.statistics_center import (
     build_statistics_reports_table,
 )
 
+
+from projects.formula_builder import (
+    PROJECT_FORMULA_BUILDER_FILE_NAME,
+    FORMULA_TEMPLATE_CATEGORIES,
+    FORMULA_ALLOWED_FUNCTIONS,
+    FormulaTemplate,
+    FormulaValidationResult,
+    FormulaRecord,
+    FormulaBuilderSummary,
+    list_formula_templates,
+    validate_formula_expression,
+    detect_formula_dependencies,
+    calculate_formula_curve,
+    save_formula_record,
+    list_formula_records,
+    summarize_formula_builder,
+    build_formula_template_table,
+    build_formula_records_table,
+    build_formula_dependency_graph,
+)
+
 from projects.formation_manager import (
     PROJECT_FORMATION_MANAGER_FILE_NAME,
     FORMATION_OBJECT_TYPES,
@@ -308,6 +329,24 @@ from projects.formation_manager import (
 )
 
 __all__ = [
+    "PROJECT_FORMULA_BUILDER_FILE_NAME",
+    "FORMULA_TEMPLATE_CATEGORIES",
+    "FORMULA_ALLOWED_FUNCTIONS",
+    "FormulaTemplate",
+    "FormulaValidationResult",
+    "FormulaRecord",
+    "FormulaBuilderSummary",
+    "list_formula_templates",
+    "validate_formula_expression",
+    "detect_formula_dependencies",
+    "calculate_formula_curve",
+    "save_formula_record",
+    "list_formula_records",
+    "summarize_formula_builder",
+    "build_formula_template_table",
+    "build_formula_records_table",
+    "build_formula_dependency_graph",
+
     "PROJECT_STATISTICS_CENTER_FILE_NAME",
     "STATISTICS_CORRELATION_METHODS",
     "STATISTICS_SOURCE_TYPES",

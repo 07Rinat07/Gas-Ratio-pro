@@ -774,3 +774,12 @@ Commit: Clean dashboard navigation cards
 
 Реализован следующий слой Plot Studio: редактирование треков, изменение порядка треков, удаление треков с очисткой связанных кривых и аннотаций, изменение параметров кривых, перенос кривых между треками и подготовка export manifest для будущих PDF/PNG/SVG renderer-ов.
 
+
+
+## Formula Builder foundation
+
+- [x] Добавлен безопасный AST-валидатор формул без выполнения произвольного Python-кода.
+- [x] Добавлены шаблоны VSH, PHIE, Archie Sw и wetness ratio.
+- [x] Добавлен Curve Calculator для создания расчетной кривой в pandas.DataFrame.
+- [x] Добавлено сохранение пользовательских формул в `formula_builder.json`.
+- [x] Добавлен dependency graph для связи исходных кривых с расчетными кривыми.
