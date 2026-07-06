@@ -29,7 +29,7 @@ http://localhost:8501
 - Расчет газовых коэффициентов и предварительная интерпретация интервалов.
 - LAS Editor: depth grid, ручная правка, rename/alias/merge кривых, grouping, categories, units, metadata, duplicate detection, quality flags, mnemonic dictionary, bulk edit и export rules.
 - LAS-корреляция нескольких скважин.
-- Project Explorer, Well Manager, Dataset Manager и Project Database.
+- Project Explorer, Project Manager 2.0, Well Manager, Dataset Manager и Project Database.
 - Экспорт CSV, HTML, XLSX, LAS и статических графиков.
 - Современный Dashboard с адаптивной версткой и фирменным оформлением.
 

@@ -163,6 +163,21 @@ from projects import (
     move_project_explorer_item_to_folder,
     move_project_explorer_well_to_group,
     project_tree_table_rows,
+    append_project_history,
+    archive_project,
+    build_project_backups_table,
+    build_project_history_table,
+    build_project_templates_table,
+    clear_project_recovery_state,
+    create_project_backup,
+    create_project_from_template,
+    create_project_template,
+    list_project_backups,
+    list_project_history,
+    list_project_templates,
+    load_project_recovery_state,
+    project_manager_status,
+    save_project_recovery_state,
 )
 from projects import calculations as project_calculations
 from projects import exports as project_exports
@@ -8046,6 +8061,139 @@ def _render_project_dataset_manager(project: ProjectRecord, logger) -> None:
 
 
 
+def _render_project_manager_tools(project: ProjectRecord, logger) -> None:
+    """Render Project Manager 2.0 metadata tools for the active project."""
+
+    with st.expander("Project Manager 2.0 · Recovery, templates and backups", expanded=False):
+        st.caption(
+            "Project Manager 2.0 управляет проектом metadata-only: история действий, recovery checkpoint, "
+            "шаблоны, резервные ZIP-копии и архивирование. Сырые LAS/CSV/Excel не записываются в журнал."
+        )
+        try:
+            status = project_manager_status(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+        except Exception:
+            logger.exception("project_manager_status_failed project_id=%s", safe_log_value(project.id))
+            status = {"history_entries": 0, "templates": 0, "backups": 0, "has_recovery_state": False}
+
+        metrics = st.columns(4)
+        metrics[0].metric("История", status.get("history_entries", 0))
+        metrics[1].metric("Шаблоны", status.get("templates", 0))
+        metrics[2].metric("Backups", status.get("backups", 0))
+        metrics[3].metric("Recovery", "есть" if status.get("has_recovery_state") else "нет")
+
+        action_col, backup_col, template_col = st.columns(3)
+        if action_col.button("Сохранить recovery checkpoint", key=f"project_manager_recovery_save_{project.id}", use_container_width=True):
+            try:
+                state = save_project_recovery_state(
+                    LAS_CORRELATION_PROJECTS_ROOT,
+                    project.id,
+                    "data-workspace",
+                    "Manual recovery checkpoint from Project Manager 2.0",
+                    {"active_project": project.name, "source": "streamlit-ui"},
+                )
+            except Exception:
+                logger.exception("project_recovery_save_failed project_id=%s", safe_log_value(project.id))
+                st.error("Не удалось сохранить recovery checkpoint. Подробности записаны в logs/app.log.")
+            else:
+                st.success(f"Recovery checkpoint сохранен: {state.saved_at}.")
+
+        if backup_col.button("Создать backup ZIP", key=f"project_manager_backup_create_{project.id}", use_container_width=True):
+            try:
+                backup = create_project_backup(
+                    LAS_CORRELATION_PROJECTS_ROOT,
+                    project.id,
+                    "Manual Project Manager 2.0 backup",
+                )
+            except Exception:
+                logger.exception("project_backup_create_failed project_id=%s", safe_log_value(project.id))
+                st.error("Не удалось создать backup проекта. Подробности записаны в logs/app.log.")
+            else:
+                st.success(f"Backup создан: {backup.file_name} ({backup.size_bytes:,} байт).")
+
+        if template_col.button("Создать шаблон проекта", key=f"project_manager_template_create_{project.id}", use_container_width=True):
+            try:
+                template = create_project_template(
+                    LAS_CORRELATION_PROJECTS_ROOT,
+                    project.id,
+                    f"{project.name} template",
+                    "Шаблон структуры проекта без копирования сырых рабочих данных.",
+                )
+            except Exception:
+                logger.exception("project_template_create_failed project_id=%s", safe_log_value(project.id))
+                st.error("Не удалось создать шаблон проекта. Подробности записаны в logs/app.log.")
+            else:
+                st.success(f"Шаблон создан: {template.name}.")
+
+        recovery = load_project_recovery_state(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+        if recovery:
+            st.info(f"Recovery checkpoint: {recovery.saved_at} · {recovery.active_step} · {recovery.message}")
+            if st.button("Очистить recovery checkpoint", key=f"project_manager_recovery_clear_{project.id}"):
+                if clear_project_recovery_state(LAS_CORRELATION_PROJECTS_ROOT, project.id):
+                    st.success("Recovery checkpoint очищен.")
+                else:
+                    st.caption("Recovery checkpoint уже отсутствует.")
+
+        templates = list_project_templates(LAS_CORRELATION_PROJECTS_ROOT)
+        if templates:
+            st.markdown("#### Шаблоны проектов")
+            st.dataframe(pd.DataFrame(build_project_templates_table(templates)), use_container_width=True, height=180)
+            template_by_label = {f"{template.name} · {template.id}": template for template in templates}
+            selected_template_label = st.selectbox(
+                "Создать новый проект из шаблона",
+                options=tuple(template_by_label),
+                key=f"project_manager_template_select_{project.id}",
+            )
+            new_project_name = st.text_input(
+                "Название нового проекта из шаблона",
+                value=f"{project.name} copy",
+                key=f"project_manager_template_project_name_{project.id}",
+            )
+            if st.button("Создать проект из выбранного шаблона", key=f"project_manager_template_project_create_{project.id}"):
+                try:
+                    created = create_project_from_template(
+                        LAS_CORRELATION_PROJECTS_ROOT,
+                        template_by_label[selected_template_label].id,
+                        new_project_name,
+                    )
+                except Exception:
+                    logger.exception("project_from_template_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось создать проект из шаблона. Подробности записаны в logs/app.log.")
+                else:
+                    st.success(f"Проект создан: {created.name} ({created.id}).")
+        else:
+            st.caption("Шаблонов пока нет. Создайте шаблон из активного проекта.")
+
+        backups = list_project_backups(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+        if backups:
+            st.markdown("#### Резервные копии активного проекта")
+            st.dataframe(pd.DataFrame(build_project_backups_table(backups)), use_container_width=True, height=180)
+        else:
+            st.caption("Резервных ZIP-копий активного проекта пока нет.")
+
+        if st.button("Архивировать проект metadata-only", key=f"project_manager_archive_{project.id}"):
+            try:
+                archive = archive_project(LAS_CORRELATION_PROJECTS_ROOT, project.id, "Archived from Project Manager 2.0")
+            except Exception:
+                logger.exception("project_archive_failed project_id=%s", safe_log_value(project.id))
+                st.error("Не удалось архивировать проект. Подробности записаны в logs/app.log.")
+            else:
+                st.success(f"Архивная backup-копия создана: {archive.file_name}.")
+
+        history = list_project_history(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+        if history:
+            st.markdown("#### История изменений проекта")
+            st.dataframe(pd.DataFrame(build_project_history_table(history[:20])), use_container_width=True, height=260)
+        else:
+            if st.button("Добавить стартовую запись истории", key=f"project_manager_history_seed_{project.id}"):
+                append_project_history(
+                    LAS_CORRELATION_PROJECTS_ROOT,
+                    project.id,
+                    "project-manager-opened",
+                    "Project Manager 2.0 initialized for active project",
+                )
+                st.success("Стартовая запись истории добавлена.")
+
+
 def _render_project_file_index(project: ProjectRecord, logger) -> None:
     """Render Project Database file index for the active project."""
 
@@ -8259,6 +8407,7 @@ def _render_project_workspace_loader(project: ProjectRecord, logger) -> None:
         st.caption(f"Открыт проект: {project.name} ({project.id})")
         st.dataframe(_project_workspace_summary_table(project), use_container_width=True, hide_index=True, height=210)
         _render_project_dataset_manager(project, logger)
+        _render_project_manager_tools(project, logger)
         _render_project_file_index(project, logger)
 
         if not active_records:
