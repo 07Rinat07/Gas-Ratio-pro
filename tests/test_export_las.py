@@ -12,6 +12,9 @@ def test_export_las_bytes_writes_curve_and_ascii_sections():
 
     assert "~Curve" in content
     assert "WELL. DEMO-1" in content
+    assert "STRT.M 1000" in content
+    assert "STOP.M 1000.2" in content
+    assert "STEP.M 0.2" in content
     assert "DEPT.M : DEPT" in content
     assert "C1. : C1" in content
     assert "1000 80 10" in content

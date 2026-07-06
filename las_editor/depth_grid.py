@@ -650,6 +650,224 @@ class LasBulkOperationResult:
     warnings: tuple[str, ...] = ()
 
 
+
+@dataclass(frozen=True)
+class DepthIntegrityReport:
+    depth_column: str
+    row_count: int
+    start_depth: float | None
+    stop_depth: float | None
+    step: float | None
+    monotonic_increasing: bool
+    duplicate_count: int = 0
+    null_depth_count: int = 0
+    nan_value_count: int = 0
+    warnings: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class DepthSamplingOperationResult:
+    data: pd.DataFrame
+    operation_log: tuple[str, ...] = ()
+    integrity: DepthIntegrityReport | None = None
+    warnings: tuple[str, ...] = ()
+
+
+def validate_depth_integrity(df: pd.DataFrame, depth_column: str = "depth") -> DepthIntegrityReport:
+    """Validate the depth curve after an editor operation.
+
+    The report is intentionally small and serializable so it can be shown in
+    Streamlit, written into LAS edit metadata, and reused by tests.
+    """
+
+    if depth_column not in df.columns:
+        raise ValueError(f"Колонка глубины {depth_column!r} не найдена.")
+
+    depths = pd.to_numeric(df[depth_column], errors="coerce")
+    valid = depths.dropna()
+    warnings: list[str] = []
+    null_count = int(depths.isna().sum())
+    duplicate_count = int(valid.duplicated().sum())
+    monotonic = bool(valid.is_monotonic_increasing) if not valid.empty else False
+    nan_values = int(df.drop(columns=[depth_column], errors="ignore").isna().sum().sum())
+
+    if null_count:
+        warnings.append(f"Пустые или нечисловые глубины: {null_count}.")
+    if duplicate_count:
+        warnings.append(f"Дубликаты глубины: {duplicate_count}.")
+    if not valid.empty and not monotonic:
+        warnings.append("Глубина не растет монотонно сверху вниз.")
+
+    sorted_unique = pd.Series(sorted(valid.map(_round_depth).drop_duplicates()))
+    step = _infer_step(sorted_unique)
+
+    return DepthIntegrityReport(
+        depth_column=depth_column,
+        row_count=len(df),
+        start_depth=float(valid.iloc[0]) if not valid.empty else None,
+        stop_depth=float(valid.iloc[-1]) if not valid.empty else None,
+        step=step,
+        monotonic_increasing=monotonic,
+        duplicate_count=duplicate_count,
+        null_depth_count=null_count,
+        nan_value_count=nan_values,
+        warnings=tuple(warnings),
+    )
+
+
+def shift_depth_values(df: pd.DataFrame, depth_column: str = "depth", offset=0.0) -> DepthSamplingOperationResult:
+    """Shift measured depth by a constant offset without mutating the input."""
+
+    if depth_column not in df.columns:
+        raise ValueError(f"Колонка глубины {depth_column!r} не найдена.")
+    offset_value = float(_to_decimal(offset))
+    result = df.copy()
+    result[depth_column] = pd.to_numeric(result[depth_column], errors="coerce") + offset_value
+    integrity = validate_depth_integrity(result, depth_column)
+    return DepthSamplingOperationResult(
+        data=result,
+        operation_log=(f"Depth shifted by {offset_value}.",),
+        integrity=integrity,
+        warnings=integrity.warnings,
+    )
+
+
+def convert_depth_units(
+    df: pd.DataFrame,
+    depth_column: str = "depth",
+    *,
+    source_unit: str = "m",
+    target_unit: str = "ft",
+) -> DepthSamplingOperationResult:
+    """Convert depth values between metres and feet."""
+
+    if depth_column not in df.columns:
+        raise ValueError(f"Колонка глубины {depth_column!r} не найдена.")
+
+    source = str(source_unit).strip().lower()
+    target = str(target_unit).strip().lower()
+    aliases = {"meter": "m", "metre": "m", "meters": "m", "metres": "m", "feet": "ft", "foot": "ft"}
+    source = aliases.get(source, source)
+    target = aliases.get(target, target)
+    if source not in {"m", "ft"} or target not in {"m", "ft"}:
+        raise ValueError("Поддерживается перевод глубины только между m и ft.")
+    if source == target:
+        factor = 1.0
+    elif source == "m" and target == "ft":
+        factor = 3.280839895
+    else:
+        factor = 0.3048
+
+    result = df.copy()
+    result[depth_column] = pd.to_numeric(result[depth_column], errors="coerce") * factor
+    integrity = validate_depth_integrity(result, depth_column)
+    return DepthSamplingOperationResult(
+        data=result,
+        operation_log=(f"Depth unit converted from {source} to {target}; factor {factor}.",),
+        integrity=integrity,
+        warnings=integrity.warnings,
+    )
+
+
+def crop_depth_interval(df: pd.DataFrame, depth_column: str = "depth", *, start_depth=None, stop_depth=None) -> DepthSamplingOperationResult:
+    """Keep only rows inside a selected depth interval."""
+
+    if depth_column not in df.columns:
+        raise ValueError(f"Колонка глубины {depth_column!r} не найдена.")
+    start = _coerce_optional_depth(start_depth, "Начало интервала")
+    stop = _coerce_optional_depth(stop_depth, "Конец интервала")
+    if start is not None and stop is not None and start > stop:
+        raise ValueError("Начало интервала не может быть больше конца интервала.")
+
+    result = df.copy()
+    result[depth_column] = pd.to_numeric(result[depth_column], errors="coerce")
+    before = len(result)
+    if start is not None:
+        result = result[result[depth_column] >= start].copy()
+    if stop is not None:
+        result = result[result[depth_column] <= stop].copy()
+    result = result.reset_index(drop=True)
+    integrity = validate_depth_integrity(result, depth_column)
+    return DepthSamplingOperationResult(
+        data=result,
+        operation_log=(f"Depth interval cropped: {start if start is not None else 'min'} -> {stop if stop is not None else 'max'}; rows {before} -> {len(result)}.",),
+        integrity=integrity,
+        warnings=integrity.warnings,
+    )
+
+
+def resample_depth_step(
+    df: pd.DataFrame,
+    depth_column: str = "depth",
+    *,
+    target_step=0.1,
+    method: str = "linear",
+) -> DepthSamplingOperationResult:
+    """Resample all numeric curves to a new depth step.
+
+    This helper differs from ``resample_las_data`` by interpolating from the
+    original irregular grid onto a newly generated regular grid, so conversions
+    such as 0.1524 m -> 0.1 m keep curve values instead of only preserving exact
+    depth matches. Text columns are forward-filled after the numeric resample.
+    """
+
+    if depth_column not in df.columns:
+        raise ValueError(f"Колонка глубины {depth_column!r} не найдена.")
+    method_name = str(method).strip().lower()
+    if method_name not in {"linear", "nearest"}:
+        raise ValueError("Метод ресемплинга должен быть linear или nearest.")
+    step_value = float(_to_decimal(target_step))
+    if step_value <= 0:
+        raise ValueError("Шаг глубины должен быть больше 0.")
+
+    working = df.copy()
+    working[depth_column] = pd.to_numeric(working[depth_column], errors="coerce")
+    working = working.dropna(subset=[depth_column]).drop_duplicates(subset=[depth_column], keep="first")
+    if working.empty:
+        integrity = validate_depth_integrity(working, depth_column)
+        return DepthSamplingOperationResult(data=working, operation_log=("Depth resampling skipped: no numeric depth.",), integrity=integrity, warnings=integrity.warnings)
+
+    working = working.sort_values(by=depth_column, kind="mergesort").reset_index(drop=True)
+    start = float(working[depth_column].min())
+    stop = float(working[depth_column].max())
+    grid = list(build_depth_grid(start, stop, step_value))
+    indexed = working.set_index(depth_column)
+
+    numeric_columns = [column for column in indexed.columns if pd.to_numeric(indexed[column], errors="coerce").notna().any()]
+    output = pd.DataFrame({depth_column: grid})
+    if numeric_columns:
+        numeric = indexed[numeric_columns].apply(pd.to_numeric, errors="coerce")
+        union_index = sorted(set(numeric.index.tolist()) | set(grid))
+        expanded = numeric.reindex(union_index)
+        if method_name == "linear":
+            filled = expanded.interpolate(method="index", limit_area="inside")
+            sampled = filled.reindex(grid)
+        else:
+            sampled = numeric.reindex(grid, method="nearest")
+        for column in numeric_columns:
+            output[column] = sampled[column].to_numpy()
+
+    text_columns = [column for column in indexed.columns if column not in numeric_columns]
+    for column in text_columns:
+        output[column] = indexed[column].reindex(grid, method="ffill").to_numpy()
+
+    integrity = validate_depth_integrity(output, depth_column)
+    return DepthSamplingOperationResult(
+        data=output,
+        operation_log=(f"Depth resampled to step {step_value} using {method_name} method; rows {len(working)} -> {len(output)}.",),
+        integrity=integrity,
+        warnings=integrity.warnings,
+    )
+
+
+def build_safe_las_filename(source_name: str, suffix: str) -> str:
+    """Build a non-destructive LAS filename for editor exports."""
+
+    source_stem = str(source_name or "prepared").strip().rsplit(".", 1)[0] or "prepared"
+    safe_stem = "_".join(source_stem.replace("\\", "/").split("/")[-1].split())
+    clean_suffix = "_".join(str(suffix or "edited").strip().lower().replace(".", "_").split()) or "edited"
+    return f"{safe_stem}_{clean_suffix}.las"
+
 def _coerce_optional_depth(value, field_name: str) -> float | None:
     if value is None:
         return None

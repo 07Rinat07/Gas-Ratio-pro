@@ -5,12 +5,18 @@ import pytest
 
 from las_editor.depth_grid import (
     apply_las_bulk_operations,
+    build_safe_las_filename,
     build_las_edit_audit_log,
     build_las_edit_preview,
     build_las_editor_hints,
     build_depth_grid,
     fix_depth_direction,
     insert_manual_depth_rows,
+    shift_depth_values,
+    convert_depth_units,
+    crop_depth_interval,
+    resample_depth_step,
+    validate_depth_integrity,
     build_depth_step_report,
     diagnose_depths,
     resample_las_data,
@@ -263,3 +269,35 @@ def test_fix_depth_direction_keeps_original_when_depth_already_increases():
     assert not result.direction_fixed
     assert list(result.data["DEPT"]) == [1000.0, 1000.2, 1000.4]
     assert any("already matches" in item for item in result.operation_log)
+
+
+def test_depth_sampling_tools_shift_convert_crop_and_validate():
+    df = pd.DataFrame({"DEPT": [1000.0, 1000.5, 1001.0], "GR": [80.0, 85.0, 90.0]})
+
+    shifted = shift_depth_values(df, depth_column="DEPT", offset="0.25")
+    assert list(shifted.data["DEPT"]) == [1000.25, 1000.75, 1001.25]
+
+    converted = convert_depth_units(shifted.data, depth_column="DEPT", source_unit="m", target_unit="ft")
+    assert converted.data["DEPT"].iloc[0] == pytest.approx(3281.66010497375)
+
+    cropped = crop_depth_interval(shifted.data, depth_column="DEPT", start_depth=1000.7, stop_depth=1001.3)
+    assert list(cropped.data["DEPT"]) == [1000.75, 1001.25]
+
+    integrity = validate_depth_integrity(cropped.data, depth_column="DEPT")
+    assert integrity.monotonic_increasing
+    assert integrity.step == pytest.approx(0.5)
+    assert integrity.duplicate_count == 0
+
+
+def test_resample_depth_step_interpolates_to_new_grid():
+    df = pd.DataFrame({"DEPT": [1000.0, 1000.2, 1000.4], "GR": [80.0, 100.0, 120.0]})
+
+    result = resample_depth_step(df, depth_column="DEPT", target_step=0.1, method="linear")
+
+    assert list(result.data["DEPT"]) == [1000.0, 1000.1, 1000.2, 1000.3, 1000.4]
+    assert result.data.loc[1, "GR"] == pytest.approx(90.0)
+    assert any("Depth resampled to step 0.1" in item for item in result.operation_log)
+
+
+def test_build_safe_las_filename_never_reuses_source_name():
+    assert build_safe_las_filename("well one.las", "shifted 0.25m") == "well_one_shifted_0_25m.las"

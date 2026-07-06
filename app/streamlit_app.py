@@ -122,11 +122,17 @@ from las_editor.curve_merge import MERGE_STRATEGIES, merge_curves, undo_last_mer
 from las_editor.curve_rename import CurveRenameHistoryEntry, rename_curve, undo_last_rename
 from las_editor.depth_grid import (
     apply_las_bulk_operations,
+    build_safe_las_filename,
     build_las_edit_audit_log,
     build_las_edit_preview,
     build_las_editor_hints,
     fix_depth_direction,
     insert_manual_depth_rows,
+    shift_depth_values,
+    convert_depth_units,
+    crop_depth_interval,
+    resample_depth_step,
+    validate_depth_integrity,
     resample_las_data,
 )
 from mapping.mapper import apply_mapping, auto_map_columns
@@ -5707,7 +5713,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     )
     output_las_name = direction_cols[2].text_input(
         "Новое имя LAS",
-        value=f"{Path(getattr(uploaded_file, 'name', 'prepared')).stem}_depth_fixed.las",
+        value=build_safe_las_filename(getattr(uploaded_file, 'name', 'prepared.las'), "depth_fixed"),
         key="las_editor_depth_fixed_las_name",
     )
     depth_direction_log: tuple[str, ...] = ()
@@ -5812,9 +5818,81 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
             for warning in bulk_result.warnings:
                 st.warning(warning)
 
+    st.markdown("### Depth & Sampling Tools")
+    st.caption(
+        "Профессиональные операции с глубиной выполняются перед финальной сеткой: "
+        "смещение, перевод m/ft, обрезка интервала и интерполяционный ресемплинг. "
+        "Исходный LAS не перезаписывается."
+    )
+    sampling_df = bulk_result.data
+    sampling_log: list[str] = []
+    sampling_warnings: list[str] = []
+    with st.expander("Расширенные операции глубины", expanded=False):
+        depth_tool_cols = st.columns(4)
+        shift_enabled = depth_tool_cols[0].checkbox("Сместить глубину", value=False, key="las_editor_depth_shift_enabled")
+        shift_offset = depth_tool_cols[0].text_input("Смещение", value="0.0", key="las_editor_depth_shift_offset", disabled=not shift_enabled)
+        unit_enabled = depth_tool_cols[1].checkbox("Перевести m/ft", value=False, key="las_editor_depth_unit_enabled")
+        unit_pair = depth_tool_cols[1].selectbox("Единицы", options=("m → ft", "ft → m"), key="las_editor_depth_unit_pair", disabled=not unit_enabled)
+        crop_enabled = depth_tool_cols[2].checkbox("Обрезать интервал", value=False, key="las_editor_depth_crop_enabled")
+        crop_start = depth_tool_cols[2].text_input("Crop start", value="", key="las_editor_depth_crop_start", disabled=not crop_enabled)
+        crop_stop = depth_tool_cols[2].text_input("Crop stop", value="", key="las_editor_depth_crop_stop", disabled=not crop_enabled)
+        interpolation_enabled = depth_tool_cols[3].checkbox("Интерполяционный ресемплинг", value=False, key="las_editor_depth_interpolation_enabled")
+        interpolation_step = depth_tool_cols[3].text_input("Новый шаг", value=str(target_step), key="las_editor_depth_interpolation_step", disabled=not interpolation_enabled)
+        interpolation_method_label = depth_tool_cols[3].selectbox("Метод", options=("linear", "nearest"), key="las_editor_depth_interpolation_method", disabled=not interpolation_enabled)
+
+        try:
+            if shift_enabled:
+                shift_result = shift_depth_values(sampling_df, depth_column=depth_column, offset=shift_offset)
+                sampling_df = shift_result.data
+                sampling_log.extend(shift_result.operation_log)
+                sampling_warnings.extend(shift_result.warnings)
+            if unit_enabled:
+                source_unit, target_unit_label = ("m", "ft") if unit_pair.startswith("m") else ("ft", "m")
+                unit_result = convert_depth_units(sampling_df, depth_column=depth_column, source_unit=source_unit, target_unit=target_unit_label)
+                sampling_df = unit_result.data
+                sampling_log.extend(unit_result.operation_log)
+                sampling_warnings.extend(unit_result.warnings)
+            if crop_enabled:
+                crop_result = crop_depth_interval(sampling_df, depth_column=depth_column, start_depth=crop_start, stop_depth=crop_stop)
+                sampling_df = crop_result.data
+                sampling_log.extend(crop_result.operation_log)
+                sampling_warnings.extend(crop_result.warnings)
+            if interpolation_enabled:
+                interpolation_result = resample_depth_step(
+                    sampling_df,
+                    depth_column=depth_column,
+                    target_step=interpolation_step,
+                    method=interpolation_method_label,
+                )
+                sampling_df = interpolation_result.data
+                sampling_log.extend(interpolation_result.operation_log)
+                sampling_warnings.extend(interpolation_result.warnings)
+
+            integrity = validate_depth_integrity(sampling_df, depth_column=depth_column)
+            integrity_cols = st.columns(5)
+            integrity_cols[0].metric("STRT", integrity.start_depth if integrity.start_depth is not None else "нет")
+            integrity_cols[1].metric("STOP", integrity.stop_depth if integrity.stop_depth is not None else "нет")
+            integrity_cols[2].metric("STEP", integrity.step if integrity.step is not None else "нет")
+            integrity_cols[3].metric("Дубли", integrity.duplicate_count)
+            integrity_cols[4].metric("Пустые глубины", integrity.null_depth_count)
+            if sampling_log:
+                st.markdown("**Журнал Depth & Sampling:**")
+                for item in sampling_log:
+                    st.markdown(f"- {item}")
+            if sampling_warnings or integrity.warnings:
+                for warning in tuple(dict.fromkeys(tuple(sampling_warnings) + tuple(integrity.warnings))):
+                    st.warning(warning)
+            else:
+                st.success("Проверка глубины после операций пройдена.")
+        except Exception:
+            logger.exception("las_editor_depth_sampling_tools_failed")
+            st.error("Не удалось выполнить Depth & Sampling операцию. Проверьте смещение, единицы, интервал или шаг.")
+            st.caption("Подробности записаны в logs/app.log.")
+            return
+
     try:
         result = resample_las_data(
-            bulk_result.data,
+            sampling_df,
             depth_column=depth_column,
             target_step=target_step,
             fill_strategy=fill_strategy,
@@ -5943,7 +6021,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
         depth_column=depth_column,
         target_step=target_step,
         fill_strategy=fill_strategy,
-        bulk_operation_log=tuple(depth_direction_log) + tuple(bulk_result.operation_log),
+        bulk_operation_log=tuple(depth_direction_log) + tuple(bulk_result.operation_log) + tuple(sampling_log),
         manual_interval_log=manual_interval_log,
         added_depths=all_added_depths,
         manual_preview=manual_preview,
@@ -5953,7 +6031,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
         diagnostics,
         added_depth_count=len(all_added_depths),
         fill_strategy=fill_strategy,
-        bulk_operation_log=tuple(depth_direction_log) + tuple(bulk_result.operation_log),
+        bulk_operation_log=tuple(depth_direction_log) + tuple(bulk_result.operation_log) + tuple(sampling_log),
         manual_interval_log=manual_interval_log,
         preview=manual_preview,
     )
