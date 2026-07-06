@@ -8,6 +8,7 @@ import sys
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
+from textwrap import dedent
 
 import pandas as pd
 import streamlit as st
@@ -5309,7 +5310,7 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
     """
 
     st.markdown(
-        f"""
+        dedent(f"""
         <div class="dashboard-shell dashboard-3 project-workspace-1 dashboard-compact-workspace-fix dashboard-grid-optimized dashboard-information-hierarchy dashboard-responsive-audit dashboard-3-branch" data-dashboard-branch="Project Workspace 1.0" data-dashboard-workspace="project-workspace-1" data-dashboard-background-refinement="center-contained" data-dashboard-grid="optimized" data-dashboard-hierarchy="information" data-dashboard-responsive-audit="notebook-validated" style="{style}">
           <span class="dashboard-3-branch-marker">Dashboard 3.0 branch · Project Workspace 1.0</span>
           <main class="dashboard-main dashboard-workspace-main" id="dashboard-home">
@@ -5337,7 +5338,7 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
             <footer class="dashboard-footer"><span>Готов к работе · навигация только в Sidebar</span><span>Версия: 2.0.0 · {now_label}</span></footer>
           </main>
         </div>
-        """,
+        """).strip(),
         unsafe_allow_html=True,
     )
 
