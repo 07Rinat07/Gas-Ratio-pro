@@ -992,3 +992,48 @@ Add template workflow manager
 ```
 
 Текущий следующий незавершенный пункт: **Data Exchange Center**.
+
+## 13. Data Exchange Center
+
+Статус: реализовано как foundation-слой импорта, экспорта и проектного обмена данными.
+
+Цель: подготовить единый backend для обмена инженерными данными между проектом GAS RATIO PRO и внешними форматами без изменения исходных LAS-файлов и без внедрения лицензирования до завершения основной разработки.
+
+Реализованный состав:
+
+- [x] Data Exchange Record data model для журнала операций импорта/экспорта.
+- [x] Data Exchange Profile data model для повторяемых профилей обмена.
+- [x] Поддержка направлений `import` и `export`.
+- [x] Реестр форматов: CSV, XLSX, JSON, GeoJSON, DLIS, LIS и project ZIP.
+- [x] CRUD для записей обмена в `data_exchange.json` проекта.
+- [x] История проекта через `append_project_history`.
+- [x] CSV import/export для табличных данных.
+- [x] JSON import/export по схеме `gas-ratio-pro.rows.v1`.
+- [x] GeoJSON export для точечных объектов по колонкам координат.
+- [x] XLSX import/export через `openpyxl`.
+- [x] Валидация обязательных колонок и неоднородной структуры таблиц.
+- [x] Табличные представления для UI: records и validation issues.
+- [x] Сводка Data Exchange Center: imports, exports, failed, formats, rows.
+- [x] Project Exchange Manifest по схеме `gas-ratio-pro.project-exchange.v1`.
+- [x] Project ZIP export с `manifest.json` и фильтрацией include-patterns.
+
+Интеграция:
+
+- Project Manager через историю проекта.
+- Project Database через чтение файлов активного проекта.
+- Well Manager и Formation Manager через будущие профили CSV/XLSX/GeoJSON.
+- Report Studio через будущую выгрузку отчетных таблиц.
+- Batch Processing Center и Template Workflow Manager через будущие workflow-шаги импорта/экспорта.
+
+Ограничения текущего foundation-этапа:
+
+- DLIS/LIS зарегистрированы как форматы обмена, но полноценный бинарный parser/exporter будет добавлен отдельным профессиональным этапом.
+- UI-страница Data Exchange Center будет подключаться отдельным этапом после стабилизации backend API.
+
+Рекомендуемое название коммита:
+
+```text
+Add data exchange center foundation
+```
+
+Текущий следующий незавершенный пункт: **Advanced Plot Studio**.

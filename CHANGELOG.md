@@ -195,3 +195,10 @@ git status --short
 - Добавлены цветовые схемы зон и табличное представление Zone Manager.
 - Расширены тесты `tests/test_geological_modeling.py` для CRUD, merge/split, color scheme и валидации входных данных.
 
+
+## gas-ratio-pro-updated-129
+
+- Added Data Exchange Center foundation with project-level import/export records, exchange profiles, CSV/JSON/GeoJSON/XLSX helpers and project ZIP manifest export.
+- Added validation tables for exchange issues and summary tables for Data Exchange records.
+- Registered DLIS/LIS as planned professional exchange formats while keeping their binary parser/exporter for a later dedicated stage.
+- Added tests for exchange CRUD, CSV/JSON/GeoJSON conversion, XLSX roundtrip, profiles, validation and project ZIP export.
