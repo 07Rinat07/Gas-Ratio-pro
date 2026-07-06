@@ -349,6 +349,7 @@ APP_TABS = (
     "LAS-корреляция",
     "Интерпретационные графики",
     "Инструкции и документация",
+    "Лицензия",
 )
 LAS_EDITOR_STEP_PRESETS: tuple[str, ...] = ("0.1", "0.2", "0.5", "1.0", "1.2", "2.0", "Другой")
 LAS_EDITOR_FILL_STRATEGIES: tuple[tuple[str, str], ...] = (
@@ -415,6 +416,14 @@ BACKGROUND_MANAGER_RULES: dict[str, dict[str, str]] = {
         "position": "right 2vw top 6rem",
         "size": "clamp(224px, 27vw, 532px) auto",
         "reason": "Documentation can show the branded hero artwork while long text stays on readable glass panels.",
+    },
+    "Лицензия": {
+        "mode": "documentation",
+        "overlay": "0.30",
+        "glass": "0.74",
+        "position": "center bottom 1rem",
+        "size": "clamp(180px, 21vw, 360px) auto",
+        "reason": "License page uses a centered branded background with high-contrast legal panels.",
     },
     "Работа с данными": {
         "mode": "dark-workspace",
@@ -661,10 +670,10 @@ START_ACTIONS: tuple[dict[str, str], ...] = (
         "short_title": "Лицензия",
         "icon": "🔒",
         "button_label": "Лицензия",
-        "target_tab": "Старт",
-        "description": "Показывает лицензионный блок Dashboard и правила коммерческого использования приложения.",
-        "when": "Когда нужно быстро проверить статус лицензии и copyright-блок.",
-        "tooltip": "Вернуться на Dashboard к блоку лицензии.",
+        "target_tab": "Лицензия",
+        "description": "Открывает отдельную лицензионную страницу: права автора, ограничения использования, EULA placeholder и контакт.",
+        "when": "Когда нужно быстро проверить статус лицензии, copyright и правила коммерческого использования.",
+        "tooltip": "Открыть отдельную страницу лицензии приложения.",
     },
 )
 
@@ -1814,6 +1823,68 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         .sidebar-recent-item { border-left:3px solid rgba(255,138,0,0.74); padding:0.34rem 0.45rem; margin:0.28rem 0; background:rgba(15,23,42,0.18); border-radius:9px; }
         .sidebar-recent-item strong { display:block; color:#f8fafc; }
         .sidebar-recent-item span { color:#aeb8c8; font-size:0.74rem !important; }
+
+        .application-license-page {
+            display: grid;
+            gap: 0.92rem;
+            max-width: 1180px;
+            margin: 0 auto;
+        }
+        .application-license-hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(15rem, 0.65fr);
+            gap: 1rem;
+            align-items: stretch;
+            border: 1px solid rgba(255, 138, 0, 0.34);
+            border-radius: 1.2rem;
+            padding: 1.15rem;
+            background: linear-gradient(135deg, rgba(255, 138, 0, 0.18), rgba(8, 18, 34, 0.84));
+            box-shadow: 0 18px 50px rgba(0,0,0,0.32);
+        }
+        .application-license-hero h2 { margin: 0 0 0.4rem 0; font-size: clamp(1.35rem, 2.4vw, 2.1rem); }
+        .application-license-hero p { color: #dbeafe; margin: 0.25rem 0; line-height: 1.55; }
+        .license-status-panel {
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 1rem;
+            padding: 0.9rem;
+            background: rgba(4, 10, 24, 0.72);
+        }
+        .license-status-panel strong { display:block; color:#ffedd5; margin-bottom:0.35rem; }
+        .license-status-list { display:grid; gap:0.42rem; margin-top:0.6rem; }
+        .license-status-row { display:flex; justify-content:space-between; gap:0.8rem; color:#d8e2f0; border-bottom:1px solid rgba(148,163,184,0.13); padding-bottom:0.35rem; }
+        .license-status-row span:last-child { color:#ffedd5; font-weight:800; text-align:right; }
+        .license-cards-grid {
+            display:grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap:0.78rem;
+        }
+        .license-rule-card {
+            border:1px solid rgba(148,163,184,0.24);
+            border-radius:1rem;
+            padding:0.88rem;
+            background:rgba(8,18,34,0.72);
+            min-height:8.2rem;
+        }
+        .license-rule-card h3 { margin:0 0 0.4rem 0; font-size:1rem; color:#ffedd5; }
+        .license-rule-card p, .license-rule-card li { color:#cbd5e1; line-height:1.45; font-size:0.94rem; }
+        .license-text-panel {
+            border:1px solid rgba(148,163,184,0.22);
+            border-radius:1.05rem;
+            padding:1rem;
+            background:rgba(2,8,23,0.78);
+            max-height:32rem;
+            overflow:auto;
+        }
+        .license-text-panel pre { white-space:pre-wrap; color:#dbeafe; font-size:0.92rem; line-height:1.45; margin:0; }
+        @media (max-width: 1366px) {
+            .application-license-hero { grid-template-columns: 1fr; padding:0.95rem; }
+            .license-cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 760px) {
+            .license-cards-grid { grid-template-columns: 1fr; }
+            .license-status-row { flex-direction:column; gap:0.12rem; }
+            .license-status-row span:last-child { text-align:left; }
+        }
         .about-brand-block,
         .license-brand-header,
         .splash-screen-brand {
@@ -4331,6 +4402,87 @@ def _render_license_brand_header_html() -> str:
     )
 
 
+def _read_application_license_text() -> str:
+    """Read the repository license text for the in-app licensing page."""
+    license_path = ROOT_DIR / "LICENSE"
+    try:
+        return license_path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return "LICENSE file is missing. Contact the copyright owner before using the software."
+
+
+def _license_page_rule_cards() -> tuple[dict[str, str], ...]:
+    """Return concise legal rule cards shown above the full license text."""
+    return (
+        {
+            "title": "Ownership",
+            "body": "Исходный код, assets, документация и связанные материалы принадлежат Rinat Sarmuldin.",
+        },
+        {
+            "title": "Read-only evaluation",
+            "body": "Разрешен только просмотр или загрузка для личной некоммерческой оценки без права производственного применения.",
+        },
+        {
+            "title": "Commercial permission",
+            "body": "Commercial, SaaS, internal company, production use, redistribution and modification требуют письменного разрешения автора.",
+        },
+        {
+            "title": "Third-party components",
+            "body": "Сторонние библиотеки сохраняют собственные лицензии; этот экран фиксирует права на Gas Ratio Pro materials.",
+        },
+        {
+            "title": "EULA placeholder",
+            "body": "Полная EULA-страница будет подключена отдельным этапом; до этого действует proprietary LICENSE в репозитории.",
+        },
+        {
+            "title": "Contact",
+            "body": "Для разрешений на использование: ura07srr@gmail.com.",
+        },
+    )
+
+
+def _render_application_licensing_page() -> None:
+    """Render the dedicated high-contrast application licensing page."""
+    identity = _app_identity_metadata()
+    license_text = _read_application_license_text()
+    cards_html = "".join(
+        "<article class='license-rule-card'>"
+        f"<h3>{_html_escape(card['title'])}</h3>"
+        f"<p>{_html_escape(card['body'])}</p>"
+        "</article>"
+        for card in _license_page_rule_cards()
+    )
+    st.markdown(
+        f"""
+        <section class='application-license-page' id='application-license-page'>
+          <div class='application-license-hero glass-panel'>
+            <div>
+              {_render_license_brand_header_html()}
+              <h2>Лицензия и коммерческая защита</h2>
+              <p>Эта страница закрепляет правила использования Gas Ratio Pro внутри приложения, чтобы статус продукта был виден не только в файле LICENSE, но и в интерфейсе.</p>
+              <p>Любое коммерческое, production, SaaS, internal company использование, распространение или модификация требуют предварительного письменного разрешения автора.</p>
+            </div>
+            <aside class='license-status-panel'>
+              <strong>Статус продукта</strong>
+              <div class='license-status-list'>
+                <div class='license-status-row'><span>License</span><span>{_html_escape(identity['license'])}</span></div>
+                <div class='license-status-row'><span>Owner</span><span>{_html_escape(identity['author'])}</span></div>
+                <div class='license-status-row'><span>Copyright</span><span>{_html_escape(identity['copyright'])}</span></div>
+                <div class='license-status-row'><span>Contact</span><span>{_html_escape(identity['contact'])}</span></div>
+                <div class='license-status-row'><span>Commercial use</span><span>Written permission only</span></div>
+              </div>
+            </aside>
+          </div>
+          <div class='license-cards-grid'>{cards_html}</div>
+          <section class='license-text-panel' aria-label='Full LICENSE text'>
+            <pre>{_html_escape(license_text)}</pre>
+          </section>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def _render_splash_screen_html() -> str:
     """Render a lightweight splash-screen placeholder for future startup packaging."""
     identity = _app_identity_metadata()
@@ -4447,6 +4599,7 @@ NAVIGATION_ITEMS: tuple[dict[str, str], ...] = (
     {"label": "LAS-корреляция", "icon": "🔗", "description": "Сравнение скважин"},
     {"label": "Интерпретационные графики", "icon": "📈", "description": "Планшеты и отчеты"},
     {"label": "Инструкции и документация", "icon": "📘", "description": "Руководства и методика"},
+    {"label": "Лицензия", "icon": "🔒", "description": "Права и коммерческое использование"},
 )
 
 
@@ -4492,6 +4645,13 @@ COMMAND_PALETTE_STATIC_COMMANDS: tuple[dict[str, str], ...] = (
         "target_tab": "Инструкции и документация",
         "description": "Открыть руководство, быстрый старт, формулы и troubleshooting.",
         "keywords": "инструкции документация help руководство формулы troubleshooting",
+    },
+    {
+        "title": "Лицензия и коммерческое использование",
+        "category": "Лицензия",
+        "target_tab": "Лицензия",
+        "description": "Открыть отдельную лицензионную страницу с Proprietary License, EULA placeholder и контактом автора.",
+        "keywords": "license лицензия proprietary eula commercial коммерческое copyright права автор",
     },
 )
 
@@ -9184,10 +9344,15 @@ def main() -> None:
         st.markdown('<div id="graphs-workspace"></div>', unsafe_allow_html=True)
         _render_interpretation_graphs_tab(logger, active_project)
         _close_page_shell()
-    else:
+    elif active_tab == "Инструкции и документация":
         _open_page_shell(active_tab)
         st.markdown('<div id="documentation-workspace"></div>', unsafe_allow_html=True)
         _render_documentation_tab()
+        _close_page_shell()
+    else:
+        _open_page_shell(active_tab)
+        st.markdown('<div id="license-workspace"></div>', unsafe_allow_html=True)
+        _render_application_licensing_page()
         _close_page_shell()
 
 

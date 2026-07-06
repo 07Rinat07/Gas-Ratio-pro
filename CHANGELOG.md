@@ -1,3 +1,9 @@
+## Application Licensing Page
+
+- Added a dedicated `Лицензия` application tab for proprietary licensing and commercial-use rules.
+- Connected dashboard quick action, main navigation and command palette to the license page.
+- Rendered product identity, owner, copyright, contact, EULA placeholder and full `LICENSE` text in high-contrast adaptive panels.
+
 
 ## Dashboard 3.0
 
