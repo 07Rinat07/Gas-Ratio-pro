@@ -101,13 +101,14 @@ def test_sidebar_helpers_report_health_and_recent_empty_state(tmp_path, monkeypa
     assert app._sidebar_recent_project_items(project)[0]["label"] == "Нет недавних материалов"
 
 
-def test_dashboard_has_large_functional_action_cards() -> None:
+def test_dashboard_has_compact_functional_action_cards() -> None:
     source = Path(app.__file__).read_text(encoding="utf-8")
 
     assert "Создать / открыть проект" in source
     assert "functional-quick-actions" in source
-    assert "dashboard_jump_" in source
+    assert "dashboard_quick_action_" in source
     assert "dashboard-action-card" in source
+    assert "simplified-quick-action" in source
 
 
 def test_global_background_layer_is_available_for_all_tabs() -> None:
@@ -124,7 +125,8 @@ def test_main_navigation_replaces_small_streamlit_tabs() -> None:
     assert "ACTIVE_MAIN_TAB_KEY" in source
     assert "_render_main_navigation" in source
     assert "st.tabs(list(APP_TABS))" not in source
-    assert "Открыть: Старт" in source
+    assert "Открыть: Старт" not in source
+    assert "simplified-dashboard-navigation" in source
 
 
 def test_documentation_tab_uses_branded_background() -> None:
@@ -555,3 +557,12 @@ def test_branding_assets_stage_is_documented() -> None:
     assert "navbar logo" in plan
     assert "Branding Assets" in guide
     assert "PDF/PNG export watermark option" in guide
+
+
+def test_dashboard_navigation_removes_duplicate_open_buttons() -> None:
+    source = Path(app.__file__).read_text(encoding="utf-8")
+
+    assert "Открыть: {label}" not in source
+    assert 'st.button(f"Открыть: {label}"' not in source
+    assert "simplified-dashboard-navigation" in source
+    assert "app-nav-description" in source

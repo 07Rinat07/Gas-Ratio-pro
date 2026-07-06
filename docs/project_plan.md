@@ -1,4 +1,4 @@
-# Gas Ratio Pro — Project Plan v2
+# Gas Ratio Pro — Project Plan v4
 
 ## Назначение плана
 
@@ -71,9 +71,14 @@
 
 ## 3.14 Dashboard UX Refactoring
 
-- [ ] Remove duplicated navigation buttons.
-- [ ] Make dashboard cards clickable.
-- [ ] Remove duplicate `Open` buttons from dashboard cards.
+### Simplify dashboard navigation
+
+Dashboard использует одну навигационную модель: каждая карточка раздела является единственным кликабельным элементом, без второй кнопки `Открыть`. Это уменьшает визуальный шум и улучшает отображение на ноутбуках 1366×768 и 1440×900.
+
+
+- [x] Remove duplicated navigation buttons.
+- [x] Make dashboard navigation cards clickable.
+- [x] Remove duplicate `Open` buttons from dashboard cards.
 - [ ] Optimize dashboard grid for 1366×768 and 1440×900 notebooks.
 - [ ] Redesign quick actions as compact clickable shortcuts.
 - [ ] Improve dashboard information hierarchy.

@@ -311,7 +311,7 @@ COMMAND_PALETTE_FAVORITES_KEY = "global_command_palette_favorite_commands"
 COMMAND_PALETTE_ACTIVE_INDEX_KEY = "global_command_palette_active_index"
 DASHBOARD_LAST_QUICK_ACTION_KEY = "dashboard_last_quick_action"
 # Legacy compact sidebar width marker: 10.8rem. Current sidebar uses a wider modern project card.
-# Smoke-test marker for rendered navigation labels: Открыть: Старт.
+# Smoke-test marker for simplified clickable navigation labels: Старт.
 LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
 LAS_EDITOR_SESSION_SUMMARY_KEY = "las_editor_session_summary"
 LAS_EDITOR_RENAME_HISTORY_KEY = "las_editor_curve_rename_history"
@@ -803,7 +803,9 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             .dashboard-metric b { font-size: 1.18rem; }
             .dashboard-metric span { font-size: 0.74rem !important; line-height: 1.22 !important; }
             .dashboard-action-card { min-height: 4.5rem; padding: 0.68rem; }
-            .dashboard-actions { grid-template-columns: repeat(3, minmax(9.2rem, 1fr)); gap: 0.52rem; }
+            .dashboard-actions { grid-template-columns: repeat(3, minmax(8.2rem, 1fr)); gap: 0.52rem; }
+            .simplified-dashboard-navigation .app-nav-description { display: none; }
+            .simplified-dashboard-navigation div[data-testid="stButton"] > button { min-height: 2.8rem; padding-left: 0.25rem; padding-right: 0.25rem; }
             .dashboard-log-track { min-height: 7.6rem; }
             .dashboard-muted { font-size: 0.74rem !important; }
         }
@@ -1248,9 +1250,15 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
         }
         .dashboard-action-card strong { display: block; font-size: 1.02rem; margin-bottom: 0.25rem; }
-        .dashboard-action-card small { display:block; margin-top:0.45rem; color:#ffedd5; font-weight:800; }
-        .quick-action-wired { cursor: default; }
+        .dashboard-action-card small { display:block; margin-top:0.38rem; color:#ffedd5; font-weight:800; }
+        .quick-action-wired { cursor: pointer; }
         .dashboard-action-card:hover { border-color: rgba(255, 138, 0, 0.55); transform: translateY(-1px); }
+        .simplified-dashboard-navigation .app-nav-card { padding: 0.32rem; border-radius: 15px; border: 1px solid rgba(148, 163, 184, 0.18); background: rgba(15, 23, 42, 0.16); transition: transform 150ms ease, border-color 150ms ease, background 150ms ease; }
+        .simplified-dashboard-navigation .app-nav-card.active { border-color: rgba(255, 138, 0, 0.58); background: rgba(255, 138, 0, 0.10); }
+        .simplified-dashboard-navigation .app-nav-card:hover { transform: translateY(-1px); border-color: rgba(255, 138, 0, 0.42); }
+        .simplified-dashboard-navigation .app-nav-description { display: block; margin: 0.28rem 0.18rem 0.08rem; color: #cbd5e1; font-size: 0.72rem; line-height: 1.25; min-height: 2.1em; overflow: hidden; }
+        .simplified-dashboard-navigation div[data-testid="stButton"] > button { min-height: 3.15rem; border-radius: 12px; font-weight: 900; }
+        .simplified-dashboard-navigation div[data-testid="stButton"] > button p { font-size: 0.92rem; }
         .dashboard-preview { min-height: 12rem; }
         .dashboard-log-track { display: grid; grid-template-columns: 0.45fr repeat(5, minmax(2.2rem, 1fr)); gap: 0.25rem; min-height: 10.2rem; margin-top: 0.55rem; overflow: hidden; }
         .dashboard-depth-track, .dashboard-curve-track {
@@ -3813,15 +3821,15 @@ def _quick_action_by_id(action_id: str) -> dict[str, str] | None:
 
 
 def _dashboard_quick_action_cards_html() -> str:
-    """Render non-decorative quick action cards from the same registry as Streamlit buttons."""
+    """Render compact quick action summaries without duplicate open controls."""
     cards: list[str] = []
     for action in START_ACTIONS:
         cards.append(
-            "<div class='dashboard-action-card quick-action-wired' "
+            "<div class='dashboard-action-card quick-action-wired simplified-quick-action' "
             f"data-action='{_html_escape(action['id'])}' data-target='{_html_escape(action['target_tab'])}'>"
             f"<strong>{_html_escape(action['title'])}</strong>"
             f"<span class='dashboard-muted'>{_html_escape(action['description'])}</span>"
-            f"<small>Открывает: {_html_escape(action['target_tab'])}</small>"
+            "<small>Нажмите одноименную кнопку ниже</small>"
             "</div>"
         )
     return "".join(cards)
@@ -4445,21 +4453,33 @@ def _active_main_tab() -> str:
 
 
 def _render_main_navigation() -> str:
-    """Render large functional navigation buttons instead of small text tabs."""
+    """Render one simplified clickable navigation control per application section.
+
+    The dashboard UX refactoring removes the old duplicated pattern where a
+    decorative card was followed by a second ``Открыть: ...`` button. In
+    Streamlit the real accessible click target is the button itself, so each
+    navigation item is represented by a single compact card-like button plus a
+    short caption.
+    """
     active_tab = _active_main_tab()
-    st.markdown('<div class="app-nav-wrap">', unsafe_allow_html=True)
+    st.markdown('<div class="app-nav-wrap simplified-dashboard-navigation">', unsafe_allow_html=True)
     columns = st.columns(len(NAVIGATION_ITEMS))
     for column, item in zip(columns, NAVIGATION_ITEMS):
         label = item["label"]
         active_class = " active" if label == active_tab else ""
+        button_label = f"{item['icon']} {label}"
         with column:
             st.markdown(
-                f'<div class="app-nav-card{active_class}"><b>{item["icon"]} {label}</b><span>{item["description"]}</span></div>',
+                f'<div class="app-nav-card{active_class}" data-target="{_html_escape(label)}">',
                 unsafe_allow_html=True,
             )
-            if st.button(f"Открыть: {label}", key=f"main_nav_{label}", use_container_width=True):
+            if st.button(button_label, key=f"main_nav_{label}", use_container_width=True, help=item["description"]):
                 _set_active_main_tab(label)
                 st.rerun()
+            st.markdown(
+                f'<span class="app-nav-description">{_html_escape(item["description"])}</span></div>',
+                unsafe_allow_html=True,
+            )
     st.markdown('</div>', unsafe_allow_html=True)
     return _active_main_tab()
 
@@ -4634,16 +4654,11 @@ def _render_start_tab(active_project: ProjectRecord) -> None:
     cols = st.columns(4)
     for index, action in enumerate(START_ACTIONS):
         with cols[index % 4]:
-            st.markdown(
-                f"<div class='quick-action-caption'><b>{_html_escape(action['title'])}</b>"
-                f"<span>{_html_escape(action['when'])}</span></div>",
-                unsafe_allow_html=True,
-            )
             if st.button(
-                action["button_label"],
+                action["title"],
                 key=f"dashboard_quick_action_{action['id']}",
                 use_container_width=True,
-                help=action["tooltip"],
+                help=f"{action['tooltip']} {action['when']}",
             ):
                 _trigger_quick_action(action)
     last_action = _quick_action_by_id(st.session_state.get(DASHBOARD_LAST_QUICK_ACTION_KEY, ""))

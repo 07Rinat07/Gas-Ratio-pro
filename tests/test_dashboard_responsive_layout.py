@@ -16,3 +16,11 @@ def test_dashboard_cards_have_compact_laptop_metrics_and_actions():
     assert "dashboard-metrics { grid-template-columns: repeat(2, minmax(0, 1fr))" in source
     assert "dashboard-actions { grid-template-columns: repeat(3, minmax(0, 1fr))" in source
     assert "overflow: hidden" in source
+
+
+def test_simplified_navigation_compacts_on_laptop():
+    source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
+
+    assert "simplified-dashboard-navigation .app-nav-description { display: none; }" in source
+    assert "Открыть: {label}" not in source
+    assert "minmax(8.2rem, 1fr)" in source
