@@ -580,3 +580,174 @@ def build_plot_studio_curve_table(template: PlotTemplate) -> list[dict[str, Any]
         }
         for curve in template.curves
     ]
+
+
+# Stage 130 — Advanced Plot Studio foundation
+PLOT_LAYOUT_PRESETS: dict[str, dict[str, Any]] = {
+    "triple-combo": {
+        "name": "Triple Combo",
+        "tracks": [
+            {"id": "track-depth", "title": "Depth", "width": 0.55},
+            {"id": "track-gamma", "title": "Gamma Ray", "width": 0.9},
+            {"id": "track-resistivity", "title": "Resistivity", "width": 1.15},
+            {"id": "track-porosity", "title": "Porosity", "width": 1.15},
+        ],
+        "curves": [
+            {"id": "curve-gr", "mnemonic": "GR", "track_id": "track-gamma", "color": "#22c55e"},
+            {"id": "curve-rt", "mnemonic": "RT", "track_id": "track-resistivity", "color": "#f97316", "axis": {"scale": "log", "min_value": 0.2, "max_value": 2000}},
+            {"id": "curve-rhob", "mnemonic": "RHOB", "track_id": "track-porosity", "color": "#38bdf8", "axis": {"min_value": 1.95, "max_value": 2.95}},
+            {"id": "curve-nphi", "mnemonic": "NPHI", "track_id": "track-porosity", "color": "#a78bfa", "axis": {"min_value": -0.15, "max_value": 0.45}},
+        ],
+    },
+    "mud-gas": {
+        "name": "Mud Gas Interpretation",
+        "tracks": [
+            {"id": "track-depth", "title": "Depth", "width": 0.55},
+            {"id": "track-gas", "title": "Total Gas", "width": 1.1},
+            {"id": "track-ratios", "title": "Gas Ratios", "width": 1.25},
+            {"id": "track-interpretation", "title": "Interpretation", "width": 1.0},
+        ],
+        "curves": [
+            {"id": "curve-tg", "mnemonic": "TG", "track_id": "track-gas", "color": "#ef4444"},
+            {"id": "curve-c1", "mnemonic": "C1", "track_id": "track-gas", "color": "#f97316"},
+            {"id": "curve-wh", "mnemonic": "Wh", "track_id": "track-ratios", "color": "#22c55e"},
+            {"id": "curve-bh", "mnemonic": "Bh", "track_id": "track-ratios", "color": "#38bdf8"},
+            {"id": "curve-ch", "mnemonic": "Ch", "track_id": "track-ratios", "color": "#a78bfa"},
+        ],
+    },
+}
+
+
+@dataclass(frozen=True)
+class PlotTemplateIssue:
+    severity: str
+    code: str
+    message: str
+    object_id: str = ""
+    recommendation: str = ""
+
+
+def list_plot_layout_presets() -> tuple[dict[str, Any], ...]:
+    """Return built-in professional layout presets for Advanced Plot Studio."""
+    return tuple(
+        {
+            "ID": preset_id,
+            "Название": str(payload.get("name", preset_id)),
+            "Треков": len(payload.get("tracks", ())),
+            "Кривых": len(payload.get("curves", ())),
+        }
+        for preset_id, payload in sorted(PLOT_LAYOUT_PRESETS.items())
+    )
+
+
+def apply_plot_layout_preset(root: Path | str, project_id: str, template_id: str, preset_id: str) -> PlotTemplate:
+    """Replace template tracks/curves with a built-in professional layout preset."""
+    template = get_plot_template(root, project_id, template_id)
+    clean_preset_id = _safe_id(preset_id, "preset")
+    if clean_preset_id not in PLOT_LAYOUT_PRESETS:
+        raise ValueError(f"Layout preset не найден: {clean_preset_id}.")
+    preset = PLOT_LAYOUT_PRESETS[clean_preset_id]
+    return save_plot_template(
+        root,
+        project_id,
+        template.name,
+        template_id=template.id,
+        well_id=template.well_id,
+        tracks=preset.get("tracks", ()),
+        curves=preset.get("curves", ()),
+        annotations=template.annotations,
+        grid_major_step=template.grid_major_step,
+        grid_minor_step=template.grid_minor_step,
+        show_grid=template.show_grid,
+        export_formats=template.export_formats,
+    )
+
+
+def clone_plot_template(root: Path | str, project_id: str, template_id: str, new_name: str, *, new_template_id: str | None = None, well_id: str | None = None) -> PlotTemplate:
+    """Create a new template from an existing Plot Studio template."""
+    source = get_plot_template(root, project_id, template_id)
+    clone_name = _clean_text(new_name, "Название копии", required=True)
+    return save_plot_template(
+        root,
+        project_id,
+        clone_name,
+        template_id=new_template_id or f"{source.id}-copy",
+        well_id=source.well_id if well_id is None else well_id,
+        tracks=source.tracks,
+        curves=source.curves,
+        annotations=source.annotations,
+        grid_major_step=source.grid_major_step,
+        grid_minor_step=source.grid_minor_step,
+        show_grid=source.show_grid,
+        export_formats=source.export_formats,
+    )
+
+
+def validate_plot_template(template: PlotTemplate) -> tuple[PlotTemplateIssue, ...]:
+    """Validate template consistency before rendering/export."""
+    issues: list[PlotTemplateIssue] = []
+    if not template.tracks:
+        issues.append(PlotTemplateIssue("error", "no-tracks", "Шаблон не содержит треков.", template.id, "Добавьте хотя бы один трек."))
+    track_ids = [track.id for track in template.tracks]
+    duplicate_tracks = sorted({track_id for track_id in track_ids if track_ids.count(track_id) > 1})
+    for track_id in duplicate_tracks:
+        issues.append(PlotTemplateIssue("error", "duplicate-track", f"Дублируется ID трека: {track_id}.", track_id, "Переименуйте один из треков."))
+    track_id_set = set(track_ids)
+    curve_ids = [curve.id for curve in template.curves]
+    duplicate_curves = sorted({curve_id for curve_id in curve_ids if curve_ids.count(curve_id) > 1})
+    for curve_id in duplicate_curves:
+        issues.append(PlotTemplateIssue("error", "duplicate-curve", f"Дублируется ID кривой: {curve_id}.", curve_id, "Оставьте один уникальный ID кривой."))
+    for curve in template.curves:
+        if curve.track_id not in track_id_set:
+            issues.append(PlotTemplateIssue("error", "orphan-curve", f"Кривая {curve.mnemonic} ссылается на отсутствующий трек {curve.track_id}.", curve.id, "Переместите кривую на существующий трек или удалите ее."))
+        if curve.axis.min_value is not None and curve.axis.max_value is not None and curve.axis.min_value >= curve.axis.max_value:
+            issues.append(PlotTemplateIssue("error", "bad-axis-range", f"Кривая {curve.mnemonic}: минимум оси не меньше максимума.", curve.id, "Исправьте диапазон оси."))
+    for track in template.tracks:
+        unknown_curve_ids = [curve_id for curve_id in track.curve_ids if curve_id not in set(curve_ids)]
+        if unknown_curve_ids:
+            issues.append(PlotTemplateIssue("warning", "stale-track-curves", f"Трек {track.title} содержит ссылки на удаленные кривые: {', '.join(unknown_curve_ids)}.", track.id, "Пересохраните шаблон или очистите список curve_ids."))
+    for annotation in template.annotations:
+        if annotation.track_id and annotation.track_id not in track_id_set:
+            issues.append(PlotTemplateIssue("warning", "orphan-annotation", f"Аннотация {annotation.text} ссылается на отсутствующий трек {annotation.track_id}.", annotation.id, "Назначьте существующий трек или сделайте аннотацию общей."))
+    return tuple(issues)
+
+
+def build_plot_template_issue_table(issues: Iterable[PlotTemplateIssue]) -> tuple[dict[str, str], ...]:
+    return tuple(
+        {
+            "Уровень": issue.severity,
+            "Код": issue.code,
+            "Объект": issue.object_id or "—",
+            "Сообщение": issue.message,
+            "Рекомендация": issue.recommendation or "—",
+        }
+        for issue in issues
+    )
+
+
+def build_plot_preview_spec(template: PlotTemplate) -> dict[str, Any]:
+    """Build a lightweight renderer-independent preview specification."""
+    visible_tracks = [track for track in template.tracks if track.visible]
+    total_width = sum(track.width for track in visible_tracks) or 1.0
+    curves_by_track: dict[str, list[PlotCurveConfig]] = {track.id: [] for track in visible_tracks}
+    for curve in template.curves:
+        if curve.track_id in curves_by_track:
+            curves_by_track[curve.track_id].append(curve)
+    return {
+        "template_id": template.id,
+        "name": template.name,
+        "well_id": template.well_id,
+        "grid": {"enabled": template.show_grid, "major_step": template.grid_major_step, "minor_step": template.grid_minor_step},
+        "total_width": round(total_width, 4),
+        "tracks": [
+            {
+                "id": track.id,
+                "title": track.title,
+                "width": track.width,
+                "width_percent": round(track.width / total_width * 100, 2),
+                "curves": [_curve_to_dict(curve) for curve in curves_by_track.get(track.id, [])],
+                "annotations": [_annotation_to_dict(annotation) for annotation in template.annotations if not annotation.track_id or annotation.track_id == track.id],
+            }
+            for track in visible_tracks
+        ],
+    }

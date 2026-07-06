@@ -266,6 +266,14 @@ from projects.plot_studio import (
     build_plot_studio_template_table,
     build_plot_studio_track_table,
     build_plot_studio_curve_table,
+    PLOT_LAYOUT_PRESETS,
+    PlotTemplateIssue,
+    list_plot_layout_presets,
+    apply_plot_layout_preset,
+    clone_plot_template,
+    validate_plot_template,
+    build_plot_template_issue_table,
+    build_plot_preview_spec,
 )
 
 from projects.statistics_center import (

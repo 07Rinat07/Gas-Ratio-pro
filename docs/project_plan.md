@@ -1037,3 +1037,11 @@ Add data exchange center foundation
 ```
 
 Текущий следующий незавершенный пункт: **Advanced Plot Studio**.
+
+## Этап 130 — Advanced Plot Studio Foundation
+
+- Добавлены встроенные профессиональные layout presets: Triple Combo и Mud Gas Interpretation.
+- Добавлено безопасное клонирование Plot Studio шаблонов для повторного использования на других скважинах.
+- Добавлена renderer-independent preview specification: треки, относительная ширина, кривые, аннотации и сетка.
+- Добавлена валидация Plot Template перед рендерингом/экспортом: отсутствующие треки, orphan curves, orphan annotations, stale curve references и некорректные диапазоны осей.
+- Добавлена таблица validation issues для будущего UI и Report Studio.

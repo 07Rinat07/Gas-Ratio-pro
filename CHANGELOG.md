@@ -202,3 +202,11 @@ git status --short
 - Added validation tables for exchange issues and summary tables for Data Exchange records.
 - Registered DLIS/LIS as planned professional exchange formats while keeping their binary parser/exporter for a later dedicated stage.
 - Added tests for exchange CRUD, CSV/JSON/GeoJSON conversion, XLSX roundtrip, profiles, validation and project ZIP export.
+
+## gas-ratio-pro-updated-130
+
+- Added Advanced Plot Studio foundation: built-in professional layout presets for Triple Combo and Mud Gas Interpretation.
+- Added template cloning for safe layout reuse across wells without overwriting source templates.
+- Added renderer-independent preview specification with normalized track width percentages, curve payloads and annotation mapping.
+- Added template validation issues and issue table helpers for export/rendering pre-checks.
+- Added regression tests for presets, cloning, preview spec and validation.

@@ -154,3 +154,45 @@ def test_plot_studio_prevents_invalid_deletions_and_moves(tmp_path: Path):
     template = add_plot_curve(tmp_path, project.id, template.id, "GR", "track-only", curve_id="curve-gr")
     with pytest.raises(ValueError, match="Трек missing-track не найден"):
         update_plot_curve(tmp_path, project.id, template.id, "curve-gr", track_id="missing-track")
+
+
+def test_advanced_plot_studio_layout_presets_clone_preview_and_validation(tmp_path: Path):
+    project = create_project(tmp_path, name="Advanced Plot Studio")
+
+    from projects.plot_studio import (
+        apply_plot_layout_preset,
+        build_plot_preview_spec,
+        build_plot_template_issue_table,
+        clone_plot_template,
+        list_plot_layout_presets,
+        validate_plot_template,
+        PlotTemplate,
+    )
+
+    template = save_plot_template(tmp_path, project.id, "Advanced", template_id="advanced", well_id="well-a")
+    presets = list_plot_layout_presets()
+    assert any(row["ID"] == "mud-gas" for row in presets)
+
+    template = apply_plot_layout_preset(tmp_path, project.id, template.id, "mud-gas")
+    assert [track.id for track in template.tracks] == ["track-depth", "track-gas", "track-ratios", "track-interpretation"]
+    assert {curve.mnemonic for curve in template.curves} >= {"TG", "C1", "WH", "BH", "CH"}
+
+    preview = build_plot_preview_spec(template)
+    assert preview["template_id"] == "advanced"
+    assert preview["tracks"][1]["title"] == "Total Gas"
+    assert preview["tracks"][1]["width_percent"] > 0
+
+    issues = validate_plot_template(template)
+    assert issues == ()
+
+    clone = clone_plot_template(tmp_path, project.id, template.id, "Advanced Copy", new_template_id="advanced-copy", well_id="well-b")
+    assert clone.id == "advanced-copy"
+    assert clone.well_id == "well-b"
+    assert len(clone.curves) == len(template.curves)
+
+    broken = PlotTemplate(id="broken", name="Broken", tracks=(), curves=template.curves)
+    issue_table = build_plot_template_issue_table(validate_plot_template(broken))
+    assert issue_table[0]["Код"] == "no-tracks"
+
+    with pytest.raises(ValueError, match="Layout preset"):
+        apply_plot_layout_preset(tmp_path, project.id, template.id, "missing")
