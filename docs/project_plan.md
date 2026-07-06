@@ -165,7 +165,7 @@
 - [x] Curve categories.
 - [x] Curve units manager.
 - [x] Curve metadata editor.
-- [ ] Curve duplicate detection.
+- [x] Curve duplicate detection.
 - [ ] Curve quality flags.
 - [ ] Curve mnemonics dictionary.
 - [ ] Curve bulk edit.
@@ -650,5 +650,15 @@ LAS-редактор получил metadata-only редактор кривых.
 
 Добавлены unit-тесты `tests/test_curve_metadata.py`: проверяется построение metadata из контекста Curve Manager, сохранение в manifest, валидация входных данных, no-op при повторном назначении, undo последней операции, строки таблицы, сводка и нормализация metadata-полей.
 
-Текущий следующий незавершенный пункт: **LAS Professional → Curve Manager → Curve duplicate detection**.
+Текущий следующий незавершенный пункт: **LAS Professional → Curve Manager → Curve quality flags**.
 
+
+### Реализовано: LAS Professional → Curve Manager → Curve duplicate detection
+
+LAS-редактор получил диагностический инструмент поиска дубликатов кривых. Новый модуль `las_editor/curve_duplicates.py` сравнивает пары LAS-кривых по canonical mnemonic/alias, точному совпадению числовых значений, доле совпадающих shared samples и высокой корреляции. Алгоритм возвращает только кандидатов для инженерной проверки и не удаляет, не объединяет и не переименовывает исходные LAS-данные.
+
+Во вкладке `LAS-редактор` добавлен блок `Curve Manager · Curve duplicate detection` после metadata editor и перед merge tools. Пользователь может настроить порог корреляции и порог совпадения значений, запустить диагностику, увидеть сводку по severity (`exact`, `high`, `medium`, `name`) и таблицу кандидатов с причиной, корреляцией, match ratio, alias, группой, категорией, единицей измерения и безопасной рекомендацией.
+
+Добавлены unit-тесты `tests/test_curve_duplicates.py`: проверяется exact numeric duplicate, alias/canonical duplicate, high correlation candidate, форматирование таблицы и summary, а также пустой результат для различных кривых.
+
+Текущий следующий незавершенный пункт: **LAS Professional → Curve Manager → Curve quality flags**.

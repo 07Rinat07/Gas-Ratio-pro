@@ -163,3 +163,8 @@ Project Database также поддерживает `project_uuids.json` — me
 Gas Ratio Pro распространяется по proprietary-лицензии. Исходный код, ресурсы, документация и связанные материалы принадлежат Rinat Sarmuldin. Коммерческое использование, распространение, модификация, production/SaaS/internal company use допускаются только с предварительного письменного разрешения автора. Полный текст см. в файле `LICENSE`.
 
 - LAS Curve Manager: rename, alias, merge, grouping, category and units manager tools.
+
+
+### Curve duplicate detection
+
+Curve Manager now includes diagnostic-only duplicate detection for LAS curves. It compares curve mnemonic/alias keys, exact numeric matches, high correlation and shared non-null samples, then reports review candidates without mutating the LAS dataframe.

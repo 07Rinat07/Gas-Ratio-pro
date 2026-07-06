@@ -284,3 +284,8 @@ LAS Editor remains a data-first workspace. The global branded background may exi
 ### Этап Curve Manager · Curve metadata editor
 
 Статус: реализовано. Добавлен metadata-only редактор кривых для описания, источника, прибора/инструмента, статуса, качества и комментария. Логика находится в `las_editor/curve_metadata.py`, UI-блок — во вкладке `LAS-редактор`, тесты — в `tests/test_curve_metadata.py`. Изменения не затрагивают числовые значения LAS и сохраняются как metadata с историей и undo.
+
+
+### Этап Curve Manager · Curve duplicate detection
+
+Статус: реализовано. Добавлен diagnostic-only поиск дубликатов LAS-кривых. Логика находится в `las_editor/curve_duplicates.py`, UI-блок — во вкладке `LAS-редактор`, тесты — в `tests/test_curve_duplicates.py`. Проверка сравнивает mnemonic/alias, точное совпадение значений, high correlation и shared samples, но не удаляет и не объединяет кривые автоматически.

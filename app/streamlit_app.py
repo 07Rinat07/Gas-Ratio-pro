@@ -77,6 +77,11 @@ from las_editor.curve_units import (
     undo_last_unit_assignment,
     unit_summary_rows,
 )
+from las_editor.curve_duplicates import (
+    curve_duplicate_summary_rows,
+    curve_duplicate_table_rows,
+    detect_curve_duplicates,
+)
 from las_editor.curve_metadata import (
     assign_curve_metadata,
     available_metadata_fields,
@@ -299,6 +304,8 @@ LAS_EDITOR_UNIT_HISTORY_KEY = "las_editor_curve_unit_history"
 LAS_EDITOR_UNIT_OVERRIDES_KEY = "las_editor_curve_unit_overrides"
 LAS_EDITOR_METADATA_HISTORY_KEY = "las_editor_curve_metadata_history"
 LAS_EDITOR_METADATA_KEY = "las_editor_curve_metadata"
+LAS_EDITOR_DUPLICATES_KEY = "las_editor_curve_duplicate_candidates"
+LAS_EDITOR_DUPLICATE_SUMMARY_KEY = "las_editor_curve_duplicate_summary"
 PROJECT_SESSION_SHEETS_KEY = "project_session_sheets"
 PROJECT_SESSION_SUMMARY_KEY = "project_session_summary"
 PROJECT_SESSION_PROJECT_ID_KEY = "project_session_project_id"
@@ -2497,6 +2504,120 @@ def _render_las_curve_units_manager(prepared_df: pd.DataFrame) -> None:
             st.caption("История ручных единиц пока пуста.")
 
 
+def _render_las_curve_duplicate_detection(prepared_df: pd.DataFrame) -> None:
+    st.markdown("### Curve Manager · Curve duplicate detection")
+    st.caption(
+        "Поиск дубликатов кривых сравнивает мнемоники, alias, числовые значения и корреляцию. "
+        "Инструмент только формирует кандидаты для инженерной проверки: он не удаляет, не объединяет и не меняет LAS-данные."
+    )
+
+    column_names = [str(column) for column in prepared_df.columns]
+    aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
+    group_overrides = dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {}))
+    category_overrides = dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {}))
+    unit_overrides = dict(st.session_state.get(LAS_EDITOR_UNIT_OVERRIDES_KEY, {}))
+
+    threshold_col, match_col, action_col = st.columns([1, 1, 1])
+    correlation_threshold = threshold_col.slider(
+        "Порог корреляции",
+        min_value=0.980,
+        max_value=1.000,
+        value=0.995,
+        step=0.001,
+        format="%.3f",
+        key="las_editor_duplicate_correlation_threshold",
+    )
+    value_match_threshold = match_col.slider(
+        "Порог совпадения значений",
+        min_value=0.950,
+        max_value=1.000,
+        value=0.999,
+        step=0.001,
+        format="%.3f",
+        key="las_editor_duplicate_value_match_threshold",
+    )
+
+    should_run = action_col.button(
+        "Найти дубликаты кривых",
+        use_container_width=True,
+        key="las_editor_duplicate_detect_apply",
+    )
+    if LAS_EDITOR_DUPLICATES_KEY not in st.session_state or should_run:
+        result = detect_curve_duplicates(
+            prepared_df,
+            aliases=aliases,
+            group_overrides=group_overrides,
+            category_overrides=category_overrides,
+            unit_overrides=unit_overrides,
+            correlation_threshold=correlation_threshold,
+            value_match_threshold=value_match_threshold,
+            references=_las_editor_reference_state(column_names),
+        )
+        st.session_state[LAS_EDITOR_DUPLICATES_KEY] = result.candidates
+        st.session_state[LAS_EDITOR_DUPLICATE_SUMMARY_KEY] = result.summary
+        if should_run:
+            for message in result.diagnostics:
+                st.info(message)
+
+    candidates = tuple(st.session_state.get(LAS_EDITOR_DUPLICATES_KEY, ()))
+    summary = dict(st.session_state.get(LAS_EDITOR_DUPLICATE_SUMMARY_KEY, {}))
+    summary.setdefault("total", len(candidates))
+
+    if candidates:
+        st.success(f"Найдено кандидатов-дубликатов: {summary.get('total', len(candidates))}.")
+    else:
+        st.info("Кандидаты-дубликаты не найдены при текущих порогах.")
+
+    st.dataframe(
+        pd.DataFrame(curve_duplicate_summary_rows(summary)).rename(
+            columns={"severity_label": "Тип", "candidate_count": "Кандидатов"}
+        )[["Тип", "Кандидатов"]],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    rows = curve_duplicate_table_rows(candidates)
+    if rows:
+        st.dataframe(
+            pd.DataFrame(rows).rename(
+                columns={
+                    "primary_curve": "Основная кривая",
+                    "duplicate_curve": "Кандидат-дубликат",
+                    "severity_label": "Уровень",
+                    "reason": "Причина",
+                    "correlation": "Корреляция",
+                    "value_match_ratio": "Совпадение значений",
+                    "shared_non_null": "Общих точек",
+                    "primary_alias": "Alias основной",
+                    "duplicate_alias": "Alias кандидата",
+                    "group": "Группа",
+                    "category": "Категория",
+                    "unit": "Единица",
+                    "recommendation": "Рекомендация",
+                }
+            )[
+                [
+                    "Основная кривая",
+                    "Кандидат-дубликат",
+                    "Уровень",
+                    "Причина",
+                    "Корреляция",
+                    "Совпадение значений",
+                    "Общих точек",
+                    "Alias основной",
+                    "Alias кандидата",
+                    "Группа",
+                    "Категория",
+                    "Единица",
+                    "Рекомендация",
+                ]
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
+    st.caption("Duplicate detection — диагностический этап перед merge/rename. Удаление кривых здесь намеренно не выполняется.")
+
+
 def _render_las_curve_metadata_editor(prepared_df: pd.DataFrame) -> None:
     st.markdown("### Curve Manager · Curve metadata editor")
     st.caption(
@@ -4290,6 +4411,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     _render_las_curve_category_manager(prepared_df)
     _render_las_curve_units_manager(prepared_df)
     _render_las_curve_metadata_editor(prepared_df)
+    _render_las_curve_duplicate_detection(prepared_df)
     prepared_df = _render_las_curve_merge_manager(prepared_df)
 
     column_names = [str(column) for column in prepared_df.columns]
