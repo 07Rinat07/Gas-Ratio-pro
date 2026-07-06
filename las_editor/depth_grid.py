@@ -50,6 +50,19 @@ class DepthDiagnostics:
 
 
 @dataclass(frozen=True)
+class DepthDirectionFixResult:
+    data: pd.DataFrame
+    depth_column: str
+    before_first_depth: float | None = None
+    before_last_depth: float | None = None
+    after_first_depth: float | None = None
+    after_last_depth: float | None = None
+    direction_fixed: bool = False
+    operation_log: tuple[str, ...] = ()
+    warnings: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class LasResampleResult:
     data: pd.DataFrame
     diagnostics: DepthDiagnostics
@@ -91,6 +104,87 @@ def _infer_step(sorted_depths: pd.Series) -> float | None:
     if positive_diffs.empty:
         return None
     return float(positive_diffs.value_counts().idxmax())
+
+
+def fix_depth_direction(
+    df: pd.DataFrame,
+    depth_column: str = "depth",
+    *,
+    target_direction: str = "increasing",
+    drop_non_numeric_depths: bool = True,
+) -> DepthDirectionFixResult:
+    """Normalize LAS row order by depth without mutating the source dataframe.
+
+    LAS interpretation screens usually expect depth to increase from top to
+    bottom. Some LAS files arrive in reverse order where the first row is the
+    deepest sample and depth decreases down the table. This helper gives the
+    editor an explicit, auditable operation for that case and keeps NULL-depth
+    rows out of the saved engineering version by default.
+    """
+
+    if depth_column not in df.columns:
+        raise ValueError(f"Колонка глубины {depth_column!r} не найдена.")
+
+    normalized_direction = str(target_direction).strip().lower()
+    if normalized_direction not in {"increasing", "decreasing"}:
+        raise ValueError("Направление глубины должно быть increasing или decreasing.")
+
+    working = df.copy()
+    working[depth_column] = pd.to_numeric(working[depth_column], errors="coerce")
+    valid_depths = working[depth_column].dropna()
+    warnings: list[str] = []
+    log: list[str] = []
+
+    if valid_depths.empty:
+        return DepthDirectionFixResult(
+            data=working.reset_index(drop=True),
+            depth_column=depth_column,
+            operation_log=("Depth direction was not changed: no numeric depths.",),
+            warnings=("Нет числовых глубин для исправления направления.",),
+        )
+
+    before_first = float(valid_depths.iloc[0])
+    before_last = float(valid_depths.iloc[-1])
+    expected_increasing = normalized_direction == "increasing"
+    already_ordered = bool(valid_depths.is_monotonic_increasing if expected_increasing else valid_depths.is_monotonic_decreasing)
+
+    if drop_non_numeric_depths:
+        before_rows = len(working)
+        working = working.dropna(subset=[depth_column]).copy()
+        removed = before_rows - len(working)
+        if removed:
+            log.append(f"Rows without numeric depth removed before direction fix: {removed}.")
+            warnings.append("Строки без числовой глубины не включены в исправленный LAS.")
+
+    sorted_df = working.sort_values(
+        by=depth_column,
+        ascending=expected_increasing,
+        kind="mergesort",
+        na_position="last",
+    ).reset_index(drop=True)
+
+    after_depths = sorted_df[depth_column].dropna()
+    after_first = float(after_depths.iloc[0]) if not after_depths.empty else None
+    after_last = float(after_depths.iloc[-1]) if not after_depths.empty else None
+    direction_fixed = not already_ordered or not working.index.equals(sorted_df.index)
+
+    if direction_fixed:
+        direction_label = "ascending" if expected_increasing else "descending"
+        log.append(f"Depth direction fixed: rows sorted by depth in {direction_label} order.")
+    else:
+        log.append("Depth direction already matches the selected order.")
+
+    return DepthDirectionFixResult(
+        data=sorted_df,
+        depth_column=depth_column,
+        before_first_depth=before_first,
+        before_last_depth=before_last,
+        after_first_depth=after_first,
+        after_last_depth=after_last,
+        direction_fixed=direction_fixed,
+        operation_log=tuple(log),
+        warnings=tuple(dict.fromkeys(warnings)),
+    )
 
 
 def build_depth_step_report(

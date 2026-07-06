@@ -9,6 +9,7 @@ from las_editor.depth_grid import (
     build_las_edit_preview,
     build_las_editor_hints,
     build_depth_grid,
+    fix_depth_direction,
     insert_manual_depth_rows,
     build_depth_step_report,
     diagnose_depths,
@@ -239,3 +240,26 @@ def test_las_editor_hints_report_clean_depth_grid_as_ok():
     assert any(hint.topic == "Пропуски глубины" and hint.status == "ok" for hint in hints)
     assert any(hint.topic == "Сохранение скважины" for hint in hints)
     assert any(hint.topic == "Выгрузка данных" for hint in hints)
+
+
+def test_fix_depth_direction_turns_descending_las_into_increasing_depth_order():
+    df = pd.DataFrame({"DEPT": [1000.4, 1000.2, 1000.0], "GR": [90, 80, 70]})
+
+    result = fix_depth_direction(df, depth_column="DEPT", target_direction="increasing")
+
+    assert result.direction_fixed
+    assert list(result.data["DEPT"]) == [1000.0, 1000.2, 1000.4]
+    assert list(result.data["GR"]) == [70, 80, 90]
+    assert result.before_first_depth == pytest.approx(1000.4)
+    assert result.after_first_depth == pytest.approx(1000.0)
+    assert any("Depth direction fixed" in item for item in result.operation_log)
+
+
+def test_fix_depth_direction_keeps_original_when_depth_already_increases():
+    df = pd.DataFrame({"DEPT": [1000.0, 1000.2, 1000.4], "GR": [70, 80, 90]})
+
+    result = fix_depth_direction(df, depth_column="DEPT", target_direction="increasing")
+
+    assert not result.direction_fixed
+    assert list(result.data["DEPT"]) == [1000.0, 1000.2, 1000.4]
+    assert any("already matches" in item for item in result.operation_log)

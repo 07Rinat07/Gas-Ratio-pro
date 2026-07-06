@@ -15,6 +15,7 @@ from las_editor.curve_grouping import (
 )
 from las_editor.depth_grid import (
     DepthDiagnostics,
+    DepthDirectionFixResult,
     DepthGap,
     DepthStepOutlier,
     DepthStepReport,
@@ -23,6 +24,7 @@ from las_editor.depth_grid import (
     build_depth_grid,
     build_depth_step_report,
     diagnose_depths,
+    fix_depth_direction,
     insert_manual_depth_rows,
     resample_las_data,
 )
@@ -40,6 +42,7 @@ __all__ = [
     "suggest_curve_groups",
     "undo_last_group_assignment",
     "DepthDiagnostics",
+    "DepthDirectionFixResult",
     "DepthGap",
     "DepthStepOutlier",
     "DepthStepReport",
@@ -48,6 +51,7 @@ __all__ = [
     "build_depth_grid",
     "build_depth_step_report",
     "diagnose_depths",
+    "fix_depth_direction",
     "insert_manual_depth_rows",
     "resample_las_data",
 ]

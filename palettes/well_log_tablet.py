@@ -76,6 +76,29 @@ MUD_GAS_MARKER_COLUMN_ALIASES: tuple[tuple[str, tuple[str, ...], str], ...] = (
 TABLET_FILL_MODES = {"none", "to_zero", "to_left", "to_right"}
 
 
+def _is_column_sequence(value: object) -> bool:
+    """Return True for plain column-name containers passed by LAS Editor helpers."""
+
+    return isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray, pd.DataFrame))
+
+
+def _column_sequence(value: object) -> tuple[str, ...]:
+    """Normalize a DataFrame/Index/list/tuple of columns into display-safe names."""
+
+    if value is None:
+        return ()
+    if isinstance(value, pd.DataFrame):
+        return tuple(str(column) for column in value.columns)
+    if hasattr(value, "tolist") and not hasattr(value, "empty"):
+        try:
+            return tuple(str(column) for column in value.tolist())
+        except TypeError:
+            return ()
+    if _is_column_sequence(value):
+        return tuple(str(column) for column in value)
+    return ()
+
+
 MUD_GAS_LITERATURE_TRACK_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("GR/lithology", ("gr", "gamma", "gamma_ray", "lithology")),
     ("Total gas", ("total_gas", "tgas", "gas_total", "totalgas", "gas")),
@@ -135,23 +158,36 @@ class InterpretationZone:
     note: str = ""
 
 
-def numeric_tablet_columns(df: pd.DataFrame) -> tuple[str, ...]:
+def numeric_tablet_columns(df: pd.DataFrame | Sequence[object]) -> tuple[str, ...]:
+    """Return numeric tablet columns or safe column names from lightweight lists.
+
+    LAS Editor reference builders sometimes call this module with only column
+    names instead of a prepared DataFrame. In that case we cannot validate
+    numeric values, so we return non-depth column names instead of touching
+    DataFrame-only attributes such as ``.empty`` or ``.columns``.
+    """
+
     if df is None:
         return ()
-    if isinstance(df, (list, tuple)):
-        if not df:
+    if isinstance(df, pd.DataFrame):
+        if df.empty:
             return ()
-    elif df.empty:
-        return ()
 
-    columns: list[str] = []
-    for column in df.columns:
-        column_name = str(column)
+        columns: list[str] = []
+        for column in df.columns:
+            column_name = str(column)
+            if column_name in DEPTH_COLUMN_NAMES or column_name.startswith("_"):
+                continue
+            values = pd.to_numeric(df[column], errors="coerce")
+            if values.notna().any():
+                columns.append(column_name)
+        return tuple(columns)
+
+    columns = []
+    for column_name in _column_sequence(df):
         if column_name in DEPTH_COLUMN_NAMES or column_name.startswith("_"):
             continue
-        values = pd.to_numeric(df[column], errors="coerce")
-        if values.notna().any():
-            columns.append(column_name)
+        columns.append(column_name)
     return tuple(columns)
 
 
@@ -181,20 +217,16 @@ def _canonical_column_token(column: object) -> str:
     return "".join(char for char in str(column).lower() if char.isalnum())
 
 
-def _column_lookup_by_alias(df: pd.DataFrame | list[str] | tuple[str, ...]) -> dict[str, str]:
+def _column_lookup_by_alias(df: pd.DataFrame | Sequence[object]) -> dict[str, str]:
     lookup: dict[str, str] = {}
-    if isinstance(df, (list, tuple)):
-        source_columns = list(df)
-    else:
-        source_columns = numeric_tablet_columns(df)
-    for column in source_columns:
+    for column in numeric_tablet_columns(df):
         token = _canonical_column_token(column)
         if token and token not in lookup:
-            lookup[token] = column
+            lookup[token] = str(column)
     return lookup
 
 
-def mud_gas_literature_tablet_columns(df: pd.DataFrame | list[str] | tuple[str, ...], *, limit: int | None = None) -> tuple[str, ...]:
+def mud_gas_literature_tablet_columns(df: pd.DataFrame | Sequence[object], *, limit: int | None = None) -> tuple[str, ...]:
     """Return available tablet tracks in the order recommended by mud-gas literature.
 
     The preset follows ``docs/mud_gas_analysis_literature.md``: GR/lithology,
@@ -206,13 +238,10 @@ def mud_gas_literature_tablet_columns(df: pd.DataFrame | list[str] | tuple[str, 
 
     if df is None:
         return ()
-    if isinstance(df, (list, tuple)):
-        if not df:
-            return ()
-    elif df.empty:
-        return ()
 
     lookup = _column_lookup_by_alias(df)
+    if not lookup:
+        return ()
     selected: list[str] = []
     for _label, aliases in MUD_GAS_LITERATURE_TRACK_ALIASES:
         for alias in aliases:
@@ -279,20 +308,16 @@ def _canonical_column_token(column: object) -> str:
     return "".join(char for char in str(column).lower() if char.isalnum())
 
 
-def _column_lookup_by_alias(df: pd.DataFrame | list[str] | tuple[str, ...]) -> dict[str, str]:
+def _column_lookup_by_alias(df: pd.DataFrame | Sequence[object]) -> dict[str, str]:
     lookup: dict[str, str] = {}
-    if isinstance(df, (list, tuple)):
-        source_columns = list(df)
-    else:
-        source_columns = numeric_tablet_columns(df)
-    for column in source_columns:
+    for column in numeric_tablet_columns(df):
         token = _canonical_column_token(column)
         if token and token not in lookup:
-            lookup[token] = column
+            lookup[token] = str(column)
     return lookup
 
 
-def mud_gas_literature_tablet_columns(df: pd.DataFrame | list[str] | tuple[str, ...], *, limit: int | None = None) -> tuple[str, ...]:
+def mud_gas_literature_tablet_columns(df: pd.DataFrame | Sequence[object], *, limit: int | None = None) -> tuple[str, ...]:
     """Return available tablet tracks in the order recommended by mud-gas literature.
 
     The preset follows ``docs/mud_gas_analysis_literature.md``: GR/lithology,
@@ -304,13 +329,10 @@ def mud_gas_literature_tablet_columns(df: pd.DataFrame | list[str] | tuple[str, 
 
     if df is None:
         return ()
-    if isinstance(df, (list, tuple)):
-        if not df:
-            return ()
-    elif df.empty:
-        return ()
 
     lookup = _column_lookup_by_alias(df)
+    if not lookup:
+        return ()
     selected: list[str] = []
     for _label, aliases in MUD_GAS_LITERATURE_TRACK_ALIASES:
         for alias in aliases:

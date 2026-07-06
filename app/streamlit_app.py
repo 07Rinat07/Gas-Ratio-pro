@@ -125,6 +125,7 @@ from las_editor.depth_grid import (
     build_las_edit_audit_log,
     build_las_edit_preview,
     build_las_editor_hints,
+    fix_depth_direction,
     insert_manual_depth_rows,
     resample_las_data,
 )
@@ -5686,6 +5687,59 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     )
     fill_strategy = fill_values[fill_label]
 
+    st.markdown("### Исправление направления глубины")
+    st.caption(
+        "Если LAS открыт наоборот — первая строка содержит большую глубину, а ниже глубина убывает — "
+        "включите исправление. Редактор развернет строки по возрастанию глубины и сохранит результат как новую LAS-версию."
+    )
+    direction_cols = st.columns(3)
+    fix_depth_direction_enabled = direction_cols[0].checkbox(
+        "Исправить убывающую глубину",
+        value=False,
+        key="las_editor_fix_depth_direction_enabled",
+    )
+    target_depth_direction_label = direction_cols[1].selectbox(
+        "Направление после исправления",
+        options=("Глубина растет сверху вниз", "Глубина убывает сверху вниз"),
+        index=0,
+        key="las_editor_target_depth_direction",
+        disabled=not fix_depth_direction_enabled,
+    )
+    output_las_name = direction_cols[2].text_input(
+        "Новое имя LAS",
+        value=f"{Path(getattr(uploaded_file, 'name', 'prepared')).stem}_depth_fixed.las",
+        key="las_editor_depth_fixed_las_name",
+    )
+    depth_direction_log: tuple[str, ...] = ()
+    depth_direction_warnings: tuple[str, ...] = ()
+    if fix_depth_direction_enabled:
+        target_depth_direction = "increasing" if target_depth_direction_label.startswith("Глубина растет") else "decreasing"
+        try:
+            depth_direction_result = fix_depth_direction(
+                prepared_df,
+                depth_column=depth_column,
+                target_direction=target_depth_direction,
+            )
+            prepared_df = depth_direction_result.data
+            depth_direction_log = depth_direction_result.operation_log
+            depth_direction_warnings = depth_direction_result.warnings
+            status_cols = st.columns(4)
+            status_cols[0].metric("Было: первая", depth_direction_result.before_first_depth if depth_direction_result.before_first_depth is not None else "нет")
+            status_cols[1].metric("Было: последняя", depth_direction_result.before_last_depth if depth_direction_result.before_last_depth is not None else "нет")
+            status_cols[2].metric("Стало: первая", depth_direction_result.after_first_depth if depth_direction_result.after_first_depth is not None else "нет")
+            status_cols[3].metric("Стало: последняя", depth_direction_result.after_last_depth if depth_direction_result.after_last_depth is not None else "нет")
+            if depth_direction_result.direction_fixed:
+                st.success("Порядок строк по глубине исправлен. Исходный файл не перезаписан.")
+            else:
+                st.info("Выбранная колонка глубины уже соответствует заданному направлению.")
+            for warning in depth_direction_warnings:
+                st.warning(warning)
+        except Exception:
+            logger.exception("las_editor_depth_direction_fix_failed")
+            st.error("Не удалось исправить направление глубины. Проверьте выбранную колонку глубины.")
+            st.caption("Подробности записаны в logs/app.log.")
+            return
+
     st.markdown("### Массовые операции")
     st.caption(
         "Эти операции выполняются до построения новой сетки глубины. "
@@ -5889,7 +5943,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
         depth_column=depth_column,
         target_step=target_step,
         fill_strategy=fill_strategy,
-        bulk_operation_log=bulk_result.operation_log,
+        bulk_operation_log=tuple(depth_direction_log) + tuple(bulk_result.operation_log),
         manual_interval_log=manual_interval_log,
         added_depths=all_added_depths,
         manual_preview=manual_preview,
@@ -5899,7 +5953,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
         diagnostics,
         added_depth_count=len(all_added_depths),
         fill_strategy=fill_strategy,
-        bulk_operation_log=bulk_result.operation_log,
+        bulk_operation_log=tuple(depth_direction_log) + tuple(bulk_result.operation_log),
         manual_interval_log=manual_interval_log,
         preview=manual_preview,
     )
@@ -5976,6 +6030,17 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
         mime="text/csv",
         use_container_width=True,
     )
+    safe_output_las_name = Path(output_las_name.strip() or "las_editor_depth_fixed.las").name
+    if not safe_output_las_name.lower().endswith(".las"):
+        safe_output_las_name += ".las"
+    export_col.download_button(
+        "Скачать LAS под новым названием",
+        data=export_las_bytes(edited_df, well_name=Path(safe_output_las_name).stem, depth_column=depth_column),
+        file_name=safe_output_las_name,
+        mime="application/octet-stream",
+        use_container_width=True,
+        key="las_editor_download_depth_fixed_las",
+    )
 
     st.markdown("### Сохранить скважину локально")
     records = list_wells(WELLS_STORAGE_ROOT)
@@ -6027,6 +6092,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
                     "target_step": str(target_step),
                     "fill_strategy": fill_strategy,
                     "added_depth_count": len(all_added_depths),
+                    "depth_direction_log": list(depth_direction_log),
                     "manual_interval_added_depth_count": len(manual_added_depths),
                     "preview": {
                         "before_rows": manual_preview.before_rows,
@@ -6069,6 +6135,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
                         "target_step": str(target_step),
                         "fill_strategy": fill_strategy,
                         "added_depth_count": len(all_added_depths),
+                    "depth_direction_log": list(depth_direction_log),
                     "manual_interval_added_depth_count": len(manual_added_depths),
                         "preview": {
                             "before_rows": manual_preview.before_rows,
