@@ -516,3 +516,406 @@ def list_interpretation_records(root: Path | str, project_id: str) -> list[Inter
     payload = _json_read(_interpretation_path(root, project_id), {"records": []})
     rows = payload.get("records", []) if isinstance(payload, Mapping) else []
     return [InterpretationRecord(**row) for row in rows if isinstance(row, Mapping)]
+
+# ---------------------------------------------------------------------------
+# Interpretation Calculation Manager
+# ---------------------------------------------------------------------------
+
+PROJECT_INTERPRETATION_PRESETS_FILE_NAME = "interpretation_presets.json"
+PROJECT_INTERPRETATION_RUNS_FILE_NAME = "interpretation_calculation_runs.json"
+INTERPRETATION_DEFAULT_EXPORT_CURVES = ("VSH", "PHIE", "SW", "PERM", "reservoir_flag", "net_pay_flag", "lithology_hint")
+
+
+@dataclass(frozen=True)
+class InterpretationCalculationPreset:
+    id: str
+    name: str
+    description: str = ""
+    vsh_method: VSHMethod = "linear"
+    porosity_method: PorosityMethod = "effective"
+    saturation_method: SaturationMethod = "archie"
+    permeability_method: PermeabilityMethod | str = "timur"
+    parameters: dict[str, Any] | None = None
+    cutoffs: dict[str, float] | None = None
+    created_at: str = ""
+    updated_at: str = ""
+
+
+@dataclass(frozen=True)
+class InterpretationCurvePreview:
+    name: str
+    unit: str = ""
+    description: str = ""
+    points: int = 0
+    minimum: float | None = None
+    maximum: float | None = None
+    missing: int = 0
+
+
+@dataclass(frozen=True)
+class InterpretationCalculationRun:
+    id: str
+    name: str
+    preset_id: str = ""
+    source_type: str = "manual"
+    source_id: str = ""
+    well_id: str = ""
+    status: str = "completed"
+    rows: int = 0
+    curves: tuple[str, ...] = ()
+    validation_errors: tuple[str, ...] = ()
+    validation_warnings: tuple[str, ...] = ()
+    created_at: str = ""
+
+
+@dataclass(frozen=True)
+class InterpretationInputValidation:
+    is_valid: bool
+    errors: tuple[str, ...]
+    warnings: tuple[str, ...]
+    available_curves: tuple[str, ...]
+    missing_required_curves: tuple[str, ...]
+
+
+def _preset_path(root: Path | str, project_id: str) -> Path:
+    return _project_dir(root, project_id) / PROJECT_INTERPRETATION_PRESETS_FILE_NAME
+
+
+def _runs_path(root: Path | str, project_id: str) -> Path:
+    return _project_dir(root, project_id) / PROJECT_INTERPRETATION_RUNS_FILE_NAME
+
+
+def _parameters_to_dict(parameters: PetrophysicalParameters | Mapping[str, Any] | None) -> dict[str, Any]:
+    if parameters is None:
+        return PetrophysicalParameters().__dict__.copy()
+    if isinstance(parameters, PetrophysicalParameters):
+        return parameters.__dict__.copy()
+    return {str(key): value for key, value in parameters.items()}
+
+
+def _cutoffs_to_dict(cutoffs: InterpretationCutoffs | Mapping[str, Any] | None) -> dict[str, float]:
+    source = cutoffs.__dict__ if isinstance(cutoffs, InterpretationCutoffs) else (cutoffs or InterpretationCutoffs().__dict__)
+    return {
+        "vsh_max": float(source.get("vsh_max", InterpretationCutoffs.vsh_max)),
+        "phie_min": float(source.get("phie_min", InterpretationCutoffs.phie_min)),
+        "sw_max": float(source.get("sw_max", InterpretationCutoffs.sw_max)),
+        "net_pay_min": float(source.get("net_pay_min", InterpretationCutoffs.net_pay_min)),
+    }
+
+
+def _parameters_from_mapping(values: Mapping[str, Any] | None) -> PetrophysicalParameters:
+    defaults = PetrophysicalParameters().__dict__.copy()
+    for key, value in (values or {}).items():
+        if key in defaults:
+            defaults[key] = value
+    return PetrophysicalParameters(**defaults)
+
+
+def _cutoffs_from_mapping(values: Mapping[str, Any] | None) -> InterpretationCutoffs:
+    defaults = InterpretationCutoffs().__dict__.copy()
+    for key, value in (values or {}).items():
+        if key in defaults:
+            defaults[key] = float(value)
+    return InterpretationCutoffs(**defaults)
+
+
+def default_interpretation_presets() -> tuple[InterpretationCalculationPreset, ...]:
+    """Return built-in calculation scenarios for common petrophysical workflows."""
+    now = _utc_now()
+    base_parameters = _parameters_to_dict(PetrophysicalParameters())
+    base_cutoffs = _cutoffs_to_dict(InterpretationCutoffs())
+    return (
+        InterpretationCalculationPreset(
+            id="clean-sand-archie",
+            name="Clean Sand Archie",
+            description="Базовый сценарий для чистых терригенных коллекторов: Linear VSH, effective porosity, Archie SW.",
+            vsh_method="linear",
+            porosity_method="effective",
+            saturation_method="archie",
+            permeability_method="timur",
+            parameters=base_parameters,
+            cutoffs=base_cutoffs,
+            created_at=now,
+            updated_at=now,
+        ),
+        InterpretationCalculationPreset(
+            id="shaly-sand-simandoux",
+            name="Shaly Sand Simandoux",
+            description="Сценарий для глинистых коллекторов: Clavier VSH и Simandoux water saturation.",
+            vsh_method="clavier",
+            porosity_method="effective",
+            saturation_method="simandoux",
+            permeability_method="coates",
+            parameters={**base_parameters, "rsh": 2.5},
+            cutoffs={**base_cutoffs, "vsh_max": 0.50, "sw_max": 0.75},
+            created_at=now,
+            updated_at=now,
+        ),
+        InterpretationCalculationPreset(
+            id="density-neutron-indonesia",
+            name="Density-Neutron Indonesia",
+            description="Сценарий для расчёта пористости по RHOB/NPHI и насыщенности по Indonesia model.",
+            vsh_method="larionov_older",
+            porosity_method="density_neutron",
+            saturation_method="indonesia",
+            permeability_method="timur",
+            parameters=base_parameters,
+            cutoffs={**base_cutoffs, "phie_min": 0.06},
+            created_at=now,
+            updated_at=now,
+        ),
+    )
+
+
+def _preset_from_mapping(row: Mapping[str, Any]) -> InterpretationCalculationPreset:
+    return InterpretationCalculationPreset(
+        id=_safe_id(str(row.get("id") or row.get("name") or "preset"), "preset"),
+        name=_clean_text(row.get("name"), "Название пресета", required=True),
+        description=_clean_text(row.get("description"), "Описание пресета", max_length=700),
+        vsh_method=str(row.get("vsh_method") or "linear"),  # type: ignore[arg-type]
+        porosity_method=str(row.get("porosity_method") or "effective"),  # type: ignore[arg-type]
+        saturation_method=str(row.get("saturation_method") or "archie"),  # type: ignore[arg-type]
+        permeability_method=str(row.get("permeability_method") or "timur"),
+        parameters=_parameters_to_dict(row.get("parameters") if isinstance(row.get("parameters"), Mapping) else None),
+        cutoffs=_cutoffs_to_dict(row.get("cutoffs") if isinstance(row.get("cutoffs"), Mapping) else None),
+        created_at=_clean_text(row.get("created_at"), "Дата создания", max_length=80) or _utc_now(),
+        updated_at=_clean_text(row.get("updated_at"), "Дата изменения", max_length=80) or _utc_now(),
+    )
+
+
+def list_interpretation_presets(root: Path | str, project_id: str, *, include_defaults: bool = True) -> list[InterpretationCalculationPreset]:
+    payload = _json_read(_preset_path(root, project_id), {"presets": []})
+    rows = payload.get("presets", []) if isinstance(payload, Mapping) else []
+    presets = [_preset_from_mapping(row) for row in rows if isinstance(row, Mapping)]
+    if include_defaults:
+        default_presets = list(default_interpretation_presets())
+        default_ids = {preset.id for preset in default_presets}
+        presets = default_presets + [preset for preset in presets if preset.id not in default_ids]
+    return presets
+
+
+def save_interpretation_preset(
+    root: Path | str,
+    project_id: str,
+    name: str,
+    *,
+    description: str = "",
+    parameters: PetrophysicalParameters | Mapping[str, Any] | None = None,
+    cutoffs: InterpretationCutoffs | Mapping[str, Any] | None = None,
+    vsh_method: VSHMethod = "linear",
+    porosity_method: PorosityMethod = "effective",
+    saturation_method: SaturationMethod = "archie",
+    permeability_method: PermeabilityMethod | str = "timur",
+) -> InterpretationCalculationPreset:
+    clean_name = _clean_text(name, "Название пресета", required=True)
+    payload = _json_read(_preset_path(root, project_id), {"presets": []})
+    rows = payload.get("presets", []) if isinstance(payload, Mapping) else []
+    now = _utc_now()
+    preset = InterpretationCalculationPreset(
+        id=_safe_id(clean_name, "preset"),
+        name=clean_name,
+        description=_clean_text(description, "Описание пресета", max_length=700),
+        vsh_method=vsh_method,
+        porosity_method=porosity_method,
+        saturation_method=saturation_method,
+        permeability_method=permeability_method,
+        parameters=_parameters_to_dict(parameters),
+        cutoffs=_cutoffs_to_dict(cutoffs),
+        created_at=now,
+        updated_at=now,
+    )
+    filtered = [row for row in rows if not (isinstance(row, Mapping) and row.get("id") == preset.id)]
+    filtered.append(preset.__dict__)
+    _json_write(_preset_path(root, project_id), {"presets": filtered})
+    append_project_history(root, project_id, "interpretation_preset_saved", f"Сохранен пресет интерпретации {clean_name}")
+    return preset
+
+
+def validate_interpretation_inputs(
+    df: pd.DataFrame,
+    *,
+    gr_curve: str = "GR",
+    porosity_curve: str = "PHIT",
+    resistivity_curve: str = "RT",
+    depth_curve: str = "DEPT",
+    required_curves: Sequence[str] | None = None,
+) -> InterpretationInputValidation:
+    if df is None or df.empty:
+        return InterpretationInputValidation(False, ("Таблица LAS пуста или не загружена.",), (), (), tuple(required_curves or ()))
+    required = tuple(dict.fromkeys(required_curves or (gr_curve, porosity_curve, resistivity_curve)))
+    available = tuple(str(column) for column in df.columns)
+    missing = tuple(curve for curve in required if curve not in df.columns)
+    errors = [f"Отсутствует обязательная кривая: {curve}." for curve in missing]
+    warnings: list[str] = []
+    if depth_curve in df.columns:
+        depth = pd.to_numeric(df[depth_curve], errors="coerce").dropna()
+        if depth.duplicated().any():
+            warnings.append(f"Кривая глубины {depth_curve} содержит дубликаты.")
+        if len(depth) > 1 and not (depth.is_monotonic_increasing or depth.is_monotonic_decreasing):
+            warnings.append(f"Кривая глубины {depth_curve} не монотонна.")
+    else:
+        warnings.append(f"Кривая глубины {depth_curve} не найдена; толщины будут оцениваться по строкам.")
+    for curve in required:
+        if curve in df.columns:
+            numeric = pd.to_numeric(df[curve], errors="coerce")
+            if numeric.isna().all():
+                errors.append(f"Кривая {curve} не содержит числовых значений.")
+            elif numeric.isna().any():
+                warnings.append(f"Кривая {curve} содержит пропуски: {int(numeric.isna().sum())}.")
+    return InterpretationInputValidation(not errors, tuple(errors), tuple(warnings), available, missing)
+
+
+def preview_interpreted_curves(df: pd.DataFrame, curves: Sequence[str] | None = None) -> tuple[InterpretationCurvePreview, ...]:
+    selected = tuple(curves or INTERPRETATION_DEFAULT_EXPORT_CURVES)
+    previews: list[InterpretationCurvePreview] = []
+    descriptions = {
+        "VSH": "Volume of shale",
+        "PHIE": "Effective porosity",
+        "SW": "Water saturation",
+        "PERM": "Permeability",
+        "reservoir_flag": "Reservoir interval flag",
+        "net_pay_flag": "Net pay interval flag",
+        "lithology_hint": "Lithology classification hint",
+    }
+    units = {"VSH": "v/v", "PHIE": "v/v", "SW": "v/v", "PERM": "mD"}
+    for curve in selected:
+        if df is None or df.empty or curve not in df.columns:
+            continue
+        series = df[curve]
+        numeric = pd.to_numeric(series, errors="coerce")
+        previews.append(
+            InterpretationCurvePreview(
+                name=curve,
+                unit=units.get(curve, ""),
+                description=descriptions.get(curve, curve),
+                points=int(len(series)),
+                minimum=float(numeric.min()) if numeric.notna().any() else None,
+                maximum=float(numeric.max()) if numeric.notna().any() else None,
+                missing=int(series.isna().sum()),
+            )
+        )
+    return tuple(previews)
+
+
+def export_interpreted_curves_to_dataframe(
+    source_df: pd.DataFrame,
+    interpreted_df: pd.DataFrame,
+    *,
+    curves: Sequence[str] | None = None,
+    overwrite: bool = False,
+) -> pd.DataFrame:
+    """Merge calculated interpretation curves into a LAS-like dataframe.
+
+    The function intentionally returns a new dataframe only. Actual LAS writing remains
+    the responsibility of the LAS exporter so the original LAS file is never overwritten
+    by the calculation manager.
+    """
+    if source_df is None or source_df.empty:
+        return pd.DataFrame()
+    result = source_df.copy()
+    for curve in curves or INTERPRETATION_DEFAULT_EXPORT_CURVES:
+        if interpreted_df is None or interpreted_df.empty or curve not in interpreted_df.columns:
+            continue
+        target_name = curve if overwrite or curve not in result.columns else f"{curve}_CALC"
+        result[target_name] = interpreted_df[curve].values[: len(result)]
+    return result
+
+
+def _run_from_mapping(row: Mapping[str, Any]) -> InterpretationCalculationRun:
+    return InterpretationCalculationRun(
+        id=_safe_id(str(row.get("id") or row.get("name") or "run"), "run"),
+        name=_clean_text(row.get("name"), "Название расчета", required=True),
+        preset_id=_clean_text(row.get("preset_id"), "Пресет", max_length=140),
+        source_type=_clean_text(row.get("source_type"), "Тип источника", max_length=80) or "manual",
+        source_id=_clean_text(row.get("source_id"), "Источник", max_length=140),
+        well_id=_clean_text(row.get("well_id"), "Скважина", max_length=140),
+        status=_clean_text(row.get("status"), "Статус", max_length=80) or "completed",
+        rows=int(row.get("rows") or 0),
+        curves=tuple(str(item) for item in row.get("curves", ()) if str(item).strip()) if isinstance(row.get("curves", ()), Sequence) and not isinstance(row.get("curves"), str) else (),
+        validation_errors=tuple(str(item) for item in row.get("validation_errors", ()) if str(item).strip()) if isinstance(row.get("validation_errors", ()), Sequence) and not isinstance(row.get("validation_errors"), str) else (),
+        validation_warnings=tuple(str(item) for item in row.get("validation_warnings", ()) if str(item).strip()) if isinstance(row.get("validation_warnings", ()), Sequence) and not isinstance(row.get("validation_warnings"), str) else (),
+        created_at=_clean_text(row.get("created_at"), "Дата создания", max_length=80) or _utc_now(),
+    )
+
+
+def list_interpretation_calculation_runs(root: Path | str, project_id: str) -> list[InterpretationCalculationRun]:
+    payload = _json_read(_runs_path(root, project_id), {"runs": []})
+    rows = payload.get("runs", []) if isinstance(payload, Mapping) else []
+    return [_run_from_mapping(row) for row in rows if isinstance(row, Mapping)]
+
+
+def run_interpretation_calculation(
+    root: Path | str,
+    project_id: str,
+    name: str,
+    df: pd.DataFrame,
+    *,
+    preset: InterpretationCalculationPreset | Mapping[str, Any] | None = None,
+    source_type: str = "manual",
+    source_id: str = "",
+    well_id: str = "",
+    gr_curve: str = "GR",
+    porosity_curve: str = "PHIT",
+    resistivity_curve: str = "RT",
+    depth_curve: str = "DEPT",
+) -> tuple[InterpretationCalculationRun, pd.DataFrame, tuple[InterpretationCurvePreview, ...]]:
+    clean_name = _clean_text(name, "Название расчета", required=True)
+    selected_preset = _preset_from_mapping(preset) if isinstance(preset, Mapping) else preset
+    parameters = _parameters_from_mapping(selected_preset.parameters if selected_preset else None)
+    cutoffs = _cutoffs_from_mapping(selected_preset.cutoffs if selected_preset else None)
+    validation = validate_interpretation_inputs(df, gr_curve=gr_curve, porosity_curve=porosity_curve, resistivity_curve=resistivity_curve, depth_curve=depth_curve)
+    if not validation.is_valid:
+        run = InterpretationCalculationRun(
+            id=_safe_id(f"{clean_name}-{_utc_now()}", "run"),
+            name=clean_name,
+            preset_id=selected_preset.id if selected_preset else "",
+            source_type=source_type,
+            source_id=source_id,
+            well_id=well_id,
+            status="failed",
+            rows=0,
+            validation_errors=validation.errors,
+            validation_warnings=validation.warnings,
+            created_at=_utc_now(),
+        )
+        _append_interpretation_run(root, project_id, run)
+        return run, pd.DataFrame(), ()
+    interpreted = build_interpretation_workspace(
+        df,
+        gr_curve=gr_curve,
+        porosity_curve=porosity_curve,
+        resistivity_curve=resistivity_curve,
+        gr_min=parameters.gr_min,
+        gr_max=parameters.gr_max,
+        cutoffs=cutoffs,
+        parameters=parameters,
+        vsh_method=selected_preset.vsh_method if selected_preset else parameters.vsh_method,
+        porosity_method=selected_preset.porosity_method if selected_preset else "effective",
+        saturation_method=selected_preset.saturation_method if selected_preset else "archie",
+        permeability_method=selected_preset.permeability_method if selected_preset else "timur",  # type: ignore[arg-type]
+    )
+    previews = preview_interpreted_curves(interpreted)
+    run = InterpretationCalculationRun(
+        id=_safe_id(f"{clean_name}-{_utc_now()}", "run"),
+        name=clean_name,
+        preset_id=selected_preset.id if selected_preset else "",
+        source_type=_clean_text(source_type, "Тип источника", max_length=80) or "manual",
+        source_id=_clean_text(source_id, "Источник", max_length=140),
+        well_id=_clean_text(well_id, "Скважина", max_length=140),
+        status="completed",
+        rows=int(len(interpreted)),
+        curves=tuple(preview.name for preview in previews),
+        validation_warnings=validation.warnings,
+        created_at=_utc_now(),
+    )
+    _append_interpretation_run(root, project_id, run)
+    save_interpretation_record(root, project_id, clean_name, interpreted, source_type=source_type, source_id=source_id, well_id=well_id)
+    append_project_history(root, project_id, "interpretation_calculation_run", f"Выполнен расчет интерпретации {clean_name}")
+    return run, interpreted, previews
+
+
+def _append_interpretation_run(root: Path | str, project_id: str, run: InterpretationCalculationRun) -> None:
+    payload = _json_read(_runs_path(root, project_id), {"runs": []})
+    rows = payload.get("runs", []) if isinstance(payload, Mapping) else []
+    rows.append({**run.__dict__, "curves": list(run.curves), "validation_errors": list(run.validation_errors), "validation_warnings": list(run.validation_warnings)})
+    _json_write(_runs_path(root, project_id), {"runs": rows[-200:]})
