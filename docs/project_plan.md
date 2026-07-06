@@ -907,4 +907,40 @@ Improve geological modeling tools
 Add data quality validation center
 ```
 
-Текущий следующий незавершенный пункт: **Data Quality & Validation Center**.
+Текущий следующий незавершенный пункт: **Batch Processing Center**.
+
+
+## 12.4 Batch Processing Center
+
+Статус: реализовано как foundation-слой пакетной обработки LAS и расчетных сценариев.
+
+- [x] Batch Queue data model.
+- [x] Добавление отдельных LAS-файлов в очередь.
+- [x] Добавление списка файлов и результатов поиска по папке.
+- [x] Изменение порядка задач через priority.
+- [x] Пауза, продолжение, отмена и повторный запуск failed-задач.
+- [x] Batch Import discovery для `.las` / `.LAS`.
+- [x] Batch LAS Processing operation manifest: reverse depth, sort depth, remove duplicate depths, resample, shift depth, crop interval, rename curves, aliases, units, validation.
+- [x] Batch Petrophysics operation manifest: VSH, PHIE, SW, PERM, Net Pay.
+- [x] Batch Validation для очереди: дубликаты файлов, отсутствие операций, неправильный resample step, запуск петрофизики без предварительного validate_las.
+- [x] Batch Reports / Export manifest для LAS, PDF, DOCX, XLSX, HTML, JSON и ZIP.
+- [x] Журнал выполнения операций с task_id, operation_type, status, message и duration_seconds.
+- [x] Batch presets для сохранения пользовательских сценариев обработки.
+- [x] Queue summary: queued, running, done, failed, cancelled, progress и количество операций.
+
+Интеграция:
+
+- Project Manager через историю проекта.
+- LAS Editor через operation manifest глубины и кривых.
+- Interpretation Workspace через петрофизические операции.
+- Data Quality & Validation Center через validate_las и validation issues.
+- Report Studio через export manifest.
+- Workspace Infrastructure через будущий Task Manager UI.
+
+Рекомендуемое название коммита:
+
+```text
+Add batch processing center
+```
+
+Текущий следующий незавершенный пункт: **Template & Workflow Manager**.
