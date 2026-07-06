@@ -86,7 +86,7 @@ Dashboard использует одну навигационную модель:
 - [x] Restore useful dashboard blocks instead of deleting them.
 - [x] Add product-style left navigation rail, overview metrics, recent project/LAS/calculation/activity panels, project health and license status.
 - [x] Center and contain the branded background inside the Dashboard 3.0 layout.
-- [ ] Run responsive layout audit after each UI stage.
+- [x] Run responsive layout audit after each UI stage.
 - [ ] Refine dashboard background centering and scaling.
 
 
@@ -94,7 +94,7 @@ Dashboard использует одну навигационную модель:
 
 Создана отдельная ветка интерфейса Dashboard 3.0: вместо агрессивного удаления блоков главный экран восстановлен как полноценная рабочая панель. Dashboard теперь содержит левую навигационную рейку, верхний обзор, статистику проекта, последние проекты, последние LAS-файлы, последние расчеты, последнюю активность, статус проекта и лицензионный блок. Дублирующие кнопки `Открыть...` не возвращались. Сетка построена через адаптивный CSS Grid с отдельными правилами для 1440px, 1200px и мобильных экранов.
 
-Текущий следующий незавершенный пункт: **Dashboard UX Refactoring → Responsive Layout Audit / Background refinement**.
+Текущий следующий незавершенный пункт: **Dashboard UX Refactoring → Background refinement**.
 
 
 ### Реализовано: Dashboard UX Refactoring → Quick Actions Redesign
@@ -104,6 +104,13 @@ Dashboard использует одну навигационную модель:
 В реестр `START_ACTIONS` добавлены `icon` и `short_title`, поэтому кнопки стали короче и лучше помещаются на ноутбуках 1366×768 и 1440×900. Внутренний блок Dashboard показывает только краткую сводку и последнее действие без повторных кнопок. README не изменялся и не засорялся журналом этапа.
 
 Текущий следующий незавершенный пункт: **Dashboard UX Refactoring → Dashboard Information Hierarchy**.
+
+
+### Реализовано: Dashboard UX Refactoring → Responsive Layout Audit
+
+Dashboard 3.0 получил отдельный responsive audit pass для ноутбуков и рабочих мониторов: добавлены явные правила для 1366×768, 1440×900, 1600×900 и 1920×1080, ограничение `overflow-x: clip`, безопасные `minmax(0, 1fr)` сетки, компактные метрики и перенос длинного текста внутри списков. Цель этапа — не удалять полезные блоки, а сохранить полный Dashboard 3.0 без горизонтального переполнения и пустых разрывов.
+
+Текущий следующий незавершенный пункт: **Dashboard UX Refactoring → Background refinement**.
 
 ## UI.3 Dashboard Widgets
 
