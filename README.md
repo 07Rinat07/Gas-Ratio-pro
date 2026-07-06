@@ -25,6 +25,7 @@
 - LAS Correlation
 - Formation Manager
 - Plot Studio
+- Statistics Center
 - Dashboard Workspace
 - Documentation Center
 - Petrophysical Calculations
