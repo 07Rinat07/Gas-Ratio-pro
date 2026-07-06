@@ -238,7 +238,32 @@ from projects.repository import (
     load_project,
 )
 
+from projects.formation_manager import (
+    PROJECT_FORMATION_MANAGER_FILE_NAME,
+    FORMATION_OBJECT_TYPES,
+    FormationObject,
+    FormationManagerSummary,
+    save_formation_object,
+    list_formation_objects,
+    filter_formation_objects,
+    build_formation_manager_table,
+    summarize_formation_manager,
+    export_formation_objects_csv,
+    import_formation_objects_csv,
+)
+
 __all__ = [
+    "import_formation_objects_csv",
+    "export_formation_objects_csv",
+    "summarize_formation_manager",
+    "build_formation_manager_table",
+    "filter_formation_objects",
+    "list_formation_objects",
+    "save_formation_object",
+    "FormationManagerSummary",
+    "FormationObject",
+    "FORMATION_OBJECT_TYPES",
+    "PROJECT_FORMATION_MANAGER_FILE_NAME",
     "ProjectHistoryEntry",
     "ProjectRecoveryState",
     "ProjectTemplate",
