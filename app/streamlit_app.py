@@ -87,6 +87,11 @@ from las_editor.curve_quality import (
     curve_quality_summary_rows,
     detect_curve_quality_flags,
 )
+from las_editor.curve_mnemonics import (
+    curve_mnemonic_table_rows,
+    mnemonic_reference_manifest,
+    mnemonic_summary_rows,
+)
 from las_editor.curve_metadata import (
     assign_curve_metadata,
     available_metadata_fields,
@@ -313,6 +318,7 @@ LAS_EDITOR_DUPLICATES_KEY = "las_editor_curve_duplicate_candidates"
 LAS_EDITOR_DUPLICATE_SUMMARY_KEY = "las_editor_curve_duplicate_summary"
 LAS_EDITOR_QUALITY_FLAGS_KEY = "las_editor_curve_quality_flags"
 LAS_EDITOR_QUALITY_SUMMARY_KEY = "las_editor_curve_quality_summary"
+LAS_EDITOR_MNEMONICS_KEY = "las_editor_curve_mnemonics"
 PROJECT_SESSION_SHEETS_KEY = "project_session_sheets"
 PROJECT_SESSION_SUMMARY_KEY = "project_session_summary"
 PROJECT_SESSION_PROJECT_ID_KEY = "project_session_project_id"
@@ -2554,6 +2560,64 @@ def _render_las_curve_units_manager(prepared_df: pd.DataFrame) -> None:
             st.caption("История ручных единиц пока пуста.")
 
 
+
+def _render_las_curve_mnemonics_dictionary(prepared_df: pd.DataFrame) -> None:
+    st.markdown("### Curve Manager · Curve mnemonics dictionary")
+    st.caption(
+        "Словарь мнемоник помогает быстро сверить LAS-кривые с каноническими названиями, "
+        "группами, категориями и единицами перед alias/merge/quality review. Данные LAS не изменяются."
+    )
+
+    column_names = [str(column) for column in prepared_df.columns]
+    rows = curve_mnemonic_table_rows(column_names)
+    st.session_state[LAS_EDITOR_MNEMONICS_KEY] = rows
+    references = mnemonic_reference_manifest(column_names, references=_las_editor_reference_state(column_names))
+
+    st.dataframe(
+        pd.DataFrame(mnemonic_summary_rows(column_names)).rename(
+            columns={"metric": "Показатель", "value": "Значение"}
+        ),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    if rows:
+        st.dataframe(
+            pd.DataFrame(rows).rename(
+                columns={
+                    "curve_name": "Кривая",
+                    "canonical": "Каноническая",
+                    "label": "Описание",
+                    "group_label": "Группа",
+                    "category_label": "Категория",
+                    "unit_label": "Единица",
+                    "match_type": "Источник",
+                    "aliases": "Alias",
+                    "recommendation": "Рекомендация",
+                }
+            )[
+                [
+                    "Кривая",
+                    "Каноническая",
+                    "Описание",
+                    "Группа",
+                    "Категория",
+                    "Единица",
+                    "Источник",
+                    "Alias",
+                    "Рекомендация",
+                ]
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
+    suggested_count = sum(1 for row in rows if row.get("match_type") == "suggested")
+    if suggested_count:
+        st.warning(f"Мнемоник без точного словарного совпадения: {suggested_count}. Проверьте alias, группу и единицы.")
+    else:
+        st.success("Все кривые распознаны словарем или alias-правилами.")
+    st.caption(f"Dictionary manifest готов для сохранения: {len(references.get('curve_mnemonics', {}))} записей.")
+
 def _render_las_curve_duplicate_detection(prepared_df: pd.DataFrame) -> None:
     st.markdown("### Curve Manager · Curve duplicate detection")
     st.caption(
@@ -4575,6 +4639,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     _render_las_curve_category_manager(prepared_df)
     _render_las_curve_units_manager(prepared_df)
     _render_las_curve_metadata_editor(prepared_df)
+    _render_las_curve_mnemonics_dictionary(prepared_df)
     _render_las_curve_duplicate_detection(prepared_df)
     _render_las_curve_quality_flags(prepared_df)
     prepared_df = _render_las_curve_merge_manager(prepared_df)

@@ -167,7 +167,7 @@
 - [x] Curve metadata editor.
 - [x] Curve duplicate detection.
 - [x] Curve quality flags.
-- [ ] Curve mnemonics dictionary.
+- [x] Curve mnemonics dictionary.
 - [ ] Curve bulk edit.
 - [ ] Curve import rules.
 - [ ] Curve export rules.
