@@ -435,3 +435,23 @@ __all__ = [
     "save_project_las_file",
     "set_project_las_file_archived",
 ]
+
+from projects.well_manager import (
+    PROJECT_FORMATION_TOPS_FILE_NAME,
+    PROJECT_WELL_TRAJECTORY_FILE_NAME,
+    PROJECT_WELL_NOTES_FILE_NAME,
+    ProjectFormationTop,
+    ProjectTrajectoryStation,
+    ProjectWellNote,
+    ProjectWellManagerRecord,
+    save_project_formation_top,
+    list_project_formation_tops,
+    save_project_trajectory_station,
+    list_project_trajectory_stations,
+    save_project_well_note,
+    list_project_well_notes,
+    list_project_well_manager_records,
+    filter_project_well_manager_records,
+    build_project_well_manager_table,
+    project_well_manager_status,
+)
