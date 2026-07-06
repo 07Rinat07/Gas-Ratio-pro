@@ -680,3 +680,9 @@ Dashboard оптимизирован для ноутбуков 1366×768 и 1440
 
 ## Dashboard 3.0 navigation
 The top Dashboard navigation uses one compact clickable control per section. Empty decorative boxes above buttons are intentionally removed to preserve vertical space on laptop screens.
+
+## LAS Explorer Professional
+
+LAS Explorer работает поверх сохраненных проектных LAS-версий. Для каждой версии можно задать группу, теги, признак избранного и инженерную заметку. Поиск поддерживает имя LAS-файла, скважину, версию, группу, теги, заметку и названия кривых.
+
+Диагностика LAS показывает число строк, количество кривых, найденную глубинную кривую, диапазон глубин и предупреждения по структуре. Предпросмотр открывает только первые строки LAS-файла, поэтому подходит для быстрой проверки перед LAS Editor, LAS Correlation или расчетным workflow. Исходный `source.las` при просмотре, поиске и диагностике не перезаписывается.

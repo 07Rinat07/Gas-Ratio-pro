@@ -455,3 +455,15 @@ from projects.well_manager import (
     build_project_well_manager_table,
     project_well_manager_status,
 )
+from projects.las_explorer import (
+    PROJECT_LAS_EXPLORER_FILE_NAME,
+    ProjectLasExplorerSettings,
+    ProjectLasExplorerDiagnostics,
+    ProjectLasExplorerItem,
+    save_project_las_explorer_settings,
+    diagnose_project_las_file,
+    list_project_las_explorer_items,
+    search_project_las_explorer_items,
+    build_project_las_explorer_table,
+    preview_project_las_file,
+)
