@@ -721,3 +721,28 @@ from projects.batch_processing import (
     validate_batch_queue,
     validate_batch_task,
 )
+
+from projects.geological_modeling import (
+    StratigraphicZone,
+    ReservoirZone,
+    CrossSectionNode,
+    GeologicalModelState,
+    GeologicalModelSummary,
+    build_cross_section_node_table,
+    build_cross_section_nodes,
+    build_geological_model_state,
+    build_reservoir_zone_table,
+    build_stratigraphic_zone_table,
+    build_stratigraphic_zones_from_tops,
+    build_zone_color_scheme,
+    build_zone_manager_table,
+    delete_project_geological_zone,
+    export_geological_model_csv,
+    list_project_geological_zones,
+    load_project_geological_model_state,
+    merge_stratigraphic_zones,
+    normalize_reservoir_zones,
+    save_project_geological_zone,
+    split_stratigraphic_zone,
+    validate_stratigraphic_zones,
+)

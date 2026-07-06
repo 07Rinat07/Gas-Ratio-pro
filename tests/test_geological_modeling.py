@@ -77,3 +77,95 @@ def test_geological_model_validation_and_inputs():
     state = build_geological_model_state([], reservoir_rows=[])
     assert state.summary.zones == 0
     assert validate_stratigraphic_zones([]) == {"errors": (), "warnings": ()}
+
+from projects.geological_modeling import (
+    build_zone_color_scheme,
+    build_zone_manager_table,
+    delete_project_geological_zone,
+    list_project_geological_zones,
+    merge_stratigraphic_zones,
+    save_project_geological_zone,
+    split_stratigraphic_zone,
+    StratigraphicZone,
+)
+
+
+def test_zone_manager_crud_persistence_and_table(tmp_path: Path):
+    project = create_project(tmp_path, name="Zone Manager Demo")
+
+    saved = save_project_geological_zone(
+        tmp_path,
+        project.id,
+        "A10-B20",
+        well_id="well-01",
+        top_name="A10",
+        base_name="B20",
+        top_md_m="1000,0",
+        base_md_m=1100,
+        zone_type="reservoir",
+        color="#336699",
+        note="Engineer-approved interval",
+    )
+    zones = list_project_geological_zones(tmp_path, project.id)
+    table = build_zone_manager_table(zones)
+
+    assert saved.well_id == "well-01"
+    assert zones == (saved,)
+    assert table[0]["Толщина, м"] == 100.0
+    assert table[0]["Цвет"] == "#336699"
+
+    assert delete_project_geological_zone(tmp_path, project.id, "A10-B20", well_id="well-01") is True
+    assert list_project_geological_zones(tmp_path, project.id) == ()
+
+
+def test_zone_manager_merge_split_and_color_scheme():
+    z1 = StratigraphicZone(
+        name="A-B",
+        top_name="A",
+        base_name="B",
+        well_id="well-01",
+        top_md_m=1000.0,
+        base_md_m=1100.0,
+        zone_type="formation",
+        color="",
+    )
+    z2 = StratigraphicZone(
+        name="B-C",
+        top_name="B",
+        base_name="C",
+        well_id="well-01",
+        top_md_m=1100.0,
+        base_md_m=1200.0,
+        zone_type="formation",
+        color="",
+    )
+
+    merged = merge_stratigraphic_zones([z1, z2], "A-C", color="#123456")
+    upper, lower = split_stratigraphic_zone(merged, 1125, upper_name="A-M", lower_name="M-C", split_marker_name="M")
+    scheme = build_zone_color_scheme([upper, lower])
+
+    assert merged.top_md_m == 1000.0
+    assert merged.base_md_m == 1200.0
+    assert upper.base_name == "M"
+    assert lower.top_name == "M"
+    assert upper.thickness_m == 125.0
+    assert scheme["A-M"] == "#123456"
+
+
+def test_zone_manager_rejects_invalid_merge_and_split(tmp_path: Path):
+    project = create_project(tmp_path, name="Zone Manager Validation")
+    zone = save_project_geological_zone(
+        tmp_path,
+        project.id,
+        "A-B",
+        top_name="A",
+        base_name="B",
+        top_md_m=100,
+        base_md_m=200,
+    )
+
+    with pytest.raises(ValueError, match="внутри зоны"):
+        split_stratigraphic_zone(zone, 250)
+
+    with pytest.raises(ValueError, match="минимум две"):
+        merge_stratigraphic_zones([zone], "bad")

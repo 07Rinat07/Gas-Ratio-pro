@@ -185,3 +185,13 @@ git status --short
 - Reduced dashboard background scale for notebook breakpoints.
 - Added explicit 1366px, 1440px and 1600px background rules.
 - Switched sidebar brand art from cover to contain to prevent cropping.
+
+## Этап 128 — Geological Modeling Professional: Zone Manager
+
+- Добавлен backend-слой Zone Manager для Geological Modeling Professional.
+- Реализовано хранение инженерно утвержденных геологических зон в `geological_modeling.json` внутри проекта.
+- Добавлены операции создания/обновления, удаления, фильтрации по скважине и типу зоны.
+- Добавлены операции объединения смежных зон и разделения зоны по глубине.
+- Добавлены цветовые схемы зон и табличное представление Zone Manager.
+- Расширены тесты `tests/test_geological_modeling.py` для CRUD, merge/split, color scheme и валидации входных данных.
+

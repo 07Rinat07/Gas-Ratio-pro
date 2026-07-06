@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 from dataclasses import dataclass
 from typing import Any, Iterable
 
 from projects.formation_manager import FormationObject, list_formation_objects
-from projects.repository import DEFAULT_PROJECT_ID, DEFAULT_PROJECTS_ROOT
+from projects.project_manager import append_project_history
+from projects.repository import DEFAULT_PROJECT_ID, DEFAULT_PROJECTS_ROOT, safe_project_id
 from projects.well_cards import safe_well_id
 
 PROJECT_GEOLOGICAL_MODELING_FILE_NAME = "geological_modeling.json"
@@ -130,6 +132,226 @@ class GeologicalModelState:
     reservoir_zones: tuple[ReservoirZone, ...]
     cross_section_nodes: tuple[CrossSectionNode, ...]
     summary: GeologicalModelSummary
+
+
+def _project_dir(root: Any, project_id: str) -> Any:
+    from pathlib import Path
+
+    return Path(root) / safe_project_id(project_id)
+
+
+def _geological_modeling_path(root: Any, project_id: str) -> Any:
+    return _project_dir(root, project_id) / PROJECT_GEOLOGICAL_MODELING_FILE_NAME
+
+
+def _json_read(path: Any, default: Any) -> Any:
+    if not path.exists():
+        return default
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return default
+
+
+def _json_write(path: Any, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _zone_to_dict(zone: StratigraphicZone) -> dict[str, Any]:
+    return dict(zone.__dict__)
+
+
+def _zone_from_dict(raw: dict[str, Any]) -> StratigraphicZone:
+    top = _required_float(raw.get("top_md_m"), "Top MD")
+    base = _required_float(raw.get("base_md_m"), "Base MD")
+    if top < 0 or base < 0:
+        raise ValueError("Top/Base MD должны быть положительными.")
+    if base <= top:
+        raise ValueError("Base MD должен быть глубже Top MD.")
+    return StratigraphicZone(
+        name=_clean_text(raw.get("name"), "Название зоны", required=True),
+        top_name=_clean_text(raw.get("top_name"), "Top", required=True),
+        base_name=_clean_text(raw.get("base_name"), "Base", required=True),
+        well_id=safe_well_id(raw.get("well_id", "")) if raw.get("well_id") else "",
+        top_md_m=round(top, 6),
+        base_md_m=round(base, 6),
+        zone_type=_clean_zone_type(raw.get("zone_type", "formation")),
+        color=_clean_text(raw.get("color"), "Цвет", max_length=32),
+        note=_clean_text(raw.get("note"), "Примечание", max_length=500),
+    )
+
+
+def list_project_geological_zones(
+    root=DEFAULT_PROJECTS_ROOT,
+    project_id: str = DEFAULT_PROJECT_ID,
+    *,
+    well_id: str = "",
+    zone_type: str = "",
+) -> tuple[StratigraphicZone, ...]:
+    """Load manually managed geological zones from project storage.
+
+    These zones are the editable Zone Manager layer. They do not replace derived
+    intervals from Formation Manager; instead, they store engineer-approved zones
+    with explicit names, colors and notes.
+    """
+
+    payload = _json_read(_geological_modeling_path(root, project_id), {"zones": []})
+    rows = payload.get("zones", []) if isinstance(payload, dict) else []
+    zones: list[StratigraphicZone] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        try:
+            zones.append(_zone_from_dict(row))
+        except ValueError:
+            continue
+    clean_well = safe_well_id(well_id) if well_id else ""
+    clean_type = _clean_zone_type(zone_type) if zone_type else ""
+    if clean_well:
+        zones = [zone for zone in zones if zone.well_id == clean_well]
+    if clean_type:
+        zones = [zone for zone in zones if zone.zone_type == clean_type]
+    return tuple(sorted(zones, key=lambda z: (z.well_id, z.top_md_m or -1, z.base_md_m or -1, z.name.lower())))
+
+
+def save_project_geological_zone(
+    root,
+    project_id: str,
+    name: str,
+    *,
+    top_name: str,
+    base_name: str,
+    top_md_m: Any,
+    base_md_m: Any,
+    well_id: str = "",
+    zone_type: str = "formation",
+    color: str = "",
+    note: str = "",
+) -> StratigraphicZone:
+    """Create or update a Zone Manager interval by ``(well_id, name)`` key."""
+
+    zone = _zone_from_dict(
+        {
+            "name": name,
+            "top_name": top_name,
+            "base_name": base_name,
+            "top_md_m": top_md_m,
+            "base_md_m": base_md_m,
+            "well_id": well_id,
+            "zone_type": zone_type,
+            "color": color,
+            "note": note,
+        }
+    )
+    existing = [
+        item
+        for item in list_project_geological_zones(root, project_id)
+        if not (item.well_id == zone.well_id and item.name.lower() == zone.name.lower())
+    ]
+    _json_write(_geological_modeling_path(root, project_id), {"version": 1, "zones": [_zone_to_dict(zone), *[_zone_to_dict(item) for item in existing]]})
+    append_project_history(root, project_id, "geological-zone-manager", f"Saved zone {zone.name}", object_type="geological_zone", object_id=f"{zone.well_id}:{zone.name}")
+    return zone
+
+
+def delete_project_geological_zone(root, project_id: str, name: str, *, well_id: str = "") -> bool:
+    clean_name = _clean_text(name, "Название зоны", required=True).lower()
+    clean_well = safe_well_id(well_id) if well_id else ""
+    zones = list_project_geological_zones(root, project_id)
+    kept = [zone for zone in zones if not (zone.name.lower() == clean_name and zone.well_id == clean_well)]
+    if len(kept) == len(zones):
+        return False
+    _json_write(_geological_modeling_path(root, project_id), {"version": 1, "zones": [_zone_to_dict(item) for item in kept]})
+    append_project_history(root, project_id, "geological-zone-manager", f"Deleted zone {name}", object_type="geological_zone", object_id=f"{clean_well}:{name}")
+    return True
+
+
+def merge_stratigraphic_zones(zones: Iterable[StratigraphicZone], name: str, *, zone_type: str = "formation", color: str = "", note: str = "") -> StratigraphicZone:
+    selected = tuple(zones)
+    if len(selected) < 2:
+        raise ValueError("Для объединения нужно минимум две зоны.")
+    wells = {zone.well_id for zone in selected}
+    if len(wells) > 1:
+        raise ValueError("Объединять можно только зоны одной скважины.")
+    ordered = sorted(selected, key=lambda z: z.top_md_m if z.top_md_m is not None else -1)
+    for left, right in zip(ordered, ordered[1:]):
+        if left.base_md_m is None or right.top_md_m is None or abs(left.base_md_m - right.top_md_m) > 1e-6:
+            raise ValueError("Для объединения зоны должны быть смежными без разрыва.")
+    return StratigraphicZone(
+        name=_clean_text(name, "Название зоны", required=True),
+        top_name=ordered[0].top_name,
+        base_name=ordered[-1].base_name,
+        well_id=ordered[0].well_id,
+        top_md_m=ordered[0].top_md_m,
+        base_md_m=ordered[-1].base_md_m,
+        zone_type=_clean_zone_type(zone_type or ordered[0].zone_type),
+        color=_clean_text(color or ordered[0].color, "Цвет", max_length=32),
+        note=_clean_text(note or "Merged zone", "Примечание", max_length=500),
+    )
+
+
+def split_stratigraphic_zone(zone: StratigraphicZone, split_md_m: Any, *, upper_name: str = "", lower_name: str = "", split_marker_name: str = "") -> tuple[StratigraphicZone, StratigraphicZone]:
+    split = _required_float(split_md_m, "Глубина разделения")
+    if zone.top_md_m is None or zone.base_md_m is None:
+        raise ValueError("У зоны должны быть заданы Top/Base MD.")
+    if split <= zone.top_md_m or split >= zone.base_md_m:
+        raise ValueError("Глубина разделения должна находиться внутри зоны.")
+    marker = _clean_text(split_marker_name or f"Split {split:g}", "Маркер разделения", max_length=120)
+    upper = StratigraphicZone(
+        name=_clean_text(upper_name or f"{zone.name} upper", "Название верхней зоны", required=True),
+        top_name=zone.top_name,
+        base_name=marker,
+        well_id=zone.well_id,
+        top_md_m=zone.top_md_m,
+        base_md_m=round(split, 6),
+        zone_type=zone.zone_type,
+        color=zone.color,
+        note=zone.note,
+    )
+    lower = StratigraphicZone(
+        name=_clean_text(lower_name or f"{zone.name} lower", "Название нижней зоны", required=True),
+        top_name=marker,
+        base_name=zone.base_name,
+        well_id=zone.well_id,
+        top_md_m=round(split, 6),
+        base_md_m=zone.base_md_m,
+        zone_type=zone.zone_type,
+        color=zone.color,
+        note=zone.note,
+    )
+    return upper, lower
+
+
+def build_zone_color_scheme(zones: Iterable[StratigraphicZone], palette: Iterable[str] = ()) -> dict[str, str]:
+    colors = tuple(palette) or ("#4C78A8", "#F58518", "#54A24B", "#B279A2", "#E45756", "#72B7B2")
+    scheme: dict[str, str] = {}
+    for zone in zones:
+        key = zone.name
+        if zone.color:
+            scheme[key] = zone.color
+        elif key not in scheme:
+            scheme[key] = colors[len(scheme) % len(colors)]
+    return scheme
+
+
+def build_zone_manager_table(zones: Iterable[StratigraphicZone]) -> tuple[dict[str, Any], ...]:
+    rows = []
+    for zone in zones:
+        rows.append(
+            {
+                "Скважина": zone.well_id or "field",
+                "Зона": zone.name,
+                "Тип": zone.zone_type,
+                "Top": zone.top_name,
+                "Base": zone.base_name,
+                "Top MD, м": zone.top_md_m,
+                "Base MD, м": zone.base_md_m,
+                "Толщина, м": zone.thickness_m,
+                "Цвет": zone.color or "—",
+                "Примечание": zone.note or "—",
+            }
+        )
+    return tuple(rows)
 
 
 def build_stratigraphic_zones_from_tops(
