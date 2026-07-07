@@ -251,3 +251,15 @@ git status --short
 
 ## 134
 - Added Scripting API foundation.
+
+## Этап 136 — Release Candidate Stabilization
+
+- Добавлен backend-слой `projects/release_candidate.py` для подготовки Release Candidate без включения лицензирования.
+- Добавлена схема `gas-ratio-pro.release-candidate.v1` и проектный файл `release_candidate.json`.
+- Реализованы release quality gates: source, documentation, tests, configuration, artifacts, performance, security и release.
+- Добавлены проверки обязательных файлов, CHANGELOG, test inventory и py_compile для ключевых каталогов проекта.
+- Добавлен release manifest со сводкой статусов, checklist и детерминированным file inventory fingerprint.
+- Добавлена валидация release manifest и сохранение manifest в проект с записью в историю.
+- Добавлены UI helper tables для будущей страницы Release Candidate Audit.
+- Модуль экспортирован через `projects/__init__.py`.
+- Добавлены regression-тесты Release Candidate.

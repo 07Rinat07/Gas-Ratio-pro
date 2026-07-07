@@ -872,3 +872,25 @@ from projects.performance_optimization import (
     build_optimization_recommendation_table,
     build_performance_manifest,
 )
+
+from projects.release_candidate import (
+    PROJECT_RELEASE_FILE_NAME,
+    RELEASE_SCHEMA,
+    ReleaseCheck,
+    ReleaseSummary,
+    build_release_check_table,
+    build_release_checklist,
+    build_release_file_inventory,
+    build_release_manifest,
+    check_python_compile,
+    check_release_notes,
+    check_required_files,
+    check_test_inventory,
+    load_release_manifest,
+    normalize_release_check,
+    release_check_to_dict,
+    run_release_candidate_audit,
+    save_release_manifest,
+    summarize_release_checks,
+    validate_release_manifest,
+)

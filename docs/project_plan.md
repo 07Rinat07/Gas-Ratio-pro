@@ -1108,3 +1108,19 @@ Add data exchange center foundation
 - Добавлены regression-тесты Performance & Optimization.
 
 Текущий следующий незавершенный пункт: **Release Candidate Stabilization**.
+
+## Этап 136 — Release Candidate Stabilization
+
+- Добавлен финализационный backend-слой Release Candidate без реализации лицензирования и Hardware ID.
+- Реализован `projects/release_candidate.py` с проектным manifest-файлом `release_candidate.json`.
+- Добавлены dataclass-модели `ReleaseCheck` и `ReleaseSummary` для унифицированного описания quality gate проверок.
+- Реализованы gate-группы: source, documentation, tests, configuration, artifacts, performance, security и release.
+- Добавлены проверки обязательных файлов проекта: README, CHANGELOG, requirements, Streamlit entrypoint и ключевая документация.
+- Добавлена проверка Python-компиляции ключевых каталогов проекта через `py_compile`.
+- Добавлена проверка inventory тестов и release notes.
+- Реализован `build_release_manifest` со статусом `release-ready`/`blocked`, summary, checklist и file inventory fingerprint.
+- Добавлена валидация release manifest и сохранение manifest в историю проекта.
+- Добавлены helper-таблицы для будущего UI Release Candidate Audit.
+- Добавлены regression-тесты для audit, manifest, validation, persistence и deterministic inventory.
+
+Текущий следующий незавершенный пункт: **Licensing & Activation**.
