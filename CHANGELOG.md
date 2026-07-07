@@ -477,3 +477,14 @@ git status --short
 - Added Net/Gross calculation from facies labels.
 - Added property statistics, manifest, UI-ready tables and Markdown report.
 - Added profile tests for Property Modeling Workspace.
+
+## Phase II — C.2 Facies Modeling Workspace Foundation
+
+- Added `projects/facies_modeling_workspace.py`.
+- Added facies registry with reservoir/pay candidate flags and color metadata.
+- Added zone-based facies modeling settings.
+- Added vertical proportion curve calculation.
+- Added discrete facies statistics and run-length summary.
+- Added facies simulation job manifest foundation.
+- Added UI-ready tables and Markdown reporting.
+- Added profile tests for Facies Modeling Workspace.

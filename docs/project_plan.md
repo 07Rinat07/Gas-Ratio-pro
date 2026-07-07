@@ -1357,3 +1357,11 @@ Implemented backend foundation for property modeling:
 - fluid contacts foundation: OWC, GOC, GWC;
 - geometry properties foundation: bulk volume, absolute depth, above contact;
 - manifest, UI-ready tables and Markdown reporting.
+
+### Phase II — C.2 Facies Modeling Workspace Foundation
+
+Status: completed.
+
+Implemented facies registry, zone-based settings, vertical proportion curves, horizontal/vertical trend metadata, discrete facies statistics, simulation job manifest foundation, UI-ready tables and Markdown reporting.
+
+Source basis: `docs/sources/lab-4-property-cubes.pdf`.

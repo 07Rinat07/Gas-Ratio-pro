@@ -21,3 +21,18 @@
 ## Доказательная база
 
 Методика расчета кубов свойств, включая литологическое/фациальное моделирование, расчет куба песчанистости, пористости, проницаемости, флюидных контактов и геометрических свойств, опирается на материалы, сохраненные в `docs/sources/`.
+
+## Phase II — C.2 Facies Modeling Workspace Foundation
+
+The Facies Modeling Workspace extends the Property Modeling Workspace with a dedicated facies registry, zone settings, vertical proportion curves, facies statistics and simulation job metadata.
+
+Implemented backend module: `projects/facies_modeling_workspace.py`.
+
+Core entities:
+- `FaciesDefinition`;
+- `FaciesZoneSettings`;
+- `VerticalProportionLayer`;
+- `FaciesSimulationJob`;
+- `FaciesModelingManifest`.
+
+The module follows the property modeling workflow used in the provided methodology for facies modeling, vertical trends and property cube preparation. Source: `docs/sources/lab-4-property-cubes.pdf`.
