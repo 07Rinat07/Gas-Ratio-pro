@@ -548,3 +548,12 @@ git status --short
 - Added model links for wells, intervals, facies, property cubes and volumetrics.
 - Added workspace validation, manifest, Markdown report and UI-ready helper tables.
 - Added tests for C.8 workspace persistence, validation and reporting.
+
+## Phase II - C.9 Structural Modeling Workspace Foundation
+
+- Added `projects/structural_modeling_workspace.py`.
+- Added Structural Framework registry, Horizon Manager, Horizon Groups, Fault Manager Foundation, Zone/Layer Framework and Surface registry.
+- Added structural validation for missing horizons/surfaces, invalid depth ranges, top/base consistency and fault horizon links.
+- Added layer generation helper, manifest, Markdown report and UI-ready helper tables.
+- Exported Structural Modeling Workspace API through `projects/__init__.py`.
+- Added regression tests in `tests/test_structural_modeling_workspace.py`.

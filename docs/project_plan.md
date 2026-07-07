@@ -1436,3 +1436,9 @@ Implemented a unified geological model workspace foundation:
 - validation manifest;
 - Markdown report;
 - UI-ready tables.
+
+## Phase II - C.9 Structural Modeling Workspace Foundation
+
+Status: implemented.
+
+Implemented backend foundation for structural modeling: structural frameworks, horizon groups, horizons, faults, zones, layers, surfaces, validation, manifest, Markdown report and UI-ready tables.

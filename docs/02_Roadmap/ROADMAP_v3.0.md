@@ -720,3 +720,13 @@ Scope:
 - zone and case summaries;
 - low/base/high uncertainty foundation;
 - UI-ready tables and Markdown reports.
+
+### C.9 Structural Modeling Workspace Foundation — Implemented
+
+- Structural Framework registry.
+- Horizon Manager and Horizon Groups.
+- Fault Manager Foundation.
+- Zone/Layer Framework.
+- Surface registry.
+- Structural validation.
+- Manifest, Markdown report and UI-ready tables.
