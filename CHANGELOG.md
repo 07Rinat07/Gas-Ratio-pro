@@ -597,3 +597,13 @@ git status --short
 - В Streamlit LAS Workspace добавлены Home action cards, мастер создания LAS и таблица шаблонов.
 - Созданный LAS сохраняется в рабочую сессию и доступен для скачивания как `.las`.
 - Добавлены тесты на action launcher, wizard preview и parser пользовательских кривых.
+
+## Roadmap v4.0 documentation update: LAS merge, depth repair, correlation redesign
+
+- Added mandatory LAS Merge & Append Center requirements.
+- Added mandatory LAS Depth Repair & Direction Correction requirements.
+- Defined safe-copy rule for all destructive LAS operations.
+- Clarified decreasing-depth repair behavior: curve values stay in original rows; only depth vector is corrected by default.
+- Added Correlation Workspace redesign requirements.
+- Added dedicated correlation redesign specification.
+- Updated Roadmap v4.0, Master Specification v3.0, LAS Workspace specification, UI/UX plan and implementation plan.

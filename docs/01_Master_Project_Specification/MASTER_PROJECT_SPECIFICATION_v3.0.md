@@ -230,3 +230,44 @@ Report Studio должен поддерживать:
 8. Geological Modeling Home UI implemented.
 9. Project Explorer/Data Browser implemented.
 10. UI visually unified.
+
+---
+
+# MASTER SPECIFICATION v3.0 Addendum — Critical Editor and Correlation Requirements
+
+## LAS Editor: Merge, Append and Depth Repair
+
+GAS RATIO PRO must treat LAS editing as a safe engineering workflow. Any destructive operation must create a new file or a new project object rather than overwrite original data.
+
+Mandatory capabilities:
+
+- create LAS without loading an existing file;
+- merge LAS files from the same well;
+- append GIS/wireline/LWD/mud logging curves from another LAS;
+- preview all merge operations;
+- preserve traceability of source files;
+- repair decreasing depth direction;
+- repair `STRT`, `STOP`, `STEP` metadata;
+- save repaired LAS as a copy.
+
+Depth repair rule:
+
+- if depth is decreasing and the user selects depth-vector repair, curve values remain in their original rows;
+- only the depth vector and header metadata are corrected;
+- row sorting with curve values is a separate explicit operation, not the default.
+
+## Correlation Workspace: Required Redesign
+
+The Correlation Workspace must not display wells as an unclear collection of LAS tracks. It must provide a guided correlation workflow:
+
+1. select wells;
+2. assign LAS files;
+3. select curves;
+4. select markers/tops/contacts;
+5. define correlation interval;
+6. display synchronized tracks;
+7. create tie lines;
+8. validate correlation;
+9. export correlation panel.
+
+The user must always understand which wells are being correlated and what data drives the correlation.
