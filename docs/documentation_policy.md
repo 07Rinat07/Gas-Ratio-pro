@@ -47,28 +47,25 @@
 "какой формат данных нужен", "где смотреть ошибку" или "почему расчет такой",
 ответ должен находиться в документации проекта, а не только в переписке.
 
-## Repository root policy
+## Repository root documentation policy
 
-Root directory is reserved for operational project files only:
+The repository root must stay clean and contain only files required to run, test, identify, or configure the project.
+
+Allowed documentation file in the root:
 
 - `README.md`
+
+Project documentation, roadmap notes, changelog files, implementation notes, and technical specifications must be stored under `docs/`.
+
+Disallowed in the root:
+
 - `CHANGELOG.md`
-- `LICENSE`
-- dependency/configuration files
-- launch scripts
-- development tool files
+- `.aider.chat.history.md`
+- `.aider.input.history`
+- `*_SUMMARY.md`
+- `*_SUMMARY.txt`
+- `*_UPDATE_*.md`
+- `PROJECT_CONTINUATION_GUIDE*.txt`
+- temporary AI-generated notes
 
-Roadmap summaries, phase reports, redesign notes, continuation guides and other
-project documentation must be stored under `docs/`.
-
-Recommended locations:
-
-| Document type | Location |
-| --- | --- |
-| Roadmap and phase summaries | `docs/02_Roadmap/` |
-| LAS Workspace specifications | `docs/05_LAS_Platform/` |
-| Plot Studio specifications | `docs/13_Plot_Studio/` |
-| Architecture documents | `docs/04_Software_Architecture/` |
-| Testing documents | `docs/10_Testing/` |
-
-New `GAS_RATIO_PRO_ROADMAP_*` files must not be committed to the repository root.
+The root must not contain assistant, Aider, or other AI-session history files.

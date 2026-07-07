@@ -43,6 +43,23 @@ from las_correlation.settings import (
     settings_summary,
     settings_to_dict,
 )
+
+from las_correlation.workspace_v2 import (
+    SUPPORTED_BOUNDARY_TYPES,
+    SUPPORTED_FLUID_CONTACT_TYPES,
+    StratigraphicBoundary,
+    LithologyInterval,
+    FluidContact,
+    CorrelationWorkspaceV2State,
+    normalize_stratigraphic_boundaries,
+    normalize_lithology_intervals,
+    normalize_fluid_contacts,
+    boundaries_to_markers,
+    validate_correlation_workspace_v2,
+    build_correlation_result_table,
+    build_correlation_workspace_v2,
+)
+
 from las_correlation.settings_store import (
     DEFAULT_PROJECT_ID,
     DEFAULT_PROJECTS_ROOT,
@@ -52,6 +69,19 @@ from las_correlation.settings_store import (
 )
 
 __all__ = [
+    "build_correlation_workspace_v2",
+    "build_correlation_result_table",
+    "validate_correlation_workspace_v2",
+    "boundaries_to_markers",
+    "normalize_fluid_contacts",
+    "normalize_lithology_intervals",
+    "normalize_stratigraphic_boundaries",
+    "CorrelationWorkspaceV2State",
+    "FluidContact",
+    "LithologyInterval",
+    "StratigraphicBoundary",
+    "SUPPORTED_FLUID_CONTACT_TYPES",
+    "SUPPORTED_BOUNDARY_TYPES",
     "CURVE_GROUP_LABELS",
     "DEFAULT_GAS_GROUPS",
     "DEFAULT_GIS_GROUPS",

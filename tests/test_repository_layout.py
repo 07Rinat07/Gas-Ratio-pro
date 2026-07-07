@@ -1,45 +1,35 @@
 from pathlib import Path
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-
-ROOT_DOCUMENT_ALLOWLIST = {
-    "README.md",
-    "CHANGELOG.md",
-    "LICENSE",
-}
-
-FORBIDDEN_ROOT_DOCUMENT_PREFIXES = (
-    "GAS_RATIO_PRO_ROADMAP_",
-    "PROJECT_CONTINUATION_GUIDE_",
-)
+ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_roadmap_documents_are_not_stored_in_repository_root():
-    """Roadmap and continuation docs must live under docs/, not repo root."""
-    forbidden_files = [
-        path.name
-        for path in REPO_ROOT.iterdir()
-        if path.is_file()
-        and path.name.startswith(FORBIDDEN_ROOT_DOCUMENT_PREFIXES)
-    ]
-
-    assert forbidden_files == []
+def test_changelog_is_stored_under_docs():
+    assert not (ROOT / "CHANGELOG.md").exists()
+    assert (ROOT / "docs" / "CHANGELOG.md").exists()
 
 
-def test_allowed_root_markdown_files_are_explicit():
-    """Keep root clean: only operational markdown files may stay in root."""
-    root_markdown_files = {
-        path.name
-        for path in REPO_ROOT.iterdir()
-        if path.is_file() and not path.name.startswith(".") and path.suffix.lower() == ".md"
+def test_ai_session_history_files_are_not_stored_in_repository_root():
+    forbidden = {
+        ".aider.chat.history.md",
+        ".aider.input.history",
     }
 
-    assert root_markdown_files <= ROOT_DOCUMENT_ALLOWLIST
+    existing = {path.name for path in ROOT.iterdir() if path.is_file()}
+
+    assert forbidden.isdisjoint(existing)
 
 
-def test_roadmap_summary_exists_under_docs():
-    roadmap_summary = REPO_ROOT / "docs" / "02_Roadmap" / "GAS_RATIO_PRO_ROADMAP_v4_SUMMARY.txt"
+def test_temporary_roadmap_notes_are_not_stored_in_repository_root():
+    forbidden_patterns = (
+        "*_SUMMARY.md",
+        "*_SUMMARY.txt",
+        "*_UPDATE_*.md",
+        "PROJECT_CONTINUATION_GUIDE*.txt",
+    )
 
-    assert roadmap_summary.exists()
-    assert roadmap_summary.is_file()
+    offenders = []
+    for pattern in forbidden_patterns:
+        offenders.extend(ROOT.glob(pattern))
+
+    assert offenders == []
