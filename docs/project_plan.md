@@ -1419,3 +1419,20 @@ This stage prepares the project for future full SGS/SIS, co-simulation and uncer
 Status: Completed.
 
 Implemented a foundation module for fluid contacts and grid geometry properties. The module supports OWC/GOC/GWC/FWL contact metadata, constant and surface-based contact definitions, above-contact calculations, contact-set coding and basic geometrical property generation for property modeling workflows.
+
+### Phase II → C.8 Geological Model Workspace Foundation
+
+Status: Completed.
+
+Implemented a unified geological model workspace foundation:
+
+- GeologicalModel registry;
+- Grid Manager foundation;
+- Horizon Manager foundation;
+- Zone/Layer Manager foundation;
+- Surface Manager foundation;
+- Fault Foundation;
+- model links to wells, intervals, facies, property cubes and reservoir volumetrics;
+- validation manifest;
+- Markdown report;
+- UI-ready tables.

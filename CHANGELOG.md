@@ -540,3 +540,11 @@ git status --short
 - Added cutoffs for porosity, water saturation, net flag and pay flag.
 - Added zone summaries, uncertainty summary, manifest, Markdown report and UI-ready tables.
 - Added tests for reservoir volumetrics workspace.
+
+## Phase II - C.8 Geological Model Workspace Foundation
+
+- Added `projects/geological_model_workspace.py`.
+- Added Geological Model Workspace foundation with model/grid/horizon/zone/surface/fault registries.
+- Added model links for wells, intervals, facies, property cubes and volumetrics.
+- Added workspace validation, manifest, Markdown report and UI-ready helper tables.
+- Added tests for C.8 workspace persistence, validation and reporting.

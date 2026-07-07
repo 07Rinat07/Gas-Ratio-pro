@@ -138,3 +138,21 @@ The foundation includes:
 - Markdown reporting.
 
 The current implementation is intentionally conservative and deterministic where required. It creates a stable API for future full geostatistical SGS/SIS, co-kriging, co-simulation and uncertainty workflows.
+
+## Phase II C.8 — Geological Model Workspace Foundation
+
+The Geological Model Workspace introduces a single integrated model object that connects interpretation, petrophysics, property modeling, fluid contacts, volumetrics and future 3D visualization.
+
+### Objects
+
+- `GeologicalModel` — main model metadata, status, CRS and version.
+- `GridDefinition` — 3D grid metadata: type, dimensions, spacing, source and status.
+- `HorizonDefinition` — stratigraphic boundaries linked to surfaces.
+- `ZoneDefinition` — model zones between top and base horizons, including layer count.
+- `SurfaceDefinition` — horizon, contact, map or fault surface metadata.
+- `FaultDefinition` — structural fault foundation.
+- `ModelLink` — traceable links to wells, intervals, facies, property cubes, contacts and volumetrics.
+
+### Validation
+
+The workspace checks missing surfaces, missing top/base horizons and invalid zone configuration. This is a foundation layer; actual grid arrays and 3D rendering remain separate modules.
