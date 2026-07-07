@@ -1161,3 +1161,11 @@ Add data exchange center foundation
 - Добавлены regression-тесты для audit, manifest, validation, persistence и deterministic inventory.
 
 Текущий следующий незавершенный пункт: **Licensing & Activation**.
+
+### Реализовано: Phase II → B.2 LAS Curve Manager Professional Foundation
+
+Добавлен единый backend-слой `las_editor/curve_manager.py` для профессионального управления LAS-кривыми после создания или импорта LAS-файла. Модуль формирует manifest кривых с порядком, признаком защищенной глубинной кривой, alias, группой, категорией, единицей измерения, качеством, статусом, описанием и базовой статистикой заполненности.
+
+Реализованы безопасные операции: добавление кривой, удаление незащищенной кривой, переупорядочивание кривых с сохранением DEPT первой, metadata-only обновление manifest-полей. Исходный LAS не перезаписывается: операции выполняются в рабочей копии DataFrame и в reference/manifest-структурах.
+
+Текущий следующий незавершенный пункт: **Phase II → B.3 LAS Header Editor Professional** или расширение **B.2 Curve Manager UI integration**.

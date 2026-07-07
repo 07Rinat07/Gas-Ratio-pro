@@ -166,3 +166,28 @@ Remaining LAS Platform work:
 - Curve import from CSV/XLSX into created LAS files.
 - Formula-based Curve Calculator.
 - LAS Quality Control Professional.
+
+## Phase II B.2 — LAS Curve Manager Professional Foundation
+
+Curve Manager является единым слоем управления кривыми LAS-файла. Он не должен напрямую перезаписывать исходный LAS-файл и обязан работать через рабочую копию данных и manifest metadata.
+
+Обязательные функции B.2:
+
+- построение manifest по всем кривым;
+- фиксация порядка кривых;
+- защита depth/reference-кривых от удаления;
+- добавление новой кривой;
+- удаление пользовательских и расчетных кривых;
+- переупорядочивание кривых;
+- alias, group, category, unit, quality, status, description;
+- UI-ready таблицы для отображения Curve Manager;
+- журнал операций;
+- подготовка данных для последующего безопасного LAS export.
+
+Критерии приемки:
+
+- DEPT остается первой кривой после reorder;
+- DEPT/DEPTH/MD/TVD не удаляются через Curve Manager;
+- metadata-only операции не изменяют числовые значения кривых;
+- все изменения фиксируются в history;
+- тесты Curve Manager проходят без Streamlit.

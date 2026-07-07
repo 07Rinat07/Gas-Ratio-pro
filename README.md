@@ -1,63 +1,186 @@
 # GAS RATIO PRO
 
-Профессиональное приложение для анализа LAS-файлов, интерпретации каротажа и петрофизических расчетов.
+**GAS RATIO PRO** — инженерное приложение для работы с каротажными данными и LAS-файлами: импорт, просмотр, редактирование, подготовка кривых, интерпретация, построение графиков, корреляция скважин, геологическое моделирование, отчеты и экспорт результатов.
 
----
+Проект развивается как профессиональная модульная платформа для нефтегазовых и геолого-геофизических задач. Основной фокус текущей версии — надежная LAS Platform, безопасное редактирование данных без перезаписи исходных файлов, расширяемая архитектура и документация по принципу **Specification First**.
 
-## Интерфейс приложения
+## Автор
 
-<p align="center">
-  <img src="docs/images/readmescreenshot.png"
-       alt="Gas Ratio Pro Workspace"
-       width="100%">
-</p>
+**Сармулдин Р. Р.**
 
-> Актуальный внешний вид рабочего пространства Gas Ratio Pro.
+## Суть проекта
 
----
+Цель проекта — создать удобный инженерный инструмент, который объединяет в одном рабочем пространстве:
 
-## Workspace Infrastructure
+- работу с LAS-файлами;
+- управление проектами и скважинами;
+- анализ и подготовку каротажных кривых;
+- построение планшетов и графиков;
+- корреляцию скважин;
+- базовое геологическое моделирование;
+- расчетные и статистические инструменты;
+- подготовку отчетов и экспорт данных.
 
-- Workspace Settings: тема, плотность интерфейса, язык, единицы глубины и параметры автосохранения.
-- Configuration Manager: сохранение, загрузка и резервное копирование конфигураций рабочей области.
-- Notification Center: единый журнал уведомлений, предупреждений и ошибок.
-- Task Manager: очередь длительных операций с прогрессом и статусами.
-- Logging Center: просмотр, фильтрация и экспорт логов приложения.
-- Service Registry: единая точка регистрации внутренних сервисов и будущей интеграции с Plugin API.
+Проект не копирует Petrel, Techlog или другие коммерческие системы. Они используются только как источник идей. GAS RATIO PRO строится как собственная открытая и расширяемая инженерная платформа.
 
-## Возможности
+## Текущий статус
 
-- Управление проектами
+Проект перешел в **Phase II — Engineering Specification & Architecture**.
+
+Ключевые решения Phase II:
+
+- документация и спецификация идут перед новой разработкой;
+- AI Assistant пока не реализуется;
+- Licensing / Hardware ID / Activation отложены и могут быть исключены;
+- приоритет разработки — LAS Platform Professional;
+- исходные LAS-файлы не перезаписываются, новые версии сохраняются как отдельные файлы.
+
+## Реализованные основные подсистемы
+
+- Dashboard / Workspace
+- Project Manager
 - Well Manager
-- LAS Explorer Professional
-- LAS Editor
-- LAS Correlation
+- LAS Explorer
+- LAS Editor Professional Foundation
+- LAS Creation Wizard
+- Curve Manager Foundation
 - Formation Manager
 - Plot Studio
 - Statistics Center
 - Formula Builder
 - Interpretation Workspace
 - Report Studio
-- Dashboard Workspace
-- Documentation Center
-- Petrophysical Calculations
-- Export PDF / PNG / SVG
+- Correlation Studio
+- Geological Modeling Foundation
+- Data Quality & Validation Center
+- Batch Processing Center
+- Template & Workflow Manager
+- Plugin SDK Foundation
+- Scripting API Foundation
+- Performance & Optimization Foundation
+- Release Candidate diagnostic tools
 
-## Phase II — Engineering Specification & Architecture
+## Как запустить проект
 
-The project has entered Phase II. This phase focuses on engineering documentation and architecture before adding more large modules.
+### 1. Установить Python
 
-Key documents:
+Рекомендуется Python **3.10+** или **3.11+**.
 
-- `docs/00_Project_Charter/PROJECT_DESIGN_PRINCIPLES.md`
+Проверка версии:
+
+```bash
+python --version
+```
+
+### 2. Распаковать архив проекта
+
+Например:
+
+```bash
+unzip gas-ratio-pro-phase2-b2-curve-manager.zip
+cd gas-ratio-pro-phase2-b2-curve-manager
+```
+
+На Windows можно просто распаковать ZIP через проводник и открыть папку проекта в терминале.
+
+### 3. Создать виртуальное окружение
+
+Windows PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+Linux / macOS:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+### 4. Установить зависимости
+
+```bash
+pip install -r requirements.txt
+```
+
+### 5. Запустить приложение
+
+```bash
+streamlit run app/streamlit_app.py
+```
+
+После запуска Streamlit покажет локальный адрес, обычно:
+
+```text
+http://localhost:8501
+```
+
+Откройте этот адрес в браузере.
+
+### Альтернативный запуск на Windows
+
+В проекте есть PowerShell-скрипт:
+
+```powershell
+.\run_app.ps1
+```
+
+Если запуск скриптов запрещен, используйте команду Streamlit напрямую:
+
+```powershell
+streamlit run app/streamlit_app.py
+```
+
+## Как проверить проект
+
+### Быстрая проверка синтаксиса
+
+```bash
+python -m compileall app core importers las_editor projects visualization
+```
+
+### Запуск тестов
+
+```bash
+pytest
+```
+
+Если в окружении не установлен `streamlit`, часть smoke-тестов интерфейса может быть пропущена или остановлена. Для полной проверки установите зависимости из `requirements.txt`.
+
+## Структура проекта
+
+```text
+app/                 Streamlit-интерфейс
+core/                ядро, расчеты, диагностика, preflight
+importers/           импорт LAS/CSV/Excel
+las_editor/          LAS Editor, LAS Creation Wizard, Curve Manager
+projects/            проектные подсистемы и хранилища
+visualization/       графики и визуализация
+docs/                спецификации, Roadmap, планы и документация
+tests/               pytest-тесты
+examples/            демонстрационные данные
+```
+
+## Главные документы Phase II
+
 - `docs/01_Master_Project_Specification/MASTER_PROJECT_SPECIFICATION_v2.0.md`
 - `docs/02_Roadmap/ROADMAP_v3.0.md`
 - `docs/05_LAS_Platform/LAS_PLATFORM_SPECIFICATION_DRAFT.md`
+- `docs/08_Calculation_Engine/CALCULATION_ENGINE_SPECIFICATION_DRAFT.md`
+- `docs/13_Testing/TESTING_SPECIFICATION_DRAFT.md`
 
-Current decisions:
+## Правила разработки
 
-- Documentation First / Specification First is now the project development standard.
-- LAS Platform Professional is the next major implementation priority after specifications are approved.
-- AI Assistant is not planned for the current roadmap.
-- Licensing / Hardware ID / Activation is deferred and optional.
+- сначала спецификация, затем код;
+- каждый новый модуль сопровождается тестами;
+- нельзя ломать существующий интерфейс;
+- нельзя перезаписывать исходные LAS-файлы;
+- Dashboard остается рабочим пространством инженера, а не страницей навигации;
+- Sidebar остается основной навигацией;
+- при регрессии сначала исправляется регрессия, затем продолжается разработка.
 
+## Лицензирование
+
+Модуль Licensing / Hardware ID / Activation пока не реализуется. Его внедрение отложено на самый поздний этап или может быть исключено из текущей версии проекта.

@@ -1,5 +1,21 @@
 from __future__ import annotations
 
+
+from las_editor.curve_manager import (
+    CURVE_MANAGER_STORAGE_KEY,
+    PROTECTED_DEPTH_CURVES,
+    CurveManagerHistoryEntry,
+    CurveManagerResult,
+    add_curve_managed,
+    build_curve_manifest,
+    curve_manager_table_rows,
+    delete_curve_managed,
+    is_depth_curve,
+    normalize_curve_manager_metadata,
+    reorder_curves,
+    update_curve_manifest_entry,
+)
+
 from las_editor.curve_grouping import (
     CurveGroupingHistoryEntry,
     CurveGroupingResult,
@@ -51,6 +67,18 @@ from las_editor.depth_grid import (
 )
 
 __all__ = [
+    "update_curve_manifest_entry",
+    "reorder_curves",
+    "normalize_curve_manager_metadata",
+    "is_depth_curve",
+    "delete_curve_managed",
+    "curve_manager_table_rows",
+    "build_curve_manifest",
+    "add_curve_managed",
+    "CurveManagerResult",
+    "CurveManagerHistoryEntry",
+    "PROTECTED_DEPTH_CURVES",
+    "CURVE_MANAGER_STORAGE_KEY",
     "validate_las_creation",
     "normalize_las_unit",
     "normalize_las_mnemonic",

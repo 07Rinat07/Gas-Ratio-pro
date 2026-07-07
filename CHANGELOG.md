@@ -1,3 +1,13 @@
+
+## Phase II B.2 — LAS Curve Manager Professional Foundation
+
+- Added `las_editor/curve_manager.py` as a unified metadata-safe Curve Manager layer.
+- Added curve manifest generation with order, protected flag, aliases, groups, categories, units, quality, status and sample statistics.
+- Added managed add/delete/reorder/update operations for LAS curves without overwriting source LAS files.
+- Added UI-ready Curve Manager table helpers.
+- Updated `README.md` with project summary, author, setup, launch and testing instructions.
+- Added tests for Curve Manager Professional foundation.
+
 # Changelog
 
 ## gas-ratio-pro-phase2-specification
