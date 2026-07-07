@@ -255,6 +255,31 @@ def set_project_las_file_archived(
     return updated_record
 
 
+def delete_project_las_file(
+    root: Path | str,
+    project_id: str,
+    las_file_id: str,
+) -> bool:
+    """Physically delete one LAS version from a project.
+
+    This is different from archiving: the record is removed from the project
+    LAS manifest and the corresponding data directory is deleted from disk.
+    """
+    clean_las_file_id = _safe_las_file_id(las_file_id)
+    records = tuple(_read_manifest(root, project_id))
+    remaining = tuple(record for record in records if record.id != clean_las_file_id)
+    if len(remaining) == len(records):
+        return False
+
+    las_dir = _las_file_dir(root, project_id, clean_las_file_id)
+    if las_dir.exists():
+        import shutil
+
+        shutil.rmtree(las_dir)
+    _write_manifest(root, project_id, remaining)
+    return True
+
+
 def read_project_las_file_bytes(
     root: Path | str,
     project_id: str,

@@ -15,6 +15,7 @@ from projects import (
     read_project_las_file_dataframe,
     save_project_las_file,
     set_project_las_file_archived,
+    delete_project_las_file,
 )
 
 
@@ -109,6 +110,35 @@ def test_project_las_file_archive_hides_version_without_deleting_source(tmp_path
 
     assert restored.archived_at == ""
     assert {record.id for record in list_project_las_files(tmp_path, "demo")} == {first.id, second.id}
+
+
+def test_project_las_file_delete_removes_manifest_record_and_source_dir(tmp_path):
+    first = save_project_las_file(
+        LAS_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="well-a-raw.las",
+        well_name="Well A",
+        version_label="raw",
+    )
+    second = save_project_las_file(
+        LAS_BYTES,
+        root=tmp_path,
+        project_id="demo",
+        file_name="well-a-fixed.las",
+        well_name="Well A",
+        version_label="fixed",
+    )
+
+    assert delete_project_las_file(tmp_path, "demo", first.id) is True
+
+    assert {record.id for record in list_project_las_files(tmp_path, "demo", include_archived=True)} == {second.id}
+    assert not (tmp_path / "demo" / "wells" / first.id).exists()
+    assert (tmp_path / "demo" / "wells" / second.id / "source.las").exists()
+    with pytest.raises(FileNotFoundError):
+        read_project_las_file_bytes(tmp_path, "demo", first.id)
+
+    assert delete_project_las_file(tmp_path, "demo", first.id) is False
 
 
 def test_project_las_file_rejects_unsafe_project_id(tmp_path):

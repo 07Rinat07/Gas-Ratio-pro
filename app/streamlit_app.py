@@ -4103,7 +4103,7 @@ def _render_new_las_creator_panel(logger) -> None:
 
         if result.document is not None:
             st.dataframe(result.document.data.head(30), use_container_width=True)
-            las_bytes = result.document.text.encode("utf-8")
+            las_bytes = result.document.las_text.encode("utf-8")
             file_name = f"{well_name.strip() or 'NEW_WELL'}.las"
             st.download_button(
                 "Скачать созданный LAS",
@@ -9568,6 +9568,40 @@ def _render_project_las_files_panel(
                 except Exception:
                     logger.exception("project_las_file_archive_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось архивировать версию LAS. Подробности записаны в logs/app.log.")
+
+        deletable_records = active_records + archived_records
+        if deletable_records:
+            delete_options = {record.id: record for record in deletable_records}
+            delete_col, delete_button_col = st.columns([3, 1])
+            delete_id = delete_col.selectbox(
+                "LAS-версия для полного удаления",
+                options=tuple(delete_options),
+                format_func=lambda record_id: _project_las_option_label(delete_options[record_id]),
+                key=f"project_las_delete_select_{project.id}",
+            )
+            if delete_button_col.button("Удалить с диска", use_container_width=True, key=f"project_las_delete_button_{project.id}"):
+                try:
+                    deleted = delete_project_las_file(
+                        LAS_CORRELATION_PROJECTS_ROOT,
+                        project.id,
+                        delete_id,
+                    )
+                    _clear_las_working_state()
+                    st.session_state.pop(f"project_las_files_{project.id}", None)
+                    logger.info(
+                        "project_las_file_deleted project_id=%s las_file_id=%s deleted=%s",
+                        safe_log_value(project.id),
+                        safe_log_value(delete_id),
+                        deleted,
+                    )
+                    if deleted:
+                        st.success("LAS-версия полностью удалена с диска.")
+                    else:
+                        st.warning("LAS-версия уже отсутствовала на диске.")
+                    st.rerun()
+                except Exception:
+                    logger.exception("project_las_file_delete_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось удалить LAS-версию с диска. Подробности записаны в logs/app.log.")
 
         if show_archived and archived_records:
             restore_options = {record.id: record for record in archived_records}
