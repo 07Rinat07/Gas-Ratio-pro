@@ -1231,3 +1231,17 @@ from projects.plot_studio_export_engine import (
     export_plot_studio,
     build_plot_export_result_manifest,
 )
+
+from projects.plot_studio_annotation_layer import (
+    PlotAnnotationType,
+    PLOT_ANNOTATION_TYPES,
+    PlotAnnotation,
+    PlotAnnotationPlacement,
+    PlotAnnotationLayerConfig,
+    PlotAnnotationLayerResult,
+    validate_annotation_layer_config,
+    validate_plot_annotations,
+    build_plot_annotation_layer,
+    build_plot_annotation_manifest,
+    build_plot_annotation_table,
+)
