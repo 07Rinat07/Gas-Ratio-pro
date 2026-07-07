@@ -275,3 +275,51 @@ def render_depth_repair_report(result: DepthRepairResult) -> str:
         lines.extend(["", "## Issues", ""])
         lines.extend(f"- `{issue['code']}`: {issue['message']}" for issue in manifest["issues"])
     return "\n".join(lines).strip() + "\n"
+
+
+def create_depth_repair_file_copies(
+    original_las_path: str | "Path",
+    workspace_dir: str | "Path",
+    *,
+    backup_dirname: str = "backups",
+    working_suffix: str = "_working_depth_repair",
+) -> dict[str, Any]:
+    """Create protected backup and working LAS file copies before depth repair.
+
+    The original LAS file is copied twice:
+    1. immutable backup copy for recovery;
+    2. working copy that the application may later rewrite after DataFrame repair.
+
+    The function does not parse or modify LAS content. It only guarantees the
+    filesystem safety contract required by the LAS Workspace.
+    """
+
+    from pathlib import Path
+    import shutil
+
+    original = Path(original_las_path)
+    workspace = Path(workspace_dir)
+    if not original.exists() or not original.is_file():
+        raise FileNotFoundError(f"Original LAS file does not exist: {original}")
+
+    workspace.mkdir(parents=True, exist_ok=True)
+    backup_dir = workspace / backup_dirname
+    backup_dir.mkdir(parents=True, exist_ok=True)
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    backup_path = backup_dir / f"{original.stem}_{stamp}_original{original.suffix}"
+    working_path = workspace / f"{original.stem}{working_suffix}{original.suffix}"
+
+    shutil.copy2(original, backup_path)
+    shutil.copy2(original, working_path)
+
+    return {
+        "schema": "gas-ratio-pro/depth-repair-file-safety/v1",
+        "original_path": str(original),
+        "backup_path": str(backup_path),
+        "working_path": str(working_path),
+        "original_data_mutated": False,
+        "backup_created": True,
+        "working_copy_created": True,
+        "generated_at": _timestamp_utc(),
+    }

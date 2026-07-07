@@ -604,3 +604,14 @@ from las_editor.petrophysical_report_package import (
     report_section_table_rows,
     validate_report_package,
 )
+
+from las_editor.las_merge_append_center import (
+    LAS_MERGE_APPEND_SCHEMA,
+    LAS_MERGE_APPEND_STORAGE_KEY,
+    LasMergeAppendHistoryEntry,
+    LasMergeAppendIssue,
+    LasMergeAppendResult,
+    append_las_depth_intervals,
+    build_las_merge_append_manifest,
+    insert_las_curves_from_las,
+)
