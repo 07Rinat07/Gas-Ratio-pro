@@ -302,3 +302,44 @@ Responsibilities:
 - validate canvas width, gutters, minimum track width and depth-track placement.
 
 The module is used as a base for future Tablet Templates, print layout, export layout and annotation placement.
+
+## Plot Studio Export Engine
+
+Plot Studio Export Engine является backend-слоем экспорта профессиональных планшетов Plot Studio 2.0. Модуль не изменяет исходные LAS-файлы и работает только с неизменяемыми объектами `PlotWorkspace` и `PlotTrackLayoutResult`.
+
+### Назначение
+
+- формирование единого export manifest для UI, журнала операций и последующего Report Studio;
+- экспорт планшетов в PDF, PNG, SVG и TIFF;
+- проверка DPI, масштаба, размеров страницы и списка форматов;
+- защита от случайной перезаписи файлов;
+- сохранение JSON-манифеста рядом с экспортированными артефактами;
+- подготовка стабильного API для будущего подключения Plotly/Kaleido и профессионального print engine.
+
+### Основные компоненты
+
+- `PlotExportConfig` — настройки экспорта: форматы, DPI, масштаб, размер страницы, легенда, заголовок, metadata, overwrite;
+- `PlotExportArtifact` — описание одного созданного файла;
+- `PlotExportManifest` — полный манифест экспорта с геометрией планшета и списком сообщений;
+- `PlotExportResult` — итог выполнения операции экспорта;
+- `validate_plot_export_config()` — нормализация и проверка настроек;
+- `build_plot_export_manifest()` — подготовка манифеста без записи файлов;
+- `export_plot_studio()` — запись экспортных файлов и JSON-манифеста;
+- `build_plot_export_result_manifest()` — сериализация результата для UI и Operation Journal.
+
+### Правила безопасности
+
+- оригинальные LAS-файлы не читаются и не изменяются;
+- экспорт выполняется только на основе подготовленного workspace/layout;
+- существующие файлы не перезаписываются без `overwrite=True`;
+- все размеры и числовые параметры проходят проверку на конечность и допустимый диапазон;
+- результат экспорта может быть записан в Operation Journal.
+
+### Поддерживаемые форматы
+
+- PDF;
+- PNG;
+- SVG;
+- TIFF.
+
+Текущая реализация содержит легковесные встроенные writers для стабильного backend API и тестов. В дальнейшем renderer может быть заменен на Plotly/Kaleido или специализированный print engine без изменения публичного интерфейса Export Engine.

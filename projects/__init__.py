@@ -1218,3 +1218,16 @@ from projects.plot_studio_track_layout import (
     build_plot_track_layout_manifest,
     build_plot_track_layout_table,
 )
+
+from projects.plot_studio_export_engine import (
+    PlotExportFormat,
+    PLOT_EXPORT_FORMATS,
+    PlotExportConfig,
+    PlotExportArtifact,
+    PlotExportManifest,
+    PlotExportResult,
+    validate_plot_export_config,
+    build_plot_export_manifest,
+    export_plot_studio,
+    build_plot_export_result_manifest,
+)
