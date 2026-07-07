@@ -1,3 +1,14 @@
+
+## Roadmap v4.0 — A.2 Project Explorer Foundation
+
+- Added `projects/project_explorer_foundation.py`.
+- Added renderer-independent Project Explorer tree for wells, LAS files and curves.
+- Added contextual LAS actions for selected project objects.
+- Added Operation Journal foundation.
+- Added Undo/Redo state foundation.
+- Added `LAS_WORKSPACE_MASTER_SPECIFICATION_v2.0.md`.
+- Fixed LAS Workspace rule: descending depth repair must keep curve values on their original depths and save only a new LAS copy.
+
 ## Phase II → C.11 Model Validation & Audit Workspace Foundation
 
 - Added `projects/model_validation_audit_workspace.py`.

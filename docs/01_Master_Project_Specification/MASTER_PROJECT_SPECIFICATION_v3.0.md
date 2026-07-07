@@ -271,3 +271,12 @@ The Correlation Workspace must not display wells as an unclear collection of LAS
 9. export correlation panel.
 
 The user must always understand which wells are being correlated and what data drives the correlation.
+
+
+## Project Explorer and Safe LAS Editing Rule
+
+GAS RATIO PRO must expose engineering tools through a unified Project Explorer. The user selects a project object, well, LAS file or curve and receives contextual actions in the active Workspace.
+
+LAS editing operations must be safe by default. Repair, Merge and Append operations must create a new copy and must not overwrite the original file.
+
+Descending-depth repair must sort measurements by depth while preserving the relation between every depth value and its measured curve values. Measurements must not be interpolated or reassigned unless the user explicitly selects an advanced data-transform mode.
