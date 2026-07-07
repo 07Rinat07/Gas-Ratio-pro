@@ -65,3 +65,43 @@ Each simulated cell stores:
 - confidence.
 
 Simulation jobs are stored in `property_simulation_engine.json` and can be used by future UI panels, reporting workflows and uncertainty analysis modules.
+
+## C.6 Fluid Contacts & Geometrical Properties
+
+The Property Modeling subsystem includes a dedicated foundation for fluid contacts and cell geometry properties.
+
+### Fluid Contacts
+
+Supported contact types:
+
+- OWC — oil-water contact;
+- GOC — gas-oil contact;
+- GWC — gas-water contact;
+- FWL — free water level;
+- Custom contacts.
+
+Each contact stores name, type, depth or surface reference, zone, segment, confidence, source and notes.
+
+### Geometrical Properties
+
+Supported foundation properties:
+
+- Cell Height;
+- Cell Volume;
+- Bulk Volume;
+- Depth;
+- Elevation;
+- Relative Depth;
+- Above Contact;
+- Contact Set.
+
+### Contact Set Coding
+
+The contact set foundation converts cells into simple zone classes:
+
+- `1` — gas zone;
+- `2` — oil zone;
+- `3` — water zone;
+- `0` — unknown zone.
+
+The feature is designed as a backend layer for future UI visualization, reservoir volume calculations and geological modeling workflows.

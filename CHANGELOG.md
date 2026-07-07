@@ -521,3 +521,13 @@ git status --short
 - Added simulation job registry, manifest generation, UI-ready tables and Markdown report rendering.
 - Exported Property Simulation Engine API through `projects/__init__.py`.
 - Added regression tests in `tests/test_property_simulation_engine.py`.
+
+## Phase II - C.6 Fluid Contacts & Geometrical Properties Foundation
+
+- Added `projects/fluid_contacts_geometry.py`.
+- Added fluid contact registry for OWC, GOC, GWC, FWL and custom contacts.
+- Added constant/surface contact metadata with confidence and source tracking.
+- Added geometry calculations: Cell Height, Cell Volume, Bulk Volume, Depth, Elevation, Relative Depth and Above Contact.
+- Added contact set coding for gas/oil/water zones.
+- Added job registry, manifest, Markdown report and UI-ready tables.
+- Added tests for contact classification, geometry properties, manifest and reports.

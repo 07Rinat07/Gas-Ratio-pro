@@ -1003,3 +1003,32 @@ from projects.interpolation_engine import (
     render_interpolation_markdown,
 )
 from . import property_simulation_engine
+
+from projects.fluid_contacts_geometry import (
+    FLUID_CONTACTS_GEOMETRY_FILE_NAME,
+    FluidContact,
+    GridCellGeometry,
+    GeometryProperty,
+    ContactSetCell,
+    FluidGeometryJob,
+    FluidGeometryManifest,
+    save_fluid_contact,
+    list_fluid_geometry_contacts,
+    create_fluid_geometry_job,
+    list_fluid_geometry_jobs,
+    calculate_cell_height,
+    calculate_cell_volume,
+    calculate_bulk_volume,
+    calculate_cell_mid_depth,
+    calculate_above_contact,
+    classify_contact_zone,
+    build_contact_set_cells,
+    build_geometry_properties,
+    summarize_geometry_properties,
+    build_fluid_geometry_manifest,
+    build_fluid_contact_table,
+    build_geometry_property_table,
+    build_contact_set_table,
+    seed_fluid_geometry_workspace,
+    render_fluid_geometry_markdown,
+)

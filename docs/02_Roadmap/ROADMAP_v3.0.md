@@ -699,3 +699,11 @@ Delivered foundation for stochastic property simulation:
 - job registry, manifest, UI tables and Markdown report.
 
 Next recommended block: C.6 Property Cube Builder / Modeling Results Manager.
+
+#### C.6 Fluid Contacts & Geometrical Properties Foundation — Completed
+
+- Fluid contact registry: OWC, GOC, GWC, FWL and custom contacts.
+- Constant/surface contact metadata.
+- Geometry properties: Cell Height, Cell Volume, Bulk Volume, Depth, Elevation, Relative Depth, Above Contact.
+- Contact Set coding for gas/oil/water zones.
+- Manifest, Markdown report and UI-ready tables.

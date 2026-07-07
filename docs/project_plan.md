@@ -1413,3 +1413,9 @@ Implemented stochastic property simulation foundation for geological modeling wo
 - manifest, UI-ready tables and Markdown reporting.
 
 This stage prepares the project for future full SGS/SIS, co-simulation and uncertainty workflows while preserving a stable public API for property modeling.
+
+### Phase II - C.6 Fluid Contacts & Geometrical Properties Foundation
+
+Status: Completed.
+
+Implemented a foundation module for fluid contacts and grid geometry properties. The module supports OWC/GOC/GWC/FWL contact metadata, constant and surface-based contact definitions, above-contact calculations, contact-set coding and basic geometrical property generation for property modeling workflows.
