@@ -496,3 +496,34 @@ Foundation-версия содержит профили для типовых к
 ## B.16 Petrophysical Workspace Foundation
 
 The LAS Platform now includes a foundation petrophysical workspace. The workspace performs transparent and reproducible calculations for shale volume, effective porosity, Archie water saturation, hydrocarbon saturation, reservoir/net/pay flags, and interval summaries. All calculations are deterministic and report their input curves, parameters, cutoffs and generated output curves through a manifest.
+
+## B.17 Advanced Saturation Models Foundation
+
+The Advanced Saturation Models module extends the LAS Platform with professional water-saturation workflows.
+
+### Inputs
+
+- Effective porosity curve, default `PHIE`.
+- Deep resistivity curve, default `RT`.
+- Shale-volume curve, default `VSH`.
+- Optional depth curve, default `DEPT`.
+
+### Outputs
+
+- `SW_ARCHIE`.
+- `SW_SIMANDOUX`.
+- `SW_INDONESIA`.
+- `SW_DUAL_WATER`.
+- `SW_MODEL_SPREAD`.
+
+### Functional requirements
+
+- The module must not modify the original LAS file directly.
+- Existing output curves must not be overwritten unless explicitly allowed.
+- All model parameters must be positive where physically required.
+- Saturation outputs must be clamped to the engineering interval `0..1`.
+- The module must produce UI-ready comparison tables, issue tables, a manifest and a Markdown report.
+
+### Engineering note
+
+The Dual Water implementation is a foundation-level deterministic approximation intended for project workflow integration. Full calibration-oriented Dual Water modeling remains a later professional enhancement.

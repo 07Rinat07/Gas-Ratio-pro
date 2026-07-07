@@ -556,3 +556,23 @@ Scope:
 - reservoir, net, pay and NG flags;
 - cutoff-driven interval summaries;
 - manifest and Markdown reporting.
+
+### B.17 — Advanced Saturation Models Foundation
+
+Status: Implemented.
+
+Purpose:
+
+Extend the Petrophysical Workspace with shaly-sand and comparative saturation models.
+
+Delivered:
+
+- Archie saturation curve generation.
+- Simandoux saturation curve generation.
+- Indonesia saturation curve generation.
+- Dual Water foundation curve generation.
+- Model-spread curve for uncertainty review.
+- Interval recommendations based on shale volume and model spread.
+- Markdown report and machine-readable manifest.
+
+Next recommended block: B.18 Petrophysical Crossplot Workspace Foundation.

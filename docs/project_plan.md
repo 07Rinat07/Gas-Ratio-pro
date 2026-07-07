@@ -1319,3 +1319,21 @@ Status: completed.
 Implemented a foundation petrophysical workspace for deterministic engineering calculations:
 Vsh from Gamma Ray, effective porosity, Archie water saturation, hydrocarbon saturation,
 reservoir/net/pay flags, interval summaries, manifests and Markdown reports.
+
+### Phase II — B.17 Advanced Saturation Models Foundation
+
+Status: Implemented.
+
+Implemented scope:
+
+- Advanced saturation model backend for Archie, Simandoux, Indonesia and Dual Water foundation.
+- Deterministic validation of required curves: effective porosity, resistivity and shale volume.
+- Output curves: `SW_ARCHIE`, `SW_SIMANDOUX`, `SW_INDONESIA`, `SW_DUAL_WATER`, `SW_MODEL_SPREAD`.
+- Interval-level model comparison with recommended model and confidence.
+- Markdown reporting and manifest generation for reproducible petrophysical interpretation.
+
+Acceptance checks:
+
+- Profile tests for advanced saturation models pass.
+- `py_compile` / `compileall` pass for the new module.
+- Existing LAS Platform modules remain non-destructive.

@@ -1,6 +1,30 @@
 
 from __future__ import annotations
 
+
+from las_editor.advanced_saturation_models import (
+    ADVANCED_SATURATION_SCHEMA,
+    ADVANCED_SATURATION_STORAGE_KEY,
+    AdvancedSaturationPlan,
+    AdvancedSaturationResult,
+    DualWaterParameters,
+    SaturationInputCurves,
+    SaturationModelComparison,
+    SaturationModelIssue,
+    ShalySandParameters,
+    build_advanced_saturation_manifest,
+    calculate_dual_water_saturation,
+    calculate_indonesia_water_saturation,
+    calculate_simandoux_water_saturation,
+    compare_saturation_models,
+    recommend_saturation_model,
+    render_advanced_saturation_markdown_report,
+    run_advanced_saturation_models,
+    saturation_comparison_table_rows,
+    saturation_issue_table_rows,
+    validate_advanced_saturation_plan,
+)
+
 from las_editor.petrophysical_workspace import (
     PETROPHYSICAL_WORKSPACE_SCHEMA,
     PETROPHYSICAL_WORKSPACE_STORAGE_KEY,
@@ -296,6 +320,26 @@ from las_editor.depth_grid import (
 )
 
 __all__ = [
+    "ADVANCED_SATURATION_SCHEMA",
+    "ADVANCED_SATURATION_STORAGE_KEY",
+    "AdvancedSaturationPlan",
+    "AdvancedSaturationResult",
+    "DualWaterParameters",
+    "SaturationInputCurves",
+    "SaturationModelComparison",
+    "SaturationModelIssue",
+    "ShalySandParameters",
+    "build_advanced_saturation_manifest",
+    "calculate_dual_water_saturation",
+    "calculate_indonesia_water_saturation",
+    "calculate_simandoux_water_saturation",
+    "compare_saturation_models",
+    "recommend_saturation_model",
+    "render_advanced_saturation_markdown_report",
+    "run_advanced_saturation_models",
+    "saturation_comparison_table_rows",
+    "saturation_issue_table_rows",
+    "validate_advanced_saturation_plan",
     "WELL_INTERVAL_MANAGER_SCHEMA",
     "WELL_INTERVAL_MANAGER_STORAGE_KEY",
     "HYDROCARBON_TOKENS",

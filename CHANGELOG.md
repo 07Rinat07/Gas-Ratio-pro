@@ -433,3 +433,13 @@ git status --short
 - Added transparent petrophysical calculations for Vsh, PHIE, Archie Sw, SO, RES/NET/PAY and NG flags.
 - Added petrophysical interval summaries, manifest generation and Markdown report rendering.
 - Added profile tests for the new Petrophysical Workspace foundation.
+
+## Phase II - B.17 Advanced Saturation Models Foundation
+
+- Added `las_editor/advanced_saturation_models.py`.
+- Added advanced water-saturation calculations: Archie, Simandoux, Indonesia and Dual Water foundation.
+- Added deterministic model comparison by interval with average Vsh, model spread, recommendation and confidence.
+- Added validation for required curves, numeric model parameters and output curve conflicts.
+- Added manifest generation, UI-ready issue/comparison tables and Markdown report rendering.
+- Exported Advanced Saturation Models API through `las_editor/__init__.py`.
+- Added regression tests in `tests/test_advanced_saturation_models.py`.
