@@ -589,3 +589,11 @@ git status --short
 - Added implementation plan after Roadmap v4.0.
 - Marked triangular diagram as requiring repair/redesign.
 - Deferred project packaging until core workflows and UI are corrected.
+
+## Roadmap v4.0 — A.1 LAS Workspace Home & Action Launcher
+
+- Добавлена основа `las_editor/las_workspace_home.py` для видимой главной страницы LAS Workspace 2.0.
+- Действие **Создать LAS** теперь спроектировано как доступное без предварительной загрузки файла.
+- В Streamlit LAS Workspace добавлены Home action cards, мастер создания LAS и таблица шаблонов.
+- Созданный LAS сохраняется в рабочую сессию и доступен для скачивания как `.las`.
+- Добавлены тесты на action launcher, wizard preview и parser пользовательских кривых.

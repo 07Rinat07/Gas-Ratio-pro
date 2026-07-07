@@ -140,6 +140,12 @@ from las_editor.depth_grid import (
     validate_depth_integrity,
     resample_las_data,
 )
+from las_editor.las_creator import build_las_text
+from las_editor.las_workspace_home import (
+    action_table_rows,
+    build_las_creation_wizard_preview,
+    build_las_workspace_home_state,
+)
 from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
 from palettes.depth_tracks import (
@@ -344,6 +350,9 @@ DASHBOARD_LAST_QUICK_ACTION_KEY = "dashboard_last_quick_action"
 # Dashboard 3.0 nav fix marker: no-empty-nav-cards removes blank rectangles above navigation buttons.
 LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
 LAS_EDITOR_SESSION_SUMMARY_KEY = "las_editor_session_summary"
+LAS_WORKSPACE_CREATED_PREVIEW_KEY = "las_workspace_created_preview"
+LAS_WORKSPACE_CREATED_SPEC_KEY = "las_workspace_created_spec"
+LAS_WORKSPACE_CREATED_DF_KEY = "las_workspace_created_df"
 LAS_EDITOR_RENAME_HISTORY_KEY = "las_editor_curve_rename_history"
 LAS_EDITOR_ALIAS_HISTORY_KEY = "las_editor_curve_alias_history"
 LAS_EDITOR_ALIAS_MAP_KEY = "las_editor_curve_alias_map"
@@ -5606,22 +5615,177 @@ def _render_documentation_tab() -> None:
     st.markdown('</div>', unsafe_allow_html=True)
 
 
+def _render_las_workspace_home_panel() -> None:
+    """Render LAS Workspace 2.0 action launcher before any file is loaded."""
+
+    state = build_las_workspace_home_state()
+    st.markdown(
+        """
+        <style>
+        .las-workspace-hero {
+            padding: 1.2rem 1.35rem;
+            border: 1px solid rgba(148, 163, 184, .25);
+            border-radius: 18px;
+            background: linear-gradient(135deg, rgba(15,23,42,.95), rgba(30,41,59,.86));
+            margin-bottom: 1rem;
+        }
+        .las-workspace-hero h2 { margin: 0; color: #f8fafc; }
+        .las-workspace-hero p { color: #cbd5e1; margin: .35rem 0 0; }
+        .las-action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: .75rem;
+            margin: .75rem 0 1rem;
+        }
+        .las-action-card {
+            min-height: 118px;
+            padding: .95rem;
+            border-radius: 16px;
+            border: 1px solid rgba(59,130,246,.25);
+            background: rgba(15,23,42,.78);
+            box-shadow: 0 10px 26px rgba(2,6,23,.16);
+        }
+        .las-action-card b { color: #f8fafc; display: block; margin-top: .35rem; }
+        .las-action-card span { color: #cbd5e1; font-size: .88rem; }
+        .las-action-icon { font-size: 1.65rem; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f"""
+        <section class="las-workspace-hero">
+          <h2>{_html_escape(state.title)}</h2>
+          <p>{_html_escape(state.subtitle)} Главное действие — создать LAS — доступно даже без загруженного файла.</p>
+        </section>
+        """,
+        unsafe_allow_html=True,
+    )
+    cards = []
+    for action in state.actions:
+        status = "доступно" if action.enabled_without_file else "после открытия LAS"
+        cards.append(
+            "<div class='las-action-card'>"
+            f"<div class='las-action-icon'>{_html_escape(action.icon)}</div>"
+            f"<b>{_html_escape(action.title)}</b>"
+            f"<span>{_html_escape(action.description)}<br><small>{_html_escape(status)}</small></span>"
+            "</div>"
+        )
+    st.markdown(f"<div class='las-action-grid'>{''.join(cards)}</div>", unsafe_allow_html=True)
+
+
+def _render_las_creation_wizard_panel(logger) -> None:
+    """Render a compact LAS creation wizard and store preview in session state."""
+
+    with st.expander("📄 Создать новый LAS", expanded=True):
+        st.caption("Мастер создает новый LAS с нуля: секции ~Version, ~Well, ~Curve, ~Parameter и ~ASCII формируются автоматически.")
+        meta_col, depth_col = st.columns(2)
+        with meta_col:
+            well_name = st.text_input("Скважина", value="NEW_WELL", key="las_ws2_create_well_name")
+            company = st.text_input("Компания", value="", key="las_ws2_create_company")
+            field = st.text_input("Месторождение / площадь", value="", key="las_ws2_create_field")
+            uwi = st.text_input("UWI", value="", key="las_ws2_create_uwi")
+            api = st.text_input("API", value="", key="las_ws2_create_api")
+        with depth_col:
+            start_depth = st.number_input("START", value=1000.0, step=0.1, key="las_ws2_create_start")
+            stop_depth = st.number_input("STOP", value=1010.0, step=0.1, key="las_ws2_create_stop")
+            step = st.number_input("STEP", value=0.2, min_value=0.0001, step=0.1, format="%.4f", key="las_ws2_create_step")
+            depth_unit = st.selectbox("Единицы глубины", options=("M", "FT"), index=0, key="las_ws2_create_depth_unit")
+            null_value = st.number_input("NULL", value=-999.25, step=0.25, key="las_ws2_create_null")
+
+        template = st.selectbox(
+            "Шаблон кривых",
+            options=("empty", "mud_gas", "petrophysics"),
+            format_func=lambda item: {"empty": "Пустой LAS", "mud_gas": "Газовый каротаж C1-C5", "petrophysics": "Петрофизика"}.get(item, item),
+            key="las_ws2_create_template",
+        )
+        curve_text = st.text_area(
+            "Дополнительные кривые",
+            value="",
+            help="Одна кривая на строку: GR,API,Gamma ray или RHOB|G/C3|Bulk density",
+            key="las_ws2_create_curve_text",
+        )
+
+        if st.button("Сформировать предпросмотр LAS", type="primary", use_container_width=True, key="las_ws2_create_preview_button"):
+            try:
+                preview = build_las_creation_wizard_preview(
+                    well_name=well_name,
+                    start_depth=start_depth,
+                    stop_depth=stop_depth,
+                    step=step,
+                    template_name=template,
+                    curve_text=curve_text,
+                    depth_unit=depth_unit,
+                    null_value=null_value,
+                    company=company,
+                    field=field,
+                    uwi=uwi,
+                    api=api,
+                )
+                st.session_state[LAS_WORKSPACE_CREATED_PREVIEW_KEY] = preview
+                st.session_state[LAS_WORKSPACE_CREATED_SPEC_KEY] = preview.spec
+                st.session_state[LAS_WORKSPACE_CREATED_DF_KEY] = preview.data
+                st.session_state[LAS_EDITOR_SESSION_SHEETS_KEY] = {"LAS-созданный": _dataframe_to_raw_sheet(preview.data)}
+                st.session_state[LAS_EDITOR_SESSION_SUMMARY_KEY] = (
+                    f"Создан новый LAS: {preview.row_count} строк, {preview.curve_count} кривых, "
+                    f"интервал {preview.depth_start}–{preview.depth_stop} {depth_unit}"
+                )
+                logger.info("las_workspace_created_preview rows=%d curves=%d", preview.row_count, preview.curve_count)
+                st.success("Новый LAS сформирован и сохранен в рабочую сессию. Его можно редактировать и скачать ниже.")
+            except Exception as exc:
+                logger.exception("las_workspace_create_preview_failed")
+                st.error(f"Не удалось создать LAS: {exc}")
+
+        preview = st.session_state.get(LAS_WORKSPACE_CREATED_PREVIEW_KEY)
+        if preview is not None:
+            metrics = st.columns(4)
+            metrics[0].metric("Строк", preview.row_count)
+            metrics[1].metric("Кривых", preview.curve_count)
+            metrics[2].metric("START", preview.depth_start)
+            metrics[3].metric("STOP", preview.depth_stop)
+            for warning in preview.warnings:
+                st.warning(warning)
+            st.dataframe(preview.data.head(40), use_container_width=True)
+            las_bytes = build_las_text(preview.spec, preview.data).encode("utf-8")
+            st.download_button(
+                "Скачать созданный LAS",
+                data=las_bytes,
+                file_name=f"{preview.spec.well_name or 'new_well'}.las",
+                mime="application/octet-stream",
+                use_container_width=True,
+                key="las_ws2_created_las_download",
+            )
+
+
+def _render_las_workspace_template_panel() -> None:
+    """Show LAS templates on the Home page."""
+
+    with st.expander("📋 Доступные шаблоны LAS", expanded=False):
+        state = build_las_workspace_home_state()
+        st.dataframe(pd.DataFrame(state.templates), use_container_width=True, hide_index=True)
+        st.caption("Шаблоны используются мастером создания LAS и безопасным экспортом.")
+
+
 def _render_las_editor(logger, active_project: ProjectRecord) -> None:
-    st.subheader("LAS-редактор")
-    st.caption("Подготовка LAS перед расчетами: проверка глубины, смена шага, добавление строк и ручная правка.")
+    st.subheader("LAS Workspace 2.0")
+    st.caption("Профессиональное рабочее пространство LAS: создание, открытие, редактирование, проверка и безопасный экспорт.")
     _render_saved_wells_panel(logger)
+    _render_las_workspace_home_panel()
+    _render_las_creation_wizard_panel(logger)
+    _render_las_workspace_template_panel()
 
     saved_summary = st.session_state.get(LAS_EDITOR_SESSION_SUMMARY_KEY)
     if saved_summary:
         st.success(f"В рабочую сессию сохранено: {saved_summary}")
 
+    st.markdown("### 📂 Открыть существующий LAS")
     uploaded_file = st.file_uploader(
         "LAS-файл для редактора",
         type=["las"],
         key="las_editor_file_upload",
     )
     if uploaded_file is None:
-        st.info("Загрузите LAS-файл, чтобы проверить глубины и подготовить данные перед расчетом.")
+        st.info("Можно создать новый LAS выше или загрузить существующий файл для проверки глубин и подготовки данных перед расчетом.")
         return
 
     try:
