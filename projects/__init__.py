@@ -978,3 +978,27 @@ from projects.geostatistics_workspace import (
     build_search_ellipsoid_table,
     render_geostatistics_markdown,
 )
+
+from projects.interpolation_engine import (
+    INTERPOLATION_ENGINE_FILE_NAME,
+    INTERPOLATION_METHODS,
+    InterpolationSample,
+    GridNode,
+    InterpolatedCell,
+    InterpolationJobSpec,
+    InterpolationManifest,
+    build_regular_grid,
+    interpolate_nearest,
+    interpolate_idw,
+    interpolate_simple_kriging_foundation,
+    run_interpolation,
+    load_interpolation_engine,
+    save_interpolation_job,
+    list_interpolation_jobs,
+    seed_interpolation_engine,
+    build_interpolated_cells_table,
+    build_interpolation_job_table,
+    summarize_interpolation_result,
+    build_interpolation_manifest,
+    render_interpolation_markdown,
+)

@@ -113,3 +113,10 @@ configuration and job manifests for future interpolation workflows.
 
 This module prepares the project for Kriging, Sequential Gaussian Simulation and facies/property
 modeling workflows that require documented variogram and neighborhood parameters.
+
+
+## Phase II C.4 — Interpolation Engine Foundation
+
+The interpolation engine provides the backend layer for transferring well/property samples into grid targets. The foundation includes regular grid generation, normalized sample models, nearest-neighbor interpolation, IDW interpolation, simple kriging foundation metadata, interpolation jobs, manifests, UI-ready tables and Markdown reports.
+
+The module is intentionally deterministic and conservative so that future Kriging, SGS and co-kriging algorithms can reuse the same public API without breaking existing workflows.

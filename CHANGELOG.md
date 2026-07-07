@@ -1,3 +1,15 @@
+## Phase II → C.4 Interpolation Engine Foundation
+
+- Added `projects/interpolation_engine.py`.
+- Added regular grid generation for property modeling targets.
+- Added interpolation samples, grid nodes and interpolated cell models.
+- Implemented `nearest` interpolation.
+- Implemented deterministic IDW interpolation with power, neighbor count, radius and optional Z support.
+- Added conservative `simple_kriging_foundation` method as API-compatible placeholder for future full covariance-matrix kriging.
+- Added interpolation job registry, seed data, manifest, UI-ready tables and Markdown reporting.
+- Updated Roadmap and Geological/Property Modeling specifications.
+- Added profile tests for grid generation, interpolation methods, job persistence, reporting and method validation.
+
 ## Phase II → B.15 Well Interval & Pay Zone Manager Foundation
 
 - Added `las_editor/well_interval_manager.py`.

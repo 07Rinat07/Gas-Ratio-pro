@@ -36,3 +36,10 @@ Core entities:
 - `FaciesModelingManifest`.
 
 The module follows the property modeling workflow used in the provided methodology for facies modeling, vertical trends and property cube preparation. Source: `docs/sources/lab-4-property-cubes.pdf`.
+
+
+## Phase II C.4 — Interpolation Engine Foundation
+
+The interpolation engine provides the backend layer for transferring well/property samples into grid targets. The foundation includes regular grid generation, normalized sample models, nearest-neighbor interpolation, IDW interpolation, simple kriging foundation metadata, interpolation jobs, manifests, UI-ready tables and Markdown reports.
+
+The module is intentionally deterministic and conservative so that future Kriging, SGS and co-kriging algorithms can reuse the same public API without breaking existing workflows.

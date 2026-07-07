@@ -1381,3 +1381,20 @@ Implemented geostatistics foundation for future property interpolation workflows
 - manifest, UI-ready tables and Markdown reporting.
 
 Source basis: `docs/sources/lab-4-property-cubes.pdf` and geological modeling workflow requirements.
+
+
+### Phase II — C.4 Interpolation Engine Foundation
+
+Status: completed.
+
+Implemented deterministic interpolation foundation for property modeling workflows:
+
+- regular grid target generation;
+- interpolation sample and grid node models;
+- nearest-neighbor interpolation;
+- inverse distance weighting (IDW) with power, neighbor count, search radius and optional Z support;
+- simple kriging foundation as a stable API placeholder for future full covariance-based Kriging;
+- interpolation job registry;
+- manifest, UI-ready tables and Markdown reporting.
+
+This stage prepares the project for Kriging, SGS and property cube modeling in later geological modeling modules.
