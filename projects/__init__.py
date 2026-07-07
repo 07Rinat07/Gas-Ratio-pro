@@ -1207,3 +1207,14 @@ from projects.plot_studio_sync_scroll import (
     align_workspace_to_bounds,
     build_synchronized_scroll_manifest,
 )
+
+from projects.plot_studio_track_layout import (
+    DepthTrackPosition,
+    PlotTrackLayoutConfig,
+    PlotTrackLayoutItem,
+    PlotTrackLayoutResult,
+    validate_track_layout_config,
+    build_plot_track_layout,
+    build_plot_track_layout_manifest,
+    build_plot_track_layout_table,
+)

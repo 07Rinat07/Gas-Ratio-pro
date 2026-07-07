@@ -284,3 +284,21 @@ Synchronized Scrolling считается готовым, если:
 6. manifest содержит viewport и synchronized track states;
 7. операции не мутируют исходный workspace;
 8. модуль покрыт unit-тестами.
+
+## Phase B — Professional Track Layout
+
+Implemented backend module: `projects/plot_studio_track_layout.py`.
+
+The Professional Track Layout layer prepares a renderer-independent tablet geometry for Plot Studio 2.0.
+
+Responsibilities:
+
+- normalize visible Plot Studio tracks into ordered layout items;
+- calculate pixel width, percentage width, left and right boundaries;
+- support a dedicated depth track on the left, right or hidden mode;
+- freeze the depth track for professional synchronized scrolling;
+- preserve original `PlotWorkspace` and LAS data without mutation;
+- provide UI/export manifests and diagnostic table rows;
+- validate canvas width, gutters, minimum track width and depth-track placement.
+
+The module is used as a base for future Tablet Templates, print layout, export layout and annotation placement.
