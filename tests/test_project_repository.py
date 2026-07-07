@@ -35,3 +35,12 @@ def test_project_selectbox_key_is_decoupled_from_active_project_state():
 
     assert _project_selectbox_key("default", project_ids) != ACTIVE_PROJECT_ID_KEY
     assert _project_selectbox_key("default", project_ids) != _project_selectbox_key("demo", project_ids)
+
+from projects import delete_project
+
+
+def test_delete_project_removes_project_directory(tmp_path):
+    project = create_project(tmp_path, name="To Delete")
+
+    assert delete_project(tmp_path, project.id) is True
+    assert not (tmp_path / project.id).exists()

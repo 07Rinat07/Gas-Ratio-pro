@@ -57,3 +57,25 @@ def test_save_well_version_uses_unique_version_ids(tmp_path):
     version_ids = [version.id for version in second.versions]
 
     assert len(version_ids) == len(set(version_ids))
+
+from wells.repository import delete_well_record, delete_well_version
+
+
+def test_delete_well_version_removes_files_and_manifest_entry(tmp_path):
+    df = pd.DataFrame({"DEPT": [1000.0], "C1": [80]})
+    first = save_well_version(df, root=tmp_path, well_name="Demo", version_label="v1")
+    second = save_well_version(df, root=tmp_path, well_id=first.id, version_label="v2")
+    version_id = second.versions[0].id
+
+    updated = delete_well_version(tmp_path, second.id, version_id)
+
+    assert [version.id for version in updated.versions] == [second.versions[1].id]
+    assert not (tmp_path / second.id / "versions" / version_id).exists()
+
+
+def test_delete_well_record_removes_directory(tmp_path):
+    df = pd.DataFrame({"DEPT": [1000.0], "C1": [80]})
+    record = save_well_version(df, root=tmp_path, well_name="Demo")
+
+    assert delete_well_record(tmp_path, record.id) is True
+    assert not (tmp_path / record.id).exists()

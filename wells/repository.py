@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -264,39 +265,18 @@ def read_well_file_bytes(
     return path.read_bytes()
 
 
-def delete_well(root: Path | str, well_id: str) -> bool:
-    """Delete a saved well and all its versions from persistent storage."""
-    import shutil
-
-    well_path = _well_dir(Path(root), well_id)
-    if not well_path.exists():
-        return False
-    shutil.rmtree(well_path)
-    return True
-
-
-def delete_well_version(root: Path | str, well_id: str, version_id: str) -> bool:
-    """Delete one saved version and update the well manifest.
-
-    If the deleted version is the last one, the whole well folder is removed.
-    """
-    import shutil
-
+def delete_well_version(root: Path | str, well_id: str, version_id: str) -> WellRecord:
+    """Delete one saved well version from persistent storage and update manifest."""
     root_path = Path(root)
     record = load_well_record(root_path, well_id)
-    safe_version_id = _safe_id(version_id)
-    target_version = next((version for version in record.versions if version.id == safe_version_id), None)
-    if target_version is None:
-        return False
+    clean_version_id = _safe_id(version_id)
+    versions = [version for version in record.versions if version.id != clean_version_id]
+    if len(versions) == len(record.versions):
+        raise FileNotFoundError(f"Well version not found: {version_id}")
 
-    version_dir = _well_dir(root_path, record.id) / "versions" / safe_version_id
+    version_dir = _well_dir(root_path, record.id) / "versions" / clean_version_id
     if version_dir.exists():
         shutil.rmtree(version_dir)
-
-    remaining_versions = tuple(version for version in record.versions if version.id != safe_version_id)
-    if not remaining_versions:
-        delete_well(root_path, record.id)
-        return True
 
     updated_record = WellRecord(
         id=record.id,
@@ -306,7 +286,17 @@ def delete_well_version(root: Path | str, well_id: str, version_id: str) -> bool
         comment=record.comment,
         created_at=record.created_at,
         updated_at=_utc_now(),
-        versions=remaining_versions,
+        versions=tuple(versions),
     )
     _write_record(root_path, updated_record)
+    return updated_record
+
+
+def delete_well_record(root: Path | str, well_id: str) -> bool:
+    """Delete a saved well directory from persistent storage."""
+    root_path = Path(root)
+    well_dir = _well_dir(root_path, well_id)
+    if not well_dir.exists():
+        return False
+    shutil.rmtree(well_dir)
     return True
