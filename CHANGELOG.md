@@ -488,3 +488,14 @@ git status --short
 - Added facies simulation job manifest foundation.
 - Added UI-ready tables and Markdown reporting.
 - Added profile tests for Facies Modeling Workspace.
+
+## Phase II — C.3 Geostatistics Workspace Foundation
+
+- Added `projects/geostatistics_workspace.py`.
+- Added experimental variogram calculation from spatial samples.
+- Added theoretical variogram models: spherical, exponential, gaussian, linear and nugget.
+- Added deterministic foundation model fitting for experimental variogram bins.
+- Added search ellipsoid metadata for future Kriging/SGS workflows.
+- Added geostatistics jobs, manifest generation, UI-ready tables and Markdown report rendering.
+- Exported Geostatistics Workspace API through `projects/__init__.py`.
+- Added regression tests in `tests/test_geostatistics_workspace.py`.

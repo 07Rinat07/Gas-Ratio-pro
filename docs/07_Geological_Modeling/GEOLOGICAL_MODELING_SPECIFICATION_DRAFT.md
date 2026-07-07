@@ -101,3 +101,15 @@ Implemented backend foundation for property modeling:
 - fluid contacts foundation: OWC, GOC, GWC;
 - geometry properties foundation: bulk volume, absolute depth, above contact;
 - manifest, UI-ready tables and Markdown reporting.
+
+### Phase II — C.3 Geostatistics Workspace Foundation
+
+Status: Implemented.
+
+The geostatistics foundation defines the first backend layer for spatial property interpolation.
+The module supports experimental variogram calculation from spatial samples, theoretical models
+(spherical, exponential, gaussian, linear, nugget), deterministic parameter fitting, search ellipsoid
+configuration and job manifests for future interpolation workflows.
+
+This module prepares the project for Kriging, Sequential Gaussian Simulation and facies/property
+modeling workflows that require documented variogram and neighborhood parameters.

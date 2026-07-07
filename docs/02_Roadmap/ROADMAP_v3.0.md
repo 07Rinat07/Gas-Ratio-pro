@@ -668,3 +668,19 @@ Scope:
 - UI-ready tables and Markdown report.
 
 Next recommended block: C.3 Geostatistics Workspace Foundation.
+
+### Phase II — C.3 Geostatistics Workspace Foundation
+
+Status: completed.
+
+Scope delivered:
+
+- Experimental variogram calculation.
+- Theoretical variogram models: spherical, exponential, gaussian, linear and nugget.
+- Foundation model fitting.
+- Search ellipsoid metadata.
+- Geostatistics job manifest.
+- UI-ready model, variogram-bin and search-ellipsoid tables.
+- Markdown report for reproducible geostatistical setup.
+
+Next recommended block: C.4 Kriging / Interpolation Foundation.

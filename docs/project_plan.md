@@ -1365,3 +1365,19 @@ Status: completed.
 Implemented facies registry, zone-based settings, vertical proportion curves, horizontal/vertical trend metadata, discrete facies statistics, simulation job manifest foundation, UI-ready tables and Markdown reporting.
 
 Source basis: `docs/sources/lab-4-property-cubes.pdf`.
+
+### Phase II — C.3 Geostatistics Workspace Foundation
+
+Status: completed.
+
+Implemented geostatistics foundation for future property interpolation workflows:
+
+- normalized spatial samples for well/property data;
+- experimental variogram calculation;
+- theoretical variogram models: spherical, exponential, gaussian, linear and nugget;
+- deterministic foundation fitting of model parameters;
+- search ellipsoid registry for future Kriging/SGS;
+- geostatistics job registry;
+- manifest, UI-ready tables and Markdown reporting.
+
+Source basis: `docs/sources/lab-4-property-cubes.pdf` and geological modeling workflow requirements.
