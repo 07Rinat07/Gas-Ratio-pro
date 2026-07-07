@@ -1,4 +1,13 @@
 ## Phase II B.3 — LAS Header Editor Professional Foundation
+## Phase II B.4 — LAS ASCII Data Editor Professional Foundation
+
+- Добавлен модуль `las_editor/ascii_data_editor.py`.
+- Реализованы операции редактирования секции `~ASCII`: изменение ячейки, массовое редактирование диапазона, вставка и удаление строк.
+- Добавлены сортировка по глубине, поиск/замена значений, проверка дубликатов глубины и нарушений шага.
+- Добавлены UI-ready таблицы, сводка ASCII-данных, preview изменений и render ASCII body.
+- README переписан в кратком пользовательском формате на русском языке без внутренних Roadmap и правил разработки.
+- Добавлены профильные тесты `tests/test_las_ascii_data_editor_professional.py`.
+
 
 - Added `las_editor/header_editor.py` for professional LAS header metadata editing.
 - Added normalized header cards for `~Version`, `~Well`, `~Curve` and `~Parameter` sections.

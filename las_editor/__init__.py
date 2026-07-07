@@ -1,6 +1,28 @@
 from __future__ import annotations
 
 
+
+from las_editor.ascii_data_editor import (
+    ASCII_EDITOR_STORAGE_KEY,
+    DEFAULT_DEPTH_MNEMONICS,
+    AsciiEditorHistoryEntry,
+    AsciiEditorIssue,
+    AsciiEditorResult,
+    ascii_editor_summary,
+    build_ascii_table,
+    delete_ascii_rows,
+    edit_ascii_cell,
+    edit_ascii_range,
+    find_depth_column,
+    find_replace_ascii_values,
+    insert_ascii_rows,
+    normalize_ascii_dataframe,
+    preview_ascii_changes,
+    render_ascii_section,
+    sort_ascii_by_depth,
+    validate_ascii_data,
+)
+
 from las_editor.curve_manager import (
     CURVE_MANAGER_STORAGE_KEY,
     PROTECTED_DEPTH_CURVES,
@@ -67,6 +89,24 @@ from las_editor.depth_grid import (
 )
 
 __all__ = [
+    "validate_ascii_data",
+    "sort_ascii_by_depth",
+    "render_ascii_section",
+    "preview_ascii_changes",
+    "normalize_ascii_dataframe",
+    "insert_ascii_rows",
+    "find_replace_ascii_values",
+    "find_depth_column",
+    "edit_ascii_range",
+    "edit_ascii_cell",
+    "delete_ascii_rows",
+    "build_ascii_table",
+    "ascii_editor_summary",
+    "AsciiEditorResult",
+    "AsciiEditorIssue",
+    "AsciiEditorHistoryEntry",
+    "DEFAULT_DEPTH_MNEMONICS",
+    "ASCII_EDITOR_STORAGE_KEY",
     "update_curve_manifest_entry",
     "reorder_curves",
     "normalize_curve_manager_metadata",
@@ -122,4 +162,4 @@ __all__ = [
     "resample_las_data",
 ]
 
-# Phase II B.3: LAS Header Editor Professional helpers are available from las_editor.header_editor.
+# Phase II B.4: LAS ASCII Data Editor Professional helpers are available from las_editor.ascii_data_editor.

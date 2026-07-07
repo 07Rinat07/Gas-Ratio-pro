@@ -433,3 +433,7 @@ Status: Deferred.
 - Range fill.
 - Copy/paste table operations.
 - Safe working-copy workflow.
+
+### B.4 LAS ASCII Data Editor Professional Foundation — реализовано
+
+Реализованы базовые операции редактирования табличных данных LAS: edit cell, edit range, insert/delete rows, sort by depth, find/replace, validation, summary, preview и render ASCII section.
