@@ -1343,3 +1343,17 @@ Acceptance checks:
 Status: completed.
 
 Implemented foundation calculations for reservoir bulk rock volume, net rock volume, pore volume, hydrocarbon pore volume, OOIP/OGIP estimates, recovery factors and interval-based volumetric summaries.
+
+### Phase II — C.1 Property Modeling Workspace Foundation
+
+Status: Implemented.
+
+Implemented backend foundation for property modeling:
+
+- property cube metadata registry;
+- facies/lithology discrete property foundation;
+- Net/Gross calculation `NG = If(Facies in sand_values, 1, 0)`;
+- POR/PERM/SW/SO/SG property placeholders;
+- fluid contacts foundation: OWC, GOC, GWC;
+- geometry properties foundation: bulk volume, absolute depth, above contact;
+- manifest, UI-ready tables and Markdown reporting.

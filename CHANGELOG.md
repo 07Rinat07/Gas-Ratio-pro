@@ -468,3 +468,12 @@ git status --short
 - Added evidence source aggregation for report packages.
 - Exported Petrophysical Report Package API through `las_editor/__init__.py`.
 - Added regression tests in `tests/test_petrophysical_report_package.py`.
+
+## Phase II — C.1 Property Modeling Workspace Foundation
+
+- Added `projects/property_modeling_workspace.py`.
+- Added property cube metadata registry for facies, lithology, NG, porosity, permeability and saturation properties.
+- Added fluid contact and geometry property foundation.
+- Added Net/Gross calculation from facies labels.
+- Added property statistics, manifest, UI-ready tables and Markdown report.
+- Added profile tests for Property Modeling Workspace.
