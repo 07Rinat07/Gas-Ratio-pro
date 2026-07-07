@@ -512,3 +512,19 @@ Status: Deferred.
 ### B.12 LAS Processing Pipeline Professional Foundation — DONE
 
 Реализован backend-слой pipeline-обработки LAS-кривых: moving average, median filter, despike, fill nulls, normalization, clipping, depth resampling, preview, history, manifest и Markdown-отчет.
+
+### B.13 Mud Gas Interpretation Toolkit Foundation — DONE
+
+Реализован backend-слой интерпретации бурового газа:
+
+- расчет Haworth Wetness / Balance / Character ratios;
+- классификация по Haworth wetness/balance/character логике;
+- классификация по Pixler C1/C2;
+- классификация по Oil Indicator и Inverse Oil Indicator;
+- объединенная интерпретация по глубинам;
+- агрегирование интервалов по доминирующему типу флюида;
+- manifest интерпретации;
+- UI-ready таблицы для Streamlit;
+- Markdown-отчет для инженерного анализа.
+
+Следующий практический шаг блока B: **B.14 LAS Interpretation Markers & Flags**.

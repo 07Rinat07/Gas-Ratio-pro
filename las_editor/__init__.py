@@ -3,6 +3,30 @@ from __future__ import annotations
 
 
 
+
+from las_editor.mud_gas_interpretation import (
+    MUD_GAS_INTERPRETATION_SCHEMA,
+    MUD_GAS_INTERPRETATION_STORAGE_KEY,
+    MudGasIntervalSummary,
+    MudGasInterpretationResult,
+    MudGasInterpretationRow,
+    MudGasIssue,
+    MudGasRatioSet,
+    build_mud_gas_interpretation_manifest,
+    build_mud_gas_source_columns,
+    calculate_mud_gas_ratios,
+    classify_haworth,
+    classify_oil_indicator,
+    classify_pixler,
+    interpret_mud_gas_dataframe,
+    interpret_mud_gas_ratios,
+    mud_gas_interval_table_rows,
+    mud_gas_interpretation_table_rows,
+    mud_gas_issue_table_rows,
+    render_mud_gas_markdown_report,
+    summarize_mud_gas_intervals,
+)
+
 from las_editor.las_processing_pipeline import (
     LAS_PROCESSING_PIPELINE_SCHEMA,
     LAS_PROCESSING_PIPELINE_STORAGE_KEY,
@@ -211,6 +235,26 @@ from las_editor.depth_grid import (
 )
 
 __all__ = [
+    "MUD_GAS_INTERPRETATION_SCHEMA",
+    "MUD_GAS_INTERPRETATION_STORAGE_KEY",
+    "MudGasIntervalSummary",
+    "MudGasInterpretationResult",
+    "MudGasInterpretationRow",
+    "MudGasIssue",
+    "MudGasRatioSet",
+    "build_mud_gas_interpretation_manifest",
+    "build_mud_gas_source_columns",
+    "calculate_mud_gas_ratios",
+    "classify_haworth",
+    "classify_oil_indicator",
+    "classify_pixler",
+    "interpret_mud_gas_dataframe",
+    "interpret_mud_gas_ratios",
+    "mud_gas_interval_table_rows",
+    "mud_gas_interpretation_table_rows",
+    "mud_gas_issue_table_rows",
+    "render_mud_gas_markdown_report",
+    "summarize_mud_gas_intervals",
     "LAS_PROCESSING_PIPELINE_SCHEMA",
     "LAS_PROCESSING_PIPELINE_STORAGE_KEY",
     "SUPPORTED_PROCESSING_OPERATIONS",

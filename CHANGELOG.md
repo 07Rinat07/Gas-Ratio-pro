@@ -396,3 +396,14 @@ git status --short
 - Added processing plan validation, operation history, processing manifest, preview data and Markdown processing report.
 - Exported the processing API through `las_editor/__init__.py`.
 - Added regression tests in `tests/test_las_processing_pipeline_professional.py`.
+
+## Phase II B.13 — Mud Gas Interpretation Toolkit Foundation
+
+- Added `las_editor/mud_gas_interpretation.py`.
+- Added Haworth wetness, balance and character ratio calculation support.
+- Added Pixler C1/C2 fluid-character classification support.
+- Added Oil Indicator and Inverse Oil Indicator classification support.
+- Added combined per-depth mud-gas interpretation rows.
+- Added interval summaries, UI-ready tables, Markdown report and interpretation manifest.
+- Exported the mud gas interpretation API through `las_editor/__init__.py`.
+- Added regression tests in `tests/test_mud_gas_interpretation_professional.py`.
