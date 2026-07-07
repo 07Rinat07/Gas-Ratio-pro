@@ -1,5 +1,16 @@
 # Changelog
 
+## gas-ratio-pro-phase2-specification
+
+- Started Phase II — Engineering Specification & Architecture.
+- Added Project Design Principles as the controlling project philosophy document.
+- Added Master Project Specification v2.0 draft.
+- Added Roadmap v3.0 with block-based planning instead of linear numeric stages.
+- Added draft SRS, SAD, LAS Platform, Calculation Engine, Geological Modeling, UI/UX, Database and Testing specifications.
+- Marked AI Assistant as excluded from the current roadmap.
+- Marked Licensing / Hardware ID / Activation as deferred and optional.
+- Reprioritized LAS Platform Professional as the first implementation block after documentation approval.
+
 ## gas-ratio-pro-updated-135
 
 - Added Performance & Optimization Foundation backend module.

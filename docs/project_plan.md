@@ -1,3 +1,40 @@
+# GAS RATIO PRO — Project Plan v5 / Phase II
+
+## Current Development Phase
+
+Project status has moved to **Phase II — Engineering Specification & Architecture**.
+
+During Phase II, new large functional modules are not implemented directly. The project follows Documentation First / Specification First:
+
+1. Analyze requirement.
+2. Add specification.
+3. Place item in Roadmap v3.0.
+4. Define architecture and acceptance criteria.
+5. Implement only after approval.
+
+Primary documents:
+
+- `docs/00_Project_Charter/PROJECT_DESIGN_PRINCIPLES.md`
+- `docs/01_Master_Project_Specification/MASTER_PROJECT_SPECIFICATION_v2.0.md`
+- `docs/02_Roadmap/ROADMAP_v3.0.md`
+- `docs/03_Software_Requirements/SRS_DRAFT.md`
+- `docs/04_Software_Architecture/SAD_DRAFT.md`
+- `docs/05_LAS_Platform/LAS_PLATFORM_SPECIFICATION_DRAFT.md`
+- `docs/06_Calculation_Engine/CALCULATION_ENGINE_SPECIFICATION_DRAFT.md`
+- `docs/07_Geological_Modeling/GEOLOGICAL_MODELING_SPECIFICATION_DRAFT.md`
+- `docs/08_UI_UX/UI_UX_GUIDELINES_DRAFT.md`
+- `docs/09_Database/DATABASE_SPECIFICATION_DRAFT.md`
+- `docs/10_Testing/TESTING_SPECIFICATION_DRAFT.md`
+
+Important roadmap decisions:
+
+- LAS Platform Professional becomes the first implementation priority after Phase II documents.
+- Licensing / Hardware ID / Activation is deferred and optional.
+- AI Assistant is excluded from the current roadmap.
+- Final archive is not produced at this stage.
+
+---
+
 # Gas Ratio Pro — Project Plan v4
 
 ## Назначение плана

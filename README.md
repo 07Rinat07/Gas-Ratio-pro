@@ -42,3 +42,22 @@
 - Documentation Center
 - Petrophysical Calculations
 - Export PDF / PNG / SVG
+
+## Phase II — Engineering Specification & Architecture
+
+The project has entered Phase II. This phase focuses on engineering documentation and architecture before adding more large modules.
+
+Key documents:
+
+- `docs/00_Project_Charter/PROJECT_DESIGN_PRINCIPLES.md`
+- `docs/01_Master_Project_Specification/MASTER_PROJECT_SPECIFICATION_v2.0.md`
+- `docs/02_Roadmap/ROADMAP_v3.0.md`
+- `docs/05_LAS_Platform/LAS_PLATFORM_SPECIFICATION_DRAFT.md`
+
+Current decisions:
+
+- Documentation First / Specification First is now the project development standard.
+- LAS Platform Professional is the next major implementation priority after specifications are approved.
+- AI Assistant is not planned for the current roadmap.
+- Licensing / Hardware ID / Activation is deferred and optional.
+
