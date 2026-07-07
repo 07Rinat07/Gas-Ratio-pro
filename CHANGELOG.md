@@ -426,3 +426,10 @@ git status --short
 - Added interval summaries, UI-ready tables, Markdown report and interpretation manifest.
 - Exported the mud gas interpretation API through `las_editor/__init__.py`.
 - Added regression tests in `tests/test_mud_gas_interpretation_professional.py`.
+
+## Phase II - B.16 Petrophysical Workspace Foundation
+
+- Added `las_editor/petrophysical_workspace.py`.
+- Added transparent petrophysical calculations for Vsh, PHIE, Archie Sw, SO, RES/NET/PAY and NG flags.
+- Added petrophysical interval summaries, manifest generation and Markdown report rendering.
+- Added profile tests for the new Petrophysical Workspace foundation.

@@ -543,3 +543,16 @@ Status: Deferred.
 - UI-ready таблицы, manifest и Markdown-отчет.
 
 Следующий практический шаг блока B: **B.16 Petrophysical Workspace Foundation**.
+
+### B.16 — Petrophysical Workspace Foundation
+
+Status: completed.
+
+Scope:
+- shale volume from Gamma Ray;
+- effective porosity;
+- Archie water saturation;
+- oil/hydrocarbon saturation;
+- reservoir, net, pay and NG flags;
+- cutoff-driven interval summaries;
+- manifest and Markdown reporting.

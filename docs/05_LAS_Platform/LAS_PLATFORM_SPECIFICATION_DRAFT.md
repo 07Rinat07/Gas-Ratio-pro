@@ -492,3 +492,7 @@ Foundation-версия содержит профили для типовых к
 - split/merge интервалов;
 - UI-ready таблицы для будущего интерфейса;
 - audit manifest и Markdown-отчет.
+
+## B.16 Petrophysical Workspace Foundation
+
+The LAS Platform now includes a foundation petrophysical workspace. The workspace performs transparent and reproducible calculations for shale volume, effective porosity, Archie water saturation, hydrocarbon saturation, reservoir/net/pay flags, and interval summaries. All calculations are deterministic and report their input curves, parameters, cutoffs and generated output curves through a manifest.
