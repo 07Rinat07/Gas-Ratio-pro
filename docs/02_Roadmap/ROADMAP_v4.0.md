@@ -579,3 +579,26 @@ Scope:
 
 Acceptance rule for depth repair:
 If `GAS_SUM = 10%` at `500 m` before repair, then `GAS_SUM = 10%` must remain at `500 m` after sorting depth to ascending order.
+
+
+### A.3 — LAS Creation Wizard 2.0 — IMPLEMENTED
+
+Цель: сделать создание LAS полноценным рабочим сценарием, доступным из LAS Workspace и Project Explorer.
+
+Реализовано:
+
+- создание пустого LAS;
+- создание из встроенного шаблона `empty / mud_gas / petrophysics`;
+- создание по структуре другого LAS;
+- подготовка создания по CSV/Excel-подобным таблицам;
+- ручной ввод Header и параметров глубины;
+- выбор версии LAS 2.0/3.0;
+- генерация глубины `START / STOP / STEP / NULL`;
+- добавление кривых;
+- предпросмотр LAS-текста и таблицы;
+- validation перед сохранением;
+- безопасное сохранение только как нового LAS;
+- запись Operation Journal;
+- UI-ready строки шагов мастера, ошибок, кривых и summary.
+
+Правило безопасности: ни один исходный LAS/CSV/Excel не изменяется мастером создания.

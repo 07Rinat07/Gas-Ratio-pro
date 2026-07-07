@@ -143,8 +143,17 @@ from las_editor.depth_grid import (
 from las_editor.las_creator import build_las_text
 from las_editor.las_workspace_home import (
     action_table_rows,
-    build_las_creation_wizard_preview,
     build_las_workspace_home_state,
+)
+from las_editor.las_creation_wizard import (
+    LasCreationMode,
+    build_las_creation_wizard_draft,
+    build_las_creation_wizard_preview_v2,
+    finalize_las_creation_wizard,
+    las_creation_mode_rows,
+    las_creation_template_rows,
+    wizard_issue_rows,
+    wizard_step_rows,
 )
 from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
@@ -5675,87 +5684,133 @@ def _render_las_workspace_home_panel() -> None:
 
 
 def _render_las_creation_wizard_panel(logger) -> None:
-    """Render a compact LAS creation wizard and store preview in session state."""
+    """Render LAS Creation Wizard 2.0 with mode, validation and safe finalize."""
 
-    with st.expander("📄 Создать новый LAS", expanded=True):
-        st.caption("Мастер создает новый LAS с нуля: секции ~Version, ~Well, ~Curve, ~Parameter и ~ASCII формируются автоматически.")
+    with st.expander("📄 LAS Creation Wizard 2.0", expanded=True):
+        st.caption(
+            "Профессиональный мастер создает новый LAS 2.0/3.0 без изменения исходных файлов. "
+            "Поддерживаются шаблоны, ручной ввод, подготовка по другому LAS и табличным источникам."
+        )
+
+        mode_rows = las_creation_mode_rows()
+        mode_titles = {row["mode"]: row["title"] for row in mode_rows}
+        mode_descriptions = {row["mode"]: row["description"] for row in mode_rows}
+        mode_value = st.selectbox(
+            "Режим создания",
+            options=[row["mode"] for row in mode_rows],
+            format_func=lambda item: mode_titles.get(item, item),
+            key="las_ws2_v2_mode",
+        )
+        st.caption(mode_descriptions.get(mode_value, ""))
+
         meta_col, depth_col = st.columns(2)
         with meta_col:
-            well_name = st.text_input("Скважина", value="NEW_WELL", key="las_ws2_create_well_name")
-            company = st.text_input("Компания", value="", key="las_ws2_create_company")
-            field = st.text_input("Месторождение / площадь", value="", key="las_ws2_create_field")
-            uwi = st.text_input("UWI", value="", key="las_ws2_create_uwi")
-            api = st.text_input("API", value="", key="las_ws2_create_api")
+            well_name = st.text_input("Скважина", value="NEW_WELL", key="las_ws2_v2_well_name")
+            company = st.text_input("Компания", value="", key="las_ws2_v2_company")
+            field = st.text_input("Месторождение / площадь", value="", key="las_ws2_v2_field")
+            location = st.text_input("Локация", value="", key="las_ws2_v2_location")
+            uwi = st.text_input("UWI", value="", key="las_ws2_v2_uwi")
+            api = st.text_input("API", value="", key="las_ws2_v2_api")
+            service_company = st.text_input("Сервисная компания", value="GAS RATIO PRO", key="las_ws2_v2_service_company")
         with depth_col:
-            start_depth = st.number_input("START", value=1000.0, step=0.1, key="las_ws2_create_start")
-            stop_depth = st.number_input("STOP", value=1010.0, step=0.1, key="las_ws2_create_stop")
-            step = st.number_input("STEP", value=0.2, min_value=0.0001, step=0.1, format="%.4f", key="las_ws2_create_step")
-            depth_unit = st.selectbox("Единицы глубины", options=("M", "FT"), index=0, key="las_ws2_create_depth_unit")
-            null_value = st.number_input("NULL", value=-999.25, step=0.25, key="las_ws2_create_null")
+            las_version = st.selectbox("Версия LAS", options=("2.0", "3.0"), index=0, key="las_ws2_v2_version")
+            start_depth = st.number_input("START", value=1000.0, step=0.1, key="las_ws2_v2_start")
+            stop_depth = st.number_input("STOP", value=1010.0, step=0.1, key="las_ws2_v2_stop")
+            step = st.number_input("STEP", value=0.2, min_value=0.0001, step=0.1, format="%.4f", key="las_ws2_v2_step")
+            depth_unit = st.selectbox("Единицы глубины", options=("M", "FT"), index=0, key="las_ws2_v2_depth_unit")
+            null_value = st.number_input("NULL", value=-999.25, step=0.25, key="las_ws2_v2_null")
 
+        template_names = [row["template"] for row in las_creation_template_rows()]
         template = st.selectbox(
             "Шаблон кривых",
-            options=("empty", "mud_gas", "petrophysics"),
+            options=template_names,
             format_func=lambda item: {"empty": "Пустой LAS", "mud_gas": "Газовый каротаж C1-C5", "petrophysics": "Петрофизика"}.get(item, item),
-            key="las_ws2_create_template",
+            key="las_ws2_v2_template",
         )
         curve_text = st.text_area(
             "Дополнительные кривые",
             value="",
             help="Одна кривая на строку: GR,API,Gamma ray или RHOB|G/C3|Bulk density",
-            key="las_ws2_create_curve_text",
+            key="las_ws2_v2_curve_text",
         )
+        source_las_text = ""
+        if mode_value == LasCreationMode.FROM_LAS.value:
+            st.info("Для режима «по другому LAS» можно вставить LAS-текст. Мастер возьмет STRT/STOP/STEP и список кривых как основу нового файла.")
+            source_las_text = st.text_area("Источник LAS", value="", height=150, key="las_ws2_v2_source_las_text")
 
-        if st.button("Сформировать предпросмотр LAS", type="primary", use_container_width=True, key="las_ws2_create_preview_button"):
+        from las_editor.las_workspace_home import parse_curve_text
+        custom_curves = parse_curve_text(curve_text)
+
+        if st.button("Сформировать предпросмотр LAS 2.0", type="primary", use_container_width=True, key="las_ws2_v2_preview_button"):
             try:
-                preview = build_las_creation_wizard_preview(
+                draft = build_las_creation_wizard_draft(
+                    mode=mode_value,
                     well_name=well_name,
                     start_depth=start_depth,
                     stop_depth=stop_depth,
                     step=step,
                     template_name=template,
-                    curve_text=curve_text,
+                    curves=custom_curves,
+                    las_version=las_version,
                     depth_unit=depth_unit,
                     null_value=null_value,
                     company=company,
                     field=field,
+                    location=location,
                     uwi=uwi,
                     api=api,
+                    service_company=service_company,
+                    source_las_text=source_las_text,
                 )
+                preview = build_las_creation_wizard_preview_v2(draft)
                 st.session_state[LAS_WORKSPACE_CREATED_PREVIEW_KEY] = preview
-                st.session_state[LAS_WORKSPACE_CREATED_SPEC_KEY] = preview.spec
+                st.session_state[LAS_WORKSPACE_CREATED_SPEC_KEY] = preview.draft.spec
                 st.session_state[LAS_WORKSPACE_CREATED_DF_KEY] = preview.data
-                st.session_state[LAS_EDITOR_SESSION_SHEETS_KEY] = {"LAS-созданный": _dataframe_to_raw_sheet(preview.data)}
-                st.session_state[LAS_EDITOR_SESSION_SUMMARY_KEY] = (
-                    f"Создан новый LAS: {preview.row_count} строк, {preview.curve_count} кривых, "
-                    f"интервал {preview.depth_start}–{preview.depth_stop} {depth_unit}"
-                )
-                logger.info("las_workspace_created_preview rows=%d curves=%d", preview.row_count, preview.curve_count)
-                st.success("Новый LAS сформирован и сохранен в рабочую сессию. Его можно редактировать и скачать ниже.")
+                logger.info("las_creation_wizard_v2_preview rows=%d curves=%d", len(preview.data), len(preview.data.columns))
+                st.success("Предпросмотр создан. Проверьте шаги, предупреждения и таблицу перед сохранением.")
             except Exception as exc:
-                logger.exception("las_workspace_create_preview_failed")
-                st.error(f"Не удалось создать LAS: {exc}")
+                logger.exception("las_creation_wizard_v2_preview_failed")
+                st.error(f"Не удалось создать предпросмотр LAS: {exc}")
 
         preview = st.session_state.get(LAS_WORKSPACE_CREATED_PREVIEW_KEY)
         if preview is not None:
+            st.markdown("#### Шаги мастера")
+            st.dataframe(pd.DataFrame(wizard_step_rows(preview.draft)), use_container_width=True, hide_index=True)
+            if preview.issues:
+                st.markdown("#### Проверка")
+                st.dataframe(pd.DataFrame(wizard_issue_rows(preview.issues)), use_container_width=True, hide_index=True)
             metrics = st.columns(4)
-            metrics[0].metric("Строк", preview.row_count)
-            metrics[1].metric("Кривых", preview.curve_count)
-            metrics[2].metric("START", preview.depth_start)
-            metrics[3].metric("STOP", preview.depth_stop)
-            for warning in preview.warnings:
-                st.warning(warning)
+            metrics[0].metric("Строк", len(preview.data))
+            metrics[1].metric("Кривых", len(preview.data.columns))
+            metrics[2].metric("Файл", preview.draft.filename)
+            metrics[3].metric("Готов", "Да" if preview.can_finalize else "Нет")
+            st.dataframe(pd.DataFrame(preview.table_rows), use_container_width=True, hide_index=True)
             st.dataframe(preview.data.head(40), use_container_width=True)
-            las_bytes = build_las_text(preview.spec, preview.data).encode("utf-8")
+
+            if st.button("Создать новый LAS и сохранить в рабочую сессию", disabled=not preview.can_finalize, use_container_width=True, key="las_ws2_v2_finalize_button"):
+                try:
+                    final = finalize_las_creation_wizard(preview.draft)
+                    st.session_state[LAS_WORKSPACE_CREATED_PREVIEW_KEY] = final.preview
+                    st.session_state[LAS_WORKSPACE_CREATED_SPEC_KEY] = final.result.spec
+                    st.session_state[LAS_WORKSPACE_CREATED_DF_KEY] = final.result.data
+                    st.session_state[LAS_EDITOR_SESSION_SHEETS_KEY] = {"LAS-созданный": _dataframe_to_raw_sheet(final.result.data)}
+                    st.session_state[LAS_EDITOR_SESSION_SUMMARY_KEY] = (
+                        f"Создан новый LAS: {len(final.result.data)} строк, {len(final.result.data.columns)} кривых, файл {final.filename}"
+                    )
+                    st.success("Новый LAS создан. Исходные файлы не изменялись.")
+                except Exception as exc:
+                    logger.exception("las_creation_wizard_v2_finalize_failed")
+                    st.error(f"Не удалось завершить создание LAS: {exc}")
+
+            las_bytes = preview.las_text.encode("utf-8")
             st.download_button(
-                "Скачать созданный LAS",
+                "Скачать предпросмотр LAS",
                 data=las_bytes,
-                file_name=f"{preview.spec.well_name or 'new_well'}.las",
+                file_name=preview.draft.filename,
                 mime="application/octet-stream",
                 use_container_width=True,
-                key="las_ws2_created_las_download",
+                key="las_ws2_v2_download_preview",
             )
-
 
 def _render_las_workspace_template_panel() -> None:
     """Show LAS templates on the Home page."""

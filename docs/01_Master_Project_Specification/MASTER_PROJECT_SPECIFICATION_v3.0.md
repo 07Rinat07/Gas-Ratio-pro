@@ -280,3 +280,8 @@ GAS RATIO PRO must expose engineering tools through a unified Project Explorer. 
 LAS editing operations must be safe by default. Repair, Merge and Append operations must create a new copy and must not overwrite the original file.
 
 Descending-depth repair must sort measurements by depth while preserving the relation between every depth value and its measured curve values. Measurements must not be interpolated or reassigned unless the user explicitly selects an advanced data-transform mode.
+
+
+## Roadmap v4.0 Implementation Update: LAS Creation Wizard 2.0
+
+В LAS Workspace 2.0 добавлен профессиональный мастер создания LAS. Он является пользовательским сценарием верхнего уровня и доступен без предварительно загруженного LAS-файла. Мастер поддерживает создание пустого LAS, создание по шаблону, создание по структуре другого LAS, подготовку по CSV/Excel и ручное создание. Все операции выполняются в безопасной модели: исходные файлы не изменяются, результат создается как новый LAS, а действие фиксируется в Operation Journal.

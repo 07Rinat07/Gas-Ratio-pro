@@ -1,4 +1,15 @@
 
+## Roadmap v4.0 — A.3 LAS Creation Wizard 2.0
+
+- Добавлен модуль `las_editor/las_creation_wizard.py`.
+- Реализованы режимы создания LAS: пустой LAS, шаблон, по другому LAS, CSV, Excel, ручной ввод.
+- Добавлены UI-ready шаги мастера, таблицы режимов, таблицы шаблонов, preview, validation и finalize.
+- Добавлено безопасное сохранение только как нового LAS-файла.
+- Добавлена запись Operation Journal для preview/finalize.
+- Streamlit LAS Workspace обновлен под LAS Creation Wizard 2.0.
+- Закреплено: мастер не изменяет исходные LAS/CSV/XLSX-источники.
+
+
 ## Roadmap v4.0 — A.2 Project Explorer Foundation
 
 - Added `projects/project_explorer_foundation.py`.
