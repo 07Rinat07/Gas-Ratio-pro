@@ -846,3 +846,29 @@ from projects.plugin_sdk import (
 )
 
 from .scripting_api import Script, ScriptRegistry
+
+from projects.performance_optimization import (
+    PROJECT_PERFORMANCE_FILE_NAME,
+    PERFORMANCE_SCHEMA,
+    PerformanceMetric,
+    CacheEntry,
+    OptimizationRecommendation,
+    PerformanceSummary,
+    normalize_performance_metric,
+    metric_to_dict,
+    classify_metric_status,
+    record_performance_metric,
+    list_performance_metrics,
+    measure_performance,
+    cache_value,
+    get_cached_value,
+    invalidate_cache,
+    list_cache_entries,
+    estimate_table_memory_bytes,
+    build_optimization_recommendations,
+    summarize_performance,
+    build_performance_metric_table,
+    build_cache_entry_table,
+    build_optimization_recommendation_table,
+    build_performance_manifest,
+)

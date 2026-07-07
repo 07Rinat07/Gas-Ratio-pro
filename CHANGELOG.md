@@ -1,5 +1,13 @@
 # Changelog
 
+## gas-ratio-pro-updated-135
+
+- Added Performance & Optimization Foundation backend module.
+- Added project-level `performance_optimization.json` with normalized metrics, cache entries and optimization recommendations.
+- Added timer measurement context manager, lightweight project cache with TTL/invalidation, memory estimation helpers and performance manifest builder.
+- Added UI helper tables and regression tests for performance metrics, cache behavior, recommendations and manifest generation.
+
+
 ## gas-ratio-pro-updated-97
 
 - Added `docs/eula.md` as the application End User License Agreement.

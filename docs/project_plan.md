@@ -1091,3 +1091,20 @@ Add data exchange center foundation
 - Добавлены regression-тесты Plugin SDK.
 
 Текущий следующий незавершенный пункт: **Scripting API**.
+
+## Этап 135 — Performance & Optimization Foundation
+
+- Добавлен backend-слой `projects/performance_optimization.py` для накопления инженерных метрик производительности без зависимости от Streamlit UI.
+- Добавлено проектное хранилище `performance_optimization.json` со схемой `gas-ratio-pro.performance-optimization.v1`.
+- Реализованы `PerformanceMetric`, `CacheEntry`, `OptimizationRecommendation` и `PerformanceSummary`.
+- Добавлена запись метрик времени, памяти, I/O, кэша, рендеринга, DataFrame-операций и пользовательских метрик.
+- Добавлен context manager `measure_performance` для безопасного измерения длительности операций и автоматической записи результата в историю проекта.
+- Добавлен lightweight project cache: запись значения, получение с hit counter, TTL stale-state и массовая инвалидизация по namespace/key prefix.
+- Добавлена оценка памяти DataFrame-like объектов с fallback на JSON-size estimation без обязательной зависимости от pandas.
+- Добавлен генератор optimization recommendations для медленных timer/render операций и проблем памяти.
+- Добавлены UI helper tables для метрик, кэша и рекомендаций.
+- Добавлен `build_performance_manifest` для будущего Release Candidate аудита производительности.
+- Модуль экспортирован через `projects/__init__.py`.
+- Добавлены regression-тесты Performance & Optimization.
+
+Текущий следующий незавершенный пункт: **Release Candidate Stabilization**.
