@@ -1169,3 +1169,12 @@ Add data exchange center foundation
 Реализованы безопасные операции: добавление кривой, удаление незащищенной кривой, переупорядочивание кривых с сохранением DEPT первой, metadata-only обновление manifest-полей. Исходный LAS не перезаписывается: операции выполняются в рабочей копии DataFrame и в reference/manifest-структурах.
 
 Текущий следующий незавершенный пункт: **Phase II → B.3 LAS Header Editor Professional** или расширение **B.2 Curve Manager UI integration**.
+
+
+### Реализовано: Phase II → B.3 LAS Header Editor Professional Foundation
+
+Добавлен backend-слой `las_editor/header_editor.py` для профессионального редактирования LAS header metadata без изменения ASCII-таблицы кривых. Модуль нормализует элементы секций `~Version`, `~Well`, `~Curve` и `~Parameter` в единый формат `LasHeaderCard`, формирует manifest, UI-ready таблицы и текстовые LAS header секции.
+
+Реализованы безопасные операции добавления, обновления и удаления header-card элементов. Обязательные LAS элементы защищены от удаления: `VERS`, `WRAP`, `STRT`, `STOP`, `STEP`, `NULL`, `DEPT`. Добавлена валидация обязательных элементов, шага глубины и обратного диапазона глубин. Все изменения фиксируются в history и помечаются как header-only операции, чтобы не нарушать правило безопасного сохранения LAS.
+
+Текущий следующий незавершенный пункт: **Phase II → B.4 LAS ASCII Table Editor Professional** или **B.5 LAS Validation Professional**.

@@ -44,6 +44,7 @@
 - LAS Editor Professional Foundation
 - LAS Creation Wizard
 - Curve Manager Foundation
+- LAS Header Editor Foundation
 - Formation Manager
 - Plot Studio
 - Statistics Center
@@ -77,7 +78,7 @@ python --version
 Например:
 
 ```bash
-unzip gas-ratio-pro-phase2-b2-curve-manager.zip
+unzip gas-ratio-pro-phase2-b3-header-editor.zip
 cd gas-ratio-pro-phase2-b2-curve-manager
 ```
 

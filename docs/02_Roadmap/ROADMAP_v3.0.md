@@ -60,13 +60,17 @@ Status: **Backend foundation implemented**.
 - Empty well template.
 
 ### B.3 Header Editor
+Status: **Backend foundation implemented**.
 - Version section editor.
 - Well section editor.
 - Curve section editor.
 - Parameter section editor.
-- Other section editor.
+- Protected mandatory header cards.
+- Header validation and render helpers.
+- UI-ready header tables.
 
 ### B.4 Curve Manager Professional
+Status: **Backend foundation implemented as Phase II B.2**.
 - Add curve.
 - Delete curve.
 - Rename curve.
@@ -420,3 +424,12 @@ Reason:
 
 ### M.3 Cloud and Collaboration
 Status: Deferred.
+
+
+### B.5 ASCII Table Editor
+- Manual value editing.
+- Insert/delete depth rows.
+- Null replacement.
+- Range fill.
+- Copy/paste table operations.
+- Safe working-copy workflow.

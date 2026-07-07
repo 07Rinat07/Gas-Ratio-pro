@@ -1,3 +1,14 @@
+## Phase II B.3 — LAS Header Editor Professional Foundation
+
+- Added `las_editor/header_editor.py` for professional LAS header metadata editing.
+- Added normalized header cards for `~Version`, `~Well`, `~Curve` and `~Parameter` sections.
+- Added default header card builder for newly created LAS files.
+- Added add/update/delete operations with protection for mandatory cards such as `VERS`, `WRAP`, `STRT`, `STOP`, `STEP`, `NULL` and `DEPT`.
+- Added header validation for mandatory LAS items, positive depth step and reversed depth ranges.
+- Added render helpers for LAS header sections and UI-ready header tables.
+- Added operation history entries and safe header-only diagnostics.
+- Added regression tests for Header Editor backend operations, validation, rendering and protected item behavior.
+
 
 ## Phase II B.2 — LAS Curve Manager Professional Foundation
 

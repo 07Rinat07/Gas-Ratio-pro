@@ -191,3 +191,31 @@ Curve Manager является единым слоем управления кр
 - metadata-only операции не изменяют числовые значения кривых;
 - все изменения фиксируются в history;
 - тесты Curve Manager проходят без Streamlit.
+
+
+## Phase II B.3 — LAS Header Editor Professional Foundation
+
+Header Editor отвечает за безопасное редактирование metadata LAS-файла. Он работает с секциями `~Version`, `~Well`, `~Curve` и `~Parameter` как с нормализованными карточками `LasHeaderCard`. Редактирование header не должно изменять значения ASCII-таблицы кривых.
+
+Обязательные функции B.3:
+
+- создание минимального набора header-card для нового LAS;
+- manifest по секциям LAS;
+- редактирование значения, единицы измерения, описания и порядка;
+- добавление пользовательских элементов header;
+- удаление только незащищенных элементов;
+- защита обязательных элементов `VERS`, `WRAP`, `STRT`, `STOP`, `STEP`, `NULL`, `DEPT`;
+- проверка обязательных элементов LAS;
+- проверка положительного `STEP`;
+- предупреждение при `STRT > STOP`;
+- UI-ready таблица header elements;
+- render helper для подготовки LAS header text;
+- журнал header-only операций.
+
+Критерии приемки:
+
+- обязательные элементы нельзя удалить через Header Editor;
+- update header-card не меняет LAS ASCII data;
+- invalid STEP возвращает validation issue;
+- render содержит секции `~Version`, `~Well`, `~Curve`, `~Parameter`;
+- тесты Header Editor проходят без Streamlit.

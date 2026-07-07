@@ -121,3 +121,5 @@ __all__ = [
     "insert_manual_depth_rows",
     "resample_las_data",
 ]
+
+# Phase II B.3: LAS Header Editor Professional helpers are available from las_editor.header_editor.
