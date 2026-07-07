@@ -179,6 +179,17 @@ from las_editor.las_processing_pipeline import (
     render_processing_report,
 )
 
+
+from las_editor.las_diagnostics_center import (
+    LAS_DIAGNOSTICS_CENTER_SCHEMA,
+    LAS_DIAGNOSTICS_CENTER_STORAGE_KEY,
+    LasDiagnosticFinding,
+    LasDiagnosticsReport,
+    diagnostics_finding_table_rows,
+    render_diagnostics_report,
+    run_las_diagnostics_center,
+)
+
 from las_editor.las_quality_control import (
     LAS_QUALITY_CONTROL_SCHEMA,
     LAS_QUALITY_CONTROL_STORAGE_KEY,
@@ -368,6 +379,13 @@ from las_editor.depth_grid import (
 )
 
 __all__ = [
+    "LAS_DIAGNOSTICS_CENTER_SCHEMA",
+    "LAS_DIAGNOSTICS_CENTER_STORAGE_KEY",
+    "LasDiagnosticFinding",
+    "LasDiagnosticsReport",
+    "diagnostics_finding_table_rows",
+    "render_diagnostics_report",
+    "run_las_diagnostics_center",
     "ADVANCED_SATURATION_SCHEMA",
     "ADVANCED_SATURATION_STORAGE_KEY",
     "AdvancedSaturationPlan",

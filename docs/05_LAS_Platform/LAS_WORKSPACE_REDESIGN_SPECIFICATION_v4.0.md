@@ -106,3 +106,46 @@ Acceptance Criteria:
 4. Операция формирует history и manifest для Operation Journal.
 5. Дубликаты и null depth диагностируются отдельно.
 
+
+---
+
+## 8. Diagnostics Center
+
+Diagnostics Center является read-only orchestration layer для LAS Workspace. Он собирает результаты проверок из Validator, Quality Control и Depth Repair Center в единый отчет для UI, экспорта и Operation Journal.
+
+Назначение:
+
+- показать пользователю все проблемы LAS в одном месте;
+- разделить источник проблемы: validator, quality_control, depth_repair;
+- не выполнять исправления автоматически;
+- не изменять исходный LAS/DataFrame;
+- направлять пользователя в специализированный workspace для исправления.
+
+Реализация: `las_editor.las_diagnostics_center`.
+
+Входные данные:
+
+- ASCII DataFrame рабочей копии LAS;
+- header cards при наличии;
+- sections или raw LAS text при наличии;
+- depth curve, expected step, null value;
+- optional quality profiles и units.
+
+Выходные данные:
+
+- `LasDiagnosticsReport`;
+- нормализованный список `LasDiagnosticFinding`;
+- summary по severity, source и code;
+- manifest для Operation Journal;
+- Markdown-отчет;
+- UI-ready table rows.
+
+Acceptance Criteria:
+
+1. Diagnostics Center работает только в read-only mode.
+2. Исходный DataFrame/LAS не мутируется.
+3. Validator findings, Quality Control issues и Depth Repair issues приводятся к единому формату.
+4. Для каждой проблемы сохраняется source, severity, code, message, curve/section/row и recommendation.
+5. Report содержит status: `passed`, `warning` или `failed`.
+6. Manifest пригоден для Operation Journal и последующего экспорта.
+7. Исправления выполняются только в соответствующих специализированных центрах, а не внутри Diagnostics Center.
