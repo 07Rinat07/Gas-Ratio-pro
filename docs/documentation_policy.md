@@ -69,3 +69,7 @@ Disallowed in the root:
 - temporary AI-generated notes
 
 The root must not contain assistant, Aider, or other AI-session history files.
+
+## Roadmap v5 documentation rule
+
+All roadmap, architecture, UI/UX and implementation planning documents must be stored under `docs/`. Root-level temporary implementation summaries, AI history files and intermediate reports are not allowed.
