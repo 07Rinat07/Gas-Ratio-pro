@@ -218,3 +218,14 @@ git status --short
 - Added JSON import/export roundtrip for correlation sessions and export manifest generation for JSON/PNG/SVG/PDF targets.
 - Connected persistent sessions with existing professional correlation primitives: markers, tie lines and depth alignments.
 - Added regression tests for session CRUD, validation, JSON roundtrip, export manifest and marker object compatibility.
+
+## gas-ratio-pro-updated-132
+
+- Added Advanced Report Studio Professional backend layer.
+- Added report packages with ordered reusable content blocks and report variables.
+- Added package validation for missing sections, empty paragraphs and missing visual/table sources.
+- Added renderer-independent render preview and render manifest for future PDF/DOCX/HTML adapters.
+- Added deterministic lightweight HTML preview generation without Streamlit dependency.
+- Added report export job status updates with project history integration.
+- Added UI helper tables for packages, blocks and validation issues.
+- Added regression tests for professional report packages, manifests, validation and job statuses.

@@ -1057,3 +1057,19 @@ Add data exchange center foundation
 - Добавлены regression-тесты для CRUD, валидации, JSON roundtrip и export manifest.
 
 Текущий следующий незавершенный пункт: **Advanced Report Studio Professional**.
+
+## Этап 132 — Advanced Report Studio Professional
+
+- Добавлен профессиональный backend-слой Report Studio поверх существующих шаблонов и export jobs.
+- Реализованы `ReportPackage` и `ReportContentBlock` для сборки отчета из текстовых, табличных, графических, plot/statistics/interpretation/calculation и page-break блоков.
+- Добавлено хранение пакетов отчета в `report_studio.json` без изменения исходных LAS-файлов и без зависимости от Streamlit UI.
+- Добавлена нормализация и сортировка блоков отчета по порядку, разделу и заголовку.
+- Добавлена валидация пакетов: несоответствие шаблона, пустой пакет, неизвестный раздел, отсутствующий источник для таблиц/изображений/plot-блоков и пустые текстовые блоки.
+- Добавлены таблицы для будущего UI: packages, blocks, validation issues.
+- Добавлен renderer-independent `ReportRenderPreview`: количество разделов, блоков, ориентировочная страничность и table of contents.
+- Добавлен `build_report_render_manifest` для будущих HTML/PDF/DOCX/XLSX/PNG/SVG render/export adapters.
+- Добавлен deterministic lightweight HTML preview `render_report_html`, не требующий Streamlit или внешних PDF-движков.
+- Добавлено обновление статуса export job: queued/running/completed/failed/cancelled с записью в историю проекта.
+- Добавлены regression-тесты для report packages, validation, render manifest, HTML preview и статусов export jobs.
+
+Текущий следующий незавершенный пункт: **Plugin SDK**.
