@@ -1163,3 +1163,21 @@ from projects.plot_studio_core import (
     build_plot_workspace_manifest,
     build_plot_workspace_track_table,
 )
+
+from projects.plot_studio_navigation import (
+    PlotNavigationBounds,
+    PlotNavigationConfig,
+    PlotNavigationHistory,
+    PlotNavigationState,
+    PlotBoxZoomRequest,
+    PlotPanRequest,
+    build_plot_navigation_bounds,
+    initialize_plot_navigation,
+    mouse_wheel_zoom,
+    box_zoom,
+    pan_plot,
+    reset_plot_zoom,
+    undo_plot_navigation,
+    redo_plot_navigation,
+    build_plot_navigation_manifest,
+)

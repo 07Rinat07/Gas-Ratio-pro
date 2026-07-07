@@ -127,3 +127,56 @@ Plot Studio Core не выполняет отрисовку графиков и 
 5. Shared Crosshair.
 6. Professional Track Layout.
 7. PDF/PNG/SVG/TIFF export pipeline.
+
+---
+
+## 5. Plot Studio Mouse Zoom & Navigation Backend
+
+Реализован backend-слой интерактивной навигации Plot Studio 2.0: `projects/plot_studio_navigation.py`.
+
+### 5.1 Назначение
+
+Модуль принимает нормализованные события UI: колесо мыши, box zoom, pan, reset, undo и redo. Он не отрисовывает графики, не читает и не изменяет LAS-файлы, а возвращает новый immutable `PlotWorkspace` с обновленным `PlotViewportState`.
+
+### 5.2 Основные модели
+
+- `PlotNavigationBounds` — полный допустимый диапазон глубин для ограничения zoom/pan.
+- `PlotNavigationConfig` — параметры чувствительности wheel zoom, zoom out, pan, минимального окна и размера истории.
+- `PlotNavigationHistory` — undo/redo history для viewport-состояний.
+- `PlotNavigationState` — текущий workspace вместе с bounds и history для Session State.
+- `PlotBoxZoomRequest` — нормализованный запрос выделения прямоугольной области.
+- `PlotPanRequest` — нормализованный запрос перемещения графика по глубине.
+
+### 5.3 Реализованные функции
+
+- инициализация navigation state из Plot Workspace;
+- проверка и построение navigation bounds;
+- zoom колесом мыши относительно anchor depth;
+- zoom in / zoom out с ограничением по полному диапазону данных;
+- box zoom по выбранному интервалу глубины;
+- pan по delta или fraction;
+- reset zoom до полного диапазона;
+- undo/redo истории viewport;
+- формирование serializable manifest для Streamlit Session State и debug panel.
+
+### 5.4 Инженерные ограничения
+
+- оригинальный LAS не изменяется;
+- работа выполняется только с immutable workspace model;
+- zoom/pan не позволяют выйти за полный диапазон данных;
+- минимальное окно zoom защищает UI от нулевого или слишком малого масштаба;
+- crosshair автоматически ограничивается новым viewport;
+- история viewport ограничивается `max_history`, чтобы не раздувать Session State.
+
+### 5.5 Acceptance Criteria
+
+Mouse Zoom & Navigation считается готовым, если:
+
+1. колесо мыши уменьшает или увеличивает текущий интервал глубин;
+2. anchor depth сохраняет положение относительно окна zoom;
+3. box zoom принимает прямой и обратный выбор интервала;
+4. pan сохраняет текущую высоту окна;
+5. reset возвращает полный диапазон;
+6. undo/redo восстанавливают предыдущие viewport-состояния;
+7. операции не мутируют исходный workspace;
+8. все операции ограничены navigation bounds.
