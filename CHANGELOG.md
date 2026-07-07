@@ -443,3 +443,12 @@ git status --short
 - Added manifest generation, UI-ready issue/comparison tables and Markdown report rendering.
 - Exported Advanced Saturation Models API through `las_editor/__init__.py`.
 - Added regression tests in `tests/test_advanced_saturation_models.py`.
+
+## Phase II - B.18 Petrophysical Crossplot Workspace Foundation
+
+- Added `las_editor/petrophysical_crossplot_workspace.py`.
+- Added backend crossplot specifications for Pickett, Hingle, Buckles, Density-Neutron, Sonic-Density and GR-Resistivity plots.
+- Added depth-window filtering, linear trend summaries, deterministic cluster summaries and UI-ready tables.
+- Added crossplot manifest generation and Markdown report rendering.
+- Exported Petrophysical Crossplot Workspace API through `las_editor/__init__.py`.
+- Added regression tests in `tests/test_petrophysical_crossplot_workspace.py`.

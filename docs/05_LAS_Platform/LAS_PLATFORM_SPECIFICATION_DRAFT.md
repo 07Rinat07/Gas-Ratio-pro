@@ -527,3 +527,30 @@ The Advanced Saturation Models module extends the LAS Platform with professional
 ### Engineering note
 
 The Dual Water implementation is a foundation-level deterministic approximation intended for project workflow integration. Full calibration-oriented Dual Water modeling remains a later professional enhancement.
+
+## B.18 Petrophysical Crossplot Workspace Foundation
+
+The Petrophysical Crossplot Workspace provides backend data structures for visual petrophysical interpretation. The foundation layer does not render figures directly; instead, it creates deterministic plot specifications that can be consumed by Plot Studio or Streamlit UI.
+
+### Supported crossplot specifications
+
+- Pickett Plot: porosity/effective porosity vs deep resistivity.
+- Hingle Plot: porosity/effective porosity vs resistivity.
+- Buckles Plot: porosity/effective porosity vs water saturation.
+- Density-Neutron crossplot: neutron porosity vs bulk density.
+- Sonic-Density crossplot: sonic transit time vs bulk density.
+- Gamma Ray vs Resistivity screening plot.
+
+### Functional requirements
+
+- Crossplot generation must not modify LAS data.
+- Missing required curves must be reported as validation issues.
+- Optional depth filtering must be supported.
+- Each crossplot must expose x/y/color curves, axis labels, scale hints and point count.
+- Each crossplot must expose trend statistics when enough points are available.
+- Cluster summaries must be deterministic and explainable.
+- The module must produce UI-ready tables, a manifest and a Markdown report.
+
+### Integration notes
+
+This module is designed for future integration with Plot Studio and Report Studio. It prepares stable backend specifications that can later be rendered as Plotly figures, exported to PNG/SVG/PDF, and embedded in professional reports.

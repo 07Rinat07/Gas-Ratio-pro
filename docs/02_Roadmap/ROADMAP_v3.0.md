@@ -576,3 +576,27 @@ Delivered:
 - Markdown report and machine-readable manifest.
 
 Next recommended block: B.18 Petrophysical Crossplot Workspace Foundation.
+
+### B.18 — Petrophysical Crossplot Workspace Foundation
+
+Status: Implemented.
+
+Purpose:
+
+Add a backend foundation for professional petrophysical crossplot interpretation and future Plot Studio integration.
+
+Delivered:
+
+- Pickett Plot specification.
+- Hingle Plot specification.
+- Buckles Plot specification.
+- Density-Neutron crossplot specification.
+- Sonic-Density crossplot specification.
+- Gamma Ray vs Resistivity screening crossplot.
+- Depth-window filtering.
+- Deterministic linear trend summaries.
+- Simple explainable cluster summaries based on shale-volume or color curve buckets.
+- UI-ready spec, issue and cluster tables.
+- Markdown report and machine-readable manifest.
+
+Next recommended block: B.19 Lithology / Rock-Type Classification Foundation.
