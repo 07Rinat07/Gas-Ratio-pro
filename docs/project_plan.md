@@ -1073,3 +1073,21 @@ Add data exchange center foundation
 - Добавлены regression-тесты для report packages, validation, render manifest, HTML preview и статусов export jobs.
 
 Текущий следующий незавершенный пункт: **Plugin SDK**.
+
+## Этап 133 — Plugin SDK Foundation
+
+- Добавлен backend-слой Plugin SDK без лицензирования и без динамической загрузки небезопасного стороннего кода.
+- Добавлен проектный реестр `plugin_sdk.json` для plugin manifests, hooks и будущих developer keys.
+- Реализован `PluginManifest` со схемой `gas-ratio-pro.plugin-sdk.v1`, SemVer-проверкой, entry point, permissions, extension points, tags, status и metadata.
+- Зарегистрированы разрешенные permission scopes: project/wells/LAS/plots/reports/batch/scripting read-write scopes.
+- Зарегистрированы extension points: dashboard card, sidebar section, LAS curve processor, plot track renderer, report block renderer, data importer/exporter, workflow step и quality rule.
+- Добавлена валидация manifest: неизвестные permissions, неизвестные extension points, некорректный entry point и запрет включения plugin с ошибками.
+- Реализованы регистрация, получение, список, смена статуса и удаление plugin с записью в историю проекта.
+- Добавлен Plugin Hook Registry для событий project/well/LAS/plot/report/batch.
+- Добавлен `build_plugin_api_registry` для будущей безопасной передачи enabled plugins в UI/Service Registry.
+- Добавлен генератор scaffold: `plugin.json`, `plugin.py`, `README.md`.
+- Добавлены таблицы для будущего UI: plugins, hooks, validation issues.
+- Добавлены JSON import/export helpers для plugin manifest.
+- Добавлены regression-тесты Plugin SDK.
+
+Текущий следующий незавершенный пункт: **Scripting API**.

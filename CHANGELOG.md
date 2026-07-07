@@ -229,3 +229,13 @@ git status --short
 - Added report export job status updates with project history integration.
 - Added UI helper tables for packages, blocks and validation issues.
 - Added regression tests for professional report packages, manifests, validation and job statuses.
+
+## gas-ratio-pro-updated-133
+
+- Added Plugin SDK foundation backend layer with project-level `plugin_sdk.json` registry.
+- Added validated plugin manifests, SDK schema marker, SemVer checks, permission scopes and extension-point validation.
+- Added plugin CRUD/status management with project history integration and safe enablement checks.
+- Added plugin hook registry for supported application events and renderer/workflow/importer extension points.
+- Added scaffold generator with `plugin.json`, `plugin.py` and README template for external plugin developers.
+- Added API registry manifest for enabled plugins and UI helper tables for plugins, hooks and validation issues.
+- Added JSON import/export helpers and regression tests for manifest roundtrip, registry, hooks, scaffold and validation.

@@ -820,3 +820,27 @@ from projects.correlation_studio import (
     import_correlation_session_json,
     build_correlation_export_manifest,
 )
+
+from projects.plugin_sdk import (
+    PLUGIN_SDK_SCHEMA,
+    PluginManifest,
+    PluginHook,
+    PluginValidationIssue,
+    create_plugin_manifest_template,
+    create_plugin_scaffold,
+    register_plugin,
+    list_plugins,
+    get_plugin,
+    update_plugin_status,
+    delete_plugin,
+    register_plugin_hook,
+    list_plugin_hooks,
+    validate_plugin_manifest,
+    build_plugin_api_registry,
+    build_plugin_table,
+    build_plugin_hook_table,
+    build_plugin_validation_table,
+    summarize_plugin_sdk,
+    export_plugin_manifest_json,
+    import_plugin_manifest_json,
+)
