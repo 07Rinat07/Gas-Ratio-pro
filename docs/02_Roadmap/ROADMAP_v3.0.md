@@ -444,3 +444,17 @@ Status: Deferred.
 Добавлен read-only backend-валидатор LAS workspace: обязательные секции, header cards, сверка `~Curve` и `~ASCII`, проверка depth index, дубликатов, шага, STRT/STOP и NULL-значений. Результат формируется как `LasValidationReport` с summary, findings table и markdown-render.
 
 Следующий практический шаг блока B: **B.6 LAS Safe Export Professional**.
+
+### B.6 LAS Safe Export Professional Foundation — реализовано
+
+Реализован слой безопасного экспорта LAS:
+
+- шаблоны LAS для типовых рабочих процессов;
+- export manifest;
+- проверка целевого пути;
+- запрет сохранения поверх исходного LAS;
+- защита от случайной перезаписи существующего файла;
+- безопасная запись LAS-текста и LAS-документа;
+- UI-ready таблицы для будущего интерфейса экспорта.
+
+Следующий практический шаг блока B: **B.7 LAS Import/Export Integration**.

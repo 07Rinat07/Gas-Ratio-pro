@@ -325,3 +325,13 @@ git status --short
 - Added basic professional curve operations: add non-depth curve, delete non-depth curve, mnemonic/unit normalization.
 - Exported LAS creation API through `las_editor/__init__.py`.
 - Added regression tests for LAS Creation Wizard backend, templates, validation and curve add/delete operations.
+## Phase II Implementation — LAS Platform Professional B.6
+
+- Added LAS Safe Export Professional foundation with safe destination validation.
+- Added built-in LAS template profiles for empty, mud gas and petrophysical LAS workflows.
+- Added export manifests with schema marker, status, target/source paths, data size, row/curve counts and validation summary.
+- Added source-overwrite protection: exported LAS files cannot be saved over the original source LAS path.
+- Added existing-target protection unless overwrite is explicitly enabled for a non-source target.
+- Added safe LAS text/document export helpers and UI-ready export/template tables.
+- Exported safe export API through `las_editor/__init__.py`.
+- Added regression tests for template profiles, safe path validation, source overwrite blocking and safe LAS writing.
