@@ -1450,3 +1450,28 @@ Status: implemented.
 Implemented the first integration layer for the geological modeling block. The workspace registers model objects from structural modeling, geological model workspace, facies modeling, property modeling, interpolation, simulation, reservoir volumetrics, LAS datasets and report packages. It builds a dependency graph between objects, validates missing links and orphan objects, prepares UI-ready tables, generates a manifest and renders a Markdown integration report.
 
 This stage creates the foundation for a unified geological project object and prepares the project for model consistency audit, model packaging and future 3D visualization workflows.
+
+# Engineering Review & Project Redesign — Roadmap v4.0
+
+Project development is paused for new large backend foundation modules until Roadmap v4.0 remediation starts.
+
+Accepted priorities:
+
+1. Full project audit.
+2. Full Roadmap revision.
+3. Full Master Project Specification revision.
+4. UI/UX redesign.
+5. LAS Workspace visibility fix.
+6. Plot Studio professional redesign.
+7. Report Studio 2.0 with PDF/XLSX/PNG/SVG exports.
+8. Triangular diagram repair.
+9. Geological Modeling Workspace UI.
+
+Primary documents:
+
+- `docs/00_Project_Audit/PROJECT_AUDIT_v1.0.md`
+- `docs/02_Roadmap/ROADMAP_v4.0.md`
+- `docs/01_Master_Project_Specification/MASTER_PROJECT_SPECIFICATION_v3.0.md`
+- `docs/08_UI_UX/UI_UX_REDESIGN_PLAN_v4.0.md`
+- `docs/13_Plot_Studio/PLOT_STUDIO_REDESIGN_SPECIFICATION_v4.0.md`
+- `docs/12_Report_Studio/REPORT_STUDIO_2.0_SPECIFICATION.md`

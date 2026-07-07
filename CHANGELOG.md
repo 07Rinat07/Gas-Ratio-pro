@@ -576,3 +576,16 @@ git status --short
 - Added integration views, validation, manifest, Markdown report and UI-ready helper tables.
 - Exported Geological Model Integration Workspace API through `projects/__init__.py`.
 - Added regression tests in `tests/test_geological_model_integration_workspace.py`.
+
+## Engineering Review & Project Redesign — Roadmap v4.0
+
+- Added full project audit document.
+- Added ROADMAP_v4.0 focused on UI/UX, Plot Studio, Report Studio, LAS visibility and Geological Modeling UI.
+- Added MASTER_PROJECT_SPECIFICATION_v3.0.
+- Added LAS Workspace Redesign specification.
+- Added Plot Studio Professional Redesign specification.
+- Added Report Studio 2.0 specification.
+- Added Geological Modeling Workspace Redesign specification.
+- Added implementation plan after Roadmap v4.0.
+- Marked triangular diagram as requiring repair/redesign.
+- Deferred project packaging until core workflows and UI are corrected.
