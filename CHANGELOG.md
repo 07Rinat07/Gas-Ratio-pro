@@ -376,3 +376,14 @@ git status --short
 - Added preview rows, calculated curve specs, UI-ready issue/template tables and calculation manifest.
 - Exported Curve Calculator API through `las_editor/__init__.py`.
 - Added regression tests for formula validation, calculation, templates, IF logic, manifest and safe non-destructive behavior.
+
+## Phase II — B.11 LAS Quality Control Professional Foundation
+
+- Added `las_editor/las_quality_control.py`.
+- Added LAS quality-control profiles for common well-log curves.
+- Added depth QC: duplicate samples, non-monotonic depth and missing/irregular depth intervals.
+- Added curve QC: missing values, negative values, expected range checks, spikes, flat-line segments, statistical outliers and unit mismatch warnings.
+- Added UI-ready issue/profile tables.
+- Added quality-control manifest and Markdown report renderer.
+- Exported LAS Quality Control API through `las_editor/__init__.py`.
+- Added regression tests for the new QC foundation.
