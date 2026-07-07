@@ -46,3 +46,29 @@
 Если пользователь или разработчик задает вопрос "как запустить", "как пользоваться",
 "какой формат данных нужен", "где смотреть ошибку" или "почему расчет такой",
 ответ должен находиться в документации проекта, а не только в переписке.
+
+## Repository root policy
+
+Root directory is reserved for operational project files only:
+
+- `README.md`
+- `CHANGELOG.md`
+- `LICENSE`
+- dependency/configuration files
+- launch scripts
+- development tool files
+
+Roadmap summaries, phase reports, redesign notes, continuation guides and other
+project documentation must be stored under `docs/`.
+
+Recommended locations:
+
+| Document type | Location |
+| --- | --- |
+| Roadmap and phase summaries | `docs/02_Roadmap/` |
+| LAS Workspace specifications | `docs/05_LAS_Platform/` |
+| Plot Studio specifications | `docs/13_Plot_Studio/` |
+| Architecture documents | `docs/04_Software_Architecture/` |
+| Testing documents | `docs/10_Testing/` |
+
+New `GAS_RATIO_PRO_ROADMAP_*` files must not be committed to the repository root.

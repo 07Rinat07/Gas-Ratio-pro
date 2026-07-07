@@ -589,3 +589,10 @@ git status --short
 - Added implementation plan after Roadmap v4.0.
 - Marked triangular diagram as requiring repair/redesign.
 - Deferred project packaging until core workflows and UI are corrected.
+
+## Documentation Root Cleanup
+
+- Moved GAS_RATIO_PRO_ROADMAP_v4_SUMMARY.txt from repository root to docs/02_Roadmap/.
+- Added Roadmap documentation index.
+- Extended documentation policy with repository root rules.
+- Added repository layout tests to prevent roadmap documents in root.
