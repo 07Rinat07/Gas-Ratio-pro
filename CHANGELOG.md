@@ -355,3 +355,13 @@ git status --short
 - Added safe LAS text/document export helpers and UI-ready export/template tables.
 - Exported safe export API through `las_editor/__init__.py`.
 - Added regression tests for template profiles, safe path validation, source overwrite blocking and safe LAS writing.
+
+## Phase II — B.9 LAS Curve Import Professional Foundation
+
+- Added `las_editor/curve_importer.py`.
+- Added safe CSV/XLSX curve import helpers.
+- Added curve import planning before merge.
+- Added exact, nearest and interpolation depth matching policies.
+- Added conflict policies: skip, suffix and replace.
+- Added import manifest, UI-ready plan tables and issue tables.
+- Added tests for curve import workflow.

@@ -1,6 +1,26 @@
 from __future__ import annotations
 
 
+from las_editor.curve_importer import (
+    CURVE_IMPORT_STORAGE_KEY,
+    SUPPORTED_CONFLICT_POLICIES,
+    SUPPORTED_MATCH_POLICIES,
+    CurveImportHistoryEntry,
+    CurveImportIssue,
+    CurveImportPlan,
+    CurveImportResult,
+    build_curve_import_manifest,
+    build_curve_import_plan,
+    curve_import_issue_table_rows,
+    curve_import_table_rows,
+    import_curve_specs_from_table,
+    merge_imported_curves,
+    normalize_curve_import_table,
+    read_curve_import_csv,
+    read_curve_import_xlsx,
+)
+
+
 
 
 from las_editor.las_safe_export import (
@@ -125,6 +145,23 @@ from las_editor.depth_grid import (
 )
 
 __all__ = [
+    "CURVE_IMPORT_STORAGE_KEY",
+    "SUPPORTED_CONFLICT_POLICIES",
+    "SUPPORTED_MATCH_POLICIES",
+    "CurveImportHistoryEntry",
+    "CurveImportIssue",
+    "CurveImportPlan",
+    "CurveImportResult",
+    "build_curve_import_manifest",
+    "build_curve_import_plan",
+    "curve_import_issue_table_rows",
+    "curve_import_table_rows",
+    "import_curve_specs_from_table",
+    "merge_imported_curves",
+    "normalize_curve_import_table",
+    "read_curve_import_csv",
+    "read_curve_import_xlsx",
+
     "validate_safe_export_request",
     "las_template_table_rows",
     "get_las_template_profile",

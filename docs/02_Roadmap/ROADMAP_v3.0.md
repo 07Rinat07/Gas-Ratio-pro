@@ -469,3 +469,9 @@ Status: Deferred.
 
 Добавлен слой проверки доказательной базы документации. Модуль `projects/documentation_evidence.py` проверяет реестр `docs/sources/source_registry.json`, наличие зарегистрированных PDF-файлов, ссылки вида `docs/sources/*.pdf` в документации, локальные абсолютные пути пользователя, незарегистрированные ссылки и лишние PDF-файлы без записи в реестре. Результаты доступны в виде UI-ready таблиц, manifest-структуры и Markdown-отчета для preflight/release-проверок.
 
+
+### Phase II — B.9 LAS Curve Import Professional Foundation — реализовано
+
+Добавлен backend-модуль `las_editor/curve_importer.py` для безопасного импорта кривых из CSV/XLSX в рабочую копию LAS-таблицы. Реализованы план импорта, нормализация мнемоник, сопоставление по глубине, интерполяция, политики конфликтов `skip/suffix/replace`, manifest, UI-ready таблицы и тесты.
+
+Следующий практический шаг блока B: **B.10 LAS Curve Calculator Professional**.
