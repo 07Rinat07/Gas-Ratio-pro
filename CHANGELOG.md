@@ -511,3 +511,13 @@ git status --short
 - Added geostatistics jobs, manifest generation, UI-ready tables and Markdown report rendering.
 - Exported Geostatistics Workspace API through `projects/__init__.py`.
 - Added regression tests in `tests/test_geostatistics_workspace.py`.
+
+## Phase II — C.5 Property Simulation Engine Foundation
+
+- Added `projects/property_simulation_engine.py`.
+- Added Sequential Gaussian Simulation foundation for continuous property realizations.
+- Added Sequential Indicator Simulation foundation for facies/discrete property realizations.
+- Added reproducible seed-based simulation, realization metadata, uncertainty and confidence fields.
+- Added simulation job registry, manifest generation, UI-ready tables and Markdown report rendering.
+- Exported Property Simulation Engine API through `projects/__init__.py`.
+- Added regression tests in `tests/test_property_simulation_engine.py`.

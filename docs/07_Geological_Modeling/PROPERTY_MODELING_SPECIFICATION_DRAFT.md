@@ -43,3 +43,25 @@ The module follows the property modeling workflow used in the provided methodolo
 The interpolation engine provides the backend layer for transferring well/property samples into grid targets. The foundation includes regular grid generation, normalized sample models, nearest-neighbor interpolation, IDW interpolation, simple kriging foundation metadata, interpolation jobs, manifests, UI-ready tables and Markdown reports.
 
 The module is intentionally deterministic and conservative so that future Kriging, SGS and co-kriging algorithms can reuse the same public API without breaking existing workflows.
+
+## Phase II C.5 — Property Simulation Engine Foundation
+
+Property simulation extends interpolation workflows with multiple stochastic realizations.
+
+Supported foundation methods:
+
+- Sequential Gaussian Simulation foundation for numeric property cubes;
+- Sequential Indicator Simulation foundation for discrete facies/lithology cubes.
+
+Each simulated cell stores:
+
+- coordinates and grid indices;
+- simulated value;
+- method name;
+- realization number;
+- seed;
+- base estimate;
+- uncertainty;
+- confidence.
+
+Simulation jobs are stored in `property_simulation_engine.json` and can be used by future UI panels, reporting workflows and uncertainty analysis modules.

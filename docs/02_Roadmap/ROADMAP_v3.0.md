@@ -684,3 +684,18 @@ Scope delivered:
 - Markdown report for reproducible geostatistical setup.
 
 Next recommended block: C.4 Kriging / Interpolation Foundation.
+
+### Phase II C.5 — Property Simulation Engine Foundation
+
+Status: completed.
+
+Delivered foundation for stochastic property simulation:
+
+- Sequential Gaussian Simulation foundation;
+- Sequential Indicator Simulation foundation;
+- deterministic seed-based reproducibility;
+- multiple realizations per simulation job;
+- uncertainty/confidence metadata;
+- job registry, manifest, UI tables and Markdown report.
+
+Next recommended block: C.6 Property Cube Builder / Modeling Results Manager.

@@ -1002,3 +1002,4 @@ from projects.interpolation_engine import (
     build_interpolation_manifest,
     render_interpolation_markdown,
 )
+from . import property_simulation_engine

@@ -1398,3 +1398,18 @@ Implemented deterministic interpolation foundation for property modeling workflo
 - manifest, UI-ready tables and Markdown reporting.
 
 This stage prepares the project for Kriging, SGS and property cube modeling in later geological modeling modules.
+
+### Phase II — C.5 Property Simulation Engine Foundation
+
+Status: completed.
+
+Implemented stochastic property simulation foundation for geological modeling workflows:
+
+- Sequential Gaussian Simulation foundation for continuous properties such as POR, PERM and SW;
+- Sequential Indicator Simulation foundation for discrete properties such as facies and lithology;
+- reproducible simulation with explicit seed and realization number;
+- uncertainty and confidence metadata for every simulated cell;
+- simulation job registry for planned/active simulation scenarios;
+- manifest, UI-ready tables and Markdown reporting.
+
+This stage prepares the project for future full SGS/SIS, co-simulation and uncertainty workflows while preserving a stable public API for property modeling.
