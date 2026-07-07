@@ -19,6 +19,31 @@ LAS_VALIDATOR_STORAGE_KEY = "las_validator"
 MANDATORY_HEADER_SECTIONS: tuple[str, ...] = ("Version", "Well", "Curve", "Parameter")
 REQUIRED_CURVE_MNEMONICS: tuple[str, ...] = ("DEPT",)
 DEPTH_MNEMONICS: tuple[str, ...] = ("DEPT", "DEPTH", "MD", "TVD")
+DEFAULT_RANGE_RULES: dict[str, tuple[float | None, float | None]] = {
+    "GR": (0.0, 300.0),
+    "RHOB": (1.0, 3.5),
+    "NPHI": (-0.15, 1.0),
+    "PHI": (0.0, 1.0),
+    "SW": (0.0, 1.0),
+    "RT": (0.0, None),
+    "RD": (0.0, None),
+    "RS": (0.0, None),
+    "C1": (0.0, None),
+    "C2": (0.0, None),
+    "C3": (0.0, None),
+    "IC4": (0.0, None),
+    "NC4": (0.0, None),
+    "IC5": (0.0, None),
+    "NC5": (0.0, None),
+}
+
+
+@dataclass(frozen=True)
+class LasValidatorConfig:
+    """Configuration for professional LAS validation."""
+
+    null_value: float = DEFAULT_NULL_VALUE
+    range_rules: Mapping[str, tuple[float | None, float | None]] | None = None
 
 
 @dataclass(frozen=True)
@@ -65,6 +90,10 @@ class LasValidationReport:
     @property
     def info_count(self) -> int:
         return sum(1 for item in self.findings if item.severity == "info")
+
+    @property
+    def quality_score(self) -> int:
+        return int(self.summary.get("quality_score", 0))
 
 
 def _timestamp_utc() -> str:
@@ -272,6 +301,73 @@ def validate_curve_ascii_alignment(
     return tuple(findings)
 
 
+def validate_numeric_ranges(
+    ascii_data: pd.DataFrame,
+    *,
+    range_rules: Mapping[str, tuple[float | None, float | None]] | None = None,
+    null_value: float = DEFAULT_NULL_VALUE,
+) -> tuple[LasValidationFinding, ...]:
+    """Validate numeric curve values against conservative engineering limits.
+
+    The function is read-only and produces warnings only. It helps the user
+    decide what to inspect in ASCII Spreadsheet or Curve Manager.
+    """
+
+    rules = range_rules or DEFAULT_RANGE_RULES
+    findings: list[LasValidationFinding] = []
+    for column in ascii_data.columns:
+        mnemonic = normalize_las_mnemonic(column)
+        if mnemonic not in rules:
+            continue
+        minimum, maximum = rules[mnemonic]
+        values = pd.to_numeric(ascii_data[column], errors="coerce").dropna()
+        if values.empty:
+            continue
+        values = values[values != float(null_value)]
+        if minimum is not None:
+            lower_hits = values[values < minimum]
+            if not lower_hits.empty:
+                findings.append(
+                    LasValidationFinding(
+                        "warning",
+                        "CURVE_VALUE_BELOW_RANGE",
+                        f"Кривая {mnemonic} содержит значения ниже инженерного минимума {minimum:g}.",
+                        section="~ASCII",
+                        mnemonic=mnemonic,
+                        row=int(lower_hits.index[0]) if isinstance(lower_hits.index[0], int) else None,
+                        column=str(column),
+                        recommendation="Проверьте исходные данные, единицы измерения и NULL-кодировку.",
+                    )
+                )
+        if maximum is not None:
+            upper_hits = values[values > maximum]
+            if not upper_hits.empty:
+                findings.append(
+                    LasValidationFinding(
+                        "warning",
+                        "CURVE_VALUE_ABOVE_RANGE",
+                        f"Кривая {mnemonic} содержит значения выше инженерного максимума {maximum:g}.",
+                        section="~ASCII",
+                        mnemonic=mnemonic,
+                        row=int(upper_hits.index[0]) if isinstance(upper_hits.index[0], int) else None,
+                        column=str(column),
+                        recommendation="Проверьте исходные данные, единицы измерения и выбросы.",
+                    )
+                )
+    return tuple(findings)
+
+
+@dataclass(frozen=True)
+class LasValidatorCenterResult:
+    """UI-ready Validator Center result for LAS Workspace 2.0."""
+
+    report: LasValidationReport
+    table_rows: tuple[dict[str, Any], ...]
+    markdown_report: str
+    actions: tuple[str, ...]
+
+
+
 def validate_las_ascii(
     ascii_data: pd.DataFrame,
     *,
@@ -340,6 +436,8 @@ def validate_las_workspace(
     sections: Iterable[str] | None = None,
     las_text: str | None = None,
     null_value: float | None = None,
+    range_rules: Mapping[str, tuple[float | None, float | None]] | None = None,
+    config: LasValidatorConfig | None = None,
 ) -> LasValidationReport:
     """Validate editable LAS workspace objects before export.
 
@@ -348,6 +446,7 @@ def validate_las_workspace(
     can call it before building a new LAS file.
     """
 
+    validator_config = config or LasValidatorConfig()
     normalized_cards = _coerce_cards(cards)
     present_sections = tuple(sections or (detect_las_sections(las_text or "") if las_text else LAS_MANDATORY_SECTIONS))
     manifest = build_header_manifest(normalized_cards)
@@ -355,13 +454,14 @@ def validate_las_workspace(
     start = _header_numeric(manifest, "Well", "STRT")
     stop = _header_numeric(manifest, "Well", "STOP")
     header_null = _header_numeric(manifest, "Well", "NULL")
-    effective_null = null_value if null_value is not None else (header_null if header_null is not None else DEFAULT_NULL_VALUE)
+    effective_null = null_value if null_value is not None else (header_null if header_null is not None else validator_config.null_value)
 
     findings = (
         *validate_las_sections(present_sections),
         *validate_las_header(normalized_cards),
         *validate_curve_ascii_alignment(normalized_cards, ascii_data),
         *validate_las_ascii(ascii_data, expected_step=step, start_depth=start, stop_depth=stop, null_value=float(effective_null)),
+        *validate_numeric_ranges(ascii_data, range_rules=range_rules or validator_config.range_rules, null_value=float(effective_null)),
     )
 
     summary = build_validation_summary(findings, ascii_data=ascii_data, cards=normalized_cards, sections=present_sections)
@@ -397,6 +497,8 @@ def build_validation_summary(
         "ascii_row_count": 0 if ascii_data is None else int(len(ascii_data)),
         "ascii_curve_count": 0 if ascii_data is None else int(len(ascii_data.columns)),
     }
+    penalty = summary["errors"] * 25 + summary["warnings"] * 7 + summary["info"]
+    summary["quality_score"] = max(0, min(100, 100 - penalty))
     summary["status"] = "failed" if summary["errors"] else ("warning" if summary["warnings"] else "passed")
     return summary
 
@@ -417,6 +519,64 @@ def validation_table_rows(findings: Iterable[LasValidationFinding]) -> tuple[dic
     )
 
 
+def recommended_validator_actions(report: LasValidationReport) -> tuple[str, ...]:
+    """Build concise repair/navigation actions for the Validator Center UI."""
+
+    codes = {finding.code for finding in report.findings}
+    actions: list[str] = []
+    if "DEPTH_NOT_INCREASING" in codes or "DUPLICATE_DEPTH" in codes or "DEPTH_STEP_MISMATCH" in codes:
+        actions.append("Open Depth Repair Center")
+    if "DEPTH_CURVE_CARD_MISSING" in codes or "HEADER_SECTION_EMPTY" in codes or "DUPLICATE_HEADER_CARD" in codes:
+        actions.append("Open Header Designer")
+    if "ASCII_COLUMN_WITHOUT_CURVE_CARD" in codes or "CURVE_CARD_WITHOUT_ASCII_COLUMN" in codes or "DUPLICATE_CURVE_MNEMONICS" in codes:
+        actions.append("Open Curve Manager")
+    if any(code.startswith("ASCII_") or code.startswith("CURVE_VALUE_") or code == "NULL_VALUES_FOUND" for code in codes):
+        actions.append("Open ASCII Spreadsheet")
+    if report.error_count == 0:
+        actions.append("Export Center is available")
+    return tuple(dict.fromkeys(actions))
+
+
+class LASValidator:
+    """Professional read-only LAS Validator service for LAS Workspace 2.0."""
+
+    def __init__(self, config: LasValidatorConfig | None = None) -> None:
+        self.config = config or LasValidatorConfig()
+
+    def validate_workspace(
+        self,
+        *,
+        cards: Iterable[LasHeaderCard | Mapping[str, Any]],
+        ascii_data: pd.DataFrame,
+        sections: Iterable[str] | None = None,
+        las_text: str | None = None,
+    ) -> LasValidationReport:
+        return validate_las_workspace(
+            cards=cards,
+            ascii_data=ascii_data,
+            sections=sections,
+            las_text=las_text,
+            config=self.config,
+        )
+
+    def validate_center(
+        self,
+        *,
+        cards: Iterable[LasHeaderCard | Mapping[str, Any]],
+        ascii_data: pd.DataFrame,
+        sections: Iterable[str] | None = None,
+        las_text: str | None = None,
+    ) -> LasValidatorCenterResult:
+        report = self.validate_workspace(cards=cards, ascii_data=ascii_data, sections=sections, las_text=las_text)
+        return LasValidatorCenterResult(
+            report=report,
+            table_rows=validation_table_rows(report.findings),
+            markdown_report=render_validation_report(report),
+            actions=recommended_validator_actions(report),
+        )
+
+
+
 def render_validation_report(report: LasValidationReport) -> str:
     lines = [
         "# LAS Validation Report",
@@ -426,6 +586,7 @@ def render_validation_report(report: LasValidationReport) -> str:
         f"Errors: {report.error_count}",
         f"Warnings: {report.warning_count}",
         f"Info: {report.info_count}",
+        f"Quality score: {report.quality_score}/100",
         "",
         "## Findings",
     ]
