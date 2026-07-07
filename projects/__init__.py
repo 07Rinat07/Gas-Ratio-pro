@@ -1245,3 +1245,32 @@ from projects.plot_studio_annotation_layer import (
     build_plot_annotation_manifest,
     build_plot_annotation_table,
 )
+
+from projects.plot_studio_printing_engine import (
+    PLOT_PRINT_PAGE_SIZES_MM,
+    PlotPrintConfig,
+    PlotPrintPage,
+    PlotPrintManifest,
+    PlotPrintJob,
+    validate_plot_print_config,
+    build_plot_print_manifest,
+    create_plot_print_job,
+    build_plot_print_manifest_dict,
+    build_plot_print_page_table,
+)
+
+try:
+    __all__.extend([
+        "PLOT_PRINT_PAGE_SIZES_MM",
+        "PlotPrintConfig",
+        "PlotPrintPage",
+        "PlotPrintManifest",
+        "PlotPrintJob",
+        "validate_plot_print_config",
+        "build_plot_print_manifest",
+        "create_plot_print_job",
+        "build_plot_print_manifest_dict",
+        "build_plot_print_page_table",
+    ])
+except NameError:
+    pass
