@@ -437,3 +437,10 @@ Status: Deferred.
 ### B.4 LAS ASCII Data Editor Professional Foundation — реализовано
 
 Реализованы базовые операции редактирования табличных данных LAS: edit cell, edit range, insert/delete rows, sort by depth, find/replace, validation, summary, preview и render ASCII section.
+
+
+### B.5 LAS Validator Professional Foundation — реализовано
+
+Добавлен read-only backend-валидатор LAS workspace: обязательные секции, header cards, сверка `~Curve` и `~ASCII`, проверка depth index, дубликатов, шага, STRT/STOP и NULL-значений. Результат формируется как `LasValidationReport` с summary, findings table и markdown-render.
+
+Следующий практический шаг блока B: **B.6 LAS Safe Export Professional**.

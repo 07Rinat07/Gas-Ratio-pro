@@ -1,3 +1,14 @@
+## Phase II B.5 — LAS Validator Professional Foundation
+
+- Добавлен модуль `las_editor/las_validator.py`.
+- Реализована проверка обязательных LAS-секций `~Version`, `~Well`, `~Curve`, `~Parameter`, `~ASCII`.
+- Добавлена проверка LAS header cards, обязательных depth/header элементов и дубликатов.
+- Добавлена сверка секции `~Curve` с колонками ASCII-таблицы.
+- Добавлена проверка ASCII-данных: глубина, дубликаты, шаг, STRT/STOP, NULL-значения.
+- Добавлены validation report, summary, UI-ready таблицы и markdown-render отчета качества.
+- Модуль экспортирован через `las_editor/__init__.py`.
+- Добавлены профильные тесты `tests/test_las_validator_professional.py`.
+
 ## Phase II B.3 — LAS Header Editor Professional Foundation
 ## Phase II B.4 — LAS ASCII Data Editor Professional Foundation
 

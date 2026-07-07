@@ -2,6 +2,22 @@ from __future__ import annotations
 
 
 
+from las_editor.las_validator import (
+    LAS_VALIDATOR_STORAGE_KEY,
+    LasValidationFinding,
+    LasValidationReport,
+    build_validation_summary,
+    detect_las_sections,
+    render_validation_report,
+    validate_curve_ascii_alignment,
+    validate_las_ascii,
+    validate_las_header,
+    validate_las_sections,
+    validate_las_workspace,
+    validation_table_rows,
+)
+
+
 from las_editor.ascii_data_editor import (
     ASCII_EDITOR_STORAGE_KEY,
     DEFAULT_DEPTH_MNEMONICS,
@@ -89,6 +105,18 @@ from las_editor.depth_grid import (
 )
 
 __all__ = [
+    "validation_table_rows",
+    "validate_las_workspace",
+    "validate_las_sections",
+    "validate_las_header",
+    "validate_las_ascii",
+    "validate_curve_ascii_alignment",
+    "render_validation_report",
+    "detect_las_sections",
+    "build_validation_summary",
+    "LasValidationReport",
+    "LasValidationFinding",
+    "LAS_VALIDATOR_STORAGE_KEY",
     "validate_ascii_data",
     "sort_ascii_by_depth",
     "render_ascii_section",

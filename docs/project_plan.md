@@ -1160,7 +1160,7 @@ Add data exchange center foundation
 - Добавлены helper-таблицы для будущего UI Release Candidate Audit.
 - Добавлены regression-тесты для audit, manifest, validation, persistence и deterministic inventory.
 
-Текущий следующий незавершенный пункт: **Licensing & Activation**.
+Licensing & Activation отложен как optional/last. Текущий фокус Phase II: профессиональная LAS Platform.
 
 ### Реализовано: Phase II → B.2 LAS Curve Manager Professional Foundation
 
@@ -1177,8 +1177,40 @@ Add data exchange center foundation
 
 Реализованы безопасные операции добавления, обновления и удаления header-card элементов. Обязательные LAS элементы защищены от удаления: `VERS`, `WRAP`, `STRT`, `STOP`, `STEP`, `NULL`, `DEPT`. Добавлена валидация обязательных элементов, шага глубины и обратного диапазона глубин. Все изменения фиксируются в history и помечаются как header-only операции, чтобы не нарушать правило безопасного сохранения LAS.
 
-Текущий следующий незавершенный пункт: **Phase II → B.4 LAS ASCII Table Editor Professional** или **B.5 LAS Validation Professional**.
+Текущий следующий незавершенный пункт: **Phase II → B.5 LAS Validation Professional**.
 
 ## Phase II B.4 — LAS ASCII Data Editor Professional Foundation
 
 Статус: реализовано. Добавлен backend-слой для безопасного редактирования секции `~ASCII`: изменение ячеек, массовое редактирование диапазонов, вставка/удаление строк, сортировка по глубине, поиск/замена, базовая валидация, preview изменений и подготовка ASCII-body для последующего безопасного сохранения в новый LAS-файл.
+
+
+## Phase II B.5 — LAS Validator Professional Foundation
+
+Статус: реализовано. Добавлен backend-слой `las_editor/las_validator.py` для комплексной проверки LAS workspace перед экспортом и безопасным сохранением нового LAS-файла. Валидатор работает в read-only режиме и не изменяет исходный LAS.
+
+Реализованные проверки:
+
+- наличие обязательных LAS-секций `~Version`, `~Well`, `~Curve`, `~Parameter`, `~ASCII`;
+- контроль обязательных header-card элементов;
+- проверка карточки глубины `DEPT`;
+- обнаружение пустых или неполных header sections;
+- поиск дубликатов header-card;
+- сверка `~Curve` с колонками ASCII-таблицы;
+- поиск ASCII-колонок без карточки кривой;
+- поиск карточек кривых без данных в `~ASCII`;
+- проверка пустой ASCII-секции;
+- проверка нечисловых глубин;
+- проверка дубликатов глубины;
+- проверка нарушения шага глубины;
+- сравнение первой/последней глубины с `STRT` и `STOP`;
+- подсчет NULL-значений LAS;
+- формирование `LasValidationReport`, summary, UI-ready таблицы и markdown-отчета.
+
+Критерии приемки:
+
+- валидатор не изменяет исходные данные;
+- ошибки и предупреждения имеют severity, code, message и recommendation;
+- отчет можно использовать в UI, журнале проверки и будущем экспортном мастере;
+- тесты валидатора проходят без Streamlit.
+
+Текущий следующий незавершенный пункт: **Phase II → B.6 LAS Safe Export Professional** или расширение **B.5 Validator UI integration**.
