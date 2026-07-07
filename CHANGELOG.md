@@ -239,3 +239,7 @@ git status --short
 - Added scaffold generator with `plugin.json`, `plugin.py` and README template for external plugin developers.
 - Added API registry manifest for enabled plugins and UI helper tables for plugins, hooks and validation issues.
 - Added JSON import/export helpers and regression tests for manifest roundtrip, registry, hooks, scaffold and validation.
+
+
+## 134
+- Added Scripting API foundation.

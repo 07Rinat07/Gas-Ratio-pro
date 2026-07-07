@@ -844,3 +844,5 @@ from projects.plugin_sdk import (
     export_plugin_manifest_json,
     import_plugin_manifest_json,
 )
+
+from .scripting_api import Script, ScriptRegistry
