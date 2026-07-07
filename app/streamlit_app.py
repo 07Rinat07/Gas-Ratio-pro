@@ -155,6 +155,17 @@ from las_editor.las_creation_wizard import (
     wizard_issue_rows,
     wizard_step_rows,
 )
+from las_editor.las_header_designer import (
+    HeaderDesignerUpdate,
+    apply_header_designer_updates,
+    build_las_header_designer_preview,
+    build_las_header_designer_session,
+    finalize_las_header_designer_update,
+    header_designer_issue_rows,
+    header_designer_required_field_rows,
+    header_designer_section_rows,
+    header_designer_well_field_rows,
+)
 from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
 from palettes.depth_tracks import (
@@ -5812,6 +5823,94 @@ def _render_las_creation_wizard_panel(logger) -> None:
                 key="las_ws2_v2_download_preview",
             )
 
+
+def _render_las_header_designer_panel(logger) -> None:
+    """Render Header Designer 2.0 for safe-copy LAS metadata editing."""
+
+    with st.expander("🧾 Header Designer 2.0", expanded=False):
+        st.caption(
+            "Редактирование секций ~Version, ~Well, ~Curve и ~Parameter. "
+            "ASCII-данные и значения кривых не изменяются; результат сохраняется только как новая копия LAS."
+        )
+        source_las_text = st.text_area(
+            "LAS-текст для проектирования заголовка",
+            value="",
+            height=180,
+            key="las_ws2_header_designer_source_text",
+            help="Можно вставить LAS целиком. Header Designer извлечет заголовок, а ~ASCII сохранит без изменений.",
+        )
+        col_a, col_b = st.columns(2)
+        with col_a:
+            well_name = st.text_input("WELL", value="", key="las_ws2_header_designer_well")
+            field = st.text_input("FIELD / FLD", value="", key="las_ws2_header_designer_field")
+            company = st.text_input("COMPANY / COMP", value="", key="las_ws2_header_designer_company")
+            uwi = st.text_input("UWI", value="", key="las_ws2_header_designer_uwi")
+        with col_b:
+            las_version = st.selectbox("VERS", options=("2.0", "3.0"), index=0, key="las_ws2_header_designer_version")
+            start_depth = st.text_input("STRT", value="", key="las_ws2_header_designer_strt")
+            stop_depth = st.text_input("STOP", value="", key="las_ws2_header_designer_stop")
+            step = st.text_input("STEP", value="", key="las_ws2_header_designer_step")
+
+        if st.button("Сформировать предпросмотр Header Designer", use_container_width=True, key="las_ws2_header_designer_preview_button"):
+            try:
+                session = build_las_header_designer_session(las_text=source_las_text, source_object_id="las-header-designer-ui")
+                updates = [HeaderDesignerUpdate("Version", "VERS", "value", las_version)]
+                if well_name:
+                    updates.append(HeaderDesignerUpdate("Well", "WELL", "value", well_name))
+                if field:
+                    updates.append(HeaderDesignerUpdate("Well", "FLD", "value", field))
+                if company:
+                    updates.append(HeaderDesignerUpdate("Well", "COMP", "value", company))
+                if uwi:
+                    updates.append(HeaderDesignerUpdate("Well", "UWI", "value", uwi))
+                if start_depth:
+                    updates.append(HeaderDesignerUpdate("Well", "STRT", "value", start_depth))
+                if stop_depth:
+                    updates.append(HeaderDesignerUpdate("Well", "STOP", "value", stop_depth))
+                if step:
+                    updates.append(HeaderDesignerUpdate("Well", "STEP", "value", step))
+                session = apply_header_designer_updates(session, updates)
+                preview = build_las_header_designer_preview(session)
+                st.session_state["las_ws2_header_designer_preview"] = preview
+                logger.info("las_header_designer_preview cards=%d issues=%d", len(preview.session.cards), len(preview.issues))
+                st.success("Предпросмотр заголовка создан. Проверьте обязательные поля и предупреждения.")
+            except Exception as exc:
+                logger.exception("las_header_designer_preview_failed")
+                st.error(f"Не удалось сформировать Header Designer preview: {exc}")
+
+        preview = st.session_state.get("las_ws2_header_designer_preview")
+        if preview is not None:
+            metrics = st.columns(4)
+            metrics[0].metric("Секций", len(preview.section_rows))
+            metrics[1].metric("Карточек", len(preview.card_rows))
+            metrics[2].metric("Проблем", len(preview.issues))
+            metrics[3].metric("Готов", "Да" if preview.can_finalize else "Нет")
+            st.markdown("#### Секции")
+            st.dataframe(pd.DataFrame(preview.section_rows), use_container_width=True, hide_index=True)
+            st.markdown("#### Обязательные и рекомендуемые поля")
+            st.dataframe(pd.DataFrame(preview.field_rows), use_container_width=True, hide_index=True)
+            if preview.issues:
+                st.markdown("#### Проверка")
+                st.dataframe(pd.DataFrame(header_designer_issue_rows(preview.issues)), use_container_width=True, hide_index=True)
+            st.markdown("#### Карточки заголовка")
+            st.dataframe(pd.DataFrame(preview.card_rows), use_container_width=True, hide_index=True)
+            st.code(preview.header_text, language="text")
+            if st.button("Создать новую копию LAS с обновленным заголовком", disabled=not preview.can_finalize, use_container_width=True, key="las_ws2_header_designer_finalize_button"):
+                try:
+                    final = finalize_las_header_designer_update(preview.session, original_las_text=source_las_text, filename="header_designer.las")
+                    st.success("Новая копия LAS подготовлена. Исходный файл и ASCII-значения не изменялись.")
+                    st.download_button(
+                        "Скачать LAS с обновленным заголовком",
+                        data=final.las_bytes,
+                        file_name=final.filename,
+                        mime="application/octet-stream",
+                        use_container_width=True,
+                        key="las_ws2_header_designer_download_final",
+                    )
+                except Exception as exc:
+                    logger.exception("las_header_designer_finalize_failed")
+                    st.error(f"Не удалось завершить Header Designer update: {exc}")
+
 def _render_las_workspace_template_panel() -> None:
     """Show LAS templates on the Home page."""
 
@@ -5827,6 +5926,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     _render_saved_wells_panel(logger)
     _render_las_workspace_home_panel()
     _render_las_creation_wizard_panel(logger)
+    _render_las_header_designer_panel(logger)
     _render_las_workspace_template_panel()
 
     saved_summary = st.session_state.get(LAS_EDITOR_SESSION_SUMMARY_KEY)

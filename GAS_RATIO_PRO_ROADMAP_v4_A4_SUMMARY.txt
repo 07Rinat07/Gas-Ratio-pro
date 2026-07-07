@@ -1,0 +1,20 @@
+GAS RATIO PRO — Roadmap v4.0 A.4 Header Designer 2.0
+
+Сделано:
+- добавлен las_editor/las_header_designer.py;
+- реализован структурированный редактор LAS header;
+- поддержаны секции ~Version, ~Well, ~Curve, ~Parameter;
+- добавлены обязательные и рекомендуемые поля;
+- добавлены preview, validation, issue rows и UI-ready таблицы;
+- реализовано безопасное сохранение только в новую копию LAS;
+- секция ~ASCII и измеренные значения кривых сохраняются без изменений;
+- Streamlit LAS Workspace дополнен панелью Header Designer 2.0;
+- добавлены тесты.
+
+Проверка:
+- профильные тесты A.4/A.3/A.2: 12 passed;
+- Header Designer + Header Editor tests: 10 passed;
+- compileall app/las_editor/projects: успешно.
+
+Следующий этап:
+A.5 Curve Manager 2.0.

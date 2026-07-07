@@ -602,3 +602,23 @@ If `GAS_SUM = 10%` at `500 m` before repair, then `GAS_SUM = 10%` must remain at
 - UI-ready строки шагов мастера, ошибок, кривых и summary.
 
 Правило безопасности: ни один исходный LAS/CSV/Excel не изменяется мастером создания.
+
+
+### A.4 — Header Designer 2.0 — IMPLEMENTED
+
+Цель: заменить текстовое редактирование LAS header на структурированную инженерную форму с безопасным сохранением результата.
+
+Реализовано:
+
+- редактирование секций `~Version`, `~Well`, `~Curve`, `~Parameter`;
+- контроль обязательных карточек `VERS`, `WRAP`, `STRT`, `STOP`, `STEP`, `NULL`, `DEPT`;
+- рекомендуемые поля скважины `WELL`, `FLD`, `COMP`, `LOC`, `CTRY`, `DATE`, `API`, `UWI`, `SRVC`;
+- preview LAS header перед сохранением;
+- validation с ошибками и предупреждениями;
+- предупреждение для случая `STRT > STOP`, когда нужен отдельный Depth Repair Center;
+- safe-copy finalize: новый LAS создается отдельно, исходный файл не меняется;
+- сохранение секции `~ASCII` без изменений;
+- Operation Journal record для preview/finalize;
+- UI-ready таблицы для Streamlit/desktop интерфейса.
+
+Правило безопасности: Header Designer является metadata-only инструментом. Он не имеет права менять измеренные значения кривых, сортировать глубины или переписывать ASCII-данные. Исправление глубины выполняется только отдельным Depth Repair Center.

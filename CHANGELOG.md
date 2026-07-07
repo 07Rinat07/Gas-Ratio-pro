@@ -1,3 +1,15 @@
+## Roadmap v4.0 — A.4 Header Designer 2.0
+
+- Добавлен модуль `las_editor/las_header_designer.py`.
+- Реализован структурированный Header Designer для секций `~Version`, `~Well`, `~Curve`, `~Parameter`.
+- Добавлен парсинг LAS header из исходного LAS-текста.
+- Добавлены UI-ready таблицы секций, обязательных полей, рекомендуемых well-полей и карточек header.
+- Добавлены безопасные операции обновления header-карточек с preview и validation.
+- Добавлен safe-copy finalize: создается новый LAS-файл, исходный LAS не изменяется.
+- Закреплено: Header Designer не изменяет секцию `~ASCII`, измеренные значения и строки данных.
+- Streamlit LAS Workspace дополнен панелью Header Designer 2.0.
+- Добавлены профильные тесты Header Designer 2.0.
+
 
 ## Roadmap v4.0 — A.3 LAS Creation Wizard 2.0
 
