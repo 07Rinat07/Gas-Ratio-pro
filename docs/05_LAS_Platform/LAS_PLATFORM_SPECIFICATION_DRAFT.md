@@ -558,3 +558,17 @@ This module is designed for future integration with Plot Studio and Report Studi
 ## B.19 Reservoir Property Calculator Foundation
 
 The LAS Platform includes a reservoir property calculator for deterministic volumetric estimates from evaluated LAS curves and interval definitions. The foundation scope includes BRV, NRV, PV, HCPV, OOIP, OGIP, recovery factors, interval summaries, manifests, Markdown reporting and UI-ready table rows. All calculations must expose engineering assumptions such as area, Bo, Bg and recovery factors.
+
+## Phase II — B.20 Petrophysical Report Package Foundation
+
+The LAS Platform now includes a backend report-package layer that groups the outputs of the petrophysical workflow into a single normalized object.
+
+The package contains sections for:
+
+- Petrophysical Workspace calculations.
+- Advanced Saturation Models.
+- Petrophysical Crossplot Workspace.
+- Well intervals and pay zones.
+- Reservoir property and volumetric calculations.
+
+Each section includes status, summary, metrics, optional table rows and source references. The package also provides a deterministic manifest and Markdown renderer so Report Studio can consume the same data without recalculating engineering results.

@@ -600,3 +600,41 @@ Delivered:
 - Markdown report and machine-readable manifest.
 
 Next recommended block: B.19 Lithology / Rock-Type Classification Foundation.
+
+### B.19 — Reservoir Property Calculator Foundation
+
+Status: Implemented.
+
+Purpose:
+
+Provide deterministic reservoir-property and volumetric calculations for evaluated intervals.
+
+Delivered:
+
+- Bulk Rock Volume (BRV) calculation.
+- Net Rock Volume (NRV) calculation.
+- Pore Volume (PV) calculation.
+- Hydrocarbon Pore Volume (HCPV) calculation.
+- OOIP/OGIP foundation estimates.
+- Recoverable oil/gas foundation estimates.
+- Interval summaries, UI-ready tables, Markdown report and machine-readable manifest.
+
+### B.20 — Petrophysical Report Package Foundation
+
+Status: Implemented.
+
+Purpose:
+
+Assemble engineering-ready petrophysical interpretation outputs into one normalized report package for Report Studio and future PDF/HTML/DOCX export.
+
+Delivered:
+
+- Unified report package model.
+- Normalized report sections for petrophysical calculations, saturation models, crossplots, intervals and reservoir volumes.
+- Evidence source aggregation.
+- Package validation.
+- UI-ready section and issue tables.
+- Deterministic manifest for reproducibility.
+- Markdown report renderer.
+
+Next recommended block: C.1 Lithology / Rock-Type Classification Foundation.

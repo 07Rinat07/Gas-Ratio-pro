@@ -459,3 +459,12 @@ git status --short
 - Added deterministic BRV, NRV, PV, HCPV, OOIP and OGIP foundation calculations.
 - Added interval summaries, recovery estimates, manifests, Markdown reporting and UI-ready tables.
 - Added tests for reservoir volumetric calculations.
+
+## Phase II — B.20 Petrophysical Report Package Foundation
+
+- Added `las_editor/petrophysical_report_package.py`.
+- Added normalized report sections for Petrophysical Workspace, Advanced Saturation Models, Petrophysical Crossplots, Well Intervals and Reservoir Volumes.
+- Added deterministic package manifest, Markdown report renderer and UI-ready section/issue tables.
+- Added evidence source aggregation for report packages.
+- Exported Petrophysical Report Package API through `las_editor/__init__.py`.
+- Added regression tests in `tests/test_petrophysical_report_package.py`.

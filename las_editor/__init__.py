@@ -579,3 +579,22 @@ __all__ = [
 ]
 
 # Phase II B.4: LAS ASCII Data Editor Professional helpers are available from las_editor.ascii_data_editor.
+
+from las_editor.petrophysical_report_package import (
+    PETROPHYSICAL_REPORT_PACKAGE_SCHEMA,
+    PETROPHYSICAL_REPORT_PACKAGE_STORAGE_KEY,
+    PetrophysicalReportPackage,
+    ReportPackageIssue,
+    ReportPackageSection,
+    build_crossplot_section,
+    build_intervals_section,
+    build_petrophysical_report_manifest,
+    build_petrophysical_report_package,
+    build_petrophysical_section,
+    build_saturation_section,
+    build_volumes_section,
+    render_petrophysical_report_markdown,
+    report_issue_table_rows,
+    report_section_table_rows,
+    validate_report_package,
+)
