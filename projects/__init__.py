@@ -1181,3 +1181,16 @@ from projects.plot_studio_navigation import (
     redo_plot_navigation,
     build_plot_navigation_manifest,
 )
+
+from projects.plot_studio_manual_scale import (
+    AxisScale,
+    PlotManualScaleConfig,
+    PlotManualDepthScaleRequest,
+    PlotManualCurveScaleRequest,
+    PlotManualScaleResult,
+    apply_manual_depth_scale,
+    apply_manual_curve_scale,
+    reset_curve_auto_scale,
+    build_manual_scale_manifest,
+)
+
