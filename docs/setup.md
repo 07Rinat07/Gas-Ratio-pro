@@ -33,7 +33,7 @@ cd gas-ratio-pro
 Если проект уже скопирован локально:
 
 ```powershell
-cd C:\OSPanel\home\gas-ratio-pro
+cd <PROJECT_ROOT>
 ```
 
 ## 3. Создать виртуальное окружение
@@ -132,7 +132,7 @@ http://localhost:8501
 После первой установки каждый следующий запуск обычно выглядит так:
 
 ```powershell
-cd C:\OSPanel\home\gas-ratio-pro
+cd <PROJECT_ROOT>
 .\run_app.ps1
 
 # или вручную:

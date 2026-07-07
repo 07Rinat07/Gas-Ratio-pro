@@ -13,7 +13,7 @@ PDF не является корпоративно утвержденной ме
 - Автор в PDF metadata: Nancy Kendi.
 - Correspondence: `n.muriungi.geo@gmail.com`.
 - ORCID: `https://orcid.org/0009-0003-2634-4813`.
-- Локальный файл-источник: `C:\Users\SRR07\Downloads\application-of-mud-gas-analysis-for-reservoir-evaluation (1).pdf`.
+- Файл-источник внутри проекта: `docs/sources/mud-gas-analysis-reservoir-evaluation.pdf`.
 - PDF metadata creation date: 2025-04-30.
 
 ## Что полезно для проекта

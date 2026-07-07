@@ -912,3 +912,20 @@ from projects.reference_sources import (
     summarize_reference_sources,
     validate_reference_sources,
 )
+
+from projects.documentation_evidence import (
+    DocumentationEvidenceIssue,
+    DocumentationEvidenceReference,
+    DocumentationEvidenceSource,
+    DocumentationEvidenceSummary,
+    build_documentation_evidence_issue_table,
+    build_documentation_evidence_manifest,
+    build_documentation_evidence_markdown,
+    build_documentation_evidence_reference_table,
+    build_documentation_evidence_source_table,
+    find_documentation_source_references,
+    find_local_documentation_paths,
+    load_documentation_evidence_sources,
+    summarize_documentation_evidence,
+    validate_documentation_evidence,
+)

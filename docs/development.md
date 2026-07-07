@@ -78,7 +78,7 @@ docs/
 ## Локальная разработка
 
 ```powershell
-cd C:\OSPanel\home\gas-ratio-pro
+cd <PROJECT_ROOT>
 .\.venv\Scripts\Activate.ps1
 python -m pytest
 python scripts/preflight.py

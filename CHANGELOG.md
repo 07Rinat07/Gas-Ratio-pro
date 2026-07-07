@@ -1,3 +1,12 @@
+## Phase II — B.8 Documentation Evidence & Citation Audit Foundation
+
+- Added `projects/documentation_evidence.py`.
+- Added audit for `docs/sources/source_registry.json`, registered PDF files and documentation references.
+- Added detection of local Windows paths such as `C:\Users\...` in committed documentation.
+- Added checks for missing registered sources, missing referenced PDFs, unregistered PDF references and orphan source files.
+- Added UI-ready source/reference/issue tables, evidence manifest and Markdown audit report.
+- Added profile tests for documentation evidence validation and reporting.
+
 
 ## Phase II — B.7 Reference Sources Manager Foundation
 
