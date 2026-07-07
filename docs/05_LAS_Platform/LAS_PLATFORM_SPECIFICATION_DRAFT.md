@@ -477,3 +477,18 @@ Foundation-версия содержит профили для типовых к
 
 Реализован backend-слой итоговой инженерной сводки по скважине и интервалам. Модуль объединяет результаты LAS Quality Control, Mud Gas Interpretation и статистику выбранных кривых, формирует interval summary, reservoir flags, manifest и Markdown-отчет.
 
+
+### B.15 Well Interval & Pay Zone Manager Foundation — DONE
+
+Назначение: преобразовать результаты проверки качества, интерпретации газа и formation summary в управляемые интервалы коллектора и pay zones.
+
+Реализованные backend-возможности:
+
+- построение интервалов из Formation Evaluation Summary;
+- классификация gross/net/pay/non-reservoir;
+- configurable cutoffs для пористости, водонасыщенности, Net/Gross, GR и RT;
+- расчет Gross Thickness, Net Thickness, Pay Thickness;
+- расчет Net/Gross, Pay/Gross, Pay/Net;
+- split/merge интервалов;
+- UI-ready таблицы для будущего интерфейса;
+- audit manifest и Markdown-отчет.

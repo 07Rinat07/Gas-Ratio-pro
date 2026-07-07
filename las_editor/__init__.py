@@ -2,6 +2,27 @@
 from __future__ import annotations
 
 
+
+from las_editor.well_interval_manager import (
+    WELL_INTERVAL_MANAGER_SCHEMA,
+    WELL_INTERVAL_MANAGER_STORAGE_KEY,
+    HYDROCARBON_TOKENS,
+    RESERVOIR_FLAGS,
+    IntervalCutoffSet,
+    WellInterval,
+    WellIntervalIssue,
+    WellIntervalSet,
+    build_well_interval_manifest,
+    build_well_intervals_from_summary,
+    calculate_interval_thickness_summary,
+    classify_interval,
+    merge_adjacent_intervals,
+    render_well_interval_markdown_report,
+    split_well_interval,
+    well_interval_issue_table_rows,
+    well_interval_table_rows,
+)
+
 from las_editor.formation_evaluation_summary import (
     FORMATION_EVALUATION_SCHEMA,
     FORMATION_EVALUATION_STORAGE_KEY,
@@ -250,6 +271,23 @@ from las_editor.depth_grid import (
 )
 
 __all__ = [
+    "WELL_INTERVAL_MANAGER_SCHEMA",
+    "WELL_INTERVAL_MANAGER_STORAGE_KEY",
+    "HYDROCARBON_TOKENS",
+    "RESERVOIR_FLAGS",
+    "IntervalCutoffSet",
+    "WellInterval",
+    "WellIntervalIssue",
+    "WellIntervalSet",
+    "build_well_interval_manifest",
+    "build_well_intervals_from_summary",
+    "calculate_interval_thickness_summary",
+    "classify_interval",
+    "merge_adjacent_intervals",
+    "render_well_interval_markdown_report",
+    "split_well_interval",
+    "well_interval_issue_table_rows",
+    "well_interval_table_rows",
     "MUD_GAS_INTERPRETATION_SCHEMA",
     "MUD_GAS_INTERPRETATION_STORAGE_KEY",
     "MudGasIntervalSummary",

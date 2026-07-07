@@ -533,3 +533,13 @@ Status: Deferred.
 
 Реализован backend-слой итоговой инженерной сводки по скважине и интервалам. Модуль объединяет результаты LAS Quality Control, Mud Gas Interpretation и статистику выбранных кривых, формирует interval summary, reservoir flags, manifest и Markdown-отчет.
 
+
+### B.15 Well Interval & Pay Zone Manager Foundation — DONE
+
+- Interval Manager для reservoir/pay zones.
+- Автоматическое построение интервалов из Formation Evaluation Summary.
+- Gross/Net/Pay thickness и инженерные ratios.
+- Split/Merge операций для интервалов.
+- UI-ready таблицы, manifest и Markdown-отчет.
+
+Следующий практический шаг блока B: **B.16 Petrophysical Workspace Foundation**.

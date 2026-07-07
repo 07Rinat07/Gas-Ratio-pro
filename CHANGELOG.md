@@ -1,3 +1,13 @@
+## Phase II → B.15 Well Interval & Pay Zone Manager Foundation
+
+- Added `las_editor/well_interval_manager.py`.
+- Added deterministic interval classification from Formation Evaluation Summary results.
+- Added gross/net/pay interval flags, reservoir flags, pay flags and configurable cutoffs.
+- Added gross, net and pay thickness calculations with Net/Gross, Pay/Gross and Pay/Net ratios.
+- Added interval split/merge helpers for professional interval editing workflows.
+- Added UI-ready interval/issue tables, audit manifest and Markdown pay-zone report.
+- Added profile tests for interval derivation, custom cutoffs, thickness summary, split, merge and reporting.
+
 ## Phase II → B.14 Formation Evaluation Summary Foundation
 
 - Added `las_editor/formation_evaluation_summary.py`.
