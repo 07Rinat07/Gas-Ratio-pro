@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -262,3 +263,43 @@ def read_well_file_bytes(
         raise FileNotFoundError(f"Well file not found for key: {file_key}")
     path = _well_dir(Path(root), well_id) / "versions" / version_id / file_name
     return path.read_bytes()
+
+
+def delete_well_record(root: Path | str = DEFAULT_WELLS_ROOT, well_id: str = "") -> bool:
+    """Delete a well and all saved versions from persistent storage."""
+
+    clean_well_id = _safe_id(str(well_id or ""))
+    well_dir = _well_dir(Path(root), clean_well_id)
+    if not well_dir.exists():
+        return False
+    shutil.rmtree(well_dir)
+    return True
+
+
+def delete_well_version(root: Path | str, well_id: str, version_id: str) -> WellRecord:
+    """Delete one saved well version and update the manifest atomically."""
+
+    root_path = Path(root)
+    clean_well_id = _safe_id(str(well_id or ""))
+    clean_version_id = _safe_id(str(version_id or ""))
+    record = load_well_record(root_path, clean_well_id)
+    remaining_versions = tuple(version for version in record.versions if version.id != clean_version_id)
+    if len(remaining_versions) == len(record.versions):
+        raise FileNotFoundError(f"Well version not found: {clean_version_id}")
+
+    version_dir = _well_dir(root_path, clean_well_id) / "versions" / clean_version_id
+    if version_dir.exists():
+        shutil.rmtree(version_dir)
+
+    updated_record = WellRecord(
+        id=record.id,
+        name=record.name,
+        area=record.area,
+        status=record.status,
+        comment=record.comment,
+        created_at=record.created_at,
+        updated_at=_utc_now(),
+        versions=remaining_versions,
+    )
+    _write_record(root_path, updated_record)
+    return updated_record

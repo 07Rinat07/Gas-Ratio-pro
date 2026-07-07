@@ -29,6 +29,7 @@ from core.diagnostics import (
 from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summarize_interpretation
 from core.logging_config import configure_logging, safe_log_value
 from core.models import CalculationConfig, STANDARD_FIELDS
+from core.application_state import ApplicationStateController
 from importers.csv_importer import load_csv_sheets
 from importers.excel_importer import load_excel_sheets
 from importers.header_detector import detect_header_row, prepare_dataframe_with_header
@@ -169,6 +170,7 @@ from projects import (
     ProjectRecord,
     build_project_tree,
     create_project,
+    delete_project,
     ensure_default_project,
     list_project_explorer_folder_targets,
     list_project_explorer_move_options,
@@ -212,7 +214,7 @@ from reports.export_static import (
     StaticExportUnavailableError,
     export_plotly_static_bytes,
 )
-from wells.repository import DEFAULT_WELLS_ROOT, list_wells, read_well_file_bytes, save_well_version
+from wells.repository import DEFAULT_WELLS_ROOT, delete_well_record, list_wells, read_well_file_bytes, save_well_version
 
 project_calculations = importlib.reload(project_calculations)
 project_exports = importlib.reload(project_exports)
@@ -6137,6 +6139,37 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     if selected_existing != "Новая скважина":
         selected_record = records[existing_options.index(selected_existing) - 1]
 
+    if selected_record is not None:
+        delete_well_col, delete_hint_col = st.columns([1, 2])
+        delete_confirm = delete_well_col.checkbox(
+            "Удалить выбранную скважину с диска",
+            value=False,
+            key=f"las_editor_delete_well_confirm_{selected_record.id}",
+        )
+        delete_hint_col.caption(
+            "Удаление выполняется из persistent storage, а затем очищаются таблицы, графики, статистика и данные редактора."
+        )
+        if delete_well_col.button(
+            "Удалить скважину",
+            disabled=not delete_confirm,
+            use_container_width=True,
+            key=f"las_editor_delete_well_{selected_record.id}",
+        ):
+            try:
+                deleted = delete_well_record(WELLS_STORAGE_ROOT, selected_record.id)
+                cleanup = ApplicationStateController(st.session_state).clear_current_context(reason="well_deleted")
+                logger.info(
+                    "well_deleted id=%s deleted=%s cleared=%d",
+                    safe_log_value(selected_record.id),
+                    deleted,
+                    len(cleanup.cleared_keys),
+                )
+                st.success("Скважина удалена с диска. Старые таблицы и графики очищены.")
+                st.rerun()
+            except Exception:
+                logger.exception("well_delete_failed id=%s", safe_log_value(selected_record.id))
+                st.error("Не удалось удалить скважину.")
+
     name_col, area_col, status_col = st.columns(3)
     default_name = selected_record.name if selected_record else Path(getattr(uploaded_file, "name", "well")).stem
     well_name = name_col.text_input("Название скважины", value=default_name, key="las_editor_well_name")
@@ -7507,13 +7540,23 @@ def _project_selectbox_key(current_project_id: str, project_ids: tuple[str, ...]
 
 
 def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bool = False) -> ProjectRecord:
+    app_state = ApplicationStateController(st.session_state)
+    pending_transition = app_state.consume_pending_project_activation()
+    if pending_transition and pending_transition.changed:
+        logger.info(
+            "active_project_switched_pending from=%s to=%s cleared=%d",
+            safe_log_value(pending_transition.before.project_id),
+            safe_log_value(pending_transition.after.project_id),
+            len(pending_transition.cleanup.cleared_keys) if pending_transition.cleanup else 0,
+        )
+
     projects = _load_project_records_for_ui(logger)
     projects_by_id = {project.id: project for project in projects}
     project_ids = tuple(projects_by_id)
     current_project_id = st.session_state.get(ACTIVE_PROJECT_ID_KEY)
     if current_project_id not in projects_by_id:
         current_project_id = DEFAULT_PROJECT_ID if DEFAULT_PROJECT_ID in projects_by_id else projects[0].id
-        st.session_state[ACTIVE_PROJECT_ID_KEY] = current_project_id
+        app_state.ensure_project(current_project_id)
 
     with st.expander("Проект", expanded=expanded):
         selected_project_id = st.selectbox(
@@ -7523,8 +7566,18 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
             format_func=lambda project_id: _project_option_label(projects_by_id[project_id]),
             key=_project_selectbox_key(current_project_id, project_ids, key_prefix=key_prefix),
         )
-        st.session_state[ACTIVE_PROJECT_ID_KEY] = selected_project_id
-        active_project = projects_by_id[selected_project_id]
+        if selected_project_id != current_project_id:
+            transition = app_state.activate_project(selected_project_id)
+            if transition.changed:
+                logger.info(
+                    "active_project_switched from=%s to=%s cleared=%d",
+                    safe_log_value(transition.before.project_id),
+                    safe_log_value(transition.after.project_id),
+                    len(transition.cleanup.cleared_keys) if transition.cleanup else 0,
+                )
+                st.rerun()
+
+        active_project = projects_by_id[st.session_state.get(ACTIVE_PROJECT_ID_KEY, selected_project_id)]
         st.caption(f"Папка проекта: data/projects/{active_project.id}/")
 
         with st.form(f"{key_prefix}_create_project_form", clear_on_submit=True):
@@ -7541,7 +7594,7 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
                             name=new_project_name,
                             description=new_project_description,
                         )
-                        st.session_state[ACTIVE_PROJECT_ID_KEY] = project.id
+                        app_state.request_project_activation(project.id)
                         logger.info("project_created id=%s", safe_log_value(project.id))
                         st.success("Проект создан.")
                         st.rerun()
@@ -7549,7 +7602,31 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
                         logger.exception("project_create_failed")
                         st.error("Не удалось создать проект.")
 
-    return active_project
+        if active_project.id != DEFAULT_PROJECT_ID:
+            st.divider()
+            delete_confirm = st.checkbox(
+                "Подтверждаю удаление активного проекта с диска",
+                value=False,
+                key=f"{key_prefix}_delete_project_confirm_{active_project.id}",
+            )
+            if st.button(
+                "Удалить активный проект",
+                disabled=not delete_confirm,
+                use_container_width=True,
+                key=f"{key_prefix}_delete_project_{active_project.id}",
+            ):
+                try:
+                    delete_project(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)
+                    app_state.request_project_activation(DEFAULT_PROJECT_ID)
+                    logger.info("project_deleted id=%s", safe_log_value(active_project.id))
+                    st.success("Проект удален с диска. Состояние будет очищено.")
+                    st.rerun()
+                except Exception:
+                    logger.exception("project_delete_failed id=%s", safe_log_value(active_project.id))
+                    st.error("Не удалось удалить проект.")
+
+    active_project_id = st.session_state.get(ACTIVE_PROJECT_ID_KEY, current_project_id)
+    return projects_by_id.get(active_project_id, projects_by_id[current_project_id])
 
 
 def _render_las_correlation_project_selector(logger) -> ProjectRecord:

@@ -115,3 +115,51 @@ Home Workspace содержит:
 - тема и пользовательские настройки сохраняются;
 - все LAS-инструменты видны в интерфейсе;
 - тесты покрывают очистку таблиц и статистик.
+
+## Application Refactoring v5 — State and Persistence Rules
+
+Streamlit-виджеты и бизнес-контекст приложения разделяются.
+
+Запрещено:
+
+```python
+st.selectbox(..., key="active_project_id")
+st.session_state["active_project_id"] = new_id
+```
+
+Разрешено:
+
+```python
+st.selectbox(..., key="active_project_select_ui")
+ApplicationStateController(st.session_state).activate_project(new_id)
+```
+
+### Правило создания проекта
+
+После создания проекта приложение не меняет widget-owned state напрямую. Вместо этого записывается pending-переключение:
+
+```python
+ApplicationStateController(st.session_state).request_project_activation(project.id)
+st.rerun()
+```
+
+В следующем безопасном проходе pending-переключение применяется до построения project selector.
+
+### Правило удаления
+
+Удаление проекта или скважины обязано выполняться на двух уровнях:
+
+1. Persistent storage:
+   - `data/projects/<project_id>`;
+   - `data/wells/<well_id>`;
+   - `data/wells/<well_id>/versions/<version_id>`.
+
+2. Derived session state:
+   - таблицы;
+   - статистики;
+   - графики;
+   - preview;
+   - validation/diagnostics;
+   - correlation/modeling/report workspace-local данные.
+
+Очистка только `st.session_state` не считается удалением.

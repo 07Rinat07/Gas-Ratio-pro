@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -142,3 +143,22 @@ def create_project(
             updated_at=now,
         ),
     )
+
+
+def delete_project(root: Path | str = DEFAULT_PROJECTS_ROOT, project_id: str = "") -> bool:
+    """Delete a project directory from persistent storage.
+
+    The default project is protected: it is the fallback workspace used when no
+    user projects exist.  UI code should call session cleanup separately after a
+    successful deletion so stale tables, plots and statistics disappear as well.
+    """
+
+    clean_project_id = safe_project_id(str(project_id or ""))
+    if clean_project_id == DEFAULT_PROJECT_ID:
+        raise ValueError("Default project cannot be deleted.")
+
+    project_dir = _project_dir(Path(root), clean_project_id)
+    if not project_dir.exists():
+        return False
+    shutil.rmtree(project_dir)
+    return True
