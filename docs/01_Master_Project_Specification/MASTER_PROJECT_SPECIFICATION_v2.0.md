@@ -301,3 +301,7 @@ Phase II is complete when:
 ## Phase II C.7 — Reservoir Volumetrics Workspace
 
 The project now includes a foundation module for reservoir volumetric assessment. It supports grid/property-level calculations of BRV, NRV, PV, HCPV, OOIP and OGIP, with cutoffs, zone summaries, uncertainty cases and report-ready outputs.
+
+## Phase II C.11 — Model Validation & Audit Workspace
+
+The project includes a foundation audit layer for integrated geological models. It verifies required model components, dependency graph consistency, object traceability, readiness score and audit reporting before exchange, reporting and visualization workflows.

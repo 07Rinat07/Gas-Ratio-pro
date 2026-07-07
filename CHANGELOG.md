@@ -1,3 +1,13 @@
+## Phase II → C.11 Model Validation & Audit Workspace Foundation
+
+- Added `projects/model_validation_audit_workspace.py`.
+- Added integrated geological model audit based on the C.10 dependency graph.
+- Added checks for missing required model components, broken dependencies, orphan objects and metadata gaps.
+- Added severity levels: `error`, `warning`, `info`.
+- Added model readiness score and readiness status.
+- Added audit manifest, UI-ready check/issue/coverage tables and Markdown audit report.
+- Added profile tests for seeded models, missing components, broken dependencies, metadata warnings and saved audit records.
+
 ## Phase II → C.4 Interpolation Engine Foundation
 
 - Added `projects/interpolation_engine.py`.

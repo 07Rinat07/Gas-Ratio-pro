@@ -156,3 +156,7 @@ The Geological Model Workspace introduces a single integrated model object that 
 ### Validation
 
 The workspace checks missing surfaces, missing top/base horizons and invalid zone configuration. This is a foundation layer; actual grid arrays and 3D rendering remain separate modules.
+
+## C.11 Model Validation & Audit Workspace
+
+The geological modeling stack includes a validation and audit workspace that checks the integrated model registry, dependency graph, required foundation components, optional professional components, object metadata and readiness score. The output is an audit manifest, UI-ready tables and a Markdown engineering audit report.
