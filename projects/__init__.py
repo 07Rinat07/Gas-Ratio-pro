@@ -783,3 +783,22 @@ from projects.data_exchange import (
     build_data_exchange_record_table,
     build_exchange_issue_table,
 )
+
+from projects.correlation_studio import (
+    PROJECT_CORRELATION_STUDIO_FILE_NAME,
+    CORRELATION_SESSION_STATUSES,
+    CORRELATION_EXPORT_FORMATS,
+    CorrelationSession,
+    CorrelationSessionSummary,
+    normalize_correlation_session,
+    session_to_dict,
+    list_correlation_sessions,
+    get_correlation_session,
+    save_correlation_session,
+    delete_correlation_session,
+    build_correlation_session_table,
+    summarize_correlation_sessions,
+    export_correlation_session_json,
+    import_correlation_session_json,
+    build_correlation_export_manifest,
+)

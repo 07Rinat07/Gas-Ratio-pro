@@ -1045,3 +1045,15 @@ Add data exchange center foundation
 - Добавлена renderer-independent preview specification: треки, относительная ширина, кривые, аннотации и сетка.
 - Добавлена валидация Plot Template перед рендерингом/экспортом: отсутствующие треки, orphan curves, orphan annotations, stale curve references и некорректные диапазоны осей.
 - Добавлена таблица validation issues для будущего UI и Report Studio.
+
+## Этап 131 — Advanced Correlation Studio Professional
+
+- Добавлен проектный слой хранения профессиональных сессий корреляции в `correlation_studio.json`.
+- Реализованы создание, обновление, чтение, фильтрация и удаление сессий Correlation Studio.
+- Сессия хранит список скважин, маркеры, tie lines, глубинные выравнивания, выбранные группы кривых, диапазон глубин, режим сетки и статус согласования.
+- Добавлены табличное представление и сводка по сессиям для будущего UI Correlation Workspace.
+- Добавлены JSON import/export и export manifest для будущих форматов JSON/PNG/SVG/PDF.
+- Слой интегрирован с существующими объектами `CorrelationMarker`, `CorrelationLine`, `DepthAlignment` и историей проекта.
+- Добавлены regression-тесты для CRUD, валидации, JSON roundtrip и export manifest.
+
+Текущий следующий незавершенный пункт: **Advanced Report Studio Professional**.

@@ -210,3 +210,11 @@ git status --short
 - Added renderer-independent preview specification with normalized track width percentages, curve payloads and annotation mapping.
 - Added template validation issues and issue table helpers for export/rendering pre-checks.
 - Added regression tests for presets, cloning, preview spec and validation.
+
+## gas-ratio-pro-updated-131
+
+- Added Advanced Correlation Studio Professional persistence layer with project-level correlation sessions in `correlation_studio.json`.
+- Added session CRUD, status validation, table/summary helpers and project history integration.
+- Added JSON import/export roundtrip for correlation sessions and export manifest generation for JSON/PNG/SVG/PDF targets.
+- Connected persistent sessions with existing professional correlation primitives: markers, tie lines and depth alignments.
+- Added regression tests for session CRUD, validation, JSON roundtrip, export manifest and marker object compatibility.
