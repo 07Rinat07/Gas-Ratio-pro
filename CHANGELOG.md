@@ -365,3 +365,14 @@ git status --short
 - Added conflict policies: skip, suffix and replace.
 - Added import manifest, UI-ready plan tables and issue tables.
 - Added tests for curve import workflow.
+
+## Phase II — B.10 LAS Curve Calculator Professional Foundation
+
+- Added `las_editor/curve_calculator.py`.
+- Added safe formula validation without Python `eval`/`exec`.
+- Added calculated curve workflow for working copies of LAS ASCII tables.
+- Added built-in formula templates for Haworth wetness/balance/character ratios, Pixler C1/C2, oil indicator, inverse oil indicator, Net/Gross and porosity percent.
+- Added supported formula functions: `IF`, `ABS`, `SQRT`, `LOG`, `LOG10`, `EXP`, `ROUND`, `MIN`, `MAX`.
+- Added preview rows, calculated curve specs, UI-ready issue/template tables and calculation manifest.
+- Exported Curve Calculator API through `las_editor/__init__.py`.
+- Added regression tests for formula validation, calculation, templates, IF logic, manifest and safe non-destructive behavior.

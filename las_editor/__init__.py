@@ -1,5 +1,27 @@
 from __future__ import annotations
 
+from las_editor.curve_calculator import (
+    CURVE_CALCULATOR_SCHEMA,
+    CURVE_CALCULATOR_STORAGE_KEY,
+    CurveCalculationHistoryEntry,
+    CurveCalculationIssue,
+    CurveCalculationPlan,
+    CurveCalculationResult,
+    CurveFormulaTemplate,
+    apply_curve_calculation,
+    build_curve_calculation_manifest,
+    build_curve_calculation_plan,
+    build_curve_calculation_plan_from_template,
+    builtin_curve_formula_templates,
+    calculate_curve_values,
+    calculated_curve_spec,
+    curve_calculation_issue_table_rows,
+    curve_calculation_template_table_rows,
+    get_curve_formula_template,
+    preview_curve_calculation,
+)
+
+
 
 from las_editor.curve_importer import (
     CURVE_IMPORT_STORAGE_KEY,
@@ -145,6 +167,24 @@ from las_editor.depth_grid import (
 )
 
 __all__ = [
+    "preview_curve_calculation",
+    "get_curve_formula_template",
+    "curve_calculation_template_table_rows",
+    "curve_calculation_issue_table_rows",
+    "calculated_curve_spec",
+    "calculate_curve_values",
+    "builtin_curve_formula_templates",
+    "build_curve_calculation_plan_from_template",
+    "build_curve_calculation_plan",
+    "build_curve_calculation_manifest",
+    "apply_curve_calculation",
+    "CurveFormulaTemplate",
+    "CurveCalculationResult",
+    "CurveCalculationPlan",
+    "CurveCalculationIssue",
+    "CurveCalculationHistoryEntry",
+    "CURVE_CALCULATOR_STORAGE_KEY",
+    "CURVE_CALCULATOR_SCHEMA",
     "CURVE_IMPORT_STORAGE_KEY",
     "SUPPORTED_CONFLICT_POLICIES",
     "SUPPORTED_MATCH_POLICIES",

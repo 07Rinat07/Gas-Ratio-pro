@@ -475,3 +475,18 @@ Status: Deferred.
 Добавлен backend-модуль `las_editor/curve_importer.py` для безопасного импорта кривых из CSV/XLSX в рабочую копию LAS-таблицы. Реализованы план импорта, нормализация мнемоник, сопоставление по глубине, интерполяция, политики конфликтов `skip/suffix/replace`, manifest, UI-ready таблицы и тесты.
 
 Следующий практический шаг блока B: **B.10 LAS Curve Calculator Professional**.
+
+### Phase II — B.10 LAS Curve Calculator Professional Foundation — реализовано
+
+Реализован backend-слой расчетных кривых LAS:
+
+- безопасная проверка формул без `eval`/`exec`;
+- расчет новых кривых в рабочей копии LAS-таблицы;
+- встроенные шаблоны формул Haworth, Pixler, Oil Indicator, Net/Gross и Porosity Percent;
+- функции `IF`, `ABS`, `SQRT`, `LOG`, `LOG10`, `EXP`, `ROUND`, `MIN`, `MAX`;
+- preview результата перед применением;
+- manifest операции расчета;
+- UI-ready таблицы шаблонов и ошибок;
+- regression-тесты.
+
+Следующий практический шаг блока B: **B.11 LAS Quality Control Professional**.
