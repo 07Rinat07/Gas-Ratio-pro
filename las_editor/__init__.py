@@ -2,6 +2,26 @@
 from __future__ import annotations
 
 
+
+from las_editor.las_processing_pipeline import (
+    LAS_PROCESSING_PIPELINE_SCHEMA,
+    LAS_PROCESSING_PIPELINE_STORAGE_KEY,
+    SUPPORTED_PROCESSING_OPERATIONS,
+    LasProcessingHistoryEntry,
+    LasProcessingIssue,
+    LasProcessingOperation,
+    LasProcessingPlan,
+    LasProcessingResult,
+    apply_processing_operation,
+    apply_processing_pipeline,
+    build_processing_manifest,
+    build_processing_plan,
+    operation_table_rows,
+    preview_processing_pipeline,
+    processing_issue_table_rows,
+    render_processing_report,
+)
+
 from las_editor.las_quality_control import (
     LAS_QUALITY_CONTROL_SCHEMA,
     LAS_QUALITY_CONTROL_STORAGE_KEY,
@@ -191,6 +211,22 @@ from las_editor.depth_grid import (
 )
 
 __all__ = [
+    "LAS_PROCESSING_PIPELINE_SCHEMA",
+    "LAS_PROCESSING_PIPELINE_STORAGE_KEY",
+    "SUPPORTED_PROCESSING_OPERATIONS",
+    "LasProcessingHistoryEntry",
+    "LasProcessingIssue",
+    "LasProcessingOperation",
+    "LasProcessingPlan",
+    "LasProcessingResult",
+    "apply_processing_operation",
+    "apply_processing_pipeline",
+    "build_processing_manifest",
+    "build_processing_plan",
+    "operation_table_rows",
+    "preview_processing_pipeline",
+    "processing_issue_table_rows",
+    "render_processing_report",
     "preview_curve_calculation",
     "get_curve_formula_template",
     "curve_calculation_template_table_rows",

@@ -508,3 +508,7 @@ Status: Deferred.
 - manifest проверки и Markdown-отчет качества.
 
 Следующий практический шаг блока B: **B.12 LAS Processing Filters Professional**.
+
+### B.12 LAS Processing Pipeline Professional Foundation — DONE
+
+Реализован backend-слой pipeline-обработки LAS-кривых: moving average, median filter, despike, fill nulls, normalization, clipping, depth resampling, preview, history, manifest и Markdown-отчет.

@@ -387,3 +387,12 @@ git status --short
 - Added quality-control manifest and Markdown report renderer.
 - Exported LAS Quality Control API through `las_editor/__init__.py`.
 - Added regression tests for the new QC foundation.
+
+## Phase II B.12 — LAS Processing Pipeline Professional Foundation
+
+- Added `las_editor/las_processing_pipeline.py`.
+- Added reproducible non-destructive LAS curve processing pipelines.
+- Added operations: moving average, median filter, despike, null filling, min-max normalization, z-score normalization, clipping and depth resampling.
+- Added processing plan validation, operation history, processing manifest, preview data and Markdown processing report.
+- Exported the processing API through `las_editor/__init__.py`.
+- Added regression tests in `tests/test_las_processing_pipeline_professional.py`.

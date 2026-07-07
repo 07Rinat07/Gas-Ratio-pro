@@ -412,3 +412,34 @@ Foundation-версия содержит профили для типовых к
 - результат пригоден для будущего UI и preflight-проверок;
 - модуль покрыт pytest-тестами;
 - API экспортируется через `las_editor/__init__.py`.
+
+## B.12 LAS Processing Pipeline Professional Foundation
+
+Модуль `las_editor.las_processing_pipeline` определяет воспроизводимый pipeline обработки LAS-кривых. Он работает только с рабочей копией данных и не перезаписывает исходный LAS-файл.
+
+Основные сущности:
+
+- `LasProcessingOperation` — один шаг обработки;
+- `LasProcessingPlan` — нормализованный и проверенный план;
+- `LasProcessingResult` — результат выполнения;
+- `LasProcessingIssue` — ошибка или предупреждение;
+- `LasProcessingHistoryEntry` — запись истории выполнения.
+
+Поддерживаемые операции foundation-версии:
+
+- `moving_average`;
+- `median_filter`;
+- `despike`;
+- `fill_nulls`;
+- `normalize_minmax`;
+- `normalize_zscore`;
+- `clip_range`;
+- `resample_depth`.
+
+Требования:
+
+- все операции должны быть воспроизводимыми;
+- параметры операции должны сохраняться в manifest;
+- результат должен поддерживать preview до применения в UI;
+- исходный LAS-файл не должен перезаписываться;
+- модуль должен использоваться будущими инструментами Batch Processing и Workflow Manager.
