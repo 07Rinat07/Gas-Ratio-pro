@@ -205,3 +205,47 @@ Acceptance Criteria:
 3. Оригинальный LAS не перезаписывается.
 4. Строки рабочей таблицы сортируются по глубине, а значения всех кривых перемещаются вместе со своей строкой.
 5. Operation Journal получает manifest с путями backup и working copy.
+
+---
+
+## 20. LAS Creation Wizard v5 Update
+
+LAS Creation Wizard является постоянным инструментом LAS Workspace. Он отображается даже тогда, когда LAS-файл еще не загружен.
+
+### Видимые инструменты без открытого LAS
+
+- New LAS;
+- Template Manager;
+- Header Builder;
+- Depth Generator;
+- Curve Library;
+- ASCII Builder;
+- Validate Before Save;
+- Save Working Copy;
+- Open Created LAS in Workspace.
+
+### Обязательное поведение
+
+1. Пользователь может создать LAS с нуля.
+2. Пользователь может выбрать шаблон кривых.
+3. Пользователь может добавить собственные кривые.
+4. Глубина генерируется автоматически по start/stop/step.
+5. ASCII-таблица создается автоматически.
+6. Перед сохранением выполняется проверка структуры LAS.
+7. Существующие LAS-файлы не изменяются.
+8. Созданный LAS становится рабочей копией текущей сессии.
+
+### Реализация
+
+- `las_editor.las_creation_wizard` — UI-ready wizard service;
+- `las_editor.las_creator` — генерация LAS-документа;
+- `LAS_CREATION_WIZARD_SCHEMA` — описание видимых инструментов для интерфейса;
+- `build_las_creation_manifest()` — manifest для UI и Operation Journal.
+
+### Acceptance Criteria
+
+1. `New LAS` доступен без открытого файла.
+2. `run_las_creation_wizard()` создает валидный LAS-документ.
+3. `build_las_creation_manifest()` возвращает состояние шагов Wizard.
+4. Curve Library и Template Manager возвращают таблицы для frontend.
+5. Созданный LAS содержит обязательные секции LAS.

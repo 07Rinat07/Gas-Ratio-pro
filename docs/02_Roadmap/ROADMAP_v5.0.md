@@ -251,3 +251,55 @@ Acceptance Criteria:
 3. Все операции возвращают manifest для Operation Journal.
 4. Depth Repair создает backup и working copy перед исправлением.
 5. UI показывает эти инструменты постоянно, а недоступные действия переводит в disabled-состояние с причиной.
+
+## Phase 3.0 — LAS Creation Wizard Priority Update
+
+Создание нового LAS является обязательной базовой функцией редактора и переносится в ближайший приоритет реализации LAS Workspace 3.0.
+
+Редактор должен уметь создавать LAS без предварительно открытого файла. Инструмент **New LAS** всегда отображается в LAS Workspace и Home Workspace.
+
+Функциональные требования:
+
+1. **New LAS без загруженного файла**
+   - кнопка создания LAS видна сразу;
+   - пользователь может создать LAS с нуля;
+   - после создания файл открывается как рабочая копия в LAS Workspace.
+
+2. **LAS Creation Wizard**
+   - Header Builder: Well, UWI/API, Company, Field, Location, Service Company;
+   - Depth Generator: start, stop, step, unit;
+   - Template Manager: empty, mud gas, petrophysics;
+   - Curve Library: стандартные ГИС, газовые и петрофизические кривые;
+   - ASCII Builder: автоматическая генерация таблицы;
+   - Validate Before Save: проверка обязательных секций и монотонности глубины.
+
+3. **Постоянная видимость инструментов**
+   - New LAS;
+   - Open LAS;
+   - Merge / Append;
+   - GIS Curve Insert;
+   - Depth Repair;
+   - Validator;
+   - Diagnostics;
+   - Export.
+
+4. **Безопасность**
+   - создание нового LAS не изменяет существующие LAS;
+   - сохранение выполняется только в новый файл или рабочую копию;
+   - все действия должны быть готовы для Operation Journal.
+
+Реализация:
+
+- `las_editor.las_creation_wizard`;
+- `las_editor.las_creator`;
+- `las_editor.las_merge_append_center`;
+- `las_editor.depth_repair`.
+
+Acceptance Criteria:
+
+1. LAS можно создать без открытого файла.
+2. Все инструменты LAS Workspace видны всегда.
+3. Недоступные действия могут быть disabled, но не скрываются.
+4. Wizard возвращает manifest для UI.
+5. Созданный LAS содержит `~Version`, `~Well`, `~Curve`, `~Parameter`, `~ASCII`.
+6. Созданный LAS можно сразу передать в Validator, Plot Studio и Export Center.
