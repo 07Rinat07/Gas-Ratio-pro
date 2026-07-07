@@ -528,3 +528,8 @@ Status: Deferred.
 - Markdown-отчет для инженерного анализа.
 
 Следующий практический шаг блока B: **B.14 LAS Interpretation Markers & Flags**.
+
+### B.14 Formation Evaluation Summary Foundation — DONE
+
+Реализован backend-слой итоговой инженерной сводки по скважине и интервалам. Модуль объединяет результаты LAS Quality Control, Mud Gas Interpretation и статистику выбранных кривых, формирует interval summary, reservoir flags, manifest и Markdown-отчет.
+

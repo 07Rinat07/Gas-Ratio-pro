@@ -1,3 +1,12 @@
+## Phase II → B.14 Formation Evaluation Summary Foundation
+
+- Added `las_editor/formation_evaluation_summary.py`.
+- Added integrated well/interval summary based on LAS QC, mud-gas interpretation and curve statistics.
+- Added interval-level reservoir flags, dominant fluid character, confidence, QC counters and property averages.
+- Added UI-ready interval/issue tables, audit manifest and Markdown engineering report.
+- Added source reference support for evidence-backed interpretation reports.
+- Added profile tests for summary generation, explicit intervals, manifest, UI helpers and Markdown report.
+
 ## Phase II — B.8 Documentation Evidence & Citation Audit Foundation
 
 - Added `projects/documentation_evidence.py`.

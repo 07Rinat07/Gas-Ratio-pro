@@ -472,3 +472,8 @@ Foundation-версия содержит профили для типовых к
 - все результаты должны быть доступны как таблицы для UI;
 - каждый запуск должен формировать manifest;
 - отчет должен быть воспроизводимым и пригодным для включения в Report Studio.
+
+### B.14 Formation Evaluation Summary Foundation — DONE
+
+Реализован backend-слой итоговой инженерной сводки по скважине и интервалам. Модуль объединяет результаты LAS Quality Control, Mud Gas Interpretation и статистику выбранных кривых, формирует interval summary, reservoir flags, manifest и Markdown-отчет.
+
