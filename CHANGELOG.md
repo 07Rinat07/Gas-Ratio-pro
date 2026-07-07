@@ -452,3 +452,10 @@ git status --short
 - Added crossplot manifest generation and Markdown report rendering.
 - Exported Petrophysical Crossplot Workspace API through `las_editor/__init__.py`.
 - Added regression tests in `tests/test_petrophysical_crossplot_workspace.py`.
+
+## Phase II — B.19 Reservoir Property Calculator Foundation
+
+- Added `las_editor/reservoir_property_calculator.py`.
+- Added deterministic BRV, NRV, PV, HCPV, OOIP and OGIP foundation calculations.
+- Added interval summaries, recovery estimates, manifests, Markdown reporting and UI-ready tables.
+- Added tests for reservoir volumetric calculations.

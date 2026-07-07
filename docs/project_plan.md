@@ -1337,3 +1337,9 @@ Acceptance checks:
 - Profile tests for advanced saturation models pass.
 - `py_compile` / `compileall` pass for the new module.
 - Existing LAS Platform modules remain non-destructive.
+
+### Phase II — B.19 Reservoir Property Calculator Foundation
+
+Status: completed.
+
+Implemented foundation calculations for reservoir bulk rock volume, net rock volume, pore volume, hydrocarbon pore volume, OOIP/OGIP estimates, recovery factors and interval-based volumetric summaries.

@@ -554,3 +554,7 @@ The Petrophysical Crossplot Workspace provides backend data structures for visua
 ### Integration notes
 
 This module is designed for future integration with Plot Studio and Report Studio. It prepares stable backend specifications that can later be rendered as Plotly figures, exported to PNG/SVG/PDF, and embedded in professional reports.
+
+## B.19 Reservoir Property Calculator Foundation
+
+The LAS Platform includes a reservoir property calculator for deterministic volumetric estimates from evaluated LAS curves and interval definitions. The foundation scope includes BRV, NRV, PV, HCPV, OOIP, OGIP, recovery factors, interval summaries, manifests, Markdown reporting and UI-ready table rows. All calculations must expose engineering assumptions such as area, Bo, Bg and recovery factors.
