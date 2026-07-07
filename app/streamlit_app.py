@@ -4,6 +4,7 @@ import base64
 import html
 import importlib
 import random
+import shutil
 import sys
 from datetime import datetime
 from io import BytesIO
@@ -29,7 +30,6 @@ from core.diagnostics import (
 from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summarize_interpretation
 from core.logging_config import configure_logging, safe_log_value
 from core.models import CalculationConfig, STANDARD_FIELDS
-from core.application_state import ApplicationStateController
 from importers.csv_importer import load_csv_sheets
 from importers.excel_importer import load_excel_sheets
 from importers.header_detector import detect_header_row, prepare_dataframe_with_header
@@ -141,6 +141,12 @@ from las_editor.depth_grid import (
     validate_depth_integrity,
     resample_las_data,
 )
+from las_editor.las_creation_wizard import (
+    build_las_creation_wizard_draft,
+    builtin_las_templates,
+    curve_library_table_rows,
+    run_las_creation_wizard,
+)
 from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
 from palettes.depth_tracks import (
@@ -170,7 +176,6 @@ from projects import (
     ProjectRecord,
     build_project_tree,
     create_project,
-    delete_project,
     ensure_default_project,
     list_project_explorer_folder_targets,
     list_project_explorer_move_options,
@@ -214,7 +219,8 @@ from reports.export_static import (
     StaticExportUnavailableError,
     export_plotly_static_bytes,
 )
-from wells.repository import DEFAULT_WELLS_ROOT, delete_well_record, list_wells, read_well_file_bytes, save_well_version
+from wells.repository import DEFAULT_WELLS_ROOT, delete_well, delete_well_version, list_wells, read_well_file_bytes, save_well_version
+from projects.repository import delete_project as delete_project_record
 
 project_calculations = importlib.reload(project_calculations)
 project_exports = importlib.reload(project_exports)
@@ -346,6 +352,8 @@ DASHBOARD_LAST_QUICK_ACTION_KEY = "dashboard_last_quick_action"
 # Dashboard 3.0 nav fix marker: no-empty-nav-cards removes blank rectangles above navigation buttons.
 LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
 LAS_EDITOR_SESSION_SUMMARY_KEY = "las_editor_session_summary"
+LAS_EDITOR_FILE_UPLOADER_RESET_KEY = "las_editor_file_uploader_reset"
+LAS_EDITOR_CREATED_LAS_KEY = "las_editor_created_las"
 LAS_EDITOR_RENAME_HISTORY_KEY = "las_editor_curve_rename_history"
 LAS_EDITOR_ALIAS_HISTORY_KEY = "las_editor_curve_alias_history"
 LAS_EDITOR_ALIAS_MAP_KEY = "las_editor_curve_alias_map"
@@ -3997,6 +4005,114 @@ def _render_las_curve_merge_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
 
     return active_df
 
+
+def _clear_runtime_workspace_state(*, clear_uploaded_las: bool = True) -> None:
+    """Clear derived Streamlit runtime data that must not survive project/LAS changes."""
+    prefixes = (
+        "las_editor_",
+        "las_correlation_",
+        "interpretation_",
+        "selected_interval",
+        "mapping_",
+        "calculation_",
+        "diagnostics_",
+        "dashboard_",
+    )
+    exact_keys = {
+        LAS_EDITOR_SESSION_SHEETS_KEY,
+        LAS_EDITOR_SESSION_SUMMARY_KEY,
+        PROJECT_SESSION_SHEETS_KEY,
+        PROJECT_SESSION_SUMMARY_KEY,
+        PROJECT_SESSION_PROJECT_ID_KEY,
+        INTERPRETATION_SESSION_DATA_KEY,
+        INTERPRETATION_SESSION_SOURCE_KEY,
+    }
+    protected = {
+        LAS_EDITOR_FILE_UPLOADER_RESET_KEY,
+        ACTIVE_PROJECT_ID_KEY,
+        ACTIVE_MAIN_TAB_KEY,
+        UI_SCALE_KEY,
+        UI_LAYOUT_KEY,
+    }
+    for key in list(st.session_state.keys()):
+        if key in protected:
+            continue
+        if key in exact_keys or any(str(key).startswith(prefix) for prefix in prefixes):
+            st.session_state.pop(key, None)
+    if clear_uploaded_las:
+        st.session_state[LAS_EDITOR_FILE_UPLOADER_RESET_KEY] = int(st.session_state.get(LAS_EDITOR_FILE_UPLOADER_RESET_KEY, 0)) + 1
+
+
+def _render_las_creation_panel(logger) -> None:
+    """Visible New LAS tool in the real LAS editor UI."""
+    with st.expander("Новый LAS", expanded=True):
+        st.caption("Создание LAS с нуля. Исходные файлы не затрагиваются; созданный LAS открывается как рабочая копия.")
+        template_names = list(builtin_las_templates())
+        top_cols = st.columns(4)
+        well_name = top_cols[0].text_input("Well name", value="NEW_WELL", key="las_creator_well_name")
+        start_depth = top_cols[1].text_input("Start depth", value="1000", key="las_creator_start_depth")
+        stop_depth = top_cols[2].text_input("Stop depth", value="1010", key="las_creator_stop_depth")
+        step = top_cols[3].text_input("Step", value="0.2", key="las_creator_step")
+
+        meta_cols = st.columns(4)
+        template_name = meta_cols[0].selectbox("Шаблон", options=template_names, index=0, key="las_creator_template")
+        las_version = meta_cols[1].selectbox("LAS version", options=("2.0", "3.0"), index=0, key="las_creator_version")
+        null_value = meta_cols[2].text_input("NULL", value="-999.25", key="las_creator_null")
+        depth_unit = meta_cols[3].selectbox("Depth unit", options=("M", "FT"), index=0, key="las_creator_depth_unit")
+
+        with st.expander("Библиотека кривых", expanded=False):
+            library_rows = curve_library_table_rows()
+            library_df = pd.DataFrame(library_rows)
+            selected_mnemonics = st.multiselect(
+                "Добавить кривые",
+                options=[str(row["mnemonic"]) for row in library_rows],
+                default=[],
+                key="las_creator_selected_curves",
+            )
+            st.dataframe(library_df, use_container_width=True, hide_index=True)
+
+        selected_curves = [row for row in curve_library_table_rows() if row["mnemonic"] in selected_mnemonics]
+        try:
+            draft = build_las_creation_wizard_draft(
+                well_name=well_name,
+                start_depth=start_depth,
+                stop_depth=stop_depth,
+                step=step,
+                template_name=template_name,
+                curves=selected_curves,
+                depth_unit=depth_unit,
+                null_value=float(str(null_value).replace(",", ".")),
+                las_version=las_version,
+            )
+            wizard_result = run_las_creation_wizard(draft)
+        except Exception as exc:
+            st.warning(f"Параметры нового LAS пока некорректны: {exc}")
+            return
+
+        step_cols = st.columns(len(wizard_result.steps))
+        for col, wizard_step in zip(step_cols, wizard_result.steps):
+            col.metric(wizard_step.title, "готово" if wizard_step.complete else "нужно заполнить")
+
+        if wizard_result.document is not None:
+            preview_df = wizard_result.document.data
+            st.dataframe(preview_df.head(20), use_container_width=True)
+            st.download_button(
+                "Скачать новый LAS",
+                data=wizard_result.document.las_bytes,
+                file_name=f"{well_name.strip() or 'new_well'}.las",
+                mime="text/plain",
+                use_container_width=True,
+                key="las_creator_download_las",
+            )
+            if st.button("Открыть созданный LAS в редакторе", type="primary", use_container_width=True, key="las_creator_open_in_editor"):
+                st.session_state[LAS_EDITOR_CREATED_LAS_KEY] = {
+                    "name": f"{well_name.strip() or 'new_well'}.las",
+                    "bytes": wizard_result.document.las_bytes,
+                }
+                st.session_state[LAS_EDITOR_FILE_UPLOADER_RESET_KEY] = int(st.session_state.get(LAS_EDITOR_FILE_UPLOADER_RESET_KEY, 0)) + 1
+                logger.info("las_created_opened_in_editor rows=%d columns=%d", len(preview_df), len(preview_df.columns))
+                st.rerun()
+
 def _find_default_depth_column(df: pd.DataFrame) -> str:
     mapping = auto_map_columns(df.columns).mapping
     if mapping.get("depth") in df.columns:
@@ -4018,10 +4134,11 @@ def _render_saved_wells_panel(logger) -> None:
             return
 
         record_options = {f"{record.name} | {record.updated_at} | версий: {len(record.versions)}": record for record in records}
+        selector_suffix = f"{len(records)}_" + "_".join(record.id for record in records[:8])
         selected_record_label = st.selectbox(
             "Скважина",
             options=list(record_options.keys()),
-            key="saved_well_record_select",
+            key=f"saved_well_record_select_{selector_suffix}",
         )
         selected_record = record_options[selected_record_label]
         versions = list(selected_record.versions)
@@ -4036,7 +4153,7 @@ def _render_saved_wells_panel(logger) -> None:
         selected_version_label = st.selectbox(
             "Версия данных",
             options=list(version_options.keys()),
-            key="saved_well_version_select",
+            key=f"saved_well_version_select_{selected_record.id}_{len(versions)}",
         )
         selected_version = version_options[selected_version_label]
 
@@ -4075,7 +4192,8 @@ def _render_saved_wells_panel(logger) -> None:
             logger.exception("saved_well_download_failed well_id=%s version_id=%s", selected_record.id, selected_version.id)
             st.error("Не удалось подготовить выгрузку сохраненной скважины. Подробности записаны в logs/app.log.")
 
-        if st.button("Использовать выбранную версию в расчетах", use_container_width=True):
+        action_col, delete_version_col, delete_well_col = st.columns(3)
+        if action_col.button("Использовать выбранную версию в расчетах", use_container_width=True, key=f"use_saved_well_{selected_record.id}_{selected_version.id}"):
             try:
                 csv_bytes = read_well_file_bytes(WELLS_STORAGE_ROOT, selected_record.id, selected_version.id, "csv")
                 prepared_df = pd.read_csv(BytesIO(csv_bytes))
@@ -4090,6 +4208,30 @@ def _render_saved_wells_panel(logger) -> None:
                 st.error("Не удалось загрузить сохраненную версию в расчеты. Подробности записаны в logs/app.log.")
             else:
                 st.success("Версия загружена в текущую сессию. Откройте вкладку `Работа с данными`.")
+
+        if delete_version_col.button("Удалить версию", use_container_width=True, key=f"delete_saved_well_version_{selected_record.id}_{selected_version.id}"):
+            try:
+                deleted = delete_well_version(WELLS_STORAGE_ROOT, selected_record.id, selected_version.id)
+                _clear_runtime_workspace_state(clear_uploaded_las=False)
+                logger.info("well_version_deleted well_id=%s version_id=%s deleted=%s", selected_record.id, selected_version.id, deleted)
+            except Exception:
+                logger.exception("well_version_delete_failed well_id=%s version_id=%s", selected_record.id, selected_version.id)
+                st.error("Не удалось удалить версию скважины. Подробности записаны в logs/app.log.")
+            else:
+                st.success("Версия удалена с диска и из рабочей сессии.")
+                st.rerun()
+
+        if delete_well_col.button("Удалить скважину", use_container_width=True, key=f"delete_saved_well_{selected_record.id}"):
+            try:
+                deleted = delete_well(WELLS_STORAGE_ROOT, selected_record.id)
+                _clear_runtime_workspace_state(clear_uploaded_las=False)
+                logger.info("well_deleted well_id=%s deleted=%s", selected_record.id, deleted)
+            except Exception:
+                logger.exception("well_delete_failed well_id=%s", selected_record.id)
+                st.error("Не удалось удалить скважину. Подробности записаны в logs/app.log.")
+            else:
+                st.success("Скважина удалена с диска и из рабочей сессии.")
+                st.rerun()
 
 
 def _build_mapping_controls(df: pd.DataFrame, detected_mapping: dict[str, str]) -> dict[str, str]:
@@ -5610,20 +5752,38 @@ def _render_documentation_tab() -> None:
 
 def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     st.subheader("LAS-редактор")
-    st.caption("Подготовка LAS перед расчетами: проверка глубины, смена шага, добавление строк и ручная правка.")
+    st.caption("Подготовка LAS перед расчетами: создание LAS, проверка глубины, смена шага, добавление строк и ручная правка.")
+
+    tool_cols = st.columns(3)
+    if tool_cols[0].button("Очистить рабочее состояние LAS", use_container_width=True, key="las_editor_clear_workspace_state"):
+        _clear_runtime_workspace_state(clear_uploaded_las=True)
+        st.session_state.pop(LAS_EDITOR_CREATED_LAS_KEY, None)
+        logger.info("las_editor_workspace_state_cleared")
+        st.success("Рабочее состояние LAS очищено.")
+        st.rerun()
+    tool_cols[1].caption("Новый LAS, сохраненные скважины и загрузка файла доступны ниже.")
+
+    _render_las_creation_panel(logger)
     _render_saved_wells_panel(logger)
 
     saved_summary = st.session_state.get(LAS_EDITOR_SESSION_SUMMARY_KEY)
     if saved_summary:
         st.success(f"В рабочую сессию сохранено: {saved_summary}")
 
+    upload_key = f"las_editor_file_upload_{int(st.session_state.get(LAS_EDITOR_FILE_UPLOADER_RESET_KEY, 0))}"
     uploaded_file = st.file_uploader(
-        "LAS-файл для редактора",
+        "Открыть LAS-файл для редактора",
         type=["las"],
-        key="las_editor_file_upload",
+        key=upload_key,
     )
+
+    created_las = st.session_state.get(LAS_EDITOR_CREATED_LAS_KEY)
+    if uploaded_file is None and created_las:
+        uploaded_file = _NamedLasBytesIO(created_las["bytes"], created_las.get("name", "created.las"))
+        st.info(f"Открыт созданный LAS: {created_las.get('name', 'created.las')}")
+
     if uploaded_file is None:
-        st.info("Загрузите LAS-файл, чтобы проверить глубины и подготовить данные перед расчетом.")
+        st.info("Создайте новый LAS выше или загрузите LAS-файл, чтобы проверить глубины и подготовить данные перед расчетом.")
         return
 
     try:
@@ -6138,37 +6298,6 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     selected_record = None
     if selected_existing != "Новая скважина":
         selected_record = records[existing_options.index(selected_existing) - 1]
-
-    if selected_record is not None:
-        delete_well_col, delete_hint_col = st.columns([1, 2])
-        delete_confirm = delete_well_col.checkbox(
-            "Удалить выбранную скважину с диска",
-            value=False,
-            key=f"las_editor_delete_well_confirm_{selected_record.id}",
-        )
-        delete_hint_col.caption(
-            "Удаление выполняется из persistent storage, а затем очищаются таблицы, графики, статистика и данные редактора."
-        )
-        if delete_well_col.button(
-            "Удалить скважину",
-            disabled=not delete_confirm,
-            use_container_width=True,
-            key=f"las_editor_delete_well_{selected_record.id}",
-        ):
-            try:
-                deleted = delete_well_record(WELLS_STORAGE_ROOT, selected_record.id)
-                cleanup = ApplicationStateController(st.session_state).clear_current_context(reason="well_deleted")
-                logger.info(
-                    "well_deleted id=%s deleted=%s cleared=%d",
-                    safe_log_value(selected_record.id),
-                    deleted,
-                    len(cleanup.cleared_keys),
-                )
-                st.success("Скважина удалена с диска. Старые таблицы и графики очищены.")
-                st.rerun()
-            except Exception:
-                logger.exception("well_delete_failed id=%s", safe_log_value(selected_record.id))
-                st.error("Не удалось удалить скважину.")
 
     name_col, area_col, status_col = st.columns(3)
     default_name = selected_record.name if selected_record else Path(getattr(uploaded_file, "name", "well")).stem
@@ -7540,23 +7669,13 @@ def _project_selectbox_key(current_project_id: str, project_ids: tuple[str, ...]
 
 
 def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bool = False) -> ProjectRecord:
-    app_state = ApplicationStateController(st.session_state)
-    pending_transition = app_state.consume_pending_project_activation()
-    if pending_transition and pending_transition.changed:
-        logger.info(
-            "active_project_switched_pending from=%s to=%s cleared=%d",
-            safe_log_value(pending_transition.before.project_id),
-            safe_log_value(pending_transition.after.project_id),
-            len(pending_transition.cleanup.cleared_keys) if pending_transition.cleanup else 0,
-        )
-
     projects = _load_project_records_for_ui(logger)
     projects_by_id = {project.id: project for project in projects}
     project_ids = tuple(projects_by_id)
     current_project_id = st.session_state.get(ACTIVE_PROJECT_ID_KEY)
     if current_project_id not in projects_by_id:
         current_project_id = DEFAULT_PROJECT_ID if DEFAULT_PROJECT_ID in projects_by_id else projects[0].id
-        app_state.ensure_project(current_project_id)
+        st.session_state[ACTIVE_PROJECT_ID_KEY] = current_project_id
 
     with st.expander("Проект", expanded=expanded):
         selected_project_id = st.selectbox(
@@ -7566,19 +7685,25 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
             format_func=lambda project_id: _project_option_label(projects_by_id[project_id]),
             key=_project_selectbox_key(current_project_id, project_ids, key_prefix=key_prefix),
         )
-        if selected_project_id != current_project_id:
-            transition = app_state.activate_project(selected_project_id)
-            if transition.changed:
-                logger.info(
-                    "active_project_switched from=%s to=%s cleared=%d",
-                    safe_log_value(transition.before.project_id),
-                    safe_log_value(transition.after.project_id),
-                    len(transition.cleanup.cleared_keys) if transition.cleanup else 0,
-                )
-                st.rerun()
-
-        active_project = projects_by_id[st.session_state.get(ACTIVE_PROJECT_ID_KEY, selected_project_id)]
+        if st.session_state.get(ACTIVE_PROJECT_ID_KEY) != selected_project_id:
+            _clear_runtime_workspace_state(clear_uploaded_las=True)
+        st.session_state[ACTIVE_PROJECT_ID_KEY] = selected_project_id
+        active_project = projects_by_id[selected_project_id]
         st.caption(f"Папка проекта: data/projects/{active_project.id}/")
+
+        delete_disabled = active_project.id == DEFAULT_PROJECT_ID
+        if st.button("Удалить активный проект", disabled=delete_disabled, use_container_width=True, key=f"{key_prefix}_delete_project_{active_project.id}"):
+            try:
+                delete_project_record(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)
+                _clear_runtime_workspace_state(clear_uploaded_las=True)
+                st.session_state[ACTIVE_PROJECT_ID_KEY] = DEFAULT_PROJECT_ID
+                logger.info("project_deleted id=%s", safe_log_value(active_project.id))
+            except Exception:
+                logger.exception("project_delete_failed id=%s", safe_log_value(active_project.id))
+                st.error("Не удалось удалить проект. Подробности записаны в logs/app.log.")
+            else:
+                st.success("Проект удален с диска, состояние очищено.")
+                st.rerun()
 
         with st.form(f"{key_prefix}_create_project_form", clear_on_submit=True):
             new_project_name = st.text_input("Название нового проекта")
@@ -7594,7 +7719,8 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
                             name=new_project_name,
                             description=new_project_description,
                         )
-                        app_state.request_project_activation(project.id)
+                        _clear_runtime_workspace_state(clear_uploaded_las=True)
+                        st.session_state[ACTIVE_PROJECT_ID_KEY] = project.id
                         logger.info("project_created id=%s", safe_log_value(project.id))
                         st.success("Проект создан.")
                         st.rerun()
@@ -7602,31 +7728,7 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
                         logger.exception("project_create_failed")
                         st.error("Не удалось создать проект.")
 
-        if active_project.id != DEFAULT_PROJECT_ID:
-            st.divider()
-            delete_confirm = st.checkbox(
-                "Подтверждаю удаление активного проекта с диска",
-                value=False,
-                key=f"{key_prefix}_delete_project_confirm_{active_project.id}",
-            )
-            if st.button(
-                "Удалить активный проект",
-                disabled=not delete_confirm,
-                use_container_width=True,
-                key=f"{key_prefix}_delete_project_{active_project.id}",
-            ):
-                try:
-                    delete_project(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)
-                    app_state.request_project_activation(DEFAULT_PROJECT_ID)
-                    logger.info("project_deleted id=%s", safe_log_value(active_project.id))
-                    st.success("Проект удален с диска. Состояние будет очищено.")
-                    st.rerun()
-                except Exception:
-                    logger.exception("project_delete_failed id=%s", safe_log_value(active_project.id))
-                    st.error("Не удалось удалить проект.")
-
-    active_project_id = st.session_state.get(ACTIVE_PROJECT_ID_KEY, current_project_id)
-    return projects_by_id.get(active_project_id, projects_by_id[current_project_id])
+    return active_project
 
 
 def _render_las_correlation_project_selector(logger) -> ProjectRecord:

@@ -233,7 +233,6 @@ from projects.repository import (
     DEFAULT_PROJECTS_ROOT,
     ProjectRecord,
     create_project,
-    delete_project,
     ensure_default_project,
     list_projects,
     load_project,
