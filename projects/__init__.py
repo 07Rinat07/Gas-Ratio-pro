@@ -1122,3 +1122,26 @@ from projects.structural_modeling_workspace import (
     build_structural_layer_table,
     render_structural_modeling_markdown,
 )
+
+from projects.geological_model_integration_workspace import (
+    IntegratedModelObject,
+    ModelDependency,
+    IntegrationView,
+    IntegrationValidationIssue,
+    GeologicalModelIntegrationManifest,
+    save_integrated_model_object,
+    list_integrated_model_objects,
+    save_model_dependency,
+    list_model_dependencies,
+    save_integration_view,
+    list_integration_views,
+    build_dependency_graph,
+    validate_geological_model_integration_workspace,
+    build_geological_model_integration_manifest,
+    build_integration_object_table,
+    build_dependency_table,
+    build_integration_view_table,
+    build_integration_issue_table,
+    render_geological_model_integration_markdown,
+    seed_geological_model_integration_workspace,
+)

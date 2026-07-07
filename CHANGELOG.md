@@ -557,3 +557,12 @@ git status --short
 - Added layer generation helper, manifest, Markdown report and UI-ready helper tables.
 - Exported Structural Modeling Workspace API through `projects/__init__.py`.
 - Added regression tests in `tests/test_structural_modeling_workspace.py`.
+
+## Phase II - C.10 Geological Model Integration Workspace Foundation
+
+- Added `projects/geological_model_integration_workspace.py`.
+- Added integrated model object registry for geological model, structural model, grids, facies, property cubes, volumetrics, wells, LAS datasets, reports and source documents.
+- Added dependency graph foundation for tracing model inputs, outputs, derived objects and documentation references.
+- Added integration views, validation, manifest, Markdown report and UI-ready helper tables.
+- Exported Geological Model Integration Workspace API through `projects/__init__.py`.
+- Added regression tests in `tests/test_geological_model_integration_workspace.py`.

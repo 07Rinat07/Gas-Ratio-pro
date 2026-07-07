@@ -730,3 +730,13 @@ Scope:
 - Surface registry.
 - Structural validation.
 - Manifest, Markdown report and UI-ready tables.
+
+### C.10 Geological Model Integration Workspace Foundation — Implemented
+
+- Integrated model object registry.
+- Dependency graph between structural model, grid, facies, property cubes, volumetrics, wells, LAS datasets and reports.
+- Integration views for UI workspaces.
+- Validation for missing dependencies, orphan objects and broken views.
+- Manifest, Markdown report and UI-ready tables.
+
+Next recommended block: C.11 Geological Model Consistency Audit.
