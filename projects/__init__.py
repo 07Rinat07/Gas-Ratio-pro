@@ -1145,3 +1145,21 @@ from projects.geological_model_integration_workspace import (
     render_geological_model_integration_markdown,
     seed_geological_model_integration_workspace,
 )
+
+from projects.plot_studio_core import (
+    DEFAULT_DEPTH_STEP_M,
+    PlotDepthRange,
+    PlotViewportState,
+    PlotCrosshairState,
+    PlotLayerState,
+    PlotRenderCurve,
+    PlotRenderTrack,
+    PlotWorkspace,
+    build_plot_depth_range,
+    build_crosshair_state,
+    build_plot_workspace,
+    set_plot_workspace_depth_interval,
+    synchronize_plot_tracks,
+    build_plot_workspace_manifest,
+    build_plot_workspace_track_table,
+)
