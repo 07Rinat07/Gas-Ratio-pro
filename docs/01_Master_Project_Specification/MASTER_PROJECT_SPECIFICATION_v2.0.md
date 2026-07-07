@@ -286,3 +286,10 @@ Phase II is complete when:
 - Geological/property modeling roadmap is documented.
 - Project documentation structure is reorganized.
 - README and CHANGELOG reference Phase II.
+
+## Phase II — B.7 Reference Sources Manager
+
+Статус: реализовано foundation.
+
+Добавлена подсистема хранения доказательных PDF-источников внутри проекта. Локальные пути вида `C:\Users\...` больше не должны использоваться как основная ссылка в документации. Источники регистрируются через относительные пути и проверяются валидатором.
+

@@ -894,3 +894,21 @@ from projects.release_candidate import (
     summarize_release_checks,
     validate_release_manifest,
 )
+
+from projects.reference_sources import (
+    REFERENCE_SOURCES_DIR_NAME,
+    REFERENCE_REGISTRY_FILE_NAME,
+    ReferenceSource,
+    ReferenceValidationIssue,
+    ReferenceSourcesSummary,
+    add_pdf_reference_source,
+    build_reference_source_table,
+    build_reference_validation_table,
+    build_sources_markdown,
+    list_reference_sources,
+    normalize_reference_source,
+    reference_source_to_dict,
+    save_reference_registry,
+    summarize_reference_sources,
+    validate_reference_sources,
+)

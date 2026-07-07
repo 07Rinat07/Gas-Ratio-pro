@@ -1,3 +1,14 @@
+
+## Phase II — B.7 Reference Sources Manager Foundation
+
+- Added `projects/reference_sources.py`.
+- Added project PDF source registry support.
+- Added source copying/compression workflow for PDF evidence files.
+- Added validation for missing sources and local Windows path references.
+- Added UI-ready source and validation tables.
+- Added `docs/sources/` with registered project reference PDFs.
+- Added Reference Sources specification draft.
+
 ## Phase II B.5 — LAS Validator Professional Foundation
 
 - Добавлен модуль `las_editor/las_validator.py`.

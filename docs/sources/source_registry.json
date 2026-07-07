@@ -1,0 +1,67 @@
+[
+  {
+    "id": "gladkov-geological-hydrodynamic-modeling",
+    "title": "Геологическое и гидродинамическое моделирование месторождений нефти и газа",
+    "relative_path": "docs/sources/gladkov-geological-hydrodynamic-modeling.pdf",
+    "original_file_name": "GLADKOV_3D_MODELING.pdf",
+    "source_type": "pdf",
+    "authors": [
+      "Е.А. Гладков"
+    ],
+    "year": "2012",
+    "description": "Учебное пособие по геологическому и гидродинамическому моделированию, исходным данным, 3D-моделированию и программным комплексам.",
+    "used_for": [
+      "Геологическое моделирование",
+      "Гидродинамическое моделирование",
+      "Требования к исходным данным",
+      "Сравнение инженерных пакетов"
+    ],
+    "pages": [],
+    "sha256": "d141ef14ddfa1f23a9dea240c444c52f13cc9793bb97838bc1608c59e5e245be",
+    "size_bytes": 4533201,
+    "compressed": true
+  },
+  {
+    "id": "lab-4-property-cubes",
+    "title": "Лабораторная работа 4. Расчет кубов свойств",
+    "relative_path": "docs/sources/lab-4-property-cubes.pdf",
+    "original_file_name": "Lab_4 (1).pdf",
+    "source_type": "pdf",
+    "authors": [],
+    "year": "",
+    "description": "Методический материал по расчету кубов литологии, песчанистости, пористости, проницаемости, флюидных контактов, геометрических свойств и нефтенасыщенности.",
+    "used_for": [
+      "Property Modeling",
+      "Facies Modeling",
+      "Petrophysical Modeling",
+      "Fluid Contacts",
+      "Reservoir Properties"
+    ],
+    "pages": [],
+    "sha256": "fe1b41a3309eb2155de7c81a8405c8322708bda6ef8bff4ed6c5a700af10dcc9",
+    "size_bytes": 2069486,
+    "compressed": true
+  },
+  {
+    "id": "mud-gas-analysis-reservoir-evaluation",
+    "title": "Application of mud gas analysis for reservoir evaluation",
+    "relative_path": "docs/sources/mud-gas-analysis-reservoir-evaluation.pdf",
+    "original_file_name": "application-of-mud-gas-analysis-for-reservoir-evaluation (1).pdf",
+    "source_type": "pdf",
+    "authors": [
+      "N. Muriungi"
+    ],
+    "year": "",
+    "description": "Preprint about using mud gas ratios for reservoir evaluation and fluid characterization.",
+    "used_for": [
+      "Mud Gas Analysis",
+      "Gas Ratio Interpretation",
+      "Reservoir Evaluation",
+      "Fluid Characterization"
+    ],
+    "pages": [],
+    "sha256": "5e3c69c1e9c1ccc9de7822a41635b10275a553e5087a4fa549b4d6c44884f6b7",
+    "size_bytes": 542010,
+    "compressed": true
+  }
+]
