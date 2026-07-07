@@ -105,3 +105,22 @@ The contact set foundation converts cells into simple zone classes:
 - `0` — unknown zone.
 
 The feature is designed as a backend layer for future UI visualization, reservoir volume calculations and geological modeling workflows.
+
+## C.7 Reservoir Volumetrics Workspace Foundation
+
+The reservoir volumetrics workspace calculates engineering volume indicators from modeled property cells and zone metadata.
+
+Implemented foundation:
+- Bulk Rock Volume (BRV);
+- Net Rock Volume (NRV);
+- Pore Volume (PV);
+- Hydrocarbon Pore Volume (HCPV);
+- OOIP foundation in stock tank barrels;
+- OGIP foundation in standard cubic feet;
+- recoverable oil and gas estimates;
+- zone-level summaries;
+- cutoffs for porosity, water saturation, net flag and pay flag;
+- low/base/high estimate grouping;
+- manifest and Markdown engineering report.
+
+This module is designed as a bridge between property modeling, fluid contacts, petrophysics and report generation.

@@ -531,3 +531,12 @@ git status --short
 - Added contact set coding for gas/oil/water zones.
 - Added job registry, manifest, Markdown report and UI-ready tables.
 - Added tests for contact classification, geometry properties, manifest and reports.
+
+## Phase II — C.7 Reservoir Volumetrics Workspace Foundation
+
+- Added `projects/reservoir_volumetrics_workspace.py`.
+- Added grid/property-level volumetric calculations: BRV, NRV, PV, HCPV.
+- Added foundation OOIP/OGIP and recoverable estimates.
+- Added cutoffs for porosity, water saturation, net flag and pay flag.
+- Added zone summaries, uncertainty summary, manifest, Markdown report and UI-ready tables.
+- Added tests for reservoir volumetrics workspace.

@@ -1032,3 +1032,25 @@ from projects.fluid_contacts_geometry import (
     seed_fluid_geometry_workspace,
     render_fluid_geometry_markdown,
 )
+
+
+from projects.reservoir_volumetrics_workspace import (
+    RESERVOIR_VOLUMETRICS_FILE_NAME,
+    VolumetricCell,
+    VolumetricCutoffs,
+    ZoneVolumetricSummary,
+    ReservoirVolumetricsJob,
+    ReservoirVolumetricsManifest,
+    create_reservoir_volumetrics_job,
+    list_reservoir_volumetrics_jobs,
+    build_cutoffs,
+    cell_passes_cutoffs,
+    compute_cell_volumes,
+    summarize_volumetrics_by_zone,
+    summarize_uncertainty,
+    build_zone_volumetrics_table,
+    build_reservoir_volumetrics_manifest,
+    manifest_to_dict,
+    render_reservoir_volumetrics_markdown,
+    seed_reservoir_volumetrics_workspace,
+)

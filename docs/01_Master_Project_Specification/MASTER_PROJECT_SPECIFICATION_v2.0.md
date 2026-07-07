@@ -297,3 +297,7 @@ Phase II is complete when:
 
 Добавлен слой проверки доказательной базы документации. Модуль `projects/documentation_evidence.py` проверяет реестр `docs/sources/source_registry.json`, наличие зарегистрированных PDF-файлов, ссылки вида `docs/sources/*.pdf` в документации, локальные абсолютные пути пользователя, незарегистрированные ссылки и лишние PDF-файлы без записи в реестре. Результаты доступны в виде UI-ready таблиц, manifest-структуры и Markdown-отчета для preflight/release-проверок.
 
+
+## Phase II C.7 — Reservoir Volumetrics Workspace
+
+The project now includes a foundation module for reservoir volumetric assessment. It supports grid/property-level calculations of BRV, NRV, PV, HCPV, OOIP and OGIP, with cutoffs, zone summaries, uncertainty cases and report-ready outputs.

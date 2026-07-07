@@ -707,3 +707,16 @@ Next recommended block: C.6 Property Cube Builder / Modeling Results Manager.
 - Geometry properties: Cell Height, Cell Volume, Bulk Volume, Depth, Elevation, Relative Depth, Above Contact.
 - Contact Set coding for gas/oil/water zones.
 - Manifest, Markdown report and UI-ready tables.
+
+### C.7 Reservoir Volumetrics Workspace Foundation — implemented
+
+Status: implemented.
+
+Scope:
+- grid/property-based reservoir volumetrics;
+- BRV, NRV, PV, HCPV;
+- foundation OOIP/OGIP;
+- recovery estimates;
+- zone and case summaries;
+- low/base/high uncertainty foundation;
+- UI-ready tables and Markdown reports.
