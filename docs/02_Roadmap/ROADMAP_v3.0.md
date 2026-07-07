@@ -43,11 +43,14 @@ Licensing / Hardware ID / Activation is optional and deferred to the last commer
 ## B. LAS Platform Professional
 
 ### B.1 LAS Creation Wizard
+Status: **Backend foundation implemented**.
 - Create LAS from scratch.
 - Define well name, UWI/API, start/stop/step/null value.
 - Generate depth index.
 - Select LAS version/profile.
 - Create mandatory sections.
+- Built-in templates: empty, mud gas, petrophysics.
+- Generate LAS text/bytes for safe save-as workflow.
 
 ### B.2 LAS Template System
 - Built-in templates.

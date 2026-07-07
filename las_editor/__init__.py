@@ -13,6 +13,27 @@ from las_editor.curve_grouping import (
     suggest_curve_groups,
     undo_last_group_assignment,
 )
+
+from las_editor.las_creator import (
+    DEFAULT_NULL_VALUE,
+    LAS_MANDATORY_SECTIONS,
+    LasCreationResult,
+    LasCreationSpec,
+    LasCurveSpec,
+    LasValidationIssue,
+    add_las_curve,
+    build_las_creation_spec,
+    build_las_text,
+    builtin_las_templates,
+    create_las_dataframe,
+    create_las_document,
+    delete_las_curve,
+    get_las_template_curves,
+    normalize_las_mnemonic,
+    normalize_las_unit,
+    validate_las_creation,
+)
+
 from las_editor.depth_grid import (
     DepthDiagnostics,
     DepthDirectionFixResult,
@@ -30,6 +51,23 @@ from las_editor.depth_grid import (
 )
 
 __all__ = [
+    "validate_las_creation",
+    "normalize_las_unit",
+    "normalize_las_mnemonic",
+    "get_las_template_curves",
+    "delete_las_curve",
+    "create_las_document",
+    "create_las_dataframe",
+    "builtin_las_templates",
+    "build_las_text",
+    "build_las_creation_spec",
+    "add_las_curve",
+    "LasValidationIssue",
+    "LasCurveSpec",
+    "LasCreationSpec",
+    "LasCreationResult",
+    "LAS_MANDATORY_SECTIONS",
+    "DEFAULT_NULL_VALUE",
     "CurveGroupingHistoryEntry",
     "CurveGroupingResult",
     "assign_curve_group",
