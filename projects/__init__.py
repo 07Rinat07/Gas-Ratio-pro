@@ -1194,3 +1194,16 @@ from projects.plot_studio_manual_scale import (
     build_manual_scale_manifest,
 )
 
+from projects.plot_studio_sync_scroll import (
+    ScrollDirection,
+    PlotScrollConfig,
+    PlotScrollRequest,
+    PlotSynchronizedTrackState,
+    PlotScrollResult,
+    build_synchronized_track_states,
+    initialize_synchronized_scrolling,
+    scroll_synchronized_tracks,
+    scroll_to_depth,
+    align_workspace_to_bounds,
+    build_synchronized_scroll_manifest,
+)

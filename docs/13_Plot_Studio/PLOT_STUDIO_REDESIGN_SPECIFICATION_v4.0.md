@@ -232,3 +232,55 @@ Manual X/Y Scale считается готовым, если:
 6. исходный workspace остается неизменным;
 7. manifest содержит depth scale и curve scale состояние для UI/debug;
 8. модуль покрыт unit-тестами.
+
+---
+
+## 7. Plot Studio Synchronized Scrolling Backend
+
+Реализован backend-слой синхронной прокрутки Plot Studio 2.0: `projects/plot_studio_sync_scroll.py`.
+
+### 7.1 Назначение
+
+Модуль управляет общей вертикальной прокруткой планшета по измеренной глубине. Он не отрисовывает графики, не читает и не изменяет LAS-файлы, а возвращает новый immutable `PlotWorkspace` с обновленным общим `PlotViewportState`.
+
+### 7.2 Основные модели
+
+- `PlotScrollConfig` — параметры чувствительности wheel/keyboard/page scrolling и минимального окна.
+- `PlotScrollRequest` — нормализованный запрос прокрутки по направлению, метрам или доле текущего окна.
+- `PlotSynchronizedTrackState` — состояние глубинного окна для каждого видимого трека.
+- `PlotScrollResult` — результат операции для UI status panel, Session State и Operation Journal.
+
+### 7.3 Реализованные функции
+
+- инициализация synchronized scrolling state;
+- построение синхронных track states для всех видимых треков;
+- прокрутка вверх/вниз по абсолютному `delta_m`;
+- прокрутка по доле текущего окна для wheel/keyboard/page сценариев;
+- центрирование viewport вокруг выбранной глубины;
+- выравнивание текущего viewport по границам полного диапазона данных;
+- ограничение выхода за верхнюю и нижнюю границы данных;
+- автоматическое ограничение crosshair новым интервалом глубины;
+- формирование serializable manifest для UI/debug/tests.
+
+### 7.4 Инженерные ограничения
+
+- оригинальный LAS не изменяется;
+- операции работают только с renderer-independent `PlotWorkspace`;
+- все видимые треки получают один и тот же depth interval;
+- viewport не может выйти за `PlotNavigationBounds`;
+- высота окна сохраняется при обычной прокрутке;
+- при достижении границы возвращается контролируемый result без аварийного падения UI;
+- исходный workspace остается неизменным.
+
+### 7.5 Acceptance Criteria
+
+Synchronized Scrolling считается готовым, если:
+
+1. прокрутка изменяет общий depth interval для всех видимых треков;
+2. высота текущего viewport сохраняется;
+3. верхняя и нижняя границы данных не нарушаются;
+4. scroll-to-depth центрирует окно там, где это возможно;
+5. crosshair автоматически ограничивается текущим viewport;
+6. manifest содержит viewport и synchronized track states;
+7. операции не мутируют исходный workspace;
+8. модуль покрыт unit-тестами.
