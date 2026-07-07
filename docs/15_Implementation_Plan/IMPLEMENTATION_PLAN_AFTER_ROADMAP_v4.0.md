@@ -51,27 +51,3 @@
 ## Стоп-правило
 
 До завершения Sprint 1–3 не добавлять новые большие backend-модули, кроме критических исправлений.
-
----
-
-# Implementation Plan Update — Required LAS and Correlation Fixes
-
-The following items are promoted to required implementation scope for Roadmap v4.0:
-
-1. LAS Workspace 2.0 must include LAS Merge & Append Center.
-2. LAS Workspace 2.0 must include Depth Repair Center.
-3. Depth Repair must default to `Repair Depth Vector Only` and save as a copy.
-4. Correlation Workspace must be redesigned before it can be considered production-ready.
-5. Correlation must expose wells, LAS assignment, selected curves, markers, tie-lines and depth interval explicitly.
-
-Updated priority after A.1:
-
-1. LAS Workspace Home & Action Launcher.
-2. LAS Creation Wizard UI.
-3. LAS Merge & Append Center.
-4. LAS Depth Repair Center.
-5. LAS Header/Curve/ASCII integrated editor UI.
-6. Plot Studio 2.0 scale and print redesign.
-7. Correlation Workspace redesign.
-8. Report Studio 2.0 PDF/XLSX/PNG export.
-9. Geological Modeling Workspace visible UI.

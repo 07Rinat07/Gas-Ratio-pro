@@ -65,36 +65,3 @@
 8. Data Browser.
 9. Job Manager Panel.
 10. Unified visual style.
-
----
-
-# UI/UX v4.0 Addendum — LAS Editor and Correlation Visibility
-
-## LAS Workspace Visibility
-
-LAS Workspace must never show an empty or useless screen. Even without an opened LAS file, it must show primary actions:
-
-- Создать LAS;
-- Открыть LAS;
-- Импорт LAS/CSV/XLSX;
-- Срастить LAS;
-- Вставить данные из другого LAS;
-- Исправить глубину LAS;
-- Шаблоны;
-- Последние файлы.
-
-Tools must be grouped into visible expandable panels, not hidden behind unclear tabs.
-
-## Correlation Workspace Clarity
-
-Correlation Workspace must use a clear layout:
-
-- left panel: well selection;
-- top toolbar: curves, markers, depth range, scale;
-- center: synchronized tracks;
-- right inspector: selected well/marker/tie line details;
-- bottom panel: validation messages and correlation log.
-
-Empty-state message:
-
-`Выберите минимум две скважины и назначьте LAS-файлы для построения корреляции.`

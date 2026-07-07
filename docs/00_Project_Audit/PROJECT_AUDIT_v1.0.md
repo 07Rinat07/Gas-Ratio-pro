@@ -194,25 +194,3 @@
 8. Data Browser / Project Explorer.
 9. Job Manager.
 10. Только после этого — расширение новых расчетных модулей.
-
----
-
-# Audit Addendum — LAS Merge, Depth Repair, Correlation Clarity
-
-## New Critical Findings
-
-### LAS Editor
-
-1. LAS creation must be visible before file loading.
-2. LAS editor must support merge/append workflows.
-3. LAS editor must insert GIS/wireline/LWD data from another LAS.
-4. LAS editor must repair decreasing depth direction.
-5. Repair must create a copy and must not overwrite the original LAS.
-6. Default depth repair must modify only the depth vector, keeping curve values in their original rows.
-
-### Correlation Workspace
-
-1. Current correlation view is not understandable enough for daily engineering use.
-2. Wells/LAS files appear scattered.
-3. The user cannot clearly see what is being correlated.
-4. Correlation needs a full redesign around well selection, marker management, tie-lines, synchronized tracks and export.

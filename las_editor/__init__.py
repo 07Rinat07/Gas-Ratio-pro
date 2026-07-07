@@ -598,5 +598,3 @@ from las_editor.petrophysical_report_package import (
     report_section_table_rows,
     validate_report_package,
 )
-
-# Roadmap v4.0 LAS Workspace 2.0 modules are imported directly by UI/tests.

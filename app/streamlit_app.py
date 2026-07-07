@@ -140,32 +140,6 @@ from las_editor.depth_grid import (
     validate_depth_integrity,
     resample_las_data,
 )
-from las_editor.las_creator import build_las_text
-from las_editor.las_workspace_home import (
-    action_table_rows,
-    build_las_workspace_home_state,
-)
-from las_editor.las_creation_wizard import (
-    LasCreationMode,
-    build_las_creation_wizard_draft,
-    build_las_creation_wizard_preview_v2,
-    finalize_las_creation_wizard,
-    las_creation_mode_rows,
-    las_creation_template_rows,
-    wizard_issue_rows,
-    wizard_step_rows,
-)
-from las_editor.las_header_designer import (
-    HeaderDesignerUpdate,
-    apply_header_designer_updates,
-    build_las_header_designer_preview,
-    build_las_header_designer_session,
-    finalize_las_header_designer_update,
-    header_designer_issue_rows,
-    header_designer_required_field_rows,
-    header_designer_section_rows,
-    header_designer_well_field_rows,
-)
 from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
 from palettes.depth_tracks import (
@@ -370,9 +344,6 @@ DASHBOARD_LAST_QUICK_ACTION_KEY = "dashboard_last_quick_action"
 # Dashboard 3.0 nav fix marker: no-empty-nav-cards removes blank rectangles above navigation buttons.
 LAS_EDITOR_SESSION_SHEETS_KEY = "las_editor_session_sheets"
 LAS_EDITOR_SESSION_SUMMARY_KEY = "las_editor_session_summary"
-LAS_WORKSPACE_CREATED_PREVIEW_KEY = "las_workspace_created_preview"
-LAS_WORKSPACE_CREATED_SPEC_KEY = "las_workspace_created_spec"
-LAS_WORKSPACE_CREATED_DF_KEY = "las_workspace_created_df"
 LAS_EDITOR_RENAME_HISTORY_KEY = "las_editor_curve_rename_history"
 LAS_EDITOR_ALIAS_HISTORY_KEY = "las_editor_curve_alias_history"
 LAS_EDITOR_ALIAS_MAP_KEY = "las_editor_curve_alias_map"
@@ -5635,312 +5606,22 @@ def _render_documentation_tab() -> None:
     st.markdown('</div>', unsafe_allow_html=True)
 
 
-def _render_las_workspace_home_panel() -> None:
-    """Render LAS Workspace 2.0 action launcher before any file is loaded."""
-
-    state = build_las_workspace_home_state()
-    st.markdown(
-        """
-        <style>
-        .las-workspace-hero {
-            padding: 1.2rem 1.35rem;
-            border: 1px solid rgba(148, 163, 184, .25);
-            border-radius: 18px;
-            background: linear-gradient(135deg, rgba(15,23,42,.95), rgba(30,41,59,.86));
-            margin-bottom: 1rem;
-        }
-        .las-workspace-hero h2 { margin: 0; color: #f8fafc; }
-        .las-workspace-hero p { color: #cbd5e1; margin: .35rem 0 0; }
-        .las-action-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-            gap: .75rem;
-            margin: .75rem 0 1rem;
-        }
-        .las-action-card {
-            min-height: 118px;
-            padding: .95rem;
-            border-radius: 16px;
-            border: 1px solid rgba(59,130,246,.25);
-            background: rgba(15,23,42,.78);
-            box-shadow: 0 10px 26px rgba(2,6,23,.16);
-        }
-        .las-action-card b { color: #f8fafc; display: block; margin-top: .35rem; }
-        .las-action-card span { color: #cbd5e1; font-size: .88rem; }
-        .las-action-icon { font-size: 1.65rem; }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        f"""
-        <section class="las-workspace-hero">
-          <h2>{_html_escape(state.title)}</h2>
-          <p>{_html_escape(state.subtitle)} Главное действие — создать LAS — доступно даже без загруженного файла.</p>
-        </section>
-        """,
-        unsafe_allow_html=True,
-    )
-    cards = []
-    for action in state.actions:
-        status = "доступно" if action.enabled_without_file else "после открытия LAS"
-        cards.append(
-            "<div class='las-action-card'>"
-            f"<div class='las-action-icon'>{_html_escape(action.icon)}</div>"
-            f"<b>{_html_escape(action.title)}</b>"
-            f"<span>{_html_escape(action.description)}<br><small>{_html_escape(status)}</small></span>"
-            "</div>"
-        )
-    st.markdown(f"<div class='las-action-grid'>{''.join(cards)}</div>", unsafe_allow_html=True)
-
-
-def _render_las_creation_wizard_panel(logger) -> None:
-    """Render LAS Creation Wizard 2.0 with mode, validation and safe finalize."""
-
-    with st.expander("📄 LAS Creation Wizard 2.0", expanded=True):
-        st.caption(
-            "Профессиональный мастер создает новый LAS 2.0/3.0 без изменения исходных файлов. "
-            "Поддерживаются шаблоны, ручной ввод, подготовка по другому LAS и табличным источникам."
-        )
-
-        mode_rows = las_creation_mode_rows()
-        mode_titles = {row["mode"]: row["title"] for row in mode_rows}
-        mode_descriptions = {row["mode"]: row["description"] for row in mode_rows}
-        mode_value = st.selectbox(
-            "Режим создания",
-            options=[row["mode"] for row in mode_rows],
-            format_func=lambda item: mode_titles.get(item, item),
-            key="las_ws2_v2_mode",
-        )
-        st.caption(mode_descriptions.get(mode_value, ""))
-
-        meta_col, depth_col = st.columns(2)
-        with meta_col:
-            well_name = st.text_input("Скважина", value="NEW_WELL", key="las_ws2_v2_well_name")
-            company = st.text_input("Компания", value="", key="las_ws2_v2_company")
-            field = st.text_input("Месторождение / площадь", value="", key="las_ws2_v2_field")
-            location = st.text_input("Локация", value="", key="las_ws2_v2_location")
-            uwi = st.text_input("UWI", value="", key="las_ws2_v2_uwi")
-            api = st.text_input("API", value="", key="las_ws2_v2_api")
-            service_company = st.text_input("Сервисная компания", value="GAS RATIO PRO", key="las_ws2_v2_service_company")
-        with depth_col:
-            las_version = st.selectbox("Версия LAS", options=("2.0", "3.0"), index=0, key="las_ws2_v2_version")
-            start_depth = st.number_input("START", value=1000.0, step=0.1, key="las_ws2_v2_start")
-            stop_depth = st.number_input("STOP", value=1010.0, step=0.1, key="las_ws2_v2_stop")
-            step = st.number_input("STEP", value=0.2, min_value=0.0001, step=0.1, format="%.4f", key="las_ws2_v2_step")
-            depth_unit = st.selectbox("Единицы глубины", options=("M", "FT"), index=0, key="las_ws2_v2_depth_unit")
-            null_value = st.number_input("NULL", value=-999.25, step=0.25, key="las_ws2_v2_null")
-
-        template_names = [row["template"] for row in las_creation_template_rows()]
-        template = st.selectbox(
-            "Шаблон кривых",
-            options=template_names,
-            format_func=lambda item: {"empty": "Пустой LAS", "mud_gas": "Газовый каротаж C1-C5", "petrophysics": "Петрофизика"}.get(item, item),
-            key="las_ws2_v2_template",
-        )
-        curve_text = st.text_area(
-            "Дополнительные кривые",
-            value="",
-            help="Одна кривая на строку: GR,API,Gamma ray или RHOB|G/C3|Bulk density",
-            key="las_ws2_v2_curve_text",
-        )
-        source_las_text = ""
-        if mode_value == LasCreationMode.FROM_LAS.value:
-            st.info("Для режима «по другому LAS» можно вставить LAS-текст. Мастер возьмет STRT/STOP/STEP и список кривых как основу нового файла.")
-            source_las_text = st.text_area("Источник LAS", value="", height=150, key="las_ws2_v2_source_las_text")
-
-        from las_editor.las_workspace_home import parse_curve_text
-        custom_curves = parse_curve_text(curve_text)
-
-        if st.button("Сформировать предпросмотр LAS 2.0", type="primary", use_container_width=True, key="las_ws2_v2_preview_button"):
-            try:
-                draft = build_las_creation_wizard_draft(
-                    mode=mode_value,
-                    well_name=well_name,
-                    start_depth=start_depth,
-                    stop_depth=stop_depth,
-                    step=step,
-                    template_name=template,
-                    curves=custom_curves,
-                    las_version=las_version,
-                    depth_unit=depth_unit,
-                    null_value=null_value,
-                    company=company,
-                    field=field,
-                    location=location,
-                    uwi=uwi,
-                    api=api,
-                    service_company=service_company,
-                    source_las_text=source_las_text,
-                )
-                preview = build_las_creation_wizard_preview_v2(draft)
-                st.session_state[LAS_WORKSPACE_CREATED_PREVIEW_KEY] = preview
-                st.session_state[LAS_WORKSPACE_CREATED_SPEC_KEY] = preview.draft.spec
-                st.session_state[LAS_WORKSPACE_CREATED_DF_KEY] = preview.data
-                logger.info("las_creation_wizard_v2_preview rows=%d curves=%d", len(preview.data), len(preview.data.columns))
-                st.success("Предпросмотр создан. Проверьте шаги, предупреждения и таблицу перед сохранением.")
-            except Exception as exc:
-                logger.exception("las_creation_wizard_v2_preview_failed")
-                st.error(f"Не удалось создать предпросмотр LAS: {exc}")
-
-        preview = st.session_state.get(LAS_WORKSPACE_CREATED_PREVIEW_KEY)
-        if preview is not None:
-            st.markdown("#### Шаги мастера")
-            st.dataframe(pd.DataFrame(wizard_step_rows(preview.draft)), use_container_width=True, hide_index=True)
-            if preview.issues:
-                st.markdown("#### Проверка")
-                st.dataframe(pd.DataFrame(wizard_issue_rows(preview.issues)), use_container_width=True, hide_index=True)
-            metrics = st.columns(4)
-            metrics[0].metric("Строк", len(preview.data))
-            metrics[1].metric("Кривых", len(preview.data.columns))
-            metrics[2].metric("Файл", preview.draft.filename)
-            metrics[3].metric("Готов", "Да" if preview.can_finalize else "Нет")
-            st.dataframe(pd.DataFrame(preview.table_rows), use_container_width=True, hide_index=True)
-            st.dataframe(preview.data.head(40), use_container_width=True)
-
-            if st.button("Создать новый LAS и сохранить в рабочую сессию", disabled=not preview.can_finalize, use_container_width=True, key="las_ws2_v2_finalize_button"):
-                try:
-                    final = finalize_las_creation_wizard(preview.draft)
-                    st.session_state[LAS_WORKSPACE_CREATED_PREVIEW_KEY] = final.preview
-                    st.session_state[LAS_WORKSPACE_CREATED_SPEC_KEY] = final.result.spec
-                    st.session_state[LAS_WORKSPACE_CREATED_DF_KEY] = final.result.data
-                    st.session_state[LAS_EDITOR_SESSION_SHEETS_KEY] = {"LAS-созданный": _dataframe_to_raw_sheet(final.result.data)}
-                    st.session_state[LAS_EDITOR_SESSION_SUMMARY_KEY] = (
-                        f"Создан новый LAS: {len(final.result.data)} строк, {len(final.result.data.columns)} кривых, файл {final.filename}"
-                    )
-                    st.success("Новый LAS создан. Исходные файлы не изменялись.")
-                except Exception as exc:
-                    logger.exception("las_creation_wizard_v2_finalize_failed")
-                    st.error(f"Не удалось завершить создание LAS: {exc}")
-
-            las_bytes = preview.las_text.encode("utf-8")
-            st.download_button(
-                "Скачать предпросмотр LAS",
-                data=las_bytes,
-                file_name=preview.draft.filename,
-                mime="application/octet-stream",
-                use_container_width=True,
-                key="las_ws2_v2_download_preview",
-            )
-
-
-def _render_las_header_designer_panel(logger) -> None:
-    """Render Header Designer 2.0 for safe-copy LAS metadata editing."""
-
-    with st.expander("🧾 Header Designer 2.0", expanded=False):
-        st.caption(
-            "Редактирование секций ~Version, ~Well, ~Curve и ~Parameter. "
-            "ASCII-данные и значения кривых не изменяются; результат сохраняется только как новая копия LAS."
-        )
-        source_las_text = st.text_area(
-            "LAS-текст для проектирования заголовка",
-            value="",
-            height=180,
-            key="las_ws2_header_designer_source_text",
-            help="Можно вставить LAS целиком. Header Designer извлечет заголовок, а ~ASCII сохранит без изменений.",
-        )
-        col_a, col_b = st.columns(2)
-        with col_a:
-            well_name = st.text_input("WELL", value="", key="las_ws2_header_designer_well")
-            field = st.text_input("FIELD / FLD", value="", key="las_ws2_header_designer_field")
-            company = st.text_input("COMPANY / COMP", value="", key="las_ws2_header_designer_company")
-            uwi = st.text_input("UWI", value="", key="las_ws2_header_designer_uwi")
-        with col_b:
-            las_version = st.selectbox("VERS", options=("2.0", "3.0"), index=0, key="las_ws2_header_designer_version")
-            start_depth = st.text_input("STRT", value="", key="las_ws2_header_designer_strt")
-            stop_depth = st.text_input("STOP", value="", key="las_ws2_header_designer_stop")
-            step = st.text_input("STEP", value="", key="las_ws2_header_designer_step")
-
-        if st.button("Сформировать предпросмотр Header Designer", use_container_width=True, key="las_ws2_header_designer_preview_button"):
-            try:
-                session = build_las_header_designer_session(las_text=source_las_text, source_object_id="las-header-designer-ui")
-                updates = [HeaderDesignerUpdate("Version", "VERS", "value", las_version)]
-                if well_name:
-                    updates.append(HeaderDesignerUpdate("Well", "WELL", "value", well_name))
-                if field:
-                    updates.append(HeaderDesignerUpdate("Well", "FLD", "value", field))
-                if company:
-                    updates.append(HeaderDesignerUpdate("Well", "COMP", "value", company))
-                if uwi:
-                    updates.append(HeaderDesignerUpdate("Well", "UWI", "value", uwi))
-                if start_depth:
-                    updates.append(HeaderDesignerUpdate("Well", "STRT", "value", start_depth))
-                if stop_depth:
-                    updates.append(HeaderDesignerUpdate("Well", "STOP", "value", stop_depth))
-                if step:
-                    updates.append(HeaderDesignerUpdate("Well", "STEP", "value", step))
-                session = apply_header_designer_updates(session, updates)
-                preview = build_las_header_designer_preview(session)
-                st.session_state["las_ws2_header_designer_preview"] = preview
-                logger.info("las_header_designer_preview cards=%d issues=%d", len(preview.session.cards), len(preview.issues))
-                st.success("Предпросмотр заголовка создан. Проверьте обязательные поля и предупреждения.")
-            except Exception as exc:
-                logger.exception("las_header_designer_preview_failed")
-                st.error(f"Не удалось сформировать Header Designer preview: {exc}")
-
-        preview = st.session_state.get("las_ws2_header_designer_preview")
-        if preview is not None:
-            metrics = st.columns(4)
-            metrics[0].metric("Секций", len(preview.section_rows))
-            metrics[1].metric("Карточек", len(preview.card_rows))
-            metrics[2].metric("Проблем", len(preview.issues))
-            metrics[3].metric("Готов", "Да" if preview.can_finalize else "Нет")
-            st.markdown("#### Секции")
-            st.dataframe(pd.DataFrame(preview.section_rows), use_container_width=True, hide_index=True)
-            st.markdown("#### Обязательные и рекомендуемые поля")
-            st.dataframe(pd.DataFrame(preview.field_rows), use_container_width=True, hide_index=True)
-            if preview.issues:
-                st.markdown("#### Проверка")
-                st.dataframe(pd.DataFrame(header_designer_issue_rows(preview.issues)), use_container_width=True, hide_index=True)
-            st.markdown("#### Карточки заголовка")
-            st.dataframe(pd.DataFrame(preview.card_rows), use_container_width=True, hide_index=True)
-            st.code(preview.header_text, language="text")
-            if st.button("Создать новую копию LAS с обновленным заголовком", disabled=not preview.can_finalize, use_container_width=True, key="las_ws2_header_designer_finalize_button"):
-                try:
-                    final = finalize_las_header_designer_update(preview.session, original_las_text=source_las_text, filename="header_designer.las")
-                    st.success("Новая копия LAS подготовлена. Исходный файл и ASCII-значения не изменялись.")
-                    st.download_button(
-                        "Скачать LAS с обновленным заголовком",
-                        data=final.las_bytes,
-                        file_name=final.filename,
-                        mime="application/octet-stream",
-                        use_container_width=True,
-                        key="las_ws2_header_designer_download_final",
-                    )
-                except Exception as exc:
-                    logger.exception("las_header_designer_finalize_failed")
-                    st.error(f"Не удалось завершить Header Designer update: {exc}")
-
-def _render_las_workspace_template_panel() -> None:
-    """Show LAS templates on the Home page."""
-
-    with st.expander("📋 Доступные шаблоны LAS", expanded=False):
-        state = build_las_workspace_home_state()
-        st.dataframe(pd.DataFrame(state.templates), use_container_width=True, hide_index=True)
-        st.caption("Шаблоны используются мастером создания LAS и безопасным экспортом.")
-
-
 def _render_las_editor(logger, active_project: ProjectRecord) -> None:
-    st.subheader("LAS Workspace 2.0")
-    st.caption("Профессиональное рабочее пространство LAS: создание, открытие, редактирование, проверка и безопасный экспорт.")
+    st.subheader("LAS-редактор")
+    st.caption("Подготовка LAS перед расчетами: проверка глубины, смена шага, добавление строк и ручная правка.")
     _render_saved_wells_panel(logger)
-    _render_las_workspace_home_panel()
-    _render_las_creation_wizard_panel(logger)
-    _render_las_header_designer_panel(logger)
-    _render_las_workspace_template_panel()
 
     saved_summary = st.session_state.get(LAS_EDITOR_SESSION_SUMMARY_KEY)
     if saved_summary:
         st.success(f"В рабочую сессию сохранено: {saved_summary}")
 
-    st.markdown("### 📂 Открыть существующий LAS")
     uploaded_file = st.file_uploader(
         "LAS-файл для редактора",
         type=["las"],
         key="las_editor_file_upload",
     )
     if uploaded_file is None:
-        st.info("Можно создать новый LAS выше или загрузить существующий файл для проверки глубин и подготовки данных перед расчетом.")
+        st.info("Загрузите LAS-файл, чтобы проверить глубины и подготовить данные перед расчетом.")
         return
 
     try:
