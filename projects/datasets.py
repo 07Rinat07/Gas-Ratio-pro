@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from io import BytesIO
@@ -1842,3 +1843,84 @@ def build_project_dataset_table(datasets: tuple[ProjectDatasetRecord, ...] | lis
             for dataset in datasets
         ]
     )
+
+
+_DATASET_KIND_IO = {
+    "csv": (_read_csv_manifest, _write_csv_manifest, _csv_dataset_dir, _safe_csv_dataset_id),
+    "excel": (_read_excel_manifest, _write_excel_manifest, _excel_dataset_dir, _safe_excel_dataset_id),
+    "core": (_read_core_manifest, _write_core_manifest, _core_dataset_dir, _safe_core_dataset_id),
+    "mud_log": (_read_mud_log_manifest, _write_mud_log_manifest, _mud_log_dataset_dir, _safe_mud_log_dataset_id),
+    "production": (_read_production_manifest, _write_production_manifest, _production_dataset_dir, _safe_production_dataset_id),
+}
+_DATASET_KINDS = ("las", "csv", "excel", "core", "mud_log", "production")
+
+
+def _normalize_dataset_kind(kind: str) -> str:
+    normalized = str(kind).strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "mudlog": "mud_log",
+        "mud_logs": "mud_log",
+        "las_dataset": "las",
+        "csv_dataset": "csv",
+        "excel_dataset": "excel",
+        "core_dataset": "core",
+        "mud_log_dataset": "mud_log",
+        "production_dataset": "production",
+    }
+    normalized = aliases.get(normalized, normalized)
+    if normalized not in _DATASET_KINDS:
+        raise ValueError(f"Неподдерживаемый тип dataset: {kind}")
+    return normalized
+
+
+def delete_project_dataset(root: Path | str, project_id: str, kind: str, dataset_id: str) -> bool:
+    """Physically delete one dataset and remove it from its manifest.
+
+    LAS datasets are backed by the project LAS repository, therefore deletion is
+    delegated to ``projects.las_files.delete_project_las_file``. Other dataset
+    types have their own manifest and source folder under ``datasets/<kind>``.
+    """
+
+    normalized_kind = _normalize_dataset_kind(kind)
+    if normalized_kind == "las":
+        from projects.las_files import delete_project_las_file
+
+        return bool(delete_project_las_file(root, project_id, dataset_id))
+
+    read_manifest, write_manifest, dataset_dir_factory, safe_id_factory = _DATASET_KIND_IO[normalized_kind]
+    clean_dataset_id = safe_id_factory(dataset_id)
+    records = tuple(record for record in read_manifest(root, project_id) if record.id != clean_dataset_id)
+    original_count = len(read_manifest(root, project_id))
+    dataset_dir = dataset_dir_factory(root, project_id, clean_dataset_id)
+    if dataset_dir.exists():
+        shutil.rmtree(dataset_dir)
+    write_manifest(root, project_id, records)
+    return len(records) != original_count or not dataset_dir.exists()
+
+
+def clear_project_datasets(root: Path | str, project_id: str, *, kind: str | None = None) -> int:
+    """Delete all datasets in one section or in the whole project."""
+
+    if kind is None:
+        return sum(clear_project_datasets(root, project_id, kind=dataset_kind) for dataset_kind in _DATASET_KINDS)
+
+    normalized_kind = _normalize_dataset_kind(kind)
+    if normalized_kind == "las":
+        from projects.las_files import delete_project_las_file, list_project_las_files
+
+        deleted = 0
+        for record in list_project_las_files(root, project_id, include_archived=True):
+            if delete_project_las_file(root, project_id, record.id):
+                deleted += 1
+        return deleted
+
+    read_manifest, write_manifest, dataset_dir_factory, _safe_id_factory = _DATASET_KIND_IO[normalized_kind]
+    records = read_manifest(root, project_id)
+    deleted = 0
+    for record in records:
+        dataset_dir = dataset_dir_factory(root, project_id, record.id)
+        if dataset_dir.exists():
+            shutil.rmtree(dataset_dir)
+        deleted += 1
+    write_manifest(root, project_id, ())
+    return deleted
