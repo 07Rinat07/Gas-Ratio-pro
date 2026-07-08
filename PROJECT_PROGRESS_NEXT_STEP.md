@@ -1,20 +1,17 @@
 # Project Progress — Next Step
 
-Current version: `gas-ratio-pro-curve-rename-merge-state-controller`
+Current package: gas-ratio-pro-las-editor-session-state-controller
 
 Completed in this step:
-
-- Moved LAS curve rename history state behind `ApplicationStateController`.
-- Moved LAS curve merge history state behind `ApplicationStateController`.
-- Removed direct UI access to `st.session_state` from rename/merge history workflows.
-- Kept existing LAS editor behavior and undo workflows compatible.
-- Verified full project test suite.
+- Added ApplicationStateController removal helpers for state cleanup.
+- Moved LAS editor session writes to ApplicationStateController.
+- Moved saved well loading session writes to ApplicationStateController.
+- Moved project/LAS editor source selection reads to ApplicationStateController.
+- Added regression tests for controller-based LAS editor session handling.
 
 Validation:
+- compileall: PASS
+- pytest: 939 passed / 0 failed
 
-- `compileall`: PASS
-- `pytest`: 937 passed / 0 failed
-
-Next recommended step:
-
-- Continue ApplicationStateController cleanup for LAS editor session sheet/summary state.
+Recommended next step:
+- Continue removing direct st.session_state access from interpretation tablet/session state helpers.

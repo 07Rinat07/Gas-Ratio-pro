@@ -4135,9 +4135,7 @@ def _clear_las_working_state() -> None:
         "active_las_id",
         "active_version_id",
     }
-    for key in list(st.session_state.keys()):
-        if key in exact_keys or any(str(key).startswith(prefix) for prefix in prefixes):
-            st.session_state.pop(key, None)
+    _application_state_controller().clear_matching(exact_keys=exact_keys, prefixes=prefixes)
     try:
         st.cache_data.clear()
     except Exception:
@@ -4203,8 +4201,10 @@ def _render_new_las_creator_panel(logger) -> None:
                 key="new_las_download_button",
             )
             if st.button("Открыть созданный LAS в расчетах", width="stretch", key="new_las_open_in_session"):
-                st.session_state[LAS_EDITOR_SESSION_SHEETS_KEY] = {"Новый LAS": _dataframe_to_raw_sheet(result.document.data)}
-                st.session_state[LAS_EDITOR_SESSION_SUMMARY_KEY] = f"Новый LAS: {len(result.document.data)} строк, {len(result.document.data.columns)} колонок"
+                _application_state_controller().update_values({
+                    LAS_EDITOR_SESSION_SHEETS_KEY: {"Новый LAS": _dataframe_to_raw_sheet(result.document.data)},
+                    LAS_EDITOR_SESSION_SUMMARY_KEY: f"Новый LAS: {len(result.document.data)} строк, {len(result.document.data.columns)} колонок",
+                })
                 st.success("Новый LAS помещен в рабочую сессию. Откройте `Работа с данными`.")
 
 
@@ -4300,12 +4300,14 @@ def _render_saved_wells_panel(logger) -> None:
             try:
                 csv_bytes = well_service.read_file_bytes(selected_record.id, selected_version.id, "csv")
                 prepared_df = pd.read_csv(BytesIO(csv_bytes))
-                st.session_state[LAS_EDITOR_SESSION_SHEETS_KEY] = {
-                    f"{selected_record.name} / {selected_version.label}": _dataframe_to_raw_sheet(prepared_df)
-                }
-                st.session_state[LAS_EDITOR_SESSION_SUMMARY_KEY] = (
-                    f"{selected_record.name}, версия {selected_version.label}, строк: {len(prepared_df)}"
-                )
+                _application_state_controller().update_values({
+                    LAS_EDITOR_SESSION_SHEETS_KEY: {
+                        f"{selected_record.name} / {selected_version.label}": _dataframe_to_raw_sheet(prepared_df)
+                    },
+                    LAS_EDITOR_SESSION_SUMMARY_KEY: (
+                        f"{selected_record.name}, версия {selected_version.label}, строк: {len(prepared_df)}"
+                    ),
+                })
             except Exception:
                 logger.exception("saved_well_load_to_session_failed well_id=%s version_id=%s", selected_record.id, selected_version.id)
                 st.error("Не удалось загрузить сохраненную версию в расчеты. Подробности записаны в logs/app.log.")
@@ -6461,10 +6463,12 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
 
     save_col, export_col = st.columns(2)
     if save_col.button("Сохранить для расчетов", type="primary", width="stretch"):
-        st.session_state[LAS_EDITOR_SESSION_SHEETS_KEY] = {"LAS-редактор": _dataframe_to_raw_sheet(edited_df)}
-        st.session_state[LAS_EDITOR_SESSION_SUMMARY_KEY] = (
-            f"{len(edited_df)} строк, шаг {target_step}, заполнение: {fill_label}, массовых операций: {len(bulk_result.operation_log)}"
-        )
+        _application_state_controller().update_values({
+            LAS_EDITOR_SESSION_SHEETS_KEY: {"LAS-редактор": _dataframe_to_raw_sheet(edited_df)},
+            LAS_EDITOR_SESSION_SUMMARY_KEY: (
+                f"{len(edited_df)} строк, шаг {target_step}, заполнение: {fill_label}, массовых операций: {len(bulk_result.operation_log)}"
+            ),
+        })
         logger.info(
             "las_editor_saved_to_session rows=%d columns=%d added_depths=%d fill_strategy=%s bulk_operations=%d",
             len(edited_df),
@@ -6633,19 +6637,20 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
     _render_project_calculations_panel(active_project, logger)
     _render_project_exports_panel(active_project, logger)
 
-    editor_sheets = st.session_state.get(LAS_EDITOR_SESSION_SHEETS_KEY)
-    project_sheets = st.session_state.get(PROJECT_SESSION_SHEETS_KEY)
-    if st.session_state.get(PROJECT_SESSION_PROJECT_ID_KEY) != active_project.id:
+    state_controller = _application_state_controller()
+    editor_sheets = state_controller.get_value(LAS_EDITOR_SESSION_SHEETS_KEY)
+    project_sheets = state_controller.get_value(PROJECT_SESSION_SHEETS_KEY)
+    if state_controller.get_value(PROJECT_SESSION_PROJECT_ID_KEY) != active_project.id:
         project_sheets = None
 
     source_options = []
     if project_sheets:
         source_options.append("Проект")
-        summary = st.session_state.get(PROJECT_SESSION_SUMMARY_KEY, "проектные данные загружены")
+        summary = state_controller.get_value(PROJECT_SESSION_SUMMARY_KEY, "проектные данные загружены")
         st.info(f"Доступны данные активного проекта: {summary}")
     if editor_sheets:
         source_options.append("LAS-редактор")
-        summary = st.session_state.get(LAS_EDITOR_SESSION_SUMMARY_KEY, "данные подготовлены")
+        summary = state_controller.get_value(LAS_EDITOR_SESSION_SUMMARY_KEY, "данные подготовлены")
         st.info(f"Доступны данные из LAS-редактора: {summary}")
     source_options.append("Файлы")
 

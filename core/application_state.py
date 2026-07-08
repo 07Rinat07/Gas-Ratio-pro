@@ -104,6 +104,33 @@ class ApplicationStateController:
         for key, value in values.items():
             self.set_value(key, value)
 
+    def remove_value(self, key: str, default: Any = None) -> Any:
+        """Remove an application-owned state value through the controller."""
+
+        return self.state.pop(str(key), default)
+
+    def keys(self) -> tuple[str, ...]:
+        """Return a stable snapshot of currently known state keys."""
+
+        return tuple(str(key) for key in self.state.keys())
+
+    def clear_matching(self, *, exact_keys: set[str] | None = None, prefixes: tuple[str, ...] = ()) -> tuple[str, ...]:
+        """Remove state values matching exact keys or prefixes.
+
+        This helper is intended for non-widget application data such as cached
+        LAS editor sheets, calculated tables and graph state.  It keeps the
+        cleanup policy centralized and testable instead of scattering direct
+        ``st.session_state.pop`` calls through UI code.
+        """
+
+        exact = {str(key) for key in (exact_keys or set())}
+        removed: list[str] = []
+        for key in self.keys():
+            if key in exact or any(key.startswith(prefix) for prefix in prefixes):
+                self.remove_value(key, None)
+                removed.append(key)
+        return tuple(removed)
+
     def ensure_value(self, key: str, default: Any) -> Any:
         """Return an application-owned value, initializing it when missing.
 

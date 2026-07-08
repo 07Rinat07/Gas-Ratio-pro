@@ -157,3 +157,36 @@ def test_interpretation_and_correlation_settings_helpers_use_application_state_c
         helper_body = inspect.getsource(getattr(module, helper_name))
         assert "_application_state_controller()" in helper_body or helper_name == "_set_tablet_x_range_state"
         assert "st.session_state" not in helper_body
+
+
+def test_application_state_controller_clear_matching_removes_owned_keys():
+    state = {
+        "las_editor_session_sheets": {"LAS": []},
+        "graph_settings": {"x": 1},
+        "user_settings": {"theme": "dark"},
+    }
+    controller = ApplicationStateController(state)
+
+    removed = controller.clear_matching(
+        exact_keys={"las_editor_session_sheets"},
+        prefixes=("graph_",),
+    )
+
+    assert set(removed) == {"las_editor_session_sheets", "graph_settings"}
+    assert state == {"user_settings": {"theme": "dark"}}
+
+
+def test_las_editor_session_state_helpers_use_application_state_controller():
+    module = importlib.import_module("app.streamlit_app")
+    import inspect
+
+    clear_body = inspect.getsource(module._clear_las_working_state)
+    new_las_body = inspect.getsource(module._render_new_las_creator_panel)
+    saved_wells_body = inspect.getsource(module._render_saved_wells_panel)
+
+    assert "clear_matching" in clear_body
+    assert "st.session_state" not in clear_body
+    assert "_application_state_controller().update_values" in new_las_body
+    assert "st.session_state" not in new_las_body
+    assert "_application_state_controller().update_values" in saved_wells_body
+    assert "st.session_state" not in saved_wells_body
