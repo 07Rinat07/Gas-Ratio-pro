@@ -2511,7 +2511,7 @@ def _render_dataframe_panel(
         if help_text:
             st.caption(help_text)
         display_df = df.head(max_preview_rows) if max_preview_rows else df
-        st.dataframe(display_df, use_container_width=True, height=height)
+        st.dataframe(display_df, width="stretch", height=height)
 
 
 def _range_label(value: tuple[float, float] | None, *, unit: str = "") -> str:
@@ -2627,7 +2627,7 @@ def _render_static_export_controls(
                 data=data,
                 file_name=f"{base_name}.{format_name}",
                 mime=_static_export_mime(format_name),
-                use_container_width=True,
+                width="stretch",
                 key=f"{key_prefix}_download_{format_name}",
             )
 
@@ -2678,7 +2678,7 @@ def _render_las_curve_alias_manager(prepared_df: pd.DataFrame) -> None:
     current_aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
     suggestions = suggest_curve_aliases(column_names)
 
-    if st.button("Автоопределить alias", use_container_width=True, key="las_editor_alias_autodetect"):
+    if st.button("Автоопределить alias", width="stretch", key="las_editor_alias_autodetect"):
         st.session_state[LAS_EDITOR_ALIAS_MAP_KEY] = {**current_aliases, **suggestions}
         current_aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
         st.success(f"Автоопределено alias: {len(suggestions)}")
@@ -2700,7 +2700,7 @@ def _render_las_curve_alias_manager(prepared_df: pd.DataFrame) -> None:
     )
 
     references = _las_editor_reference_state(column_names)
-    if action_col.button("Назначить", use_container_width=True, key="las_editor_alias_apply"):
+    if action_col.button("Назначить", width="stretch", key="las_editor_alias_apply"):
         try:
             result = assign_curve_alias(
                 prepared_df,
@@ -2726,7 +2726,7 @@ def _render_las_curve_alias_manager(prepared_df: pd.DataFrame) -> None:
             st.warning(str(exc))
 
     history = tuple(st.session_state.get(LAS_EDITOR_ALIAS_HISTORY_KEY, ()))
-    if st.button("Undo последнего alias", disabled=not history, use_container_width=True, key="las_editor_alias_undo"):
+    if st.button("Undo последнего alias", disabled=not history, width="stretch", key="las_editor_alias_undo"):
         try:
             result = undo_last_alias(
                 aliases=dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {})),
@@ -2746,7 +2746,7 @@ def _render_las_curve_alias_manager(prepared_df: pd.DataFrame) -> None:
         if current_aliases:
             st.dataframe(
                 pd.DataFrame([{"curve_name": key, "alias": value} for key, value in current_aliases.items()]),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
         else:
@@ -2767,7 +2767,7 @@ def _render_las_curve_alias_manager(prepared_df: pd.DataFrame) -> None:
                         for entry in history
                     ]
                 ),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
 
@@ -2800,7 +2800,7 @@ def _render_las_curve_grouping_manager(prepared_df: pd.DataFrame) -> None:
                 "manual_override": "Ручное правило",
             }
         )[["Кривая", "Alias", "Авто-группа", "Текущая группа", "Ручное правило"]],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -2822,7 +2822,7 @@ def _render_las_curve_grouping_manager(prepared_df: pd.DataFrame) -> None:
     )
 
     references = _las_editor_reference_state(column_names)
-    if action_col.button("Назначить группу", use_container_width=True, key="las_editor_group_apply"):
+    if action_col.button("Назначить группу", width="stretch", key="las_editor_group_apply"):
         try:
             result = assign_curve_group(
                 prepared_df,
@@ -2846,7 +2846,7 @@ def _render_las_curve_grouping_manager(prepared_df: pd.DataFrame) -> None:
             st.warning(str(exc))
 
     history = tuple(st.session_state.get(LAS_EDITOR_GROUP_HISTORY_KEY, ()))
-    if st.button("Undo последней группировки", disabled=not history, use_container_width=True, key="las_editor_group_undo"):
+    if st.button("Undo последней группировки", disabled=not history, width="stretch", key="las_editor_group_undo"):
         try:
             result = undo_last_group_assignment(
                 prepared_df,
@@ -2879,7 +2879,7 @@ def _render_las_curve_grouping_manager(prepared_df: pd.DataFrame) -> None:
                         for entry in history
                     ]
                 ),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
         else:
@@ -2925,7 +2925,7 @@ def _render_las_curve_category_manager(prepared_df: pd.DataFrame) -> None:
                     "curves": "Состав",
                 }
             )[["Категория", "Кривых", "Состав"]],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -2940,7 +2940,7 @@ def _render_las_curve_category_manager(prepared_df: pd.DataFrame) -> None:
                 "manual_override": "Ручное правило",
             }
         )[["Кривая", "Alias", "Группа", "Авто-категория", "Текущая категория", "Ручное правило"]],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -2962,7 +2962,7 @@ def _render_las_curve_category_manager(prepared_df: pd.DataFrame) -> None:
     )
 
     references = _las_editor_reference_state(column_names)
-    if action_col.button("Назначить категорию", use_container_width=True, key="las_editor_category_apply"):
+    if action_col.button("Назначить категорию", width="stretch", key="las_editor_category_apply"):
         try:
             result = assign_curve_category(
                 prepared_df,
@@ -2987,7 +2987,7 @@ def _render_las_curve_category_manager(prepared_df: pd.DataFrame) -> None:
             st.warning(str(exc))
 
     history = tuple(st.session_state.get(LAS_EDITOR_CATEGORY_HISTORY_KEY, ()))
-    if st.button("Undo последней категории", disabled=not history, use_container_width=True, key="las_editor_category_undo"):
+    if st.button("Undo последней категории", disabled=not history, width="stretch", key="las_editor_category_undo"):
         try:
             result = undo_last_category_assignment(
                 prepared_df,
@@ -3021,7 +3021,7 @@ def _render_las_curve_category_manager(prepared_df: pd.DataFrame) -> None:
                         for entry in history
                     ]
                 ),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
         else:
@@ -3065,7 +3065,7 @@ def _render_las_curve_units_manager(prepared_df: pd.DataFrame) -> None:
             pd.DataFrame(unit_summary_rows(units)).rename(
                 columns={"unit_label": "Единица", "curve_count": "Кривых", "curves": "Состав"}
             )[["Единица", "Кривых", "Состав"]],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -3081,7 +3081,7 @@ def _render_las_curve_units_manager(prepared_df: pd.DataFrame) -> None:
                 "convertible_targets": "Безопасный пересчет",
             }
         )[["Кривая", "Alias", "Категория", "Авто-единица", "Текущая единица", "Ручное правило", "Безопасный пересчет"]],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -3099,7 +3099,7 @@ def _render_las_curve_units_manager(prepared_df: pd.DataFrame) -> None:
     )
 
     references = _las_editor_reference_state(column_names)
-    if action_col.button("Назначить unit", use_container_width=True, key="las_editor_unit_apply"):
+    if action_col.button("Назначить unit", width="stretch", key="las_editor_unit_apply"):
         try:
             result = assign_curve_unit(
                 prepared_df,
@@ -3125,7 +3125,7 @@ def _render_las_curve_units_manager(prepared_df: pd.DataFrame) -> None:
             st.warning(str(exc))
 
     history = tuple(st.session_state.get(LAS_EDITOR_UNIT_HISTORY_KEY, ()))
-    if st.button("Undo последней единицы", disabled=not history, use_container_width=True, key="las_editor_unit_undo"):
+    if st.button("Undo последней единицы", disabled=not history, width="stretch", key="las_editor_unit_undo"):
         try:
             result = undo_last_unit_assignment(
                 prepared_df,
@@ -3158,7 +3158,7 @@ def _render_las_curve_units_manager(prepared_df: pd.DataFrame) -> None:
                     }
                     for entry in history
                 ]),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
         else:
@@ -3182,7 +3182,7 @@ def _render_las_curve_mnemonics_dictionary(prepared_df: pd.DataFrame) -> None:
         pd.DataFrame(mnemonic_summary_rows(column_names)).rename(
             columns={"metric": "Показатель", "value": "Значение"}
         ),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -3213,7 +3213,7 @@ def _render_las_curve_mnemonics_dictionary(prepared_df: pd.DataFrame) -> None:
                     "Рекомендация",
                 ]
             ],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
     suggested_count = sum(1 for row in rows if row.get("match_type") == "suggested")
@@ -3258,7 +3258,7 @@ def _render_las_curve_duplicate_detection(prepared_df: pd.DataFrame) -> None:
 
     should_run = action_col.button(
         "Найти дубликаты кривых",
-        use_container_width=True,
+        width="stretch",
         key="las_editor_duplicate_detect_apply",
     )
     if LAS_EDITOR_DUPLICATES_KEY not in st.session_state or should_run:
@@ -3291,7 +3291,7 @@ def _render_las_curve_duplicate_detection(prepared_df: pd.DataFrame) -> None:
         pd.DataFrame(curve_duplicate_summary_rows(summary)).rename(
             columns={"severity_label": "Тип", "candidate_count": "Кандидатов"}
         )[["Тип", "Кандидатов"]],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -3331,7 +3331,7 @@ def _render_las_curve_duplicate_detection(prepared_df: pd.DataFrame) -> None:
                     "Рекомендация",
                 ]
             ],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
     st.caption("Duplicate detection — диагностический этап перед merge/rename. Удаление кривых здесь намеренно не выполняется.")
@@ -3390,7 +3390,7 @@ def _render_las_curve_bulk_edit_manager(prepared_df: pd.DataFrame) -> pd.DataFra
         if str(value).strip()
     }
 
-    if st.button("Применить bulk edit", use_container_width=True, key="las_editor_bulk_edit_apply"):
+    if st.button("Применить bulk edit", width="stretch", key="las_editor_bulk_edit_apply"):
         try:
             result = apply_curve_bulk_edit(
                 prepared_df,
@@ -3435,7 +3435,7 @@ def _render_las_curve_bulk_edit_manager(prepared_df: pd.DataFrame) -> pd.DataFra
                         "timestamp": "Время",
                     }
                 )[["Кривая", "Действие", "Было", "Стало", "Статус", "Сообщение", "Время"]],
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
         else:
@@ -3505,7 +3505,7 @@ def _render_las_curve_export_rules_manager(prepared_df: pd.DataFrame) -> None:
                     "curve_mode": "Режим",
                 }
             ),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -3529,7 +3529,7 @@ def _render_las_curve_export_rules_manager(prepared_df: pd.DataFrame) -> None:
             if key.strip() and value.strip():
                 metadata[key.strip().upper()] = value.strip()
 
-    if st.button("Построить preview export rules", use_container_width=True, key="las_editor_export_rules_preview"):
+    if st.button("Построить preview export rules", width="stretch", key="las_editor_export_rules_preview"):
         try:
             result = apply_curve_export_rules(
                 prepared_df,
@@ -3571,7 +3571,7 @@ def _render_las_curve_export_rules_manager(prepared_df: pd.DataFrame) -> None:
                         "message": "Сообщение",
                     }
                 ),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
         st.caption(
@@ -3622,7 +3622,7 @@ def _render_las_curve_quality_flags(prepared_df: pd.DataFrame) -> None:
     )
     should_run = action_col.button(
         "Проверить качество кривых",
-        use_container_width=True,
+        width="stretch",
         key="las_editor_quality_flags_apply",
     )
 
@@ -3656,7 +3656,7 @@ def _render_las_curve_quality_flags(prepared_df: pd.DataFrame) -> None:
         pd.DataFrame(curve_quality_summary_rows(summary)).rename(
             columns={"flag_label": "Тип", "flag_count": "Флагов"}
         )[["Тип", "Флагов"]],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -3690,7 +3690,7 @@ def _render_las_curve_quality_flags(prepared_df: pd.DataFrame) -> None:
                 "Единица",
                 "Рекомендация",
             ]],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
     st.caption("Quality flags помогают проверить кривые перед bulk edit, import/export rules и отчетами.")
@@ -3737,7 +3737,7 @@ def _render_las_curve_metadata_editor(prepared_df: pd.DataFrame) -> None:
             pd.DataFrame(metadata_summary_rows(built_metadata)).rename(
                 columns={"type": "Тип", "label": "Значение", "curve_count": "Кривых"}
             )[["Тип", "Значение", "Кривых"]],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -3757,7 +3757,7 @@ def _render_las_curve_metadata_editor(prepared_df: pd.DataFrame) -> None:
                 "manual_fields": "Ручные поля",
             }
         )[["Кривая", "Alias", "Категория", "Единица", "Описание", "Источник", "Прибор/инструмент", "Статус", "Качество", "Комментарий", "Ручные поля"]],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -3796,7 +3796,7 @@ def _render_las_curve_metadata_editor(prepared_df: pd.DataFrame) -> None:
         )
 
     references = _las_editor_reference_state(column_names)
-    if action_col.button("Сохранить", use_container_width=True, key="las_editor_metadata_apply"):
+    if action_col.button("Сохранить", width="stretch", key="las_editor_metadata_apply"):
         try:
             result = assign_curve_metadata(
                 prepared_df,
@@ -3825,7 +3825,7 @@ def _render_las_curve_metadata_editor(prepared_df: pd.DataFrame) -> None:
             st.warning(str(exc))
 
     history = tuple(st.session_state.get(LAS_EDITOR_METADATA_HISTORY_KEY, ()))
-    if st.button("Undo последней metadata-правки", disabled=not history, use_container_width=True, key="las_editor_metadata_undo"):
+    if st.button("Undo последней metadata-правки", disabled=not history, width="stretch", key="las_editor_metadata_undo"):
         try:
             result = undo_last_metadata_assignment(
                 prepared_df,
@@ -3861,7 +3861,7 @@ def _render_las_curve_metadata_editor(prepared_df: pd.DataFrame) -> None:
                     }
                     for entry in history
                 ]),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
         else:
@@ -3893,7 +3893,7 @@ def _render_las_curve_rename_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
 
     references = _las_editor_reference_state(column_names)
     active_df = prepared_df
-    if action_col.button("Переименовать", use_container_width=True, key="las_editor_rename_apply"):
+    if action_col.button("Переименовать", width="stretch", key="las_editor_rename_apply"):
         try:
             result = rename_curve(
                 prepared_df,
@@ -3918,7 +3918,7 @@ def _render_las_curve_rename_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
 
     history = tuple(st.session_state.get(LAS_EDITOR_RENAME_HISTORY_KEY, ()))
     undo_disabled = not history
-    if st.button("Undo последнего rename", disabled=undo_disabled, use_container_width=True, key="las_editor_rename_undo"):
+    if st.button("Undo последнего rename", disabled=undo_disabled, width="stretch", key="las_editor_rename_undo"):
         try:
             result = undo_last_rename(prepared_df, history=history, references=references)
             active_df = result.data
@@ -3946,7 +3946,7 @@ def _render_las_curve_rename_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
                         for entry in history
                     ]
                 ),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
         else:
@@ -4000,7 +4000,7 @@ def _render_las_curve_merge_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
 
     references = _las_editor_reference_state(column_names)
     action_col, undo_col = st.columns(2)
-    if action_col.button("Создать merged curve", use_container_width=True, key="las_editor_merge_apply"):
+    if action_col.button("Создать merged curve", width="stretch", key="las_editor_merge_apply"):
         try:
             result = merge_curves(
                 prepared_df,
@@ -4025,7 +4025,7 @@ def _render_las_curve_merge_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
             st.warning(str(exc))
 
     history = tuple(st.session_state.get(LAS_EDITOR_MERGE_HISTORY_KEY, ()))
-    if undo_col.button("Undo последнего merge", disabled=not history, use_container_width=True, key="las_editor_merge_undo"):
+    if undo_col.button("Undo последнего merge", disabled=not history, width="stretch", key="las_editor_merge_undo"):
         try:
             result = undo_last_merge(prepared_df, history=history, references=references)
             active_df = result.data
@@ -4055,7 +4055,7 @@ def _render_las_curve_merge_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
                         for entry in history
                     ]
                 ),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
         else:
@@ -4135,7 +4135,7 @@ def _render_new_las_creator_panel(logger) -> None:
         library_rows = template_table_rows()
         if library_rows:
             st.caption("Доступные шаблоны")
-            st.dataframe(pd.DataFrame(library_rows), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(library_rows), width="stretch", hide_index=True)
 
         selected_curves = st.multiselect(
             "Дополнительные кривые",
@@ -4163,7 +4163,7 @@ def _render_new_las_creator_panel(logger) -> None:
             return
 
         if result.document is not None:
-            st.dataframe(result.document.data.head(30), use_container_width=True)
+            st.dataframe(result.document.data.head(30), width="stretch")
             las_bytes = result.document.las_text.encode("utf-8")
             file_name = f"{well_name.strip() or 'NEW_WELL'}.las"
             st.download_button(
@@ -4171,10 +4171,10 @@ def _render_new_las_creator_panel(logger) -> None:
                 data=las_bytes,
                 file_name=file_name,
                 mime="text/plain",
-                use_container_width=True,
+                width="stretch",
                 key="new_las_download_button",
             )
-            if st.button("Открыть созданный LAS в расчетах", use_container_width=True, key="new_las_open_in_session"):
+            if st.button("Открыть созданный LAS в расчетах", width="stretch", key="new_las_open_in_session"):
                 st.session_state[LAS_EDITOR_SESSION_SHEETS_KEY] = {"Новый LAS": _dataframe_to_raw_sheet(result.document.data)}
                 st.session_state[LAS_EDITOR_SESSION_SUMMARY_KEY] = f"Новый LAS: {len(result.document.data)} строк, {len(result.document.data.columns)} колонок"
                 st.success("Новый LAS помещен в рабочую сессию. Откройте `Работа с данными`.")
@@ -4220,7 +4220,7 @@ def _render_saved_wells_panel(logger) -> None:
             st.caption("Комментарий: " + selected_record.comment)
 
         action_col1, action_col2 = st.columns(2)
-        if action_col1.button("Удалить выбранную версию", use_container_width=True, key="saved_well_delete_version"):
+        if action_col1.button("Удалить выбранную версию", width="stretch", key="saved_well_delete_version"):
             try:
                 well_service.delete_version(selected_record.id, selected_version.id)
                 _clear_las_working_state()
@@ -4230,7 +4230,7 @@ def _render_saved_wells_panel(logger) -> None:
             else:
                 st.success("Версия удалена с диска.")
                 _refresh_ui()
-        if action_col2.button("Удалить скважину полностью", use_container_width=True, key="saved_well_delete_record"):
+        if action_col2.button("Удалить скважину полностью", width="stretch", key="saved_well_delete_record"):
             try:
                 well_service.delete_well(selected_record.id)
                 _clear_las_working_state()
@@ -4248,27 +4248,27 @@ def _render_saved_wells_panel(logger) -> None:
                 data=well_service.read_file_bytes(selected_record.id, selected_version.id, "csv"),
                 file_name=f"{selected_record.id}_{selected_version.id}.csv",
                 mime="text/csv",
-                use_container_width=True,
+                width="stretch",
             )
             xlsx_col.download_button(
                 "Скачать XLSX",
                 data=well_service.read_file_bytes(selected_record.id, selected_version.id, "xlsx"),
                 file_name=f"{selected_record.id}_{selected_version.id}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
+                width="stretch",
             )
             las_col.download_button(
                 "Скачать LAS",
                 data=well_service.read_file_bytes(selected_record.id, selected_version.id, "las"),
                 file_name=f"{selected_record.id}_{selected_version.id}.las",
                 mime="text/plain",
-                use_container_width=True,
+                width="stretch",
             )
         except Exception:
             logger.exception("saved_well_download_failed well_id=%s version_id=%s", selected_record.id, selected_version.id)
             st.error("Не удалось подготовить выгрузку сохраненной скважины. Подробности записаны в logs/app.log.")
 
-        if st.button("Использовать выбранную версию в расчетах", use_container_width=True):
+        if st.button("Использовать выбранную версию в расчетах", width="stretch"):
             try:
                 csv_bytes = well_service.read_file_bytes(selected_record.id, selected_version.id, "csv")
                 prepared_df = pd.read_csv(BytesIO(csv_bytes))
@@ -4340,7 +4340,7 @@ def _render_mapping_diagnostics(
     diagnostics = build_mapping_diagnostics(mapping, source_columns)
 
     with st.expander("Диагностика mapping", expanded=bool(messages)):
-        st.dataframe(_format_mapping_diagnostics_table(diagnostics), use_container_width=True)
+        st.dataframe(_format_mapping_diagnostics_table(diagnostics), width="stretch")
         if messages:
             for message in messages:
                 st.warning(message)
@@ -4372,7 +4372,7 @@ def _render_ratio_nan_diagnostics(
     diagnostics = build_ratio_nan_diagnostics(calculated_df, ch_mode=ch_mode)
 
     with st.expander("Диагностика расчетов", expanded=bool(messages)):
-        st.dataframe(_format_ratio_nan_diagnostics_table(diagnostics), use_container_width=True)
+        st.dataframe(_format_ratio_nan_diagnostics_table(diagnostics), width="stretch")
         if messages:
             st.caption("Если значение NaN есть только в части строк, проверьте эти интервалы в расчетной таблице.")
         else:
@@ -4854,11 +4854,11 @@ def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_
     entries = service.list_recent(include_missing=True)
     with st.expander("Управление последними проектами", expanded=False):
         if entries:
-            st.dataframe(pd.DataFrame(recent_projects_table_rows(entries)), use_container_width=True, height=220)
+            st.dataframe(pd.DataFrame(recent_projects_table_rows(entries)), width="stretch", height=220)
         else:
             st.caption("История последних проектов пуста.")
 
-        if st.button("Очистить историю последних проектов", use_container_width=True, key="recent_projects_clear_history"):
+        if st.button("Очистить историю последних проектов", width="stretch", key="recent_projects_clear_history"):
             removed = service.clear_recent_history()
             logger.info("recent_projects_history_cleared removed=%d", removed)
             st.success(f"История очищена. Удалено записей: {removed}.")
@@ -4876,7 +4876,7 @@ def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_
         )
         col_open, col_remove, col_delete = st.columns(3)
         with col_open:
-            if st.button("Открыть", use_container_width=True, key="recent_project_open"):
+            if st.button("Открыть", width="stretch", key="recent_project_open"):
                 if not entries_by_id[selected_id].exists_on_disk:
                     st.warning("Проект отсутствует на диске. Удалите запись из истории.")
                 else:
@@ -4884,14 +4884,14 @@ def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_
                     _clear_las_working_state()
                     _refresh_ui()
         with col_remove:
-            if st.button("Удалить запись", use_container_width=True, key="recent_project_remove_entry"):
+            if st.button("Удалить запись", width="stretch", key="recent_project_remove_entry"):
                 service.remove_recent_entry(selected_id)
                 logger.info("recent_project_entry_removed project_id=%s", safe_log_value(selected_id))
                 st.success("Запись удалена из истории. Сам проект не удален.")
                 _refresh_ui()
         with col_delete:
             disabled = selected_id == DEFAULT_PROJECT_ID
-            if st.button("Удалить проект с диска", use_container_width=True, disabled=disabled, key="recent_project_delete_disk"):
+            if st.button("Удалить проект с диска", width="stretch", disabled=disabled, key="recent_project_delete_disk"):
                 try:
                     result = service.delete_project_complete(selected_id)
                     if _application_state_controller().context().project_id == selected_id:
@@ -4907,11 +4907,11 @@ def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_
         flags_col_1, flags_col_2 = st.columns(2)
         selected_entry = entries_by_id[selected_id]
         with flags_col_1:
-            if st.button("Закрепить/открепить", use_container_width=True, key="recent_project_toggle_pin"):
+            if st.button("Закрепить/открепить", width="stretch", key="recent_project_toggle_pin"):
                 service.set_recent_flags(selected_id, pinned=not selected_entry.pinned)
                 _refresh_ui()
         with flags_col_2:
-            if st.button("Избранное вкл/выкл", use_container_width=True, key="recent_project_toggle_favorite"):
+            if st.button("Избранное вкл/выкл", width="stretch", key="recent_project_toggle_favorite"):
                 service.set_recent_flags(selected_id, favorite=not selected_entry.favorite)
                 _refresh_ui()
 
@@ -5360,7 +5360,7 @@ def _render_global_command_palette(active_project: ProjectRecord) -> None:
                 _refresh_ui()
         with col_button:
             target_tab = entry.get("target_tab", APP_TABS[0])
-            if st.button("Открыть", key=f"command_palette_open_{index}_{target_tab}_{entry.get('title', '')}", use_container_width=True):
+            if st.button("Открыть", key=f"command_palette_open_{index}_{target_tab}_{entry.get('title', '')}", width="stretch"):
                 _remember_command_palette_entry(entry)
                 _set_active_main_tab(target_tab)
                 _refresh_ui()
@@ -5508,7 +5508,7 @@ def _render_main_navigation() -> str:
         active_prefix = "▸ " if label == active_tab else ""
         button_label = f"{active_prefix}{item['icon']} {label}"
         with column:
-            if st.button(button_label, key=f"main_nav_{label}", use_container_width=True, help=item["description"]):
+            if st.button(button_label, key=f"main_nav_{label}", width="stretch", help=item["description"]):
                 _set_active_main_tab(label)
                 _refresh_ui()
             st.markdown(
@@ -5941,7 +5941,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     st.subheader("LAS-редактор")
     st.caption("Подготовка LAS перед расчетами: создание нового LAS, проверка глубины, смена шага, добавление строк и ручная правка.")
     _render_new_las_creator_panel(logger)
-    if st.button("Очистить рабочее состояние LAS", use_container_width=True, key="las_editor_clear_working_state"):
+    if st.button("Очистить рабочее состояние LAS", width="stretch", key="las_editor_clear_working_state"):
         _clear_las_working_state()
         st.success("Рабочее состояние LAS очищено: таблицы, графики, статистика и временные данные удалены из session state.")
         _refresh_ui()
@@ -5982,7 +5982,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
         return
 
     st.markdown("### Исходные кривые")
-    st.dataframe(prepared_df.head(20), use_container_width=True)
+    st.dataframe(prepared_df.head(20), width="stretch")
 
     prepared_df = _render_las_curve_rename_manager(prepared_df)
     _render_las_curve_alias_manager(prepared_df)
@@ -6279,7 +6279,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
                         for outlier in step_report.outliers[:100]
                     ]
                 ),
-                use_container_width=True,
+                width="stretch",
             )
         else:
             st.caption("Выбросы шага по выбранному целевому шагу не найдены.")
@@ -6351,7 +6351,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     st.markdown("### Ручная правка перед расчетом")
     edited_df = st.data_editor(
         editor_base_df,
-        use_container_width=True,
+        width="stretch",
         num_rows="dynamic",
         key="las_editor_data_editor",
     )
@@ -6392,7 +6392,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
                     for hint in editor_hints
                 ]
             ),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
         st.caption("Подробнее: docs/las_editor_plan.md и docs/user_guide.md → раздел LAS-редактора.")
@@ -6411,9 +6411,9 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
 
         before_col, after_col = st.columns(2)
         before_col.markdown("**До ручной правки**")
-        before_col.dataframe(editor_base_df.head(30), use_container_width=True)
+        before_col.dataframe(editor_base_df.head(30), width="stretch")
         after_col.markdown("**После ручной правки**")
-        after_col.dataframe(edited_df.head(30), use_container_width=True)
+        after_col.dataframe(edited_df.head(30), width="stretch")
 
         st.markdown("**Журнал правок, который будет сохранен в metadata версии**")
         st.dataframe(
@@ -6423,11 +6423,11 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
                     for entry in audit_entries
                 ]
             ),
-            use_container_width=True,
+            width="stretch",
         )
 
     save_col, export_col = st.columns(2)
-    if save_col.button("Сохранить для расчетов", type="primary", use_container_width=True):
+    if save_col.button("Сохранить для расчетов", type="primary", width="stretch"):
         st.session_state[LAS_EDITOR_SESSION_SHEETS_KEY] = {"LAS-редактор": _dataframe_to_raw_sheet(edited_df)}
         st.session_state[LAS_EDITOR_SESSION_SUMMARY_KEY] = (
             f"{len(edited_df)} строк, шаг {target_step}, заполнение: {fill_label}, массовых операций: {len(bulk_result.operation_log)}"
@@ -6447,7 +6447,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
         data=export_csv_bytes(edited_df),
         file_name="las_editor_prepared.csv",
         mime="text/csv",
-        use_container_width=True,
+        width="stretch",
     )
     safe_output_las_name = Path(output_las_name.strip() or "las_editor_depth_fixed.las").name
     if not safe_output_las_name.lower().endswith(".las"):
@@ -6457,7 +6457,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
         data=export_las_bytes(edited_df, well_name=Path(safe_output_las_name).stem, depth_column=depth_column),
         file_name=safe_output_las_name,
         mime="application/octet-stream",
-        use_container_width=True,
+        width="stretch",
         key="las_editor_download_depth_fixed_las",
     )
 
@@ -6495,7 +6495,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
         key="las_editor_version_label",
     )
 
-    if st.button("Сохранить версию скважины", use_container_width=True):
+    if st.button("Сохранить версию скважины", width="stretch"):
         try:
             saved_record = well_service.save_version(
                 edited_df,
@@ -6537,7 +6537,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
 
     st.markdown("### Сохранить подготовленный LAS в проект")
     st.caption(f"Активный проект: {active_project.name} ({active_project.id})")
-    if st.button("Сохранить подготовленный LAS в активный проект", use_container_width=True, key="las_editor_save_to_project"):
+    if st.button("Сохранить подготовленный LAS в активный проект", width="stretch", key="las_editor_save_to_project"):
         if not well_name.strip():
             st.warning("Введите название скважины перед сохранением в проект.")
         else:
@@ -6952,7 +6952,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         return
 
     st.subheader("Сводка классификации")
-    st.dataframe(summarize_interpretation(calculated_df), use_container_width=True, height=220)
+    st.dataframe(summarize_interpretation(calculated_df), width="stretch", height=220)
 
     interval_indices = [
         int(index)
@@ -6982,18 +6982,18 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
     left, right = st.columns(2)
     left.plotly_chart(
         build_pixler_palette(selected_row, zones=palette_config.pixler_zones),
-        use_container_width=True,
+        width="stretch",
     )
     right.plotly_chart(
         build_ternary_palette(selected_row, regions=palette_config.ternary_regions),
-        use_container_width=True,
+        width="stretch",
     )
 
     st.subheader("Графики по глубине")
     tab_gas, tab_ratios, tab_pixler = st.tabs(["C1-C5", "Wh/Bh/Ch", "Pixler ratios"])
-    tab_gas.plotly_chart(build_depth_gas_tracks(calculated_df), use_container_width=True)
-    tab_ratios.plotly_chart(build_depth_ratio_tracks(calculated_df), use_container_width=True)
-    tab_pixler.plotly_chart(build_depth_pixler_tracks(calculated_df), use_container_width=True)
+    tab_gas.plotly_chart(build_depth_gas_tracks(calculated_df), width="stretch")
+    tab_ratios.plotly_chart(build_depth_ratio_tracks(calculated_df), width="stretch")
+    tab_pixler.plotly_chart(build_depth_pixler_tracks(calculated_df), width="stretch")
 
     st.subheader("Расчетная таблица")
     _render_dataframe_panel(
@@ -7257,7 +7257,7 @@ def _render_tablet_controls(
         if preset_col.button(
             "Применить preset Mud gas analysis",
             help="Выбирает доступные GR/total gas/C1-C5/Wh-Bh-Ch/Pixler/ГИС-треки в порядке из литературного обзора.",
-            use_container_width=True,
+            width="stretch",
             key="interpretation_tablet_apply_mud_gas_preset",
         ):
             st.session_state["interpretation_tablet_columns"] = list(literature_columns)
@@ -7265,7 +7265,7 @@ def _render_tablet_controls(
         if marker_col.button(
             "Добавить mud-gas маркеры",
             help="Ставит безопасные справочные маркеры по total-gas/Wh/Pixler/oil-indicator экстремумам. Это не автоматическая классификация.",
-            use_container_width=True,
+            width="stretch",
             key="interpretation_tablet_apply_mud_gas_markers",
         ):
             suggested_markers = mud_gas_literature_markers(filtered_df)
@@ -7402,7 +7402,7 @@ def _render_interpretation_graph_settings_loader(project: ProjectRecord, logger)
     with st.expander("Сохраненные настройки графиков проекта", expanded=False):
         for line in _interpretation_graph_settings_summary(project_settings):
             st.caption(line)
-        if st.button("Загрузить настройки графиков проекта", use_container_width=True, key=f"load_interpretation_graph_settings_{project.id}"):
+        if st.button("Загрузить настройки графиков проекта", width="stretch", key=f"load_interpretation_graph_settings_{project.id}"):
             _apply_interpretation_graph_settings_to_session(project_settings)
             _refresh_ui()
 
@@ -7415,7 +7415,7 @@ def _render_interpretation_graph_settings_saver(
     with st.expander("Текущие настройки графиков", expanded=False):
         for line in _interpretation_graph_settings_summary(settings):
             st.caption(line)
-        if st.button("Сохранить настройки графиков в проект", use_container_width=True, key=f"save_interpretation_graph_settings_{project.id}"):
+        if st.button("Сохранить настройки графиков в проект", width="stretch", key=f"save_interpretation_graph_settings_{project.id}"):
             try:
                 save_project_interpretation_graph_settings(
                     settings,
@@ -7555,7 +7555,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     if not figures:
         st.warning("Выберите хотя бы один график.")
     for figure in figures:
-        st.plotly_chart(figure, use_container_width=True)
+        st.plotly_chart(figure, width="stretch")
     if tablet_figure is not None:
         _render_static_export_controls(
             tablet_figure,
@@ -7568,13 +7568,13 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         marker_table = build_marker_interpretation_table(filtered_df, tablet_markers, columns=tablet_columns)
         if not marker_table.empty:
             st.subheader("Таблица маркеров планшета")
-            st.dataframe(marker_table, use_container_width=True)
+            st.dataframe(marker_table, width="stretch")
 
     if TABLET_TRACK_OPTION in selected_tracks and tablet_zones:
         zone_table = build_interpretation_zone_table(tablet_zones)
         if not zone_table.empty:
             st.subheader("Таблица интерпретационных зон планшета")
-            st.dataframe(zone_table, use_container_width=True)
+            st.dataframe(zone_table, width="stretch")
 
     if figures:
         report_title = f"Gas Ratio Interpreter - {source_label}"
@@ -7619,16 +7619,16 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             data=html_bytes,
             file_name="gas_ratio_depth_graphs.html",
             mime="text/html",
-            use_container_width=True,
+            width="stretch",
         )
         interval_report_col.download_button(
             "Печатный отчет интервала",
             data=interval_report_bytes,
             file_name="gas_ratio_interval_report.html",
             mime="text/html",
-            use_container_width=True,
+            width="stretch",
         )
-        if html_save_col.button("Сохранить отчет в проект", use_container_width=True, key=f"save_interpretation_html_export_{active_project.id}"):
+        if html_save_col.button("Сохранить отчет в проект", width="stretch", key=f"save_interpretation_html_export_{active_project.id}"):
             _save_project_export_with_feedback(
                 project=active_project,
                 data=interval_report_bytes,
@@ -7646,9 +7646,9 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             )
 
     st.subheader("Сводка интерпретации")
-    st.dataframe(summarize_interpretation(filtered_df), use_container_width=True)
+    st.dataframe(summarize_interpretation(filtered_df), width="stretch")
     st.subheader("Таблица выбранного интервала")
-    st.dataframe(filtered_df, use_container_width=True)
+    st.dataframe(filtered_df, width="stretch")
     interval_csv_bytes = export_csv_bytes(filtered_df)
     interval_download_col, interval_save_col = st.columns(2)
     interval_download_col.download_button(
@@ -7656,9 +7656,9 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         data=interval_csv_bytes,
         file_name="gas_ratio_selected_interval.csv",
         mime="text/csv",
-        use_container_width=True,
+        width="stretch",
     )
-    if interval_save_col.button("Сохранить CSV в проект", use_container_width=True, key=f"save_interpretation_interval_csv_{active_project.id}"):
+    if interval_save_col.button("Сохранить CSV в проект", width="stretch", key=f"save_interpretation_interval_csv_{active_project.id}"):
         _save_project_export_with_feedback(
             project=active_project,
             data=interval_csv_bytes,
@@ -7719,7 +7719,7 @@ def _render_curve_group_override_controls(wells):
         for well in selected_wells:
             st.markdown(f"#### {well.name}")
             rows = curve_group_rows(well)
-            st.dataframe(_format_curve_group_rows(well), use_container_width=True)
+            st.dataframe(_format_curve_group_rows(well), width="stretch")
 
             current_group_by_curve = {row["curve"]: row["group"] for row in rows}
             overrides: dict[str, str] = {}
@@ -7875,7 +7875,7 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
         st.caption(f"Папка проекта: data/projects/{active_project.id}/")
 
         if active_project.id != DEFAULT_PROJECT_ID:
-            if st.button("Удалить активный проект с диска", use_container_width=True, key=f"{key_prefix}_delete_active_project"):
+            if st.button("Удалить активный проект с диска", width="stretch", key=f"{key_prefix}_delete_active_project"):
                 try:
                     result = _project_manager_service().delete_project_complete(active_project.id)
                     state.request_project_activation(DEFAULT_PROJECT_ID)
@@ -7980,7 +7980,7 @@ def _render_sidebar_quick_navigation() -> None:
     columns = st.sidebar.columns(2)
     for index, (label, target) in enumerate(actions):
         with columns[index % 2]:
-            if st.button(label, key=f"sidebar_quick_nav_{target}", use_container_width=True):
+            if st.button(label, key=f"sidebar_quick_nav_{target}", width="stretch"):
                 _set_active_main_tab(target)
                 _refresh_ui()
     st.sidebar.markdown("</div>", unsafe_allow_html=True)
@@ -8592,7 +8592,7 @@ def _render_dataset_manager_table(
         f"{title}: {len(datasets)} · готово: {ready_count} · "
         f"требует проверки: {warning_count} · ошибок чтения: {error_count}"
     )
-    st.dataframe(build_project_dataset_table(datasets), use_container_width=True, height=260)
+    st.dataframe(build_project_dataset_table(datasets), width="stretch", height=260)
 
     selected_dataset = {dataset.id: dataset for dataset in datasets}[selected_dataset_id]
     detail_rows = [
@@ -8607,7 +8607,7 @@ def _render_dataset_manager_table(
     ]
     st.dataframe(
         pd.DataFrame([{"Показатель": label, "Значение": value} for label, value in detail_rows]),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         height=280,
     )
@@ -8752,7 +8752,7 @@ def _render_project_manager_tools(project: ProjectRecord, logger) -> None:
         metrics[3].metric("Recovery", "есть" if status.get("has_recovery_state") else "нет")
 
         action_col, backup_col, template_col = st.columns(3)
-        if action_col.button("Сохранить recovery checkpoint", key=f"project_manager_recovery_save_{project.id}", use_container_width=True):
+        if action_col.button("Сохранить recovery checkpoint", key=f"project_manager_recovery_save_{project.id}", width="stretch"):
             try:
                 state = save_project_recovery_state(
                     LAS_CORRELATION_PROJECTS_ROOT,
@@ -8767,7 +8767,7 @@ def _render_project_manager_tools(project: ProjectRecord, logger) -> None:
             else:
                 st.success(f"Recovery checkpoint сохранен: {state.saved_at}.")
 
-        if backup_col.button("Создать backup ZIP", key=f"project_manager_backup_create_{project.id}", use_container_width=True):
+        if backup_col.button("Создать backup ZIP", key=f"project_manager_backup_create_{project.id}", width="stretch"):
             try:
                 backup = create_project_backup(
                     LAS_CORRELATION_PROJECTS_ROOT,
@@ -8780,7 +8780,7 @@ def _render_project_manager_tools(project: ProjectRecord, logger) -> None:
             else:
                 st.success(f"Backup создан: {backup.file_name} ({backup.size_bytes:,} байт).")
 
-        if template_col.button("Создать шаблон проекта", key=f"project_manager_template_create_{project.id}", use_container_width=True):
+        if template_col.button("Создать шаблон проекта", key=f"project_manager_template_create_{project.id}", width="stretch"):
             try:
                 template = create_project_template(
                     LAS_CORRELATION_PROJECTS_ROOT,
@@ -8806,7 +8806,7 @@ def _render_project_manager_tools(project: ProjectRecord, logger) -> None:
         templates = list_project_templates(LAS_CORRELATION_PROJECTS_ROOT)
         if templates:
             st.markdown("#### Шаблоны проектов")
-            st.dataframe(pd.DataFrame(build_project_templates_table(templates)), use_container_width=True, height=180)
+            st.dataframe(pd.DataFrame(build_project_templates_table(templates)), width="stretch", height=180)
             template_by_label = {f"{template.name} · {template.id}": template for template in templates}
             selected_template_label = st.selectbox(
                 "Создать новый проект из шаблона",
@@ -8836,7 +8836,7 @@ def _render_project_manager_tools(project: ProjectRecord, logger) -> None:
         backups = list_project_backups(LAS_CORRELATION_PROJECTS_ROOT, project.id)
         if backups:
             st.markdown("#### Резервные копии активного проекта")
-            st.dataframe(pd.DataFrame(build_project_backups_table(backups)), use_container_width=True, height=180)
+            st.dataframe(pd.DataFrame(build_project_backups_table(backups)), width="stretch", height=180)
         else:
             st.caption("Резервных ZIP-копий активного проекта пока нет.")
 
@@ -8852,7 +8852,7 @@ def _render_project_manager_tools(project: ProjectRecord, logger) -> None:
         history = list_project_history(LAS_CORRELATION_PROJECTS_ROOT, project.id)
         if history:
             st.markdown("#### История изменений проекта")
-            st.dataframe(pd.DataFrame(build_project_history_table(history[:20])), use_container_width=True, height=260)
+            st.dataframe(pd.DataFrame(build_project_history_table(history[:20])), width="stretch", height=260)
         else:
             if st.button("Добавить стартовую запись истории", key=f"project_manager_history_seed_{project.id}"):
                 append_project_history(
@@ -8924,10 +8924,10 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
             st.warning(
                 "Найдены возможные дубликаты файлов проекта. Проверьте таблицу перед удалением или объединением datasets."
             )
-            st.dataframe(build_project_duplicate_files_table(duplicate_groups), use_container_width=True, height=220)
+            st.dataframe(build_project_duplicate_files_table(duplicate_groups), width="stretch", height=220)
         else:
             st.success("Дубликаты по SHA-256 и паре имя/размер не найдены.")
-        st.dataframe(build_project_file_index_table(annotated_entries), use_container_width=True, height=260)
+        st.dataframe(build_project_file_index_table(annotated_entries), width="stretch", height=260)
 
     with st.expander("Project Database · Версии файлов", expanded=False):
         st.caption(
@@ -8955,7 +8955,7 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
             f"Файлов под версионным контролем: {len(assets)} · всего версий: {total_versions} · "
             f"файлов с историей изменений: {changed_assets}"
         )
-        st.dataframe(build_project_file_versions_table(assets), use_container_width=True, height=240)
+        st.dataframe(build_project_file_versions_table(assets), width="stretch", height=240)
 
         assets_with_history = [asset for asset in assets if asset.version_count > 1]
         if assets_with_history:
@@ -8965,7 +8965,7 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
                 key=f"project_file_versions_history_select_{project.id}",
             )
             selected_asset = assets_with_history[[f"{asset.relative_path} · версий: {asset.version_count}" for asset in assets_with_history].index(selected_label)]
-            st.dataframe(build_project_file_version_history_table(selected_asset), use_container_width=True, height=220)
+            st.dataframe(build_project_file_version_history_table(selected_asset), width="stretch", height=220)
 
     with st.expander("Project Database · Автоматические UUID", expanded=False):
         st.caption(
@@ -9009,7 +9009,7 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
                 f"UUID объектов: {len(uuid_entries)} · типов: {', '.join(object_types)} · "
                 f"восстановленных записей: {restored}"
             )
-            st.dataframe(build_project_uuid_registry_table(uuid_entries), use_container_width=True, height=260)
+            st.dataframe(build_project_uuid_registry_table(uuid_entries), width="stretch", height=260)
 
 def _project_workspace_summary_rows(project: ProjectRecord) -> tuple[tuple[str, str], ...]:
     all_well_cards = _las_manager_service().list_wells(project.id, include_archived=True)
@@ -9066,7 +9066,7 @@ def _render_project_las_zip_download(
         data=zip_bytes,
         file_name=f"{project.id}_las_versions.zip",
         mime="application/zip",
-        use_container_width=True,
+        width="stretch",
         key=key,
     )
 
@@ -9077,7 +9077,7 @@ def _render_project_workspace_loader(project: ProjectRecord, logger) -> None:
 
     with st.expander("Данные активного проекта", expanded=bool(active_records)):
         st.caption(f"Открыт проект: {project.name} ({project.id})")
-        st.dataframe(_project_workspace_summary_table(project), use_container_width=True, hide_index=True, height=210)
+        st.dataframe(_project_workspace_summary_table(project), width="stretch", hide_index=True, height=210)
         _render_project_dataset_manager(project, logger)
         _render_project_manager_tools(project, logger)
         _render_project_file_index(project, logger)
@@ -9086,7 +9086,7 @@ def _render_project_workspace_loader(project: ProjectRecord, logger) -> None:
             st.caption("В активном проекте пока нет активных LAS-версий.")
             return
 
-        st.dataframe(_project_las_records_table(active_well_cards), use_container_width=True, height=240)
+        st.dataframe(_project_las_records_table(active_well_cards), width="stretch", height=240)
         records_by_id = {record.id: record for record in active_records}
         latest_version_ids = tuple(card.versions[0].id for card in active_well_cards if card.versions)
         selected_ids = tuple(
@@ -9100,7 +9100,7 @@ def _render_project_workspace_loader(project: ProjectRecord, logger) -> None:
         )
 
         open_col, export_col = st.columns(2)
-        if open_col.button("Открыть выбранные версии", use_container_width=True, key=f"workspace_open_project_{project.id}"):
+        if open_col.button("Открыть выбранные версии", width="stretch", key=f"workspace_open_project_{project.id}"):
             if not selected_ids:
                 st.warning("Выберите хотя бы одну LAS-версию проекта.")
             else:
@@ -9162,7 +9162,7 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
             st.caption("В активном проекте пока нет сохраненных экспортов.")
             return
 
-        st.dataframe(_project_exports_table(records), use_container_width=True, height=220)
+        st.dataframe(_project_exports_table(records), width="stretch", height=220)
         records_by_id = {record.id: record for record in records}
         selected_id = st.selectbox(
             "Экспорт проекта",
@@ -9174,10 +9174,10 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
 
         action_col_1, action_col_2, action_col_3 = st.columns(3)
         with action_col_1:
-            if st.button("Обновить", use_container_width=True, key=f"project_export_refresh_{project.id}"):
+            if st.button("Обновить", width="stretch", key=f"project_export_refresh_{project.id}"):
                 _refresh_ui()
         with action_col_2:
-            if st.button("Удалить выбранный экспорт", use_container_width=True, key=f"project_export_delete_{project.id}_{selected_id}"):
+            if st.button("Удалить выбранный экспорт", width="stretch", key=f"project_export_delete_{project.id}_{selected_id}"):
                 try:
                     delete_result = export_service.delete_export(project.id, selected_id)
                     deleted = delete_result.deleted
@@ -9188,7 +9188,7 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
                     st.success("Экспорт удален." if deleted else "Экспорт уже отсутствует.")
                     _refresh_ui()
         with action_col_3:
-            if st.button("Очистить все экспорты", use_container_width=True, key=f"project_export_clear_all_{project.id}"):
+            if st.button("Очистить все экспорты", width="stretch", key=f"project_export_clear_all_{project.id}"):
                 try:
                     clear_result = export_service.clear_exports(project.id)
                     removed = clear_result.removed_count
@@ -9214,7 +9214,7 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
             data=data,
             file_name=selected_record.file_name,
             mime=selected_record.mime_type,
-            use_container_width=True,
+            width="stretch",
             key=f"project_export_download_{project.id}_{selected_id}",
         )
         if selected_record.metadata:
@@ -9321,7 +9321,7 @@ def _render_project_calculation_actions(project: ProjectRecord, logger) -> None:
         if not actions:
             st.caption("Действий по сохраненным расчетам пока нет.")
             return
-        st.dataframe(_project_calculation_actions_table(actions), use_container_width=True, hide_index=True, height=220)
+        st.dataframe(_project_calculation_actions_table(actions), width="stretch", hide_index=True, height=220)
         csv_col, html_col = st.columns(2)
         csv_col.download_button(
             "Скачать журнал CSV",
@@ -9535,7 +9535,7 @@ def _render_project_calculation_comparison(project: ProjectRecord, records: tupl
             st.success("Существенные отличия между выбранными snapshots не найдены.")
 
         diff_table = build_project_calculation_comparison_table(comparison)
-        st.dataframe(diff_table, use_container_width=True, hide_index=True)
+        st.dataframe(diff_table, width="stretch", hide_index=True)
 
         csv_export_col, html_export_col = st.columns(2)
         if csv_export_col.download_button(
@@ -9635,7 +9635,7 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
             st.warning("По текущему фильтру сохраненные расчеты не найдены.")
             return
 
-        st.dataframe(_project_calculations_table(records), use_container_width=True, height=220)
+        st.dataframe(_project_calculations_table(records), width="stretch", height=220)
         records_by_id = {record.id: record for record in records}
         selected_id = st.selectbox(
             "Расчет проекта",
@@ -9693,7 +9693,7 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
                 data=csv_data,
                 file_name=f"{selected_record.id}.csv",
                 mime="text/csv",
-                use_container_width=True,
+                width="stretch",
                 disabled=downloads_disabled,
                 key=f"project_calculation_csv_{project.id}_{selected_id}",
             ):
@@ -9703,7 +9703,7 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
                 data=xlsx_data,
                 file_name=f"{selected_record.id}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
+                width="stretch",
                 disabled=downloads_disabled,
                 key=f"project_calculation_xlsx_{project.id}_{selected_id}",
             ):
@@ -9713,7 +9713,7 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
                 data=card_csv_data,
                 file_name=f"{selected_record.id}-card.csv",
                 mime="text/csv",
-                use_container_width=True,
+                width="stretch",
                 disabled=downloads_disabled,
                 key=f"project_calculation_card_csv_{project.id}_{selected_id}",
             ):
@@ -9730,7 +9730,7 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
                 data=card_html_data,
                 file_name=f"{selected_record.id}-card.html",
                 mime="text/html",
-                use_container_width=True,
+                width="stretch",
                 disabled=downloads_disabled,
                 key=f"project_calculation_card_html_{project.id}_{selected_id}",
             ):
@@ -9752,7 +9752,7 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
 
         if open_col.button(
             "Открыть в графиках",
-            use_container_width=True,
+            width="stretch",
             key=f"project_calculation_open_{project.id}_{selected_id}",
         ):
             try:
@@ -9798,7 +9798,7 @@ def _render_project_calculation_saver(
             value=default_label,
             key=f"project_calculation_label_{project.id}",
         )
-        if st.button("Сохранить расчетный snapshot", use_container_width=True, key=f"save_calculation_{project.id}"):
+        if st.button("Сохранить расчетный snapshot", width="stretch", key=f"save_calculation_{project.id}"):
             try:
                 record = save_project_calculation(
                     calculated_df,
@@ -9839,7 +9839,7 @@ def _render_project_las_files_panel(
     with st.expander("LAS-файлы проекта", expanded=bool(active_records or archived_records)):
         if uploaded_files:
             st.caption("Сохраните загруженные LAS в активный проект, чтобы открыть их после перезапуска приложения.")
-            if st.button("Сохранить загруженные LAS в проект", use_container_width=True, key="save_uploaded_las_to_project"):
+            if st.button("Сохранить загруженные LAS в проект", width="stretch", key="save_uploaded_las_to_project"):
                 try:
                     saved_count = 0
                     for uploaded_file in uploaded_files:
@@ -9875,7 +9875,7 @@ def _render_project_las_files_panel(
                 key=f"project_las_show_archived_{project.id}",
             )
         display_well_cards = las_service.list_wells(project.id, include_archived=show_archived)
-        st.dataframe(_project_las_records_table(display_well_cards), use_container_width=True, height=260)
+        st.dataframe(_project_las_records_table(display_well_cards), width="stretch", height=260)
 
         if active_records:
             archive_options = {record.id: record for record in active_records}
@@ -9886,7 +9886,7 @@ def _render_project_las_files_panel(
                 format_func=lambda record_id: _project_las_option_label(archive_options[record_id]),
                 key=f"project_las_archive_select_{project.id}",
             )
-            if archive_button_col.button("В архив", use_container_width=True, key=f"project_las_archive_button_{project.id}"):
+            if archive_button_col.button("В архив", width="stretch", key=f"project_las_archive_button_{project.id}"):
                 try:
                     las_service.archive_file(project.id, archive_id)
                     logger.info(
@@ -9910,7 +9910,7 @@ def _render_project_las_files_panel(
                 format_func=lambda record_id: _project_las_option_label(delete_options[record_id]),
                 key=f"project_las_delete_select_{project.id}",
             )
-            if delete_button_col.button("Удалить с диска", use_container_width=True, key=f"project_las_delete_button_{project.id}"):
+            if delete_button_col.button("Удалить с диска", width="stretch", key=f"project_las_delete_button_{project.id}"):
                 try:
                     deleted = las_service.delete_file(project.id, delete_id).deleted
                     _clear_las_working_state()
@@ -9939,7 +9939,7 @@ def _render_project_las_files_panel(
                 format_func=lambda record_id: _project_las_option_label(restore_options[record_id]),
                 key=f"project_las_restore_select_{project.id}",
             )
-            if restore_button_col.button("Вернуть", use_container_width=True, key=f"project_las_restore_button_{project.id}"):
+            if restore_button_col.button("Вернуть", width="stretch", key=f"project_las_restore_button_{project.id}"):
                 try:
                     las_service.restore_file(project.id, restore_id)
                     logger.info(
@@ -10000,7 +10000,7 @@ def _render_las_correlation_settings_loader(wells, group_options: tuple[str, ...
             st.markdown("**Проект**")
             for line in settings_summary(project_settings):
                 st.caption(line)
-            if st.button("Загрузить настройки проекта", use_container_width=True, key="las_correlation_load_project_settings"):
+            if st.button("Загрузить настройки проекта", width="stretch", key="las_correlation_load_project_settings"):
                 _apply_las_correlation_settings_to_session(project_settings, wells, group_options)
                 st.session_state[session_key] = settings_to_dict(project_settings)
                 _refresh_ui()
@@ -10010,10 +10010,10 @@ def _render_las_correlation_settings_loader(wells, group_options: tuple[str, ...
             for line in settings_summary(session_settings):
                 st.caption(line)
             apply_col, clear_col = st.columns(2)
-            if apply_col.button("Применить настройки сессии", use_container_width=True, key="las_correlation_apply_saved_settings"):
+            if apply_col.button("Применить настройки сессии", width="stretch", key="las_correlation_apply_saved_settings"):
                 _apply_las_correlation_settings_to_session(session_settings, wells, group_options)
                 _refresh_ui()
-            if clear_col.button("Очистить настройки сессии", use_container_width=True, key="las_correlation_clear_saved_settings"):
+            if clear_col.button("Очистить настройки сессии", width="stretch", key="las_correlation_clear_saved_settings"):
                 st.session_state.pop(session_key, None)
                 _refresh_ui()
 
@@ -10023,7 +10023,7 @@ def _render_las_correlation_settings_saver(settings: LasCorrelationSettings, pro
         for line in settings_summary(settings):
             st.caption(line)
         project_col, session_col = st.columns(2)
-        if project_col.button("Сохранить в проект", use_container_width=True, key="las_correlation_save_project_settings"):
+        if project_col.button("Сохранить в проект", width="stretch", key="las_correlation_save_project_settings"):
             try:
                 save_project_correlation_settings(
                     settings,
@@ -10034,7 +10034,7 @@ def _render_las_correlation_settings_saver(settings: LasCorrelationSettings, pro
                 st.success("Настройки корреляции сохранены в проект.")
             except Exception:
                 st.error("Не удалось сохранить настройки проекта.")
-        if session_col.button("Сохранить в сессию", use_container_width=True, key="las_correlation_save_current_settings"):
+        if session_col.button("Сохранить в сессию", width="stretch", key="las_correlation_save_current_settings"):
             st.session_state[_project_settings_session_key(project_id)] = settings_to_dict(settings)
             st.success("Настройки корреляции сохранены в текущей сессии.")
 
@@ -10057,28 +10057,28 @@ def _render_las_correlation_interval_table(
         if interval_table.empty:
             st.warning("В выбранном интервале нет строк LAS для выбранных скважин и групп кривых.")
             return
-        st.dataframe(interval_table, use_container_width=True, height=420)
+        st.dataframe(interval_table, width="stretch", height=420)
         csv_col, xlsx_col, las_col = st.columns(3)
         csv_col.download_button(
             "Экспорт CSV",
             data=export_csv_bytes(interval_table),
             file_name=f"las_correlation_interval_{project_id}.csv",
             mime="text/csv",
-            use_container_width=True,
+            width="stretch",
         )
         xlsx_col.download_button(
             "Экспорт XLSX",
             data=export_xlsx_bytes(interval_table, sheet_name="interval"),
             file_name=f"las_correlation_interval_{project_id}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
+            width="stretch",
         )
         las_col.download_button(
             "Экспорт LAS",
             data=export_las_bytes(interval_table, well_name=project_id, depth_column="depth"),
             file_name=f"las_correlation_interval_{project_id}.las",
             mime="text/plain",
-            use_container_width=True,
+            width="stretch",
         )
 
 
@@ -10124,7 +10124,7 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
                 "Прочие": len(well.curve_groups.get("other", ())),
             }
         )
-    st.dataframe(pd.DataFrame(summary_rows), use_container_width=True)
+    st.dataframe(pd.DataFrame(summary_rows), width="stretch")
 
     group_options = [
         group
@@ -10222,7 +10222,7 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         marker_rows = st.data_editor(
             pd.DataFrame(default_marker_rows),
             num_rows="dynamic",
-            use_container_width=True,
+            width="stretch",
             key="las_correlation_studio_marker_editor",
         )
         marker_records = marker_rows.to_dict("records") if isinstance(marker_rows, pd.DataFrame) else []
@@ -10256,9 +10256,9 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
                 studio_curve,
                 height_per_well=max(480, int(height_per_well)),
             )
-            st.plotly_chart(studio_figure, use_container_width=True)
+            st.plotly_chart(studio_figure, width="stretch")
             if studio_panel.markers:
-                st.dataframe(pd.DataFrame(correlation_marker_rows(studio_panel)), use_container_width=True)
+                st.dataframe(pd.DataFrame(correlation_marker_rows(studio_panel)), width="stretch")
         else:
             st.info("Для Correlation Studio выберите группы с числовыми кривыми.")
     view_mode = st.radio(
@@ -10335,7 +10335,7 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         view_mode=view_mode,
         comparison_curve=comparison_curve,
     )
-    st.plotly_chart(figure, use_container_width=True)
+    st.plotly_chart(figure, width="stretch")
     st.download_button(
         "HTML для печати графика",
         data=_plotly_figures_to_html(
@@ -10347,7 +10347,7 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         ),
         file_name=figure_file_name,
         mime="text/html",
-        use_container_width=True,
+        width="stretch",
     )
     _render_static_export_controls(
         figure,
@@ -10377,7 +10377,7 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
                 for group, columns in well.curve_groups.items()
                 if columns
             ]
-            st.dataframe(pd.DataFrame(group_rows), use_container_width=True)
+            st.dataframe(pd.DataFrame(group_rows), width="stretch")
 
     logger.info("las_correlation_rendered wells=%d", len(selected_wells))
 

@@ -206,6 +206,24 @@ def check_required_storage_dirs(root: Path | str | None = None) -> PlatformHealt
     return _ok("storage_dirs", "Storage directories are present and writable.")
 
 
+def check_streamlit_compatibility(root: Path | str | None = None) -> PlatformHealthCheck:
+    resolved_root = Path(root) if root is not None else project_root()
+    try:
+        from core.streamlit_compatibility import scan_streamlit_deprecations
+
+        report = scan_streamlit_deprecations(resolved_root)
+    except Exception as exc:  # pragma: no cover - defensive diagnostic path
+        return _error("streamlit_compatibility", f"Streamlit compatibility scan failed: {exc}")
+    if not report.ok:
+        first = report.findings[0]
+        return _warning(
+            "streamlit_compatibility",
+            f"Deprecated Streamlit API usage found: {len(report.findings)} finding(s). "
+            f"First: {first.file}:{first.line} {first.detail}",
+        )
+    return _ok("streamlit_compatibility", "No deprecated Streamlit width arguments found.")
+
+
 def run_platform_health(root: Path | str | None = None) -> PlatformHealthReport:
     resolved_root = Path(root) if root is not None else project_root()
     checks = (
@@ -213,5 +231,6 @@ def run_platform_health(root: Path | str | None = None) -> PlatformHealthReport:
         check_storage_lifecycle_imports(),
         check_service_contracts(),
         check_ui_storage_boundaries(resolved_root),
+        check_streamlit_compatibility(resolved_root),
     )
     return PlatformHealthReport(checks=checks)
