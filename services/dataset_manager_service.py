@@ -7,8 +7,9 @@ from typing import Callable, Literal
 from core.storage_lifecycle import CacheManager, DeleteEngine, DeleteResult, FileHandleManager, IndexManager, IndexSyncResult, ResourceManager, StorageDeleteError
 from projects import datasets as project_datasets
 from projects.repository import DEFAULT_PROJECT_ID, DEFAULT_PROJECTS_ROOT, safe_project_id
+from services.las_manager_service import LasManagerService
 
-DatasetSection = Literal["csv", "excel", "core", "mud_log", "production"]
+DatasetSection = Literal["las", "csv", "excel", "core", "mud_log", "production"]
 
 
 @dataclass(frozen=True)
@@ -62,10 +63,27 @@ class DatasetManagerService:
             file_handle_manager=self.file_handle_manager,
         )
         self.index_manager = index_manager or IndexManager(self.root)
+        self.las_manager = LasManagerService(
+            self.root,
+            delete_engine=self.delete_engine,
+            index_manager=self.index_manager,
+            resource_manager=self.resource_manager,
+            cache_manager=self.cache_manager,
+            file_handle_manager=self.file_handle_manager,
+        )
 
     @property
     def section_specs(self) -> dict[str, DatasetSectionSpec]:
         return {
+            "las": DatasetSectionSpec(
+                key="las",
+                label="LAS",
+                folder_name="wells",
+                manifest_name="las_files.json",
+                list_records=project_datasets.list_project_las_datasets,
+                write_manifest=lambda *_args, **_kwargs: None,
+                dataset_dir=lambda root, project_id, dataset_id: Path(root) / safe_project_id(project_id) / "wells" / str(dataset_id),
+            ),
             "csv": DatasetSectionSpec(
                 key="csv",
                 label="CSV",
@@ -183,6 +201,17 @@ class DatasetManagerService:
         return released
 
     def delete_dataset(self, project_id: str, section: str, dataset_id: str) -> DatasetDeleteSummary:
+        if str(section).strip().lower().replace("-", "_").replace(" ", "_") == "las":
+            result = self.las_manager.delete_file(project_id, dataset_id)
+            return DatasetDeleteSummary(
+                project_id=safe_project_id(project_id),
+                section="las",
+                requested=1,
+                deleted=1 if result.deleted else 0,
+                missing=0 if result.deleted else 1,
+                released_resources=result.released_resources,
+                index_entries=result.index_entries_count,
+            )
         spec = self._spec(section)
         records = tuple(spec.list_records(self.root, project_id, include_archived=True))
         matching = [record for record in records if getattr(record, "id", "") == dataset_id]
@@ -230,6 +259,18 @@ class DatasetManagerService:
         )
 
     def clear_section(self, project_id: str, section: str) -> DatasetDeleteSummary:
+        if str(section).strip().lower().replace("-", "_").replace(" ", "_") == "las":
+            records = self.las_manager.list_files(project_id, include_archived=True)
+            result = self.las_manager.clear_files(project_id, include_archived=True)
+            return DatasetDeleteSummary(
+                project_id=safe_project_id(project_id),
+                section="las",
+                requested=len(records),
+                deleted=result.deleted_count,
+                missing=0,
+                released_resources=result.released_resources,
+                index_entries=result.index_entries_count,
+            )
         spec = self._spec(section)
         records = tuple(spec.list_records(self.root, project_id, include_archived=True))
         section_path = self.section_dir(project_id, spec.key)
