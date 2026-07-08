@@ -6,22 +6,25 @@ Project sequence:
 2. Core LTS Freeze
 3. Sprint 2 Workspace Framework
 
-Current stage: Sprint 2 Workspace Framework — Workspace Dashboard cards and Project Explorer shortcuts.
+Current stage: Sprint 2 Workspace Framework — Project Workspace UI smoke tests.
 
 Completed in this archive:
 
-- Added Workspace Dashboard cards for project-scoped workspace summaries.
-- Added Project Explorer workspace shortcuts as read-only UI helpers.
-- Kept create/open/close/delete workflows behind `WorkspaceController`.
+- Added Project Workspace smoke coverage for create/open/close/delete UI workflow markers.
+- Preserved Workspace Dashboard cards regression markers.
+- Preserved Project Explorer shortcuts regression markers.
+- Added controller-backed smoke test for the same create/open/delete sequence exposed by the UI panel.
+- Verified that the Project Workspace panel uses `WorkspaceController` for lifecycle operations.
+- Confirmed the panel does not write directly to `st.session_state` inside Workspace lifecycle controls.
 - Preserved UI → Controller → Manager → Service → Repository → Storage boundary.
-- Added regression tests for dashboard cards and shortcut markers.
 
 Validation:
 
 - compileall: passed.
-- Workspace lifecycle/controller/manager/service tests: passed.
+- Workspace UI smoke tests: passed.
+- Full pytest suite: passed.
 
 Recommended next step:
 
-- Add end-to-end Project Workspace smoke tests for create/open/delete UI workflows.
-- Then start LAS Workspace 3.0 foundation after Workspace Framework acceptance.
+- Start LAS Workspace 3.0 foundation after Workspace Framework acceptance.
+- Add LAS workspace model/controller boundary before adding merge/split tools.
