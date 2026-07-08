@@ -8,86 +8,6 @@ Roadmap v5.0 фиксирует переход проекта от набора 
 
 Перед дальнейшим расширением функциональности вводится **Workspace Framework 2.0**. Все рабочие пространства подключаются к единому Application Shell и используют общий механизм очистки временных данных.
 
-
-## Roadmap v5 FINAL — Sprint Model Update
-
-### Sprint 1 — Core Platform & Unified Manager Framework
-
-Sprint 1 официально включает не только Project Manager, но и единый каркас управления всеми данными проекта.
-
-Обязательные компоненты Sprint 1:
-
-- Application State;
-- Service Layer;
-- Repository Framework;
-- Runtime Refresh;
-- Cleanup Controller;
-- DatasetManagerService;
-- Unified Toolbar Framework;
-- Unified Table Framework;
-- Plugin API Foundation;
-- Architecture Rules.
-
-### Unified Manager Framework
-
-Все менеджеры проекта должны использовать единый подход:
-
-- Project Manager;
-- Well Manager;
-- LAS Manager;
-- Dataset Manager;
-- Export Manager;
-- Report Manager;
-- Model Manager;
-- Template Manager;
-- Plugin Manager.
-
-Каждая таблица/секция получает единый Toolbar:
-
-```text
-➕ Импорт | 📂 Открыть | 🔄 Обновить | ✏ Редактировать | 📋 Дублировать | 🗑 Удалить выбранный | 🧹 Очистить раздел | 🗑 Очистить всё | 📤 Экспорт | ⚙ Настройки
-```
-
-### Dataset Manager 2.0
-
-Dataset Manager становится центральным Data Center проекта. Он управляет:
-
-- LAS;
-- CSV;
-- Excel;
-- Core;
-- Mud Log;
-- Production;
-- будущими DLIS/LIS/TXT/ASCII форматами.
-
-Dataset Manager должен поддерживать удаление выбранного dataset, очистку раздела, очистку всех datasets проекта, проверку целостности, статистику, preview и историю.
-
-### Plugin API Foundation
-
-Sprint 1 закладывает безопасный фундамент Plugin API:
-
-- plugin manifest;
-- extension points;
-- permissions;
-- hooks registry;
-- lifecycle status: draft/enabled/disabled/quarantined.
-
-В Sprint 1 запрещено исполнять произвольный сторонний plugin-код.
-
-### Sprint 1.5 — Integration & Stabilization
-
-Sprint 1.5 обязателен перед началом Sprint 2.
-
-В Sprint 1.5 запрещено добавлять новый функционал. Разрешены только:
-
-- compileall;
-- pytest;
-- исправление NameError/ImportError/AttributeError;
-- проверка запуска приложения;
-- проверка Project/Well/LAS/Dataset/Export managers;
-- проверка очистки данных;
-- устранение регрессий.
-
 ## Phase 0 — Repository and Documentation Hygiene
 
 - документация хранится только в `docs/`;
@@ -383,3 +303,8 @@ Acceptance Criteria:
 4. Wizard возвращает manifest для UI.
 5. Созданный LAS содержит `~Version`, `~Well`, `~Curve`, `~Parameter`, `~ASCII`.
 6. Созданный LAS можно сразу передать в Validator, Plot Studio и Export Center.
+
+
+## Sprint 1 update — Storage Lifecycle Framework
+
+Functional expansion is frozen until Storage Lifecycle Framework and Sprint 1.5 Integration & Stabilization are complete. All file delete operations must go through lifecycle-aware services and DeleteEngine. Dataset Manager clearing is the first integrated path.

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from io import BytesIO
@@ -10,6 +9,8 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+
+from core.storage_lifecycle import DeleteEngine, StorageDeleteError
 
 from importers.csv_importer import read_csv
 from importers.excel_importer import load_excel_sheets, read_excel_sheet
@@ -1845,82 +1846,151 @@ def build_project_dataset_table(datasets: tuple[ProjectDatasetRecord, ...] | lis
     )
 
 
-_DATASET_KIND_IO = {
-    "csv": (_read_csv_manifest, _write_csv_manifest, _csv_dataset_dir, _safe_csv_dataset_id),
-    "excel": (_read_excel_manifest, _write_excel_manifest, _excel_dataset_dir, _safe_excel_dataset_id),
-    "core": (_read_core_manifest, _write_core_manifest, _core_dataset_dir, _safe_core_dataset_id),
-    "mud_log": (_read_mud_log_manifest, _write_mud_log_manifest, _mud_log_dataset_dir, _safe_mud_log_dataset_id),
-    "production": (_read_production_manifest, _write_production_manifest, _production_dataset_dir, _safe_production_dataset_id),
-}
-_DATASET_KINDS = ("las", "csv", "excel", "core", "mud_log", "production")
+PROJECT_DATASET_SECTION_KINDS = ("LAS", "CSV", "Excel", "Core", "Mud Log", "Production")
 
 
 def _normalize_dataset_kind(kind: str) -> str:
-    normalized = str(kind).strip().lower().replace("-", "_").replace(" ", "_")
+    value = str(kind).strip().lower().replace("_", " ").replace("-", " ")
     aliases = {
-        "mudlog": "mud_log",
-        "mud_logs": "mud_log",
-        "las_dataset": "las",
-        "csv_dataset": "csv",
-        "excel_dataset": "excel",
-        "core_dataset": "core",
-        "mud_log_dataset": "mud_log",
-        "production_dataset": "production",
+        "las": "LAS",
+        "csv": "CSV",
+        "excel": "Excel",
+        "xlsx": "Excel",
+        "core": "Core",
+        "mud log": "Mud Log",
+        "mudlog": "Mud Log",
+        "production": "Production",
     }
-    normalized = aliases.get(normalized, normalized)
-    if normalized not in _DATASET_KINDS:
-        raise ValueError(f"Неподдерживаемый тип dataset: {kind}")
-    return normalized
+    if value not in aliases:
+        raise ValueError(f"Неизвестный раздел Dataset Manager: {kind!r}.")
+    return aliases[value]
 
 
-def delete_project_dataset(root: Path | str, project_id: str, kind: str, dataset_id: str) -> bool:
-    """Physically delete one dataset and remove it from its manifest.
+def _dataset_section_dir(root: Path | str, project_id: str, kind: str) -> Path:
+    normalized = _normalize_dataset_kind(kind)
+    if normalized == "CSV":
+        return _csv_datasets_dir(root, project_id)
+    if normalized == "Excel":
+        return _excel_datasets_dir(root, project_id)
+    if normalized == "Core":
+        return _core_datasets_dir(root, project_id)
+    if normalized == "Mud Log":
+        return _mud_log_datasets_dir(root, project_id)
+    if normalized == "Production":
+        return _production_datasets_dir(root, project_id)
+    if normalized == "LAS":
+        return Path(root) / safe_project_id(project_id) / "las"
+    raise ValueError(f"Неизвестный раздел Dataset Manager: {kind!r}.")
 
-    LAS datasets are backed by the project LAS repository, therefore deletion is
-    delegated to ``projects.las_files.delete_project_las_file``. Other dataset
-    types have their own manifest and source folder under ``datasets/<kind>``.
+
+def _dataset_record_dir(root: Path | str, project_id: str, kind: str, dataset_id: str) -> Path:
+    normalized = _normalize_dataset_kind(kind)
+    if normalized == "CSV":
+        return _csv_dataset_dir(root, project_id, dataset_id)
+    if normalized == "Excel":
+        return _excel_dataset_dir(root, project_id, dataset_id)
+    if normalized == "Core":
+        return _core_dataset_dir(root, project_id, dataset_id)
+    if normalized == "Mud Log":
+        return _mud_log_dataset_dir(root, project_id, dataset_id)
+    if normalized == "Production":
+        return _production_dataset_dir(root, project_id, dataset_id)
+    if normalized == "LAS":
+        return Path(root) / safe_project_id(project_id) / "las" / dataset_id
+    raise ValueError(f"Неизвестный раздел Dataset Manager: {kind!r}.")
+
+
+def _dataset_manifest_update_without_id(root: Path | str, project_id: str, kind: str, dataset_id: str) -> None:
+    normalized = _normalize_dataset_kind(kind)
+    if normalized == "CSV":
+        records = tuple(record for record in _read_csv_manifest(root, project_id) if record.id != dataset_id)
+        _write_csv_manifest(root, project_id, records)
+    elif normalized == "Excel":
+        records = tuple(record for record in _read_excel_manifest(root, project_id) if record.id != dataset_id)
+        _write_excel_manifest(root, project_id, records)
+    elif normalized == "Core":
+        records = tuple(record for record in _read_core_manifest(root, project_id) if record.id != dataset_id)
+        _write_core_manifest(root, project_id, records)
+    elif normalized == "Mud Log":
+        records = tuple(record for record in _read_mud_log_manifest(root, project_id) if record.id != dataset_id)
+        _write_mud_log_manifest(root, project_id, records)
+    elif normalized == "Production":
+        records = tuple(record for record in _read_production_manifest(root, project_id) if record.id != dataset_id)
+        _write_production_manifest(root, project_id, records)
+    elif normalized == "LAS":
+        # LAS datasets are aliases to project LAS versions; their manifest is
+        # owned by projects.las_files and is handled by LasManagerService.
+        return
+
+
+def delete_project_dataset(
+    root: Path | str,
+    project_id: str,
+    kind: str,
+    dataset_id: str,
+    *,
+    delete_engine: DeleteEngine | None = None,
+) -> bool:
+    """Physically delete one Dataset Manager record and remove it from manifest.
+
+    This is the repository-level dataset delete entry point.  It intentionally
+    delegates filesystem removal to Storage Lifecycle ``DeleteEngine`` so locked
+    files produce actionable diagnostics and retry behavior instead of raw
+    ``PermissionError`` crashes.
     """
 
-    normalized_kind = _normalize_dataset_kind(kind)
-    if normalized_kind == "las":
-        from projects.las_files import delete_project_las_file
-
-        return bool(delete_project_las_file(root, project_id, dataset_id))
-
-    read_manifest, write_manifest, dataset_dir_factory, safe_id_factory = _DATASET_KIND_IO[normalized_kind]
-    clean_dataset_id = safe_id_factory(dataset_id)
-    records = tuple(record for record in read_manifest(root, project_id) if record.id != clean_dataset_id)
-    original_count = len(read_manifest(root, project_id))
-    dataset_dir = dataset_dir_factory(root, project_id, clean_dataset_id)
-    if dataset_dir.exists():
-        shutil.rmtree(dataset_dir)
-    write_manifest(root, project_id, records)
-    return len(records) != original_count or not dataset_dir.exists()
+    normalized = _normalize_dataset_kind(kind)
+    clean_project_id = safe_project_id(project_id)
+    clean_dataset_id = dataset_id.split(":", 1)[-1]
+    engine = delete_engine or DeleteEngine()
+    target = _dataset_record_dir(root, clean_project_id, normalized, clean_dataset_id)
+    engine.delete_path(target, missing_ok=True)
+    _dataset_manifest_update_without_id(root, clean_project_id, normalized, clean_dataset_id)
+    return True
 
 
-def clear_project_datasets(root: Path | str, project_id: str, *, kind: str | None = None) -> int:
-    """Delete all datasets in one section or in the whole project."""
+def clear_project_dataset_section(
+    root: Path | str,
+    project_id: str,
+    kind: str,
+    *,
+    delete_engine: DeleteEngine | None = None,
+) -> int:
+    """Clear one Dataset Manager section and return deleted record count."""
 
-    if kind is None:
-        return sum(clear_project_datasets(root, project_id, kind=dataset_kind) for dataset_kind in _DATASET_KINDS)
+    normalized = _normalize_dataset_kind(kind)
+    if normalized == "LAS":
+        raise ValueError("LAS datasets очищаются через LasManagerService, чтобы не обходить LAS manifest.")
+    clean_project_id = safe_project_id(project_id)
+    if normalized == "CSV":
+        records = _read_csv_manifest(root, clean_project_id)
+    elif normalized == "Excel":
+        records = _read_excel_manifest(root, clean_project_id)
+    elif normalized == "Core":
+        records = _read_core_manifest(root, clean_project_id)
+    elif normalized == "Mud Log":
+        records = _read_mud_log_manifest(root, clean_project_id)
+    elif normalized == "Production":
+        records = _read_production_manifest(root, clean_project_id)
+    else:  # pragma: no cover - protected by normalizer
+        records = ()
 
-    normalized_kind = _normalize_dataset_kind(kind)
-    if normalized_kind == "las":
-        from projects.las_files import delete_project_las_file, list_project_las_files
+    deleted_count = 0
+    for record in tuple(records):
+        delete_project_dataset(root, clean_project_id, normalized, record.id, delete_engine=delete_engine)
+        deleted_count += 1
+    return deleted_count
 
-        deleted = 0
-        for record in list_project_las_files(root, project_id, include_archived=True):
-            if delete_project_las_file(root, project_id, record.id):
-                deleted += 1
-        return deleted
 
-    read_manifest, write_manifest, dataset_dir_factory, _safe_id_factory = _DATASET_KIND_IO[normalized_kind]
-    records = read_manifest(root, project_id)
-    deleted = 0
-    for record in records:
-        dataset_dir = dataset_dir_factory(root, project_id, record.id)
-        if dataset_dir.exists():
-            shutil.rmtree(dataset_dir)
-        deleted += 1
-    write_manifest(root, project_id, ())
-    return deleted
+def clear_project_all_dataset_sections(
+    root: Path | str,
+    project_id: str,
+    *,
+    delete_engine: DeleteEngine | None = None,
+) -> int:
+    """Clear all non-LAS Dataset Manager sections."""
+
+    total = 0
+    for kind in ("CSV", "Excel", "Core", "Mud Log", "Production"):
+        total += clear_project_dataset_section(root, project_id, kind, delete_engine=delete_engine)
+    return total
