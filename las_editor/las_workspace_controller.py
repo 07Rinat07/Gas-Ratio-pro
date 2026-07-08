@@ -12,6 +12,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, MutableMapping
 
+from las_editor.las_creation_wizard import (
+    LasCreationWizardDraft,
+    LasCreationWizardFinalizeResult,
+    LasCreationWizardPreviewV2,
+    build_las_creation_wizard_preview_v2,
+    finalize_las_creation_wizard,
+)
+from las_editor.las_safe_export import LasSafeExportManifest, export_las_text_safely
+
 from projects.repository import DEFAULT_PROJECTS_ROOT, safe_project_id
 from projects.workspace_controller import WorkspaceController, WorkspaceControllerResult
 from projects.workspace_repository import WorkspaceRecord
@@ -34,6 +43,24 @@ class LasWorkspaceControllerState:
     home: LasWorkspaceHomeState
     created: bool
     is_active: bool
+
+
+@dataclass(frozen=True)
+class LasWorkspaceCreationPreviewState:
+    """Preview of a create-LAS workflow prepared through the workspace boundary."""
+
+    workspace_state: LasWorkspaceControllerState
+    preview: LasCreationWizardPreviewV2
+
+
+@dataclass(frozen=True)
+class LasWorkspaceCreatedLasResult:
+    """Result of writing a new LAS working copy under the active LAS workspace."""
+
+    workspace_state: LasWorkspaceControllerState
+    final: LasCreationWizardFinalizeResult
+    manifest: LasSafeExportManifest
+    workspace: WorkspaceRecord
 
 
 def default_las_workspace_settings() -> dict[str, Any]:
@@ -120,4 +147,96 @@ class LasWorkspaceController:
             home=build_las_workspace_home_state(recent_files=recent_files),
             created=False,
             is_active=self.workspace_controller.active_workspace_id() == result.workspace.id,
+        )
+
+
+    def preview_create_las_workflow(
+        self,
+        project_id: str,
+        draft: LasCreationWizardDraft,
+        *,
+        activate: bool = True,
+        recent_files: tuple[str, ...] = (),
+    ) -> LasWorkspaceCreationPreviewState:
+        """Prepare a new-LAS workflow through the LAS Workspace boundary.
+
+        The method deliberately returns a renderer-independent preview.  UI code
+        can display the wizard state, validation issues and generated table
+        without constructing LAS data directly and without touching
+        ``st.session_state``.
+        """
+
+        workspace_state = self.ensure_project_las_workspace(
+            project_id,
+            activate=activate,
+            recent_files=recent_files,
+        )
+        preview = build_las_creation_wizard_preview_v2(draft)
+        return LasWorkspaceCreationPreviewState(workspace_state=workspace_state, preview=preview)
+
+    def create_las_working_copy(
+        self,
+        project_id: str,
+        draft: LasCreationWizardDraft,
+        *,
+        filename: str | None = None,
+        allow_overwrite: bool = False,
+        recent_files: tuple[str, ...] = (),
+    ) -> LasWorkspaceCreatedLasResult:
+        """Create and persist a LAS working copy inside the project workspace.
+
+        This keeps the workflow behind UI → Controller → Workspace Framework:
+        the controller prepares the stable LAS workspace, delegates LAS document
+        generation to the creation wizard service functions, writes only into the
+        workspace-scoped ``working_copies`` directory, and stores the latest
+        output path in workspace settings.
+        """
+
+        workspace_state = self.ensure_project_las_workspace(
+            project_id,
+            activate=True,
+            recent_files=recent_files,
+        )
+        final = finalize_las_creation_wizard(draft)
+        clean_filename = Path(filename or final.filename).name.strip() or final.filename
+        if not clean_filename.lower().endswith(".las"):
+            clean_filename = f"{clean_filename}.las"
+
+        target = (
+            self.workspace_controller.manager.root
+            / workspace_state.project_id
+            / "workspaces"
+            / workspace_state.workspace.id
+            / "las"
+            / "working_copies"
+            / clean_filename
+        )
+        manifest = export_las_text_safely(
+            final.las_text,
+            target,
+            allow_overwrite=allow_overwrite,
+            dataframe=final.preview.data,
+        )
+        if not manifest.is_ready:
+            return LasWorkspaceCreatedLasResult(
+                workspace_state=workspace_state,
+                final=final,
+                manifest=manifest,
+                workspace=workspace_state.workspace,
+            )
+
+        updated = self.workspace_controller.manager.update_workspace_settings(
+            workspace_state.project_id,
+            workspace_state.workspace.id,
+            {
+                "last_created_las": manifest.target_path,
+                "last_created_las_rows": final.preview.data.shape[0],
+                "last_created_las_curves": max(0, final.preview.data.shape[1] - 1),
+            },
+        )
+        return LasWorkspaceCreatedLasResult(
+            workspace_state=workspace_state,
+            final=final,
+            manifest=manifest,
+            workspace=updated,
         )

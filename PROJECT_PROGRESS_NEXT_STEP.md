@@ -5,21 +5,21 @@ Project sequence:
 1. Architecture Review
 2. Core LTS Freeze
 3. Sprint 2 Workspace Framework
+4. LAS Workspace 3.0
 
-Current stage: Sprint 2 — LAS Workspace 3.0 UI entry point.
+Current stage: Sprint 2 — LAS Workspace create/open workflow boundary.
 
 Completed in this archive:
 
-- Added LAS Workspace 3.0 UI entry point in Project Workspace.
-- Routed LAS Workspace open/prepare actions through `LasWorkspaceController`.
-- Added renderer-independent action table for LAS workspace home actions.
-- Added UI source smoke tests for the LAS Workspace controller boundary.
-- Preserved previous LAS Workspace 3.0 controller boundary.
-- Added stable project-scoped LAS workspace defaults.
-- Connected LAS workspace activation to the generic `WorkspaceController`.
-- Exposed renderer-independent LAS home state through the controller.
-- Added tests for create/open/idempotent LAS workspace workflows.
+- Added controller-level create-LAS workflow preview through `LasWorkspaceController`.
+- Added project-scoped LAS working-copy creation through the LAS workspace boundary.
+- Stored created LAS files under `workspaces/las-workspace-3/las/working_copies`.
+- Added safe export validation for workspace-created LAS files.
+- Blocked accidental overwrite unless explicitly allowed.
+- Persisted latest created LAS metadata in workspace settings.
+- Added tests for preview, working-copy creation and overwrite protection.
 - Preserved UI → Controller → Manager → Service → Repository → Storage boundary.
+- Preserved previous LAS Workspace 3.0 UI entry point.
 - Preserved Workspace Dashboard cards markers.
 - Preserved Project Explorer shortcuts markers.
 - Preserved Workspace UI smoke tests coverage.
@@ -27,10 +27,10 @@ Completed in this archive:
 Validation:
 
 - compileall: passed.
-- Workspace UI smoke tests: passed.
+- LAS workspace workflow tests: passed.
 - Full pytest suite: passed.
 
 Recommended next step:
 
-- Add create/open LAS workflows through the LAS Workspace boundary before merge/split tools.
-- Then connect creation wizard state to Workspace persistence.
+- Connect the LAS creation wizard UI to `LasWorkspaceController.create_las_working_copy`.
+- Then add workspace-aware open/import workflows for existing LAS, CSV and Excel sources.
