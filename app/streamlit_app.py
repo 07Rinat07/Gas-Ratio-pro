@@ -3277,7 +3277,8 @@ def _render_las_curve_duplicate_detection(prepared_df: pd.DataFrame) -> None:
         width="stretch",
         key="las_editor_duplicate_detect_apply",
     )
-    if LAS_EDITOR_DUPLICATES_KEY not in st.session_state or should_run:
+    state_controller = _application_state_controller()
+    if state_controller.get_value(LAS_EDITOR_DUPLICATES_KEY) is None or should_run:
         result = detect_curve_duplicates(
             prepared_df,
             aliases=aliases,
@@ -3288,14 +3289,16 @@ def _render_las_curve_duplicate_detection(prepared_df: pd.DataFrame) -> None:
             value_match_threshold=value_match_threshold,
             references=_las_editor_reference_state(column_names),
         )
-        st.session_state[LAS_EDITOR_DUPLICATES_KEY] = result.candidates
-        st.session_state[LAS_EDITOR_DUPLICATE_SUMMARY_KEY] = result.summary
+        state_controller.update_values({
+            LAS_EDITOR_DUPLICATES_KEY: result.candidates,
+            LAS_EDITOR_DUPLICATE_SUMMARY_KEY: result.summary,
+        })
         if should_run:
             for message in result.diagnostics:
                 st.info(message)
 
-    candidates = tuple(st.session_state.get(LAS_EDITOR_DUPLICATES_KEY, ()))
-    summary = dict(st.session_state.get(LAS_EDITOR_DUPLICATE_SUMMARY_KEY, {}))
+    candidates = state_controller.get_tuple(LAS_EDITOR_DUPLICATES_KEY)
+    summary = state_controller.get_dict(LAS_EDITOR_DUPLICATE_SUMMARY_KEY)
     summary.setdefault("total", len(candidates))
 
     if candidates:
@@ -3559,7 +3562,7 @@ def _render_las_curve_export_rules_manager(prepared_df: pd.DataFrame) -> None:
                 duplicate_strategy=duplicate_strategy,
                 references=_las_editor_reference_state(columns),
             )
-            st.session_state[LAS_EDITOR_EXPORT_RULES_KEY] = result
+            _application_state_controller().set_value(LAS_EDITOR_EXPORT_RULES_KEY, result)
             for warning in result.warnings:
                 st.warning(warning)
             st.success(
@@ -3571,7 +3574,7 @@ def _render_las_curve_export_rules_manager(prepared_df: pd.DataFrame) -> None:
         except ValueError as exc:
             st.warning(str(exc))
 
-    result = st.session_state.get(LAS_EDITOR_EXPORT_RULES_KEY)
+    result = _application_state_controller().get_value(LAS_EDITOR_EXPORT_RULES_KEY)
     if result is not None:
         rows = curve_export_preview_rows(result.preview)
         if rows:
@@ -3642,7 +3645,8 @@ def _render_las_curve_quality_flags(prepared_df: pd.DataFrame) -> None:
         key="las_editor_quality_flags_apply",
     )
 
-    if LAS_EDITOR_QUALITY_FLAGS_KEY not in st.session_state or should_run:
+    state_controller = _application_state_controller()
+    if state_controller.get_value(LAS_EDITOR_QUALITY_FLAGS_KEY) is None or should_run:
         result = detect_curve_quality_flags(
             prepared_df,
             group_overrides=group_overrides,
@@ -3653,14 +3657,16 @@ def _render_las_curve_quality_flags(prepared_df: pd.DataFrame) -> None:
             spike_zscore_threshold=spike_threshold,
             references=_las_editor_reference_state(column_names),
         )
-        st.session_state[LAS_EDITOR_QUALITY_FLAGS_KEY] = result.flags
-        st.session_state[LAS_EDITOR_QUALITY_SUMMARY_KEY] = result.summary
+        state_controller.update_values({
+            LAS_EDITOR_QUALITY_FLAGS_KEY: result.flags,
+            LAS_EDITOR_QUALITY_SUMMARY_KEY: result.summary,
+        })
         if should_run:
             for message in result.diagnostics:
                 st.info(message)
 
-    flags = tuple(st.session_state.get(LAS_EDITOR_QUALITY_FLAGS_KEY, ()))
-    summary = dict(st.session_state.get(LAS_EDITOR_QUALITY_SUMMARY_KEY, {}))
+    flags = state_controller.get_tuple(LAS_EDITOR_QUALITY_FLAGS_KEY)
+    summary = state_controller.get_dict(LAS_EDITOR_QUALITY_SUMMARY_KEY)
     summary.setdefault("total", len(flags))
 
     if flags:
