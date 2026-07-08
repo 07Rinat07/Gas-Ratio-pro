@@ -1,23 +1,21 @@
-# Project Progress Next Step
+# GAS RATIO PRO — Project Progress Next Step
 
-Architecture Review: completed.
-Core LTS Freeze: completed.
-Sprint 2 Workspace Framework: started.
+Current stage: Sprint 2 — Workspace Framework.
 
-Current implementation step: Workspace Manager integration.
+Completed in this archive:
 
-Implemented:
-- project-scoped WorkspaceRecord persistence;
-- workspace CRUD repository;
-- WorkspaceService boundary for UI/service callers;
-- WorkspaceManager facade for UI-friendly workspace workflows;
-- workspace list/open/create/update/delete manager methods;
-- ensure_project_workspace helper for stable application shell context;
-- tests for repository/service contracts, manager workflows and JSON layout.
+- Added Storage Lifecycle integration to WorkspaceService.
+- Workspace delete operations now route through DeleteEngine.
+- Workspace file handles and caches can be registered and released before deletion.
+- Workspace create/update/refresh operations synchronize Project Database indexes.
+- Added regression tests for workspace lifecycle deletion and index refresh.
+- Full pytest run passed.
 
 Validation:
-- compileall: PASS
-- pytest: 958 passed / 0 failed
 
-Next recommended step:
-- connect WorkspaceManager to the application shell and Project Explorer UI without direct storage access.
+- pytest: 960 passed / 0 failed
+
+Recommended next step:
+
+- Add Workspace UI integration layer for Project Explorer and Workspace Dashboard.
+- Keep UI -> Manager -> Service -> Repository -> Storage boundary intact.

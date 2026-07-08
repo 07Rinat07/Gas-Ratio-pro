@@ -81,3 +81,34 @@ def test_workspace_service_preserves_json_storage_layout(tmp_path):
     assert payload["id"] == "petro"
     assert payload["project_id"] == "demo"
     assert payload["kind"] == "petrophysics"
+
+
+def test_workspace_service_delete_uses_storage_lifecycle_and_syncs_index(tmp_path):
+    project = create_project(tmp_path, name="Demo", project_id="demo")
+    service = WorkspaceService(tmp_path)
+    service.create_workspace(project.id, "LAS", kind="las", workspace_id="las-main")
+    workspace_file = tmp_path / "demo" / "workspaces" / "las-main" / "workspace.json"
+
+    service.register_workspace_file(project.id, "las-main", workspace_file, description="open workspace metadata")
+    service.register_workspace_cache(project.id, "las-main", key="workspace-preview")
+
+    deleted = service.delete_workspace(project.id, "las-main")
+
+    assert deleted.deleted is True
+    assert deleted.released_resources >= 1
+    assert deleted.index_entries_count >= 0
+    assert not (tmp_path / "demo" / "workspaces" / "las-main").exists()
+    assert service.file_handle_manager.diagnostics() == ()
+    assert service.cache_manager.diagnostics() == ()
+
+
+def test_workspace_service_refresh_rebuilds_project_index(tmp_path):
+    project = create_project(tmp_path, name="Demo", project_id="demo")
+    service = WorkspaceService(tmp_path)
+    service.create_workspace(project.id, "Petrophysics", kind="petrophysics", workspace_id="petro")
+
+    refreshed = service.refresh(project.id)
+
+    assert len(refreshed) == 1
+    assert refreshed[0].id == "petro"
+    assert (tmp_path / "demo" / "project_index.json").exists()
