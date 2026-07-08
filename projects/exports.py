@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -184,34 +183,39 @@ def read_project_export_file_bytes(
 
 
 def delete_project_export(
-    root: Path | str = DEFAULT_PROJECTS_ROOT,
-    project_id: str = DEFAULT_PROJECT_ID,
-    export_id: str = "",
+    root: Path | str,
+    project_id: str,
+    export_id: str,
 ) -> bool:
-    """Delete one project export record and its physical export directory."""
+    """Physically delete one export directory and remove it from manifest."""
     clean_export_id = _safe_export_id(export_id)
-    records = _read_manifest(root, project_id)
-    filtered = tuple(record for record in records if record.id != clean_export_id)
-    if len(filtered) == len(records):
+    records = tuple(_read_manifest(root, project_id))
+    remaining = tuple(record for record in records if record.id != clean_export_id)
+    if len(remaining) == len(records):
         return False
 
     export_dir = _export_dir(root, project_id, clean_export_id)
     if export_dir.exists():
+        import shutil
+
         shutil.rmtree(export_dir)
-    _write_manifest(root, project_id, filtered)
+    _write_manifest(root, project_id, remaining)
     return True
 
 
 def clear_project_exports(
-    root: Path | str = DEFAULT_PROJECTS_ROOT,
-    project_id: str = DEFAULT_PROJECT_ID,
+    root: Path | str,
+    project_id: str,
 ) -> int:
-    """Delete all project exports and return the number of removed records."""
-    records = _read_manifest(root, project_id)
-    exports_dir = _exports_dir(root, project_id)
+    """Physically delete all project exports and write an empty manifest."""
+    records = tuple(_read_manifest(root, project_id))
+    deleted_count = 0
     for record in records:
         export_dir = _export_dir(root, project_id, record.id)
         if export_dir.exists():
+            import shutil
+
             shutil.rmtree(export_dir)
+        deleted_count += 1
     _write_manifest(root, project_id, ())
-    return len(records)
+    return deleted_count

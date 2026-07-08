@@ -288,6 +288,11 @@ def delete_well_version(root: Path | str, well_id: str, version_id: str) -> Well
         updated_at=_utc_now(),
         versions=tuple(versions),
     )
+    if not versions:
+        well_dir = _well_dir(root_path, record.id)
+        if well_dir.exists():
+            shutil.rmtree(well_dir)
+        return updated_record
     _write_record(root_path, updated_record)
     return updated_record
 
@@ -300,3 +305,8 @@ def delete_well_record(root: Path | str, well_id: str) -> bool:
         return False
     shutil.rmtree(well_dir)
     return True
+
+
+def delete_well(root: Path | str, well_id: str) -> bool:
+    """Backward-compatible alias for deleting a saved well."""
+    return delete_well_record(root, well_id)
