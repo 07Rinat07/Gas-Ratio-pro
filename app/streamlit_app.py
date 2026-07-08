@@ -203,6 +203,7 @@ from projects.recent_projects import (
     touch_recent_project,
 )
 from services.project_manager_service import ProjectManagerService
+from services.export_manager_service import ExportManagerService
 from projects import calculations as project_calculations
 from projects import exports as project_exports
 from projects import graph_settings as project_graph_settings
@@ -4744,6 +4745,11 @@ def _project_manager_service() -> ProjectManagerService:
     return ProjectManagerService(LAS_CORRELATION_PROJECTS_ROOT, DEFAULT_PROJECT_ID)
 
 
+def _export_manager_service() -> ExportManagerService:
+    """Return the application-level export manager service for UI workflows."""
+    return ExportManagerService(LAS_CORRELATION_PROJECTS_ROOT)
+
+
 def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_project: ProjectRecord, logger) -> None:
     """Render real Streamlit controls for the dashboard Recent Projects list."""
     service = _project_manager_service()
@@ -4819,7 +4825,7 @@ def _dashboard_project_statistics(active_project: ProjectRecord, projects: tuple
         "wells": len(list_wells(WELLS_STORAGE_ROOT)),
         "las_files": len(list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)),
         "calculations": len(list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)),
-        "exports": len(list_project_exports(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)),
+        "exports": _export_manager_service().count_exports(active_project.id),
     }
 
 
@@ -4829,7 +4835,7 @@ def _dashboard_news_items(active_project: ProjectRecord) -> tuple[str, ...]:
     if active_project.updated_at:
         items.append(f"Проект обновлен: {active_project.updated_at}")
     calculations_count = len(list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, active_project.id))
-    exports_count = len(list_project_exports(LAS_CORRELATION_PROJECTS_ROOT, active_project.id))
+    exports_count = _export_manager_service().count_exports(active_project.id)
     items.append(f"Сохраненных расчетов: {calculations_count}")
     items.append(f"Сохраненных экспортов: {exports_count}")
     return tuple(items)
@@ -4842,7 +4848,7 @@ def _dashboard_activity_items(active_project: ProjectRecord, limit: int = 4) -> 
         timestamp = getattr(calculation, "created_at", "") or getattr(calculation, "updated_at", "") or ""
         name = getattr(calculation, "name", "") or getattr(calculation, "id", "расчет")
         activities.append((timestamp, f"Расчет: {name}"))
-    for export in list_project_exports(LAS_CORRELATION_PROJECTS_ROOT, active_project.id):
+    for export in _export_manager_service().list_exports(active_project.id):
         timestamp = getattr(export, "created_at", "") or getattr(export, "updated_at", "") or ""
         name = getattr(export, "file_name", "") or getattr(export, "name", "") or "экспорт"
         activities.append((timestamp, f"Экспорт: {name}"))
@@ -5465,7 +5471,7 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
     activity_items = _dashboard_activity_items(active_project, limit=6)
     las_files = list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:5]
     calculations = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:5]
-    exports = list_project_exports(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:5]
+    exports = _export_manager_service().list_exports(active_project.id)[:5]
     now_label = datetime.now().strftime("%d.%m.%Y %H:%M")
 
     def _row(title: str, meta: str, badge: str = "") -> str:
@@ -8940,7 +8946,8 @@ def _project_exports_table(records: tuple[object, ...]) -> pd.DataFrame:
 
 
 def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
-    records = list_project_exports(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+    export_service = _export_manager_service()
+    records = export_service.list_exports(project.id)
     with st.expander("Сохраненные экспорты проекта", expanded=bool(records)):
         if not records:
             st.caption("В активном проекте пока нет сохраненных экспортов.")
@@ -8963,7 +8970,8 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
         with action_col_2:
             if st.button("Удалить выбранный экспорт", use_container_width=True, key=f"project_export_delete_{project.id}_{selected_id}"):
                 try:
-                    deleted = delete_project_export(LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id)
+                    delete_result = export_service.delete_export(project.id, selected_id)
+                    deleted = delete_result.deleted
                 except Exception:
                     logger.exception("project_export_delete_failed project_id=%s export_id=%s", safe_log_value(project.id), safe_log_value(selected_id))
                     st.error("Не удалось удалить экспорт. Подробности записаны в logs/app.log.")
@@ -8973,7 +8981,8 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
         with action_col_3:
             if st.button("Очистить все экспорты", use_container_width=True, key=f"project_export_clear_all_{project.id}"):
                 try:
-                    removed = clear_project_exports(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+                    clear_result = export_service.clear_exports(project.id)
+                    removed = clear_result.removed_count
                 except Exception:
                     logger.exception("project_exports_clear_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось очистить экспорты. Подробности записаны в logs/app.log.")
@@ -8981,7 +8990,7 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
                     st.success(f"Удалено экспортов: {removed}.")
                     st.rerun()
         try:
-            data = read_project_export_file_bytes(LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id)
+            data = export_service.read_export_bytes(project.id, selected_id)
         except Exception:
             logger.exception(
                 "project_export_download_failed project_id=%s export_id=%s",
@@ -9017,10 +9026,10 @@ def _save_project_export_with_feedback(
     logger,
 ) -> None:
     try:
-        record = save_project_export(
-            data,
-            root=LAS_CORRELATION_PROJECTS_ROOT,
+        export_service = _export_manager_service()
+        save_result = export_service.save_export(
             project_id=project.id,
+            data=data,
             label=label,
             file_name=file_name,
             mime_type=mime_type,
@@ -9028,6 +9037,7 @@ def _save_project_export_with_feedback(
             source=source,
             metadata=metadata,
         )
+        record = save_result.record
     except Exception:
         logger.exception("project_export_save_failed project_id=%s kind=%s", safe_log_value(project.id), safe_log_value(kind))
         st.error("Не удалось сохранить экспорт в проект. Подробности записаны в logs/app.log.")
