@@ -17,3 +17,6 @@ Current version: `architecture-review-lts-freeze-checklist`
 ## Next recommended step
 
 Run final Architecture Review, accept Core LTS Freeze, then start Sprint 2 Workspace Framework.
+
+
+Next: Workspace Framework foundation.
