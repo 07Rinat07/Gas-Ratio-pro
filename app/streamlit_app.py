@@ -7276,6 +7276,45 @@ def _render_tablet_zone_controls(depth_range: tuple[float, float] | None, df: pd
             )
     return tuple(zones)
 
+def _tablet_columns_state(filtered_df: pd.DataFrame) -> tuple[str, ...]:
+    """Return stored tablet columns after validating them against current data."""
+
+    controller = _application_state_controller()
+    current_state = controller.get_tuple("interpretation_tablet_columns")
+    valid_state = _valid_tablet_columns(filtered_df, current_state)
+    if current_state and valid_state != current_state:
+        controller.set_value("interpretation_tablet_columns", list(valid_state))
+    return valid_state
+
+
+def _apply_mud_gas_tablet_preset_to_state(columns: tuple[str, ...]) -> None:
+    """Persist the mud-gas tablet preset through the state controller."""
+
+    _application_state_controller().set_value("interpretation_tablet_columns", list(columns))
+
+
+def _apply_mud_gas_tablet_markers_to_state(markers: tuple[InterpretationMarker, ...]) -> None:
+    """Persist generated mud-gas markers through the state controller."""
+
+    values: dict[str, object] = {"interpretation_tablet_marker_count": len(markers)}
+    for index, marker in enumerate(markers):
+        values[f"interpretation_tablet_marker_{index}_label"] = marker.label
+        values[f"interpretation_tablet_marker_{index}_depth"] = float(marker.depth)
+        values[f"interpretation_tablet_marker_{index}_note"] = marker.note
+    _application_state_controller().update_values(values)
+
+
+def _tablet_fill_mode_default(column: str, tablet_fill: bool) -> str:
+    """Return a validated tablet fill mode from application state."""
+
+    default_mode = _application_state_controller().get_value(
+        f"interpretation_tablet_{_safe_widget_key(column)}_fill_mode"
+    )
+    if default_mode not in TABLET_FILL_MODES:
+        return "to_zero" if tablet_fill else "none"
+    return str(default_mode)
+
+
 def _render_tablet_controls(
     filtered_df: pd.DataFrame,
     depth_range: tuple[float, float] | None,
@@ -7285,10 +7324,7 @@ def _render_tablet_controls(
         st.warning("В выбранном интервале нет числовых параметров для планшета.")
         return (), {}, {}, {}, (), (), False
 
-    current_state = tuple(st.session_state.get("interpretation_tablet_columns", ()))
-    valid_state = _valid_tablet_columns(filtered_df, current_state)
-    if current_state and valid_state != current_state:
-        st.session_state["interpretation_tablet_columns"] = list(valid_state)
+    valid_state = _tablet_columns_state(filtered_df)
 
     literature_columns = mud_gas_literature_tablet_columns(filtered_df)
     if literature_columns:
@@ -7299,7 +7335,7 @@ def _render_tablet_controls(
             width="stretch",
             key="interpretation_tablet_apply_mud_gas_preset",
         ):
-            st.session_state["interpretation_tablet_columns"] = list(literature_columns)
+            _apply_mud_gas_tablet_preset_to_state(literature_columns)
             _refresh_ui()
         if marker_col.button(
             "Добавить mud-gas маркеры",
@@ -7308,11 +7344,7 @@ def _render_tablet_controls(
             key="interpretation_tablet_apply_mud_gas_markers",
         ):
             suggested_markers = mud_gas_literature_markers(filtered_df)
-            st.session_state["interpretation_tablet_marker_count"] = len(suggested_markers)
-            for index, marker in enumerate(suggested_markers):
-                st.session_state[f"interpretation_tablet_marker_{index}_label"] = marker.label
-                st.session_state[f"interpretation_tablet_marker_{index}_depth"] = float(marker.depth)
-                st.session_state[f"interpretation_tablet_marker_{index}_note"] = marker.note
+            _apply_mud_gas_tablet_markers_to_state(suggested_markers)
             _refresh_ui()
         st.caption(
             "Mud gas preset использует только найденные в данных колонки; отсутствующие C-компоненты, ratios или ГИС-кривые не подставляются искусственно."
@@ -7355,9 +7387,7 @@ def _render_tablet_controls(
                 value=default_color,
                 key=f"interpretation_tablet_{_safe_widget_key(column)}_color",
             )
-            default_mode = st.session_state.get(f"interpretation_tablet_{_safe_widget_key(column)}_fill_mode")
-            if default_mode not in TABLET_FILL_MODES:
-                default_mode = "to_zero" if tablet_fill else "none"
+            default_mode = _tablet_fill_mode_default(column, bool(tablet_fill))
             tablet_fill_modes[column] = fill_col.selectbox(
                 f"Заливка: {column}",
                 options=("none", "to_zero", "to_left", "to_right"),

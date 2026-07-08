@@ -190,3 +190,20 @@ def test_las_editor_session_state_helpers_use_application_state_controller():
     assert "st.session_state" not in new_las_body
     assert "_application_state_controller().update_values" in saved_wells_body
     assert "st.session_state" not in saved_wells_body
+
+
+def test_interpretation_tablet_state_helpers_use_application_state_controller():
+    module = importlib.import_module("app.streamlit_app")
+    import inspect
+
+    helper_names = (
+        "_tablet_columns_state",
+        "_apply_mud_gas_tablet_preset_to_state",
+        "_apply_mud_gas_tablet_markers_to_state",
+        "_tablet_fill_mode_default",
+    )
+
+    for helper_name in helper_names:
+        helper_body = inspect.getsource(getattr(module, helper_name))
+        assert "_application_state_controller()" in helper_body
+        assert "st.session_state" not in helper_body

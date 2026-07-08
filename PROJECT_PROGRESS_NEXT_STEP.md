@@ -1,17 +1,17 @@
-# Project Progress — Next Step
+# GAS RATIO PRO — Next Step
 
-Current package: gas-ratio-pro-las-editor-session-state-controller
+Current version: `gas-ratio-pro-interpretation-tablet-state-controller`
 
 Completed in this step:
-- Added ApplicationStateController removal helpers for state cleanup.
-- Moved LAS editor session writes to ApplicationStateController.
-- Moved saved well loading session writes to ApplicationStateController.
-- Moved project/LAS editor source selection reads to ApplicationStateController.
-- Added regression tests for controller-based LAS editor session handling.
+- moved interpretation tablet column state validation into `ApplicationStateController` helpers;
+- moved Mud Gas tablet preset state updates into controller-backed helpers;
+- moved generated Mud Gas marker state updates into controller-backed helpers;
+- moved tablet fill-mode default lookup into controller-backed helper;
+- added regression coverage for interpretation tablet state helpers.
 
 Validation:
-- compileall: PASS
-- pytest: 939 passed / 0 failed
+- `python -m compileall -q .` — PASS
+- `pytest -q` — 940 passed / 0 failed
 
 Recommended next step:
-- Continue removing direct st.session_state access from interpretation tablet/session state helpers.
+- continue ApplicationStateController cleanup for remaining interpretation and LAS correlation session-state reads.
