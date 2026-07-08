@@ -315,6 +315,24 @@ BRANDING_LOGO_PATH = ROOT_DIR / "assets" / "branding" / "gas_ratio_pro_logo.png"
 APP_ICON_PATH = BRANDING_LOGO_PATH
 APP_SPLASH_LOGO_PATH = BRANDING_LOGO_PATH
 EXPORT_WATERMARK_LOGO_PATH = BRANDING_LOGO_PATH
+
+
+def _application_state_controller() -> ApplicationStateController:
+    """Return the Streamlit-backed application state controller.
+
+    Project Manager code must not write directly to widget-owned session keys.
+    This helper centralizes access to the application context and prevents
+    NameError regressions when the UI calls the controller from render blocks.
+    """
+
+    return ApplicationStateController(st.session_state)
+
+
+def _refresh_ui() -> None:
+    """Request a Streamlit rerun from a single helper used by repository panels."""
+
+    st.rerun()
+
 APP_IDENTITY: dict[str, str] = {
     "name": "Gas Ratio Pro",
     "version": "2.0.0",
