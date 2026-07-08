@@ -370,3 +370,149 @@ pytest -q tests/test_las_manager_service.py tests/test_well_manager_service.py t
 1. `WorkspaceDataService` — единые операции очистки таблиц, архивов и временного состояния;
 2. дальнейшее уменьшение прямых вызовов репозиториев из `streamlit_app.py`;
 3. подготовка к выносу UI Project Manager из `streamlit_app.py` в отдельный workspace-модуль.
+
+---
+
+## Продолжение Sprint 1 — Application State & Event Framework
+
+### 17. Единый контроллер состояния приложения
+
+Расширен модуль:
+
+```text
+core/application_state.py
+```
+
+`ApplicationStateController` теперь является не только точкой изменения активного проекта/скважины/LAS/workspace, но и точкой публикации событий состояния.
+
+Добавлено:
+
+- `ApplicationStateKeys` — централизованные ключи состояния;
+- публикация событий при смене проекта;
+- публикация событий при смене скважины;
+- публикация событий при смене LAS;
+- публикация событий при смене workspace;
+- событие ручной очистки session state;
+- безопасный механизм pending-переключения проекта.
+
+### 18. Event Bus
+
+Добавлен модуль:
+
+```text
+core/event_bus.py
+```
+
+Он реализует state-backed очередь событий:
+
+```text
+UI / Service / Controller
+  ↓
+ApplicationEventBus
+  ↓
+application_event_queue
+  ↓
+Workspace refresh / Dashboard refresh / Diagnostics
+```
+
+Поддерживаются:
+
+- `publish()`;
+- `peek()`;
+- `consume()`;
+- `history()`;
+- `request_refresh()`;
+- `consume_refresh_request()`.
+
+### 19. Интеграция в реальный UI проекта
+
+Обновлен существующий файл:
+
+```text
+app/streamlit_app.py
+```
+
+Точки интеграции:
+
+- `_render_project_selector()`;
+- `_render_recent_projects_manager()`;
+- создание проекта;
+- открытие проекта из Recent Projects;
+- удаление активного проекта;
+- восстановление активного проекта после удаления.
+
+Теперь UI не должен напрямую менять:
+
+```text
+st.session_state["active_project_id"]
+```
+
+Проект переключается через:
+
+```text
+ApplicationStateController.activate_project()
+ApplicationStateController.request_project_activation()
+ApplicationStateController.consume_pending_project_activation()
+```
+
+### 20. Тесты Application State & Event Framework
+
+Добавлены тесты:
+
+```text
+tests/test_application_state_event_framework.py
+```
+
+Проверяют:
+
+- публикацию и потребление событий;
+- историю событий;
+- очистку таблиц/метрик при смене проекта;
+- генерацию события `project.changed`;
+- централизованный refresh request.
+
+## Обновленная проверка
+
+```text
+20 passed
+```
+
+Команда:
+
+```bash
+pytest -q \
+  tests/test_project_manager_service.py \
+  tests/test_export_manager_service.py \
+  tests/test_well_manager_service.py \
+  tests/test_las_manager_service.py \
+  tests/test_application_state_event_framework.py \
+  tests/test_application_refactoring_v5.py
+```
+
+## Архитектурное решение
+
+С этого этапа смена активного проекта, скважины, LAS и workspace должна идти через `ApplicationStateController`.
+
+Новый стандарт:
+
+```text
+UI
+  ↓
+ApplicationStateController
+  ↓
+SessionStateManager
+  ↓
+ApplicationEventBus
+  ↓
+Workspace Refresh
+```
+
+Прямое изменение `active_project_id` из UI считается техническим долгом и должно постепенно удаляться из оставшихся частей приложения.
+
+## Следующий шаг
+
+Продолжить Sprint 1 и закрыть оставшийся технический долг состояния:
+
+1. перевести смену active well / active LAS на `ApplicationStateController`;
+2. добавить Developer Diagnostics для просмотра текущего context/events/session cleanup;
+3. затем перейти к Sprint 2 — Workspace Framework.

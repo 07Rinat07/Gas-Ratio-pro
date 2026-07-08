@@ -28,6 +28,7 @@ from core.diagnostics import (
 )
 from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summarize_interpretation
 from core.logging_config import configure_logging, safe_log_value
+from core.application_state import ApplicationStateController
 from core.models import CalculationConfig, STANDARD_FIELDS
 from importers.csv_importer import load_csv_sheets
 from importers.excel_importer import load_excel_sheets
@@ -4763,6 +4764,51 @@ def _las_manager_service() -> LasManagerService:
     return LasManagerService(LAS_CORRELATION_PROJECTS_ROOT)
 
 
+def _application_state_controller() -> ApplicationStateController:
+    """Return the application state controller bound to Streamlit session state."""
+
+    return ApplicationStateController(st.session_state)
+
+
+def _activate_project_for_ui(project_id: str, logger, *, source: str) -> None:
+    """Switch active project through ApplicationStateController and clear stale UI state.
+
+    UI code must not modify ``active_project_id`` directly.  The controller is
+    the single integration point for project context changes, session cleanup
+    and application events.
+    """
+
+    transition = _application_state_controller().activate_project(project_id)
+    if transition.changed:
+        logger.info(
+            "application_project_activated source=%s project_id=%s cleared=%d",
+            safe_log_value(source),
+            safe_log_value(project_id),
+            len(transition.cleanup.cleared_keys) if transition.cleanup else 0,
+        )
+    _clear_las_working_state()
+
+
+def _request_project_activation_for_next_run(project_id: str, logger, *, source: str) -> None:
+    """Schedule project activation before project widgets are rendered again."""
+
+    _application_state_controller().request_project_activation(project_id)
+    logger.info("application_project_activation_requested source=%s project_id=%s", safe_log_value(source), safe_log_value(project_id))
+
+
+def _consume_pending_project_activation(logger, *, source: str) -> None:
+    """Apply queued project switch at a safe render boundary."""
+
+    transition = _application_state_controller().consume_pending_project_activation()
+    if transition and transition.changed:
+        logger.info(
+            "application_pending_project_activation_consumed source=%s project_id=%s cleared=%d",
+            safe_log_value(source),
+            safe_log_value(transition.after.project_id),
+            len(transition.cleanup.cleared_keys) if transition.cleanup else 0,
+        )
+
+
 def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_project: ProjectRecord, logger) -> None:
     """Render real Streamlit controls for the dashboard Recent Projects list."""
     service = _project_manager_service()
@@ -4795,8 +4841,7 @@ def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_
                 if not entries_by_id[selected_id].exists_on_disk:
                     st.warning("Проект отсутствует на диске. Удалите запись из истории.")
                 else:
-                    st.session_state[ACTIVE_PROJECT_ID_KEY] = selected_id
-                    _clear_las_working_state()
+                    _request_project_activation_for_next_run(selected_id, logger, source="recent_projects_open")
                     st.rerun()
         with col_remove:
             if st.button("Удалить запись", use_container_width=True, key="recent_project_remove_entry"):
@@ -4810,8 +4855,9 @@ def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_
                 try:
                     result = service.delete_project_complete(selected_id)
                     if st.session_state.get(ACTIVE_PROJECT_ID_KEY) == selected_id:
-                        st.session_state[ACTIVE_PROJECT_ID_KEY] = DEFAULT_PROJECT_ID
-                    _clear_las_working_state()
+                        _request_project_activation_for_next_run(DEFAULT_PROJECT_ID, logger, source="recent_projects_delete")
+                    else:
+                        _clear_las_working_state()
                 except Exception:
                     logger.exception("recent_project_delete_failed project_id=%s", safe_log_value(selected_id))
                     st.error("Не удалось удалить проект. Подробности записаны в logs/app.log.")
@@ -7756,13 +7802,14 @@ def _project_selectbox_key(current_project_id: str, project_ids: tuple[str, ...]
 
 
 def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bool = False) -> ProjectRecord:
+    _consume_pending_project_activation(logger, source=f"{key_prefix}_project_selector")
     projects = _load_project_records_for_ui(logger)
     projects_by_id = {project.id: project for project in projects}
     project_ids = tuple(projects_by_id)
     current_project_id = st.session_state.get(ACTIVE_PROJECT_ID_KEY)
     if current_project_id not in projects_by_id:
         current_project_id = DEFAULT_PROJECT_ID if DEFAULT_PROJECT_ID in projects_by_id else projects[0].id
-        st.session_state[ACTIVE_PROJECT_ID_KEY] = current_project_id
+        _activate_project_for_ui(current_project_id, logger, source=f"{key_prefix}_project_selector_default")
 
     with st.expander("Проект", expanded=expanded):
         selected_project_id = st.selectbox(
@@ -7773,8 +7820,7 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
             key=_project_selectbox_key(current_project_id, project_ids, key_prefix=key_prefix),
         )
         if selected_project_id != st.session_state.get(ACTIVE_PROJECT_ID_KEY):
-            st.session_state[ACTIVE_PROJECT_ID_KEY] = selected_project_id
-            _clear_las_working_state()
+            _activate_project_for_ui(selected_project_id, logger, source=f"{key_prefix}_project_selectbox")
         active_project = projects_by_id[selected_project_id]
         try:
             _project_manager_service().touch_recent(active_project)
@@ -7786,8 +7832,7 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
             if st.button("Удалить активный проект с диска", use_container_width=True, key=f"{key_prefix}_delete_active_project"):
                 try:
                     result = _project_manager_service().delete_project_complete(active_project.id)
-                    st.session_state[ACTIVE_PROJECT_ID_KEY] = DEFAULT_PROJECT_ID
-                    _clear_las_working_state()
+                    _request_project_activation_for_next_run(DEFAULT_PROJECT_ID, logger, source=f"{key_prefix}_delete_active_project")
                 except Exception:
                     logger.exception("project_delete_failed project_id=%s", safe_log_value(active_project.id))
                     st.error("Не удалось удалить проект с диска. Подробности записаны в logs/app.log.")
@@ -7809,7 +7854,7 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
                             description=new_project_description,
                         )
                         project = result.project
-                        st.session_state[ACTIVE_PROJECT_ID_KEY] = project.id
+                        _request_project_activation_for_next_run(project.id, logger, source=f"{key_prefix}_create_project")
                         logger.info("project_created id=%s", safe_log_value(project.id))
                         st.success("Проект создан.")
                         st.rerun()
