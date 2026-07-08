@@ -4161,7 +4161,7 @@ def _render_saved_wells_panel(logger) -> None:
                 st.error("Не удалось удалить версию с диска. Подробности записаны в logs/app.log.")
             else:
                 st.success("Версия удалена с диска.")
-                st.rerun()
+                _request_ui_refresh_and_rerun(logger, "saved_well_version_deleted", source="saved_well_delete_version")
         if action_col2.button("Удалить скважину полностью", use_container_width=True, key="saved_well_delete_record"):
             try:
                 well_service.delete_well(selected_record.id)
@@ -4171,7 +4171,7 @@ def _render_saved_wells_panel(logger) -> None:
                 st.error("Не удалось удалить скважину с диска. Подробности записаны в logs/app.log.")
             else:
                 st.success("Скважина удалена с диска.")
-                st.rerun()
+                _request_ui_refresh_and_rerun(logger, "saved_well_deleted", source="saved_well_delete_record")
 
         csv_col, xlsx_col, las_col = st.columns(3)
         try:
@@ -5921,7 +5921,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     if st.button("Очистить рабочее состояние LAS", use_container_width=True, key="las_editor_clear_working_state"):
         _clear_las_working_state()
         st.success("Рабочее состояние LAS очищено: таблицы, графики, статистика и временные данные удалены из session state.")
-        st.rerun()
+        _request_ui_refresh_and_rerun(logger, "las_editor_working_state_cleared", source="las_editor_clear_working_state")
     _render_saved_wells_panel(logger)
 
     saved_summary = st.session_state.get(LAS_EDITOR_SESSION_SUMMARY_KEY)
@@ -9035,7 +9035,7 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
         action_col_1, action_col_2, action_col_3 = st.columns(3)
         with action_col_1:
             if st.button("Обновить", use_container_width=True, key=f"project_export_refresh_{project.id}"):
-                st.rerun()
+                _request_ui_refresh_and_rerun(logger, "project_exports_refreshed", source="project_exports_refresh")
         with action_col_2:
             if st.button("Удалить выбранный экспорт", use_container_width=True, key=f"project_export_delete_{project.id}_{selected_id}"):
                 try:
@@ -9046,7 +9046,7 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
                     st.error("Не удалось удалить экспорт. Подробности записаны в logs/app.log.")
                 else:
                     st.success("Экспорт удален." if deleted else "Экспорт уже отсутствует.")
-                    st.rerun()
+                    _request_ui_refresh_and_rerun(logger, "project_export_deleted", source="project_export_delete")
         with action_col_3:
             if st.button("Очистить все экспорты", use_container_width=True, key=f"project_export_clear_all_{project.id}"):
                 try:
@@ -9057,7 +9057,7 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
                     st.error("Не удалось очистить экспорты. Подробности записаны в logs/app.log.")
                 else:
                     st.success(f"Удалено экспортов: {removed}.")
-                    st.rerun()
+                    _request_ui_refresh_and_rerun(logger, "project_exports_cleared", source="project_export_clear_all")
         try:
             data = export_service.read_export_bytes(project.id, selected_id)
         except Exception:
@@ -9717,7 +9717,7 @@ def _render_project_las_files_panel(
                         saved_count,
                     )
                     st.success(f"LAS-файлы сохранены в проект: {saved_count}.")
-                    st.rerun()
+                    _request_ui_refresh_and_rerun(logger, "project_las_files_saved", source="project_las_files_save")
                 except Exception:
                     logger.exception("project_las_files_save_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось сохранить LAS-файлы в проект. Подробности записаны в logs/app.log.")
@@ -9757,7 +9757,7 @@ def _render_project_las_files_panel(
                         safe_log_value(archive_id),
                     )
                     st.success("Версия LAS перенесена в архив.")
-                    st.rerun()
+                    _request_ui_refresh_and_rerun(logger, "project_las_file_archived", source="project_las_file_archive")
                 except Exception:
                     logger.exception("project_las_file_archive_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось архивировать версию LAS. Подробности записаны в logs/app.log.")
@@ -9788,7 +9788,7 @@ def _render_project_las_files_panel(
                         st.success("LAS-версия полностью удалена с диска.")
                     else:
                         st.warning("LAS-версия уже отсутствовала на диске.")
-                    st.rerun()
+                    _request_ui_refresh_and_rerun(logger, "project_las_file_deleted", source="project_las_file_delete")
                 except Exception:
                     logger.exception("project_las_file_delete_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось удалить LAS-версию с диска. Подробности записаны в logs/app.log.")
@@ -9811,7 +9811,7 @@ def _render_project_las_files_panel(
                         safe_log_value(restore_id),
                     )
                     st.success("Версия LAS возвращена из архива.")
-                    st.rerun()
+                    _request_ui_refresh_and_rerun(logger, "project_las_file_restored", source="project_las_file_restore")
                 except Exception:
                     logger.exception("project_las_file_restore_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось вернуть версию LAS из архива. Подробности записаны в logs/app.log.")

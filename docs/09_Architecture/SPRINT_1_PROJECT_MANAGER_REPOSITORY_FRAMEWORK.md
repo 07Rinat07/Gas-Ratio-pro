@@ -622,3 +622,51 @@ Added `core/application_cleanup.py` as the central entry point for clearing deri
 The real LAS editor cleanup action now delegates to `ApplicationCleanupController` instead of manually iterating over `st.session_state` inside the UI layer. This keeps cleanup behavior aligned with `SessionStateManager`, preserves active project/well/LAS context, records cleanup events and allows the Streamlit shell to clear framework caches through an injected callback.
 
 Commit: `Application Cleanup Controller`
+
+---
+
+## Application Runtime UI Integration
+
+Repository-backed UI panels now use the central runtime refresh helper instead of calling `st.rerun()` directly.
+
+Updated real UI points in `app/streamlit_app.py`:
+
+- `_render_saved_wells_panel()`;
+- `_render_las_editor()`;
+- `_render_project_exports_panel()`;
+- `_render_project_las_files_panel()`.
+
+These actions now publish refresh intent through the Sprint 1 runtime path:
+
+```text
+UI action
+  ↓
+_request_ui_refresh_and_rerun()
+  ↓
+ApplicationRuntimeController.request_refresh()
+  ↓
+ApplicationEventBus
+  ↓
+Streamlit rerun at controlled boundary
+```
+
+Converted actions:
+
+- delete saved well version;
+- delete saved well;
+- clear LAS working state;
+- refresh project exports;
+- delete project export;
+- clear project exports;
+- save LAS files to project;
+- archive LAS file;
+- delete LAS file;
+- restore LAS file.
+
+Added regression tests:
+
+```text
+tests/test_application_runtime_ui_integration.py
+```
+
+Commit: `Application Runtime UI Integration`
