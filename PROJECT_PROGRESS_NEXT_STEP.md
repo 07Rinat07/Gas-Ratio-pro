@@ -6,17 +6,19 @@ Project sequence:
 2. Core LTS Freeze
 3. Sprint 2 Workspace Framework
 
-Current stage: Sprint 2 Workspace Framework — Project Workspace UI smoke tests.
+Current stage: Sprint 2 — LAS Workspace 3.0 controller foundation.
 
 Completed in this archive:
 
-- Added Project Workspace smoke coverage for create/open/close/delete UI workflow markers.
-- Preserved Workspace Dashboard cards regression markers.
-- Preserved Project Explorer shortcuts regression markers.
-- Added controller-backed smoke test for the same create/open/delete sequence exposed by the UI panel.
-- Verified that the Project Workspace panel uses `WorkspaceController` for lifecycle operations.
-- Confirmed the panel does not write directly to `st.session_state` inside Workspace lifecycle controls.
+- Added LAS Workspace 3.0 controller boundary.
+- Added stable project-scoped LAS workspace defaults.
+- Connected LAS workspace activation to the generic `WorkspaceController`.
+- Exposed renderer-independent LAS home state through the controller.
+- Added tests for create/open/idempotent LAS workspace workflows.
 - Preserved UI → Controller → Manager → Service → Repository → Storage boundary.
+- Preserved Workspace Dashboard cards markers.
+- Preserved Project Explorer shortcuts markers.
+- Preserved Workspace UI smoke tests coverage.
 
 Validation:
 
@@ -26,5 +28,5 @@ Validation:
 
 Recommended next step:
 
-- Start LAS Workspace 3.0 foundation after Workspace Framework acceptance.
-- Add LAS workspace model/controller boundary before adding merge/split tools.
+- Add LAS Workspace 3.0 UI entry point using `LasWorkspaceController`.
+- Then add create/open LAS workflows through the workspace boundary before merge/split tools.

@@ -1496,3 +1496,11 @@ Project Manager 2.0 расширен восстановлением проект
 Начат следующий этап очистки `streamlit_app.py` от прямых записей в `st.session_state`. Для application-owned значений добавлены методы `get_value`, `set_value` и `update_values` в `ApplicationStateController`; сохранение интерпретационного датасета переведено на этот контроллер. Это первый безопасный шаг к централизованному управлению состоянием UI без изменения бизнес-логики и без нарушения текущих тестов.
 
 Текущий следующий незавершенный пункт: **продолжить поэтапный перенос прямых session_state-записей из `streamlit_app.py` в `ApplicationStateController`**.
+
+
+### LAS Workspace 3.0 Controller Foundation
+
+- Added `LasWorkspaceController` as the LAS-specific boundary over the generic Workspace Framework.
+- Added stable project-scoped LAS workspace defaults: id `las-workspace-3`, kind `las`, schema `gas-ratio-pro.las-workspace.v3`.
+- LAS Workspace 3.0 activation now goes through `WorkspaceController` and `ApplicationStateController` instead of direct UI state writes.
+- Added tests for create/open/idempotent LAS workspace controller workflows.
