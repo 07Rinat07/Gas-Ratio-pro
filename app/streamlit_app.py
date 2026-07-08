@@ -333,6 +333,17 @@ def _refresh_ui() -> None:
 
     st.rerun()
 
+
+def _render_table_toolbar_caption(title: str) -> None:
+    """Render a consistent caption for table/repository action panels.
+
+    This helper is intentionally lightweight because it is used inside existing
+    Streamlit panels during Sprint 1 refactoring. It provides one integration
+    point for the future shared Toolbar component without breaking current UI.
+    """
+
+    st.caption(f"Управление таблицей: {title}")
+
 APP_IDENTITY: dict[str, str] = {
     "name": "Gas Ratio Pro",
     "version": "2.0.0",
