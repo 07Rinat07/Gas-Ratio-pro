@@ -204,6 +204,7 @@ from projects.recent_projects import (
 )
 from services.project_manager_service import ProjectManagerService
 from services.export_manager_service import ExportManagerService
+from services.well_manager_service import WellManagerService
 from projects import calculations as project_calculations
 from projects import exports as project_exports
 from projects import graph_settings as project_graph_settings
@@ -229,7 +230,7 @@ from reports.export_static import (
     StaticExportUnavailableError,
     export_plotly_static_bytes,
 )
-from wells.repository import DEFAULT_WELLS_ROOT, delete_well_record, delete_well_version, list_wells, read_well_file_bytes, save_well_version
+from wells.repository import DEFAULT_WELLS_ROOT
 
 project_calculations = importlib.reload(project_calculations)
 project_exports = importlib.reload(project_exports)
@@ -4132,7 +4133,8 @@ def _render_new_las_creator_panel(logger) -> None:
 
 
 def _render_saved_wells_panel(logger) -> None:
-    records = list_wells(WELLS_STORAGE_ROOT)
+    well_service = _well_manager_service()
+    records = well_service.list_wells()
     with st.expander("Сохраненные скважины", expanded=bool(records)):
         if not records:
             st.caption("Пока нет сохраненных скважин. После правки LAS сохраните версию здесь, и она появится в списке.")
@@ -4172,7 +4174,7 @@ def _render_saved_wells_panel(logger) -> None:
         action_col1, action_col2 = st.columns(2)
         if action_col1.button("Удалить выбранную версию", use_container_width=True, key="saved_well_delete_version"):
             try:
-                delete_well_version(WELLS_STORAGE_ROOT, selected_record.id, selected_version.id)
+                well_service.delete_version(selected_record.id, selected_version.id)
                 _clear_las_working_state()
             except Exception:
                 logger.exception("saved_well_version_delete_failed well_id=%s version_id=%s", selected_record.id, selected_version.id)
@@ -4182,7 +4184,7 @@ def _render_saved_wells_panel(logger) -> None:
                 st.rerun()
         if action_col2.button("Удалить скважину полностью", use_container_width=True, key="saved_well_delete_record"):
             try:
-                delete_well_record(WELLS_STORAGE_ROOT, selected_record.id)
+                well_service.delete_well(selected_record.id)
                 _clear_las_working_state()
             except Exception:
                 logger.exception("saved_well_delete_failed well_id=%s", selected_record.id)
@@ -4195,21 +4197,21 @@ def _render_saved_wells_panel(logger) -> None:
         try:
             csv_col.download_button(
                 "Скачать CSV",
-                data=read_well_file_bytes(WELLS_STORAGE_ROOT, selected_record.id, selected_version.id, "csv"),
+                data=well_service.read_file_bytes(selected_record.id, selected_version.id, "csv"),
                 file_name=f"{selected_record.id}_{selected_version.id}.csv",
                 mime="text/csv",
                 use_container_width=True,
             )
             xlsx_col.download_button(
                 "Скачать XLSX",
-                data=read_well_file_bytes(WELLS_STORAGE_ROOT, selected_record.id, selected_version.id, "xlsx"),
+                data=well_service.read_file_bytes(selected_record.id, selected_version.id, "xlsx"),
                 file_name=f"{selected_record.id}_{selected_version.id}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
             )
             las_col.download_button(
                 "Скачать LAS",
-                data=read_well_file_bytes(WELLS_STORAGE_ROOT, selected_record.id, selected_version.id, "las"),
+                data=well_service.read_file_bytes(selected_record.id, selected_version.id, "las"),
                 file_name=f"{selected_record.id}_{selected_version.id}.las",
                 mime="text/plain",
                 use_container_width=True,
@@ -4220,7 +4222,7 @@ def _render_saved_wells_panel(logger) -> None:
 
         if st.button("Использовать выбранную версию в расчетах", use_container_width=True):
             try:
-                csv_bytes = read_well_file_bytes(WELLS_STORAGE_ROOT, selected_record.id, selected_version.id, "csv")
+                csv_bytes = well_service.read_file_bytes(selected_record.id, selected_version.id, "csv")
                 prepared_df = pd.read_csv(BytesIO(csv_bytes))
                 st.session_state[LAS_EDITOR_SESSION_SHEETS_KEY] = {
                     f"{selected_record.name} / {selected_version.label}": _dataframe_to_raw_sheet(prepared_df)
@@ -4750,6 +4752,11 @@ def _export_manager_service() -> ExportManagerService:
     return ExportManagerService(LAS_CORRELATION_PROJECTS_ROOT)
 
 
+def _well_manager_service() -> WellManagerService:
+    """Return the application-level well manager service for UI workflows."""
+    return WellManagerService(WELLS_STORAGE_ROOT)
+
+
 def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_project: ProjectRecord, logger) -> None:
     """Render real Streamlit controls for the dashboard Recent Projects list."""
     service = _project_manager_service()
@@ -4822,7 +4829,7 @@ def _dashboard_project_statistics(active_project: ProjectRecord, projects: tuple
     """Build dashboard statistics from real project storage and session data."""
     return {
         "projects": len(projects),
-        "wells": len(list_wells(WELLS_STORAGE_ROOT)),
+        "wells": _well_manager_service().count_wells(),
         "las_files": len(list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)),
         "calculations": len(list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)),
         "exports": _export_manager_service().count_exports(active_project.id),
@@ -6364,7 +6371,8 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     )
 
     st.markdown("### Сохранить скважину локально")
-    records = list_wells(WELLS_STORAGE_ROOT)
+    well_service = _well_manager_service()
+    records = well_service.list_wells()
     existing_options = ["Новая скважина"] + [f"{record.name} | {record.id}" for record in records]
     selected_existing = st.selectbox(
         "Куда сохранить",
@@ -6398,9 +6406,8 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
 
     if st.button("Сохранить версию скважины", use_container_width=True):
         try:
-            saved_record = save_well_version(
+            saved_record = well_service.save_version(
                 edited_df,
-                root=WELLS_STORAGE_ROOT,
                 well_name=well_name,
                 well_id=selected_record.id if selected_record else None,
                 area=well_area,
@@ -6433,8 +6440,9 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
             logger.exception("well_version_save_failed")
             st.error("Не удалось сохранить скважину. Подробности записаны в logs/app.log.")
         else:
-            logger.info("well_version_saved well_id=%s rows=%d", safe_log_value(saved_record.id), len(edited_df))
-            st.success(f"Скважина сохранена локально: {saved_record.name} ({saved_record.id}).")
+            saved_well_record = saved_record.record
+            logger.info("well_version_saved well_id=%s rows=%d", safe_log_value(saved_well_record.id), len(edited_df))
+            st.success(f"Скважина сохранена локально: {saved_well_record.name} ({saved_well_record.id}).")
 
     st.markdown("### Сохранить подготовленный LAS в проект")
     st.caption(f"Активный проект: {active_project.name} ({active_project.id})")

@@ -183,3 +183,91 @@ pytest -q tests/test_export_manager_service.py tests/test_project_manager_servic
 1. `WellManagerService` — управление сохраненными скважинами;
 2. `LasManagerService` — управление LAS-версиями проекта;
 3. `WorkspaceDataService` — единые операции очистки таблиц, архивов и временного состояния.
+
+---
+
+## Продолжение Sprint 1 — Well Manager Service Layer
+
+### 9. Service Layer для сохраненных скважин
+
+Добавлен модуль:
+
+```text
+services/well_manager_service.py
+```
+
+Сервис стал единым уровнем для операций с локально сохраненными скважинами:
+
+```text
+UI
+  ↓
+WellManagerService
+  ↓
+wells.repository
+  ↓
+data/wells
+```
+
+### 10. Централизованные операции скважин
+
+`WellManagerService` отвечает за:
+
+- получение списка сохраненных скважин;
+- подсчет скважин для Dashboard;
+- сохранение новой версии скважины;
+- чтение CSV/XLSX/LAS файлов версии;
+- удаление выбранной версии;
+- автоматическое удаление скважины, если удалена последняя версия;
+- полное удаление скважины с диска.
+
+### 11. Интеграция в реальный UI
+
+Обновлен существующий файл:
+
+```text
+app/streamlit_app.py
+```
+
+Точки интеграции:
+
+- `_render_saved_wells_panel()`;
+- `_dashboard_project_statistics()`;
+- блок сохранения подготовленной версии в LAS Editor.
+
+Панель "Сохраненные скважины" теперь вызывает `WellManagerService`, а не работает напрямую с функциями `wells.repository`.
+
+### 12. Тесты сервисного слоя скважин
+
+Добавлены тесты:
+
+```text
+tests/test_well_manager_service.py
+```
+
+Проверяют:
+
+- сохранение версии скважины через сервис;
+- чтение файлов версии;
+- удаление выбранной версии без восстановления после перезапуска;
+- удаление скважины после удаления последней версии;
+- полное физическое удаление папки скважины.
+
+## Обновленная проверка
+
+```text
+10 passed
+```
+
+Команда:
+
+```bash
+pytest -q tests/test_well_manager_service.py tests/test_export_manager_service.py tests/test_project_manager_service.py
+```
+
+## Следующий шаг
+
+Продолжить Sprint 1:
+
+1. `LasManagerService` — управление LAS-файлами активного проекта;
+2. `WorkspaceDataService` — единые операции очистки таблиц, архивов и временного состояния;
+3. дальнейшее уменьшение прямых вызовов репозиториев из `streamlit_app.py`.

@@ -15,4 +15,8 @@ __all__ = [
     "ProjectCreateResult",
     "ProjectDeleteResult",
     "ProjectManagerService",
+    "WellDeleteResult",
+    "WellManagerService",
+    "WellSaveResult",
+    "WellVersionDeleteResult",
 ]
