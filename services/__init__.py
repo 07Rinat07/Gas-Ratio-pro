@@ -22,3 +22,5 @@ __all__ = [
 ]
 from services.las_manager_service import LasManagerService
 from services.dataset_manager_service import DatasetManagerService
+
+from services.workspace_service import WorkspaceService

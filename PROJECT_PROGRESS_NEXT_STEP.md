@@ -1,22 +1,16 @@
-# GAS RATIO PRO — Project Progress
+# Project Progress Next Step
 
-Current version: `architecture-review-lts-freeze-checklist`
+Architecture Review: completed.
+Core LTS Freeze: completed.
+Sprint 2 Workspace Framework: started.
 
-## Completed in this step
+Current implementation step: Workspace Repository and Service foundation.
 
-- Added Architecture Review documentation for the post-Sprint 1.5 gate.
-- Added Core LTS Freeze checklist before Sprint 2.
-- Documented runtime, service, repository, storage lifecycle, application state, documentation and validation gates.
-- Added regression tests proving that the freeze checklist exists and preserves the required core layer rules.
+Implemented:
+- project-scoped WorkspaceRecord persistence;
+- workspace CRUD repository;
+- WorkspaceService boundary for UI/service callers;
+- tests for repository/service contracts and JSON layout.
 
-## Validation
-
-- `compileall`: PASS
-- `pytest`: PASS
-
-## Next recommended step
-
-Run final Architecture Review, accept Core LTS Freeze, then start Sprint 2 Workspace Framework.
-
-
-Next: Workspace Framework foundation.
+Next recommended step:
+- add WorkspaceManager facade and connect Workspace Framework to the application shell.
