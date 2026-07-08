@@ -100,7 +100,13 @@ def prepare_dataframe_with_header(raw_df: pd.DataFrame, header_row: int) -> pd.D
     data = raw_df.iloc[safe_header_row + 1 :].copy()
     data.columns = columns
 
-    normalized_empty = data.replace(r"^\s*$", pd.NA, regex=True)
+    # Pandas 2.2+ warns about silent downcasting during replace().
+    # This option keeps the normalization explicit and future-compatible while
+    # preserving the existing behavior: whitespace-only strings are treated as
+    # empty values only for cleanup decisions.
+    with pd.option_context("future.no_silent_downcasting", True):
+        normalized_empty = data.replace(r"^\s*$", pd.NA, regex=True)
+
     data = data.loc[~normalized_empty.isna().all(axis=1)].copy()
 
     empty_columns = [

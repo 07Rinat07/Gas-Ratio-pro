@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import warnings
+
 import pandas as pd
 
 from importers.header_detector import detect_header_row, prepare_dataframe_with_header
@@ -35,3 +37,20 @@ def test_prepare_dataframe_with_header_removes_empty_rows():
 
     assert list(prepared.columns) == ["Depth", "CH4"]
     assert len(prepared) == 2
+
+
+def test_prepare_dataframe_with_header_is_future_warning_clean():
+    raw = pd.DataFrame(
+        [
+            ["Depth", "CH4", "C2"],
+            ["   ", "", None],
+            [1000, 80, 10],
+        ]
+    )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        prepared = prepare_dataframe_with_header(raw, 0)
+
+    assert list(prepared.columns) == ["Depth", "CH4", "C2"]
+    assert len(prepared) == 1
