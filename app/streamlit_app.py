@@ -288,6 +288,8 @@ read_project_las_file_bytes = project_las_files.read_project_las_file_bytes
 read_project_las_file_dataframe = project_las_files.read_project_las_file_dataframe
 save_project_las_file = project_las_files.save_project_las_file
 set_project_las_file_archived = project_las_files.set_project_las_file_archived
+delete_project_las_file = project_las_files.delete_project_las_file
+delete_all_project_las_files = project_las_files.delete_all_project_las_files
 PROJECT_EXPLORER_LABEL_COLORS = project_labels.PROJECT_EXPLORER_LABEL_COLORS
 PROJECT_EXPLORER_LABEL_ICONS = project_labels.PROJECT_EXPLORER_LABEL_ICONS
 set_project_explorer_label = project_labels.set_project_explorer_label
@@ -4031,6 +4033,10 @@ def _clear_las_working_state() -> None:
         "graph_",
         "table_",
         "stats_",
+        "project_las_",
+        "workspace_project_las_",
+        "workspace_open_project_",
+        "save_uploaded_las_",
     )
     exact_keys = {
         LAS_EDITOR_SESSION_SHEETS_KEY,
@@ -4048,7 +4054,13 @@ def _clear_las_working_state() -> None:
     }
     for key in list(st.session_state.keys()):
         if key in exact_keys or any(str(key).startswith(prefix) for prefix in prefixes):
-            st.session_state.pop(key, None)
+            try:
+                st.session_state.pop(key, None)
+            except Exception:
+                # Streamlit can lock widget-owned keys during the current rerun.
+                # The next rerun will rebuild widgets from persistent storage, so
+                # deletion operations below must also update disk manifests.
+                pass
     try:
         st.cache_data.clear()
     except Exception:
@@ -8729,6 +8741,27 @@ def _project_las_records_to_raw_sheets(project: ProjectRecord, records: tuple[Pr
     return sheets
 
 
+def _clear_project_las_persistent_storage(project: ProjectRecord, logger) -> None:
+    """Delete all saved LAS versions for the active project and clear UI/session state."""
+    try:
+        deleted_count = delete_all_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+        _clear_las_working_state()
+        st.session_state.pop(PROJECT_SESSION_SHEETS_KEY, None)
+        st.session_state.pop(PROJECT_SESSION_PROJECT_ID_KEY, None)
+        st.session_state.pop(PROJECT_SESSION_SUMMARY_KEY, None)
+        logger.info(
+            "project_las_storage_cleared project_id=%s deleted_count=%d",
+            safe_log_value(project.id),
+            deleted_count,
+        )
+    except Exception:
+        logger.exception("project_las_storage_clear_failed project_id=%s", safe_log_value(project.id))
+        st.error("Не удалось очистить LAS-хранилище проекта. Подробности записаны в logs/app.log.")
+    else:
+        st.success(f"LAS-хранилище проекта очищено. Удалено версий: {deleted_count}.")
+        st.rerun()
+
+
 def _render_project_las_zip_download(
     project: ProjectRecord,
     selected_ids: tuple[str, ...],
@@ -8767,6 +8800,12 @@ def _render_project_workspace_loader(project: ProjectRecord, logger) -> None:
     with st.expander("Данные активного проекта", expanded=bool(active_records)):
         st.caption(f"Открыт проект: {project.name} ({project.id})")
         st.dataframe(_project_workspace_summary_table(project), use_container_width=True, hide_index=True, height=210)
+        if active_records and st.button(
+            "Очистить все LAS-версии активного проекта",
+            use_container_width=True,
+            key=f"workspace_clear_project_las_storage_{project.id}",
+        ):
+            _clear_project_las_persistent_storage(project, logger)
         _render_project_dataset_manager(project, logger)
         _render_project_manager_tools(project, logger)
         _render_project_file_index(project, logger)
@@ -9540,6 +9579,14 @@ def _render_project_las_files_panel(
             include_archived=show_archived,
         )
         st.dataframe(_project_las_records_table(display_well_cards), use_container_width=True, height=260)
+
+        if deletable_records := (active_records + archived_records):
+            if st.button(
+                "Очистить все сохраненные LAS этого проекта",
+                use_container_width=True,
+                key=f"project_las_clear_all_button_{project.id}",
+            ):
+                _clear_project_las_persistent_storage(project, logger)
 
         if active_records:
             archive_options = {record.id: record for record in active_records}

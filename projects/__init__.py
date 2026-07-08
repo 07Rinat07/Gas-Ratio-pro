@@ -202,6 +202,7 @@ from projects.las_files import (
     save_project_las_file,
     set_project_las_file_archived,
     delete_project_las_file,
+    delete_all_project_las_files,
 )
 
 from projects.project_manager import (
@@ -681,6 +682,7 @@ __all__ = [
     "save_project_las_file",
     "set_project_las_file_archived",
     "delete_project_las_file",
+    "delete_all_project_las_files",
 ]
 
 from projects.well_manager import (
