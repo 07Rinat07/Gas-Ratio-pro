@@ -4820,8 +4820,13 @@ def _application_state_controller() -> ApplicationStateController:
 
 
 def _refresh_ui() -> None:
-    """Centralized UI refresh helper used by repository/service actions."""
-    _refresh_ui()
+    """Centralized UI refresh helper used by repository/service actions.
+
+    This helper must be a terminal UI refresh operation.  It intentionally
+    calls Streamlit directly instead of delegating back to a function with the
+    same name; otherwise every refresh request turns into infinite recursion.
+    """
+    st.rerun()
 
 
 def _render_table_toolbar_caption(title: str, description: str | None = None) -> None:
