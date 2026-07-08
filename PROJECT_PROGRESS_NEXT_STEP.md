@@ -7,10 +7,21 @@ Project sequence:
 3. Sprint 2 Workspace Framework
 4. LAS Workspace 3.0
 
-Current stage: Sprint 2 — LAS Workspace creation UI binding.
-
+Current stage: Sprint 2 — LAS Workspace open working-copy workflow.
 
 Completed in this archive:
+
+- Added controller-level listing of LAS working copies saved under the LAS Workspace.
+- Added `LasWorkspaceController.open_las_working_copy` for workspace-scoped LAS loading.
+- Restricted working-copy opening to `workspaces/las-workspace-3/las/working_copies`.
+- Parsed opened LAS files through the existing LAS importer instead of UI/file-system code.
+- Persisted latest opened LAS metadata in workspace settings.
+- Added Project Workspace UI binding for saved LAS working copies.
+- Preserved the LAS Workspace 3.0 UI entry point marker.
+- Kept opened LAS session updates behind `ApplicationStateController`.
+- Added tests for working-copy listing, opening and missing-copy rejection.
+
+Previous archive notes:
 
 - Connected the New LAS creator UI to `LasWorkspaceController.create_las_working_copy`.
 - Passed active project context into the LAS creation panel.
@@ -18,20 +29,6 @@ Completed in this archive:
 - Preserved the existing in-session open action for calculation workflows.
 - Kept generated LAS persistence behind UI → Controller → Workspace Framework.
 - Added smoke tests for the LAS creation wizard UI binding.
-
-Previous archive notes:
-
-Completed in this archive:
-
-- Added controller-level create-LAS workflow preview through `LasWorkspaceController`.
-- Added project-scoped LAS working-copy creation through the LAS workspace boundary.
-- Stored created LAS files under `workspaces/las-workspace-3/las/working_copies`.
-- Added safe export validation for workspace-created LAS files.
-- Blocked accidental overwrite unless explicitly allowed.
-- Persisted latest created LAS metadata in workspace settings.
-- Added tests for preview, working-copy creation and overwrite protection.
-- Preserved UI → Controller → Manager → Service → Repository → Storage boundary.
-- Preserved previous LAS Workspace 3.0 UI entry point.
 - Preserved Workspace Dashboard cards markers.
 - Preserved Project Explorer shortcuts markers.
 - Preserved Workspace UI smoke tests coverage.
@@ -39,10 +36,10 @@ Completed in this archive:
 Validation:
 
 - compileall: passed.
-- LAS workspace workflow tests: passed.
+- LAS workspace open workflow tests: passed.
 - Full pytest suite: passed.
 
 Recommended next step:
 
-- Connect the LAS creation wizard UI to `LasWorkspaceController.create_las_working_copy`.
-- Then add workspace-aware open/import workflows for existing LAS, CSV and Excel sources.
+- Add workspace-aware import workflows for CSV and Excel sources.
+- Then add LAS working-copy delete/cleanup workflow through Storage Lifecycle.

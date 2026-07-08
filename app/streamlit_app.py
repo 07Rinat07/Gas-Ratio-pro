@@ -9349,6 +9349,58 @@ def _render_las_workspace_controller_entry(project: ProjectRecord, logger) -> No
     )
     st.dataframe(_las_workspace_actions_table(controller_state), width="stretch", hide_index=True, height=210)
 
+    try:
+        working_copies = controller.list_las_working_copies(project.id)
+    except Exception:
+        logger.exception("las_workspace_working_copy_list_failed project_id=%s", safe_log_value(project.id))
+        working_copies = ()
+
+    if working_copies:
+        st.caption("Рабочие копии LAS, сохраненные в Workspace")
+        st.dataframe(
+            [
+                {
+                    "Файл": item.filename,
+                    "Размер, байт": item.bytes_count,
+                    "Путь": item.path,
+                }
+                for item in working_copies
+            ],
+            width="stretch",
+            hide_index=True,
+            height=180,
+        )
+        selected_copy = st.selectbox(
+            "Открыть рабочую копию LAS",
+            [item.filename for item in working_copies],
+            key=f"las_workspace_open_copy_select_{project.id}",
+        )
+        if st.button("Открыть рабочую копию", width="stretch", key=f"las_workspace_open_copy_button_{project.id}"):
+            try:
+                opened = controller.open_las_working_copy(project.id, selected_copy)
+            except Exception:
+                logger.exception(
+                    "las_workspace_open_copy_failed project_id=%s filename=%s",
+                    safe_log_value(project.id),
+                    safe_log_value(selected_copy),
+                )
+                st.error("Не удалось открыть рабочую копию LAS.")
+            else:
+                _application_state_controller().update_values({
+                    LAS_EDITOR_SESSION_SHEETS_KEY: {opened.item.filename: _dataframe_to_raw_sheet(opened.data)},
+                    LAS_EDITOR_SESSION_SUMMARY_KEY: (
+                        f"LAS Workspace: {opened.item.filename}, "
+                        f"{len(opened.data)} строк, {len(opened.data.columns)} колонок"
+                    ),
+                })
+                logger.info(
+                    "las_workspace_open_copy_loaded project_id=%s workspace_id=%s filename=%s",
+                    safe_log_value(project.id),
+                    safe_log_value(opened.workspace.id),
+                    safe_log_value(opened.item.filename),
+                )
+                st.success(f"Открыта рабочая копия LAS: {opened.item.filename}")
+
     if st.button("Открыть LAS Workspace 3.0", width="stretch", key=f"las_workspace_open_{project.id}"):
         try:
             result = controller.open_project_las_workspace(project.id)

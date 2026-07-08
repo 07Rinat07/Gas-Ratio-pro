@@ -12,6 +12,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, MutableMapping
 
+import pandas as pd
+
+from importers.las_importer import read_las
+
 from las_editor.las_creation_wizard import (
     LasCreationWizardDraft,
     LasCreationWizardFinalizeResult,
@@ -43,6 +47,28 @@ class LasWorkspaceControllerState:
     home: LasWorkspaceHomeState
     created: bool
     is_active: bool
+
+
+
+
+@dataclass(frozen=True)
+class LasWorkspaceWorkingCopyItem:
+    """Renderer-independent descriptor for a LAS working copy stored in workspace."""
+
+    filename: str
+    path: str
+    bytes_count: int
+    modified_at: float
+
+
+@dataclass(frozen=True)
+class LasWorkspaceOpenedLasResult:
+    """Result of opening a LAS working copy through the workspace boundary."""
+
+    workspace_state: LasWorkspaceControllerState
+    item: LasWorkspaceWorkingCopyItem
+    data: pd.DataFrame
+    workspace: WorkspaceRecord
 
 
 @dataclass(frozen=True)
@@ -150,6 +176,101 @@ class LasWorkspaceController:
         )
 
 
+
+    def _working_copies_dir(self, project_id: str, workspace_id: str = LAS_WORKSPACE_DEFAULT_ID) -> Path:
+        """Return the workspace-scoped directory for generated LAS working copies."""
+
+        return (
+            self.workspace_controller.manager.root
+            / safe_project_id(project_id)
+            / "workspaces"
+            / workspace_id
+            / "las"
+            / "working_copies"
+        )
+
+    def list_las_working_copies(self, project_id: str) -> tuple[LasWorkspaceWorkingCopyItem, ...]:
+        """List LAS working copies saved inside the project LAS workspace.
+
+        The method does not activate the workspace and does not touch UI state.
+        It only exposes storage-scoped LAS files that belong to
+        ``workspaces/las-workspace-3/las/working_copies``.
+        """
+
+        workspace_state = self.ensure_project_las_workspace(project_id, activate=False)
+        copies_dir = self._working_copies_dir(workspace_state.project_id, workspace_state.workspace.id)
+        if not copies_dir.exists():
+            return ()
+
+        items: list[LasWorkspaceWorkingCopyItem] = []
+        for path in sorted(copies_dir.glob("*.las"), key=lambda candidate: candidate.name.lower()):
+            if not path.is_file():
+                continue
+            stat = path.stat()
+            items.append(
+                LasWorkspaceWorkingCopyItem(
+                    filename=path.name,
+                    path=str(path),
+                    bytes_count=stat.st_size,
+                    modified_at=stat.st_mtime,
+                )
+            )
+        return tuple(items)
+
+    def open_las_working_copy(
+        self,
+        project_id: str,
+        filename: str,
+        *,
+        recent_files: tuple[str, ...] = (),
+    ) -> LasWorkspaceOpenedLasResult:
+        """Open a saved LAS working copy through the LAS Workspace boundary.
+
+        ``filename`` is sanitized to a basename and resolved only inside the
+        workspace working-copy directory.  This prevents UI code from opening
+        arbitrary filesystem paths while still allowing a selected LAS copy to
+        be parsed and placed into the application session by the caller.
+        """
+
+        workspace_state = self.ensure_project_las_workspace(
+            project_id,
+            activate=True,
+            recent_files=recent_files,
+        )
+        clean_filename = Path(filename or "").name.strip()
+        if not clean_filename:
+            raise ValueError("LAS working copy filename is required.")
+        if not clean_filename.lower().endswith(".las"):
+            clean_filename = f"{clean_filename}.las"
+
+        target = self._working_copies_dir(workspace_state.project_id, workspace_state.workspace.id) / clean_filename
+        if not target.exists() or not target.is_file():
+            raise FileNotFoundError(f"LAS working copy was not found: {clean_filename}")
+
+        data = read_las(target)
+        stat = target.stat()
+        item = LasWorkspaceWorkingCopyItem(
+            filename=target.name,
+            path=str(target),
+            bytes_count=stat.st_size,
+            modified_at=stat.st_mtime,
+        )
+        updated = self.workspace_controller.manager.update_workspace_settings(
+            workspace_state.project_id,
+            workspace_state.workspace.id,
+            {
+                "last_opened_las": item.path,
+                "last_opened_las_rows": len(data),
+                "last_opened_las_curves": len(data.columns),
+            },
+        )
+        return LasWorkspaceOpenedLasResult(
+            workspace_state=workspace_state,
+            item=item,
+            data=data,
+            workspace=updated,
+        )
+
     def preview_create_las_workflow(
         self,
         project_id: str,
@@ -202,15 +323,7 @@ class LasWorkspaceController:
         if not clean_filename.lower().endswith(".las"):
             clean_filename = f"{clean_filename}.las"
 
-        target = (
-            self.workspace_controller.manager.root
-            / workspace_state.project_id
-            / "workspaces"
-            / workspace_state.workspace.id
-            / "las"
-            / "working_copies"
-            / clean_filename
-        )
+        target = self._working_copies_dir(workspace_state.project_id, workspace_state.workspace.id) / clean_filename
         manifest = export_las_text_safely(
             final.las_text,
             target,
