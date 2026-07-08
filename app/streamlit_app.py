@@ -5138,21 +5138,23 @@ def _command_palette_categories(entries: tuple[dict[str, str], ...]) -> tuple[st
 
 
 def _remember_command_palette_entry(entry: dict[str, str]) -> None:
-    """Store recent command ids and keep the list short."""
+    """Store recent command ids through the application state controller."""
     entry_id = _command_entry_id(entry)
-    recent = [item for item in st.session_state.get(COMMAND_PALETTE_RECENT_KEY, []) if item != entry_id]
-    st.session_state[COMMAND_PALETTE_RECENT_KEY] = [entry_id, *recent][:COMMAND_PALETTE_RECENT_LIMIT]
+    controller = _application_state_controller()
+    recent = [item for item in controller.get_list(COMMAND_PALETTE_RECENT_KEY) if item != entry_id]
+    controller.set_value(COMMAND_PALETTE_RECENT_KEY, [entry_id, *recent][:COMMAND_PALETTE_RECENT_LIMIT])
 
 
 def _toggle_command_palette_favorite(entry: dict[str, str]) -> None:
-    """Toggle command favorite state in Streamlit session state."""
+    """Toggle command favorite state through the application state controller."""
     entry_id = _command_entry_id(entry)
-    favorites = list(st.session_state.get(COMMAND_PALETTE_FAVORITES_KEY, []))
+    controller = _application_state_controller()
+    favorites = controller.get_list(COMMAND_PALETTE_FAVORITES_KEY)
     if entry_id in favorites:
         favorites.remove(entry_id)
     else:
         favorites.insert(0, entry_id)
-    st.session_state[COMMAND_PALETTE_FAVORITES_KEY] = favorites[:COMMAND_PALETTE_RECENT_LIMIT]
+    controller.set_value(COMMAND_PALETTE_FAVORITES_KEY, favorites[:COMMAND_PALETTE_RECENT_LIMIT])
 
 
 def _command_palette_recent_or_favorite_entries(
@@ -5327,8 +5329,9 @@ def _render_global_command_palette(active_project: ProjectRecord) -> None:
             label_visibility="collapsed",
         )
 
-    recent_ids = st.session_state.get(COMMAND_PALETTE_RECENT_KEY, [])
-    favorite_ids = st.session_state.get(COMMAND_PALETTE_FAVORITES_KEY, [])
+    controller = _application_state_controller()
+    recent_ids = controller.get_list(COMMAND_PALETTE_RECENT_KEY)
+    favorite_ids = controller.get_list(COMMAND_PALETTE_FAVORITES_KEY)
     results = _filter_command_palette_entries(
         entries,
         query,
@@ -5392,8 +5395,8 @@ def _workspace_universal_search_results(
         _command_palette_entries(active_project),
         query,
         category="Все",
-        recent_ids=st.session_state.get(COMMAND_PALETTE_RECENT_KEY, []),
-        favorite_ids=st.session_state.get(COMMAND_PALETTE_FAVORITES_KEY, []),
+        recent_ids=_application_state_controller().get_list(COMMAND_PALETTE_RECENT_KEY),
+        favorite_ids=_application_state_controller().get_list(COMMAND_PALETTE_FAVORITES_KEY),
         limit=limit,
     )
 
@@ -5401,7 +5404,7 @@ def _workspace_universal_search_results(
 def _workspace_favorite_entries(active_project: ProjectRecord, *, limit: int = 5) -> tuple[dict[str, str], ...]:
     """Return pinned workspace entries with safe defaults for a new install."""
     entries = _command_palette_entries(active_project)
-    favorite_ids = st.session_state.get(COMMAND_PALETTE_FAVORITES_KEY, [])
+    favorite_ids = _application_state_controller().get_list(COMMAND_PALETTE_FAVORITES_KEY)
     pinned = _command_palette_recent_or_favorite_entries(entries, favorite_ids)
     if pinned:
         return pinned[: max(1, limit)]

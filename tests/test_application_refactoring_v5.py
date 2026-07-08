@@ -1,4 +1,5 @@
 from pathlib import Path
+import importlib
 
 import pytest
 
@@ -106,3 +107,16 @@ def test_application_state_controller_manages_application_values():
     assert controller.get_dict("active_summary_table") == {"rows": 2}
     assert state["table_preview"] == [1, 2]
     assert state["active_summary_table"] == {"rows": 2}
+
+
+def test_command_palette_state_helpers_use_application_state_controller():
+    module = importlib.import_module("app.streamlit_app")
+    import inspect
+
+    remember_body = inspect.getsource(module._remember_command_palette_entry)
+    toggle_body = inspect.getsource(module._toggle_command_palette_favorite)
+
+    assert "_application_state_controller()" in remember_body
+    assert "_application_state_controller()" in toggle_body
+    assert "st.session_state" not in remember_body
+    assert "st.session_state" not in toggle_body
