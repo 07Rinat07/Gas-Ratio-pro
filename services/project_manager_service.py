@@ -74,6 +74,21 @@ class ProjectManagerService:
     def load_project(self, project_id: str) -> ProjectRecord:
         return load_project(self.root, safe_project_id(project_id))
 
+    def get_project(self, project_id: str) -> ProjectRecord:
+        """Compatibility alias for load_project()."""
+
+        return self.load_project(project_id)
+
+    def record_recent_project(self, project: ProjectRecord) -> None:
+        """Compatibility alias for touch_recent()."""
+
+        self.touch_recent(project)
+
+    def list_recent_projects(self, *, include_missing: bool = True):
+        """Compatibility alias for list_recent()."""
+
+        return self.list_recent(include_missing=include_missing)
+
     def create_project(self, name: str, description: str = "") -> ProjectCreateResult:
         project = create_project(root=self.root, name=name, description=description)
         touch_recent_project(self.root, project)

@@ -315,6 +315,23 @@ class DatasetManagerService:
             index_entries=index_result.entries_count,
         )
 
+    def delete(self, project_id: str, section: str, dataset_id: str) -> DatasetDeleteSummary:
+        """Compatibility alias for older UI code."""
+
+        return self.delete_dataset(project_id, section, dataset_id)
+
+    def clear(self, project_id: str, section: str | None = None) -> DatasetDeleteSummary:
+        """Compatibility alias for clearing one section or all Dataset sections."""
+
+        if section is None:
+            return self.clear_all(project_id)
+        return self.clear_section(project_id, section)
+
+    def refresh(self, project_id: str) -> IndexSyncResult:
+        """Compatibility alias for Project Database index synchronization."""
+
+        return self.sync_project_index(project_id)
+
     def diagnostics(self):
         return {
             "resources": self.resource_manager.diagnostics(),

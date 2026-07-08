@@ -356,3 +356,15 @@ Current stabilization focus:
 - DeleteEngine adoption for Dataset/LAS/Well/Export/Project.
 - Project index synchronization after destructive operations.
 - Runtime verification of managers and tables.
+
+## Sprint 1.5 — Platform Health Verification
+
+Перед переходом к Sprint 2 вводится обязательная проверка состояния платформы:
+
+- проверка публичных контрактов сервисов;
+- проверка доступности Storage Lifecycle компонентов;
+- проверка отсутствия прямых разрушительных операций с файловой системой из UI;
+- проверка рабочих storage-директорий;
+- подготовка к Integration & Stabilization.
+
+Нарушение этих проверок блокирует начало Sprint 2.

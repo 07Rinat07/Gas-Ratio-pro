@@ -101,6 +101,11 @@ class WellManagerService:
         deleted = delete_well_record(self.root, well_id)
         return WellDeleteResult(well_id=well_id, deleted=deleted)
 
+    def delete(self, well_id: str) -> WellDeleteResult:
+        """Compatibility alias for delete_well()."""
+
+        return self.delete_well(well_id)
+
     def delete_version(self, well_id: str, version_id: str) -> WellVersionDeleteResult:
         updated_record = delete_well_version(self.root, well_id, version_id)
         remaining_versions = len(updated_record.versions)
