@@ -3903,8 +3903,8 @@ def _render_las_curve_rename_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
         "конфликтов, сохранение истории и одноуровневый undo."
     )
 
-    if LAS_EDITOR_RENAME_HISTORY_KEY not in st.session_state:
-        st.session_state[LAS_EDITOR_RENAME_HISTORY_KEY] = ()
+    state_controller = _application_state_controller()
+    state_controller.ensure_value(LAS_EDITOR_RENAME_HISTORY_KEY, ())
 
     column_names = [str(column) for column in prepared_df.columns]
     rename_col, new_col, action_col = st.columns([2, 2, 1])
@@ -3927,13 +3927,13 @@ def _render_las_curve_rename_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
                 prepared_df,
                 old_name,
                 new_name,
-                history=st.session_state.get(LAS_EDITOR_RENAME_HISTORY_KEY, ()),
+                history=state_controller.get_tuple(LAS_EDITOR_RENAME_HISTORY_KEY),
                 references=references,
                 reason="manual",
                 source="las_editor_ui",
             )
             active_df = result.data
-            st.session_state[LAS_EDITOR_RENAME_HISTORY_KEY] = result.history
+            state_controller.set_value(LAS_EDITOR_RENAME_HISTORY_KEY, result.history)
             _apply_las_editor_reference_state(result.references)
             for message in result.diagnostics:
                 st.info(message)
@@ -3944,13 +3944,13 @@ def _render_las_curve_rename_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
         except ValueError as exc:
             st.warning(str(exc))
 
-    history = tuple(st.session_state.get(LAS_EDITOR_RENAME_HISTORY_KEY, ()))
+    history = state_controller.get_tuple(LAS_EDITOR_RENAME_HISTORY_KEY)
     undo_disabled = not history
     if st.button("Undo последнего rename", disabled=undo_disabled, width="stretch", key="las_editor_rename_undo"):
         try:
             result = undo_last_rename(prepared_df, history=history, references=references)
             active_df = result.data
-            st.session_state[LAS_EDITOR_RENAME_HISTORY_KEY] = result.history
+            state_controller.set_value(LAS_EDITOR_RENAME_HISTORY_KEY, result.history)
             _apply_las_editor_reference_state(result.references)
             for message in result.diagnostics:
                 st.info(message)
@@ -3958,7 +3958,7 @@ def _render_las_curve_rename_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
         except ValueError as exc:
             st.warning(str(exc))
 
-    history = tuple(st.session_state.get(LAS_EDITOR_RENAME_HISTORY_KEY, ()))
+    history = state_controller.get_tuple(LAS_EDITOR_RENAME_HISTORY_KEY)
     with st.expander("История rename", expanded=bool(history)):
         if history:
             st.dataframe(
@@ -3990,8 +3990,8 @@ def _render_las_curve_merge_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
         "coalesce-last, mean или sum с историей операций и undo последнего merge."
     )
 
-    if LAS_EDITOR_MERGE_HISTORY_KEY not in st.session_state:
-        st.session_state[LAS_EDITOR_MERGE_HISTORY_KEY] = ()
+    state_controller = _application_state_controller()
+    state_controller.ensure_value(LAS_EDITOR_MERGE_HISTORY_KEY, ())
 
     column_names = [str(column) for column in prepared_df.columns]
     active_df = prepared_df
@@ -4036,13 +4036,13 @@ def _render_las_curve_merge_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
                 target_name,
                 strategy=selected_strategy,
                 keep_sources=keep_sources,
-                history=st.session_state.get(LAS_EDITOR_MERGE_HISTORY_KEY, ()),
+                history=state_controller.get_tuple(LAS_EDITOR_MERGE_HISTORY_KEY),
                 references=references,
                 reason="manual",
                 source="las_editor_ui",
             )
             active_df = result.data
-            st.session_state[LAS_EDITOR_MERGE_HISTORY_KEY] = result.history
+            state_controller.set_value(LAS_EDITOR_MERGE_HISTORY_KEY, result.history)
             _apply_las_editor_reference_state(result.references)
             for message in result.diagnostics:
                 st.info(message)
@@ -4052,12 +4052,12 @@ def _render_las_curve_merge_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
         except ValueError as exc:
             st.warning(str(exc))
 
-    history = tuple(st.session_state.get(LAS_EDITOR_MERGE_HISTORY_KEY, ()))
+    history = state_controller.get_tuple(LAS_EDITOR_MERGE_HISTORY_KEY)
     if undo_col.button("Undo последнего merge", disabled=not history, width="stretch", key="las_editor_merge_undo"):
         try:
             result = undo_last_merge(prepared_df, history=history, references=references)
             active_df = result.data
-            st.session_state[LAS_EDITOR_MERGE_HISTORY_KEY] = result.history
+            state_controller.set_value(LAS_EDITOR_MERGE_HISTORY_KEY, result.history)
             _apply_las_editor_reference_state(result.references)
             for message in result.diagnostics:
                 st.info(message)
@@ -4065,7 +4065,7 @@ def _render_las_curve_merge_manager(prepared_df: pd.DataFrame) -> pd.DataFrame:
         except ValueError as exc:
             st.warning(str(exc))
 
-    history = tuple(st.session_state.get(LAS_EDITOR_MERGE_HISTORY_KEY, ()))
+    history = state_controller.get_tuple(LAS_EDITOR_MERGE_HISTORY_KEY)
     with st.expander("История merge", expanded=bool(history)):
         if history:
             st.dataframe(

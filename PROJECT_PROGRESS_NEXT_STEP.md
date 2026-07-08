@@ -1,15 +1,20 @@
-# GAS RATIO PRO — Next Step Progress
+# Project Progress — Next Step
 
-Current step completed: ApplicationStateController cleanup for Curve bulk edit and Curve metadata editor.
+Current version: `gas-ratio-pro-curve-rename-merge-state-controller`
 
-Implemented:
-- routed Curve bulk edit overrides, metadata and operation log through ApplicationStateController;
-- routed Curve metadata initialization, history, assignment and undo state through ApplicationStateController;
-- removed direct Streamlit session-state writes from these editor paths;
-- preserved existing UI behavior and service contracts.
+Completed in this step:
+
+- Moved LAS curve rename history state behind `ApplicationStateController`.
+- Moved LAS curve merge history state behind `ApplicationStateController`.
+- Removed direct UI access to `st.session_state` from rename/merge history workflows.
+- Kept existing LAS editor behavior and undo workflows compatible.
+- Verified full project test suite.
 
 Validation:
-- pytest: 937 passed / 0 failed
 
-Suggested next step:
-- continue ApplicationStateController cleanup for remaining Curve Manager history blocks, especially rename and merge managers.
+- `compileall`: PASS
+- `pytest`: 937 passed / 0 failed
+
+Next recommended step:
+
+- Continue ApplicationStateController cleanup for LAS editor session sheet/summary state.
