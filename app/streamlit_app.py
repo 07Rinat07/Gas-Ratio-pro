@@ -11,8 +11,53 @@ from pathlib import Path
 from textwrap import dedent
 
 import pandas as pd
-import streamlit as st
-import streamlit.components.v1 as components
+
+try:
+    import streamlit as st
+    import streamlit.components.v1 as components
+except ModuleNotFoundError:  # pragma: no cover - lightweight fallback for non-UI test environments
+    class _StreamlitSessionState(dict):
+        def __getattr__(self, name: str):
+            try:
+                return self[name]
+            except KeyError as exc:
+                raise AttributeError(name) from exc
+
+        def __setattr__(self, name: str, value):
+            self[name] = value
+
+    class _StreamlitNoopContext:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    class _StreamlitStub:
+        session_state = _StreamlitSessionState()
+        sidebar = _StreamlitNoopContext()
+
+        def __getattr__(self, _name: str):
+            def _noop(*_args, **_kwargs):
+                return None
+            return _noop
+
+        def columns(self, spec, *args, **kwargs):
+            count = spec if isinstance(spec, int) else len(spec)
+            return [_StreamlitNoopContext() for _ in range(count)]
+
+        def expander(self, *args, **kwargs):
+            return _StreamlitNoopContext()
+
+        def container(self, *args, **kwargs):
+            return _StreamlitNoopContext()
+
+    class _ComponentsStub:
+        def html(self, *_args, **_kwargs):
+            return None
+
+    st = _StreamlitStub()
+    components = _ComponentsStub()
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
@@ -194,6 +239,17 @@ from projects import (
     project_manager_status,
     save_project_recovery_state,
 )
+from projects.recent_projects import (
+    clear_recent_projects,
+    list_recent_projects,
+    recent_projects_table_rows,
+    remove_recent_project,
+    set_recent_project_flags,
+    touch_recent_project,
+)
+from services.project_manager_service import ProjectManagerService
+from services.export_manager_service import ExportManagerService
+from services.well_manager_service import WellManagerService
 from projects import calculations as project_calculations
 from projects import exports as project_exports
 from projects import graph_settings as project_graph_settings
@@ -220,9 +276,6 @@ from reports.export_static import (
     export_plotly_static_bytes,
 )
 from wells.repository import DEFAULT_WELLS_ROOT
-from core.application_state import ApplicationStateController
-from services import ExportManagerService, LasManagerService, ProjectManagerService, WellManagerService
-from widgets.common import table_toolbar_labels
 
 project_calculations = importlib.reload(project_calculations)
 project_exports = importlib.reload(project_exports)
@@ -253,6 +306,8 @@ list_project_calculation_actions = project_calculations.list_project_calculation
 list_project_exports = project_exports.list_project_exports
 read_project_export_file_bytes = project_exports.read_project_export_file_bytes
 save_project_export = project_exports.save_project_export
+delete_project_export = project_exports.delete_project_export
+clear_project_exports = project_exports.clear_project_exports
 list_project_las_datasets = project_datasets.list_project_las_datasets
 list_project_csv_datasets = project_datasets.list_project_csv_datasets
 save_project_csv_dataset = project_datasets.save_project_csv_dataset
@@ -303,10 +358,6 @@ save_project_well_card = project_well_cards.save_project_well_card
 SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xlsm", ".las"}
 WELLS_STORAGE_ROOT = ROOT_DIR / DEFAULT_WELLS_ROOT
 LAS_CORRELATION_PROJECTS_ROOT = ROOT_DIR / DEFAULT_PROJECTS_ROOT
-PROJECT_MANAGER_SERVICE = ProjectManagerService(LAS_CORRELATION_PROJECTS_ROOT)
-EXPORT_MANAGER_SERVICE = ExportManagerService(LAS_CORRELATION_PROJECTS_ROOT)
-WELL_MANAGER_SERVICE = WellManagerService(WELLS_STORAGE_ROOT)
-LAS_MANAGER_SERVICE = LasManagerService(LAS_CORRELATION_PROJECTS_ROOT)
 APP_LAUNCH_COMMAND = "python -m streamlit run app/streamlit_app.py"
 APP_LAUNCH_SCRIPT = ".\\run_app.ps1"
 DASHBOARD_BACKGROUND_PATH = ROOT_DIR / "assets" / "dashboard" / "gas_ratio_brand_background.png"
@@ -315,35 +366,6 @@ BRANDING_LOGO_PATH = ROOT_DIR / "assets" / "branding" / "gas_ratio_pro_logo.png"
 APP_ICON_PATH = BRANDING_LOGO_PATH
 APP_SPLASH_LOGO_PATH = BRANDING_LOGO_PATH
 EXPORT_WATERMARK_LOGO_PATH = BRANDING_LOGO_PATH
-
-
-def _application_state_controller() -> ApplicationStateController:
-    """Return the Streamlit-backed application state controller.
-
-    Project Manager code must not write directly to widget-owned session keys.
-    This helper centralizes access to the application context and prevents
-    NameError regressions when the UI calls the controller from render blocks.
-    """
-
-    return ApplicationStateController(st.session_state)
-
-
-def _refresh_ui() -> None:
-    """Request a Streamlit rerun from a single helper used by repository panels."""
-
-    st.rerun()
-
-
-def _render_table_toolbar_caption(title: str) -> None:
-    """Render a consistent caption for table/repository action panels.
-
-    This helper is intentionally lightweight because it is used inside existing
-    Streamlit panels during Sprint 1 refactoring. It provides one integration
-    point for the future shared Toolbar component without breaking current UI.
-    """
-
-    st.caption(f"Управление таблицей: {title}")
-
 APP_IDENTITY: dict[str, str] = {
     "name": "Gas Ratio Pro",
     "version": "2.0.0",
@@ -4156,23 +4178,9 @@ def _render_new_las_creator_panel(logger) -> None:
 
 
 def _render_saved_wells_panel(logger) -> None:
-    records = WELL_MANAGER_SERVICE.list_wells()
+    well_service = _well_manager_service()
+    records = well_service.list_wells()
     with st.expander("Сохраненные скважины", expanded=bool(records)):
-        _render_table_toolbar_caption("Сохраненные скважины")
-        refresh_col, clear_col = st.columns(2)
-        if refresh_col.button("Обновить", use_container_width=True, key="saved_wells_refresh"):
-            _refresh_ui()
-        if records and clear_col.button("Очистить все сохраненные скважины", use_container_width=True, key="saved_wells_clear_all"):
-            try:
-                deleted_count = WELL_MANAGER_SERVICE.clear_all_wells()
-                _clear_las_working_state()
-            except Exception:
-                logger.exception("saved_wells_clear_all_failed")
-                st.error("Не удалось очистить сохраненные скважины. Подробности записаны в logs/app.log.")
-            else:
-                st.success(f"Удалено скважин: {deleted_count}.")
-                _refresh_ui()
-
         if not records:
             st.caption("Пока нет сохраненных скважин. После правки LAS сохраните версию здесь, и она появится в списке.")
             return
@@ -4211,44 +4219,44 @@ def _render_saved_wells_panel(logger) -> None:
         action_col1, action_col2 = st.columns(2)
         if action_col1.button("Удалить выбранную версию", use_container_width=True, key="saved_well_delete_version"):
             try:
-                WELL_MANAGER_SERVICE.delete_version(selected_record.id, selected_version.id)
+                well_service.delete_version(selected_record.id, selected_version.id)
                 _clear_las_working_state()
             except Exception:
                 logger.exception("saved_well_version_delete_failed well_id=%s version_id=%s", selected_record.id, selected_version.id)
                 st.error("Не удалось удалить версию с диска. Подробности записаны в logs/app.log.")
             else:
                 st.success("Версия удалена с диска.")
-                _refresh_ui()
+                st.rerun()
         if action_col2.button("Удалить скважину полностью", use_container_width=True, key="saved_well_delete_record"):
             try:
-                WELL_MANAGER_SERVICE.delete_well(selected_record.id)
+                well_service.delete_well(selected_record.id)
                 _clear_las_working_state()
             except Exception:
                 logger.exception("saved_well_delete_failed well_id=%s", selected_record.id)
                 st.error("Не удалось удалить скважину с диска. Подробности записаны в logs/app.log.")
             else:
                 st.success("Скважина удалена с диска.")
-                _refresh_ui()
+                st.rerun()
 
         csv_col, xlsx_col, las_col = st.columns(3)
         try:
             csv_col.download_button(
                 "Скачать CSV",
-                data=WELL_MANAGER_SERVICE.read_file_bytes(selected_record.id, selected_version.id, "csv"),
+                data=well_service.read_file_bytes(selected_record.id, selected_version.id, "csv"),
                 file_name=f"{selected_record.id}_{selected_version.id}.csv",
                 mime="text/csv",
                 use_container_width=True,
             )
             xlsx_col.download_button(
                 "Скачать XLSX",
-                data=WELL_MANAGER_SERVICE.read_file_bytes(selected_record.id, selected_version.id, "xlsx"),
+                data=well_service.read_file_bytes(selected_record.id, selected_version.id, "xlsx"),
                 file_name=f"{selected_record.id}_{selected_version.id}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
             )
             las_col.download_button(
                 "Скачать LAS",
-                data=WELL_MANAGER_SERVICE.read_file_bytes(selected_record.id, selected_version.id, "las"),
+                data=well_service.read_file_bytes(selected_record.id, selected_version.id, "las"),
                 file_name=f"{selected_record.id}_{selected_version.id}.las",
                 mime="text/plain",
                 use_container_width=True,
@@ -4259,7 +4267,7 @@ def _render_saved_wells_panel(logger) -> None:
 
         if st.button("Использовать выбранную версию в расчетах", use_container_width=True):
             try:
-                csv_bytes = WELL_MANAGER_SERVICE.read_file_bytes(selected_record.id, selected_version.id, "csv")
+                csv_bytes = well_service.read_file_bytes(selected_record.id, selected_version.id, "csv")
                 prepared_df = pd.read_csv(BytesIO(csv_bytes))
                 st.session_state[LAS_EDITOR_SESSION_SHEETS_KEY] = {
                     f"{selected_record.name} / {selected_version.label}": _dataframe_to_raw_sheet(prepared_df)
@@ -4765,20 +4773,111 @@ def _export_watermark_style() -> dict[str, str]:
 
 
 def _dashboard_recent_projects(projects: tuple[ProjectRecord, ...], limit: int = 3) -> tuple[ProjectRecord, ...]:
-    """Return the newest project cards shown on the dashboard."""
+    """Return recent project cards from explicit recent history, falling back to project mtime order."""
     if limit <= 0:
         return ()
-    return tuple(projects[:limit])
+    projects_by_id = {project.id: project for project in projects}
+    recent_records = [
+        projects_by_id[entry.project_id]
+        for entry in list_recent_projects(LAS_CORRELATION_PROJECTS_ROOT, include_missing=False)
+        if entry.project_id in projects_by_id
+    ]
+    if not recent_records:
+        recent_records = list(projects)
+    return tuple(recent_records[:limit])
+
+
+def _project_manager_service() -> ProjectManagerService:
+    """Return the application-level project manager service for UI workflows."""
+    return ProjectManagerService(LAS_CORRELATION_PROJECTS_ROOT, DEFAULT_PROJECT_ID)
+
+
+def _export_manager_service() -> ExportManagerService:
+    """Return the application-level export manager service for UI workflows."""
+    return ExportManagerService(LAS_CORRELATION_PROJECTS_ROOT)
+
+
+def _well_manager_service() -> WellManagerService:
+    """Return the application-level well manager service for UI workflows."""
+    return WellManagerService(WELLS_STORAGE_ROOT)
+
+
+def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_project: ProjectRecord, logger) -> None:
+    """Render real Streamlit controls for the dashboard Recent Projects list."""
+    service = _project_manager_service()
+    entries = service.list_recent(include_missing=True)
+    with st.expander("Управление последними проектами", expanded=False):
+        if entries:
+            st.dataframe(pd.DataFrame(recent_projects_table_rows(entries)), use_container_width=True, height=220)
+        else:
+            st.caption("История последних проектов пуста.")
+
+        if st.button("Очистить историю последних проектов", use_container_width=True, key="recent_projects_clear_history"):
+            removed = service.clear_recent_history()
+            logger.info("recent_projects_history_cleared removed=%d", removed)
+            st.success(f"История очищена. Удалено записей: {removed}.")
+            st.rerun()
+
+        if not entries:
+            return
+
+        entries_by_id = {entry.project_id: entry for entry in entries}
+        selected_id = st.selectbox(
+            "Проект в истории",
+            options=tuple(entries_by_id),
+            format_func=lambda project_id: f"{entries_by_id[project_id].project_name} ({project_id})",
+            key="recent_projects_selected_id",
+        )
+        col_open, col_remove, col_delete = st.columns(3)
+        with col_open:
+            if st.button("Открыть", use_container_width=True, key="recent_project_open"):
+                if not entries_by_id[selected_id].exists_on_disk:
+                    st.warning("Проект отсутствует на диске. Удалите запись из истории.")
+                else:
+                    st.session_state[ACTIVE_PROJECT_ID_KEY] = selected_id
+                    _clear_las_working_state()
+                    st.rerun()
+        with col_remove:
+            if st.button("Удалить запись", use_container_width=True, key="recent_project_remove_entry"):
+                service.remove_recent_entry(selected_id)
+                logger.info("recent_project_entry_removed project_id=%s", safe_log_value(selected_id))
+                st.success("Запись удалена из истории. Сам проект не удален.")
+                st.rerun()
+        with col_delete:
+            disabled = selected_id == DEFAULT_PROJECT_ID
+            if st.button("Удалить проект с диска", use_container_width=True, disabled=disabled, key="recent_project_delete_disk"):
+                try:
+                    result = service.delete_project_complete(selected_id)
+                    if st.session_state.get(ACTIVE_PROJECT_ID_KEY) == selected_id:
+                        st.session_state[ACTIVE_PROJECT_ID_KEY] = DEFAULT_PROJECT_ID
+                    _clear_las_working_state()
+                except Exception:
+                    logger.exception("recent_project_delete_failed project_id=%s", safe_log_value(selected_id))
+                    st.error("Не удалось удалить проект. Подробности записаны в logs/app.log.")
+                else:
+                    st.success("Проект удален с диска и из истории.")
+                    st.rerun()
+
+        flags_col_1, flags_col_2 = st.columns(2)
+        selected_entry = entries_by_id[selected_id]
+        with flags_col_1:
+            if st.button("Закрепить/открепить", use_container_width=True, key="recent_project_toggle_pin"):
+                service.set_recent_flags(selected_id, pinned=not selected_entry.pinned)
+                st.rerun()
+        with flags_col_2:
+            if st.button("Избранное вкл/выкл", use_container_width=True, key="recent_project_toggle_favorite"):
+                service.set_recent_flags(selected_id, favorite=not selected_entry.favorite)
+                st.rerun()
 
 
 def _dashboard_project_statistics(active_project: ProjectRecord, projects: tuple[ProjectRecord, ...]) -> dict[str, int]:
     """Build dashboard statistics from real project storage and session data."""
     return {
         "projects": len(projects),
-        "wells": len(WELL_MANAGER_SERVICE.list_wells()),
-        "las_files": len(LAS_MANAGER_SERVICE.list_las_files(active_project.id)),
+        "wells": _well_manager_service().count_wells(),
+        "las_files": len(list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)),
         "calculations": len(list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)),
-        "exports": len(EXPORT_MANAGER_SERVICE.list_exports(active_project.id)),
+        "exports": _export_manager_service().count_exports(active_project.id),
     }
 
 
@@ -4788,7 +4887,7 @@ def _dashboard_news_items(active_project: ProjectRecord) -> tuple[str, ...]:
     if active_project.updated_at:
         items.append(f"Проект обновлен: {active_project.updated_at}")
     calculations_count = len(list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, active_project.id))
-    exports_count = len(EXPORT_MANAGER_SERVICE.list_exports(active_project.id))
+    exports_count = _export_manager_service().count_exports(active_project.id)
     items.append(f"Сохраненных расчетов: {calculations_count}")
     items.append(f"Сохраненных экспортов: {exports_count}")
     return tuple(items)
@@ -4801,7 +4900,7 @@ def _dashboard_activity_items(active_project: ProjectRecord, limit: int = 4) -> 
         timestamp = getattr(calculation, "created_at", "") or getattr(calculation, "updated_at", "") or ""
         name = getattr(calculation, "name", "") or getattr(calculation, "id", "расчет")
         activities.append((timestamp, f"Расчет: {name}"))
-    for export in EXPORT_MANAGER_SERVICE.list_exports(active_project.id):
+    for export in _export_manager_service().list_exports(active_project.id):
         timestamp = getattr(export, "created_at", "") or getattr(export, "updated_at", "") or ""
         name = getattr(export, "file_name", "") or getattr(export, "name", "") or "экспорт"
         activities.append((timestamp, f"Экспорт: {name}"))
@@ -5422,9 +5521,9 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
     recent_projects = _dashboard_recent_projects(projects, limit=5)
     stats = _dashboard_project_statistics(active_project, projects)
     activity_items = _dashboard_activity_items(active_project, limit=6)
-    las_files = LAS_MANAGER_SERVICE.list_las_files(active_project.id)[:5]
+    las_files = list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:5]
     calculations = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:5]
-    exports = EXPORT_MANAGER_SERVICE.list_exports(active_project.id)[:5]
+    exports = _export_manager_service().list_exports(active_project.id)[:5]
     now_label = datetime.now().strftime("%d.%m.%Y %H:%M")
 
     def _row(title: str, meta: str, badge: str = "") -> str:
@@ -5495,6 +5594,8 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
     )
     workspace_search_results = _workspace_universal_search_results(active_project, workspace_query)
     workspace_search_results_html = _workspace_search_results_html(workspace_search_results, workspace_query)
+
+    _render_recent_projects_manager(projects, active_project, configure_logging())
 
     metrics_html = f"""
       <div class='dashboard-status-grid dashboard-metrics'>
@@ -5595,7 +5696,7 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
     components.html(workspace_component_html, height=760, scrolling=False)
 
 def _render_start_tab(active_project: ProjectRecord) -> None:
-    projects = PROJECT_MANAGER_SERVICE.list_projects()
+    projects = list_projects(LAS_CORRELATION_PROJECTS_ROOT)
     if not projects:
         projects = (active_project,)
 
@@ -6315,7 +6416,8 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     )
 
     st.markdown("### Сохранить скважину локально")
-    records = WELL_MANAGER_SERVICE.list_wells()
+    well_service = _well_manager_service()
+    records = well_service.list_wells()
     existing_options = ["Новая скважина"] + [f"{record.name} | {record.id}" for record in records]
     selected_existing = st.selectbox(
         "Куда сохранить",
@@ -6349,7 +6451,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
 
     if st.button("Сохранить версию скважины", use_container_width=True):
         try:
-            saved_record = WELL_MANAGER_SERVICE.save_version(
+            saved_record = well_service.save_version(
                 edited_df,
                 well_name=well_name,
                 well_id=selected_record.id if selected_record else None,
@@ -6383,8 +6485,9 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
             logger.exception("well_version_save_failed")
             st.error("Не удалось сохранить скважину. Подробности записаны в logs/app.log.")
         else:
-            logger.info("well_version_saved well_id=%s rows=%d", safe_log_value(saved_record.id), len(edited_df))
-            st.success(f"Скважина сохранена локально: {saved_record.name} ({saved_record.id}).")
+            saved_well_record = saved_record.record
+            logger.info("well_version_saved well_id=%s rows=%d", safe_log_value(saved_well_record.id), len(edited_df))
+            st.success(f"Скважина сохранена локально: {saved_well_record.name} ({saved_well_record.id}).")
 
     st.markdown("### Сохранить подготовленный LAS в проект")
     st.caption(f"Активный проект: {active_project.name} ({active_project.id})")
@@ -6394,9 +6497,10 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
         else:
             try:
                 las_bytes = export_las_bytes(edited_df, well_name=well_name, depth_column=depth_column)
-                saved_las = LAS_MANAGER_SERVICE.save_las_file(
+                saved_las = save_project_las_file(
+                    las_bytes,
+                    root=LAS_CORRELATION_PROJECTS_ROOT,
                     project_id=active_project.id,
-                    data=las_bytes,
                     file_name=f"{well_name.strip()}_{version_label.strip() or 'prepared'}.las",
                     well_name=well_name,
                     version_label=version_label.strip() or "Подготовленный LAS",
@@ -7680,7 +7784,7 @@ def _project_option_label(project: ProjectRecord) -> str:
 
 def _load_project_records_for_ui(logger) -> tuple[ProjectRecord, ...]:
     try:
-        return PROJECT_MANAGER_SERVICE.list_projects()
+        return _project_manager_service().list_projects()
     except Exception:
         logger.exception("project_records_load_failed")
         st.warning("Не удалось загрузить список проектов. Используется основной проект.")
@@ -7692,13 +7796,13 @@ def _project_selectbox_key(current_project_id: str, project_ids: tuple[str, ...]
 
 
 def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bool = False) -> ProjectRecord:
-    state = _application_state_controller()
-    state.consume_pending_project_activation()
     projects = _load_project_records_for_ui(logger)
     projects_by_id = {project.id: project for project in projects}
     project_ids = tuple(projects_by_id)
-    current_project_id = PROJECT_MANAGER_SERVICE.choose_existing_project_id(state.context().project_id)
-    state.ensure_project(current_project_id)
+    current_project_id = st.session_state.get(ACTIVE_PROJECT_ID_KEY)
+    if current_project_id not in projects_by_id:
+        current_project_id = DEFAULT_PROJECT_ID if DEFAULT_PROJECT_ID in projects_by_id else projects[0].id
+        st.session_state[ACTIVE_PROJECT_ID_KEY] = current_project_id
 
     with st.expander("Проект", expanded=expanded):
         selected_project_id = st.selectbox(
@@ -7708,25 +7812,28 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
             format_func=lambda project_id: _project_option_label(projects_by_id[project_id]),
             key=_project_selectbox_key(current_project_id, project_ids, key_prefix=key_prefix),
         )
-        if selected_project_id != state.context().project_id:
-            state.activate_project(selected_project_id)
-            _refresh_ui()
+        if selected_project_id != st.session_state.get(ACTIVE_PROJECT_ID_KEY):
+            st.session_state[ACTIVE_PROJECT_ID_KEY] = selected_project_id
+            _clear_las_working_state()
         active_project = projects_by_id[selected_project_id]
+        try:
+            _project_manager_service().touch_recent(active_project)
+        except Exception:
+            logger.exception("recent_project_touch_failed project_id=%s", safe_log_value(active_project.id))
         st.caption(f"Папка проекта: data/projects/{active_project.id}/")
 
-        _render_table_toolbar_caption("Project Manager")
         if active_project.id != DEFAULT_PROJECT_ID:
             if st.button("Удалить активный проект с диска", use_container_width=True, key=f"{key_prefix}_delete_active_project"):
                 try:
-                    result = PROJECT_MANAGER_SERVICE.delete_project(active_project.id)
-                    state.request_project_activation(result.fallback_project_id)
+                    result = _project_manager_service().delete_project_complete(active_project.id)
+                    st.session_state[ACTIVE_PROJECT_ID_KEY] = DEFAULT_PROJECT_ID
                     _clear_las_working_state()
                 except Exception:
                     logger.exception("project_delete_failed project_id=%s", safe_log_value(active_project.id))
                     st.error("Не удалось удалить проект с диска. Подробности записаны в logs/app.log.")
                 else:
-                    st.success("Проект удален с диска." if result.deleted else "Проект уже отсутствовал на диске.")
-                    _refresh_ui()
+                    st.success("Проект удален с диска.")
+                    st.rerun()
 
         with st.form(f"{key_prefix}_create_project_form", clear_on_submit=True):
             new_project_name = st.text_input("Название нового проекта")
@@ -7737,14 +7844,15 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
                     st.warning("Введите название проекта.")
                 else:
                     try:
-                        project = PROJECT_MANAGER_SERVICE.create_project(
+                        result = _project_manager_service().create_project(
                             name=new_project_name,
                             description=new_project_description,
                         )
-                        state.request_project_activation(project.id)
+                        project = result.project
+                        st.session_state[ACTIVE_PROJECT_ID_KEY] = project.id
                         logger.info("project_created id=%s", safe_log_value(project.id))
                         st.success("Проект создан.")
-                        _refresh_ui()
+                        st.rerun()
                     except Exception:
                         logger.exception("project_create_failed")
                         st.error("Не удалось создать проект.")
@@ -7764,11 +7872,11 @@ def _sidebar_recent_project_items(project: ProjectRecord, limit: int = 5) -> tup
         name = getattr(calculation, "name", "") or getattr(calculation, "id", "расчет")
         timestamp = getattr(calculation, "created_at", "") or getattr(calculation, "updated_at", "") or ""
         items.append({"kind": "Расчет", "label": str(name), "time": str(timestamp)})
-    for export in EXPORT_MANAGER_SERVICE.list_exports(project.id):
+    for export in list_project_exports(LAS_CORRELATION_PROJECTS_ROOT, project.id):
         name = getattr(export, "file_name", "") or getattr(export, "name", "") or "экспорт"
         timestamp = getattr(export, "created_at", "") or getattr(export, "updated_at", "") or ""
         items.append({"kind": "Экспорт", "label": str(name), "time": str(timestamp)})
-    for las_file in LAS_MANAGER_SERVICE.list_las_files(project.id):
+    for las_file in list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, project.id):
         name = getattr(las_file, "file_name", "") or getattr(las_file, "name", "") or getattr(las_file, "id", "LAS")
         timestamp = getattr(las_file, "created_at", "") or getattr(las_file, "updated_at", "") or ""
         items.append({"kind": "LAS", "label": str(name), "time": str(timestamp)})
@@ -7858,7 +7966,7 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
         return
 
     rows = project_tree_table_rows(tree)
-    stats = _dashboard_project_statistics(project, tuple(PROJECT_MANAGER_SERVICE.list_projects()) or (project,))
+    stats = _dashboard_project_statistics(project, tuple(list_projects(LAS_CORRELATION_PROJECTS_ROOT)) or (project,))
     rows_count = max(len(rows) - 1, 0)
     health_label, health_detail = _sidebar_project_health(stats, rows_count)
 
@@ -8740,14 +8848,15 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
             st.dataframe(build_project_uuid_registry_table(uuid_entries), use_container_width=True, height=260)
 
 def _project_workspace_summary_rows(project: ProjectRecord) -> tuple[tuple[str, str], ...]:
-    all_well_cards = LAS_MANAGER_SERVICE.list_las_wells(
+    all_well_cards = list_project_las_wells(
+        LAS_CORRELATION_PROJECTS_ROOT,
         project.id,
         include_archived=True,
     )
     versions = tuple(version for card in all_well_cards for version in card.versions)
     archived_versions = tuple(version for version in versions if version.archived_at)
     active_versions = tuple(version for version in versions if not version.archived_at)
-    exports = EXPORT_MANAGER_SERVICE.list_exports(project.id)
+    exports = list_project_exports(LAS_CORRELATION_PROJECTS_ROOT, project.id)
 
     return (
         ("Скважин", str(len(all_well_cards))),
@@ -8767,7 +8876,7 @@ def _project_workspace_summary_table(project: ProjectRecord) -> pd.DataFrame:
 def _project_las_records_to_raw_sheets(project: ProjectRecord, records: tuple[ProjectLasFile, ...]) -> dict[str, pd.DataFrame]:
     sheets: dict[str, pd.DataFrame] = {}
     for record in records:
-        dataframe = LAS_MANAGER_SERVICE.read_las_dataframe(project.id, record.id)
+        dataframe = read_project_las_file_dataframe(LAS_CORRELATION_PROJECTS_ROOT, project.id, record.id)
         sheet_name = f"{record.name} / {record.version_label}"
         if sheet_name in sheets:
             sheet_name = f"{sheet_name} / {record.id}"
@@ -8786,10 +8895,10 @@ def _render_project_las_zip_download(
         return
 
     try:
-        zip_bytes = LAS_MANAGER_SERVICE.export_las_zip(
+        zip_bytes = export_project_las_files_zip(
+            LAS_CORRELATION_PROJECTS_ROOT,
             project.id,
             selected_ids,
-            formats=("las", "xlsx", "csv"),
         )
     except Exception:
         logger.exception("project_las_export_failed project_id=%s", safe_log_value(project.id))
@@ -8807,7 +8916,7 @@ def _render_project_las_zip_download(
 
 
 def _render_project_workspace_loader(project: ProjectRecord, logger) -> None:
-    active_well_cards = LAS_MANAGER_SERVICE.list_las_wells(project.id)
+    active_well_cards = list_project_las_wells(LAS_CORRELATION_PROJECTS_ROOT, project.id)
     active_records = tuple(version for card in active_well_cards for version in card.versions)
 
     with st.expander("Данные активного проекта", expanded=bool(active_records)):
@@ -8890,23 +8999,9 @@ def _project_exports_table(records: tuple[object, ...]) -> pd.DataFrame:
 
 
 def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
-    records = EXPORT_MANAGER_SERVICE.list_exports(project.id)
+    export_service = _export_manager_service()
+    records = export_service.list_exports(project.id)
     with st.expander("Сохраненные экспорты проекта", expanded=bool(records)):
-        _render_table_toolbar_caption("Сохраненные экспорты проекта")
-        refresh_col, clear_col = st.columns(2)
-        if refresh_col.button("Обновить", use_container_width=True, key=f"project_export_refresh_{project.id}"):
-            _refresh_ui()
-        if records and clear_col.button("Очистить все экспорты", use_container_width=True, key=f"project_export_clear_all_{project.id}"):
-            try:
-                deleted_count = EXPORT_MANAGER_SERVICE.clear_exports(project.id)
-                _clear_las_working_state()
-            except Exception:
-                logger.exception("project_exports_clear_failed project_id=%s", safe_log_value(project.id))
-                st.error("Не удалось очистить экспорты проекта. Подробности записаны в logs/app.log.")
-            else:
-                st.success(f"Удалено экспортов: {deleted_count}.")
-                _refresh_ui()
-
         if not records:
             st.caption("В активном проекте пока нет сохраненных экспортов.")
             return
@@ -8920,20 +9015,35 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
             key=f"project_export_select_{project.id}",
         )
         selected_record = records_by_id[selected_id]
-        delete_col, download_col = st.columns(2)
-        if delete_col.button("Удалить выбранный экспорт", use_container_width=True, key=f"project_export_delete_{project.id}"):
-            try:
-                deleted = EXPORT_MANAGER_SERVICE.delete_export(project.id, selected_id)
-                _clear_las_working_state()
-            except Exception:
-                logger.exception("project_export_delete_failed project_id=%s export_id=%s", safe_log_value(project.id), safe_log_value(selected_id))
-                st.error("Не удалось удалить экспорт проекта. Подробности записаны в logs/app.log.")
-            else:
-                st.success("Экспорт удален с диска." if deleted else "Экспорт уже отсутствовал на диске.")
-                _refresh_ui()
 
+        action_col_1, action_col_2, action_col_3 = st.columns(3)
+        with action_col_1:
+            if st.button("Обновить", use_container_width=True, key=f"project_export_refresh_{project.id}"):
+                st.rerun()
+        with action_col_2:
+            if st.button("Удалить выбранный экспорт", use_container_width=True, key=f"project_export_delete_{project.id}_{selected_id}"):
+                try:
+                    delete_result = export_service.delete_export(project.id, selected_id)
+                    deleted = delete_result.deleted
+                except Exception:
+                    logger.exception("project_export_delete_failed project_id=%s export_id=%s", safe_log_value(project.id), safe_log_value(selected_id))
+                    st.error("Не удалось удалить экспорт. Подробности записаны в logs/app.log.")
+                else:
+                    st.success("Экспорт удален." if deleted else "Экспорт уже отсутствует.")
+                    st.rerun()
+        with action_col_3:
+            if st.button("Очистить все экспорты", use_container_width=True, key=f"project_export_clear_all_{project.id}"):
+                try:
+                    clear_result = export_service.clear_exports(project.id)
+                    removed = clear_result.removed_count
+                except Exception:
+                    logger.exception("project_exports_clear_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось очистить экспорты. Подробности записаны в logs/app.log.")
+                else:
+                    st.success(f"Удалено экспортов: {removed}.")
+                    st.rerun()
         try:
-            data = EXPORT_MANAGER_SERVICE.read_export_bytes(project.id, selected_id)
+            data = export_service.read_export_bytes(project.id, selected_id)
         except Exception:
             logger.exception(
                 "project_export_download_failed project_id=%s export_id=%s",
@@ -8943,7 +9053,7 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
             st.error("Не удалось подготовить сохраненный экспорт. Подробности записаны в logs/app.log.")
             return
 
-        download_col.download_button(
+        st.download_button(
             "Скачать экспорт",
             data=data,
             file_name=selected_record.file_name,
@@ -8969,7 +9079,8 @@ def _save_project_export_with_feedback(
     logger,
 ) -> None:
     try:
-        record = EXPORT_MANAGER_SERVICE.save_export(
+        export_service = _export_manager_service()
+        save_result = export_service.save_export(
             project_id=project.id,
             data=data,
             label=label,
@@ -8979,6 +9090,7 @@ def _save_project_export_with_feedback(
             source=source,
             metadata=metadata,
         )
+        record = save_result.record
     except Exception:
         logger.exception("project_export_save_failed project_id=%s kind=%s", safe_log_value(project.id), safe_log_value(kind))
         st.error("Не удалось сохранить экспорт в проект. Подробности записаны в logs/app.log.")
@@ -9561,28 +9673,13 @@ def _render_project_las_files_panel(
     uploaded_files: tuple[object, ...],
     logger,
 ) -> tuple[object, ...]:
-    active_well_cards = LAS_MANAGER_SERVICE.list_las_wells(project.id)
+    active_well_cards = list_project_las_wells(LAS_CORRELATION_PROJECTS_ROOT, project.id)
     active_records = tuple(version for card in active_well_cards for version in card.versions)
-    all_records = LAS_MANAGER_SERVICE.list_las_files(project.id, include_archived=True)
+    all_records = list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, project.id, include_archived=True)
     archived_records = tuple(record for record in all_records if record.archived_at)
     selected_records: tuple[ProjectLasFile, ...] = ()
 
     with st.expander("LAS-файлы проекта", expanded=bool(active_records or archived_records)):
-        _render_table_toolbar_caption("LAS-файлы проекта")
-        refresh_col, clear_col = st.columns(2)
-        if refresh_col.button("Обновить", use_container_width=True, key=f"project_las_refresh_{project.id}"):
-            _refresh_ui()
-        if (active_records or archived_records) and clear_col.button("Очистить все LAS-файлы проекта", use_container_width=True, key=f"project_las_clear_all_{project.id}"):
-            try:
-                deleted_count = LAS_MANAGER_SERVICE.clear_las_files(project.id)
-                _clear_las_working_state()
-            except Exception:
-                logger.exception("project_las_files_clear_failed project_id=%s", safe_log_value(project.id))
-                st.error("Не удалось очистить LAS-файлы проекта. Подробности записаны в logs/app.log.")
-            else:
-                st.success(f"Удалено LAS-версий: {deleted_count}.")
-                _refresh_ui()
-
         if uploaded_files:
             st.caption("Сохраните загруженные LAS в активный проект, чтобы открыть их после перезапуска приложения.")
             if st.button("Сохранить загруженные LAS в проект", use_container_width=True, key="save_uploaded_las_to_project"):
@@ -9590,9 +9687,10 @@ def _render_project_las_files_panel(
                     saved_count = 0
                     for uploaded_file in uploaded_files:
                         original_name = Path(str(getattr(uploaded_file, "name", "source.las"))).name
-                        LAS_MANAGER_SERVICE.save_las_file(
-                            project_id=project.id,
+                        save_project_las_file(
                             data=bytes(uploaded_file.getvalue()),
+                            root=LAS_CORRELATION_PROJECTS_ROOT,
+                            project_id=project.id,
                             file_name=original_name,
                             well_name=Path(original_name).stem,
                             version_label="Загруженный LAS",
@@ -9604,7 +9702,7 @@ def _render_project_las_files_panel(
                         saved_count,
                     )
                     st.success(f"LAS-файлы сохранены в проект: {saved_count}.")
-                    _refresh_ui()
+                    st.rerun()
                 except Exception:
                     logger.exception("project_las_files_save_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось сохранить LAS-файлы в проект. Подробности записаны в logs/app.log.")
@@ -9620,7 +9718,8 @@ def _render_project_las_files_panel(
                 value=False,
                 key=f"project_las_show_archived_{project.id}",
             )
-        display_well_cards = LAS_MANAGER_SERVICE.list_las_wells(
+        display_well_cards = list_project_las_wells(
+            LAS_CORRELATION_PROJECTS_ROOT,
             project.id,
             include_archived=show_archived,
         )
@@ -9637,7 +9736,8 @@ def _render_project_las_files_panel(
             )
             if archive_button_col.button("В архив", use_container_width=True, key=f"project_las_archive_button_{project.id}"):
                 try:
-                    LAS_MANAGER_SERVICE.archive_las_file(
+                    set_project_las_file_archived(
+                        LAS_CORRELATION_PROJECTS_ROOT,
                         project.id,
                         archive_id,
                         archived=True,
@@ -9648,7 +9748,7 @@ def _render_project_las_files_panel(
                         safe_log_value(archive_id),
                     )
                     st.success("Версия LAS перенесена в архив.")
-                    _refresh_ui()
+                    st.rerun()
                 except Exception:
                     logger.exception("project_las_file_archive_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось архивировать версию LAS. Подробности записаны в logs/app.log.")
@@ -9665,11 +9765,13 @@ def _render_project_las_files_panel(
             )
             if delete_button_col.button("Удалить с диска", use_container_width=True, key=f"project_las_delete_button_{project.id}"):
                 try:
-                    deleted = LAS_MANAGER_SERVICE.delete_las_file(
+                    deleted = delete_project_las_file(
+                        LAS_CORRELATION_PROJECTS_ROOT,
                         project.id,
                         delete_id,
                     )
                     _clear_las_working_state()
+                    st.session_state.pop(f"project_las_files_{project.id}", None)
                     logger.info(
                         "project_las_file_deleted project_id=%s las_file_id=%s deleted=%s",
                         safe_log_value(project.id),
@@ -9680,7 +9782,7 @@ def _render_project_las_files_panel(
                         st.success("LAS-версия полностью удалена с диска.")
                     else:
                         st.warning("LAS-версия уже отсутствовала на диске.")
-                    _refresh_ui()
+                    st.rerun()
                 except Exception:
                     logger.exception("project_las_file_delete_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось удалить LAS-версию с диска. Подробности записаны в logs/app.log.")
@@ -9696,7 +9798,8 @@ def _render_project_las_files_panel(
             )
             if restore_button_col.button("Вернуть", use_container_width=True, key=f"project_las_restore_button_{project.id}"):
                 try:
-                    LAS_MANAGER_SERVICE.archive_las_file(
+                    set_project_las_file_archived(
+                        LAS_CORRELATION_PROJECTS_ROOT,
                         project.id,
                         restore_id,
                         archived=False,
@@ -9707,7 +9810,7 @@ def _render_project_las_files_panel(
                         safe_log_value(restore_id),
                     )
                     st.success("Версия LAS возвращена из архива.")
-                    _refresh_ui()
+                    st.rerun()
                 except Exception:
                     logger.exception("project_las_file_restore_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось вернуть версию LAS из архива. Подробности записаны в logs/app.log.")
@@ -9733,7 +9836,7 @@ def _render_project_las_files_panel(
     sources: list[object] = []
     for record in selected_records:
         try:
-            data = LAS_MANAGER_SERVICE.read_las_bytes(project.id, record.id)
+            data = read_project_las_file_bytes(LAS_CORRELATION_PROJECTS_ROOT, project.id, record.id)
             sources.append(_NamedLasBytesIO(data, f"{record.name}_{record.version_label}.las"))
         except Exception:
             logger.exception(

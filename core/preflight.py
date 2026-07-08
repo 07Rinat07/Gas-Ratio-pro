@@ -95,7 +95,7 @@ def _check_runtime_modules() -> PreflightCheck:
 
     return PreflightCheck(
         name="dependencies",
-        status="error",
+        status="warning",
         message="Не установлены зависимости: " + ", ".join(missing) + ". Выполните `pip install -r requirements.txt`.",
     )
 

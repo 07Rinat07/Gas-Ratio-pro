@@ -20,3 +20,7 @@ config/ai.local.json
 *.tmp
 ~$*
 .aider*
+# AI/tool local history
+*.history
+*.session
+# Python/tool caches

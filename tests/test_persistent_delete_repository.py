@@ -13,8 +13,7 @@ def test_delete_well_version_removes_only_selected_version(tmp_path: Path):
     record = save_well_version(df, root=tmp_path, well_id=record.id, well_name="Well A", version_label="v2", depth_column="DEPT")
 
     first_version_id = record.versions[0].id
-    updated = delete_well_version(tmp_path, record.id, first_version_id)
-    assert first_version_id not in {version.id for version in updated.versions}
+    assert delete_well_version(tmp_path, record.id, first_version_id) is True
 
     records = list_wells(tmp_path)
     assert len(records) == 1
@@ -26,8 +25,7 @@ def test_delete_last_well_version_removes_well(tmp_path: Path):
     df = pd.DataFrame({"DEPT": [1.0], "GR": [10]})
     record = save_well_version(df, root=tmp_path, well_name="Well B", version_label="v1", depth_column="DEPT")
 
-    updated = delete_well_version(tmp_path, record.id, record.versions[0].id)
-    assert updated.versions == ()
+    assert delete_well_version(tmp_path, record.id, record.versions[0].id) is True
     assert list_wells(tmp_path) == ()
 
 

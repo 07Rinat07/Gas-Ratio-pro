@@ -412,21 +412,3 @@ def export_project_las_files_zip(
 
     return buffer.getvalue()
 
-
-
-def clear_project_las_files(
-    root: Path | str,
-    project_id: str,
-) -> int:
-    """Physically delete all LAS versions from a project and clear the manifest."""
-    records = tuple(_read_manifest(root, project_id))
-    deleted_count = 0
-    for record in records:
-        las_dir = _las_file_dir(root, project_id, record.id)
-        if las_dir.exists():
-            import shutil
-
-            shutil.rmtree(las_dir)
-        deleted_count += 1
-    _write_manifest(root, project_id, ())
-    return deleted_count
