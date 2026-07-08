@@ -205,6 +205,7 @@ from projects.recent_projects import (
 from services.project_manager_service import ProjectManagerService
 from services.export_manager_service import ExportManagerService
 from services.well_manager_service import WellManagerService
+from services.las_manager_service import LasManagerService
 from projects import calculations as project_calculations
 from projects import exports as project_exports
 from projects import graph_settings as project_graph_settings
@@ -4757,6 +4758,11 @@ def _well_manager_service() -> WellManagerService:
     return WellManagerService(WELLS_STORAGE_ROOT)
 
 
+def _las_manager_service() -> LasManagerService:
+    """Return the application-level LAS manager service for UI workflows."""
+    return LasManagerService(LAS_CORRELATION_PROJECTS_ROOT)
+
+
 def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_project: ProjectRecord, logger) -> None:
     """Render real Streamlit controls for the dashboard Recent Projects list."""
     service = _project_manager_service()
@@ -4830,7 +4836,7 @@ def _dashboard_project_statistics(active_project: ProjectRecord, projects: tuple
     return {
         "projects": len(projects),
         "wells": _well_manager_service().count_wells(),
-        "las_files": len(list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)),
+        "las_files":  _las_manager_service().count_files(active_project.id),
         "calculations": len(list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)),
         "exports": _export_manager_service().count_exports(active_project.id),
     }
@@ -5476,7 +5482,7 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
     recent_projects = _dashboard_recent_projects(projects, limit=5)
     stats = _dashboard_project_statistics(active_project, projects)
     activity_items = _dashboard_activity_items(active_project, limit=6)
-    las_files = list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:5]
+    las_files = _las_manager_service().list_files(active_project.id)[:5]
     calculations = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)[:5]
     exports = _export_manager_service().list_exports(active_project.id)[:5]
     now_label = datetime.now().strftime("%d.%m.%Y %H:%M")
@@ -6452,10 +6458,9 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
         else:
             try:
                 las_bytes = export_las_bytes(edited_df, well_name=well_name, depth_column=depth_column)
-                saved_las = save_project_las_file(
-                    las_bytes,
-                    root=LAS_CORRELATION_PROJECTS_ROOT,
+                saved_las = _las_manager_service().save_file(
                     project_id=active_project.id,
+                    data=las_bytes,
                     file_name=f"{well_name.strip()}_{version_label.strip() or 'prepared'}.las",
                     well_name=well_name,
                     version_label=version_label.strip() or "Подготовленный LAS",
@@ -6479,7 +6484,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
                             for entry in audit_entries
                         ],
                     },
-                )
+                ).record
             except Exception:
                 logger.exception("project_las_prepared_save_failed project_id=%s", safe_log_value(active_project.id))
                 st.error("Не удалось сохранить подготовленный LAS в проект. Подробности записаны в logs/app.log.")
@@ -7831,7 +7836,7 @@ def _sidebar_recent_project_items(project: ProjectRecord, limit: int = 5) -> tup
         name = getattr(export, "file_name", "") or getattr(export, "name", "") or "экспорт"
         timestamp = getattr(export, "created_at", "") or getattr(export, "updated_at", "") or ""
         items.append({"kind": "Экспорт", "label": str(name), "time": str(timestamp)})
-    for las_file in list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, project.id):
+    for las_file in _las_manager_service().list_files(project.id):
         name = getattr(las_file, "file_name", "") or getattr(las_file, "name", "") or getattr(las_file, "id", "LAS")
         timestamp = getattr(las_file, "created_at", "") or getattr(las_file, "updated_at", "") or ""
         items.append({"kind": "LAS", "label": str(name), "time": str(timestamp)})
@@ -8803,8 +8808,7 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
             st.dataframe(build_project_uuid_registry_table(uuid_entries), use_container_width=True, height=260)
 
 def _project_workspace_summary_rows(project: ProjectRecord) -> tuple[tuple[str, str], ...]:
-    all_well_cards = list_project_las_wells(
-        LAS_CORRELATION_PROJECTS_ROOT,
+    all_well_cards = _las_manager_service().list_wells(
         project.id,
         include_archived=True,
     )
@@ -8831,7 +8835,7 @@ def _project_workspace_summary_table(project: ProjectRecord) -> pd.DataFrame:
 def _project_las_records_to_raw_sheets(project: ProjectRecord, records: tuple[ProjectLasFile, ...]) -> dict[str, pd.DataFrame]:
     sheets: dict[str, pd.DataFrame] = {}
     for record in records:
-        dataframe = read_project_las_file_dataframe(LAS_CORRELATION_PROJECTS_ROOT, project.id, record.id)
+        dataframe = _las_manager_service().read_dataframe(project.id, record.id)
         sheet_name = f"{record.name} / {record.version_label}"
         if sheet_name in sheets:
             sheet_name = f"{sheet_name} / {record.id}"
@@ -8850,11 +8854,7 @@ def _render_project_las_zip_download(
         return
 
     try:
-        zip_bytes = export_project_las_files_zip(
-            LAS_CORRELATION_PROJECTS_ROOT,
-            project.id,
-            selected_ids,
-        )
+        zip_bytes = _las_manager_service().export_zip(project.id, selected_ids).data
     except Exception:
         logger.exception("project_las_export_failed project_id=%s", safe_log_value(project.id))
         st.error("Не удалось подготовить выгрузку проектных LAS. Подробности записаны в logs/app.log.")
@@ -8871,7 +8871,7 @@ def _render_project_las_zip_download(
 
 
 def _render_project_workspace_loader(project: ProjectRecord, logger) -> None:
-    active_well_cards = list_project_las_wells(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+    active_well_cards = _las_manager_service().list_wells(project.id)
     active_records = tuple(version for card in active_well_cards for version in card.versions)
 
     with st.expander("Данные активного проекта", expanded=bool(active_records)):
@@ -9628,9 +9628,9 @@ def _render_project_las_files_panel(
     uploaded_files: tuple[object, ...],
     logger,
 ) -> tuple[object, ...]:
-    active_well_cards = list_project_las_wells(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+    active_well_cards = _las_manager_service().list_wells(project.id)
     active_records = tuple(version for card in active_well_cards for version in card.versions)
-    all_records = list_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, project.id, include_archived=True)
+    all_records = _las_manager_service().list_files(project.id, include_archived=True)
     archived_records = tuple(record for record in all_records if record.archived_at)
     selected_records: tuple[ProjectLasFile, ...] = ()
 
@@ -9642,10 +9642,9 @@ def _render_project_las_files_panel(
                     saved_count = 0
                     for uploaded_file in uploaded_files:
                         original_name = Path(str(getattr(uploaded_file, "name", "source.las"))).name
-                        save_project_las_file(
-                            data=bytes(uploaded_file.getvalue()),
-                            root=LAS_CORRELATION_PROJECTS_ROOT,
+                        _las_manager_service().save_file(
                             project_id=project.id,
+                            data=bytes(uploaded_file.getvalue()),
                             file_name=original_name,
                             well_name=Path(original_name).stem,
                             version_label="Загруженный LAS",
@@ -9673,8 +9672,7 @@ def _render_project_las_files_panel(
                 value=False,
                 key=f"project_las_show_archived_{project.id}",
             )
-        display_well_cards = list_project_las_wells(
-            LAS_CORRELATION_PROJECTS_ROOT,
+        display_well_cards = _las_manager_service().list_wells(
             project.id,
             include_archived=show_archived,
         )
@@ -9691,12 +9689,7 @@ def _render_project_las_files_panel(
             )
             if archive_button_col.button("В архив", use_container_width=True, key=f"project_las_archive_button_{project.id}"):
                 try:
-                    set_project_las_file_archived(
-                        LAS_CORRELATION_PROJECTS_ROOT,
-                        project.id,
-                        archive_id,
-                        archived=True,
-                    )
+                    _las_manager_service().archive_file(project.id, archive_id)
                     logger.info(
                         "project_las_file_archived project_id=%s las_file_id=%s",
                         safe_log_value(project.id),
@@ -9720,11 +9713,8 @@ def _render_project_las_files_panel(
             )
             if delete_button_col.button("Удалить с диска", use_container_width=True, key=f"project_las_delete_button_{project.id}"):
                 try:
-                    deleted = delete_project_las_file(
-                        LAS_CORRELATION_PROJECTS_ROOT,
-                        project.id,
-                        delete_id,
-                    )
+                    delete_result = _las_manager_service().delete_file(project.id, delete_id)
+                    deleted = delete_result.deleted
                     _clear_las_working_state()
                     st.session_state.pop(f"project_las_files_{project.id}", None)
                     logger.info(
@@ -9753,12 +9743,7 @@ def _render_project_las_files_panel(
             )
             if restore_button_col.button("Вернуть", use_container_width=True, key=f"project_las_restore_button_{project.id}"):
                 try:
-                    set_project_las_file_archived(
-                        LAS_CORRELATION_PROJECTS_ROOT,
-                        project.id,
-                        restore_id,
-                        archived=False,
-                    )
+                    _las_manager_service().restore_file(project.id, restore_id)
                     logger.info(
                         "project_las_file_restored project_id=%s las_file_id=%s",
                         safe_log_value(project.id),
@@ -9791,7 +9776,7 @@ def _render_project_las_files_panel(
     sources: list[object] = []
     for record in selected_records:
         try:
-            data = read_project_las_file_bytes(LAS_CORRELATION_PROJECTS_ROOT, project.id, record.id)
+            data = _las_manager_service().read_file_bytes(project.id, record.id)
             sources.append(_NamedLasBytesIO(data, f"{record.name}_{record.version_label}.las"))
         except Exception:
             logger.exception(

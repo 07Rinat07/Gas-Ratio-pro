@@ -271,3 +271,102 @@ pytest -q tests/test_well_manager_service.py tests/test_export_manager_service.p
 1. `LasManagerService` — управление LAS-файлами активного проекта;
 2. `WorkspaceDataService` — единые операции очистки таблиц, архивов и временного состояния;
 3. дальнейшее уменьшение прямых вызовов репозиториев из `streamlit_app.py`.
+
+---
+
+## Продолжение Sprint 1 — LAS Manager Service Layer
+
+### 13. Service Layer для LAS-файлов активного проекта
+
+Добавлен модуль:
+
+```text
+services/las_manager_service.py
+```
+
+Сервис стал единым уровнем для операций с LAS-версиями проекта:
+
+```text
+UI
+  ↓
+LasManagerService
+  ↓
+projects.las_files
+  ↓
+data/projects/<project_id>/wells
+```
+
+### 14. Централизованные операции LAS
+
+`LasManagerService` отвечает за:
+
+- получение списка LAS-файлов проекта;
+- получение карточек скважин и версий LAS;
+- подсчет LAS-файлов для Dashboard;
+- сохранение загруженного LAS в активный проект;
+- сохранение подготовленного LAS из LAS Editor;
+- архивирование LAS-версии;
+- восстановление LAS-версии из архива;
+- физическое удаление LAS-версии с диска;
+- чтение LAS как bytes;
+- чтение LAS как DataFrame;
+- экспорт выбранных LAS-версий в ZIP.
+
+### 15. Интеграция в реальный UI
+
+Обновлен существующий файл:
+
+```text
+app/streamlit_app.py
+```
+
+Точки интеграции:
+
+- `_dashboard_project_statistics()`;
+- `_dashboard_news_items()`;
+- `_render_project_las_zip_download()`;
+- `_render_project_workspace_loader()`;
+- `_project_las_records_to_raw_sheets()`;
+- `_render_project_las_files_panel()`;
+- блок сохранения подготовленного LAS в LAS Editor.
+
+Панель `LAS-файлы проекта` теперь вызывает `LasManagerService`, а не работает напрямую с функциями `projects.las_files`.
+
+### 16. Тесты сервисного слоя LAS
+
+Добавлены тесты:
+
+```text
+tests/test_las_manager_service.py
+```
+
+Проверяют:
+
+- сохранение LAS в проект через сервис;
+- чтение LAS как bytes;
+- чтение LAS как DataFrame;
+- архивирование;
+- восстановление;
+- ZIP-экспорт;
+- физическое удаление LAS-папки;
+- корректный результат при удалении отсутствующей LAS-версии.
+
+## Обновленная проверка
+
+```text
+12 passed
+```
+
+Команда:
+
+```bash
+pytest -q tests/test_las_manager_service.py tests/test_well_manager_service.py tests/test_export_manager_service.py tests/test_project_manager_service.py
+```
+
+## Следующий шаг
+
+Продолжить Sprint 1:
+
+1. `WorkspaceDataService` — единые операции очистки таблиц, архивов и временного состояния;
+2. дальнейшее уменьшение прямых вызовов репозиториев из `streamlit_app.py`;
+3. подготовка к выносу UI Project Manager из `streamlit_app.py` в отдельный workspace-модуль.
