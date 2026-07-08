@@ -1,27 +1,96 @@
 # Sprint 1 — Project Manager & Repository Framework
 
-## Status
+## Цель
 
-Started.
+Стабилизировать управление проектами и убрать прямую работу UI с низкоуровневыми операциями удаления/очистки.
 
-## Implemented in this iteration
+## Выполнено
 
-- Recent Projects history is separated from physical project storage.
-- Recent Projects now supports clearing only the history without deleting projects.
-- Recent Projects supports removing a single history entry.
-- Recent Projects supports pin/favorite flags.
-- Project exports now support deleting a selected export from both manifest and disk.
-- Project exports now support clearing all exports from both manifest and disk.
-- Dashboard receives a real Streamlit control panel for Recent Projects instead of a read-only HTML-only list.
-- Saved project exports panel receives a real management toolbar.
+### 1. Service Layer для Project Manager
 
-## Architecture rule
+Добавлен модуль:
 
-UI must not treat a read-only list as a storage manager. Every persistent list must have explicit actions and must call repository functions for physical changes.
+```text
+services/project_manager_service.py
+```
 
-## Next items
+Сервис стал промежуточным уровнем между Streamlit UI и репозиториями:
 
-- Project Manager full-screen workspace.
-- Project rename/clone/archive/import/export flow.
-- Unified table toolbar component.
-- Central physical cleanup engine for projects, wells, LAS, reports, exports and cache.
+```text
+UI
+  ↓
+ProjectManagerService
+  ↓
+projects.repository / projects.recent_projects / projects.exports
+  ↓
+data/projects
+```
+
+### 2. Централизованные операции проекта
+
+`ProjectManagerService` теперь отвечает за:
+
+- создание проекта;
+- добавление проекта в историю последних проектов;
+- очистку истории последних проектов;
+- удаление записи из истории без удаления проекта;
+- удаление проекта с диска;
+- очистку экспортов проекта перед удалением;
+- защиту основного проекта от удаления.
+
+### 3. Интеграция в реальный UI
+
+Обновлен существующий файл:
+
+```text
+app/streamlit_app.py
+```
+
+Точки интеграции:
+
+- `_load_project_records_for_ui()`;
+- `_render_project_selector()`;
+- `_render_recent_projects_manager()`.
+
+Эти функции теперь используют `ProjectManagerService`, а не вызывают низкоуровневое удаление напрямую.
+
+### 4. Тесты
+
+Добавлены тесты:
+
+```text
+tests/test_project_manager_service.py
+```
+
+Проверяют:
+
+- создание проекта через сервис;
+- добавление проекта в историю;
+- удаление записи из истории без удаления проекта;
+- полное удаление проекта вместе с экспортами;
+- запрет удаления основного проекта.
+
+## Проверка
+
+```text
+9 passed
+```
+
+Команда:
+
+```bash
+pytest -q tests/test_project_manager_service.py tests/test_recent_projects_manager.py tests/test_project_exports_delete.py
+```
+
+## Архитектурное решение
+
+Начиная с этого этапа UI не должен напрямую выполнять операции удаления проекта, истории и экспортов. Все такие операции должны проходить через сервисный слой.
+
+## Следующий шаг
+
+Продолжить вынос операций из `streamlit_app.py` в сервисы:
+
+1. `WellManagerService`;
+2. `LasManagerService`;
+3. `ExportManagerService`;
+4. единый `WorkspaceDataService` для таблиц и архивов.

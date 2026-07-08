@@ -202,6 +202,7 @@ from projects.recent_projects import (
     set_recent_project_flags,
     touch_recent_project,
 )
+from services.project_manager_service import ProjectManagerService
 from projects import calculations as project_calculations
 from projects import exports as project_exports
 from projects import graph_settings as project_graph_settings
@@ -4738,9 +4739,15 @@ def _dashboard_recent_projects(projects: tuple[ProjectRecord, ...], limit: int =
     return tuple(recent_records[:limit])
 
 
+def _project_manager_service() -> ProjectManagerService:
+    """Return the application-level project manager service for UI workflows."""
+    return ProjectManagerService(LAS_CORRELATION_PROJECTS_ROOT, DEFAULT_PROJECT_ID)
+
+
 def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_project: ProjectRecord, logger) -> None:
     """Render real Streamlit controls for the dashboard Recent Projects list."""
-    entries = list_recent_projects(LAS_CORRELATION_PROJECTS_ROOT, include_missing=True)
+    service = _project_manager_service()
+    entries = service.list_recent(include_missing=True)
     with st.expander("Управление последними проектами", expanded=False):
         if entries:
             st.dataframe(pd.DataFrame(recent_projects_table_rows(entries)), use_container_width=True, height=220)
@@ -4748,7 +4755,7 @@ def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_
             st.caption("История последних проектов пуста.")
 
         if st.button("Очистить историю последних проектов", use_container_width=True, key="recent_projects_clear_history"):
-            removed = clear_recent_projects(LAS_CORRELATION_PROJECTS_ROOT)
+            removed = service.clear_recent_history()
             logger.info("recent_projects_history_cleared removed=%d", removed)
             st.success(f"История очищена. Удалено записей: {removed}.")
             st.rerun()
@@ -4774,7 +4781,7 @@ def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_
                     st.rerun()
         with col_remove:
             if st.button("Удалить запись", use_container_width=True, key="recent_project_remove_entry"):
-                remove_recent_project(LAS_CORRELATION_PROJECTS_ROOT, selected_id)
+                service.remove_recent_entry(selected_id)
                 logger.info("recent_project_entry_removed project_id=%s", safe_log_value(selected_id))
                 st.success("Запись удалена из истории. Сам проект не удален.")
                 st.rerun()
@@ -4782,8 +4789,7 @@ def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_
             disabled = selected_id == DEFAULT_PROJECT_ID
             if st.button("Удалить проект с диска", use_container_width=True, disabled=disabled, key="recent_project_delete_disk"):
                 try:
-                    delete_project(LAS_CORRELATION_PROJECTS_ROOT, selected_id)
-                    remove_recent_project(LAS_CORRELATION_PROJECTS_ROOT, selected_id)
+                    result = service.delete_project_complete(selected_id)
                     if st.session_state.get(ACTIVE_PROJECT_ID_KEY) == selected_id:
                         st.session_state[ACTIVE_PROJECT_ID_KEY] = DEFAULT_PROJECT_ID
                     _clear_las_working_state()
@@ -4798,11 +4804,11 @@ def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_
         selected_entry = entries_by_id[selected_id]
         with flags_col_1:
             if st.button("Закрепить/открепить", use_container_width=True, key="recent_project_toggle_pin"):
-                set_recent_project_flags(LAS_CORRELATION_PROJECTS_ROOT, selected_id, pinned=not selected_entry.pinned)
+                service.set_recent_flags(selected_id, pinned=not selected_entry.pinned)
                 st.rerun()
         with flags_col_2:
             if st.button("Избранное вкл/выкл", use_container_width=True, key="recent_project_toggle_favorite"):
-                set_recent_project_flags(LAS_CORRELATION_PROJECTS_ROOT, selected_id, favorite=not selected_entry.favorite)
+                service.set_recent_flags(selected_id, favorite=not selected_entry.favorite)
                 st.rerun()
 
 
@@ -7719,9 +7725,7 @@ def _project_option_label(project: ProjectRecord) -> str:
 
 def _load_project_records_for_ui(logger) -> tuple[ProjectRecord, ...]:
     try:
-        default_project = ensure_default_project(LAS_CORRELATION_PROJECTS_ROOT)
-        projects = list_projects(LAS_CORRELATION_PROJECTS_ROOT)
-        return projects or (default_project,)
+        return _project_manager_service().list_projects()
     except Exception:
         logger.exception("project_records_load_failed")
         st.warning("Не удалось загрузить список проектов. Используется основной проект.")
@@ -7754,7 +7758,7 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
             _clear_las_working_state()
         active_project = projects_by_id[selected_project_id]
         try:
-            touch_recent_project(LAS_CORRELATION_PROJECTS_ROOT, active_project)
+            _project_manager_service().touch_recent(active_project)
         except Exception:
             logger.exception("recent_project_touch_failed project_id=%s", safe_log_value(active_project.id))
         st.caption(f"Папка проекта: data/projects/{active_project.id}/")
@@ -7762,8 +7766,7 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
         if active_project.id != DEFAULT_PROJECT_ID:
             if st.button("Удалить активный проект с диска", use_container_width=True, key=f"{key_prefix}_delete_active_project"):
                 try:
-                    delete_project(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)
-                    remove_recent_project(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)
+                    result = _project_manager_service().delete_project_complete(active_project.id)
                     st.session_state[ACTIVE_PROJECT_ID_KEY] = DEFAULT_PROJECT_ID
                     _clear_las_working_state()
                 except Exception:
@@ -7782,12 +7785,11 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
                     st.warning("Введите название проекта.")
                 else:
                     try:
-                        project = create_project(
-                            root=LAS_CORRELATION_PROJECTS_ROOT,
+                        result = _project_manager_service().create_project(
                             name=new_project_name,
                             description=new_project_description,
                         )
-                        touch_recent_project(LAS_CORRELATION_PROJECTS_ROOT, project)
+                        project = result.project
                         st.session_state[ACTIVE_PROJECT_ID_KEY] = project.id
                         logger.info("project_created id=%s", safe_log_value(project.id))
                         st.success("Проект создан.")
