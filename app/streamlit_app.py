@@ -9199,6 +9199,72 @@ def _workspace_manager_items_table(items: tuple[WorkspaceManagerItem, ...]) -> p
     )
 
 
+def _workspace_dashboard_cards_html(items: tuple[WorkspaceManagerItem, ...]) -> str:
+    """Build compact Workspace Dashboard cards for Project Workspace UI.
+
+    The cards are pure HTML generated from manager DTOs. They intentionally do
+    not read or write Streamlit session state, so the UI keeps using the
+    WorkspaceController boundary for all stateful operations.
+    """
+
+    if not items:
+        return (
+            "<div class='workspace-dashboard-cards' data-workspace-dashboard-cards='empty'>"
+            "<div class='workspace-dashboard-card workspace-dashboard-card-empty'>"
+            "<b>Workspace Framework</b>"
+            "<span>Создайте первый workspace, чтобы начать Sprint 2 workflow.</span>"
+            "</div></div>"
+        )
+
+    cards = []
+    for item in items[:6]:
+        active_badge = "<em>active</em>" if item.is_active else "<em>ready</em>"
+        cards.append(
+            "<div class='workspace-dashboard-card' data-workspace-card-id='{}'>"
+            "<b>{}</b>"
+            "<span>{} · {} настроек</span>"
+            "<small>{}</small>"
+            "{}"
+            "</div>".format(
+                _html_escape(item.id),
+                _html_escape(item.name),
+                _html_escape(item.kind),
+                item.settings_count,
+                _html_escape(item.description or "Без описания"),
+                active_badge,
+            )
+        )
+    return "<div class='workspace-dashboard-cards' data-workspace-dashboard-cards='ready'>" + "".join(cards) + "</div>"
+
+
+def _workspace_project_explorer_shortcuts_html(items: tuple[WorkspaceManagerItem, ...]) -> str:
+    """Build read-only Project Explorer shortcuts for available workspaces."""
+
+    if not items:
+        return (
+            "<div class='workspace-explorer-shortcuts' data-workspace-explorer-shortcuts='empty'>"
+            "<span>Workspace shortcuts появятся после создания рабочего пространства.</span>"
+            "</div>"
+        )
+
+    shortcut_rows = []
+    for item in items[:8]:
+        marker = "●" if item.is_active else "○"
+        shortcut_rows.append(
+            "<div class='workspace-explorer-shortcut' data-workspace-shortcut-id='{}'>"
+            "<strong>{} {}</strong>"
+            "<span>{} · обновлено {}</span>"
+            "</div>".format(
+                _html_escape(item.id),
+                marker,
+                _html_escape(item.name),
+                _html_escape(item.kind),
+                _html_escape(item.updated_at),
+            )
+        )
+    return "<div class='workspace-explorer-shortcuts' data-workspace-explorer-shortcuts='ready'>" + "".join(shortcut_rows) + "</div>"
+
+
 def _render_project_workspace_controller_panel(project: ProjectRecord, logger) -> None:
     """Render Workspace Framework controls through WorkspaceController only."""
 
@@ -9212,6 +9278,8 @@ def _render_project_workspace_controller_panel(project: ProjectRecord, logger) -
 
     with st.expander("Workspace Framework", expanded=not bool(items)):
         st.caption("Управление workspace выполняется через UI → Controller → Manager → Service → Repository → Storage.")
+        st.markdown(_workspace_dashboard_cards_html(items), unsafe_allow_html=True)
+        st.markdown(_workspace_project_explorer_shortcuts_html(items), unsafe_allow_html=True)
         if items:
             st.dataframe(_workspace_manager_items_table(items), width="stretch", hide_index=True, height=210)
         else:
