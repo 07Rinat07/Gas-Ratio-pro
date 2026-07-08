@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -76,6 +77,17 @@ class ProjectBackupRecord:
     created_at: str
     size_bytes: int
     description: str = ""
+
+
+@dataclass(frozen=True)
+class ProjectRestoreResult:
+    """Result of a project restore operation from a managed backup archive."""
+
+    project_id: str
+    backup_id: str
+    restored_path: str
+    overwritten_existing: bool
+    files_restored: int
 
 
 def _history_from_dict(raw: dict[str, Any]) -> ProjectHistoryEntry:
@@ -332,6 +344,92 @@ def list_project_backups(root: Path | str, project_id: str | None = None) -> tup
         records.append(ProjectBackupRecord(stem, detected_project_id, path.name, created_at, path.stat().st_size))
     return tuple(sorted(records, key=lambda item: item.created_at, reverse=True))
 
+
+
+def _find_project_backup_path(root: Path | str, backup_id: str) -> Path:
+    backups_dir = Path(root) / PROJECT_BACKUPS_DIR_NAME
+    clean_backup_id = safe_project_id(backup_id).strip()
+    path = backups_dir / f"{clean_backup_id}.zip"
+    if not path.exists():
+        raise FileNotFoundError(f"Project backup not found: {backup_id}")
+    return path
+
+
+def _safe_extract_zip(archive_path: Path, target_dir: Path) -> int:
+    """Extract a ZIP archive while rejecting path traversal entries."""
+    target_root = target_dir.resolve()
+    files_restored = 0
+    with zipfile.ZipFile(archive_path, "r") as archive:
+        for member in archive.infolist():
+            member_target = (target_dir / member.filename).resolve()
+            if target_root != member_target and target_root not in member_target.parents:
+                raise ValueError(f"Unsafe backup entry: {member.filename}")
+            if member.is_dir():
+                member_target.mkdir(parents=True, exist_ok=True)
+                continue
+            member_target.parent.mkdir(parents=True, exist_ok=True)
+            with archive.open(member, "r") as source, member_target.open("wb") as destination:
+                shutil.copyfileobj(source, destination)
+            files_restored += 1
+    return files_restored
+
+
+def restore_project_backup(
+    root: Path | str,
+    backup_id: str,
+    *,
+    target_project_id: str | None = None,
+    overwrite: bool = False,
+) -> ProjectRestoreResult:
+    """Restore a project directory from a managed backup ZIP archive.
+
+    The function restores only archives created by Project Manager 2.0 and
+    validates every ZIP member before extraction. Existing projects are not
+    overwritten unless ``overwrite=True`` is passed by a service/controller.
+    """
+    root_path = Path(root)
+    archive_path = _find_project_backup_path(root_path, backup_id)
+    backup_records = [record for record in list_project_backups(root_path) if record.id == archive_path.stem]
+    detected_project_id = backup_records[0].project_id if backup_records else archive_path.stem.split("-", 1)[-1]
+    clean_project_id = safe_project_id(target_project_id or detected_project_id)
+    target_dir = _project_dir(root_path, clean_project_id)
+    overwritten_existing = target_dir.exists()
+    if overwritten_existing and not overwrite:
+        raise FileExistsError(f"Project already exists: {clean_project_id}")
+
+    tmp_dir = root_path / f".restore-{clean_project_id}"
+    if tmp_dir.exists():
+        shutil.rmtree(tmp_dir)
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        files_restored = _safe_extract_zip(archive_path, tmp_dir)
+        project_file = tmp_dir / PROJECT_FILE_NAME
+        if not project_file.exists():
+            raise ValueError("Backup does not contain project.json")
+
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
+        shutil.move(str(tmp_dir), str(target_dir))
+    finally:
+        if tmp_dir.exists():
+            shutil.rmtree(tmp_dir)
+
+    append_project_history(
+        root_path,
+        clean_project_id,
+        "backup-restored",
+        f"Project restored from backup: {archive_path.name}",
+        object_type="backup",
+        object_id=archive_path.stem,
+    )
+    return ProjectRestoreResult(
+        project_id=clean_project_id,
+        backup_id=archive_path.stem,
+        restored_path=str(target_dir),
+        overwritten_existing=overwritten_existing,
+        files_restored=files_restored,
+    )
 
 def archive_project(root: Path | str, project_id: str, description: str = "") -> ProjectBackupRecord:
     """Create a backup and mark the project as archived through history metadata."""

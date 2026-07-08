@@ -11,6 +11,12 @@ from projects.recent_projects import (
     set_recent_project_flags,
     touch_recent_project,
 )
+from projects.project_manager import (
+    ProjectRestoreResult,
+    create_project_backup,
+    restore_project_backup,
+    save_project_recovery_state,
+)
 from projects.repository import (
     DEFAULT_PROJECT_ID,
     DEFAULT_PROJECTS_ROOT,
@@ -30,6 +36,16 @@ class ProjectCreateResult:
 
     project: ProjectRecord
     touched_recent_history: bool
+
+
+@dataclass(frozen=True)
+class ProjectBackupResult:
+    """Result of a project backup workflow."""
+
+    project_id: str
+    backup_id: str
+    file_name: str
+    size_bytes: int
 
 
 @dataclass(frozen=True)
@@ -108,6 +124,40 @@ class ProjectManagerService:
 
     def set_recent_flags(self, project_id: str, *, pinned: bool | None = None, favorite: bool | None = None):
         return set_recent_project_flags(self.root, safe_project_id(project_id), pinned=pinned, favorite=favorite)
+
+    def create_backup(self, project_id: str, description: str = "") -> ProjectBackupResult:
+        """Create a managed Project Manager 2.0 backup for a project."""
+        clean_project_id = safe_project_id(project_id)
+        record = create_project_backup(self.root, clean_project_id, description)
+        return ProjectBackupResult(
+            project_id=record.project_id,
+            backup_id=record.id,
+            file_name=record.file_name,
+            size_bytes=record.size_bytes,
+        )
+
+    def restore_backup(self, backup_id: str, *, target_project_id: str | None = None, overwrite: bool = False) -> ProjectRestoreResult:
+        """Restore a managed backup through the service boundary."""
+        result = restore_project_backup(
+            self.root,
+            backup_id,
+            target_project_id=target_project_id,
+            overwrite=overwrite,
+        )
+        self.ensure_default()
+        restored = self.load_project(result.project_id)
+        self.touch_recent(restored)
+        return result
+
+    def save_recovery_checkpoint(self, project_id: str, active_step: str, message: str, payload: dict | None = None):
+        """Save a metadata-only recovery checkpoint through the service layer."""
+        return save_project_recovery_state(
+            self.root,
+            safe_project_id(project_id),
+            active_step,
+            message,
+            payload or {},
+        )
 
     def delete_project_complete(self, project_id: str) -> ProjectDeleteResult:
         """Delete a project and all managed project-scoped records.

@@ -1484,3 +1484,9 @@ Primary documents:
 - [x] Add application branding assets.
 
 Branding Assets include the navbar logo, dashboard background, documentation hero and application identity markers.
+
+### Реализовано: Project Manager 2.0 → Backup Restore Foundation
+
+Project Manager 2.0 расширен восстановлением проекта из управляемой ZIP-копии. Восстановление проходит через сервисный слой, проверяет безопасные пути внутри архива, запрещает перезапись существующего проекта без явного `overwrite=True`, восстанавливает каталог проекта и записывает событие `backup-restored` в историю проекта. Это закрывает базовый цикл backup → delete/failure → restore без прямого обращения UI к файловой системе.
+
+Текущий следующий незавершенный пункт: **Project Manager 2.0 — управление импортом/экспортом проекта и автосохранение рабочих каталогов**.

@@ -589,3 +589,11 @@ git status --short
 - Added implementation plan after Roadmap v4.0.
 - Marked triangular diagram as requiring repair/redesign.
 - Deferred project packaging until core workflows and UI are corrected.
+
+## Project Manager 2.0 backup restore foundation
+
+- Added managed project backup restore from Project Manager 2.0 ZIP archives.
+- Added safe ZIP extraction with path traversal protection.
+- Added overwrite protection for existing project directories.
+- Added service-layer backup, restore and recovery checkpoint methods.
+- Added tests for restore workflow, overwrite protection and service integration.

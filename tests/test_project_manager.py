@@ -76,3 +76,43 @@ def test_project_backups_and_archive_create_zip_records(tmp_path: Path):
     assert len(backups) == 2
     assert status["backups"] == 2
     assert build_project_backups_table(backups)[0]["Архив"].endswith(".zip")
+
+
+def test_project_backup_restore_recreates_project_directory(tmp_path: Path):
+    project = create_project(tmp_path, name="Restore Demo")
+    project_dir = tmp_path / project.id
+    (project_dir / "notes.txt").write_text("original", encoding="utf-8")
+
+    backup = create_project_backup(tmp_path, project.id, "Before failure")
+    assert backup.id
+
+    import shutil
+    from projects import restore_project_backup
+
+    shutil.rmtree(project_dir)
+    result = restore_project_backup(tmp_path, backup.id)
+
+    assert result.project_id == project.id
+    assert result.backup_id == backup.id
+    assert result.files_restored >= 2
+    assert (project_dir / "project.json").exists()
+    assert (project_dir / "notes.txt").read_text(encoding="utf-8") == "original"
+    assert list_project_history(tmp_path, project.id)[0].action == "backup-restored"
+
+
+def test_project_backup_restore_protects_existing_project_without_overwrite(tmp_path: Path):
+    project = create_project(tmp_path, name="Protected Restore")
+    backup = create_project_backup(tmp_path, project.id, "Protected backup")
+
+    from projects import restore_project_backup
+
+    try:
+        restore_project_backup(tmp_path, backup.id)
+    except FileExistsError as exc:
+        assert project.id in str(exc)
+    else:
+        raise AssertionError("Existing project restore must require overwrite=True")
+
+    result = restore_project_backup(tmp_path, backup.id, overwrite=True)
+    assert result.overwritten_existing is True
+    assert (tmp_path / project.id / "project.json").exists()

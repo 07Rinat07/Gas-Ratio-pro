@@ -63,3 +63,28 @@ def test_project_manager_service_protects_default_project(tmp_path):
         raise AssertionError("Default project deletion must be rejected")
 
     assert (tmp_path / DEFAULT_PROJECT_ID / "project.json").exists()
+
+
+def test_project_manager_service_creates_and_restores_backup(tmp_path):
+    service = ProjectManagerService(tmp_path)
+    project = service.create_project("Service Backup").project
+    (tmp_path / project.id / "service-note.txt").write_text("backup payload", encoding="utf-8")
+
+    backup = service.create_backup(project.id, "Service backup")
+    service.delete_project_complete(project.id)
+    restored = service.restore_backup(backup.backup_id)
+
+    assert restored.project_id == project.id
+    assert (tmp_path / project.id / "service-note.txt").read_text(encoding="utf-8") == "backup payload"
+    assert project.id in [entry.project_id for entry in list_recent_projects(tmp_path, include_missing=True)]
+
+
+def test_project_manager_service_saves_recovery_checkpoint(tmp_path):
+    service = ProjectManagerService(tmp_path)
+    project = service.create_project("Checkpoint Service").project
+
+    checkpoint = service.save_recovery_checkpoint(project.id, "import", "Import checkpoint", {"step": 2})
+
+    assert checkpoint.project_id == project.id
+    assert checkpoint.active_step == "import"
+    assert checkpoint.payload == {"step": 2}
