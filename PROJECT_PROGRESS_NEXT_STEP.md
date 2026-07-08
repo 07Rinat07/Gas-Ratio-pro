@@ -1,19 +1,19 @@
 # GAS RATIO PRO — Project Progress
 
-Current version: `application-state-final-audit`
+Current version: `architecture-review-lts-freeze-checklist`
 
 ## Completed in this step
 
-- Added a final source-level audit for Streamlit session-state access.
-- Allowed direct `st.session_state` access only inside the `_application_state_controller()` factory boundary.
-- Integrated the new ApplicationStateController boundary audit into the Streamlit integration audit.
-- Added regression tests proving that UI state access now goes through `ApplicationStateController`.
+- Added Architecture Review documentation for the post-Sprint 1.5 gate.
+- Added Core LTS Freeze checklist before Sprint 2.
+- Documented runtime, service, repository, storage lifecycle, application state, documentation and validation gates.
+- Added regression tests proving that the freeze checklist exists and preserves the required core layer rules.
 
 ## Validation
 
 - `compileall`: PASS
-- `pytest`: 945 passed / 0 failed
+- `pytest`: PASS
 
 ## Next recommended step
 
-Prepare Architecture Review documentation and Core LTS Freeze checklist before starting Sprint 2 Workspace Framework.
+Run final Architecture Review, accept Core LTS Freeze, then start Sprint 2 Workspace Framework.

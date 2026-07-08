@@ -603,3 +603,10 @@ git status --short
 - Added generic application-owned session value helpers to `ApplicationStateController`.
 - Routed interpretation dataset storage through the application-state controller.
 - Added regression tests preventing direct `st.session_state` writes in the interpretation storage helper.
+
+## Architecture Review LTS Freeze Checklist
+
+- Added Architecture Review documentation for the post-Sprint 1.5 gate.
+- Added Core LTS Freeze checklist before Sprint 2 Workspace Framework.
+- Added regression tests for required freeze-gate sections and core architecture rules.
+
