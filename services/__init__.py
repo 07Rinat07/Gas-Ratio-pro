@@ -19,6 +19,7 @@ __all__ = [
     "WellManagerService",
     "WellSaveResult",
     "WellVersionDeleteResult",
+    "WorkspaceService",
 ]
 from services.las_manager_service import LasManagerService
 from services.dataset_manager_service import DatasetManagerService
