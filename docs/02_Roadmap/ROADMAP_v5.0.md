@@ -368,3 +368,10 @@ Current stabilization focus:
 - подготовка к Integration & Stabilization.
 
 Нарушение этих проверок блокирует начало Sprint 2.
+
+### Sprint 1.5 — UI Repository Boundary Cleanup
+
+- Direct well repository import from `app/streamlit_app.py` removed.
+- Well storage root is now exposed through `WellManagerService` service boundary.
+- Integration audit has no direct repository import warnings; remaining warnings are ApplicationState migration debt.
+

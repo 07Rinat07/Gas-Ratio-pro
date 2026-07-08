@@ -250,7 +250,7 @@ from projects.recent_projects import (
 )
 from services.project_manager_service import ProjectManagerService
 from services.export_manager_service import ExportManagerService
-from services.well_manager_service import WellManagerService
+from services.well_manager_service import DEFAULT_WELLS_STORAGE_ROOT, WellManagerService
 from services.las_manager_service import LasManagerService
 from services.dataset_manager_service import DatasetManagerService, StorageDeleteError
 from core.storage_lifecycle import IndexManager
@@ -279,7 +279,6 @@ from reports.export_static import (
     StaticExportUnavailableError,
     export_plotly_static_bytes,
 )
-from wells.repository import DEFAULT_WELLS_ROOT
 
 project_calculations = importlib.reload(project_calculations)
 project_exports = importlib.reload(project_exports)
@@ -360,7 +359,7 @@ get_project_well_card = project_well_cards.get_project_well_card
 save_project_well_card = project_well_cards.save_project_well_card
 
 SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xlsm", ".las"}
-WELLS_STORAGE_ROOT = ROOT_DIR / DEFAULT_WELLS_ROOT
+WELLS_STORAGE_ROOT = ROOT_DIR / DEFAULT_WELLS_STORAGE_ROOT
 LAS_CORRELATION_PROJECTS_ROOT = ROOT_DIR / DEFAULT_PROJECTS_ROOT
 APP_LAUNCH_COMMAND = "python -m streamlit run app/streamlit_app.py"
 APP_LAUNCH_SCRIPT = ".\\run_app.ps1"

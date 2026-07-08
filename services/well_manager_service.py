@@ -17,6 +17,10 @@ from wells.repository import (
     save_well_version,
 )
 
+# Public service-layer storage constant for UI code.
+# Streamlit shell must not import low-level well repository just to locate storage.
+DEFAULT_WELLS_STORAGE_ROOT = DEFAULT_WELLS_ROOT
+
 
 @dataclass(frozen=True)
 class WellSaveResult:
