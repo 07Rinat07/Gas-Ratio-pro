@@ -82,40 +82,6 @@ def _las_file_dir(root: Path | str, project_id: str, las_file_id: str) -> Path:
     return _project_wells_dir(root, project_id) / _safe_las_file_id(las_file_id)
 
 
-def project_las_file_dir(root: Path | str, project_id: str, las_file_id: str) -> Path:
-    """Return the storage directory for one project LAS version.
-
-    This public helper is used by the service layer so destructive operations can
-    go through Storage Lifecycle ``DeleteEngine`` instead of duplicating path
-    rules or calling repository-level raw deletes.
-    """
-
-    return _las_file_dir(root, project_id, las_file_id)
-
-
-def project_las_source_path(root: Path | str, project_id: str, las_file_id: str) -> Path:
-    """Return the canonical source LAS path for one project LAS version."""
-
-    return _las_file_dir(root, project_id, las_file_id) / PROJECT_LAS_SOURCE_FILE_NAME
-
-
-def remove_project_las_file_record(root: Path | str, project_id: str, las_file_id: str) -> bool:
-    """Remove one LAS record from the manifest without deleting files.
-
-    Physical deletion is owned by the service-layer Storage Lifecycle.  This
-    repository helper only updates persisted metadata after the file/directory
-    lifecycle has completed.
-    """
-
-    clean_las_file_id = _safe_las_file_id(las_file_id)
-    records = tuple(_read_manifest(root, project_id))
-    remaining = tuple(record for record in records if record.id != clean_las_file_id)
-    if len(remaining) == len(records):
-        return False
-    _write_manifest(root, project_id, remaining)
-    return True
-
-
 def _record_from_dict(raw: dict[str, Any]) -> ProjectLasFile:
     name = str(raw.get("name", "")) or "Без названия"
     original_file_name = str(raw.get("original_file_name", "")) or "source.las"

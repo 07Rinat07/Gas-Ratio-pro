@@ -4,25 +4,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Literal
 
-from core.storage_lifecycle import (
-    DEFAULT_CACHE_MANAGER,
-    DEFAULT_DELETE_ENGINE,
-    DEFAULT_FILE_HANDLE_MANAGER,
-    DEFAULT_RESOURCE_MANAGER,
-    CacheManager,
-    DeleteEngine,
-    DeleteResult,
-    FileHandleManager,
-    IndexManager,
-    IndexSyncResult,
-    ResourceManager,
-    StorageDeleteError,
-)
+from core.storage_lifecycle import CacheManager, DeleteEngine, DeleteResult, FileHandleManager, IndexManager, IndexSyncResult, ResourceManager, StorageDeleteError
 from projects import datasets as project_datasets
-from projects import las_files as project_las_files
 from projects.repository import DEFAULT_PROJECT_ID, DEFAULT_PROJECTS_ROOT, safe_project_id
 
-DatasetSection = Literal["las", "csv", "excel", "core", "mud_log", "production"]
+DatasetSection = Literal["csv", "excel", "core", "mud_log", "production"]
 
 
 @dataclass(frozen=True)
@@ -67,27 +53,19 @@ class DatasetManagerService:
         file_handle_manager: FileHandleManager | None = None,
     ) -> None:
         self.root = Path(root)
-        # Use process-wide lifecycle managers by default. Streamlit recreates
-        # service objects on rerun, but registered previews/cache entries must
-        # still be visible to delete/clear operations in the next run.
-        self.resource_manager = resource_manager or DEFAULT_RESOURCE_MANAGER
-        self.cache_manager = cache_manager or DEFAULT_CACHE_MANAGER
-        self.file_handle_manager = file_handle_manager or DEFAULT_FILE_HANDLE_MANAGER
-        self.delete_engine = delete_engine or DEFAULT_DELETE_ENGINE
+        self.resource_manager = resource_manager or ResourceManager()
+        self.cache_manager = cache_manager or CacheManager()
+        self.file_handle_manager = file_handle_manager or FileHandleManager(self.resource_manager)
+        self.delete_engine = delete_engine or DeleteEngine(
+            self.resource_manager,
+            cache_manager=self.cache_manager,
+            file_handle_manager=self.file_handle_manager,
+        )
         self.index_manager = index_manager or IndexManager(self.root)
 
     @property
     def section_specs(self) -> dict[str, DatasetSectionSpec]:
         return {
-            "las": DatasetSectionSpec(
-                key="las",
-                label="LAS",
-                folder_name=project_las_files.PROJECT_WELLS_DIR_NAME,
-                manifest_name=project_las_files.PROJECT_LAS_MANIFEST_FILE_NAME,
-                list_records=project_las_files.list_project_las_files,
-                write_manifest=project_las_files._write_manifest,
-                dataset_dir=project_las_files._las_file_dir,
-            ),
             "csv": DatasetSectionSpec(
                 key="csv",
                 label="CSV",
@@ -147,28 +125,7 @@ class DatasetManagerService:
 
     def section_dir(self, project_id: str, section: str) -> Path:
         spec = self._spec(section)
-        if spec.key == "las":
-            return project_las_files._project_wells_dir(self.root, project_id)
         return self.datasets_root(project_id) / spec.folder_name
-
-    def supported_sections(self) -> tuple[str, ...]:
-        """Return stable public Dataset Manager section keys used by UI."""
-
-        return tuple(self.section_specs.keys())
-
-    def section_label(self, section: str) -> str:
-        """Return human-readable section label for compatibility/UI code."""
-
-        return self._spec(section).label
-
-    def is_supported_section(self, section: str) -> bool:
-        """Return whether the section is managed by this service."""
-
-        try:
-            self._spec(section)
-        except ValueError:
-            return False
-        return True
 
     def sync_project_index(self, project_id: str) -> IndexSyncResult:
         """Rebuild Project Database index after Dataset Manager changes."""
@@ -178,30 +135,6 @@ class DatasetManagerService:
     def list_records(self, project_id: str, section: str, *, include_archived: bool = True) -> tuple[object, ...]:
         spec = self._spec(section)
         return spec.list_records(self.root, project_id, include_archived=include_archived)
-
-
-    def list_dataset_cards(self, project_id: str, section: str, *, include_archived: bool = False) -> tuple[project_datasets.ProjectDatasetRecord, ...]:
-        """Return UI-ready Dataset Manager cards for one section.
-
-        This method is the service-layer replacement for direct UI calls to
-        ``projects.datasets.list_project_*_datasets`` and keeps Dataset Manager
-        rendering behind a stable service contract.
-        """
-
-        spec = self._spec(section)
-        if spec.key == "las":
-            return project_datasets.list_project_las_datasets(self.root, project_id, include_archived=include_archived)
-        if spec.key == "csv":
-            return project_datasets.list_project_csv_datasets(self.root, project_id, include_archived=include_archived)
-        if spec.key == "excel":
-            return project_datasets.list_project_excel_datasets(self.root, project_id, include_archived=include_archived)
-        if spec.key == "core":
-            return project_datasets.list_project_core_datasets(self.root, project_id, include_archived=include_archived)
-        if spec.key == "mud_log":
-            return project_datasets.list_project_mud_log_datasets(self.root, project_id, include_archived=include_archived)
-        if spec.key == "production":
-            return project_datasets.list_project_production_datasets(self.root, project_id, include_archived=include_archived)
-        raise ValueError(f"Unsupported Dataset Manager section: {section}")
 
     def register_dataset_file(
         self,
@@ -340,16 +273,6 @@ class DatasetManagerService:
             released_resources=released,
             index_entries=index_result.entries_count,
         )
-
-    # Compatibility aliases used by older UI code during Sprint 1 migration.
-    def delete(self, project_id: str, section: str, dataset_id: str) -> DatasetDeleteSummary:
-        return self.delete_dataset(project_id, section, dataset_id)
-
-    def clear(self, project_id: str, section: str) -> DatasetDeleteSummary:
-        return self.clear_section(project_id, section)
-
-    def refresh(self, project_id: str) -> IndexSyncResult:
-        return self.sync_project_index(project_id)
 
     def diagnostics(self):
         return {

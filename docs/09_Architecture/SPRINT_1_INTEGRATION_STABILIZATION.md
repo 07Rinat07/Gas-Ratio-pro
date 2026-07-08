@@ -45,12 +45,12 @@ Covered operations:
 
 The Streamlit UI entry points for dashboard counters, recent activity, project workspace loader and project LAS file panel now call the service layer instead of directly calling low-level `projects.las_files` repository functions.
 
-## Service Compatibility Pass 3 — LasManagerService
+## Service Compatibility Pass 5 — ExportManagerService
 
-Status: implemented in this pass.
+Completed items:
 
-- `LasManagerService` now exposes a documented compatibility contract.
-- LAS save/archive/restore/delete/clear operations synchronize Project Database through `IndexManager`.
-- Physical LAS deletion goes through Storage Lifecycle `DeleteEngine` instead of raw repository deletion.
-- LAS preview resources and cache entries can be registered and released before destructive operations.
-- Compatibility aliases are retained for the old Streamlit UI during Sprint 1 migration.
+- Export delete and clear operations are routed through `DeleteEngine`.
+- Export resources, file handles, and cache entries are released before deletion.
+- Project storage index is synchronized after export deletion/cleanup.
+- Compatibility aliases were preserved for old UI integration: `list`, `count`, `read_bytes`, `delete`, `clear`, `refresh`.
+- Service contract added: `docs/09_Architecture/contracts/EXPORT_MANAGER_SERVICE_CONTRACT.md`.
