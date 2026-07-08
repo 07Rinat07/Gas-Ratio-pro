@@ -240,3 +240,58 @@ class DeleteEngine:
 
 DEFAULT_RESOURCE_MANAGER = ResourceManager()
 DEFAULT_DELETE_ENGINE = DeleteEngine(DEFAULT_RESOURCE_MANAGER)
+
+@dataclass(frozen=True)
+class IndexSyncResult:
+    """Result of project storage index synchronization."""
+
+    project_id: str
+    entries_count: int
+    missing_count: int = 0
+    duplicate_count: int = 0
+
+
+class IndexManager:
+    """Project file index synchronization facade.
+
+    Project Database must not be treated as an isolated screen.  It is a
+    storage-lifecycle index that has to be rebuilt after destructive filesystem
+    operations so deleted datasets/LAS/exports do not continue to appear in the
+    UI after a rerun or application restart.
+    """
+
+    def __init__(self, root: Path | str) -> None:
+        self.root = Path(root)
+
+    def rebuild_project_index(self, project_id: str) -> IndexSyncResult:
+        from projects.project_index import (
+            detect_project_duplicate_files,
+            save_project_file_index,
+        )
+
+        entries = save_project_file_index(self.root, project_id)
+        duplicate_count = sum(group.duplicate_count for group in detect_project_duplicate_files(entries))
+        return IndexSyncResult(
+            project_id=str(project_id),
+            entries_count=len(entries),
+            missing_count=0,
+            duplicate_count=duplicate_count,
+        )
+
+    def validate_project_index(self, project_id: str) -> IndexSyncResult:
+        from projects.project_index import detect_project_duplicate_files, validate_project_file_index
+
+        entries = validate_project_file_index(self.root, project_id)
+        missing_count = sum(1 for entry in entries if entry.status == "missing")
+        duplicate_count = sum(group.duplicate_count for group in detect_project_duplicate_files(entries))
+        return IndexSyncResult(
+            project_id=str(project_id),
+            entries_count=len(entries),
+            missing_count=missing_count,
+            duplicate_count=duplicate_count,
+        )
+
+    def sync_after_delete(self, project_id: str) -> IndexSyncResult:
+        """Rebuild project index after a successful lifecycle delete."""
+
+        return self.rebuild_project_index(project_id)

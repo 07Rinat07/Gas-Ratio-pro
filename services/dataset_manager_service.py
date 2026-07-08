@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Literal
 
-from core.storage_lifecycle import DeleteEngine, DeleteResult, ResourceManager, StorageDeleteError
+from core.storage_lifecycle import DeleteEngine, DeleteResult, IndexManager, IndexSyncResult, ResourceManager, StorageDeleteError
 from projects import datasets as project_datasets
 from projects.repository import DEFAULT_PROJECT_ID, DEFAULT_PROJECTS_ROOT, safe_project_id
 
@@ -30,6 +30,7 @@ class DatasetDeleteSummary:
     deleted: int
     missing: int
     released_resources: int
+    index_entries: int = 0
 
 
 class DatasetManagerService:
@@ -47,10 +48,12 @@ class DatasetManagerService:
         *,
         resource_manager: ResourceManager | None = None,
         delete_engine: DeleteEngine | None = None,
+        index_manager: IndexManager | None = None,
     ) -> None:
         self.root = Path(root)
         self.resource_manager = resource_manager or ResourceManager()
         self.delete_engine = delete_engine or DeleteEngine(self.resource_manager)
+        self.index_manager = index_manager or IndexManager(self.root)
 
     @property
     def section_specs(self) -> dict[str, DatasetSectionSpec]:
@@ -116,6 +119,11 @@ class DatasetManagerService:
         spec = self._spec(section)
         return self.datasets_root(project_id) / spec.folder_name
 
+    def sync_project_index(self, project_id: str) -> IndexSyncResult:
+        """Rebuild Project Database index after Dataset Manager changes."""
+
+        return self.index_manager.sync_after_delete(project_id)
+
     def list_records(self, project_id: str, section: str, *, include_archived: bool = True) -> tuple[object, ...]:
         spec = self._spec(section)
         return spec.list_records(self.root, project_id, include_archived=include_archived)
@@ -132,6 +140,7 @@ class DatasetManagerService:
         self.delete_engine.delete_path(dataset_path, missing_ok=True)
         kept_records = tuple(record for record in records if getattr(record, "id", "") != dataset_id)
         spec.write_manifest(self.root, project_id, kept_records)
+        index_result = self.sync_project_index(project_id)
         released_after = self.resource_manager.diagnostics().total
         return DatasetDeleteSummary(
             project_id=project_id,
@@ -140,6 +149,7 @@ class DatasetManagerService:
             deleted=1,
             missing=0,
             released_resources=max(0, released_before - released_after),
+            index_entries=index_result.entries_count,
         )
 
     def delete_selected(self, project_id: str, section: str, dataset_ids: list[str] | tuple[str, ...]) -> DatasetDeleteSummary:
@@ -153,6 +163,7 @@ class DatasetManagerService:
             deleted += summary.deleted
             missing += summary.missing
             released += summary.released_resources
+        index_result = self.sync_project_index(project_id) if requested_ids else self.index_manager.validate_project_index(project_id)
         return DatasetDeleteSummary(
             project_id=project_id,
             section=spec.key,
@@ -160,6 +171,7 @@ class DatasetManagerService:
             deleted=deleted,
             missing=missing,
             released_resources=released,
+            index_entries=index_result.entries_count,
         )
 
     def clear_section(self, project_id: str, section: str) -> DatasetDeleteSummary:
@@ -170,6 +182,7 @@ class DatasetManagerService:
         delete_result: DeleteResult = self.delete_engine.delete_path(section_path, missing_ok=True)
         section_path.mkdir(parents=True, exist_ok=True)
         spec.write_manifest(self.root, project_id, ())
+        index_result = self.sync_project_index(project_id)
         released_after = self.resource_manager.diagnostics().total
         return DatasetDeleteSummary(
             project_id=project_id,
@@ -178,6 +191,7 @@ class DatasetManagerService:
             deleted=len(records) if delete_result.deleted or records else 0,
             missing=0,
             released_resources=max(0, released_before - released_after) + delete_result.released_resources,
+            index_entries=index_result.entries_count,
         )
 
     def clear_all(self, project_id: str) -> DatasetDeleteSummary:
@@ -191,6 +205,7 @@ class DatasetManagerService:
             deleted += summary.deleted
             missing += summary.missing
             released += summary.released_resources
+        index_result = self.sync_project_index(project_id)
         return DatasetDeleteSummary(
             project_id=project_id,
             section="all",
@@ -198,6 +213,7 @@ class DatasetManagerService:
             deleted=deleted,
             missing=missing,
             released_resources=released,
+            index_entries=index_result.entries_count,
         )
 
     def diagnostics(self):

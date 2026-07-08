@@ -90,3 +90,43 @@ def test_dataset_manager_service_delete_selected_dataset_updates_manifest(tmp_pa
     assert summary.deleted == 1
     assert tuple(record.id for record in remaining) == (second.id,)
     assert not service._spec("mud_log").dataset_dir(tmp_path, project_id, first.id).exists()
+
+from core.storage_lifecycle import IndexManager
+from projects.project_index import load_project_file_index, save_project_file_index
+
+
+def test_index_manager_rebuilds_index_after_dataset_delete(tmp_path: Path) -> None:
+    project_id = "demo"
+    record = save_project_mud_log_dataset(
+        b"DEPTH,C1\n100,1\n",
+        root=tmp_path,
+        project_id=project_id,
+        file_name="mud.csv",
+        name="Mud Index Test",
+    )
+    save_project_file_index(tmp_path, project_id)
+    before_paths = {entry.relative_path for entry in load_project_file_index(tmp_path, project_id)}
+    assert any(record.id in path for path in before_paths)
+
+    service = DatasetManagerService(tmp_path)
+    summary = service.delete_dataset(project_id, "mud_log", record.id)
+
+    after_paths = {entry.relative_path for entry in load_project_file_index(tmp_path, project_id)}
+    assert summary.index_entries == len(after_paths)
+    assert not any(record.id in path for path in after_paths)
+
+
+def test_index_manager_rebuild_project_index_removes_stale_entries(tmp_path: Path) -> None:
+    project_id = "demo"
+    project_dir = tmp_path / project_id
+    data_file = project_dir / "datasets" / "mud_log" / "source.xlsx"
+    data_file.parent.mkdir(parents=True)
+    data_file.write_bytes(b"content")
+    save_project_file_index(tmp_path, project_id)
+    assert load_project_file_index(tmp_path, project_id)
+
+    data_file.unlink()
+    result = IndexManager(tmp_path).rebuild_project_index(project_id)
+
+    assert result.entries_count == 0
+    assert load_project_file_index(tmp_path, project_id) == ()

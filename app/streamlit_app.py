@@ -253,6 +253,7 @@ from services.export_manager_service import ExportManagerService
 from services.well_manager_service import WellManagerService
 from services.las_manager_service import LasManagerService
 from services.dataset_manager_service import DatasetManagerService, StorageDeleteError
+from core.storage_lifecycle import IndexManager
 from projects import calculations as project_calculations
 from projects import exports as project_exports
 from projects import graph_settings as project_graph_settings
@@ -4815,6 +4816,11 @@ def _dataset_manager_service() -> DatasetManagerService:
     return DatasetManagerService(LAS_CORRELATION_PROJECTS_ROOT)
 
 
+def _index_manager() -> IndexManager:
+    """Return the project storage index manager used by Project Database UI."""
+    return IndexManager(LAS_CORRELATION_PROJECTS_ROOT)
+
+
 def _application_state_controller() -> ApplicationStateController:
     """Return the single UI-facing application state controller.
 
@@ -8867,29 +8873,39 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
             "Индекс собирает metadata файлов активного проекта: путь, тип, размер, "
             "время изменения и SHA-256. Файлы не копируются и datasets не изменяются."
         )
-        columns = st.columns(2)
+        index_manager = _index_manager()
+        columns = st.columns(3)
         with columns[0]:
             if st.button("Обновить индекс файлов", key=f"project_file_index_refresh_{project.id}"):
                 try:
-                    entries = save_project_file_index(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+                    result = index_manager.rebuild_project_index(project.id)
                 except Exception:
                     logger.exception("project_file_index_save_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось обновить индекс файлов проекта. Подробности записаны в logs/app.log.")
                 else:
-                    st.success(f"Индекс обновлен. Файлов: {len(entries)}.")
+                    st.success(f"Индекс обновлен. Файлов: {result.entries_count}. Дублей: {result.duplicate_count}.")
         with columns[1]:
             if st.button("Проверить сохраненный индекс", key=f"project_file_index_validate_{project.id}"):
                 try:
-                    entries = validate_project_file_index(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+                    result = index_manager.validate_project_index(project.id)
                 except Exception:
                     logger.exception("project_file_index_validate_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось проверить индекс файлов проекта. Подробности записаны в logs/app.log.")
                 else:
-                    warnings = sum(1 for entry in entries if entry.status != "present")
-                    if warnings:
-                        st.warning(f"Проверка индекса завершена. Требуют внимания: {warnings}.")
+                    if result.missing_count:
+                        st.warning(f"Проверка индекса завершена. Отсутствуют: {result.missing_count}.")
                     else:
-                        st.success(f"Проверка индекса завершена. Файлов на месте: {len(entries)}.")
+                        st.success(f"Проверка индекса завершена. Файлов в индексе: {result.entries_count}.")
+        with columns[2]:
+            if st.button("🧹 Перестроить индекс", key=f"project_file_index_rebuild_{project.id}"):
+                try:
+                    result = index_manager.rebuild_project_index(project.id)
+                except Exception:
+                    logger.exception("project_file_index_rebuild_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось перестроить индекс файлов проекта. Подробности записаны в logs/app.log.")
+                else:
+                    st.success(f"Индекс перестроен по фактическим файлам проекта. Файлов: {result.entries_count}.")
+                    _refresh_ui()
 
         entries = load_project_file_index(LAS_CORRELATION_PROJECTS_ROOT, project.id)
         if not entries:
