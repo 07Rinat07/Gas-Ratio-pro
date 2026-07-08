@@ -240,6 +240,8 @@ from projects import (
     project_manager_status,
     save_project_recovery_state,
 )
+from projects.workspace_controller import WorkspaceController
+from projects.workspace_manager import WorkspaceManagerItem
 from projects.recent_projects import (
     clear_recent_projects,
     list_recent_projects,
@@ -4861,6 +4863,22 @@ def _application_state_controller() -> ApplicationStateController:
     return ApplicationStateController(st.session_state)
 
 
+def _workspace_controller() -> WorkspaceController:
+    """Return the UI-facing workspace controller for the active Streamlit session.
+
+    Workspace pages must use this controller instead of combining direct
+    ``st.session_state`` access with manager/service calls.  The controller owns
+    active workspace context while the manager/service/repository stack owns
+    persistence.
+    """
+    state_controller = _application_state_controller()
+    return WorkspaceController(
+        state_controller.state,
+        LAS_CORRELATION_PROJECTS_ROOT,
+        state_controller=state_controller,
+    )
+
+
 def _refresh_ui() -> None:
     """Centralized UI refresh helper used by repository/service actions.
 
@@ -9162,6 +9180,125 @@ def _render_project_las_zip_download(
     )
 
 
+def _workspace_manager_items_table(items: tuple[WorkspaceManagerItem, ...]) -> pd.DataFrame:
+    """Build a compact table for the Project Workspace UI panel."""
+
+    return pd.DataFrame(
+        [
+            {
+                "Активно": "Да" if item.is_active else "",
+                "Workspace": item.name,
+                "Тип": item.kind,
+                "Описание": item.description,
+                "Настроек": item.settings_count,
+                "Обновлено": item.updated_at,
+                "ID": item.id,
+            }
+            for item in items
+        ]
+    )
+
+
+def _render_project_workspace_controller_panel(project: ProjectRecord, logger) -> None:
+    """Render Workspace Framework controls through WorkspaceController only."""
+
+    controller = _workspace_controller()
+    try:
+        items = controller.list_project_workspaces(project.id)
+    except Exception:
+        logger.exception("workspace_controller_list_failed project_id=%s", safe_log_value(project.id))
+        st.error("Не удалось загрузить список рабочих пространств проекта.")
+        return
+
+    with st.expander("Workspace Framework", expanded=not bool(items)):
+        st.caption("Управление workspace выполняется через UI → Controller → Manager → Service → Repository → Storage.")
+        if items:
+            st.dataframe(_workspace_manager_items_table(items), width="stretch", hide_index=True, height=210)
+        else:
+            st.info("В проекте пока нет рабочих пространств. Создайте базовый workspace для Sprint 2.")
+
+        with st.form(key=f"workspace_create_form_{project.id}"):
+            name = st.text_input("Название workspace", value="Project Workspace", key=f"workspace_create_name_{project.id}")
+            kind = st.selectbox(
+                "Тип workspace",
+                options=("general", "las", "correlation", "petrophysics", "modeling", "report"),
+                key=f"workspace_create_kind_{project.id}",
+            )
+            description = st.text_area(
+                "Описание",
+                value="Рабочее пространство проекта",
+                key=f"workspace_create_description_{project.id}",
+            )
+            activate = st.checkbox("Активировать после создания", value=True, key=f"workspace_create_activate_{project.id}")
+            submitted = st.form_submit_button("Создать workspace", width="stretch")
+
+        if submitted:
+            try:
+                result = controller.create_workspace(
+                    project.id,
+                    name.strip() or "Project Workspace",
+                    kind=kind,
+                    description=description.strip(),
+                    settings={"created_from": "project_workspace_ui"},
+                    activate=activate,
+                )
+            except Exception:
+                logger.exception("workspace_controller_create_failed project_id=%s", safe_log_value(project.id))
+                st.error("Не удалось создать workspace. Подробности записаны в logs/app.log.")
+            else:
+                logger.info(
+                    "workspace_controller_created project_id=%s workspace_id=%s",
+                    safe_log_value(project.id),
+                    safe_log_value(result.workspace.id),
+                )
+                st.success(f"Workspace создан: {result.workspace.name}")
+                _refresh_ui()
+
+        if items:
+            options = tuple(item.id for item in items)
+            selected_workspace_id = st.selectbox(
+                "Открыть существующий workspace",
+                options=options,
+                format_func=lambda workspace_id: next(
+                    f"{item.name} ({item.kind})" for item in items if item.id == workspace_id
+                ),
+                key=f"workspace_open_select_{project.id}",
+            )
+            open_col, close_col, delete_col = st.columns(3)
+            if open_col.button("Открыть", width="stretch", key=f"workspace_open_button_{project.id}"):
+                try:
+                    result = controller.open_workspace(project.id, selected_workspace_id)
+                except Exception:
+                    logger.exception(
+                        "workspace_controller_open_failed project_id=%s workspace_id=%s",
+                        safe_log_value(project.id),
+                        safe_log_value(selected_workspace_id),
+                    )
+                    st.error("Не удалось открыть workspace.")
+                else:
+                    st.success(f"Активирован workspace: {result.workspace.name}")
+                    _refresh_ui()
+
+            if close_col.button("Закрыть", width="stretch", key=f"workspace_close_button_{project.id}"):
+                controller.close_workspace()
+                st.info("Активный workspace закрыт.")
+                _refresh_ui()
+
+            if delete_col.button("Удалить", width="stretch", key=f"workspace_delete_button_{project.id}"):
+                try:
+                    deleted = controller.delete_workspace(project.id, selected_workspace_id)
+                except Exception:
+                    logger.exception(
+                        "workspace_controller_delete_failed project_id=%s workspace_id=%s",
+                        safe_log_value(project.id),
+                        safe_log_value(selected_workspace_id),
+                    )
+                    st.error("Не удалось удалить workspace.")
+                else:
+                    st.warning(deleted.delete_result.message)
+                    _refresh_ui()
+
+
 def _render_project_workspace_loader(project: ProjectRecord, logger) -> None:
     active_well_cards = _las_manager_service().list_wells(project.id)
     active_records = tuple(version for card in active_well_cards for version in card.versions)
@@ -9169,6 +9306,7 @@ def _render_project_workspace_loader(project: ProjectRecord, logger) -> None:
     with st.expander("Данные активного проекта", expanded=bool(active_records)):
         st.caption(f"Открыт проект: {project.name} ({project.id})")
         st.dataframe(_project_workspace_summary_table(project), width="stretch", hide_index=True, height=210)
+        _render_project_workspace_controller_panel(project, logger)
         _render_project_dataset_manager(project, logger)
         _render_project_manager_tools(project, logger)
         _render_project_file_index(project, logger)
