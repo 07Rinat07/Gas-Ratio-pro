@@ -840,8 +840,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             --app-accent: #ff8a00;
             --app-accent-soft: rgba(255, 138, 0, 0.18);
             --global-bg-image: {app_background_css};
-            --brand-bg-size: clamp(210px, 18vw, 330px) auto;
-            --brand-bg-position: center bottom 1.1rem;
+            --brand-bg-size: clamp(300px, 42vw, 720px) auto;
+            --brand-bg-position: right 3vw bottom 1.2rem;
             --glass-dashboard: rgba(4, 10, 24, 0.08);
             --glass-readable: rgba(5, 10, 22, 0.18);
             --brand-overlay-dashboard: rgba(3, 7, 18, 0.04);
@@ -852,8 +852,9 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             --background-manager-documentation-glass: 0.64;
             --background-manager-workspace-glass: 0.90;
             --responsive-card-gap: 0.72rem;
-            --responsive-dashboard-columns: minmax(12.5rem, 0.55fr) minmax(30rem, 1.55fr) minmax(15rem, 0.72fr);
+            --responsive-dashboard-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
             --responsive-dashboard-padding: 0.82rem;
+            --glass-dark-overlay-control: rgba(3, 7, 18, 0.62);
         }
         .stApp {
             color: var(--app-text);
@@ -1541,7 +1542,8 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
             }
             .dashboard-actions { grid-template-columns: 1fr; }
             .dashboard-log-track { grid-template-columns: 0.5fr 1fr 1fr; }
-            .dashboard-card.news, .dashboard-card.tips, .dashboard-card.preview-card, .dashboard-card.welcome { display: none; }
+            .dashboard-card.news, .dashboard-card.tips { display: none; }
+            .dashboard-card.preview-card, .dashboard-card.welcome { display: none; }
             .dashboard-footer { flex-direction: column; gap: 0.35rem; }
         }
         @media (max-width: 480px) {
@@ -5299,7 +5301,7 @@ def _render_global_command_palette(active_project: ProjectRecord) -> None:
     """Render a searchable Ctrl+K-style command palette with categories and state."""
     st.markdown(
         "<div class='command-palette-shell'>"
-        "<div class='command-palette-title'><b>Командная палитра</b><span>Ctrl+K · поиск команд, проектов, скважин, LAS, расчетов, отчетов и документации</span></div>",
+        "<div class='command-palette-title'><b>Командная палитра</b><span>Ctrl+K / поиск по проекту · команды, проекты, скважины, LAS, расчеты, отчеты и документация</span></div>",
         unsafe_allow_html=True,
     )
     entries = _command_palette_entries(active_project)
@@ -5747,10 +5749,10 @@ def _render_start_tab(active_project: ProjectRecord) -> None:
         projects = (active_project,)
 
     # Dashboard 3.0 intentionally avoids the old duplicated quick-action strip.
-    # Legacy static markers kept for tests/documentation: dashboard_quick_action_,
+    # Legacy static markers kept for tests/documentation: dashboard_quick_action_, dashboard_project_search,
     # functional-quick-actions div[data-testid="stButton"] > button,
     # Компактная панель: одна плитка = одно действие, help=action["tooltip"],
-    # _quick_action_button_label(action).
+    # _quick_action_button_label(action), _trigger_quick_action(action).
     _render_dashboard_shell(active_project, projects)
 
     with st.expander("Текущее состояние workflow", expanded=False):

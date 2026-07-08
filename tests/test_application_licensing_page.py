@@ -23,7 +23,7 @@ def test_application_license_page_renders_legal_content() -> None:
     assert 'license-text-panel' in SOURCE
     assert 'Commercial use' in SOURCE
     assert 'Written permission only' in SOURCE
-    assert 'EULA placeholder' in SOURCE
+    assert 'EULA placeholder' not in SOURCE
 
 
 def test_license_page_uses_repository_license_and_identity() -> None:
@@ -46,4 +46,4 @@ def test_license_documentation_updated_without_readme_noise() -> None:
     assert 'Improve application licensing page' in PLAN
     assert 'Application licensing page' in PLAN
     assert 'отдельная вкладка `Лицензия`' in GUIDE
-    assert 'EULA placeholder' in GUIDE
+    assert 'EULA placeholder' not in GUIDE
