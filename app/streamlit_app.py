@@ -30,6 +30,7 @@ from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summari
 from core.logging_config import configure_logging, safe_log_value
 from core.application_state import ApplicationStateController
 from core.application_runtime import ApplicationRuntimeController
+from core.application_cleanup import ApplicationCleanupController
 from core.models import CalculationConfig, STANDARD_FIELDS
 from importers.csv_importer import load_csv_sheets
 from importers.excel_importer import load_excel_sheets
@@ -4032,43 +4033,19 @@ def _dataframe_to_raw_sheet(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _clear_las_working_state() -> None:
-    """Clear LAS/editor/calculation state that can keep stale tables and graphs on rerun."""
-    prefixes = (
-        "las_editor_",
-        "las_correlation_",
-        "mapping_",
-        "selected_",
-        "current_",
-        "interval_",
-        "interpretation_",
-        "calculation_",
-        "dashboard_",
-        "plot_",
-        "graph_",
-        "table_",
-        "stats_",
-    )
-    exact_keys = {
-        LAS_EDITOR_SESSION_SHEETS_KEY,
-        LAS_EDITOR_SESSION_SUMMARY_KEY,
-        "sheets",
-        "uploaded_file",
-        "selected_sheet",
-        "prepared_df",
-        "mapped_df",
-        "calculated_df",
-        "active_interval",
-        "active_well_id",
-        "active_las_id",
-        "active_version_id",
-    }
-    for key in list(st.session_state.keys()):
-        if key in exact_keys or any(str(key).startswith(prefix) for prefix in prefixes):
-            st.session_state.pop(key, None)
-    try:
+    """Clear LAS/editor/calculation state through the centralized cleanup controller."""
+
+    def _clear_streamlit_cache() -> None:
         st.cache_data.clear()
-    except Exception:
-        pass
+
+    ApplicationCleanupController(
+        st.session_state,
+        cache_clearer=_clear_streamlit_cache,
+    ).clear_workspace_state(
+        "las_working_state_cleared",
+        source="las_editor_clear_working_state",
+        request_refresh=False,
+    )
 
 
 def _render_new_las_creator_panel(logger) -> None:

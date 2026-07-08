@@ -613,3 +613,12 @@ pytest -q \
 ```text
 Application Runtime Refresh Manager
 ```
+
+
+## Application Cleanup Controller
+
+Added `core/application_cleanup.py` as the central entry point for clearing derived workspace state.
+
+The real LAS editor cleanup action now delegates to `ApplicationCleanupController` instead of manually iterating over `st.session_state` inside the UI layer. This keeps cleanup behavior aligned with `SessionStateManager`, preserves active project/well/LAS context, records cleanup events and allows the Streamlit shell to clear framework caches through an injected callback.
+
+Commit: `Application Cleanup Controller`
