@@ -210,6 +210,52 @@ class ApplicationStateController:
             return None
         return self.activate_project(str(pending))
 
+
+    def request_well_activation(self, well_id: str) -> None:
+        """Store a pending well switch for the next safe render cycle."""
+
+        clean_well_id = str(well_id or "")
+        self.state[PENDING_ACTIVE_WELL_ID_KEY] = clean_well_id
+        self.publish_event("well.activation_requested", {"well_id": clean_well_id})
+
+    def consume_pending_well_activation(self) -> StateTransition | None:
+        """Apply and remove a pending well switch before well widgets render."""
+
+        pending = self.state.pop(PENDING_ACTIVE_WELL_ID_KEY, None)
+        if not pending:
+            return None
+        return self.activate_well(str(pending))
+
+    def request_las_activation(self, las_id: str) -> None:
+        """Store a pending LAS switch for the next safe render cycle."""
+
+        clean_las_id = str(las_id or "")
+        self.state[PENDING_ACTIVE_LAS_ID_KEY] = clean_las_id
+        self.publish_event("las.activation_requested", {"las_id": clean_las_id})
+
+    def consume_pending_las_activation(self) -> StateTransition | None:
+        """Apply and remove a pending LAS switch before LAS widgets render."""
+
+        pending = self.state.pop(PENDING_ACTIVE_LAS_ID_KEY, None)
+        if not pending:
+            return None
+        return self.activate_las(str(pending))
+
+    def request_workspace_activation(self, workspace_id: str) -> None:
+        """Store a pending workspace switch for the next safe render cycle."""
+
+        clean_workspace_id = str(workspace_id or "")
+        self.state[PENDING_ACTIVE_WORKSPACE_ID_KEY] = clean_workspace_id
+        self.publish_event("workspace.activation_requested", {"workspace_id": clean_workspace_id})
+
+    def consume_pending_workspace_activation(self) -> StateTransition | None:
+        """Apply and remove a pending workspace switch before workspace widgets render."""
+
+        pending = self.state.pop(PENDING_ACTIVE_WORKSPACE_ID_KEY, None)
+        if not pending:
+            return None
+        return self.activate_workspace(str(pending))
+
     def clear_current_context(self, reason: str = "manual_clear") -> SessionCleanupResult:
         """Clear derived data while keeping the current context values."""
 

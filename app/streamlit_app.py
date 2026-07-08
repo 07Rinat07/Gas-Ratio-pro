@@ -29,6 +29,7 @@ from core.diagnostics import (
 from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summarize_interpretation
 from core.logging_config import configure_logging, safe_log_value
 from core.application_state import ApplicationStateController
+from core.application_runtime import ApplicationRuntimeController
 from core.models import CalculationConfig, STANDARD_FIELDS
 from importers.csv_importer import load_csv_sheets
 from importers.excel_importer import load_excel_sheets
@@ -4770,6 +4771,44 @@ def _application_state_controller() -> ApplicationStateController:
     return ApplicationStateController(st.session_state)
 
 
+def _application_runtime_controller() -> ApplicationRuntimeController:
+    """Return the application runtime controller bound to Streamlit session state."""
+
+    return ApplicationRuntimeController(st.session_state)
+
+
+def _request_ui_refresh(logger, reason: str, *, source: str) -> None:
+    """Request a UI refresh through the central runtime controller."""
+
+    _application_runtime_controller().request_refresh(reason, source=source)
+    logger.info("ui_refresh_requested source=%s reason=%s", safe_log_value(source), safe_log_value(reason))
+
+
+def _request_ui_refresh_and_rerun(logger, reason: str, *, source: str) -> None:
+    """Request a central UI refresh and rerun Streamlit at the current safe boundary."""
+
+    _request_ui_refresh(logger, reason, source=source)
+    st.rerun()
+
+
+def _process_application_runtime_cycle(logger, *, source: str) -> None:
+    """Process pending transitions and queued refresh requests before the UI renders."""
+
+    result = _application_runtime_controller().run_cycle()
+    if result.changed:
+        logger.info(
+            "application_runtime_transitions_processed source=%s count=%d",
+            safe_log_value(source),
+            len(result.transitions),
+        )
+    if result.refresh_requested:
+        logger.info(
+            "application_runtime_refresh_consumed source=%s reason=%s",
+            safe_log_value(source),
+            safe_log_value(result.refresh_reason),
+        )
+
+
 def _activate_project_for_ui(project_id: str, logger, *, source: str) -> None:
     """Switch active project through ApplicationStateController and clear stale UI state.
 
@@ -4823,7 +4862,7 @@ def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_
             removed = service.clear_recent_history()
             logger.info("recent_projects_history_cleared removed=%d", removed)
             st.success(f"История очищена. Удалено записей: {removed}.")
-            st.rerun()
+            _request_ui_refresh_and_rerun(logger, "recent_projects_history_cleared", source="recent_projects_clear_history")
 
         if not entries:
             return
@@ -4842,13 +4881,13 @@ def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_
                     st.warning("Проект отсутствует на диске. Удалите запись из истории.")
                 else:
                     _request_project_activation_for_next_run(selected_id, logger, source="recent_projects_open")
-                    st.rerun()
+                    _request_ui_refresh_and_rerun(logger, "recent_project_opened", source="recent_projects_open")
         with col_remove:
             if st.button("Удалить запись", use_container_width=True, key="recent_project_remove_entry"):
                 service.remove_recent_entry(selected_id)
                 logger.info("recent_project_entry_removed project_id=%s", safe_log_value(selected_id))
                 st.success("Запись удалена из истории. Сам проект не удален.")
-                st.rerun()
+                _request_ui_refresh_and_rerun(logger, "recent_project_entry_removed", source="recent_projects_remove_entry")
         with col_delete:
             disabled = selected_id == DEFAULT_PROJECT_ID
             if st.button("Удалить проект с диска", use_container_width=True, disabled=disabled, key="recent_project_delete_disk"):
@@ -4863,18 +4902,18 @@ def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_
                     st.error("Не удалось удалить проект. Подробности записаны в logs/app.log.")
                 else:
                     st.success("Проект удален с диска и из истории.")
-                    st.rerun()
+                    _request_ui_refresh_and_rerun(logger, "recent_project_deleted", source="recent_projects_delete")
 
         flags_col_1, flags_col_2 = st.columns(2)
         selected_entry = entries_by_id[selected_id]
         with flags_col_1:
             if st.button("Закрепить/открепить", use_container_width=True, key="recent_project_toggle_pin"):
                 service.set_recent_flags(selected_id, pinned=not selected_entry.pinned)
-                st.rerun()
+                _request_ui_refresh_and_rerun(logger, "recent_project_pin_toggled", source="recent_projects_toggle_pin")
         with flags_col_2:
             if st.button("Избранное вкл/выкл", use_container_width=True, key="recent_project_toggle_favorite"):
                 service.set_recent_flags(selected_id, favorite=not selected_entry.favorite)
-                st.rerun()
+                _request_ui_refresh_and_rerun(logger, "recent_project_favorite_toggled", source="recent_projects_toggle_favorite")
 
 
 def _dashboard_project_statistics(active_project: ProjectRecord, projects: tuple[ProjectRecord, ...]) -> dict[str, int]:
@@ -7838,7 +7877,7 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
                     st.error("Не удалось удалить проект с диска. Подробности записаны в logs/app.log.")
                 else:
                     st.success("Проект удален с диска.")
-                    st.rerun()
+                    _request_ui_refresh_and_rerun(logger, "project_deleted", source=f"{key_prefix}_delete_active_project")
 
         with st.form(f"{key_prefix}_create_project_form", clear_on_submit=True):
             new_project_name = st.text_input("Название нового проекта")
@@ -7857,7 +7896,7 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
                         _request_project_activation_for_next_run(project.id, logger, source=f"{key_prefix}_create_project")
                         logger.info("project_created id=%s", safe_log_value(project.id))
                         st.success("Проект создан.")
-                        st.rerun()
+                        _request_ui_refresh_and_rerun(logger, "project_created", source=f"{key_prefix}_create_project")
                     except Exception:
                         logger.exception("project_create_failed")
                         st.error("Не удалось создать проект.")
@@ -10236,6 +10275,7 @@ def main() -> None:
     _apply_app_style(ui_scale, ui_layout)
     logger = configure_logging()
     logger.info("streamlit_app_started")
+    _process_application_runtime_cycle(logger, source="main_startup")
 
     active_project = _render_project_selector(logger, key_prefix="global", expanded=False)
     _render_project_explorer(active_project, logger)

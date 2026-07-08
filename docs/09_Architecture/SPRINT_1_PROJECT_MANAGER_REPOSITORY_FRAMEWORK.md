@@ -516,3 +516,100 @@ Workspace Refresh
 1. перевести смену active well / active LAS на `ApplicationStateController`;
 2. добавить Developer Diagnostics для просмотра текущего context/events/session cleanup;
 3. затем перейти к Sprint 2 — Workspace Framework.
+
+---
+
+# Дополнение: Application Runtime Refresh Manager
+
+## Цель
+
+После появления `ApplicationStateController` и `ApplicationEventBus` потребовался отдельный runtime-слой, который обрабатывает pending-переходы и refresh-запросы в безопасной точке Streamlit-рендера.
+
+## Добавлено
+
+```text
+core/application_runtime.py
+```
+
+Компоненты:
+
+- `ApplicationRuntimeController`;
+- `RuntimeCycleResult`;
+- централизованный `request_refresh()`;
+- централизованный `consume_refresh_request()`;
+- обработка pending project / well / LAS / workspace transitions.
+
+## Обновлено
+
+```text
+core/application_state.py
+app/streamlit_app.py
+```
+
+Добавлены pending-методы:
+
+```text
+request_well_activation()
+consume_pending_well_activation()
+request_las_activation()
+consume_pending_las_activation()
+request_workspace_activation()
+consume_pending_workspace_activation()
+```
+
+В `streamlit_app.py` добавлена точка runtime-обработки при старте `main()`:
+
+```text
+_process_application_runtime_cycle(logger, source="main_startup")
+```
+
+Кнопки управления Recent Projects и Project Selector начали использовать централизованный refresh helper вместо разрозненных `st.rerun()`.
+
+## Тесты
+
+Добавлено:
+
+```text
+tests/test_application_runtime_controller.py
+```
+
+Проверяется:
+
+- порядок применения pending transitions;
+- очистка устаревших таблиц при переходах;
+- централизованный refresh request;
+- отсутствие прямой зависимости runtime-слоя от Streamlit.
+
+## Новый стандарт
+
+Новые UI-действия больше не должны вызывать `st.rerun()` напрямую без архитектурной причины. Правильный путь:
+
+```text
+UI Action
+  ↓
+ApplicationRuntimeController.request_refresh()
+  ↓
+EventBus
+  ↓
+Safe Streamlit rerun boundary
+```
+
+## Обновленная проверка
+
+```text
+5 passed
+```
+
+Команда:
+
+```bash
+pytest -q \
+  tests/test_application_runtime_controller.py \
+  tests/test_application_state_event_framework.py
+```
+
+## Комментарий для коммита
+
+```text
+Application Runtime Refresh Manager
+```
