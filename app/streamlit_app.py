@@ -3365,6 +3365,7 @@ def _render_las_curve_bulk_edit_manager(prepared_df: pd.DataFrame) -> pd.DataFra
         "Все операции пишутся в журнал и не выполняются молча."
     )
 
+    state_controller = _application_state_controller()
     columns = [str(column) for column in prepared_df.columns]
     if not columns:
         st.info("Нет кривых для массового редактирования.")
@@ -3421,17 +3422,19 @@ def _render_las_curve_bulk_edit_manager(prepared_df: pd.DataFrame) -> pd.DataFra
                 metadata_patch=metadata_patch,
                 prefix=prefix,
                 suffix=suffix,
-                group_overrides=_application_state_controller().get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY),
+                group_overrides=state_controller.get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY),
                 category_overrides=state_controller.get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY),
                 unit_overrides=state_controller.get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY),
-                metadata=_application_state_controller().get_dict(LAS_EDITOR_METADATA_KEY),
+                metadata=state_controller.get_dict(LAS_EDITOR_METADATA_KEY),
                 references=_las_editor_reference_state(columns),
             )
-            st.session_state[LAS_EDITOR_GROUP_OVERRIDES_KEY] = result.group_overrides
-            st.session_state[LAS_EDITOR_CATEGORY_OVERRIDES_KEY] = result.category_overrides
-            st.session_state[LAS_EDITOR_UNIT_OVERRIDES_KEY] = result.unit_overrides
-            st.session_state[LAS_EDITOR_METADATA_KEY] = result.metadata
-            st.session_state[LAS_EDITOR_BULK_EDIT_LOG_KEY] = tuple(st.session_state.get(LAS_EDITOR_BULK_EDIT_LOG_KEY, ())) + result.operations
+            state_controller.update_values({
+                LAS_EDITOR_GROUP_OVERRIDES_KEY: result.group_overrides,
+                LAS_EDITOR_CATEGORY_OVERRIDES_KEY: result.category_overrides,
+                LAS_EDITOR_UNIT_OVERRIDES_KEY: result.unit_overrides,
+                LAS_EDITOR_METADATA_KEY: result.metadata,
+                LAS_EDITOR_BULK_EDIT_LOG_KEY: state_controller.get_tuple(LAS_EDITOR_BULK_EDIT_LOG_KEY) + result.operations,
+            })
             for warning in result.warnings:
                 st.warning(warning)
             st.success(f"Bulk edit применен: {result.references['curve_bulk_edit_summary']['applied']} операций.")
@@ -3439,7 +3442,7 @@ def _render_las_curve_bulk_edit_manager(prepared_df: pd.DataFrame) -> pd.DataFra
         except ValueError as exc:
             st.warning(str(exc))
 
-    log = tuple(st.session_state.get(LAS_EDITOR_BULK_EDIT_LOG_KEY, ()))
+    log = state_controller.get_tuple(LAS_EDITOR_BULK_EDIT_LOG_KEY)
     with st.expander("Журнал Curve bulk edit", expanded=bool(log)):
         if log:
             st.dataframe(
@@ -3725,17 +3728,16 @@ def _render_las_curve_metadata_editor(prepared_df: pd.DataFrame) -> None:
         "без изменения числовых значений LAS. Эти поля нужны для аудита, отчетов и будущих правил импорта/экспорта."
     )
 
-    if LAS_EDITOR_METADATA_HISTORY_KEY not in st.session_state:
-        st.session_state[LAS_EDITOR_METADATA_HISTORY_KEY] = ()
-    if LAS_EDITOR_METADATA_KEY not in st.session_state:
-        st.session_state[LAS_EDITOR_METADATA_KEY] = {}
+    state_controller = _application_state_controller()
+    state_controller.ensure_value(LAS_EDITOR_METADATA_HISTORY_KEY, ())
+    state_controller.ensure_value(LAS_EDITOR_METADATA_KEY, {})
 
     column_names = [str(column) for column in prepared_df.columns]
-    aliases = _application_state_controller().get_dict(LAS_EDITOR_ALIAS_MAP_KEY)
-    group_overrides = _application_state_controller().get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY)
-    category_overrides = _application_state_controller().get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY)
-    unit_overrides = _application_state_controller().get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY)
-    metadata = _application_state_controller().get_dict(LAS_EDITOR_METADATA_KEY)
+    aliases = state_controller.get_dict(LAS_EDITOR_ALIAS_MAP_KEY)
+    group_overrides = state_controller.get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY)
+    category_overrides = state_controller.get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY)
+    unit_overrides = state_controller.get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY)
+    metadata = state_controller.get_dict(LAS_EDITOR_METADATA_KEY)
 
     built_metadata = build_curve_metadata(
         column_names,
@@ -3830,13 +3832,15 @@ def _render_las_curve_metadata_editor(prepared_df: pd.DataFrame) -> None:
                 category_overrides=category_overrides,
                 unit_overrides=unit_overrides,
                 metadata=metadata,
-                history=st.session_state.get(LAS_EDITOR_METADATA_HISTORY_KEY, ()),
+                history=state_controller.get_tuple(LAS_EDITOR_METADATA_HISTORY_KEY),
                 references=references,
                 reason="manual",
                 source="las_editor_ui",
             )
-            st.session_state[LAS_EDITOR_METADATA_KEY] = result.references.get("curve_metadata", result.metadata)
-            st.session_state[LAS_EDITOR_METADATA_HISTORY_KEY] = result.history
+            state_controller.update_values({
+                LAS_EDITOR_METADATA_KEY: result.references.get("curve_metadata", result.metadata),
+                LAS_EDITOR_METADATA_HISTORY_KEY: result.history,
+            })
             for message in result.diagnostics:
                 st.info(message)
             if result.assigned:
@@ -3846,7 +3850,7 @@ def _render_las_curve_metadata_editor(prepared_df: pd.DataFrame) -> None:
         except ValueError as exc:
             st.warning(str(exc))
 
-    history = tuple(st.session_state.get(LAS_EDITOR_METADATA_HISTORY_KEY, ()))
+    history = state_controller.get_tuple(LAS_EDITOR_METADATA_HISTORY_KEY)
     if st.button("Undo последней metadata-правки", disabled=not history, width="stretch", key="las_editor_metadata_undo"):
         try:
             result = undo_last_metadata_assignment(
@@ -3855,19 +3859,21 @@ def _render_las_curve_metadata_editor(prepared_df: pd.DataFrame) -> None:
                 group_overrides=group_overrides,
                 category_overrides=category_overrides,
                 unit_overrides=unit_overrides,
-                metadata=_application_state_controller().get_dict(LAS_EDITOR_METADATA_KEY),
+                metadata=state_controller.get_dict(LAS_EDITOR_METADATA_KEY),
                 history=history,
                 references=references,
             )
-            st.session_state[LAS_EDITOR_METADATA_KEY] = result.references.get("curve_metadata", result.metadata)
-            st.session_state[LAS_EDITOR_METADATA_HISTORY_KEY] = result.history
+            state_controller.update_values({
+                LAS_EDITOR_METADATA_KEY: result.references.get("curve_metadata", result.metadata),
+                LAS_EDITOR_METADATA_HISTORY_KEY: result.history,
+            })
             for message in result.diagnostics:
                 st.info(message)
             st.success("Последняя metadata-правка отменена.")
         except ValueError as exc:
             st.warning(str(exc))
 
-    history = tuple(st.session_state.get(LAS_EDITOR_METADATA_HISTORY_KEY, ()))
+    history = state_controller.get_tuple(LAS_EDITOR_METADATA_HISTORY_KEY)
     with st.expander("История metadata кривых", expanded=bool(history)):
         if history:
             st.dataframe(

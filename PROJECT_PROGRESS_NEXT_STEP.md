@@ -1,14 +1,15 @@
 # GAS RATIO PRO — Next Step Progress
 
-Current implementation step completed:
+Current step completed: ApplicationStateController cleanup for Curve bulk edit and Curve metadata editor.
 
-- Continued ApplicationStateController cleanup after curve category and unit state handling.
-- Moved LAS curve duplicate detection cached state behind ApplicationStateController.
-- Moved LAS curve export rules preview state behind ApplicationStateController.
-- Moved LAS curve quality flags cached state behind ApplicationStateController.
-- Preserved existing UI behavior and widget keys.
-- Validation: pytest 937 passed / 0 failed.
+Implemented:
+- routed Curve bulk edit overrides, metadata and operation log through ApplicationStateController;
+- routed Curve metadata initialization, history, assignment and undo state through ApplicationStateController;
+- removed direct Streamlit session-state writes from these editor paths;
+- preserved existing UI behavior and service contracts.
 
-Recommended next step:
+Validation:
+- pytest: 937 passed / 0 failed
 
-- Continue replacing remaining direct non-widget st.session_state access in LAS editor helpers, starting with metadata, rename and merge history state.
+Suggested next step:
+- continue ApplicationStateController cleanup for remaining Curve Manager history blocks, especially rename and merge managers.
