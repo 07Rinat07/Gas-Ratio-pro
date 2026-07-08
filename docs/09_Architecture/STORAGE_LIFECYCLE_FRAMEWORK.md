@@ -190,3 +190,21 @@ Retry delete
 - `release_dataset_resources(...)`.
 
 Удаление Dataset, очистка раздела и очистка всех Dataset-разделов теперь освобождают file handles и cache entries до удаления каталогов и перед синхронизацией индекса.
+
+## Project Manager integration
+
+`ProjectManagerService` now uses `DeleteEngine` for project directory deletion. This removes the previous direct dependency on raw repository-level `shutil.rmtree` during UI project deletion workflows.
+
+Project deletion now follows the lifecycle path:
+
+```text
+ProjectManagerService
+  -> DeleteEngine
+  -> ResourceManager/FileHandleManager/CacheManager
+  -> filesystem delete
+  -> Recent Projects cleanup
+  -> default project ensure
+  -> IndexManager fallback sync
+```
+
+The low-level project repository remains responsible for reading and writing project metadata, while destructive lifecycle orchestration belongs to the service layer.
