@@ -1,17 +1,23 @@
-# GAS RATIO PRO — Next Step
+# GAS RATIO PRO — Project Progress
 
-Current version: `gas-ratio-pro-interpretation-tablet-state-controller`
+Current version: `las-correlation-settings-state-controller`
 
-Completed in this step:
-- moved interpretation tablet column state validation into `ApplicationStateController` helpers;
-- moved Mud Gas tablet preset state updates into controller-backed helpers;
-- moved generated Mud Gas marker state updates into controller-backed helpers;
-- moved tablet fill-mode default lookup into controller-backed helper;
-- added regression coverage for interpretation tablet state helpers.
+## Completed in this step
 
-Validation:
-- `python -m compileall -q .` — PASS
-- `pytest -q` — 940 passed / 0 failed
+- Moved LAS correlation saved-settings session handling behind `ApplicationStateController`.
+- Replaced direct project LAS selection cache cleanup with controller-managed removal.
+- Read dashboard layout state through the controller instead of direct Streamlit state access.
+- Added regression tests that verify LAS correlation settings UI and start tab do not use direct `st.session_state` access.
 
-Recommended next step:
-- continue ApplicationStateController cleanup for remaining interpretation and LAS correlation session-state reads.
+## Validation
+
+- `compileall`: PASS
+- `pytest`: 942 passed / 0 failed
+
+## Next recommended step
+
+Continue ApplicationStateController cleanup for the remaining LAS correlation Studio keys:
+
+- `las_correlation_studio_markers`
+- `las_correlation_comparison_curve`
+- correlation marker defaults and comparison curve persistence

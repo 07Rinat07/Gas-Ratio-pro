@@ -207,3 +207,27 @@ def test_interpretation_tablet_state_helpers_use_application_state_controller():
         helper_body = inspect.getsource(getattr(module, helper_name))
         assert "_application_state_controller()" in helper_body
         assert "st.session_state" not in helper_body
+
+
+def test_las_correlation_settings_ui_uses_application_state_controller():
+    module = importlib.import_module("app.streamlit_app")
+    import inspect
+
+    helper_names = (
+        "_render_las_correlation_settings_loader",
+        "_render_las_correlation_settings_saver",
+    )
+
+    for helper_name in helper_names:
+        helper_body = inspect.getsource(getattr(module, helper_name))
+        assert "_application_state_controller()" in helper_body
+        assert "st.session_state" not in helper_body
+
+
+def test_start_tab_reads_layout_through_application_state_controller():
+    module = importlib.import_module("app.streamlit_app")
+    import inspect
+
+    helper_body = inspect.getsource(module._render_start_tab)
+    assert "_application_state_controller().get_value" in helper_body
+    assert "st.session_state" not in helper_body

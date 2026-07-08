@@ -5795,7 +5795,7 @@ def _render_start_tab(active_project: ProjectRecord) -> None:
                 unsafe_allow_html=True,
             )
 
-    layout_value = str(st.session_state.get(UI_LAYOUT_KEY, UI_LAYOUT_PROFILES["wide"]["label"]))
+    layout_value = str(_application_state_controller().get_value(UI_LAYOUT_KEY, UI_LAYOUT_PROFILES["wide"]["label"]))
     layout_key = layout_value if layout_value in UI_LAYOUT_PROFILES else _layout_profile_key(layout_value)
     layout_label, layout_width, layout_description = _layout_profile_summary(layout_key)
     with st.expander("Проверка экрана и компоновки", expanded=False):
@@ -10006,7 +10006,7 @@ def _render_project_las_files_panel(
                 try:
                     deleted = las_service.delete_file(project.id, delete_id).deleted
                     _clear_las_working_state()
-                    st.session_state.pop(f"project_las_files_{project.id}", None)
+                    _application_state_controller().remove_value(f"project_las_files_{project.id}", None)
                     logger.info(
                         "project_las_file_deleted project_id=%s las_file_id=%s deleted=%s",
                         safe_log_value(project.id),
@@ -10079,8 +10079,9 @@ def _render_project_las_files_panel(
 
 
 def _render_las_correlation_settings_loader(wells, group_options: tuple[str, ...], project_id: str) -> None:
+    controller = _application_state_controller()
     session_key = _project_settings_session_key(project_id)
-    session_payload = st.session_state.get(session_key)
+    session_payload = controller.get_value(session_key)
     session_settings = settings_from_dict(session_payload) if session_payload else None
     project_settings = _load_project_las_correlation_settings(project_id)
 
@@ -10094,7 +10095,7 @@ def _render_las_correlation_settings_loader(wells, group_options: tuple[str, ...
                 st.caption(line)
             if st.button("Загрузить настройки проекта", width="stretch", key="las_correlation_load_project_settings"):
                 _apply_las_correlation_settings_to_session(project_settings, wells, group_options)
-                st.session_state[session_key] = settings_to_dict(project_settings)
+                controller.set_value(session_key, settings_to_dict(project_settings))
                 _refresh_ui()
 
         if session_settings is not None:
@@ -10106,11 +10107,12 @@ def _render_las_correlation_settings_loader(wells, group_options: tuple[str, ...
                 _apply_las_correlation_settings_to_session(session_settings, wells, group_options)
                 _refresh_ui()
             if clear_col.button("Очистить настройки сессии", width="stretch", key="las_correlation_clear_saved_settings"):
-                st.session_state.pop(session_key, None)
+                controller.remove_value(session_key, None)
                 _refresh_ui()
 
 
 def _render_las_correlation_settings_saver(settings: LasCorrelationSettings, project_id: str) -> None:
+    controller = _application_state_controller()
     with st.expander("Текущие настройки корреляции", expanded=False):
         for line in settings_summary(settings):
             st.caption(line)
@@ -10122,12 +10124,12 @@ def _render_las_correlation_settings_saver(settings: LasCorrelationSettings, pro
                     root=LAS_CORRELATION_PROJECTS_ROOT,
                     project_id=project_id,
                 )
-                st.session_state[_project_settings_session_key(project_id)] = settings_to_dict(settings)
+                controller.set_value(_project_settings_session_key(project_id), settings_to_dict(settings))
                 st.success("Настройки корреляции сохранены в проект.")
             except Exception:
                 st.error("Не удалось сохранить настройки проекта.")
         if session_col.button("Сохранить в сессию", width="stretch", key="las_correlation_save_current_settings"):
-            st.session_state[_project_settings_session_key(project_id)] = settings_to_dict(settings)
+            controller.set_value(_project_settings_session_key(project_id), settings_to_dict(settings))
             st.success("Настройки корреляции сохранены в текущей сессии.")
 
 
