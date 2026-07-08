@@ -250,6 +250,8 @@ list_project_calculation_actions = project_calculations.list_project_calculation
 list_project_exports = project_exports.list_project_exports
 read_project_export_file_bytes = project_exports.read_project_export_file_bytes
 save_project_export = project_exports.save_project_export
+delete_project_export = project_exports.delete_project_export
+clear_project_exports = project_exports.clear_project_exports
 list_project_las_datasets = project_datasets.list_project_las_datasets
 list_project_csv_datasets = project_datasets.list_project_csv_datasets
 save_project_csv_dataset = project_datasets.save_project_csv_dataset
@@ -257,6 +259,7 @@ list_project_excel_datasets = project_datasets.list_project_excel_datasets
 save_project_excel_dataset = project_datasets.save_project_excel_dataset
 list_project_core_datasets = project_datasets.list_project_core_datasets
 save_project_core_dataset = project_datasets.save_project_core_dataset
+clear_project_las_files = project_las_files.clear_project_las_files
 list_project_mud_log_datasets = project_datasets.list_project_mud_log_datasets
 save_project_mud_log_dataset = project_datasets.save_project_mud_log_dataset
 list_project_production_datasets = project_datasets.list_project_production_datasets
@@ -288,8 +291,6 @@ read_project_las_file_bytes = project_las_files.read_project_las_file_bytes
 read_project_las_file_dataframe = project_las_files.read_project_las_file_dataframe
 save_project_las_file = project_las_files.save_project_las_file
 set_project_las_file_archived = project_las_files.set_project_las_file_archived
-delete_project_las_file = project_las_files.delete_project_las_file
-delete_all_project_las_files = project_las_files.delete_all_project_las_files
 PROJECT_EXPLORER_LABEL_COLORS = project_labels.PROJECT_EXPLORER_LABEL_COLORS
 PROJECT_EXPLORER_LABEL_ICONS = project_labels.PROJECT_EXPLORER_LABEL_ICONS
 set_project_explorer_label = project_labels.set_project_explorer_label
@@ -4033,10 +4034,6 @@ def _clear_las_working_state() -> None:
         "graph_",
         "table_",
         "stats_",
-        "project_las_",
-        "workspace_project_las_",
-        "workspace_open_project_",
-        "save_uploaded_las_",
     )
     exact_keys = {
         LAS_EDITOR_SESSION_SHEETS_KEY,
@@ -4054,13 +4051,7 @@ def _clear_las_working_state() -> None:
     }
     for key in list(st.session_state.keys()):
         if key in exact_keys or any(str(key).startswith(prefix) for prefix in prefixes):
-            try:
-                st.session_state.pop(key, None)
-            except Exception:
-                # Streamlit can lock widget-owned keys during the current rerun.
-                # The next rerun will rebuild widgets from persistent storage, so
-                # deletion operations below must also update disk manifests.
-                pass
+            st.session_state.pop(key, None)
     try:
         st.cache_data.clear()
     except Exception:
@@ -8741,27 +8732,6 @@ def _project_las_records_to_raw_sheets(project: ProjectRecord, records: tuple[Pr
     return sheets
 
 
-def _clear_project_las_persistent_storage(project: ProjectRecord, logger) -> None:
-    """Delete all saved LAS versions for the active project and clear UI/session state."""
-    try:
-        deleted_count = delete_all_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-        _clear_las_working_state()
-        st.session_state.pop(PROJECT_SESSION_SHEETS_KEY, None)
-        st.session_state.pop(PROJECT_SESSION_PROJECT_ID_KEY, None)
-        st.session_state.pop(PROJECT_SESSION_SUMMARY_KEY, None)
-        logger.info(
-            "project_las_storage_cleared project_id=%s deleted_count=%d",
-            safe_log_value(project.id),
-            deleted_count,
-        )
-    except Exception:
-        logger.exception("project_las_storage_clear_failed project_id=%s", safe_log_value(project.id))
-        st.error("Не удалось очистить LAS-хранилище проекта. Подробности записаны в logs/app.log.")
-    else:
-        st.success(f"LAS-хранилище проекта очищено. Удалено версий: {deleted_count}.")
-        st.rerun()
-
-
 def _render_project_las_zip_download(
     project: ProjectRecord,
     selected_ids: tuple[str, ...],
@@ -8800,12 +8770,6 @@ def _render_project_workspace_loader(project: ProjectRecord, logger) -> None:
     with st.expander("Данные активного проекта", expanded=bool(active_records)):
         st.caption(f"Открыт проект: {project.name} ({project.id})")
         st.dataframe(_project_workspace_summary_table(project), use_container_width=True, hide_index=True, height=210)
-        if active_records and st.button(
-            "Очистить все LAS-версии активного проекта",
-            use_container_width=True,
-            key=f"workspace_clear_project_las_storage_{project.id}",
-        ):
-            _clear_project_las_persistent_storage(project, logger)
         _render_project_dataset_manager(project, logger)
         _render_project_manager_tools(project, logger)
         _render_project_file_index(project, logger)
@@ -8891,6 +8855,51 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
 
         st.dataframe(_project_exports_table(records), use_container_width=True, height=220)
         records_by_id = {record.id: record for record in records}
+
+        toolbar_col1, toolbar_col2, toolbar_col3 = st.columns([3, 1, 1])
+        selected_ids = toolbar_col1.multiselect(
+            "Экспорты для удаления",
+            options=tuple(records_by_id),
+            format_func=lambda record_id: _project_export_option_label(records_by_id[record_id]),
+            key=f"project_export_delete_selected_{project.id}",
+        )
+        if toolbar_col2.button("Удалить выбранные", use_container_width=True, key=f"project_export_delete_selected_button_{project.id}"):
+            try:
+                deleted_count = 0
+                for export_id in selected_ids:
+                    if delete_project_export(LAS_CORRELATION_PROJECTS_ROOT, project.id, export_id):
+                        deleted_count += 1
+                _clear_las_working_state()
+                logger.info(
+                    "project_exports_deleted project_id=%s count=%d",
+                    safe_log_value(project.id),
+                    deleted_count,
+                )
+                st.success(f"Удалено экспортов: {deleted_count}.")
+                st.rerun()
+            except Exception:
+                logger.exception("project_exports_delete_failed project_id=%s", safe_log_value(project.id))
+                st.error("Не удалось удалить выбранные экспорты. Подробности записаны в logs/app.log.")
+
+        confirm_clear = toolbar_col3.checkbox("Подтвердить очистку", key=f"project_export_clear_confirm_{project.id}")
+        if st.button("Очистить таблицу экспортов и файлы", use_container_width=True, key=f"project_export_clear_all_button_{project.id}"):
+            if not confirm_clear:
+                st.warning("Поставьте галочку подтверждения, чтобы очистить весь архив экспортов.")
+            else:
+                try:
+                    deleted_count = clear_project_exports(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+                    _clear_las_working_state()
+                    logger.info(
+                        "project_exports_cleared project_id=%s count=%d",
+                        safe_log_value(project.id),
+                        deleted_count,
+                    )
+                    st.success(f"Архив экспортов очищен. Удалено записей: {deleted_count}.")
+                    st.rerun()
+                except Exception:
+                    logger.exception("project_exports_clear_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось очистить архив экспортов. Подробности записаны в logs/app.log.")
+
         selected_id = st.selectbox(
             "Экспорт проекта",
             options=tuple(records_by_id),
@@ -9580,13 +9589,28 @@ def _render_project_las_files_panel(
         )
         st.dataframe(_project_las_records_table(display_well_cards), use_container_width=True, height=260)
 
-        if deletable_records := (active_records + archived_records):
-            if st.button(
-                "Очистить все сохраненные LAS этого проекта",
-                use_container_width=True,
-                key=f"project_las_clear_all_button_{project.id}",
-            ):
-                _clear_project_las_persistent_storage(project, logger)
+        clear_las_col1, clear_las_col2 = st.columns([3, 1])
+        confirm_clear_las = clear_las_col1.checkbox(
+            "Подтвердить полную очистку LAS-версий проекта",
+            key=f"project_las_clear_all_confirm_{project.id}",
+        )
+        if clear_las_col2.button("Очистить все LAS", use_container_width=True, key=f"project_las_clear_all_button_{project.id}"):
+            if not confirm_clear_las:
+                st.warning("Подтвердите очистку LAS-версий проекта галочкой.")
+            else:
+                try:
+                    deleted_count = clear_project_las_files(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+                    _clear_las_working_state()
+                    logger.info(
+                        "project_las_files_cleared project_id=%s count=%d",
+                        safe_log_value(project.id),
+                        deleted_count,
+                    )
+                    st.success(f"Все LAS-версии проекта удалены с диска. Удалено записей: {deleted_count}.")
+                    st.rerun()
+                except Exception:
+                    logger.exception("project_las_files_clear_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось очистить LAS-версии проекта. Подробности записаны в logs/app.log.")
 
         if active_records:
             archive_options = {record.id: record for record in active_records}

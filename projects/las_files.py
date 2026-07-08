@@ -280,45 +280,6 @@ def delete_project_las_file(
     return True
 
 
-
-def delete_all_project_las_files(
-    root: Path | str,
-    project_id: str,
-) -> int:
-    """Physically delete every LAS version from a project and reset its manifest.
-
-    This removes both active and archived LAS entries. It is used by the UI
-    when the user wants to clean the project/correlation workspace completely,
-    not just hide records from the current Streamlit session.
-    """
-    records = tuple(_read_manifest(root, project_id))
-    wells_dir = _project_wells_dir(root, project_id)
-    deleted_count = 0
-
-    for record in records:
-        las_dir = _las_file_dir(root, project_id, record.id)
-        if las_dir.exists():
-            import shutil
-
-            shutil.rmtree(las_dir)
-        deleted_count += 1
-
-    _write_manifest(root, project_id, ())
-
-    # Remove empty well/LAS directories left after deleting the records, but keep
-    # the project itself and its manifest path valid for future imports.
-    for child in tuple(wells_dir.iterdir()) if wells_dir.exists() else ():
-        if child.name == PROJECT_LAS_MANIFEST_FILE_NAME:
-            continue
-        if child.is_dir():
-            import shutil
-
-            shutil.rmtree(child)
-        else:
-            child.unlink(missing_ok=True)
-
-    return deleted_count
-
 def read_project_las_file_bytes(
     root: Path | str,
     project_id: str,
@@ -451,3 +412,21 @@ def export_project_las_files_zip(
 
     return buffer.getvalue()
 
+
+
+def clear_project_las_files(
+    root: Path | str,
+    project_id: str,
+) -> int:
+    """Physically delete all LAS versions saved in a project and reset LAS manifest."""
+    records = tuple(_read_manifest(root, project_id))
+    deleted_count = 0
+    for record in records:
+        las_dir = _las_file_dir(root, project_id, record.id)
+        if las_dir.exists():
+            import shutil
+
+            shutil.rmtree(las_dir)
+        deleted_count += 1
+    _write_manifest(root, project_id, ())
+    return deleted_count

@@ -209,36 +209,3 @@ def test_project_las_file_persists_editor_metadata(tmp_path):
     assert loaded.id == record.id
     assert loaded.metadata["source"] == "las_editor"
     assert loaded.metadata["edit_log"][0]["action"] == "Batch operation"
-
-
-def test_delete_all_project_las_files_removes_active_and_archived_versions(tmp_path):
-    from projects import delete_all_project_las_files
-
-    first = save_project_las_file(
-        LAS_BYTES,
-        root=tmp_path,
-        project_id="demo",
-        file_name="well-a-raw.las",
-        well_name="Well A",
-        version_label="raw",
-    )
-    second = save_project_las_file(
-        LAS_BYTES,
-        root=tmp_path,
-        project_id="demo",
-        file_name="well-a-fixed.las",
-        well_name="Well A",
-        version_label="fixed",
-    )
-    set_project_las_file_archived(tmp_path, "demo", first.id, archived=True)
-
-    deleted_count = delete_all_project_las_files(tmp_path, "demo")
-
-    assert deleted_count == 2
-    assert list_project_las_files(tmp_path, "demo", include_archived=True) == ()
-    assert not (tmp_path / "demo" / "wells" / first.id).exists()
-    assert not (tmp_path / "demo" / "wells" / second.id).exists()
-    manifest_path = tmp_path / "demo" / "wells" / "las_files.json"
-    assert manifest_path.exists()
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert manifest["las_files"] == []

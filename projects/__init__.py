@@ -71,6 +71,8 @@ from projects.exports import (
     list_project_exports,
     read_project_export_file_bytes,
     save_project_export,
+    delete_project_export,
+    clear_project_exports,
 )
 from projects.graph_settings import (
     DEFAULT_INTERPRETATION_TRACKS,
@@ -202,7 +204,7 @@ from projects.las_files import (
     save_project_las_file,
     set_project_las_file_archived,
     delete_project_las_file,
-    delete_all_project_las_files,
+    clear_project_las_files,
 )
 
 from projects.project_manager import (
@@ -612,6 +614,8 @@ __all__ = [
     "list_project_exports",
     "read_project_export_file_bytes",
     "save_project_export",
+    "delete_project_export",
+    "clear_project_exports",
     "DEFAULT_INTERPRETATION_TRACKS",
     "InterpretationGraphSettings",
     "load_project_interpretation_graph_settings",
@@ -682,7 +686,7 @@ __all__ = [
     "save_project_las_file",
     "set_project_las_file_archived",
     "delete_project_las_file",
-    "delete_all_project_las_files",
+    "clear_project_las_files",
 ]
 
 from projects.well_manager import (
