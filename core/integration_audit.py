@@ -155,6 +155,70 @@ def scan_direct_repository_imports(path: Path, root: Path) -> tuple[AuditFinding
     return tuple(findings)
 
 
+
+def _enclosing_function_names(tree: ast.AST) -> dict[int, str]:
+    """Map AST node object ids to the function that contains each node.
+
+    The audit uses this small parent-context map to allow the single Streamlit
+    adapter boundary that constructs ``ApplicationStateController`` from
+    ``st.session_state`` while blocking every other direct UI access.
+    """
+
+    owners: dict[int, str] = {}
+
+    def visit(node: ast.AST, current_function: str = "") -> None:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            current_function = node.name
+        owners[id(node)] = current_function
+        for child in ast.iter_child_nodes(node):
+            visit(child, current_function)
+
+    visit(tree)
+    return owners
+
+
+def scan_session_state_access(
+    path: Path,
+    root: Path,
+    *,
+    allowed_functions: tuple[str, ...] = ("_application_state_controller",),
+) -> tuple[AuditFinding, ...]:
+    """Find direct Streamlit session-state access outside approved boundaries.
+
+    After the ApplicationStateController migration, ``streamlit_app.py`` may
+    touch ``st.session_state`` only once: inside the controller factory where the
+    Streamlit mapping is adapted to the framework-neutral controller.  All reads,
+    writes and method calls elsewhere must go through controller helpers.
+    """
+
+    tree = _parse(path)
+    owners = _enclosing_function_names(tree)
+    allowed = set(allowed_functions)
+    findings: list[AuditFinding] = []
+    seen: set[tuple[str, int]] = set()
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Attribute):
+            continue
+        if not (isinstance(node.value, ast.Name) and node.value.id == "st" and node.attr == "session_state"):
+            continue
+        owner = owners.get(id(node), "")
+        if owner in allowed:
+            continue
+        key = (owner, getattr(node, "lineno", 0))
+        if key in seen:
+            continue
+        seen.add(key)
+        findings.append(
+            AuditFinding(
+                file=_relative(path, root),
+                line=getattr(node, "lineno", 0),
+                kind="error",
+                detail="direct st.session_state access outside ApplicationStateController boundary",
+            )
+        )
+    return tuple(findings)
+
 def scan_session_state_writes(path: Path, root: Path) -> tuple[AuditFinding, ...]:
     """Find direct Streamlit session-state writes in UI shell.
 
@@ -204,6 +268,7 @@ def audit_streamlit_app(root: Path | str) -> IntegrationAuditReport:
     findings: list[AuditFinding] = []
     findings.extend(scan_destructive_filesystem_calls(app_path, root_path))
     findings.extend(scan_direct_repository_imports(app_path, root_path))
+    findings.extend(scan_session_state_access(app_path, root_path))
     findings.extend(scan_session_state_writes(app_path, root_path))
     return IntegrationAuditReport(findings=tuple(findings))
 

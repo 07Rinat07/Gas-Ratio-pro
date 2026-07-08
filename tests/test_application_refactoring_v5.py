@@ -3,6 +3,8 @@ import importlib
 
 import pytest
 
+from core.integration_audit import audit_streamlit_app, scan_session_state_access
+
 from core.application_state import (
     ACTIVE_LAS_ID_KEY,
     ACTIVE_PROJECT_ID_KEY,
@@ -242,3 +244,21 @@ def test_las_correlation_studio_state_uses_application_state_controller():
     assert 'state_controller.set_value("las_correlation_studio_markers"' in helper_body
     assert 'state_controller.get_value("las_correlation_comparison_curve")' in helper_body
     assert 'state_controller.set_value("las_correlation_comparison_curve"' in helper_body
+
+
+def test_final_streamlit_state_audit_allows_only_controller_factory():
+    app_path = Path("app/streamlit_app.py")
+
+    findings = scan_session_state_access(app_path, Path("."))
+
+    assert findings == ()
+
+
+def test_integration_audit_has_no_application_state_boundary_errors():
+    report = audit_streamlit_app(Path("."))
+
+    assert not [
+        finding
+        for finding in report.errors
+        if finding.detail == "direct st.session_state access outside ApplicationStateController boundary"
+    ]

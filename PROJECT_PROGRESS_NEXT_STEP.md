@@ -1,19 +1,19 @@
 # GAS RATIO PRO — Project Progress
 
-Current version: `las-correlation-studio-state-controller`
+Current version: `application-state-final-audit`
 
 ## Completed in this step
 
-- Moved LAS Correlation Studio marker state behind `ApplicationStateController`.
-- Moved comparison curve persistence behind `ApplicationStateController`.
-- Replaced remaining direct `st.session_state` reads/writes in `streamlit_app.py` with controller calls, except the single controller factory boundary.
-- Added regression coverage for LAS correlation Studio state handling.
+- Added a final source-level audit for Streamlit session-state access.
+- Allowed direct `st.session_state` access only inside the `_application_state_controller()` factory boundary.
+- Integrated the new ApplicationStateController boundary audit into the Streamlit integration audit.
+- Added regression tests proving that UI state access now goes through `ApplicationStateController`.
 
 ## Validation
 
 - `compileall`: PASS
-- `pytest`: 943 passed / 0 failed
+- `pytest`: 945 passed / 0 failed
 
 ## Next recommended step
 
-Run the final ApplicationStateController audit and start preparing Architecture Review / Core LTS Freeze documentation.
+Prepare Architecture Review documentation and Core LTS Freeze checklist before starting Sprint 2 Workspace Framework.
