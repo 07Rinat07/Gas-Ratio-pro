@@ -54,6 +54,23 @@ Important roadmap decisions:
 - Интерпретация остается предварительной инженерной подсказкой и требует проверки по ГИС, литологии, буровому контексту, фону, СПО, наращиваниям и рециркуляции.
 - После завершенного этапа выполняются `python -m pytest` и `python scripts/preflight.py`.
 
+
+## Product Priority Update — Hydrocarbon Interval Reporting
+
+Главная пользовательская цель GAS RATIO PRO уточнена: программа должна уметь распечатывать все интервалы с признаками углеводородов, давать понятную инженерную интерпретацию, строить графики с маркерами и формировать аккуратный отчет для печати.
+
+Этот приоритет включает:
+
+- Hydrocarbon Interval Detector;
+- Interpretation Engine;
+- Marked Graph Report;
+- Printable Interpretation Report;
+- Petrophysics Integration;
+- Modeling Integration;
+- Toolbar and unified section design.
+
+Детальный план добавлен в `docs/15_Implementation_Plan/HYDROCARBON_INTERVAL_REPORTING_PLAN.md`.
+
 ## Completed Milestones
 
 Ниже перечислены крупные блоки, уже перенесенные в новую дорожную карту и закрытые в рамках Project Plan v2.
