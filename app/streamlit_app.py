@@ -2787,14 +2787,13 @@ def _render_las_curve_grouping_manager(prepared_df: pd.DataFrame) -> None:
         "компоненты C1-C5, сопротивления, density/neutron, буровые параметры и прочие кривые."
     )
 
-    if LAS_EDITOR_GROUP_HISTORY_KEY not in st.session_state:
-        st.session_state[LAS_EDITOR_GROUP_HISTORY_KEY] = ()
-    if LAS_EDITOR_GROUP_OVERRIDES_KEY not in st.session_state:
-        st.session_state[LAS_EDITOR_GROUP_OVERRIDES_KEY] = {}
+    state_controller = _application_state_controller()
+    state_controller.ensure_value(LAS_EDITOR_GROUP_HISTORY_KEY, ())
+    state_controller.ensure_value(LAS_EDITOR_GROUP_OVERRIDES_KEY, {})
 
     column_names = [str(column) for column in prepared_df.columns]
-    aliases = _application_state_controller().get_dict(LAS_EDITOR_ALIAS_MAP_KEY)
-    overrides = _application_state_controller().get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY)
+    aliases = state_controller.get_dict(LAS_EDITOR_ALIAS_MAP_KEY)
+    overrides = state_controller.get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY)
     group_rows = curve_group_table_rows(column_names, overrides=overrides, aliases=aliases)
 
     st.dataframe(
@@ -2836,13 +2835,15 @@ def _render_las_curve_grouping_manager(prepared_df: pd.DataFrame) -> None:
                 curve_name,
                 selected_group,
                 overrides=overrides,
-                history=st.session_state.get(LAS_EDITOR_GROUP_HISTORY_KEY, ()),
+                history=state_controller.get_tuple(LAS_EDITOR_GROUP_HISTORY_KEY),
                 references=references,
                 reason="manual",
                 source="las_editor_ui",
             )
-            st.session_state[LAS_EDITOR_GROUP_OVERRIDES_KEY] = result.overrides
-            st.session_state[LAS_EDITOR_GROUP_HISTORY_KEY] = result.history
+            state_controller.update_values({
+                LAS_EDITOR_GROUP_OVERRIDES_KEY: result.overrides,
+                LAS_EDITOR_GROUP_HISTORY_KEY: result.history,
+            })
             for message in result.diagnostics:
                 st.info(message)
             if result.assigned:
@@ -2852,24 +2853,26 @@ def _render_las_curve_grouping_manager(prepared_df: pd.DataFrame) -> None:
         except ValueError as exc:
             st.warning(str(exc))
 
-    history = tuple(st.session_state.get(LAS_EDITOR_GROUP_HISTORY_KEY, ()))
+    history = state_controller.get_tuple(LAS_EDITOR_GROUP_HISTORY_KEY)
     if st.button("Undo последней группировки", disabled=not history, width="stretch", key="las_editor_group_undo"):
         try:
             result = undo_last_group_assignment(
                 prepared_df,
-                overrides=_application_state_controller().get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY),
+                overrides=state_controller.get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY),
                 history=history,
                 references=references,
             )
-            st.session_state[LAS_EDITOR_GROUP_OVERRIDES_KEY] = result.overrides
-            st.session_state[LAS_EDITOR_GROUP_HISTORY_KEY] = result.history
+            state_controller.update_values({
+                LAS_EDITOR_GROUP_OVERRIDES_KEY: result.overrides,
+                LAS_EDITOR_GROUP_HISTORY_KEY: result.history,
+            })
             for message in result.diagnostics:
                 st.info(message)
             st.success("Последняя группировка отменена.")
         except ValueError as exc:
             st.warning(str(exc))
 
-    history = tuple(st.session_state.get(LAS_EDITOR_GROUP_HISTORY_KEY, ()))
+    history = state_controller.get_tuple(LAS_EDITOR_GROUP_HISTORY_KEY)
     with st.expander("История группировки кривых", expanded=bool(history)):
         if history:
             st.dataframe(

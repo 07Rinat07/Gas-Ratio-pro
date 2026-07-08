@@ -1,5 +1,9 @@
-# Next Step
+# Project Progress Next Step
 
-Completed graph settings state handling.
+Current step completed: LAS Curve Grouping state handling has been routed through ApplicationStateController.
 
-Next: Continue migrating remaining UI session/project context accesses to ApplicationStateController and remove remaining direct session state mutations.
+Next recommended step: continue migrating LAS Curve Category and Unit managers from direct Streamlit session state access to ApplicationStateController.
+
+Validation:
+- compileall: PASS
+- pytest: 937 passed / 0 failed
