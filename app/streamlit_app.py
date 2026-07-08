@@ -73,6 +73,7 @@ from core.diagnostics import (
 )
 from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summarize_interpretation
 from core.logging_config import configure_logging, safe_log_value
+from core.application_state import ApplicationStateController
 from core.models import CalculationConfig, STANDARD_FIELDS
 from importers.csv_importer import load_csv_sheets
 from importers.excel_importer import load_excel_sheets
@@ -4227,7 +4228,7 @@ def _render_saved_wells_panel(logger) -> None:
                 st.error("Не удалось удалить версию с диска. Подробности записаны в logs/app.log.")
             else:
                 st.success("Версия удалена с диска.")
-                st.rerun()
+                _refresh_ui()
         if action_col2.button("Удалить скважину полностью", use_container_width=True, key="saved_well_delete_record"):
             try:
                 well_service.delete_well(selected_record.id)
@@ -4237,7 +4238,7 @@ def _render_saved_wells_panel(logger) -> None:
                 st.error("Не удалось удалить скважину с диска. Подробности записаны в logs/app.log.")
             else:
                 st.success("Скважина удалена с диска.")
-                st.rerun()
+                _refresh_ui()
 
         csv_col, xlsx_col, las_col = st.columns(3)
         try:
@@ -4562,7 +4563,7 @@ def _trigger_quick_action(action: dict[str, str]) -> None:
     """Switch to the quick action target and remember the latest executed action."""
     st.session_state[DASHBOARD_LAST_QUICK_ACTION_KEY] = action["id"]
     _set_active_main_tab(action["target_tab"])
-    st.rerun()
+    _refresh_ui()
 
 
 def _asset_to_data_uri(path: Path) -> str:
@@ -4808,6 +4809,29 @@ def _las_manager_service() -> LasManagerService:
     return LasManagerService(LAS_CORRELATION_PROJECTS_ROOT)
 
 
+def _application_state_controller() -> ApplicationStateController:
+    """Return the single UI-facing application state controller.
+
+    Streamlit widgets use their own keys; persistent application context is
+    changed only through this controller to avoid modifying widget-bound keys
+    after widget instantiation.
+    """
+    return ApplicationStateController(st.session_state)
+
+
+def _refresh_ui() -> None:
+    """Centralized UI refresh helper used by repository/service actions."""
+    _refresh_ui()
+
+
+def _render_table_toolbar_caption(title: str, description: str | None = None) -> None:
+    """Render a consistent caption above repository-backed tables."""
+    if description:
+        st.caption(f"{title} · {description}")
+    else:
+        st.caption(title)
+
+
 def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_project: ProjectRecord, logger) -> None:
     """Render real Streamlit controls for the dashboard Recent Projects list."""
     service = _project_manager_service()
@@ -4822,7 +4846,7 @@ def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_
             removed = service.clear_recent_history()
             logger.info("recent_projects_history_cleared removed=%d", removed)
             st.success(f"История очищена. Удалено записей: {removed}.")
-            st.rerun()
+            _refresh_ui()
 
         if not entries:
             return
@@ -4840,40 +4864,40 @@ def _render_recent_projects_manager(projects: tuple[ProjectRecord, ...], active_
                 if not entries_by_id[selected_id].exists_on_disk:
                     st.warning("Проект отсутствует на диске. Удалите запись из истории.")
                 else:
-                    st.session_state[ACTIVE_PROJECT_ID_KEY] = selected_id
+                    _application_state_controller().request_project_activation(selected_id)
                     _clear_las_working_state()
-                    st.rerun()
+                    _refresh_ui()
         with col_remove:
             if st.button("Удалить запись", use_container_width=True, key="recent_project_remove_entry"):
                 service.remove_recent_entry(selected_id)
                 logger.info("recent_project_entry_removed project_id=%s", safe_log_value(selected_id))
                 st.success("Запись удалена из истории. Сам проект не удален.")
-                st.rerun()
+                _refresh_ui()
         with col_delete:
             disabled = selected_id == DEFAULT_PROJECT_ID
             if st.button("Удалить проект с диска", use_container_width=True, disabled=disabled, key="recent_project_delete_disk"):
                 try:
                     result = service.delete_project_complete(selected_id)
-                    if st.session_state.get(ACTIVE_PROJECT_ID_KEY) == selected_id:
-                        st.session_state[ACTIVE_PROJECT_ID_KEY] = DEFAULT_PROJECT_ID
+                    if _application_state_controller().context().project_id == selected_id:
+                        _application_state_controller().request_project_activation(DEFAULT_PROJECT_ID)
                     _clear_las_working_state()
                 except Exception:
                     logger.exception("recent_project_delete_failed project_id=%s", safe_log_value(selected_id))
                     st.error("Не удалось удалить проект. Подробности записаны в logs/app.log.")
                 else:
                     st.success("Проект удален с диска и из истории.")
-                    st.rerun()
+                    _refresh_ui()
 
         flags_col_1, flags_col_2 = st.columns(2)
         selected_entry = entries_by_id[selected_id]
         with flags_col_1:
             if st.button("Закрепить/открепить", use_container_width=True, key="recent_project_toggle_pin"):
                 service.set_recent_flags(selected_id, pinned=not selected_entry.pinned)
-                st.rerun()
+                _refresh_ui()
         with flags_col_2:
             if st.button("Избранное вкл/выкл", use_container_width=True, key="recent_project_toggle_favorite"):
                 service.set_recent_flags(selected_id, favorite=not selected_entry.favorite)
-                st.rerun()
+                _refresh_ui()
 
 
 def _dashboard_project_statistics(active_project: ProjectRecord, projects: tuple[ProjectRecord, ...]) -> dict[str, int]:
@@ -5317,13 +5341,13 @@ def _render_global_command_palette(active_project: ProjectRecord) -> None:
         with col_favorite:
             if st.button("★" if is_favorite else "☆", key=f"command_palette_fav_{index}_{entry_id}", help="Добавить или убрать команду из избранного"):
                 _toggle_command_palette_favorite(entry)
-                st.rerun()
+                _refresh_ui()
         with col_button:
             target_tab = entry.get("target_tab", APP_TABS[0])
             if st.button("Открыть", key=f"command_palette_open_{index}_{target_tab}_{entry.get('title', '')}", use_container_width=True):
                 _remember_command_palette_entry(entry)
                 _set_active_main_tab(target_tab)
-                st.rerun()
+                _refresh_ui()
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -5470,7 +5494,7 @@ def _render_main_navigation() -> str:
         with column:
             if st.button(button_label, key=f"main_nav_{label}", use_container_width=True, help=item["description"]):
                 _set_active_main_tab(label)
-                st.rerun()
+                _refresh_ui()
             st.markdown(
                 f'<span class="app-nav-description" data-target="{_html_escape(label)}">{_html_escape(item["description"])}</span>',
                 unsafe_allow_html=True,
@@ -5904,7 +5928,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     if st.button("Очистить рабочее состояние LAS", use_container_width=True, key="las_editor_clear_working_state"):
         _clear_las_working_state()
         st.success("Рабочее состояние LAS очищено: таблицы, графики, статистика и временные данные удалены из session state.")
-        st.rerun()
+        _refresh_ui()
     _render_saved_wells_panel(logger)
 
     saved_summary = st.session_state.get(LAS_EDITOR_SESSION_SUMMARY_KEY)
@@ -6652,7 +6676,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
                             saved_count,
                         )
                         st.success(f"CSV datasets сохранены в проект: {saved_count}.")
-                        st.rerun()
+                        _refresh_ui()
             excel_uploads = tuple(
                 uploaded_file
                 for uploaded_file in uploaded_files
@@ -6684,7 +6708,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
                             saved_count,
                         )
                         st.success(f"Excel datasets сохранены в проект: {saved_count}.")
-                        st.rerun()
+                        _refresh_ui()
             core_uploads = tuple(
                 uploaded_file
                 for uploaded_file in uploaded_files
@@ -6716,7 +6740,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
                             saved_count,
                         )
                         st.success(f"Core datasets сохранены в проект: {saved_count}.")
-                        st.rerun()
+                        _refresh_ui()
             mud_log_uploads = tuple(
                 uploaded_file
                 for uploaded_file in uploaded_files
@@ -6748,7 +6772,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
                             saved_count,
                         )
                         st.success(f"Mud Log datasets сохранены в проект: {saved_count}.")
-                        st.rerun()
+                        _refresh_ui()
             production_uploads = tuple(
                 uploaded_file
                 for uploaded_file in uploaded_files
@@ -6780,7 +6804,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
                             saved_count,
                         )
                         st.success(f"Production datasets сохранены в проект: {saved_count}.")
-                        st.rerun()
+                        _refresh_ui()
         except Exception:
             logger.exception("file_read_failed extensions=%s", safe_log_value(",".join(suffixes)))
             st.error("Не удалось прочитать файл. Проверьте формат и доступность данных.")
@@ -7221,7 +7245,7 @@ def _render_tablet_controls(
             key="interpretation_tablet_apply_mud_gas_preset",
         ):
             st.session_state["interpretation_tablet_columns"] = list(literature_columns)
-            st.rerun()
+            _refresh_ui()
         if marker_col.button(
             "Добавить mud-gas маркеры",
             help="Ставит безопасные справочные маркеры по total-gas/Wh/Pixler/oil-indicator экстремумам. Это не автоматическая классификация.",
@@ -7234,7 +7258,7 @@ def _render_tablet_controls(
                 st.session_state[f"interpretation_tablet_marker_{index}_label"] = marker.label
                 st.session_state[f"interpretation_tablet_marker_{index}_depth"] = float(marker.depth)
                 st.session_state[f"interpretation_tablet_marker_{index}_note"] = marker.note
-            st.rerun()
+            _refresh_ui()
         st.caption(
             "Mud gas preset использует только найденные в данных колонки; отсутствующие C-компоненты, ratios или ГИС-кривые не подставляются искусственно."
         )
@@ -7364,7 +7388,7 @@ def _render_interpretation_graph_settings_loader(project: ProjectRecord, logger)
             st.caption(line)
         if st.button("Загрузить настройки графиков проекта", use_container_width=True, key=f"load_interpretation_graph_settings_{project.id}"):
             _apply_interpretation_graph_settings_to_session(project_settings)
-            st.rerun()
+            _refresh_ui()
 
 
 def _render_interpretation_graph_settings_saver(
@@ -7801,13 +7825,19 @@ def _project_selectbox_key(current_project_id: str, project_ids: tuple[str, ...]
 
 
 def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bool = False) -> ProjectRecord:
+    state = _application_state_controller()
     projects = _load_project_records_for_ui(logger)
     projects_by_id = {project.id: project for project in projects}
     project_ids = tuple(projects_by_id)
-    current_project_id = st.session_state.get(ACTIVE_PROJECT_ID_KEY)
+
+    # Apply pending project switches before rendering widgets. This keeps
+    # widget state and persistent application state separated.
+    state.consume_pending_project_activation()
+
+    current_project_id = state.context().project_id
     if current_project_id not in projects_by_id:
         current_project_id = DEFAULT_PROJECT_ID if DEFAULT_PROJECT_ID in projects_by_id else projects[0].id
-        st.session_state[ACTIVE_PROJECT_ID_KEY] = current_project_id
+        state.ensure_project(current_project_id)
 
     with st.expander("Проект", expanded=expanded):
         selected_project_id = st.selectbox(
@@ -7817,9 +7847,10 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
             format_func=lambda project_id: _project_option_label(projects_by_id[project_id]),
             key=_project_selectbox_key(current_project_id, project_ids, key_prefix=key_prefix),
         )
-        if selected_project_id != st.session_state.get(ACTIVE_PROJECT_ID_KEY):
-            st.session_state[ACTIVE_PROJECT_ID_KEY] = selected_project_id
+        if selected_project_id != state.context().project_id:
+            state.request_project_activation(selected_project_id)
             _clear_las_working_state()
+            _refresh_ui()
         active_project = projects_by_id[selected_project_id]
         try:
             _project_manager_service().touch_recent(active_project)
@@ -7831,14 +7862,14 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
             if st.button("Удалить активный проект с диска", use_container_width=True, key=f"{key_prefix}_delete_active_project"):
                 try:
                     result = _project_manager_service().delete_project_complete(active_project.id)
-                    st.session_state[ACTIVE_PROJECT_ID_KEY] = DEFAULT_PROJECT_ID
+                    state.request_project_activation(DEFAULT_PROJECT_ID)
                     _clear_las_working_state()
                 except Exception:
                     logger.exception("project_delete_failed project_id=%s", safe_log_value(active_project.id))
                     st.error("Не удалось удалить проект с диска. Подробности записаны в logs/app.log.")
                 else:
                     st.success("Проект удален с диска.")
-                    st.rerun()
+                    _refresh_ui()
 
         with st.form(f"{key_prefix}_create_project_form", clear_on_submit=True):
             new_project_name = st.text_input("Название нового проекта")
@@ -7854,10 +7885,10 @@ def _render_project_selector(logger, *, key_prefix: str = "global", expanded: bo
                             description=new_project_description,
                         )
                         project = result.project
-                        st.session_state[ACTIVE_PROJECT_ID_KEY] = project.id
+                        state.request_project_activation(project.id)
                         logger.info("project_created id=%s", safe_log_value(project.id))
                         st.success("Проект создан.")
-                        st.rerun()
+                        _refresh_ui()
                     except Exception:
                         logger.exception("project_create_failed")
                         st.error("Не удалось создать проект.")
@@ -7935,7 +7966,7 @@ def _render_sidebar_quick_navigation() -> None:
         with columns[index % 2]:
             if st.button(label, key=f"sidebar_quick_nav_{target}", use_container_width=True):
                 _set_active_main_tab(target)
-                st.rerun()
+                _refresh_ui()
     st.sidebar.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -8112,7 +8143,7 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                             safe_log_value(selected_folder_id),
                         )
                         st.success(result.message)
-                        st.rerun()
+                        _refresh_ui()
                     except Exception:
                         logger.exception("project_tree_move_to_folder_failed project_id=%s", safe_log_value(project.id))
                         st.error("Не удалось добавить объект в папку.")
@@ -8142,7 +8173,7 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                             safe_log_value(selected_group_id),
                         )
                         st.success(result.message)
-                        st.rerun()
+                        _refresh_ui()
                     except Exception:
                         logger.exception("project_tree_move_to_group_failed project_id=%s", safe_log_value(project.id))
                         st.error("Не удалось переместить скважину в группу.")
@@ -8189,7 +8220,7 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                         safe_log_value(selected_color),
                     )
                     st.success("Цветовая метка сохранена.")
-                    st.rerun()
+                    _refresh_ui()
                 except Exception:
                     logger.exception("project_tree_label_set_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось сохранить цветовую метку.")
@@ -8208,7 +8239,7 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                         removed,
                     )
                     st.success("Цветовая метка снята." if removed else "У объекта не было цветовой метки.")
-                    st.rerun()
+                    _refresh_ui()
                 except Exception:
                     logger.exception("project_tree_label_clear_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось снять цветовую метку.")
@@ -8391,7 +8422,7 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
                         safe_log_value(selected_well_id),
                     )
                     st.success("Карточка скважины сохранена.")
-                    st.rerun()
+                    _refresh_ui()
                 except Exception:
                     logger.exception("project_well_card_save_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось сохранить карточку скважины.")
@@ -9016,7 +9047,7 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
         action_col_1, action_col_2, action_col_3 = st.columns(3)
         with action_col_1:
             if st.button("Обновить", use_container_width=True, key=f"project_export_refresh_{project.id}"):
-                st.rerun()
+                _refresh_ui()
         with action_col_2:
             if st.button("Удалить выбранный экспорт", use_container_width=True, key=f"project_export_delete_{project.id}_{selected_id}"):
                 try:
@@ -9027,7 +9058,7 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
                     st.error("Не удалось удалить экспорт. Подробности записаны в logs/app.log.")
                 else:
                     st.success("Экспорт удален." if deleted else "Экспорт уже отсутствует.")
-                    st.rerun()
+                    _refresh_ui()
         with action_col_3:
             if st.button("Очистить все экспорты", use_container_width=True, key=f"project_export_clear_all_{project.id}"):
                 try:
@@ -9038,7 +9069,7 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
                     st.error("Не удалось очистить экспорты. Подробности записаны в logs/app.log.")
                 else:
                     st.success(f"Удалено экспортов: {removed}.")
-                    st.rerun()
+                    _refresh_ui()
         try:
             data = export_service.read_export_bytes(project.id, selected_id)
         except Exception:
@@ -9699,7 +9730,7 @@ def _render_project_las_files_panel(
                         saved_count,
                     )
                     st.success(f"LAS-файлы сохранены в проект: {saved_count}.")
-                    st.rerun()
+                    _refresh_ui()
                 except Exception:
                     logger.exception("project_las_files_save_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось сохранить LAS-файлы в проект. Подробности записаны в logs/app.log.")
@@ -9736,7 +9767,7 @@ def _render_project_las_files_panel(
                         safe_log_value(archive_id),
                     )
                     st.success("Версия LAS перенесена в архив.")
-                    st.rerun()
+                    _refresh_ui()
                 except Exception:
                     logger.exception("project_las_file_archive_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось архивировать версию LAS. Подробности записаны в logs/app.log.")
@@ -9766,7 +9797,7 @@ def _render_project_las_files_panel(
                         st.success("LAS-версия полностью удалена с диска.")
                     else:
                         st.warning("LAS-версия уже отсутствовала на диске.")
-                    st.rerun()
+                    _refresh_ui()
                 except Exception:
                     logger.exception("project_las_file_delete_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось удалить LAS-версию с диска. Подробности записаны в logs/app.log.")
@@ -9789,7 +9820,7 @@ def _render_project_las_files_panel(
                         safe_log_value(restore_id),
                     )
                     st.success("Версия LAS возвращена из архива.")
-                    st.rerun()
+                    _refresh_ui()
                 except Exception:
                     logger.exception("project_las_file_restore_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось вернуть версию LAS из архива. Подробности записаны в logs/app.log.")
@@ -9844,7 +9875,7 @@ def _render_las_correlation_settings_loader(wells, group_options: tuple[str, ...
             if st.button("Загрузить настройки проекта", use_container_width=True, key="las_correlation_load_project_settings"):
                 _apply_las_correlation_settings_to_session(project_settings, wells, group_options)
                 st.session_state[session_key] = settings_to_dict(project_settings)
-                st.rerun()
+                _refresh_ui()
 
         if session_settings is not None:
             st.markdown("**Текущая сессия**")
@@ -9853,10 +9884,10 @@ def _render_las_correlation_settings_loader(wells, group_options: tuple[str, ...
             apply_col, clear_col = st.columns(2)
             if apply_col.button("Применить настройки сессии", use_container_width=True, key="las_correlation_apply_saved_settings"):
                 _apply_las_correlation_settings_to_session(session_settings, wells, group_options)
-                st.rerun()
+                _refresh_ui()
             if clear_col.button("Очистить настройки сессии", use_container_width=True, key="las_correlation_clear_saved_settings"):
                 st.session_state.pop(session_key, None)
-                st.rerun()
+                _refresh_ui()
 
 
 def _render_las_correlation_settings_saver(settings: LasCorrelationSettings, project_id: str) -> None:
