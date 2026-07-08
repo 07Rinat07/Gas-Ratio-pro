@@ -8620,115 +8620,40 @@ def _render_dataset_manager_table(
 
 
 def _render_project_dataset_manager(project: ProjectRecord, logger) -> None:
-    """Render Dataset Manager sections for active project datasets."""
+    """Render Dataset Manager sections for active project datasets through service layer."""
 
-    with st.expander("Dataset Manager · LAS", expanded=False):
-        try:
-            las_datasets = list_project_las_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-        except Exception:
-            logger.exception("project_dataset_manager_las_failed project_id=%s", safe_log_value(project.id))
-            st.warning("Не удалось построить список LAS datasets.")
-        else:
-            _render_dataset_manager_table(
-                title="LAS datasets",
-                datasets=las_datasets,
-                select_key=f"project_dataset_las_select_{project.id}",
-                empty_caption="В активном проекте пока нет LAS datasets.",
-                ready_message="LAS dataset готов к открытию в рабочем workflow и выгрузке.",
-                project_id=project.id,
-                section="las",
-                logger=logger,
-            )
+    service = _dataset_manager_service()
+    section_rows = (
+        ("las", "Dataset Manager · LAS", "LAS datasets", "В активном проекте пока нет LAS datasets.", "LAS dataset готов к открытию в рабочем workflow и выгрузке."),
+        ("csv", "Dataset Manager · CSV", "CSV datasets", "В активном проекте пока нет CSV datasets.", "CSV dataset готов к проверке mapping и расчетам."),
+        ("excel", "Dataset Manager · Excel", "Excel datasets", "В активном проекте пока нет Excel datasets.", "Excel dataset готов к проверке активного листа, mapping и расчетам."),
+        ("core", "Dataset Manager · Core", "Core datasets", "В активном проекте пока нет Core datasets.", "Core dataset готов к сопоставлению образцов с LAS по глубине."),
+        ("mud_log", "Dataset Manager · Mud Log", "Mud Log datasets", "В активном проекте пока нет Mud Log datasets.", "Mud Log dataset готов к сопоставлению газов, литологии и описаний с LAS по глубине."),
+        ("production", "Dataset Manager · Production", "Production datasets", "В активном проекте пока нет Production datasets.", "Production dataset готов к анализу добычи по дате и скважине."),
+    )
 
-    with st.expander("Dataset Manager · CSV", expanded=False):
-        try:
-            csv_datasets = list_project_csv_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-        except Exception:
-            logger.exception("project_dataset_manager_csv_failed project_id=%s", safe_log_value(project.id))
-            st.warning("Не удалось построить список CSV datasets.")
-        else:
-            _render_dataset_manager_table(
-                title="CSV datasets",
-                datasets=csv_datasets,
-                select_key=f"project_dataset_csv_select_{project.id}",
-                empty_caption="В активном проекте пока нет CSV datasets.",
-                ready_message="CSV dataset готов к проверке mapping и расчетам.",
-                project_id=project.id,
-                section="csv",
-                logger=logger,
-            )
-
-    with st.expander("Dataset Manager · Excel", expanded=False):
-        try:
-            excel_datasets = list_project_excel_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-        except Exception:
-            logger.exception("project_dataset_manager_excel_failed project_id=%s", safe_log_value(project.id))
-            st.warning("Не удалось построить список Excel datasets.")
-        else:
-            _render_dataset_manager_table(
-                title="Excel datasets",
-                datasets=excel_datasets,
-                select_key=f"project_dataset_excel_select_{project.id}",
-                empty_caption="В активном проекте пока нет Excel datasets.",
-                ready_message="Excel dataset готов к проверке активного листа, mapping и расчетам.",
-                project_id=project.id,
-                section="excel",
-                logger=logger,
-            )
-
-    with st.expander("Dataset Manager · Core", expanded=False):
-        try:
-            core_datasets = list_project_core_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-        except Exception:
-            logger.exception("project_dataset_manager_core_failed project_id=%s", safe_log_value(project.id))
-            st.warning("Не удалось построить список Core datasets.")
-        else:
-            _render_dataset_manager_table(
-                title="Core datasets",
-                datasets=core_datasets,
-                select_key=f"project_dataset_core_select_{project.id}",
-                empty_caption="В активном проекте пока нет Core datasets.",
-                ready_message="Core dataset готов к сопоставлению образцов с LAS по глубине.",
-                project_id=project.id,
-                section="core",
-                logger=logger,
-            )
-
-    with st.expander("Dataset Manager · Mud Log", expanded=False):
-        try:
-            mud_log_datasets = list_project_mud_log_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-        except Exception:
-            logger.exception("project_dataset_manager_mud_log_failed project_id=%s", safe_log_value(project.id))
-            st.warning("Не удалось построить список Mud Log datasets.")
-        else:
-            _render_dataset_manager_table(
-                title="Mud Log datasets",
-                datasets=mud_log_datasets,
-                select_key=f"project_dataset_mud_log_select_{project.id}",
-                empty_caption="В активном проекте пока нет Mud Log datasets.",
-                ready_message="Mud Log dataset готов к сопоставлению газов, литологии и описаний с LAS по глубине.",
-                project_id=project.id,
-                section="mud_log",
-                logger=logger,
-            )
-
-    with st.expander("Dataset Manager · Production", expanded=False):
-        try:
-            production_datasets = list_project_production_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-        except Exception:
-            logger.exception("project_dataset_manager_production_failed project_id=%s", safe_log_value(project.id))
-            st.warning("Не удалось построить список Production datasets.")
-        else:
-            _render_dataset_manager_table(
-                title="Production datasets",
-                datasets=production_datasets,
-                select_key=f"project_dataset_production_select_{project.id}",
-                empty_caption="В активном проекте пока нет Production datasets.",
-                ready_message="Production dataset готов к анализу добычи по дате и скважине.",
-                project_id=project.id,
-                section="production",
-                logger=logger,
-            )
+    for section, expander_title, table_title, empty_caption, ready_message in section_rows:
+        with st.expander(expander_title, expanded=False):
+            try:
+                datasets = service.list_dataset_cards(project.id, section)
+            except Exception:
+                logger.exception(
+                    "project_dataset_manager_section_failed project_id=%s section=%s",
+                    safe_log_value(project.id),
+                    safe_log_value(section),
+                )
+                st.warning(f"Не удалось построить список {service.section_label(section)} datasets.")
+            else:
+                _render_dataset_manager_table(
+                    title=table_title,
+                    datasets=datasets,
+                    select_key=f"project_dataset_{section}_select_{project.id}",
+                    empty_caption=empty_caption,
+                    ready_message=ready_message,
+                    project_id=project.id,
+                    section=section,
+                    logger=logger,
+                )
 
 
 
