@@ -7,7 +7,19 @@ Project sequence:
 3. Sprint 2 Workspace Framework
 4. LAS Workspace 3.0
 
-Current stage: Sprint 2 — LAS Workspace create/open workflow boundary.
+Current stage: Sprint 2 — LAS Workspace creation UI binding.
+
+
+Completed in this archive:
+
+- Connected the New LAS creator UI to `LasWorkspaceController.create_las_working_copy`.
+- Passed active project context into the LAS creation panel.
+- Added a workspace save action for generated LAS files.
+- Preserved the existing in-session open action for calculation workflows.
+- Kept generated LAS persistence behind UI → Controller → Workspace Framework.
+- Added smoke tests for the LAS creation wizard UI binding.
+
+Previous archive notes:
 
 Completed in this archive:
 

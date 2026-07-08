@@ -4146,8 +4146,8 @@ def _clear_las_working_state() -> None:
         pass
 
 
-def _render_new_las_creator_panel(logger) -> None:
-    """Render visible New LAS tools directly in the real LAS editor UI."""
+def _render_new_las_creator_panel(logger, active_project: ProjectRecord) -> None:
+    """Render visible New LAS tools through the LAS Workspace controller boundary."""
     with st.expander("Новый LAS", expanded=True):
         st.caption("Создание нового рабочего LAS с нуля. Оригинальные LAS-файлы не изменяются.")
         template_names = [row["template"] for row in template_table_rows()] or ["empty"]
@@ -4204,6 +4204,38 @@ def _render_new_las_creator_panel(logger) -> None:
                 width="stretch",
                 key="new_las_download_button",
             )
+            if st.button("Сохранить в LAS Workspace", width="stretch", key="new_las_save_to_workspace"):
+                try:
+                    workspace_result = _las_workspace_controller().create_las_working_copy(
+                        active_project.id,
+                        draft,
+                        filename=file_name,
+                    )
+                except Exception:
+                    logger.exception("new_las_workspace_save_failed project_id=%s", safe_log_value(active_project.id))
+                    st.error("Не удалось сохранить LAS в Workspace. Подробности записаны в logs/app.log.")
+                else:
+                    if workspace_result.manifest.is_ready:
+                        _application_state_controller().update_values({
+                            LAS_EDITOR_SESSION_SHEETS_KEY: {"Новый LAS": _dataframe_to_raw_sheet(workspace_result.final.preview.data)},
+                            LAS_EDITOR_SESSION_SUMMARY_KEY: (
+                                f"Новый LAS сохранен в Workspace: "
+                                f"{len(workspace_result.final.preview.data)} строк, "
+                                f"{len(workspace_result.final.preview.data.columns)} колонок"
+                            ),
+                        })
+                        logger.info(
+                            "new_las_workspace_saved project_id=%s workspace_id=%s target=%s",
+                            safe_log_value(active_project.id),
+                            safe_log_value(workspace_result.workspace.id),
+                            safe_log_value(workspace_result.manifest.target_path),
+                        )
+                        st.success(f"LAS сохранен в Workspace: {workspace_result.manifest.target_path}")
+                    else:
+                        st.warning("LAS не сохранен: файл уже существует или проверка экспорта не пройдена.")
+                        for issue in workspace_result.manifest.issues[:3]:
+                            st.caption(f"{issue.code}: {issue.message}")
+
             if st.button("Открыть созданный LAS в расчетах", width="stretch", key="new_las_open_in_session"):
                 _application_state_controller().update_values({
                     LAS_EDITOR_SESSION_SHEETS_KEY: {"Новый LAS": _dataframe_to_raw_sheet(result.document.data)},
@@ -6010,7 +6042,7 @@ def _render_documentation_tab() -> None:
 def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     st.subheader("LAS-редактор")
     st.caption("Подготовка LAS перед расчетами: создание нового LAS, проверка глубины, смена шага, добавление строк и ручная правка.")
-    _render_new_las_creator_panel(logger)
+    _render_new_las_creator_panel(logger, active_project)
     if st.button("Очистить рабочее состояние LAS", width="stretch", key="las_editor_clear_working_state"):
         _clear_las_working_state()
         st.success("Рабочее состояние LAS очищено: таблицы, графики, статистика и временные данные удалены из session state.")
