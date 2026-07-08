@@ -439,13 +439,59 @@ DEFAULT_DELETE_ENGINE = DeleteEngine(
 )
 
 @dataclass(frozen=True)
+class VersionSyncResult:
+    """Result of metadata-only project file version synchronization."""
+
+    project_id: str
+    asset_count: int
+    version_count: int
+
+
+@dataclass(frozen=True)
 class IndexSyncResult:
-    """Result of project storage index synchronization."""
+    """Result of project storage index synchronization.
+
+    ``version_asset_count`` and ``version_count`` are filled when the file
+    versions metadata is synchronized together with the file index.  This keeps
+    Project Database tables consistent after Dataset/LAS/Export delete
+    operations and prevents stale rows from surviving in
+    ``project_file_versions.json`` after ``project_index.json`` was rebuilt.
+    """
 
     project_id: str
     entries_count: int
     missing_count: int = 0
     duplicate_count: int = 0
+    version_asset_count: int = 0
+    version_count: int = 0
+
+
+class VersionManager:
+    """Synchronize metadata-only file versions with the saved project index.
+
+    File versions are diagnostic metadata, not independent storage.  Therefore
+    they must be rebuilt from the current ``project_index.json`` after every
+    Storage Lifecycle operation that changes files.
+    """
+
+    def __init__(self, root: Path | str) -> None:
+        self.root = Path(root)
+
+    def sync_project_versions(self, project_id: str, *, author: str = "local") -> VersionSyncResult:
+        from projects.project_index import update_project_file_versions
+
+        assets = update_project_file_versions(self.root, project_id, author=author)
+        return VersionSyncResult(
+            project_id=str(project_id),
+            asset_count=len(assets),
+            version_count=sum(asset.version_count for asset in assets),
+        )
+
+    def clear_project_versions(self, project_id: str) -> VersionSyncResult:
+        # Updating versions from an empty or freshly rebuilt index writes an
+        # empty metadata file.  The function is kept as a compatibility-friendly
+        # explicit operation for cleanup workflows.
+        return self.sync_project_versions(project_id)
 
 
 class IndexManager:
@@ -457,8 +503,9 @@ class IndexManager:
     UI after a rerun or application restart.
     """
 
-    def __init__(self, root: Path | str) -> None:
+    def __init__(self, root: Path | str, *, version_manager: VersionManager | None = None) -> None:
         self.root = Path(root)
+        self.version_manager = version_manager or VersionManager(self.root)
 
     def rebuild_project_index(self, project_id: str) -> IndexSyncResult:
         from projects.project_index import (
@@ -468,11 +515,14 @@ class IndexManager:
 
         entries = save_project_file_index(self.root, project_id)
         duplicate_count = sum(group.duplicate_count for group in detect_project_duplicate_files(entries))
+        versions = self.version_manager.sync_project_versions(project_id)
         return IndexSyncResult(
             project_id=str(project_id),
             entries_count=len(entries),
             missing_count=0,
             duplicate_count=duplicate_count,
+            version_asset_count=versions.asset_count,
+            version_count=versions.version_count,
         )
 
     def validate_project_index(self, project_id: str) -> IndexSyncResult:
@@ -489,6 +539,16 @@ class IndexManager:
         )
 
     def sync_after_delete(self, project_id: str) -> IndexSyncResult:
-        """Rebuild project index after a successful lifecycle delete."""
+        """Rebuild project index and versions after a successful lifecycle delete."""
+
+        return self.rebuild_project_index(project_id)
+
+    def sync_project_storage(self, project_id: str) -> IndexSyncResult:
+        """Synchronize every Project Database table from actual storage.
+
+        This is the explicit API used by Project Database/Storage Explorer UI:
+        it rebuilds the file index from the filesystem and then rewrites file
+        versions from that fresh index.
+        """
 
         return self.rebuild_project_index(project_id)

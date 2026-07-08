@@ -375,3 +375,19 @@ Current stabilization focus:
 - Well storage root is now exposed through `WellManagerService` service boundary.
 - Integration audit has no direct repository import warnings; remaining warnings are ApplicationState migration debt.
 
+
+### Sprint 1.5 — Storage Synchronization Audit
+
+Project Database is now treated as a Storage Lifecycle diagnostic surface.  The
+file index and file-version tables are derived metadata and must be synchronized
+automatically after any filesystem mutation.
+
+Required chain:
+
+```text
+Service → DeleteEngine → IndexManager.sync_project_storage → VersionManager.sync_project_versions → UI Refresh
+```
+
+Manual `Обновить индекс файлов` and `Обновить версии файлов` buttons remain as
+repair/diagnostic actions only.  Deleted datasets/LAS/exports/reports must not
+remain visible in Project Database after index/version synchronization.

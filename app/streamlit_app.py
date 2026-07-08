@@ -8898,12 +8898,15 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
         with columns[2]:
             if st.button("🧹 Перестроить индекс", key=f"project_file_index_rebuild_{project.id}"):
                 try:
-                    result = index_manager.rebuild_project_index(project.id)
+                    result = index_manager.sync_project_storage(project.id)
                 except Exception:
                     logger.exception("project_file_index_rebuild_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось перестроить индекс файлов проекта. Подробности записаны в logs/app.log.")
                 else:
-                    st.success(f"Индекс перестроен по фактическим файлам проекта. Файлов: {result.entries_count}.")
+                    st.success(
+                        f"Индекс и версии синхронизированы по фактическим файлам проекта. "
+                        f"Файлов: {result.entries_count}, объектов версий: {result.version_asset_count}."
+                    )
                     _refresh_ui()
 
         entries = load_project_file_index(LAS_CORRELATION_PROJECTS_ROOT, project.id)
@@ -8936,13 +8939,17 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
         )
         if st.button("Обновить версии файлов", key=f"project_file_versions_refresh_{project.id}"):
             try:
-                assets = update_project_file_versions(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+                result = _index_manager().sync_project_storage(project.id)
             except Exception:
                 logger.exception("project_file_versions_update_failed project_id=%s", safe_log_value(project.id))
                 st.error("Не удалось обновить версии файлов проекта. Подробности записаны в logs/app.log.")
             else:
-                version_total = sum(asset.version_count for asset in assets)
-                st.success(f"Версии файлов обновлены. Объектов: {len(assets)}, версий: {version_total}.")
+                st.success(
+                    f"Индекс и версии файлов обновлены. "
+                    f"Файлов: {result.entries_count}, объектов версий: {result.version_asset_count}, "
+                    f"версий: {result.version_count}."
+                )
+                _refresh_ui()
 
         assets = load_project_file_versions(LAS_CORRELATION_PROJECTS_ROOT, project.id)
         if not assets:

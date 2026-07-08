@@ -190,3 +190,26 @@ Retry delete
 - `release_dataset_resources(...)`.
 
 Удаление Dataset, очистка раздела и очистка всех Dataset-разделов теперь освобождают file handles и cache entries до удаления каталогов и перед синхронизацией индекса.
+
+## Project Database storage synchronization
+
+`Project Database` is a diagnostic view over storage metadata, not an independent
+source of truth.  After every filesystem-changing lifecycle operation the storage
+layer must synchronize all derived metadata:
+
+```text
+Delete / Import / Restore / Rename
+        ↓
+IndexManager.sync_project_storage(project_id)
+        ↓
+project_index.json
+        ↓
+VersionManager.sync_project_versions(project_id)
+        ↓
+project_file_versions.json
+```
+
+This prevents deleted datasets, LAS files, exports or reports from remaining in
+`Project Database · Версии файлов` after they were physically removed from the
+project directory.  Manual buttons in the UI are now diagnostic/repair tools; the
+normal path is automatic synchronization through Storage Lifecycle.

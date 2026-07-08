@@ -189,3 +189,45 @@ def test_dataset_manager_service_releases_file_handles_and_cache_before_delete(t
     assert sorted(released) == ["cache", "file"]
     assert service.diagnostics()["file_handles"] == ()
     assert service.diagnostics()["cache_entries"] == ()
+
+from projects.project_index import load_project_file_versions
+
+
+def test_index_manager_rebuild_synchronizes_file_versions(tmp_path: Path) -> None:
+    project_id = "demo"
+    project_dir = tmp_path / project_id
+    data_file = project_dir / "datasets" / "mud_log" / "source.xlsx"
+    data_file.parent.mkdir(parents=True)
+    data_file.write_bytes(b"content")
+
+    manager = IndexManager(tmp_path)
+    initial = manager.rebuild_project_index(project_id)
+    assert initial.entries_count == 1
+    assert initial.version_asset_count == 1
+    assert any(asset.relative_path.endswith("source.xlsx") for asset in load_project_file_versions(tmp_path, project_id))
+
+    data_file.unlink()
+    rebuilt = manager.rebuild_project_index(project_id)
+
+    assert rebuilt.entries_count == 0
+    assert rebuilt.version_asset_count == 0
+    assert load_project_file_versions(tmp_path, project_id) == ()
+
+
+def test_dataset_delete_removes_deleted_source_from_file_versions(tmp_path: Path) -> None:
+    project_id = "demo"
+    record = save_project_mud_log_dataset(
+        b"DEPTH,C1\n100,1\n",
+        root=tmp_path,
+        project_id=project_id,
+        file_name="mud.csv",
+        name="Mud Version Sync Test",
+    )
+    manager = IndexManager(tmp_path)
+    manager.rebuild_project_index(project_id)
+    assert any(record.id in asset.relative_path for asset in load_project_file_versions(tmp_path, project_id))
+
+    service = DatasetManagerService(tmp_path)
+    service.delete_dataset(project_id, "mud_log", record.id)
+
+    assert not any(record.id in asset.relative_path for asset in load_project_file_versions(tmp_path, project_id))
