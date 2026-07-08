@@ -58,7 +58,15 @@ class ProjectManagerService:
     def ensure_default(self) -> ProjectRecord:
         return ensure_default_project(self.root)
 
-    def list_projects(self) -> tuple[ProjectRecord, ...]:
+    def list_projects(self, *, include_archived: bool = False) -> tuple[ProjectRecord, ...]:
+        """Return project records for UI/service consumers.
+
+        The current repository model does not have archived projects yet, but
+        older UI code and integration tests may already call this service with
+        ``include_archived=...``. Keeping the keyword here makes the service a
+        stable compatibility boundary while Project Archive support is finalized.
+        """
+        _ = include_archived
         default_project = self.ensure_default()
         projects = list_projects(self.root)
         return projects or (default_project,)
