@@ -100,5 +100,9 @@ def test_application_state_controller_manages_application_values():
 
     assert controller.get_value("interpretation_session_source") == "LAS"
     assert controller.get_value("missing", "fallback") == "fallback"
+    assert controller.ensure_value("las_editor_curve_alias_history", ()) == ()
+    assert controller.get_list("table_preview") == [1, 2]
+    assert controller.get_tuple("table_preview") == (1, 2)
+    assert controller.get_dict("active_summary_table") == {"rows": 2}
     assert state["table_preview"] == [1, 2]
     assert state["active_summary_table"] == {"rows": 2}

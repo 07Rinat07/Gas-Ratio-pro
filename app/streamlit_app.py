@@ -2642,8 +2642,9 @@ def _render_static_export_controls(
 def _las_editor_reference_state(column_names: list[str]) -> dict[str, object]:
     """Collect currently existing curve-reference containers for safe rename."""
 
+    state = _application_state_controller()
     return {
-        "tablet_tracks": list(st.session_state.get("interpretation_tablet_columns", [])),
+        "tablet_tracks": _application_state_controller().get_list("interpretation_tablet_columns"),
         "templates": {},
         "presets": {
             "mud_gas": list(mud_gas_literature_tablet_columns(column_names)),
@@ -2652,20 +2653,21 @@ def _las_editor_reference_state(column_names: list[str]) -> dict[str, object]:
         "saved_calculations": {},
         "exports": {"columns": list(column_names)},
         "manifest": {name: {"source": "las_editor"} for name in column_names},
-        "curve_aliases": dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {})),
-        "curve_group_overrides": dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {})),
-        "curve_category_overrides": dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {})),
-        "curve_unit_overrides": dict(st.session_state.get(LAS_EDITOR_UNIT_OVERRIDES_KEY, {})),
-        "curve_metadata": dict(st.session_state.get(LAS_EDITOR_METADATA_KEY, {})),
+        "curve_aliases": _application_state_controller().get_dict(LAS_EDITOR_ALIAS_MAP_KEY),
+        "curve_group_overrides": _application_state_controller().get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY),
+        "curve_category_overrides": _application_state_controller().get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY),
+        "curve_unit_overrides": _application_state_controller().get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY),
+        "curve_metadata": _application_state_controller().get_dict(LAS_EDITOR_METADATA_KEY),
     }
 
 
 def _apply_las_editor_reference_state(references: dict[str, object]) -> None:
     """Write back rename-aware references that are represented in session state."""
 
+    state = _application_state_controller()
     tablet_tracks = references.get("tablet_tracks")
     if isinstance(tablet_tracks, list):
-        st.session_state["interpretation_tablet_columns"] = tablet_tracks
+        _application_state_controller().set_value("interpretation_tablet_columns", tablet_tracks)
 
 
 def _render_las_curve_alias_manager(prepared_df: pd.DataFrame) -> None:
@@ -2675,18 +2677,17 @@ def _render_las_curve_alias_manager(prepared_df: pd.DataFrame) -> None:
         "i/n C4-C5, CO2, H2S, ROP и литология."
     )
 
-    if LAS_EDITOR_ALIAS_HISTORY_KEY not in st.session_state:
-        st.session_state[LAS_EDITOR_ALIAS_HISTORY_KEY] = ()
-    if LAS_EDITOR_ALIAS_MAP_KEY not in st.session_state:
-        st.session_state[LAS_EDITOR_ALIAS_MAP_KEY] = {}
+    state = _application_state_controller()
+    state.ensure_value(LAS_EDITOR_ALIAS_HISTORY_KEY, ())
+    state.ensure_value(LAS_EDITOR_ALIAS_MAP_KEY, {})
 
     column_names = [str(column) for column in prepared_df.columns]
-    current_aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
+    current_aliases = _application_state_controller().get_dict(LAS_EDITOR_ALIAS_MAP_KEY)
     suggestions = suggest_curve_aliases(column_names)
 
     if st.button("Автоопределить alias", width="stretch", key="las_editor_alias_autodetect"):
-        st.session_state[LAS_EDITOR_ALIAS_MAP_KEY] = {**current_aliases, **suggestions}
-        current_aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
+        _application_state_controller().set_value(LAS_EDITOR_ALIAS_MAP_KEY, {**current_aliases, **suggestions})
+        current_aliases = _application_state_controller().get_dict(LAS_EDITOR_ALIAS_MAP_KEY)
         st.success(f"Автоопределено alias: {len(suggestions)}")
 
     curve_col, alias_col, action_col = st.columns([2, 2, 1])
@@ -2713,13 +2714,13 @@ def _render_las_curve_alias_manager(prepared_df: pd.DataFrame) -> None:
                 curve_name,
                 alias,
                 aliases=current_aliases,
-                history=st.session_state.get(LAS_EDITOR_ALIAS_HISTORY_KEY, ()),
+                history=_application_state_controller().get_tuple(LAS_EDITOR_ALIAS_HISTORY_KEY),
                 references=references,
                 reason="manual",
                 source="las_editor_ui",
             )
-            st.session_state[LAS_EDITOR_ALIAS_MAP_KEY] = result.aliases
-            st.session_state[LAS_EDITOR_ALIAS_HISTORY_KEY] = result.history
+            _application_state_controller().set_value(LAS_EDITOR_ALIAS_MAP_KEY, result.aliases)
+            _application_state_controller().set_value(LAS_EDITOR_ALIAS_HISTORY_KEY, result.history)
             for message in result.diagnostics:
                 st.info(message)
             for message in result.warnings:
@@ -2731,23 +2732,23 @@ def _render_las_curve_alias_manager(prepared_df: pd.DataFrame) -> None:
         except ValueError as exc:
             st.warning(str(exc))
 
-    history = tuple(st.session_state.get(LAS_EDITOR_ALIAS_HISTORY_KEY, ()))
+    history = _application_state_controller().get_tuple(LAS_EDITOR_ALIAS_HISTORY_KEY)
     if st.button("Undo последнего alias", disabled=not history, width="stretch", key="las_editor_alias_undo"):
         try:
             result = undo_last_alias(
-                aliases=dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {})),
+                aliases=_application_state_controller().get_dict(LAS_EDITOR_ALIAS_MAP_KEY),
                 history=history,
                 references=references,
             )
-            st.session_state[LAS_EDITOR_ALIAS_MAP_KEY] = result.aliases
-            st.session_state[LAS_EDITOR_ALIAS_HISTORY_KEY] = result.history
+            _application_state_controller().set_value(LAS_EDITOR_ALIAS_MAP_KEY, result.aliases)
+            _application_state_controller().set_value(LAS_EDITOR_ALIAS_HISTORY_KEY, result.history)
             for message in result.diagnostics:
                 st.info(message)
             st.success("Последнее alias-назначение отменено.")
         except ValueError as exc:
             st.warning(str(exc))
 
-    current_aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
+    current_aliases = _application_state_controller().get_dict(LAS_EDITOR_ALIAS_MAP_KEY)
     with st.expander("Текущие alias и история", expanded=bool(current_aliases or history)):
         if current_aliases:
             st.dataframe(
@@ -2757,7 +2758,7 @@ def _render_las_curve_alias_manager(prepared_df: pd.DataFrame) -> None:
             )
         else:
             st.caption("Alias пока не назначены.")
-        history = tuple(st.session_state.get(LAS_EDITOR_ALIAS_HISTORY_KEY, ()))
+        history = _application_state_controller().get_tuple(LAS_EDITOR_ALIAS_HISTORY_KEY)
         if history:
             st.dataframe(
                 pd.DataFrame(
@@ -2792,8 +2793,8 @@ def _render_las_curve_grouping_manager(prepared_df: pd.DataFrame) -> None:
         st.session_state[LAS_EDITOR_GROUP_OVERRIDES_KEY] = {}
 
     column_names = [str(column) for column in prepared_df.columns]
-    aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
-    overrides = dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {}))
+    aliases = _application_state_controller().get_dict(LAS_EDITOR_ALIAS_MAP_KEY)
+    overrides = _application_state_controller().get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY)
     group_rows = curve_group_table_rows(column_names, overrides=overrides, aliases=aliases)
 
     st.dataframe(
@@ -2856,7 +2857,7 @@ def _render_las_curve_grouping_manager(prepared_df: pd.DataFrame) -> None:
         try:
             result = undo_last_group_assignment(
                 prepared_df,
-                overrides=dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {})),
+                overrides=_application_state_controller().get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY),
                 history=history,
                 references=references,
             )
@@ -2906,9 +2907,9 @@ def _render_las_curve_category_manager(prepared_df: pd.DataFrame) -> None:
         st.session_state[LAS_EDITOR_CATEGORY_OVERRIDES_KEY] = {}
 
     column_names = [str(column) for column in prepared_df.columns]
-    aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
-    group_overrides = dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {}))
-    category_overrides = dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {}))
+    aliases = _application_state_controller().get_dict(LAS_EDITOR_ALIAS_MAP_KEY)
+    group_overrides = _application_state_controller().get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY)
+    category_overrides = _application_state_controller().get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY)
     category_rows = curve_category_table_rows(
         column_names,
         group_overrides=group_overrides,
@@ -2998,7 +2999,7 @@ def _render_las_curve_category_manager(prepared_df: pd.DataFrame) -> None:
             result = undo_last_category_assignment(
                 prepared_df,
                 group_overrides=group_overrides,
-                category_overrides=dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {})),
+                category_overrides=_application_state_controller().get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY),
                 history=history,
                 references=references,
             )
@@ -3047,10 +3048,10 @@ def _render_las_curve_units_manager(prepared_df: pd.DataFrame) -> None:
         st.session_state[LAS_EDITOR_UNIT_OVERRIDES_KEY] = {}
 
     column_names = [str(column) for column in prepared_df.columns]
-    aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
-    group_overrides = dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {}))
-    category_overrides = dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {}))
-    unit_overrides = dict(st.session_state.get(LAS_EDITOR_UNIT_OVERRIDES_KEY, {}))
+    aliases = _application_state_controller().get_dict(LAS_EDITOR_ALIAS_MAP_KEY)
+    group_overrides = _application_state_controller().get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY)
+    category_overrides = _application_state_controller().get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY)
+    unit_overrides = _application_state_controller().get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY)
 
     unit_rows = curve_unit_table_rows(
         column_names,
@@ -3137,7 +3138,7 @@ def _render_las_curve_units_manager(prepared_df: pd.DataFrame) -> None:
                 prepared_df,
                 group_overrides=group_overrides,
                 category_overrides=category_overrides,
-                unit_overrides=dict(st.session_state.get(LAS_EDITOR_UNIT_OVERRIDES_KEY, {})),
+                unit_overrides=_application_state_controller().get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY),
                 history=history,
                 references=references,
             )
@@ -3237,10 +3238,10 @@ def _render_las_curve_duplicate_detection(prepared_df: pd.DataFrame) -> None:
     )
 
     column_names = [str(column) for column in prepared_df.columns]
-    aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
-    group_overrides = dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {}))
-    category_overrides = dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {}))
-    unit_overrides = dict(st.session_state.get(LAS_EDITOR_UNIT_OVERRIDES_KEY, {}))
+    aliases = _application_state_controller().get_dict(LAS_EDITOR_ALIAS_MAP_KEY)
+    group_overrides = _application_state_controller().get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY)
+    category_overrides = _application_state_controller().get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY)
+    unit_overrides = _application_state_controller().get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY)
 
     threshold_col, match_col, action_col = st.columns([1, 1, 1])
     correlation_threshold = threshold_col.slider(
@@ -3408,10 +3409,10 @@ def _render_las_curve_bulk_edit_manager(prepared_df: pd.DataFrame) -> pd.DataFra
                 metadata_patch=metadata_patch,
                 prefix=prefix,
                 suffix=suffix,
-                group_overrides=dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {})),
-                category_overrides=dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {})),
-                unit_overrides=dict(st.session_state.get(LAS_EDITOR_UNIT_OVERRIDES_KEY, {})),
-                metadata=dict(st.session_state.get(LAS_EDITOR_METADATA_KEY, {})),
+                group_overrides=_application_state_controller().get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY),
+                category_overrides=_application_state_controller().get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY),
+                unit_overrides=_application_state_controller().get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY),
+                metadata=_application_state_controller().get_dict(LAS_EDITOR_METADATA_KEY),
                 references=_las_editor_reference_state(columns),
             )
             st.session_state[LAS_EDITOR_GROUP_OVERRIDES_KEY] = result.group_overrides
@@ -3541,8 +3542,8 @@ def _render_las_curve_export_rules_manager(prepared_df: pd.DataFrame) -> None:
                 prepared_df,
                 profile_id=profile_id,
                 selected_curves=selected_curves,
-                aliases=dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {})),
-                unit_overrides=dict(st.session_state.get(LAS_EDITOR_UNIT_OVERRIDES_KEY, {})),
+                aliases=_application_state_controller().get_dict(LAS_EDITOR_ALIAS_MAP_KEY),
+                unit_overrides=_application_state_controller().get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY),
                 metadata=metadata,
                 null_value=null_value,
                 curve_mode=curve_mode,
@@ -3596,9 +3597,9 @@ def _render_las_curve_quality_flags(prepared_df: pd.DataFrame) -> None:
     )
 
     column_names = [str(column) for column in prepared_df.columns]
-    group_overrides = dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {}))
-    category_overrides = dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {}))
-    unit_overrides = dict(st.session_state.get(LAS_EDITOR_UNIT_OVERRIDES_KEY, {}))
+    group_overrides = _application_state_controller().get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY)
+    category_overrides = _application_state_controller().get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY)
+    unit_overrides = _application_state_controller().get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY)
 
     missing_col, flat_col, spike_col, action_col = st.columns([1, 1, 1, 1])
     missing_threshold = missing_col.slider(
@@ -3715,11 +3716,11 @@ def _render_las_curve_metadata_editor(prepared_df: pd.DataFrame) -> None:
         st.session_state[LAS_EDITOR_METADATA_KEY] = {}
 
     column_names = [str(column) for column in prepared_df.columns]
-    aliases = dict(st.session_state.get(LAS_EDITOR_ALIAS_MAP_KEY, {}))
-    group_overrides = dict(st.session_state.get(LAS_EDITOR_GROUP_OVERRIDES_KEY, {}))
-    category_overrides = dict(st.session_state.get(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {}))
-    unit_overrides = dict(st.session_state.get(LAS_EDITOR_UNIT_OVERRIDES_KEY, {}))
-    metadata = dict(st.session_state.get(LAS_EDITOR_METADATA_KEY, {}))
+    aliases = _application_state_controller().get_dict(LAS_EDITOR_ALIAS_MAP_KEY)
+    group_overrides = _application_state_controller().get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY)
+    category_overrides = _application_state_controller().get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY)
+    unit_overrides = _application_state_controller().get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY)
+    metadata = _application_state_controller().get_dict(LAS_EDITOR_METADATA_KEY)
 
     built_metadata = build_curve_metadata(
         column_names,
@@ -3839,7 +3840,7 @@ def _render_las_curve_metadata_editor(prepared_df: pd.DataFrame) -> None:
                 group_overrides=group_overrides,
                 category_overrides=category_overrides,
                 unit_overrides=unit_overrides,
-                metadata=dict(st.session_state.get(LAS_EDITOR_METADATA_KEY, {})),
+                metadata=_application_state_controller().get_dict(LAS_EDITOR_METADATA_KEY),
                 history=history,
                 references=references,
             )

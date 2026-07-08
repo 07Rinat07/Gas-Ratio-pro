@@ -104,6 +104,38 @@ class ApplicationStateController:
         for key, value in values.items():
             self.set_value(key, value)
 
+    def ensure_value(self, key: str, default: Any) -> Any:
+        """Return an application-owned value, initializing it when missing.
+
+        This keeps UI modules from performing direct membership checks and
+        assignments against ``st.session_state`` for non-widget state.  The
+        default is stored as-is so callers can intentionally seed immutable
+        values such as tuples or mutable containers such as dictionaries.
+        """
+
+        clean_key = str(key)
+        if clean_key not in self.state:
+            self.state[clean_key] = default
+        return self.state[clean_key]
+
+    def get_dict(self, key: str) -> dict[Any, Any]:
+        """Read a mapping value as a defensive dictionary copy."""
+
+        value = self.get_value(key, {})
+        return dict(value) if isinstance(value, dict) else {}
+
+    def get_list(self, key: str) -> list[Any]:
+        """Read a sequence value as a defensive list copy."""
+
+        value = self.get_value(key, [])
+        return list(value) if isinstance(value, (list, tuple)) else []
+
+    def get_tuple(self, key: str) -> tuple[Any, ...]:
+        """Read a sequence value as a defensive tuple copy."""
+
+        value = self.get_value(key, ())
+        return tuple(value) if isinstance(value, (list, tuple)) else ()
+
     def ensure_project(self, project_id: str) -> StateTransition:
         """Initialize active project if missing without clearing existing state."""
 
