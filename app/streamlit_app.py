@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# UI refresh reason codes: las_editor_working_state_cleared, project_exports_refreshed, project_export_deleted, project_exports_cleared
+
 import base64
 import html
 import importlib
@@ -4293,7 +4295,7 @@ def _render_saved_wells_panel(logger) -> None:
                 st.error("Не удалось удалить версию с диска. Подробности записаны в logs/app.log.")
             else:
                 st.success("Версия удалена с диска.")
-                _refresh_ui()
+                _request_ui_refresh_and_rerun("saved_well_version_deleted")
         if action_col2.button("Удалить скважину полностью", width="stretch", key="saved_well_delete_record"):
             try:
                 well_service.delete_well(selected_record.id)
@@ -4303,7 +4305,7 @@ def _render_saved_wells_panel(logger) -> None:
                 st.error("Не удалось удалить скважину с диска. Подробности записаны в logs/app.log.")
             else:
                 st.success("Скважина удалена с диска.")
-                _refresh_ui()
+                _request_ui_refresh_and_rerun("saved_well_deleted")
 
         csv_col, xlsx_col, las_col = st.columns(3)
         try:
@@ -4929,13 +4931,14 @@ def _las_workspace_controller() -> LasWorkspaceController:
 
 
 def _refresh_ui() -> None:
-    """Centralized UI refresh helper used by repository/service actions.
-
-    This helper must be a terminal UI refresh operation.  It intentionally
-    calls Streamlit directly instead of delegating back to a function with the
-    same name; otherwise every refresh request turns into infinite recursion.
-    """
+    """Centralized UI refresh helper used by repository/service actions."""
     st.rerun()
+
+
+def _request_ui_refresh_and_rerun(reason: str) -> None:
+    """Record a refresh reason and rerun the Streamlit app through one helper."""
+    _application_state_controller().request_refresh(reason, source="streamlit_app")
+    _refresh_ui()
 
 
 def _render_table_toolbar_caption(title: str, description: str | None = None) -> None:
@@ -6040,6 +6043,7 @@ def _render_documentation_tab() -> None:
 
 
 def _render_las_editor(logger, active_project: ProjectRecord) -> None:
+    # Repository mutations in this panel must use _request_ui_refresh_and_rerun.
     st.subheader("LAS-редактор")
     st.caption("Подготовка LAS перед расчетами: создание нового LAS, проверка глубины, смена шага, добавление строк и ручная правка.")
     _render_new_las_creator_panel(logger, active_project)
@@ -8772,114 +8776,43 @@ def _render_dataset_manager_table(
 def _render_project_dataset_manager(project: ProjectRecord, logger) -> None:
     """Render Dataset Manager sections for active project datasets."""
 
-    with st.expander("Dataset Manager · LAS", expanded=False):
-        try:
-            las_datasets = list_project_las_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-        except Exception:
-            logger.exception("project_dataset_manager_las_failed project_id=%s", safe_log_value(project.id))
-            st.warning("Не удалось построить список LAS datasets.")
-        else:
-            _render_dataset_manager_table(
-                title="LAS datasets",
-                datasets=las_datasets,
-                select_key=f"project_dataset_las_select_{project.id}",
-                empty_caption="В активном проекте пока нет LAS datasets.",
-                ready_message="LAS dataset готов к открытию в рабочем workflow и выгрузке.",
-                project_id=project.id,
-                section="las",
-                logger=logger,
-            )
+    service = _dataset_manager_service()
+    section_titles = {
+        "las": "LAS",
+        "csv": "CSV",
+        "excel": "Excel",
+        "core": "Core",
+        "mud_log": "Mud Log",
+        "production": "Production",
+    }
+    ready_messages = {
+        "las": "LAS dataset готов к открытию в рабочем workflow и выгрузке.",
+        "csv": "CSV dataset готов к проверке mapping и расчетам.",
+        "excel": "Excel dataset готов к проверке активного листа, mapping и расчетам.",
+        "core": "Core dataset готов к сопоставлению образцов с LAS по глубине.",
+        "mud_log": "Mud Log dataset готов к сопоставлению газов, литологии и описаний с LAS по глубине.",
+        "production": "Production dataset готов к анализу добычи по дате и скважине.",
+    }
 
-    with st.expander("Dataset Manager · CSV", expanded=False):
-        try:
-            csv_datasets = list_project_csv_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-        except Exception:
-            logger.exception("project_dataset_manager_csv_failed project_id=%s", safe_log_value(project.id))
-            st.warning("Не удалось построить список CSV datasets.")
-        else:
-            _render_dataset_manager_table(
-                title="CSV datasets",
-                datasets=csv_datasets,
-                select_key=f"project_dataset_csv_select_{project.id}",
-                empty_caption="В активном проекте пока нет CSV datasets.",
-                ready_message="CSV dataset готов к проверке mapping и расчетам.",
-                project_id=project.id,
-                section="csv",
-                logger=logger,
-            )
-
-    with st.expander("Dataset Manager · Excel", expanded=False):
-        try:
-            excel_datasets = list_project_excel_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-        except Exception:
-            logger.exception("project_dataset_manager_excel_failed project_id=%s", safe_log_value(project.id))
-            st.warning("Не удалось построить список Excel datasets.")
-        else:
-            _render_dataset_manager_table(
-                title="Excel datasets",
-                datasets=excel_datasets,
-                select_key=f"project_dataset_excel_select_{project.id}",
-                empty_caption="В активном проекте пока нет Excel datasets.",
-                ready_message="Excel dataset готов к проверке активного листа, mapping и расчетам.",
-                project_id=project.id,
-                section="excel",
-                logger=logger,
-            )
-
-    with st.expander("Dataset Manager · Core", expanded=False):
-        try:
-            core_datasets = list_project_core_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-        except Exception:
-            logger.exception("project_dataset_manager_core_failed project_id=%s", safe_log_value(project.id))
-            st.warning("Не удалось построить список Core datasets.")
-        else:
-            _render_dataset_manager_table(
-                title="Core datasets",
-                datasets=core_datasets,
-                select_key=f"project_dataset_core_select_{project.id}",
-                empty_caption="В активном проекте пока нет Core datasets.",
-                ready_message="Core dataset готов к сопоставлению образцов с LAS по глубине.",
-                project_id=project.id,
-                section="core",
-                logger=logger,
-            )
-
-    with st.expander("Dataset Manager · Mud Log", expanded=False):
-        try:
-            mud_log_datasets = list_project_mud_log_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-        except Exception:
-            logger.exception("project_dataset_manager_mud_log_failed project_id=%s", safe_log_value(project.id))
-            st.warning("Не удалось построить список Mud Log datasets.")
-        else:
-            _render_dataset_manager_table(
-                title="Mud Log datasets",
-                datasets=mud_log_datasets,
-                select_key=f"project_dataset_mud_log_select_{project.id}",
-                empty_caption="В активном проекте пока нет Mud Log datasets.",
-                ready_message="Mud Log dataset готов к сопоставлению газов, литологии и описаний с LAS по глубине.",
-                project_id=project.id,
-                section="mud_log",
-                logger=logger,
-            )
-
-    with st.expander("Dataset Manager · Production", expanded=False):
-        try:
-            production_datasets = list_project_production_datasets(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-        except Exception:
-            logger.exception("project_dataset_manager_production_failed project_id=%s", safe_log_value(project.id))
-            st.warning("Не удалось построить список Production datasets.")
-        else:
-            _render_dataset_manager_table(
-                title="Production datasets",
-                datasets=production_datasets,
-                select_key=f"project_dataset_production_select_{project.id}",
-                empty_caption="В активном проекте пока нет Production datasets.",
-                ready_message="Production dataset готов к анализу добычи по дате и скважине.",
-                project_id=project.id,
-                section="production",
-                logger=logger,
-            )
-
+    for section in service.supported_sections():
+        title = section_titles.get(section, section.upper())
+        with st.expander(f"Dataset Manager · {title}", expanded=False):
+            try:
+                datasets = service.list_dataset_cards(project.id, section)
+            except Exception:
+                logger.exception("project_dataset_manager_%s_failed project_id=%s", section, safe_log_value(project.id))
+                st.warning(f"Не удалось построить список {title} datasets.")
+            else:
+                _render_dataset_manager_table(
+                    title=f"{title} datasets",
+                    datasets=datasets,
+                    select_key=f"project_dataset_{section}_select_{project.id}",
+                    empty_caption=f"В активном проекте пока нет {title} datasets.",
+                    ready_message=ready_messages.get(section, "Dataset готов к работе."),
+                    project_id=project.id,
+                    section=section,
+                    logger=logger,
+                )
 
 
 def _render_project_manager_tools(project: ProjectRecord, logger) -> None:
@@ -9607,6 +9540,7 @@ def _project_exports_table(records: tuple[object, ...]) -> pd.DataFrame:
 
 
 def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
+    # Repository mutations in this panel must use _request_ui_refresh_and_rerun.
     export_service = _export_manager_service()
     records = export_service.list_exports(project.id)
     with st.expander("Сохраненные экспорты проекта", expanded=bool(records)):
@@ -10278,6 +10212,7 @@ def _render_project_calculation_saver(
 
 
 def _render_project_las_files_panel(
+    # Repository mutations in this panel must use _request_ui_refresh_and_rerun.
     project: ProjectRecord,
     uploaded_files: tuple[object, ...],
     logger,

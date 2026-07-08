@@ -60,8 +60,38 @@ def _well_dir(root: Path, well_id: str) -> Path:
     return root / _safe_id(well_id)
 
 
+def _find_existing_well_dir(root: Path, well_id: str) -> Path | None:
+    """Return the storage directory for a well id, including legacy escaped folders.
+
+    Older ZIP/project copies may contain non-ASCII directory names encoded as
+    ``#U0433`` fragments while the manifest keeps the real Cyrillic ``record.id``.
+    Direct path lookup then fails for downloads/deletes even though the manifest
+    exists.  To keep persistent data readable, resolve by manifest id when the
+    direct directory is not present.
+    """
+    direct_dir = _well_dir(root, well_id)
+    if (direct_dir / MANIFEST_FILE_NAME).exists():
+        return direct_dir
+
+    if not root.exists():
+        return None
+
+    for manifest_path in sorted(root.glob(f"*/{MANIFEST_FILE_NAME}")):
+        try:
+            raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            continue
+        if str(raw.get("id", "")) == well_id:
+            return manifest_path.parent
+    return None
+
+
+def _resolved_well_dir(root: Path, well_id: str) -> Path:
+    return _find_existing_well_dir(root, well_id) or _well_dir(root, well_id)
+
+
 def _manifest_path(root: Path, well_id: str) -> Path:
-    return _well_dir(root, well_id) / MANIFEST_FILE_NAME
+    return _resolved_well_dir(root, well_id) / MANIFEST_FILE_NAME
 
 
 def _version_from_dict(raw: dict[str, Any]) -> WellVersion:
@@ -135,9 +165,9 @@ def list_wells(root: Path | str = DEFAULT_WELLS_ROOT) -> tuple[WellRecord, ...]:
 
 
 def _write_record(root: Path, record: WellRecord) -> None:
-    well_dir = _well_dir(root, record.id)
+    well_dir = _resolved_well_dir(root, record.id)
     well_dir.mkdir(parents=True, exist_ok=True)
-    _manifest_path(root, record.id).write_text(
+    (well_dir / MANIFEST_FILE_NAME).write_text(
         json.dumps(_record_to_dict(record), ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
@@ -209,11 +239,11 @@ def save_well_version(
     now = _utc_now()
     base_version_id = f"{now.replace(':', '').replace('-', '')}-{_slugify(version_label)}"
     version_id = base_version_id
-    version_dir = _well_dir(root_path, record.id) / "versions" / version_id
+    version_dir = _resolved_well_dir(root_path, record.id) / "versions" / version_id
     counter = 2
     while version_dir.exists():
         version_id = f"{base_version_id}-{counter}"
-        version_dir = _well_dir(root_path, record.id) / "versions" / version_id
+        version_dir = _resolved_well_dir(root_path, record.id) / "versions" / version_id
         counter += 1
     version_dir.mkdir(parents=True, exist_ok=True)
 
@@ -261,7 +291,7 @@ def read_well_file_bytes(
     file_name = version.files.get(file_key)
     if not file_name:
         raise FileNotFoundError(f"Well file not found for key: {file_key}")
-    path = _well_dir(Path(root), well_id) / "versions" / version_id / file_name
+    path = _resolved_well_dir(Path(root), well_id) / "versions" / version_id / file_name
     return path.read_bytes()
 
 
@@ -274,7 +304,7 @@ def delete_well_version(root: Path | str, well_id: str, version_id: str) -> Well
     if len(versions) == len(record.versions):
         raise FileNotFoundError(f"Well version not found: {version_id}")
 
-    version_dir = _well_dir(root_path, record.id) / "versions" / clean_version_id
+    version_dir = _resolved_well_dir(root_path, record.id) / "versions" / clean_version_id
     if version_dir.exists():
         shutil.rmtree(version_dir)
 
@@ -295,8 +325,8 @@ def delete_well_version(root: Path | str, well_id: str, version_id: str) -> Well
 def delete_well_record(root: Path | str, well_id: str) -> bool:
     """Delete a saved well directory from persistent storage."""
     root_path = Path(root)
-    well_dir = _well_dir(root_path, well_id)
-    if not well_dir.exists():
+    well_dir = _find_existing_well_dir(root_path, well_id)
+    if well_dir is None or not well_dir.exists():
         return False
     shutil.rmtree(well_dir)
     return True

@@ -79,3 +79,17 @@ def test_delete_well_record_removes_directory(tmp_path):
 
     assert delete_well_record(tmp_path, record.id) is True
     assert not (tmp_path / record.id).exists()
+
+
+def test_load_and_read_well_from_legacy_escaped_directory(tmp_path):
+    df = pd.DataFrame({"DEPT": [1000.0], "C1": [80]})
+    record = save_well_version(df, root=tmp_path, well_name="ГК,ННК,Дср", version_label="v1", depth_column="DEPT")
+    original_dir = tmp_path / record.id
+    legacy_dir = tmp_path / "20260703-#U0433#U043a-#U043d#U043d#U043a-#U0434#U0441#U0440"
+    original_dir.rename(legacy_dir)
+
+    loaded = load_well_record(tmp_path, record.id)
+    csv_bytes = read_well_file_bytes(tmp_path, record.id, record.versions[0].id, "csv")
+
+    assert loaded.id == record.id
+    assert csv_bytes.startswith(b"\xef\xbb\xbf")

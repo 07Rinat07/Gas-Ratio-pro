@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 from pathlib import Path
 
+from core.storage_lifecycle import DeleteEngine, IndexManager, ResourceManager, DEFAULT_DELETE_ENGINE, DEFAULT_RESOURCE_MANAGER
 from projects.exports import clear_project_exports
 from projects.recent_projects import (
     clear_recent_projects,
@@ -37,6 +39,9 @@ class ProjectCreateResult:
     project: ProjectRecord
     touched_recent_history: bool
 
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.project, name)
+
 
 @dataclass(frozen=True)
 class ProjectBackupResult:
@@ -57,6 +62,11 @@ class ProjectDeleteResult:
     recent_history_removed: bool
     exports_removed: int
     fallback_project_id: str
+    delete_result: Any | None = None
+
+    @property
+    def deleted(self) -> bool:
+        return self.project_deleted
 
 
 class ProjectManagerService:
@@ -67,9 +77,20 @@ class ProjectManagerService:
     updates and related project cleanup in one place.
     """
 
-    def __init__(self, root: Path | str = DEFAULT_PROJECTS_ROOT, default_project_id: str = DEFAULT_PROJECT_ID) -> None:
+    def __init__(
+        self,
+        root: Path | str = DEFAULT_PROJECTS_ROOT,
+        default_project_id: str = DEFAULT_PROJECT_ID,
+        *,
+        resource_manager: ResourceManager | None = None,
+        delete_engine: DeleteEngine | None = None,
+        index_manager: IndexManager | None = None,
+    ) -> None:
         self.root = Path(root)
         self.default_project_id = safe_project_id(default_project_id)
+        self.resource_manager = resource_manager or DEFAULT_RESOURCE_MANAGER
+        self.delete_engine = delete_engine or DEFAULT_DELETE_ENGINE
+        self.index_manager = index_manager or IndexManager(self.root)
 
     def ensure_default(self) -> ProjectRecord:
         return ensure_default_project(self.root)
@@ -173,7 +194,14 @@ class ProjectManagerService:
             raise ValueError("Основной проект нельзя удалить.")
 
         exports_removed = clear_project_exports(self.root, clean_project_id)
-        project_deleted = delete_project(self.root, clean_project_id)
+        project_dir = self.root / clean_project_id
+        delete_result = None
+        if project_dir.exists():
+            self.resource_manager.release_path(project_dir)
+            delete_result = self.delete_engine.delete_path(project_dir, missing_ok=True)
+            project_deleted = bool(delete_result.deleted)
+        else:
+            project_deleted = delete_project(self.root, clean_project_id)
         recent_history_removed = remove_recent_project(self.root, clean_project_id)
         self.ensure_default()
 
@@ -183,4 +211,46 @@ class ProjectManagerService:
             recent_history_removed=recent_history_removed,
             exports_removed=exports_removed,
             fallback_project_id=self.default_project_id,
+            delete_result=delete_result,
         )
+
+
+# Compatibility methods bound after class definition.
+def _project_service_create(self, name: str, description: str = ""):
+    return self.create_project(name, description)
+
+def _project_service_list(self, *, include_archived: bool = False):
+    return self.list_projects(include_archived=include_archived)
+
+def _project_service_load(self, project_id: str):
+    return self.load_project(project_id)
+
+def _project_service_open_project(self, project_id: str):
+    return self.load_project(project_id)
+
+def _project_service_delete(self, project_id: str):
+    return self.delete_project_complete(project_id)
+
+def _project_service_rebuild_index(self, project_id: str):
+    return self.index_manager.rebuild_project_index(safe_project_id(project_id))
+
+@dataclass(frozen=True)
+class ProjectServiceHealth:
+    projects_count: int
+    default_project_exists: bool
+
+def _project_service_health(self):
+    projects = self.list_projects()
+    return ProjectServiceHealth(
+        projects_count=len(projects),
+        default_project_exists=any(project.id == self.default_project_id for project in projects),
+    )
+
+ProjectManagerService.create = _project_service_create
+ProjectManagerService.list = _project_service_list
+ProjectManagerService.load = _project_service_load
+ProjectManagerService.open_project = _project_service_open_project
+ProjectManagerService.delete = _project_service_delete
+ProjectManagerService.rebuild_index = _project_service_rebuild_index
+ProjectManagerService.health = _project_service_health
+ProjectManagerService.delete_project = _project_service_delete

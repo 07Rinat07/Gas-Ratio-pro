@@ -16,6 +16,7 @@ kept in separate state keys controlled by this module.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any, MutableMapping
 
 from core.session_state_manager import (
@@ -25,6 +26,7 @@ from core.session_state_manager import (
     clear_on_well_change,
     clear_on_workspace_change,
 )
+from core.event_bus import ApplicationEvent, ApplicationEventBus
 
 ACTIVE_PROJECT_ID_KEY = "active_project_id"
 ACTIVE_WELL_ID_KEY = "active_well_id"
@@ -35,6 +37,15 @@ PENDING_ACTIVE_PROJECT_ID_KEY = "pending_active_project_id"
 PENDING_ACTIVE_WELL_ID_KEY = "pending_active_well_id"
 PENDING_ACTIVE_LAS_ID_KEY = "pending_active_las_id"
 PENDING_ACTIVE_WORKSPACE_ID_KEY = "pending_active_workspace_id"
+
+
+class ApplicationStateKeys(str, Enum):
+    """Compatibility names for application-owned context keys."""
+
+    ACTIVE_PROJECT_ID = ACTIVE_PROJECT_ID_KEY
+    ACTIVE_WELL_ID = ACTIVE_WELL_ID_KEY
+    ACTIVE_LAS_ID = ACTIVE_LAS_ID_KEY
+    ACTIVE_WORKSPACE_ID = ACTIVE_WORKSPACE_ID_KEY
 
 
 @dataclass(frozen=True)
@@ -183,6 +194,15 @@ class ApplicationStateController:
             return StateTransition(before=before, after=before, changed=False)
         cleanup = clear_on_project_change(self.state, clean_project_id)
         after = self.context()
+        self._event_bus().publish(
+            "project.changed",
+            {
+                "project_id": clean_project_id,
+                "previous_project_id": before.project_id,
+                "cleared_keys": list(cleanup.cleared_keys),
+            },
+            source="ApplicationStateController",
+        )
         return StateTransition(before=before, after=after, changed=True, cleanup=cleanup)
 
     def activate_well(self, well_id: str) -> StateTransition:
@@ -237,13 +257,46 @@ class ApplicationStateController:
             return None
         return self.activate_project(str(pending))
 
+
+    def publish_event(self, name: str, payload: dict[str, Any] | None = None, *, source: str = "ApplicationStateController") -> ApplicationEvent:
+        """Publish an application event through the central state-backed bus."""
+
+        return self._event_bus().publish(name, payload or {}, source=source)
+
+    def request_well_activation(self, well_id: str) -> None:
+        self.state[PENDING_ACTIVE_WELL_ID_KEY] = str(well_id or "")
+
+    def consume_pending_well_activation(self) -> StateTransition | None:
+        pending = self.state.pop(PENDING_ACTIVE_WELL_ID_KEY, None)
+        if not pending:
+            return None
+        return self.activate_well(str(pending))
+
+    def request_las_activation(self, las_id: str) -> None:
+        self.state[PENDING_ACTIVE_LAS_ID_KEY] = str(las_id or "")
+
+    def consume_pending_las_activation(self) -> StateTransition | None:
+        pending = self.state.pop(PENDING_ACTIVE_LAS_ID_KEY, None)
+        if not pending:
+            return None
+        return self.activate_las(str(pending))
+
+    def request_workspace_activation(self, workspace_id: str) -> None:
+        self.state[PENDING_ACTIVE_WORKSPACE_ID_KEY] = str(workspace_id or "")
+
+    def consume_pending_workspace_activation(self) -> StateTransition | None:
+        pending = self.state.pop(PENDING_ACTIVE_WORKSPACE_ID_KEY, None)
+        if not pending:
+            return None
+        return self.activate_workspace(str(pending))
+
     def clear_current_context(self, reason: str = "manual_clear") -> SessionCleanupResult:
         """Clear derived data while keeping the current context values."""
 
         context = self.context()
         from core.session_state_manager import clear_transient_session_state
 
-        return clear_transient_session_state(
+        cleanup = clear_transient_session_state(
             self.state,
             reason=reason,
             project_id=context.project_id,
@@ -251,3 +304,34 @@ class ApplicationStateController:
             las_id=context.las_id,
             workspace_id=context.workspace_id,
         )
+        self.publish_event(
+            "session.cleared",
+            {
+                "reason": reason,
+                "cleared_keys": list(cleanup.cleared_keys),
+                "active_context": cleanup.active_context,
+            },
+            source="ApplicationStateController",
+        )
+        return cleanup
+
+    def _event_bus(self) -> ApplicationEventBus:
+        """Return the state-backed application event bus."""
+
+        return ApplicationEventBus(self.state)
+
+    def consume_events(self) -> tuple[ApplicationEvent, ...]:
+        """Consume pending application events."""
+
+        return self._event_bus().consume()
+
+    def request_refresh(self, reason: str, *, source: str = "ApplicationStateController") -> None:
+        """Request a safe UI refresh through the application event bus."""
+
+        self._event_bus().request_refresh(reason, source=source)
+
+    def consume_refresh_request(self) -> dict[str, Any] | None:
+        """Consume a pending refresh request if present."""
+
+        return self._event_bus().consume_refresh_request()
+

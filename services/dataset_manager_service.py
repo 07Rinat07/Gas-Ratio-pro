@@ -33,6 +33,22 @@ class DatasetDeleteSummary:
     released_resources: int
     index_entries: int = 0
 
+    @property
+    def deleted_count(self) -> int:
+        return self.deleted
+
+    @property
+    def diagnostic(self) -> str:
+        return f"Удалено записей: {self.deleted}."
+
+
+@dataclass(frozen=True)
+class DatasetCard:
+    id: str
+    kind: str
+    name: str
+    updated_at: str = ""
+
 
 class DatasetManagerService:
     """Service layer for Dataset Manager storage lifecycle operations.
@@ -130,6 +146,40 @@ class DatasetManagerService:
                 dataset_dir=project_datasets._production_dataset_dir,
             ),
         }
+
+    def supported_sections(self) -> tuple[str, ...]:
+        return tuple(self.section_specs.keys())
+
+    def list_dataset_cards(self, project_id: str, section: str) -> tuple[DatasetCard, ...]:
+        spec = self._spec(section)
+        if spec.key == "las":
+            records = self.las_manager.list_files(project_id, include_archived=False)
+            return tuple(
+                DatasetCard(
+                    id=record.id,
+                    kind="LAS",
+                    name=record.name,
+                    updated_at=record.saved_at,
+                )
+                for record in records
+            )
+        kind_labels = {
+            "csv": "CSV",
+            "excel": "Excel",
+            "core": "Core",
+            "mud_log": "Mud Log",
+            "production": "Production",
+        }
+        records = spec.list_records(self.root, project_id, include_archived=False)
+        return tuple(
+            DatasetCard(
+                id=str(getattr(record, "id", "")),
+                kind=kind_labels.get(spec.key, spec.label),
+                name=str(getattr(record, "name", "") or getattr(record, "file_name", "") or getattr(record, "id", "")),
+                updated_at=str(getattr(record, "saved_at", "") or getattr(record, "updated_at", "")),
+            )
+            for record in records
+        )
 
     def _spec(self, section: str) -> DatasetSectionSpec:
         key = str(section).strip().lower().replace("-", "_").replace(" ", "_")

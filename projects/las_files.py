@@ -412,3 +412,20 @@ def export_project_las_files_zip(
 
     return buffer.getvalue()
 
+
+
+def clear_project_las_files(
+    root: Path | str,
+    project_id: str,
+    *,
+    include_archived: bool = True,
+) -> int:
+    """Physically delete all LAS versions from a project and clear manifest."""
+
+    records = list_project_las_files(root, project_id, include_archived=include_archived)
+    removed_count = 0
+    for record in records:
+        if delete_project_las_file(root, project_id, record.id):
+            removed_count += 1
+    _write_manifest(root, project_id, ())
+    return removed_count

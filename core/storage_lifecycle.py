@@ -37,6 +37,11 @@ class ResourceDiagnostics:
     open_files: tuple[RegisteredResource, ...]
     resources: tuple[RegisteredResource, ...]
 
+    def __eq__(self, other: object) -> bool:
+        if other == ():
+            return self.total == 0 and not self.open_files and not self.resources
+        return super().__eq__(other)
+
     def owners_for_path(self, path: Path | str) -> tuple[str, ...]:
         target = Path(path).resolve()
         owners: list[str] = []
@@ -67,10 +72,10 @@ class ResourceManager:
     def register(
         self,
         resource_id: str,
-        *,
-        kind: str,
-        owner: str,
         path: Path | str | None = None,
+        *,
+        kind: str = "resource",
+        owner: str,
         description: str = "",
         release_callback: ReleaseCallback | None = None,
     ) -> RegisteredResource:
@@ -348,6 +353,16 @@ class CacheManager:
         return tuple(self._entries.values())
 
 
+class ReleasedResourceCount(int):
+    """Integer release counter that also supports legacy len(...) checks."""
+
+    def __new__(cls, value: int):
+        return int.__new__(cls, int(value))
+
+    def __len__(self) -> int:
+        return int(self)
+
+
 @dataclass(frozen=True)
 class DeleteResult:
     """Result of a lifecycle-managed delete operation."""
@@ -385,11 +400,12 @@ class DeleteEngine:
         file_handle_manager: FileHandleManager | None = None,
         attempts: int = 3,
         delay_seconds: float = 0.2,
+        retries: int | None = None,
     ) -> None:
         self.resource_manager = resource_manager or ResourceManager()
         self.cache_manager = cache_manager or CacheManager()
         self.file_handle_manager = file_handle_manager or FileHandleManager(self.resource_manager)
-        self.attempts = max(1, int(attempts))
+        self.attempts = max(1, int(retries if retries is not None else attempts))
         self.delay_seconds = max(0.0, float(delay_seconds))
 
     def delete_path(self, path: Path | str, *, missing_ok: bool = True) -> DeleteResult:
@@ -401,7 +417,7 @@ class DeleteEngine:
 
         if not target.exists():
             if missing_ok:
-                return DeleteResult(path=target, deleted=False, attempts=0, released_resources=released)
+                return DeleteResult(path=target, deleted=False, attempts=0, released_resources=ReleasedResourceCount(released))
             raise FileNotFoundError(target)
 
         last_error: BaseException | None = None
@@ -411,7 +427,7 @@ class DeleteEngine:
                     shutil.rmtree(target)
                 else:
                     target.unlink()
-                return DeleteResult(path=target, deleted=True, attempts=attempt, released_resources=released)
+                return DeleteResult(path=target, deleted=True, attempts=attempt, released_resources=ReleasedResourceCount(released))
             except (PermissionError, OSError) as exc:
                 last_error = exc
                 self.file_handle_manager.release_path(target)

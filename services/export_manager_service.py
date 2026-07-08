@@ -32,6 +32,9 @@ class ExportSaveResult:
 
     record: ProjectExportRecord
 
+    def __getattr__(self, name: str):
+        return getattr(self.record, name)
+
 
 @dataclass(frozen=True)
 class ExportDeleteResult:
@@ -116,8 +119,8 @@ class ExportManagerService:
         data: bytes,
         label: str,
         file_name: str,
-        mime_type: str,
-        kind: str,
+        mime_type: str = "application/octet-stream",
+        kind: str = "file",
         source: str = "",
         metadata: dict[str, Any] | None = None,
     ) -> ExportSaveResult:

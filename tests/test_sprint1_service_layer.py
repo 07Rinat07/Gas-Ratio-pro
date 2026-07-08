@@ -27,9 +27,9 @@ def test_export_manager_service_deletes_and_clears_files(tmp_path: Path):
     first = service.save_export(project_id=project.id, data=b"one", label="First", file_name="first.txt")
     second = service.save_export(project_id=project.id, data=b"two", label="Second", file_name="second.txt")
 
-    assert service.delete_export(project.id, first.id) is True
+    assert service.delete_export(project.id, first.id).deleted is True
     assert [record.id for record in service.list_exports(project.id)] == [second.id]
-    assert service.clear_exports(project.id) == 1
+    assert service.clear_exports(project.id).removed_count == 1
     assert service.list_exports(project.id) == ()
 
 
@@ -38,7 +38,9 @@ def test_well_manager_service_deletes_last_version_with_well(tmp_path: Path):
     df = pd.DataFrame({"DEPT": [1.0], "GR": [10.0]})
     record = service.save_version(df, well_name="Well A", version_label="v1", depth_column="DEPT")
 
-    assert service.delete_version(record.id, record.versions[0].id) is None
+    result = service.delete_version(record.id, record.versions[0].id)
+    assert result.deleted is True
+    assert result.well_deleted is True
     assert service.list_wells() == ()
 
 

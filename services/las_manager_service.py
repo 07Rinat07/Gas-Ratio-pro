@@ -103,6 +103,15 @@ class LasManagerService:
     def list_wells(self, project_id: str, *, include_archived: bool = False) -> tuple[ProjectLasWellCard, ...]:
         return list_project_las_wells(self.root, safe_project_id(project_id), include_archived=include_archived)
 
+    def save_las_file(self, **kwargs) -> LasSaveResult:
+        return self.save_file(**kwargs)
+
+    def list_las_files(self, project_id: str, *, include_archived: bool = False) -> tuple[ProjectLasFile, ...]:
+        return self.list_files(project_id, include_archived=include_archived)
+
+    def clear_las_files(self, project_id: str, *, include_archived: bool = True) -> int:
+        return self.clear_files(project_id, include_archived=include_archived).deleted_count
+
     def save_file(
         self,
         *,
