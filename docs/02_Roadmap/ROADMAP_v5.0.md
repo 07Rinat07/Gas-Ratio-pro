@@ -305,6 +305,21 @@ Acceptance Criteria:
 6. Созданный LAS можно сразу передать в Validator, Plot Studio и Export Center.
 
 
-## Sprint 1 update — Storage Lifecycle Framework
+## Sprint 1 — Storage Lifecycle Framework
 
-Functional expansion is frozen until Storage Lifecycle Framework and Sprint 1.5 Integration & Stabilization are complete. All file delete operations must go through lifecycle-aware services and DeleteEngine. Dataset Manager clearing is the first integrated path.
+Sprint 1 не считается завершенным, пока не реализован Storage Lifecycle Framework.
+
+Обязательные компоненты:
+
+- ResourceManager;
+- FileHandleManager;
+- DeleteEngine;
+- BackupEngine;
+- CacheManager;
+- IndexManager;
+- Retry Delete;
+- Session Cleanup;
+- UI Refresh;
+- Diagnostics.
+
+Архитектурное правило: любые операции создания, удаления, переименования и очистки файлов проекта должны автоматически синхронизировать Repository, файловую систему, Project Storage Index и UI.

@@ -5,183 +5,238 @@ import shutil
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
+
+ReleaseCallback = Callable[[], None]
 
 
 @dataclass(frozen=True)
-class ResourceRecord:
-    """Registered runtime resource that may keep project files alive.
+class RegisteredResource:
+    """A resource currently owned by an application workflow.
 
-    The first implementation intentionally stores metadata only.  It gives the
-    platform one place to report which workspace or service is using a file and
-    one place to request release before destructive storage operations.
+    Resources are intentionally generic: a dataset preview can register a
+    dataframe, an Excel workbook path, a generated ZIP, or a plot object.  The
+    storage lifecycle layer only needs enough metadata to release resources
+    before destructive operations and to produce useful diagnostics when Windows
+    refuses deletion because a file handle is still open.
     """
 
-    resource_id: str
-    path: str
+    id: str
+    kind: str
     owner: str
-    resource_type: str = "file"
-    metadata: dict[str, str] = field(default_factory=dict)
+    path: Path | None = None
+    description: str = ""
+    release_callback: ReleaseCallback | None = field(default=None, compare=False, repr=False)
+
+
+@dataclass(frozen=True)
+class ResourceDiagnostics:
+    """Snapshot of registered resources grouped for diagnostics."""
+
+    total: int
+    open_files: tuple[RegisteredResource, ...]
+    resources: tuple[RegisteredResource, ...]
+
+    def owners_for_path(self, path: Path | str) -> tuple[str, ...]:
+        target = Path(path).resolve()
+        owners: list[str] = []
+        for resource in self.resources:
+            if resource.path is None:
+                continue
+            try:
+                resource_path = resource.path.resolve()
+            except OSError:
+                resource_path = resource.path
+            if resource_path == target or target in resource_path.parents or resource_path in target.parents:
+                owners.append(resource.owner)
+        return tuple(dict.fromkeys(owners))
 
 
 class ResourceManager:
-    """Small in-process registry for open files, dataframes and previews."""
+    """Registry and release point for open files, dataframes, figures and caches.
+
+    UI and services must not delete files directly.  They should first ask this
+    manager to release resources for the path being deleted.  This is critical
+    on Windows, where a still-open Excel handle prevents ``rmtree``/``unlink``
+    and raises ``WinError 32``.
+    """
 
     def __init__(self) -> None:
-        self._resources: dict[str, ResourceRecord] = {}
+        self._resources: dict[str, RegisteredResource] = {}
 
     def register(
         self,
         resource_id: str,
+        *,
+        kind: str,
+        owner: str,
+        path: Path | str | None = None,
+        description: str = "",
+        release_callback: ReleaseCallback | None = None,
+    ) -> RegisteredResource:
+        clean_id = str(resource_id).strip()
+        if not clean_id:
+            raise ValueError("resource_id must not be empty")
+        resource = RegisteredResource(
+            id=clean_id,
+            kind=str(kind).strip() or "resource",
+            owner=str(owner).strip() or "unknown",
+            path=None if path is None else Path(path),
+            description=str(description or ""),
+            release_callback=release_callback,
+        )
+        self._resources[resource.id] = resource
+        return resource
+
+    def register_file(
+        self,
         path: Path | str,
         *,
         owner: str,
-        resource_type: str = "file",
-        metadata: dict[str, str] | None = None,
-    ) -> ResourceRecord:
-        record = ResourceRecord(
-            resource_id=str(resource_id),
-            path=str(Path(path)),
+        resource_id: str | None = None,
+        description: str = "",
+        release_callback: ReleaseCallback | None = None,
+    ) -> RegisteredResource:
+        file_path = Path(path)
+        return self.register(
+            resource_id or f"file:{file_path.resolve()}",
+            kind="file",
             owner=owner,
-            resource_type=resource_type,
-            metadata=dict(metadata or {}),
+            path=file_path,
+            description=description,
+            release_callback=release_callback,
         )
-        self._resources[record.resource_id] = record
-        return record
+
+    def register_dataframe(
+        self,
+        resource_id: str,
+        *,
+        owner: str,
+        path: Path | str | None = None,
+        description: str = "",
+        release_callback: ReleaseCallback | None = None,
+    ) -> RegisteredResource:
+        return self.register(
+            resource_id,
+            kind="dataframe",
+            owner=owner,
+            path=path,
+            description=description,
+            release_callback=release_callback,
+        )
 
     def release(self, resource_id: str) -> bool:
-        return self._resources.pop(str(resource_id), None) is not None
+        resource = self._resources.pop(str(resource_id), None)
+        if resource is None:
+            return False
+        if resource.release_callback is not None:
+            resource.release_callback()
+        return True
 
-    def release_path(self, path: Path | str) -> tuple[ResourceRecord, ...]:
+    def release_many(self, resource_ids: Iterable[str]) -> int:
+        count = 0
+        for resource_id in tuple(resource_ids):
+            if self.release(resource_id):
+                count += 1
+        if count:
+            gc.collect()
+        return count
+
+    def release_owner(self, owner: str) -> int:
+        owner_value = str(owner)
+        return self.release_many(
+            resource.id for resource in self._resources.values() if resource.owner == owner_value
+        )
+
+    def release_path(self, path: Path | str) -> int:
         target = Path(path).resolve()
-        released: list[ResourceRecord] = []
-        for key, record in list(self._resources.items()):
+        matching_ids: list[str] = []
+        for resource in self._resources.values():
+            if resource.path is None:
+                continue
             try:
-                record_path = Path(record.path).resolve()
+                resource_path = resource.path.resolve()
             except OSError:
-                record_path = Path(record.path)
-            if record_path == target or target in record_path.parents:
-                released.append(self._resources.pop(key))
-        return tuple(released)
+                resource_path = resource.path
+            if resource_path == target or resource_path in target.parents or target in resource_path.parents:
+                matching_ids.append(resource.id)
+        return self.release_many(matching_ids)
 
-    def release_all(self) -> tuple[ResourceRecord, ...]:
-        records = tuple(self._resources.values())
-        self._resources.clear()
-        return records
+    def release_all(self) -> int:
+        return self.release_many(tuple(self._resources))
 
-    def diagnostics(self) -> tuple[ResourceRecord, ...]:
-        return tuple(self._resources.values())
-
-
-GLOBAL_RESOURCE_MANAGER = ResourceManager()
-
-
-@dataclass(frozen=True)
-class DeleteAttempt:
-    attempt: int
-    success: bool
-    error_type: str = ""
-    error_message: str = ""
+    def diagnostics(self) -> ResourceDiagnostics:
+        resources = tuple(self._resources.values())
+        open_files = tuple(resource for resource in resources if resource.kind == "file" and resource.path is not None)
+        return ResourceDiagnostics(total=len(resources), open_files=open_files, resources=resources)
 
 
 @dataclass(frozen=True)
 class DeleteResult:
-    path: str
+    """Result of a lifecycle-managed delete operation."""
+
+    path: Path
     deleted: bool
-    existed: bool
-    attempts: tuple[DeleteAttempt, ...]
-    released_resources: tuple[ResourceRecord, ...] = ()
-
-    @property
-    def last_error(self) -> str:
-        for attempt in reversed(self.attempts):
-            if not attempt.success:
-                return attempt.error_message
-        return ""
-
-    @property
-    def diagnostic_message(self) -> str:
-        if self.deleted:
-            return "Удаление выполнено."
-        if not self.existed:
-            return "Объект уже отсутствует."
-        if self.last_error:
-            return self.last_error
-        return "Не удалось удалить объект."
+    attempts: int
+    released_resources: int
 
 
 class StorageDeleteError(RuntimeError):
-    """Raised when the lifecycle delete engine cannot remove a path."""
+    """Raised when DeleteEngine cannot remove a path safely."""
 
-    def __init__(self, result: DeleteResult) -> None:
-        self.result = result
-        super().__init__(result.diagnostic_message)
+    def __init__(self, path: Path, *, attempts: int, original_error: BaseException, diagnostics: ResourceDiagnostics):
+        self.path = path
+        self.attempts = attempts
+        self.original_error = original_error
+        self.diagnostics = diagnostics
+        owners = diagnostics.owners_for_path(path)
+        owner_hint = "; используется: " + ", ".join(owners) if owners else ""
+        super().__init__(
+            f"Не удалось удалить {path}. Попыток: {attempts}. "
+            f"Причина: {type(original_error).__name__}: {original_error}{owner_hint}"
+        )
 
 
 class DeleteEngine:
-    """Single safe deletion point for project storage objects.
+    """Single deletion entry point for project storage objects."""
 
-    The engine releases registered resources, clears Python-owned references via
-    garbage collection and retries Windows-sensitive delete operations.  It does
-    not know business semantics; repositories/services decide what path belongs
-    to a dataset, LAS, export or report.
-    """
-
-    def __init__(
-        self,
-        *,
-        resource_manager: ResourceManager | None = None,
-        retries: int = 3,
-        retry_delays: Iterable[float] = (0.2, 0.5, 1.0),
-    ) -> None:
-        self.resource_manager = resource_manager or GLOBAL_RESOURCE_MANAGER
-        self.retries = max(1, int(retries))
-        self.retry_delays = tuple(float(delay) for delay in retry_delays)
+    def __init__(self, resource_manager: ResourceManager | None = None, *, attempts: int = 3, delay_seconds: float = 0.2) -> None:
+        self.resource_manager = resource_manager or ResourceManager()
+        self.attempts = max(1, int(attempts))
+        self.delay_seconds = max(0.0, float(delay_seconds))
 
     def delete_path(self, path: Path | str, *, missing_ok: bool = True) -> DeleteResult:
         target = Path(path)
-        existed = target.exists()
         released = self.resource_manager.release_path(target)
         gc.collect()
 
-        if not existed:
-            result = DeleteResult(path=str(target), deleted=False, existed=False, attempts=(), released_resources=released)
+        if not target.exists():
             if missing_ok:
-                return result
-            raise StorageDeleteError(result)
+                return DeleteResult(path=target, deleted=False, attempts=0, released_resources=released)
+            raise FileNotFoundError(target)
 
-        attempts: list[DeleteAttempt] = []
-        for attempt_index in range(1, self.retries + 1):
+        last_error: BaseException | None = None
+        for attempt in range(1, self.attempts + 1):
             try:
                 if target.is_dir():
                     shutil.rmtree(target)
                 else:
                     target.unlink()
-            except PermissionError as exc:
-                message = self._permission_message(target, exc)
-                attempts.append(DeleteAttempt(attempt_index, False, type(exc).__name__, message))
-            except FileNotFoundError:
-                attempts.append(DeleteAttempt(attempt_index, True))
-                return DeleteResult(str(target), True, existed, tuple(attempts), released)
-            except OSError as exc:
-                attempts.append(DeleteAttempt(attempt_index, False, type(exc).__name__, str(exc)))
-            else:
-                attempts.append(DeleteAttempt(attempt_index, True))
-                return DeleteResult(str(target), True, existed, tuple(attempts), released)
-
-            gc.collect()
-            if attempt_index < self.retries:
-                delay = self.retry_delays[min(attempt_index - 1, len(self.retry_delays) - 1)] if self.retry_delays else 0
-                if delay > 0:
-                    time.sleep(delay)
-
-        result = DeleteResult(str(target), False, existed, tuple(attempts), released)
-        raise StorageDeleteError(result)
-
-    @staticmethod
-    def _permission_message(path: Path, exc: PermissionError) -> str:
-        return (
-            f"Файл или каталог занят другим процессом: {path}. "
-            "Закройте предпросмотр, Excel/редактор файла или связанный workspace и повторите операцию. "
-            f"Исходная ошибка: {exc}"
+                return DeleteResult(path=target, deleted=True, attempts=attempt, released_resources=released)
+            except (PermissionError, OSError) as exc:
+                last_error = exc
+                self.resource_manager.release_path(target)
+                gc.collect()
+                if attempt < self.attempts and self.delay_seconds:
+                    time.sleep(self.delay_seconds)
+        assert last_error is not None
+        raise StorageDeleteError(
+            target,
+            attempts=self.attempts,
+            original_error=last_error,
+            diagnostics=self.resource_manager.diagnostics(),
         )
+
+
+DEFAULT_RESOURCE_MANAGER = ResourceManager()
+DEFAULT_DELETE_ENGINE = DeleteEngine(DEFAULT_RESOURCE_MANAGER)

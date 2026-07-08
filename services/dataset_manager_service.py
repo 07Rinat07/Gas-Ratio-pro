@@ -2,122 +2,203 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable, Literal
 
-from core.storage_lifecycle import DeleteEngine, DeleteResult, StorageDeleteError
+from core.storage_lifecycle import DeleteEngine, DeleteResult, ResourceManager, StorageDeleteError
 from projects import datasets as project_datasets
-from projects.repository import DEFAULT_PROJECTS_ROOT, safe_project_id
+from projects.repository import DEFAULT_PROJECT_ID, DEFAULT_PROJECTS_ROOT, safe_project_id
+
+DatasetSection = Literal["csv", "excel", "core", "mud_log", "production"]
 
 
 @dataclass(frozen=True)
-class DatasetDeleteResult:
-    project_id: str
-    kind: str
-    dataset_id: str
-    deleted: bool
-    diagnostic: str = ""
+class DatasetSectionSpec:
+    key: DatasetSection
+    label: str
+    folder_name: str
+    manifest_name: str
+    list_records: Callable[..., tuple[object, ...]]
+    write_manifest: Callable[..., None]
+    dataset_dir: Callable[[Path | str, str, str], Path]
 
 
 @dataclass(frozen=True)
-class DatasetClearResult:
+class DatasetDeleteSummary:
     project_id: str
-    kind: str
-    deleted_count: int
-    diagnostic: str = ""
+    section: str
+    requested: int
+    deleted: int
+    missing: int
+    released_resources: int
 
 
 class DatasetManagerService:
-    """Service-layer facade for Dataset Manager operations.
+    """Service layer for Dataset Manager storage lifecycle operations.
 
-    UI code should call this service instead of deleting dataset folders or
-    rewriting manifests directly.  The service routes destructive operations
-    through Storage Lifecycle ``DeleteEngine`` so locked XLSX/CSV/LAS files are
-    released/retried and reported consistently.
+    The service is the only UI-facing entry point for destructive dataset
+    operations.  It releases registered resources, removes files through
+    ``DeleteEngine`` and updates dataset manifests so deleted records cannot
+    reappear after Streamlit rerun or application restart.
     """
 
-    def __init__(self, root: Path | str = DEFAULT_PROJECTS_ROOT, delete_engine: DeleteEngine | None = None) -> None:
-        self.root = Path(root)
-        self.delete_engine = delete_engine or DeleteEngine()
-
-    def list_datasets(
+    def __init__(
         self,
-        project_id: str,
-        kind: str,
+        root: Path | str = DEFAULT_PROJECTS_ROOT,
         *,
-        include_archived: bool = False,
-    ) -> tuple[project_datasets.ProjectDatasetRecord, ...]:
-        clean_project_id = safe_project_id(project_id)
-        normalized = self.normalize_kind(kind)
-        if normalized == "LAS":
-            return project_datasets.list_project_las_datasets(self.root, clean_project_id, include_archived=include_archived)
-        if normalized == "CSV":
-            return project_datasets.list_project_csv_datasets(self.root, clean_project_id, include_archived=include_archived)
-        if normalized == "Excel":
-            return project_datasets.list_project_excel_datasets(self.root, clean_project_id, include_archived=include_archived)
-        if normalized == "Core":
-            return project_datasets.list_project_core_datasets(self.root, clean_project_id, include_archived=include_archived)
-        if normalized == "Mud Log":
-            return project_datasets.list_project_mud_log_datasets(self.root, clean_project_id, include_archived=include_archived)
-        if normalized == "Production":
-            return project_datasets.list_project_production_datasets(self.root, clean_project_id, include_archived=include_archived)
-        raise ValueError(f"Неизвестный Dataset section: {kind!r}.")
+        resource_manager: ResourceManager | None = None,
+        delete_engine: DeleteEngine | None = None,
+    ) -> None:
+        self.root = Path(root)
+        self.resource_manager = resource_manager or ResourceManager()
+        self.delete_engine = delete_engine or DeleteEngine(self.resource_manager)
 
-    def delete_dataset(self, project_id: str, kind: str, dataset_id: str) -> DatasetDeleteResult:
-        clean_project_id = safe_project_id(project_id)
-        normalized = self.normalize_kind(kind)
-        try:
-            project_datasets.delete_project_dataset(
-                self.root,
-                clean_project_id,
-                normalized,
-                dataset_id,
-                delete_engine=self.delete_engine,
-            )
-        except StorageDeleteError as exc:
-            return DatasetDeleteResult(clean_project_id, normalized, dataset_id, False, exc.result.diagnostic_message)
-        return DatasetDeleteResult(clean_project_id, normalized, dataset_id, True, "Удалено.")
-
-    def clear_section(self, project_id: str, kind: str) -> DatasetClearResult:
-        clean_project_id = safe_project_id(project_id)
-        normalized = self.normalize_kind(kind)
-        try:
-            deleted_count = project_datasets.clear_project_dataset_section(
-                self.root,
-                clean_project_id,
-                normalized,
-                delete_engine=self.delete_engine,
-            )
-        except StorageDeleteError as exc:
-            return DatasetClearResult(clean_project_id, normalized, 0, exc.result.diagnostic_message)
-        except ValueError as exc:
-            return DatasetClearResult(clean_project_id, normalized, 0, str(exc))
-        return DatasetClearResult(clean_project_id, normalized, deleted_count, f"Удалено записей: {deleted_count}.")
-
-    def clear_all(self, project_id: str) -> DatasetClearResult:
-        clean_project_id = safe_project_id(project_id)
-        try:
-            deleted_count = project_datasets.clear_project_all_dataset_sections(
-                self.root,
-                clean_project_id,
-                delete_engine=self.delete_engine,
-            )
-        except StorageDeleteError as exc:
-            return DatasetClearResult(clean_project_id, "ALL", 0, exc.result.diagnostic_message)
-        return DatasetClearResult(clean_project_id, "ALL", deleted_count, f"Удалено записей: {deleted_count}.")
-
-    @staticmethod
-    def normalize_kind(kind: str) -> str:
-        # Reuse repository normalizer through a harmless empty list attempt.
-        value = str(kind).strip().lower().replace("_", " ").replace("-", " ")
-        aliases = {
-            "las": "LAS",
-            "csv": "CSV",
-            "excel": "Excel",
-            "xlsx": "Excel",
-            "core": "Core",
-            "mud log": "Mud Log",
-            "mudlog": "Mud Log",
-            "production": "Production",
+    @property
+    def section_specs(self) -> dict[str, DatasetSectionSpec]:
+        return {
+            "csv": DatasetSectionSpec(
+                key="csv",
+                label="CSV",
+                folder_name=project_datasets.PROJECT_CSV_DATASETS_DIR_NAME,
+                manifest_name=project_datasets.PROJECT_CSV_DATASETS_MANIFEST_FILE_NAME,
+                list_records=project_datasets.list_project_csv_records,
+                write_manifest=project_datasets._write_csv_manifest,
+                dataset_dir=project_datasets._csv_dataset_dir,
+            ),
+            "excel": DatasetSectionSpec(
+                key="excel",
+                label="Excel",
+                folder_name=project_datasets.PROJECT_EXCEL_DATASETS_DIR_NAME,
+                manifest_name=project_datasets.PROJECT_EXCEL_DATASETS_MANIFEST_FILE_NAME,
+                list_records=project_datasets.list_project_excel_records,
+                write_manifest=project_datasets._write_excel_manifest,
+                dataset_dir=project_datasets._excel_dataset_dir,
+            ),
+            "core": DatasetSectionSpec(
+                key="core",
+                label="Core",
+                folder_name=project_datasets.PROJECT_CORE_DATASETS_DIR_NAME,
+                manifest_name=project_datasets.PROJECT_CORE_DATASETS_MANIFEST_FILE_NAME,
+                list_records=project_datasets.list_project_core_records,
+                write_manifest=project_datasets._write_core_manifest,
+                dataset_dir=project_datasets._core_dataset_dir,
+            ),
+            "mud_log": DatasetSectionSpec(
+                key="mud_log",
+                label="Mud Log",
+                folder_name=project_datasets.PROJECT_MUD_LOG_DATASETS_DIR_NAME,
+                manifest_name=project_datasets.PROJECT_MUD_LOG_DATASETS_MANIFEST_FILE_NAME,
+                list_records=project_datasets.list_project_mud_log_records,
+                write_manifest=project_datasets._write_mud_log_manifest,
+                dataset_dir=project_datasets._mud_log_dataset_dir,
+            ),
+            "production": DatasetSectionSpec(
+                key="production",
+                label="Production",
+                folder_name=project_datasets.PROJECT_PRODUCTION_DATASETS_DIR_NAME,
+                manifest_name=project_datasets.PROJECT_PRODUCTION_DATASETS_MANIFEST_FILE_NAME,
+                list_records=project_datasets.list_project_production_records,
+                write_manifest=project_datasets._write_production_manifest,
+                dataset_dir=project_datasets._production_dataset_dir,
+            ),
         }
-        if value not in aliases:
-            raise ValueError(f"Неизвестный раздел Dataset Manager: {kind!r}.")
-        return aliases[value]
+
+    def _spec(self, section: str) -> DatasetSectionSpec:
+        key = str(section).strip().lower().replace("-", "_").replace(" ", "_")
+        specs = self.section_specs
+        if key not in specs:
+            raise ValueError(f"Unsupported Dataset Manager section: {section}")
+        return specs[key]
+
+    def datasets_root(self, project_id: str = DEFAULT_PROJECT_ID) -> Path:
+        return self.root / safe_project_id(project_id) / project_datasets.PROJECT_DATASETS_DIR_NAME
+
+    def section_dir(self, project_id: str, section: str) -> Path:
+        spec = self._spec(section)
+        return self.datasets_root(project_id) / spec.folder_name
+
+    def list_records(self, project_id: str, section: str, *, include_archived: bool = True) -> tuple[object, ...]:
+        spec = self._spec(section)
+        return spec.list_records(self.root, project_id, include_archived=include_archived)
+
+    def delete_dataset(self, project_id: str, section: str, dataset_id: str) -> DatasetDeleteSummary:
+        spec = self._spec(section)
+        records = tuple(spec.list_records(self.root, project_id, include_archived=True))
+        matching = [record for record in records if getattr(record, "id", "") == dataset_id]
+        if not matching:
+            return DatasetDeleteSummary(project_id=project_id, section=spec.key, requested=1, deleted=0, missing=1, released_resources=0)
+
+        dataset_path = spec.dataset_dir(self.root, project_id, dataset_id)
+        released_before = self.resource_manager.diagnostics().total
+        self.delete_engine.delete_path(dataset_path, missing_ok=True)
+        kept_records = tuple(record for record in records if getattr(record, "id", "") != dataset_id)
+        spec.write_manifest(self.root, project_id, kept_records)
+        released_after = self.resource_manager.diagnostics().total
+        return DatasetDeleteSummary(
+            project_id=project_id,
+            section=spec.key,
+            requested=1,
+            deleted=1,
+            missing=0,
+            released_resources=max(0, released_before - released_after),
+        )
+
+    def delete_selected(self, project_id: str, section: str, dataset_ids: list[str] | tuple[str, ...]) -> DatasetDeleteSummary:
+        spec = self._spec(section)
+        requested_ids = tuple(str(item) for item in dataset_ids if str(item).strip())
+        deleted = 0
+        missing = 0
+        released = 0
+        for dataset_id in requested_ids:
+            summary = self.delete_dataset(project_id, spec.key, dataset_id)
+            deleted += summary.deleted
+            missing += summary.missing
+            released += summary.released_resources
+        return DatasetDeleteSummary(
+            project_id=project_id,
+            section=spec.key,
+            requested=len(requested_ids),
+            deleted=deleted,
+            missing=missing,
+            released_resources=released,
+        )
+
+    def clear_section(self, project_id: str, section: str) -> DatasetDeleteSummary:
+        spec = self._spec(section)
+        records = tuple(spec.list_records(self.root, project_id, include_archived=True))
+        section_path = self.section_dir(project_id, spec.key)
+        released_before = self.resource_manager.diagnostics().total
+        delete_result: DeleteResult = self.delete_engine.delete_path(section_path, missing_ok=True)
+        section_path.mkdir(parents=True, exist_ok=True)
+        spec.write_manifest(self.root, project_id, ())
+        released_after = self.resource_manager.diagnostics().total
+        return DatasetDeleteSummary(
+            project_id=project_id,
+            section=spec.key,
+            requested=len(records),
+            deleted=len(records) if delete_result.deleted or records else 0,
+            missing=0,
+            released_resources=max(0, released_before - released_after) + delete_result.released_resources,
+        )
+
+    def clear_all(self, project_id: str) -> DatasetDeleteSummary:
+        requested = deleted = missing = released = 0
+        for section in self.section_specs:
+            try:
+                summary = self.clear_section(project_id, section)
+            except StorageDeleteError:
+                raise
+            requested += summary.requested
+            deleted += summary.deleted
+            missing += summary.missing
+            released += summary.released_resources
+        return DatasetDeleteSummary(
+            project_id=project_id,
+            section="all",
+            requested=requested,
+            deleted=deleted,
+            missing=missing,
+            released_resources=released,
+        )
+
+    def diagnostics(self):
+        return self.resource_manager.diagnostics()

@@ -1,31 +1,92 @@
 # Storage Lifecycle Framework
 
-Sprint 1 freezes feature development until file/resource lifecycle is stable.
+## Статус
 
-## Goal
+Sprint 1 — обязательный блок перед Sprint 1.5 Integration & Stabilization.
 
-Every destructive storage operation must release runtime resources, clear Python-owned handles and retry Windows-sensitive deletion before reporting an error to the UI.
+## Цель
 
-## Components
+Сделать платформу надежной при работе с файлами проекта: Dataset, LAS, Export, Report, Cache и временные файлы должны удаляться только после освобождения ресурсов и через единый механизм.
 
-- `core/storage_lifecycle.py`
-  - `ResourceManager`
-  - `DeleteEngine`
-  - `StorageDeleteError`
-- `services/dataset_manager_service.py`
-  - service-layer Dataset Manager facade
-  - routes Dataset delete/clear operations through `DeleteEngine`
-- `projects/datasets.py`
-  - repository-level Dataset delete/clear functions
+## Реализованный первый блок
 
-## Architectural rules
+### ResourceManager
 
-- UI must not call `shutil.rmtree`, `Path.unlink`, or `Path.rmdir` directly.
-- Dataset Manager deletion goes through `DatasetManagerService`.
-- Repository functions decide which paths belong to entities.
-- `DeleteEngine` is the only component responsible for physical path deletion.
-- Locked file errors must show diagnostic messages instead of generic failure text.
+`core/storage_lifecycle.py`
 
-## First covered scenario
+Отвечает за регистрацию и освобождение ресурсов:
 
-`Dataset Manager · Mud Log` can now clear a section that contains saved Excel source files using lifecycle deletion and retry behavior.
+- файлов;
+- DataFrame;
+- preview-объектов;
+- временных объектов;
+- будущих Plotly/Matplotlib ресурсов.
+
+Ключевые методы:
+
+- `register_file(...)`
+- `register_dataframe(...)`
+- `release_path(...)`
+- `release_owner(...)`
+- `release_all()`
+- `diagnostics()`
+
+### DeleteEngine
+
+`core/storage_lifecycle.py`
+
+Единая точка физического удаления файлов и каталогов.
+
+Алгоритм:
+
+1. освободить ресурсы через `ResourceManager.release_path(...)`;
+2. вызвать `gc.collect()`;
+3. выполнить `unlink()` или `rmtree()`;
+4. при `PermissionError`/`OSError` повторить попытку;
+5. при неудаче вернуть диагностическую ошибку `StorageDeleteError`.
+
+### DatasetManagerService
+
+`services/dataset_manager_service.py`
+
+Dataset Manager больше не должен удалять папки напрямую. Очистка разделов и удаление Dataset проходят через:
+
+```text
+DatasetManagerService
+    ↓
+DeleteEngine
+    ↓
+ResourceManager
+    ↓
+Filesystem
+    ↓
+Manifest update
+```
+
+Поддержанные разделы:
+
+- CSV;
+- Excel;
+- Core;
+- Mud Log;
+- Production.
+
+LAS очищается через `LasManagerService` и будет подключен к общему DeleteEngine отдельным проходом.
+
+## Архитектурное правило
+
+Запрещено выполнять прямое удаление файлов из UI:
+
+```python
+shutil.rmtree(...)
+Path.unlink()
+os.remove(...)
+```
+
+Все разрушительные операции должны проходить через Storage Lifecycle Framework.
+
+## Следующий блок
+
+- IndexManager: автоматическая синхронизация Project Storage Index после удаления/импорта/переименования.
+- CacheManager: единая очистка preview/cache/table/plot объектов.
+- Integration with LAS/Export/Report managers.

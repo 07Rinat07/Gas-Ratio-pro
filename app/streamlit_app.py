@@ -252,7 +252,7 @@ from services.project_manager_service import ProjectManagerService
 from services.export_manager_service import ExportManagerService
 from services.well_manager_service import WellManagerService
 from services.las_manager_service import LasManagerService
-from services.dataset_manager_service import DatasetManagerService
+from services.dataset_manager_service import DatasetManagerService, StorageDeleteError
 from projects import calculations as project_calculations
 from projects import exports as project_exports
 from projects import graph_settings as project_graph_settings
@@ -4810,11 +4810,10 @@ def _las_manager_service() -> LasManagerService:
     return LasManagerService(LAS_CORRELATION_PROJECTS_ROOT)
 
 
-
-
 def _dataset_manager_service() -> DatasetManagerService:
     """Return the application-level dataset manager service for UI workflows."""
     return DatasetManagerService(LAS_CORRELATION_PROJECTS_ROOT)
+
 
 def _application_state_controller() -> ApplicationStateController:
     """Return the single UI-facing application state controller.
@@ -8476,54 +8475,106 @@ def _project_las_records_table(well_cards: tuple[ProjectLasWellCard, ...]) -> pd
     return pd.DataFrame(rows)
 
 
-def _render_dataset_manager_table(
+def _render_dataset_manager_toolbar(
     *,
     project_id: str,
-    kind: str,
+    section: str,
+    selected_dataset_id: str = "",
+    logger=None,
+) -> None:
+    """Render Unified Manager toolbar for one Dataset Manager section."""
+
+    service = _dataset_manager_service()
+    supported_section = section in service.section_specs
+    key_prefix = f"dataset_manager_{section}_{project_id}"
+    st.caption(
+        "Dataset Manager · единая панель управления Dataset: импорт, обновление, "
+        "удаление выбранного, очистка раздела и очистка всех datasets проекта."
+    )
+    columns = st.columns([1.1, 1.1, 1.2, 1.2, 1.4, 1.4, 1.5, 1.1])
+    with columns[0]:
+        st.button("➕ Импорт", key=f"{key_prefix}_import", disabled=True)
+    with columns[1]:
+        if st.button("🔄 Обновить", key=f"{key_prefix}_refresh"):
+            _refresh_ui()
+    with columns[2]:
+        st.button("✏ Редактировать", key=f"{key_prefix}_edit", disabled=True)
+    with columns[3]:
+        st.button("📋 Дублировать", key=f"{key_prefix}_duplicate", disabled=True)
+    with columns[4]:
+        if st.button("🗑 Удалить выбранный", key=f"{key_prefix}_delete_selected", disabled=(not selected_dataset_id or not supported_section)):
+            try:
+                summary = service.delete_dataset(project_id, section, selected_dataset_id)
+                st.success(f"Удалено Dataset: {summary.deleted}. Освобождено ресурсов: {summary.released_resources}.")
+                _refresh_ui()
+            except StorageDeleteError as exc:
+                if logger:
+                    logger.exception("dataset_manager_delete_selected_failed project_id=%s section=%s dataset_id=%s", safe_log_value(project_id), safe_log_value(section), safe_log_value(selected_dataset_id))
+                st.error(str(exc))
+            except Exception:
+                if logger:
+                    logger.exception("dataset_manager_delete_selected_failed project_id=%s section=%s dataset_id=%s", safe_log_value(project_id), safe_log_value(section), safe_log_value(selected_dataset_id))
+                st.error("Не удалось удалить выбранный Dataset. Подробности записаны в logs/app.log.")
+    with columns[5]:
+        if st.button("🧹 Очистить раздел", key=f"{key_prefix}_clear_section", disabled=not supported_section):
+            try:
+                summary = service.clear_section(project_id, section)
+                st.success(f"Раздел очищен. Удалено записей: {summary.deleted}. Освобождено ресурсов: {summary.released_resources}.")
+                _refresh_ui()
+            except StorageDeleteError as exc:
+                if logger:
+                    logger.exception("dataset_manager_clear_section_failed project_id=%s section=%s", safe_log_value(project_id), safe_log_value(section))
+                st.error(str(exc))
+            except Exception:
+                if logger:
+                    logger.exception("dataset_manager_clear_section_failed project_id=%s section=%s", safe_log_value(project_id), safe_log_value(section))
+                st.error("Не удалось очистить раздел Dataset Manager. Подробности записаны в logs/app.log.")
+    with columns[6]:
+        if st.button("🗑 Очистить всё", key=f"{key_prefix}_clear_all"):
+            try:
+                summary = service.clear_all(project_id)
+                st.success(f"Все Dataset-разделы очищены. Удалено записей: {summary.deleted}. Освобождено ресурсов: {summary.released_resources}.")
+                _refresh_ui()
+            except StorageDeleteError as exc:
+                if logger:
+                    logger.exception("dataset_manager_clear_all_failed project_id=%s", safe_log_value(project_id))
+                st.error(str(exc))
+            except Exception:
+                if logger:
+                    logger.exception("dataset_manager_clear_all_failed project_id=%s", safe_log_value(project_id))
+                st.error("Не удалось очистить Dataset Manager. Подробности записаны в logs/app.log.")
+    with columns[7]:
+        st.button("📤 Экспорт", key=f"{key_prefix}_export", disabled=True)
+
+
+def _render_dataset_manager_table(
+    *,
     title: str,
     datasets: tuple[project_datasets.ProjectDatasetRecord, ...],
     select_key: str,
     empty_caption: str,
     ready_message: str,
+    project_id: str,
+    section: str,
     logger=None,
 ) -> None:
     """Render one Dataset Manager table and selected dataset details."""
 
-    service = _dataset_manager_service()
-    toolbar_key = f"dataset_manager_{project_id}_{kind.replace(' ', '_').lower()}"
-    actions = st.columns(8)
-    actions[0].button("➕ Импорт", key=f"{toolbar_key}_import", disabled=True, use_container_width=True)
-    actions[1].button("🔄 Обновить", key=f"{toolbar_key}_refresh", use_container_width=True)
-    actions[2].button("✏ Редактировать", key=f"{toolbar_key}_edit", disabled=True, use_container_width=True)
-    actions[3].button("📋 Дублировать", key=f"{toolbar_key}_duplicate", disabled=True, use_container_width=True)
-
-    if actions[4].button("🗑 Удалить выбранный", key=f"{toolbar_key}_delete_selected", disabled=not datasets, use_container_width=True):
-        selected_id = st.session_state.get(select_key)
-        if selected_id:
-            result = service.delete_dataset(project_id, kind, str(selected_id))
-            if result.deleted:
-                st.success(result.diagnostic)
-                _refresh_ui()
-            else:
-                st.error(result.diagnostic or "Не удалось удалить Dataset.")
-
-    if actions[5].button("🧹 Очистить раздел", key=f"{toolbar_key}_clear_section", disabled=not datasets, use_container_width=True):
-        result = service.clear_section(project_id, kind)
-        if result.deleted_count or not datasets:
-            st.success(result.diagnostic)
-            _refresh_ui()
-        else:
-            st.error(result.diagnostic or "Не удалось очистить раздел Dataset Manager.")
-
-    if actions[6].button("🗑 Очистить всё", key=f"{toolbar_key}_clear_all", use_container_width=True):
-        result = service.clear_all(project_id)
-        if result.deleted_count or not datasets:
-            st.success(result.diagnostic)
-            _refresh_ui()
-        else:
-            st.error(result.diagnostic or "Не удалось очистить Dataset Manager.")
-
-    actions[7].button("📤 Экспорт", key=f"{toolbar_key}_export", disabled=True, use_container_width=True)
+    selected_dataset_id = ""
+    if datasets:
+        datasets_by_id = {dataset.id: dataset for dataset in datasets}
+        selected_dataset_id = st.selectbox(
+            title,
+            options=tuple(datasets_by_id),
+            format_func=lambda dataset_id: datasets_by_id[dataset_id].name,
+            key=select_key,
+        )
+    _render_dataset_manager_toolbar(
+        project_id=project_id,
+        section=section,
+        selected_dataset_id=selected_dataset_id,
+        logger=logger,
+    )
 
     if not datasets:
         st.caption(empty_caption)
@@ -8538,14 +8589,7 @@ def _render_dataset_manager_table(
     )
     st.dataframe(build_project_dataset_table(datasets), use_container_width=True, height=260)
 
-    datasets_by_id = {dataset.id: dataset for dataset in datasets}
-    selected_dataset_id = st.selectbox(
-        title,
-        options=tuple(datasets_by_id),
-        format_func=lambda dataset_id: datasets_by_id[dataset_id].name,
-        key=select_key,
-    )
-    selected_dataset = datasets_by_id[selected_dataset_id]
+    selected_dataset = {dataset.id: dataset for dataset in datasets}[selected_dataset_id]
     detail_rows = [
         ("Тип", selected_dataset.kind),
         ("Статус", selected_dataset.status_label),
@@ -8580,13 +8624,14 @@ def _render_project_dataset_manager(project: ProjectRecord, logger) -> None:
             st.warning("Не удалось построить список LAS datasets.")
         else:
             _render_dataset_manager_table(
-                project_id=project.id,
-                kind="LAS",
                 title="LAS datasets",
                 datasets=las_datasets,
                 select_key=f"project_dataset_las_select_{project.id}",
                 empty_caption="В активном проекте пока нет LAS datasets.",
                 ready_message="LAS dataset готов к открытию в рабочем workflow и выгрузке.",
+                project_id=project.id,
+                section="las",
+                logger=logger,
             )
 
     with st.expander("Dataset Manager · CSV", expanded=False):
@@ -8597,13 +8642,14 @@ def _render_project_dataset_manager(project: ProjectRecord, logger) -> None:
             st.warning("Не удалось построить список CSV datasets.")
         else:
             _render_dataset_manager_table(
-                project_id=project.id,
-                kind="CSV",
                 title="CSV datasets",
                 datasets=csv_datasets,
                 select_key=f"project_dataset_csv_select_{project.id}",
                 empty_caption="В активном проекте пока нет CSV datasets.",
                 ready_message="CSV dataset готов к проверке mapping и расчетам.",
+                project_id=project.id,
+                section="csv",
+                logger=logger,
             )
 
     with st.expander("Dataset Manager · Excel", expanded=False):
@@ -8614,13 +8660,14 @@ def _render_project_dataset_manager(project: ProjectRecord, logger) -> None:
             st.warning("Не удалось построить список Excel datasets.")
         else:
             _render_dataset_manager_table(
-                project_id=project.id,
-                kind="Excel",
                 title="Excel datasets",
                 datasets=excel_datasets,
                 select_key=f"project_dataset_excel_select_{project.id}",
                 empty_caption="В активном проекте пока нет Excel datasets.",
                 ready_message="Excel dataset готов к проверке активного листа, mapping и расчетам.",
+                project_id=project.id,
+                section="excel",
+                logger=logger,
             )
 
     with st.expander("Dataset Manager · Core", expanded=False):
@@ -8631,13 +8678,14 @@ def _render_project_dataset_manager(project: ProjectRecord, logger) -> None:
             st.warning("Не удалось построить список Core datasets.")
         else:
             _render_dataset_manager_table(
-                project_id=project.id,
-                kind="Core",
                 title="Core datasets",
                 datasets=core_datasets,
                 select_key=f"project_dataset_core_select_{project.id}",
                 empty_caption="В активном проекте пока нет Core datasets.",
                 ready_message="Core dataset готов к сопоставлению образцов с LAS по глубине.",
+                project_id=project.id,
+                section="core",
+                logger=logger,
             )
 
     with st.expander("Dataset Manager · Mud Log", expanded=False):
@@ -8648,13 +8696,14 @@ def _render_project_dataset_manager(project: ProjectRecord, logger) -> None:
             st.warning("Не удалось построить список Mud Log datasets.")
         else:
             _render_dataset_manager_table(
-                project_id=project.id,
-                kind="Mud Log",
                 title="Mud Log datasets",
                 datasets=mud_log_datasets,
                 select_key=f"project_dataset_mud_log_select_{project.id}",
                 empty_caption="В активном проекте пока нет Mud Log datasets.",
                 ready_message="Mud Log dataset готов к сопоставлению газов, литологии и описаний с LAS по глубине.",
+                project_id=project.id,
+                section="mud_log",
+                logger=logger,
             )
 
     with st.expander("Dataset Manager · Production", expanded=False):
@@ -8665,13 +8714,14 @@ def _render_project_dataset_manager(project: ProjectRecord, logger) -> None:
             st.warning("Не удалось построить список Production datasets.")
         else:
             _render_dataset_manager_table(
-                project_id=project.id,
-                kind="Production",
                 title="Production datasets",
                 datasets=production_datasets,
                 select_key=f"project_dataset_production_select_{project.id}",
                 empty_caption="В активном проекте пока нет Production datasets.",
                 ready_message="Production dataset готов к анализу добычи по дате и скважине.",
+                project_id=project.id,
+                section="production",
+                logger=logger,
             )
 
 
