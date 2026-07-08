@@ -4468,15 +4468,16 @@ def _render_start_guidance() -> None:
 
 def _workflow_status_detail_rows(active_project: ProjectRecord) -> tuple[tuple[str, str, str], ...]:
     """Build status rows with a concrete next action for each workflow stage."""
+    controller = _application_state_controller()
     rows: list[tuple[str, str, str]] = [
         ("Активный проект", f"{active_project.name} ({active_project.id})", "Проверьте, что выбран нужный проект перед импортом или сохранением."),
     ]
 
-    editor_sheets = st.session_state.get(LAS_EDITOR_SESSION_SHEETS_KEY)
+    editor_sheets = controller.get_value(LAS_EDITOR_SESSION_SHEETS_KEY)
     if editor_sheets:
         rows.append((
             "LAS-редактор",
-            st.session_state.get(LAS_EDITOR_SESSION_SUMMARY_KEY, "данные подготовлены"),
+            controller.get_value(LAS_EDITOR_SESSION_SUMMARY_KEY, "данные подготовлены"),
             "Можно передать подготовленную таблицу в расчет или сохранить версию в проект.",
         ))
     else:
@@ -4486,11 +4487,11 @@ def _workflow_status_detail_rows(active_project: ProjectRecord) -> tuple[tuple[s
             "Откройте LAS-редактор, если файл требует исправления глубины или NULL-значений.",
         ))
 
-    project_sheets = st.session_state.get(PROJECT_SESSION_SHEETS_KEY)
-    if project_sheets and st.session_state.get(PROJECT_SESSION_PROJECT_ID_KEY) == active_project.id:
+    project_sheets = controller.get_value(PROJECT_SESSION_SHEETS_KEY)
+    if project_sheets and controller.get_value(PROJECT_SESSION_PROJECT_ID_KEY) == active_project.id:
         rows.append((
             "Проектные данные",
-            st.session_state.get(PROJECT_SESSION_SUMMARY_KEY, "проектные данные загружены"),
+            controller.get_value(PROJECT_SESSION_SUMMARY_KEY, "проектные данные загружены"),
             "Можно продолжить расчет или экспорт выбранных проектных версий.",
         ))
     else:
@@ -4500,9 +4501,9 @@ def _workflow_status_detail_rows(active_project: ProjectRecord) -> tuple[tuple[s
             "Откройте сохраненный проект или загрузите новые данные во вкладке `Работа с данными`.",
         ))
 
-    interpretation_df = st.session_state.get(INTERPRETATION_SESSION_DATA_KEY)
+    interpretation_df = controller.get_value(INTERPRETATION_SESSION_DATA_KEY)
     if isinstance(interpretation_df, pd.DataFrame) and not interpretation_df.empty:
-        source = st.session_state.get(INTERPRETATION_SESSION_SOURCE_KEY, "расчетная таблица")
+        source = controller.get_value(INTERPRETATION_SESSION_SOURCE_KEY, "расчетная таблица")
         rows.append((
             "Интерпретационные графики",
             f"доступны данные: {source}, строк: {len(interpretation_df)}",
@@ -4569,7 +4570,7 @@ def _dashboard_quick_action_cards_html(last_action: dict[str, str] | None = None
 
 def _trigger_quick_action(action: dict[str, str]) -> None:
     """Switch to the quick action target and remember the latest executed action."""
-    st.session_state[DASHBOARD_LAST_QUICK_ACTION_KEY] = action["id"]
+    _application_state_controller().set_value(DASHBOARD_LAST_QUICK_ACTION_KEY, action["id"])
     _set_active_main_tab(action["target_tab"])
     _refresh_ui()
 
@@ -5490,15 +5491,16 @@ def _glass_ui_readability_rules() -> tuple[str, ...]:
 def _set_active_main_tab(tab_name: str) -> None:
     """Switch the single-page Streamlit workspace to a concrete application section."""
     if tab_name in APP_TABS:
-        st.session_state[ACTIVE_MAIN_TAB_KEY] = tab_name
+        _application_state_controller().set_value(ACTIVE_MAIN_TAB_KEY, tab_name)
 
 
 def _active_main_tab() -> str:
     """Return the selected application section, defaulting to the dashboard."""
-    tab = st.session_state.get(ACTIVE_MAIN_TAB_KEY, APP_TABS[0])
+    controller = _application_state_controller()
+    tab = controller.get_value(ACTIVE_MAIN_TAB_KEY, APP_TABS[0])
     if tab not in APP_TABS:
         tab = APP_TABS[0]
-        st.session_state[ACTIVE_MAIN_TAB_KEY] = tab
+        controller.set_value(ACTIVE_MAIN_TAB_KEY, tab)
     return str(tab)
 
 
@@ -5957,7 +5959,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
         _refresh_ui()
     _render_saved_wells_panel(logger)
 
-    saved_summary = st.session_state.get(LAS_EDITOR_SESSION_SUMMARY_KEY)
+    saved_summary = _application_state_controller().get_value(LAS_EDITOR_SESSION_SUMMARY_KEY)
     if saved_summary:
         st.success(f"В рабочую сессию сохранено: {saved_summary}")
 
@@ -9128,10 +9130,12 @@ def _render_project_workspace_loader(project: ProjectRecord, logger) -> None:
                     logger.exception("project_las_open_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось открыть выбранные LAS-версии проекта. Подробности записаны в logs/app.log.")
                 else:
-                    st.session_state[PROJECT_SESSION_SHEETS_KEY] = sheets
-                    st.session_state[PROJECT_SESSION_PROJECT_ID_KEY] = project.id
-                    st.session_state[PROJECT_SESSION_SUMMARY_KEY] = (
-                        f"{project.name}: версий {len(selected_records)}, листов {len(sheets)}"
+                    _application_state_controller().update_values(
+                        {
+                            PROJECT_SESSION_SHEETS_KEY: sheets,
+                            PROJECT_SESSION_PROJECT_ID_KEY: project.id,
+                            PROJECT_SESSION_SUMMARY_KEY: f"{project.name}: версий {len(selected_records)}, листов {len(sheets)}",
+                        }
                     )
                     logger.info(
                         "project_las_opened project_id=%s version_count=%d sheet_count=%d",

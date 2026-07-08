@@ -120,3 +120,22 @@ def test_command_palette_state_helpers_use_application_state_controller():
     assert "_application_state_controller()" in toggle_body
     assert "st.session_state" not in remember_body
     assert "st.session_state" not in toggle_body
+
+
+def test_navigation_and_workflow_helpers_use_application_state_controller():
+    module = importlib.import_module("app.streamlit_app")
+    import inspect
+
+    workflow_body = inspect.getsource(module._workflow_status_detail_rows)
+    set_tab_body = inspect.getsource(module._set_active_main_tab)
+    active_tab_body = inspect.getsource(module._active_main_tab)
+    quick_action_body = inspect.getsource(module._trigger_quick_action)
+
+    assert "_application_state_controller()" in workflow_body
+    assert "st.session_state" not in workflow_body
+    assert "_application_state_controller()" in set_tab_body
+    assert "st.session_state" not in set_tab_body
+    assert "_application_state_controller()" in active_tab_body
+    assert "st.session_state" not in active_tab_body
+    assert "_application_state_controller()" in quick_action_body
+    assert "st.session_state" not in quick_action_body
