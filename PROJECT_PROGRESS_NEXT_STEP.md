@@ -1,9 +1,14 @@
-# Project Progress Next Step
+# GAS RATIO PRO — Next Step Progress
 
-Current step completed: LAS Curve Grouping state handling has been routed through ApplicationStateController.
+Current implementation step completed:
 
-Next recommended step: continue migrating LAS Curve Category and Unit managers from direct Streamlit session state access to ApplicationStateController.
+- Continued ApplicationStateController cleanup after curve group state handling.
+- Moved LAS curve category manager state reads/writes behind ApplicationStateController.
+- Moved LAS curve unit manager state reads/writes behind ApplicationStateController.
+- Moved LAS curve mnemonics dictionary state write behind ApplicationStateController.
+- Preserved existing UI behavior and widget keys.
+- Validation: pytest 937 passed / 0 failed.
 
-Validation:
-- compileall: PASS
-- pytest: 937 passed / 0 failed
+Recommended next step:
+
+- Continue replacing remaining direct non-widget st.session_state access in LAS editor helpers, starting with duplicate detection and quality flag state.

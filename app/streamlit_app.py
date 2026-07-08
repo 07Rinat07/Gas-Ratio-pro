@@ -2904,15 +2904,14 @@ def _render_las_curve_category_manager(prepared_df: pd.DataFrame) -> None:
         "отчеты, фильтры и будущие правила импорта/экспорта без изменения исходных данных."
     )
 
-    if LAS_EDITOR_CATEGORY_HISTORY_KEY not in st.session_state:
-        st.session_state[LAS_EDITOR_CATEGORY_HISTORY_KEY] = ()
-    if LAS_EDITOR_CATEGORY_OVERRIDES_KEY not in st.session_state:
-        st.session_state[LAS_EDITOR_CATEGORY_OVERRIDES_KEY] = {}
+    state_controller = _application_state_controller()
+    state_controller.ensure_value(LAS_EDITOR_CATEGORY_HISTORY_KEY, ())
+    state_controller.ensure_value(LAS_EDITOR_CATEGORY_OVERRIDES_KEY, {})
 
     column_names = [str(column) for column in prepared_df.columns]
-    aliases = _application_state_controller().get_dict(LAS_EDITOR_ALIAS_MAP_KEY)
-    group_overrides = _application_state_controller().get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY)
-    category_overrides = _application_state_controller().get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY)
+    aliases = state_controller.get_dict(LAS_EDITOR_ALIAS_MAP_KEY)
+    group_overrides = state_controller.get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY)
+    category_overrides = state_controller.get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY)
     category_rows = curve_category_table_rows(
         column_names,
         group_overrides=group_overrides,
@@ -2980,13 +2979,15 @@ def _render_las_curve_category_manager(prepared_df: pd.DataFrame) -> None:
                 selected_category,
                 group_overrides=group_overrides,
                 category_overrides=category_overrides,
-                history=st.session_state.get(LAS_EDITOR_CATEGORY_HISTORY_KEY, ()),
+                history=state_controller.get_tuple(LAS_EDITOR_CATEGORY_HISTORY_KEY),
                 references=references,
                 reason="manual",
                 source="las_editor_ui",
             )
-            st.session_state[LAS_EDITOR_CATEGORY_OVERRIDES_KEY] = result.overrides
-            st.session_state[LAS_EDITOR_CATEGORY_HISTORY_KEY] = result.history
+            state_controller.update_values({
+                LAS_EDITOR_CATEGORY_OVERRIDES_KEY: result.overrides,
+                LAS_EDITOR_CATEGORY_HISTORY_KEY: result.history,
+            })
             for message in result.diagnostics:
                 st.info(message)
             if result.assigned:
@@ -2996,25 +2997,27 @@ def _render_las_curve_category_manager(prepared_df: pd.DataFrame) -> None:
         except ValueError as exc:
             st.warning(str(exc))
 
-    history = tuple(st.session_state.get(LAS_EDITOR_CATEGORY_HISTORY_KEY, ()))
+    history = state_controller.get_tuple(LAS_EDITOR_CATEGORY_HISTORY_KEY)
     if st.button("Undo последней категории", disabled=not history, width="stretch", key="las_editor_category_undo"):
         try:
             result = undo_last_category_assignment(
                 prepared_df,
                 group_overrides=group_overrides,
-                category_overrides=_application_state_controller().get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY),
+                category_overrides=state_controller.get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY),
                 history=history,
                 references=references,
             )
-            st.session_state[LAS_EDITOR_CATEGORY_OVERRIDES_KEY] = result.overrides
-            st.session_state[LAS_EDITOR_CATEGORY_HISTORY_KEY] = result.history
+            state_controller.update_values({
+                LAS_EDITOR_CATEGORY_OVERRIDES_KEY: result.overrides,
+                LAS_EDITOR_CATEGORY_HISTORY_KEY: result.history,
+            })
             for message in result.diagnostics:
                 st.info(message)
             st.success("Последняя категория отменена.")
         except ValueError as exc:
             st.warning(str(exc))
 
-    history = tuple(st.session_state.get(LAS_EDITOR_CATEGORY_HISTORY_KEY, ()))
+    history = state_controller.get_tuple(LAS_EDITOR_CATEGORY_HISTORY_KEY)
     with st.expander("История категорий кривых", expanded=bool(history)):
         if history:
             st.dataframe(
@@ -3045,16 +3048,15 @@ def _render_las_curve_units_manager(prepared_df: pd.DataFrame) -> None:
         "а выбранные unit overrides сохраняются для отчетов, будущего импорта/экспорта и проверки расчетов."
     )
 
-    if LAS_EDITOR_UNIT_HISTORY_KEY not in st.session_state:
-        st.session_state[LAS_EDITOR_UNIT_HISTORY_KEY] = ()
-    if LAS_EDITOR_UNIT_OVERRIDES_KEY not in st.session_state:
-        st.session_state[LAS_EDITOR_UNIT_OVERRIDES_KEY] = {}
+    state_controller = _application_state_controller()
+    state_controller.ensure_value(LAS_EDITOR_UNIT_HISTORY_KEY, ())
+    state_controller.ensure_value(LAS_EDITOR_UNIT_OVERRIDES_KEY, {})
 
     column_names = [str(column) for column in prepared_df.columns]
-    aliases = _application_state_controller().get_dict(LAS_EDITOR_ALIAS_MAP_KEY)
-    group_overrides = _application_state_controller().get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY)
-    category_overrides = _application_state_controller().get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY)
-    unit_overrides = _application_state_controller().get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY)
+    aliases = state_controller.get_dict(LAS_EDITOR_ALIAS_MAP_KEY)
+    group_overrides = state_controller.get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY)
+    category_overrides = state_controller.get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY)
+    unit_overrides = state_controller.get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY)
 
     unit_rows = curve_unit_table_rows(
         column_names,
@@ -3118,13 +3120,15 @@ def _render_las_curve_units_manager(prepared_df: pd.DataFrame) -> None:
                 group_overrides=group_overrides,
                 category_overrides=category_overrides,
                 unit_overrides=unit_overrides,
-                history=st.session_state.get(LAS_EDITOR_UNIT_HISTORY_KEY, ()),
+                history=state_controller.get_tuple(LAS_EDITOR_UNIT_HISTORY_KEY),
                 references=references,
                 reason="manual",
                 source="las_editor_ui",
             )
-            st.session_state[LAS_EDITOR_UNIT_OVERRIDES_KEY] = result.overrides
-            st.session_state[LAS_EDITOR_UNIT_HISTORY_KEY] = result.history
+            state_controller.update_values({
+                LAS_EDITOR_UNIT_OVERRIDES_KEY: result.overrides,
+                LAS_EDITOR_UNIT_HISTORY_KEY: result.history,
+            })
             for message in result.diagnostics:
                 st.info(message)
             if result.assigned:
@@ -3134,26 +3138,28 @@ def _render_las_curve_units_manager(prepared_df: pd.DataFrame) -> None:
         except ValueError as exc:
             st.warning(str(exc))
 
-    history = tuple(st.session_state.get(LAS_EDITOR_UNIT_HISTORY_KEY, ()))
+    history = state_controller.get_tuple(LAS_EDITOR_UNIT_HISTORY_KEY)
     if st.button("Undo последней единицы", disabled=not history, width="stretch", key="las_editor_unit_undo"):
         try:
             result = undo_last_unit_assignment(
                 prepared_df,
                 group_overrides=group_overrides,
                 category_overrides=category_overrides,
-                unit_overrides=_application_state_controller().get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY),
+                unit_overrides=state_controller.get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY),
                 history=history,
                 references=references,
             )
-            st.session_state[LAS_EDITOR_UNIT_OVERRIDES_KEY] = result.overrides
-            st.session_state[LAS_EDITOR_UNIT_HISTORY_KEY] = result.history
+            state_controller.update_values({
+                LAS_EDITOR_UNIT_OVERRIDES_KEY: result.overrides,
+                LAS_EDITOR_UNIT_HISTORY_KEY: result.history,
+            })
             for message in result.diagnostics:
                 st.info(message)
             st.success("Последняя единица отменена.")
         except ValueError as exc:
             st.warning(str(exc))
 
-    history = tuple(st.session_state.get(LAS_EDITOR_UNIT_HISTORY_KEY, ()))
+    history = state_controller.get_tuple(LAS_EDITOR_UNIT_HISTORY_KEY)
     with st.expander("История единиц кривых", expanded=bool(history)):
         if history:
             st.dataframe(
@@ -3185,7 +3191,7 @@ def _render_las_curve_mnemonics_dictionary(prepared_df: pd.DataFrame) -> None:
 
     column_names = [str(column) for column in prepared_df.columns]
     rows = curve_mnemonic_table_rows(column_names)
-    st.session_state[LAS_EDITOR_MNEMONICS_KEY] = rows
+    _application_state_controller().set_value(LAS_EDITOR_MNEMONICS_KEY, rows)
     references = mnemonic_reference_manifest(column_names, references=_las_editor_reference_state(column_names))
 
     st.dataframe(
@@ -3413,8 +3419,8 @@ def _render_las_curve_bulk_edit_manager(prepared_df: pd.DataFrame) -> pd.DataFra
                 prefix=prefix,
                 suffix=suffix,
                 group_overrides=_application_state_controller().get_dict(LAS_EDITOR_GROUP_OVERRIDES_KEY),
-                category_overrides=_application_state_controller().get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY),
-                unit_overrides=_application_state_controller().get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY),
+                category_overrides=state_controller.get_dict(LAS_EDITOR_CATEGORY_OVERRIDES_KEY),
+                unit_overrides=state_controller.get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY),
                 metadata=_application_state_controller().get_dict(LAS_EDITOR_METADATA_KEY),
                 references=_las_editor_reference_state(columns),
             )
@@ -3546,7 +3552,7 @@ def _render_las_curve_export_rules_manager(prepared_df: pd.DataFrame) -> None:
                 profile_id=profile_id,
                 selected_curves=selected_curves,
                 aliases=_application_state_controller().get_dict(LAS_EDITOR_ALIAS_MAP_KEY),
-                unit_overrides=_application_state_controller().get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY),
+                unit_overrides=state_controller.get_dict(LAS_EDITOR_UNIT_OVERRIDES_KEY),
                 metadata=metadata,
                 null_value=null_value,
                 curve_mode=curve_mode,
