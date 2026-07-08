@@ -7064,10 +7064,14 @@ def _filter_interpretation_tracks(tracks: tuple[str, ...]) -> tuple[str, ...]:
 
 
 def _set_interpretation_x_range_state(key_prefix: str, x_range: tuple[float, float] | None) -> None:
-    st.session_state[f"{key_prefix}_x_auto"] = x_range is None
+    controller = _application_state_controller()
+    values = {f"{key_prefix}_x_auto": x_range is None}
     if x_range is not None:
-        st.session_state[f"{key_prefix}_x_min"] = float(x_range[0])
-        st.session_state[f"{key_prefix}_x_max"] = float(x_range[1])
+        values.update({
+            f"{key_prefix}_x_min": float(x_range[0]),
+            f"{key_prefix}_x_max": float(x_range[1]),
+        })
+    controller.update_values(values)
 
 
 def _safe_widget_key(value: object) -> str:
@@ -7081,10 +7085,7 @@ def _tablet_x_range_key(column: str) -> str:
 
 def _set_tablet_x_range_state(column: str, x_range: tuple[float, float] | None) -> None:
     key_prefix = _tablet_x_range_key(column)
-    st.session_state[f"{key_prefix}_x_auto"] = x_range is None
-    if x_range is not None:
-        st.session_state[f"{key_prefix}_x_min"] = float(x_range[0])
-        st.session_state[f"{key_prefix}_x_max"] = float(x_range[1])
+    _set_interpretation_x_range_state(key_prefix, x_range)
 
 
 def _valid_tablet_columns(df: pd.DataFrame, columns: tuple[str, ...]) -> tuple[str, ...]:
@@ -7344,38 +7345,44 @@ def _render_tablet_controls(
 
 
 def _apply_interpretation_graph_settings_to_session(settings: InterpretationGraphSettings) -> None:
-    st.session_state["interpretation_tracks"] = list(_filter_interpretation_tracks(settings.selected_tracks))
-    st.session_state["interpretation_chart_height"] = int(settings.height)
+    controller = _application_state_controller()
+    values = {
+        "interpretation_tracks": list(_filter_interpretation_tracks(settings.selected_tracks)),
+        "interpretation_chart_height": int(settings.height),
+        "interpretation_tablet_columns": list(settings.tablet_tracks),
+        "interpretation_tablet_fill": bool(settings.tablet_fill),
+        "interpretation_tablet_marker_count": len(settings.tablet_markers),
+        "interpretation_tablet_zone_count": len(settings.tablet_zones),
+    }
     if settings.depth_range is None:
-        st.session_state["interpretation_depth_range_mode"] = "Весь интервал"
+        values["interpretation_depth_range_mode"] = "Весь интервал"
     else:
-        st.session_state["interpretation_depth_range_mode"] = "Ручной интервал"
-        st.session_state["interpretation_top_depth"] = float(settings.depth_range[0])
-        st.session_state["interpretation_bottom_depth"] = float(settings.depth_range[1])
+        values.update({
+            "interpretation_depth_range_mode": "Ручной интервал",
+            "interpretation_top_depth": float(settings.depth_range[0]),
+            "interpretation_bottom_depth": float(settings.depth_range[1]),
+        })
+    for column, color in settings.tablet_colors.items():
+        values[f"interpretation_tablet_{_safe_widget_key(column)}_color"] = str(color)
+    for column, mode in settings.tablet_fill_modes.items():
+        values[f"interpretation_tablet_{_safe_widget_key(column)}_fill_mode"] = str(mode)
+    for index, marker in enumerate(settings.tablet_markers):
+        values[f"interpretation_tablet_marker_{index}_label"] = str(marker.get("label") or chr(ord("a") + index))
+        values[f"interpretation_tablet_marker_{index}_depth"] = float(marker.get("depth", 0.0))
+        values[f"interpretation_tablet_marker_{index}_note"] = str(marker.get("note") or "")
+    for index, zone in enumerate(settings.tablet_zones):
+        values[f"interpretation_tablet_zone_{index}_label"] = str(zone.get("label") or f"Zone {index + 1}")
+        values[f"interpretation_tablet_zone_{index}_top"] = float(zone.get("top_depth", 0.0))
+        values[f"interpretation_tablet_zone_{index}_bottom"] = float(zone.get("bottom_depth", 0.0))
+        values[f"interpretation_tablet_zone_{index}_color"] = str(zone.get("color") or "#ffd966")
+        values[f"interpretation_tablet_zone_{index}_note"] = str(zone.get("note") or "")
+    controller.update_values(values)
 
     _set_interpretation_x_range_state("interpretation_gas", settings.gas_x_range)
     _set_interpretation_x_range_state("interpretation_ratio", settings.ratio_x_range)
     _set_interpretation_x_range_state("interpretation_pixler", settings.pixler_x_range)
-    st.session_state["interpretation_tablet_columns"] = list(settings.tablet_tracks)
-    st.session_state["interpretation_tablet_fill"] = bool(settings.tablet_fill)
-    for column, color in settings.tablet_colors.items():
-        st.session_state[f"interpretation_tablet_{_safe_widget_key(column)}_color"] = str(color)
-    for column, mode in settings.tablet_fill_modes.items():
-        st.session_state[f"interpretation_tablet_{_safe_widget_key(column)}_fill_mode"] = str(mode)
     for column, x_range in settings.tablet_x_ranges.items():
         _set_tablet_x_range_state(column, x_range)
-    st.session_state["interpretation_tablet_marker_count"] = len(settings.tablet_markers)
-    for index, marker in enumerate(settings.tablet_markers):
-        st.session_state[f"interpretation_tablet_marker_{index}_label"] = str(marker.get("label") or chr(ord("a") + index))
-        st.session_state[f"interpretation_tablet_marker_{index}_depth"] = float(marker.get("depth", 0.0))
-        st.session_state[f"interpretation_tablet_marker_{index}_note"] = str(marker.get("note") or "")
-    st.session_state["interpretation_tablet_zone_count"] = len(settings.tablet_zones)
-    for index, zone in enumerate(settings.tablet_zones):
-        st.session_state[f"interpretation_tablet_zone_{index}_label"] = str(zone.get("label") or f"Zone {index + 1}")
-        st.session_state[f"interpretation_tablet_zone_{index}_top"] = float(zone.get("top_depth", 0.0))
-        st.session_state[f"interpretation_tablet_zone_{index}_bottom"] = float(zone.get("bottom_depth", 0.0))
-        st.session_state[f"interpretation_tablet_zone_{index}_color"] = str(zone.get("color") or "#ffd966")
-        st.session_state[f"interpretation_tablet_zone_{index}_note"] = str(zone.get("note") or "")
 
 
 def _interpretation_graph_settings_summary(settings: InterpretationGraphSettings) -> tuple[str, ...]:
@@ -7762,10 +7769,14 @@ def _filter_group_selection(groups, allowed_groups: tuple[str, ...], fallback: t
 
 
 def _set_las_correlation_x_range_state(key_prefix: str, x_range: tuple[float, float] | None) -> None:
-    st.session_state[f"{key_prefix}_x_auto"] = x_range is None
+    controller = _application_state_controller()
+    values = {f"{key_prefix}_x_auto": x_range is None}
     if x_range is not None:
-        st.session_state[f"{key_prefix}_x_min"] = float(x_range[0])
-        st.session_state[f"{key_prefix}_x_max"] = float(x_range[1])
+        values.update({
+            f"{key_prefix}_x_min": float(x_range[0]),
+            f"{key_prefix}_x_max": float(x_range[1]),
+        })
+    controller.update_values(values)
 
 
 def _curve_belongs_to_groups(wells, curve_name: str, groups: tuple[str, ...]) -> bool:
@@ -7788,41 +7799,45 @@ def _comparison_x_range_for_curve(
 
 
 def _apply_las_correlation_settings_to_session(settings: LasCorrelationSettings, wells, group_options: tuple[str, ...]) -> None:
+    controller = _application_state_controller()
     available_well_names = tuple(well.name for well in wells)
     selected_wells = tuple(name for name in settings.selected_well_names if name in available_well_names) or available_well_names
-    st.session_state["las_correlation_selected_wells"] = list(selected_wells)
-    st.session_state["las_correlation_gis_groups"] = list(_filter_group_selection(settings.gis_groups, group_options, DEFAULT_GIS_GROUPS))
-    st.session_state["las_correlation_gas_groups"] = list(_filter_group_selection(settings.gas_groups, group_options, DEFAULT_GAS_GROUPS))
-    st.session_state["las_correlation_height_per_well"] = int(settings.height_per_well)
-    st.session_state["las_correlation_view_mode"] = (
-        settings.view_mode if settings.view_mode in SUPPORTED_VIEW_MODES else VIEW_MODE_BY_WELL
-    )
+    values = {
+        "las_correlation_selected_wells": list(selected_wells),
+        "las_correlation_gis_groups": list(_filter_group_selection(settings.gis_groups, group_options, DEFAULT_GIS_GROUPS)),
+        "las_correlation_gas_groups": list(_filter_group_selection(settings.gas_groups, group_options, DEFAULT_GAS_GROUPS)),
+        "las_correlation_height_per_well": int(settings.height_per_well),
+        "las_correlation_view_mode": (
+            settings.view_mode if settings.view_mode in SUPPORTED_VIEW_MODES else VIEW_MODE_BY_WELL
+        ),
+        "las_correlation_manual_curve_groups": bool(settings.curve_group_overrides),
+    }
     if settings.comparison_curve:
-        st.session_state["las_correlation_comparison_curve"] = settings.comparison_curve
+        values["las_correlation_comparison_curve"] = settings.comparison_curve
 
     if settings.depth_range is None:
-        st.session_state["las_correlation_depth_range_mode"] = "Общий весь интервал"
+        values["las_correlation_depth_range_mode"] = "Общий весь интервал"
     else:
-        st.session_state["las_correlation_depth_range_mode"] = "Ручной интервал"
-        st.session_state["las_correlation_top_depth"] = float(settings.depth_range[0])
-        st.session_state["las_correlation_bottom_depth"] = float(settings.depth_range[1])
+        values.update({
+            "las_correlation_depth_range_mode": "Ручной интервал",
+            "las_correlation_top_depth": float(settings.depth_range[0]),
+            "las_correlation_bottom_depth": float(settings.depth_range[1]),
+        })
+
+    use_manual_groups = bool(settings.curve_group_overrides)
+    if use_manual_groups:
+        for well in wells:
+            overrides = settings.curve_group_overrides.get(well.name, {})
+            for row in curve_group_rows(well):
+                curve = row["curve"]
+                group = overrides.get(curve, row["group"])
+                if group not in CURVE_GROUP_LABELS:
+                    group = "other"
+                values[f"las_correlation_group_override_{well.name}_{curve}"] = group
+    controller.update_values(values)
 
     _set_las_correlation_x_range_state("las_correlation_gis", settings.gis_x_range)
     _set_las_correlation_x_range_state("las_correlation_gas", settings.gas_x_range)
-
-    use_manual_groups = bool(settings.curve_group_overrides)
-    st.session_state["las_correlation_manual_curve_groups"] = use_manual_groups
-    if not use_manual_groups:
-        return
-
-    for well in wells:
-        overrides = settings.curve_group_overrides.get(well.name, {})
-        for row in curve_group_rows(well):
-            curve = row["curve"]
-            group = overrides.get(curve, row["group"])
-            if group not in CURVE_GROUP_LABELS:
-                group = "other"
-            st.session_state[f"las_correlation_group_override_{well.name}_{curve}"] = group
 
 
 class _NamedLasBytesIO(BytesIO):
