@@ -7506,12 +7506,13 @@ def _render_interpretation_graph_settings_saver(
 
 def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> None:
     st.subheader("Интерпретационные графики")
-    calculated_df = st.session_state.get(INTERPRETATION_SESSION_DATA_KEY)
+    state_controller = _application_state_controller()
+    calculated_df = state_controller.get_value(INTERPRETATION_SESSION_DATA_KEY)
     if calculated_df is None or calculated_df.empty:
         st.info("Сначала выполните расчет во вкладке `Работа с данными`. После этого здесь появятся графики и таблица интерпретации.")
         return
 
-    source_label = st.session_state.get(INTERPRETATION_SESSION_SOURCE_KEY, "текущий расчет")
+    source_label = state_controller.get_value(INTERPRETATION_SESSION_SOURCE_KEY, "текущий расчет")
     st.caption(f"Источник данных: {source_label}")
     st.caption(f"Активный проект: {active_project.name} ({active_project.id})")
     _render_interpretation_graph_settings_loader(active_project, logger)
@@ -9590,8 +9591,9 @@ def _render_project_calculation_comparison(project: ProjectRecord, records: tupl
 
         try:
             comparison = compare_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id, left_id, right_id)
+            state_controller = _application_state_controller()
             compare_log_key = f"project_calculation_compare_logged_{project.id}_{left_id}_{right_id}"
-            if not st.session_state.get(compare_log_key):
+            if not state_controller.get_value(compare_log_key, False):
                 _record_project_calculation_action(
                     project,
                     "compare_snapshots",
@@ -9600,7 +9602,7 @@ def _render_project_calculation_comparison(project: ProjectRecord, records: tupl
                     related_calculation_id=right_id,
                     details="safe metadata/csv comparison",
                 )
-                st.session_state[compare_log_key] = True
+                state_controller.set_value(compare_log_key, True)
         except Exception:
             logger.exception(
                 "project_calculation_compare_failed project_id=%s left_id=%s right_id=%s",
@@ -10309,7 +10311,8 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
             step=0.01,
             key="las_correlation_studio_depth_step",
         )
-        default_marker_rows = st.session_state.get(
+        state_controller = _application_state_controller()
+        default_marker_rows = state_controller.get_value(
             "las_correlation_studio_markers",
             [{"well": "", "name": "Top", "depth": float(valid_depths[0]) if valid_depths else 0.0, "kind": "top", "color": "#FBBF24", "note": ""}],
         )
@@ -10320,7 +10323,7 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
             key="las_correlation_studio_marker_editor",
         )
         marker_records = marker_rows.to_dict("records") if isinstance(marker_rows, pd.DataFrame) else []
-        st.session_state["las_correlation_studio_markers"] = marker_records
+        state_controller.set_value("las_correlation_studio_markers", marker_records)
 
         studio_panel = build_correlation_panel(
             selected_wells,
@@ -10367,9 +10370,10 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         if not comparison_curve_options:
             st.warning("Нет числовых кривых для сравнения в выбранных группах.")
         else:
-            saved_curve = st.session_state.get("las_correlation_comparison_curve")
+            state_controller = _application_state_controller()
+            saved_curve = state_controller.get_value("las_correlation_comparison_curve")
             if saved_curve not in comparison_curve_options:
-                st.session_state["las_correlation_comparison_curve"] = comparison_curve_options[0]
+                state_controller.set_value("las_correlation_comparison_curve", comparison_curve_options[0])
             comparison_curve = st.selectbox(
                 "Кривая для сравнения",
                 options=comparison_curve_options,

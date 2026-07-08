@@ -1,23 +1,19 @@
 # GAS RATIO PRO — Project Progress
 
-Current version: `las-correlation-settings-state-controller`
+Current version: `las-correlation-studio-state-controller`
 
 ## Completed in this step
 
-- Moved LAS correlation saved-settings session handling behind `ApplicationStateController`.
-- Replaced direct project LAS selection cache cleanup with controller-managed removal.
-- Read dashboard layout state through the controller instead of direct Streamlit state access.
-- Added regression tests that verify LAS correlation settings UI and start tab do not use direct `st.session_state` access.
+- Moved LAS Correlation Studio marker state behind `ApplicationStateController`.
+- Moved comparison curve persistence behind `ApplicationStateController`.
+- Replaced remaining direct `st.session_state` reads/writes in `streamlit_app.py` with controller calls, except the single controller factory boundary.
+- Added regression coverage for LAS correlation Studio state handling.
 
 ## Validation
 
 - `compileall`: PASS
-- `pytest`: 942 passed / 0 failed
+- `pytest`: 943 passed / 0 failed
 
 ## Next recommended step
 
-Continue ApplicationStateController cleanup for the remaining LAS correlation Studio keys:
-
-- `las_correlation_studio_markers`
-- `las_correlation_comparison_curve`
-- correlation marker defaults and comparison curve persistence
+Run the final ApplicationStateController audit and start preparing Architecture Review / Core LTS Freeze documentation.

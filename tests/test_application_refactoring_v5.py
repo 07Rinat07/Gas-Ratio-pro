@@ -231,3 +231,14 @@ def test_start_tab_reads_layout_through_application_state_controller():
     helper_body = inspect.getsource(module._render_start_tab)
     assert "_application_state_controller().get_value" in helper_body
     assert "st.session_state" not in helper_body
+
+
+def test_las_correlation_studio_state_uses_application_state_controller():
+    module = importlib.import_module("app.streamlit_app")
+    import inspect
+
+    helper_body = inspect.getsource(module._render_las_correlation_tab)
+    assert 'state_controller.get_value(\n            "las_correlation_studio_markers"' in helper_body
+    assert 'state_controller.set_value("las_correlation_studio_markers"' in helper_body
+    assert 'state_controller.get_value("las_correlation_comparison_curve")' in helper_body
+    assert 'state_controller.set_value("las_correlation_comparison_curve"' in helper_body
