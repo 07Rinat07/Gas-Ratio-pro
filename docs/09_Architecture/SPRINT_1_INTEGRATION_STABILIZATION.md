@@ -27,3 +27,20 @@
 ## Оставшиеся ограничения
 
 Часть UI snapshot/string tests относится к устаревшим текстам Dashboard и документации. Их нужно синхронизировать отдельным проходом после завершения фактического Project Manager refactoring.
+
+## LAS Manager Service Integration Pass
+
+Sprint 1 integration now routes project LAS operations through `services/las_manager_service.py`.
+
+Covered operations:
+
+- list project LAS versions;
+- list project LAS well cards;
+- save uploaded/prepared LAS files into project storage;
+- archive and restore LAS versions;
+- physically delete LAS versions;
+- clear all LAS versions from a project;
+- read LAS bytes/dataframes;
+- export selected LAS versions as ZIP.
+
+The Streamlit UI entry points for dashboard counters, recent activity, project workspace loader and project LAS file panel now call the service layer instead of directly calling low-level `projects.las_files` repository functions.

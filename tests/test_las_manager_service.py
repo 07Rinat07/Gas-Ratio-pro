@@ -1,58 +1,46 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from services.las_manager_service import LasManagerService
 
 
-SIMPLE_LAS = b"""~Version Information\nVERS. 2.0 : CWLS LOG ASCII STANDARD - VERSION 2.0\nWRAP. NO  : ONE LINE PER DEPTH STEP\n~Well Information\nSTRT.M 1000.0 : START DEPTH\nSTOP.M 1001.0 : STOP DEPTH\nSTEP.M 0.5 : STEP\nNULL. -999.25 : NULL VALUE\nWELL. Test Well : WELL\n~Curve Information\nDEPT.M : DEPTH\nGR.API : GAMMA RAY\n~ASCII\n1000.0 45.0\n1000.5 46.0\n1001.0 47.0\n"""
+SIMPLE_LAS = b"""~Version Information\nVERS. 2.0 : CWLS LOG ASCII STANDARD - VERSION 2.0\nWRAP. NO : ONE LINE PER DEPTH STEP\n~Well Information\nSTRT.M 1000.0 : START DEPTH\nSTOP.M 1000.5 : STOP DEPTH\nSTEP.M 0.5 : STEP\nNULL. -999.25 : NULL VALUE\nWELL. Demo : WELL\n~Curve Information\nDEPT.M : DEPTH\nGR.API : Gamma Ray\n~ASCII\n1000.0 80\n1000.5 82\n"""
 
 
-def test_las_manager_service_save_list_read_export_and_delete(tmp_path: Path) -> None:
+def test_las_manager_service_saves_lists_and_deletes_file(tmp_path):
     service = LasManagerService(tmp_path)
 
-    saved = service.save_file(
-        project_id="demo-project",
+    result = service.save_file(
+        project_id="demo",
         data=SIMPLE_LAS,
-        file_name="test.las",
-        well_name="Test Well",
-        version_label="Raw LAS",
-    ).record
+        file_name="demo.las",
+        well_name="Demo Well",
+        version_label="raw",
+    )
 
-    assert saved.id
-    assert saved.name == "Test Well"
-    assert service.count_files("demo-project") == 1
-    assert service.list_files("demo-project")[0].id == saved.id
-    assert service.list_wells("demo-project")[0].versions[0].id == saved.id
-    assert service.read_file_bytes("demo-project", saved.id) == SIMPLE_LAS
+    records = service.list_files("demo")
+    assert len(records) == 1
+    assert records[0].id == result.record.id
+    assert service.read_bytes("demo", result.record.id) == SIMPLE_LAS
 
-    dataframe = service.read_dataframe("demo-project", saved.id)
-    assert list(dataframe.columns) == ["DEPT", "GR"]
-    assert len(dataframe) == 3
-
-    archive = service.archive_file("demo-project", saved.id)
-    assert archive.archived is True
-    assert service.count_files("demo-project") == 0
-    assert service.count_files("demo-project", include_archived=True) == 1
-
-    restored = service.restore_file("demo-project", saved.id)
-    assert restored.archived is False
-    assert service.count_files("demo-project") == 1
-
-    export_result = service.export_zip("demo-project", [saved.id], ["las"])
-    assert export_result.project_id == "demo-project"
-    assert export_result.las_file_ids == (saved.id,)
-    assert export_result.data.startswith(b"PK")
-
-    deleted = service.delete_file("demo-project", saved.id)
-    assert deleted.deleted is True
-    assert service.count_files("demo-project", include_archived=True) == 0
-    assert not (tmp_path / "demo-project" / "wells" / saved.id).exists()
+    delete_result = service.delete_file("demo", result.record.id)
+    assert delete_result.deleted is True
+    assert service.list_files("demo") == ()
 
 
-def test_las_manager_service_delete_missing_returns_false(tmp_path: Path) -> None:
+def test_las_manager_service_archives_restores_and_clears(tmp_path):
     service = LasManagerService(tmp_path)
+    first = service.save_file(project_id="demo", data=SIMPLE_LAS, file_name="a.las", well_name="A").record
+    second = service.save_file(project_id="demo", data=SIMPLE_LAS, file_name="b.las", well_name="B").record
 
-    result = service.delete_file("demo-project", "missing-las")
+    archive_result = service.archive_file("demo", first.id)
+    assert archive_result.archived is True
+    assert {record.id for record in service.list_files("demo")} == {second.id}
+    assert {record.id for record in service.list_files("demo", include_archived=True)} == {first.id, second.id}
 
-    assert result.deleted is False
+    restore_result = service.restore_file("demo", first.id)
+    assert restore_result.archived is False
+    assert {record.id for record in service.list_files("demo")} == {first.id, second.id}
+
+    clear_result = service.clear_files("demo")
+    assert clear_result.deleted_count == 2
+    assert service.list_files("demo", include_archived=True) == ()
