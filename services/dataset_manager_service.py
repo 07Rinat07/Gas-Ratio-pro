@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Literal
 
-from core.storage_lifecycle import DeleteEngine, DeleteResult, IndexManager, IndexSyncResult, ResourceManager, StorageDeleteError
+from core.storage_lifecycle import CacheManager, DeleteEngine, DeleteResult, FileHandleManager, IndexManager, IndexSyncResult, ResourceManager, StorageDeleteError
 from projects import datasets as project_datasets
 from projects.repository import DEFAULT_PROJECT_ID, DEFAULT_PROJECTS_ROOT, safe_project_id
 
@@ -49,10 +49,18 @@ class DatasetManagerService:
         resource_manager: ResourceManager | None = None,
         delete_engine: DeleteEngine | None = None,
         index_manager: IndexManager | None = None,
+        cache_manager: CacheManager | None = None,
+        file_handle_manager: FileHandleManager | None = None,
     ) -> None:
         self.root = Path(root)
         self.resource_manager = resource_manager or ResourceManager()
-        self.delete_engine = delete_engine or DeleteEngine(self.resource_manager)
+        self.cache_manager = cache_manager or CacheManager()
+        self.file_handle_manager = file_handle_manager or FileHandleManager(self.resource_manager)
+        self.delete_engine = delete_engine or DeleteEngine(
+            self.resource_manager,
+            cache_manager=self.cache_manager,
+            file_handle_manager=self.file_handle_manager,
+        )
         self.index_manager = index_manager or IndexManager(self.root)
 
     @property
@@ -128,6 +136,52 @@ class DatasetManagerService:
         spec = self._spec(section)
         return spec.list_records(self.root, project_id, include_archived=include_archived)
 
+    def register_dataset_file(
+        self,
+        project_id: str,
+        section: str,
+        dataset_id: str,
+        file_path: Path | str,
+        *,
+        owner: str = "Dataset Manager",
+        description: str = "",
+    ):
+        """Register a file-backed Dataset resource before preview/import operations.
+
+        UI code can call this when a Dataset file is opened for preview.  Later
+        delete/clear operations release the same path through FileHandleManager,
+        preventing Windows locked-file deletion errors where possible.
+        """
+
+        resource_id = f"dataset:{project_id}:{section}:{dataset_id}:{Path(file_path).name}"
+        return self.file_handle_manager.register_file(
+            file_path,
+            owner=owner,
+            resource_id=resource_id,
+            description=description or f"Dataset {section}/{dataset_id}",
+        )
+
+    def register_dataset_cache(
+        self,
+        cache_key: str,
+        *,
+        owner: str = "Dataset Manager",
+        path: Path | str | None = None,
+        description: str = "",
+    ):
+        """Register a Dataset cache object for lifecycle cleanup."""
+
+        return self.cache_manager.register(cache_key, owner=owner, path=path, description=description)
+
+    def release_dataset_resources(self, project_id: str, section: str, dataset_id: str) -> int:
+        """Release file handles and caches belonging to a Dataset folder."""
+
+        dataset_path = self._spec(section).dataset_dir(self.root, project_id, dataset_id)
+        released = self.file_handle_manager.release_path(dataset_path)
+        released += self.resource_manager.release_path(dataset_path)
+        released += self.cache_manager.clear_path(dataset_path)
+        return released
+
     def delete_dataset(self, project_id: str, section: str, dataset_id: str) -> DatasetDeleteSummary:
         spec = self._spec(section)
         records = tuple(spec.list_records(self.root, project_id, include_archived=True))
@@ -137,6 +191,7 @@ class DatasetManagerService:
 
         dataset_path = spec.dataset_dir(self.root, project_id, dataset_id)
         released_before = self.resource_manager.diagnostics().total
+        released_explicit = self.release_dataset_resources(project_id, spec.key, dataset_id)
         self.delete_engine.delete_path(dataset_path, missing_ok=True)
         kept_records = tuple(record for record in records if getattr(record, "id", "") != dataset_id)
         spec.write_manifest(self.root, project_id, kept_records)
@@ -148,7 +203,7 @@ class DatasetManagerService:
             requested=1,
             deleted=1,
             missing=0,
-            released_resources=max(0, released_before - released_after),
+            released_resources=max(0, released_before - released_after) + released_explicit,
             index_entries=index_result.entries_count,
         )
 
@@ -179,6 +234,9 @@ class DatasetManagerService:
         records = tuple(spec.list_records(self.root, project_id, include_archived=True))
         section_path = self.section_dir(project_id, spec.key)
         released_before = self.resource_manager.diagnostics().total
+        released_explicit = self.file_handle_manager.release_path(section_path)
+        released_explicit += self.resource_manager.release_path(section_path)
+        released_explicit += self.cache_manager.clear_path(section_path)
         delete_result: DeleteResult = self.delete_engine.delete_path(section_path, missing_ok=True)
         section_path.mkdir(parents=True, exist_ok=True)
         spec.write_manifest(self.root, project_id, ())
@@ -190,7 +248,7 @@ class DatasetManagerService:
             requested=len(records),
             deleted=len(records) if delete_result.deleted or records else 0,
             missing=0,
-            released_resources=max(0, released_before - released_after) + delete_result.released_resources,
+            released_resources=max(0, released_before - released_after) + released_explicit + delete_result.released_resources,
             index_entries=index_result.entries_count,
         )
 
@@ -217,4 +275,8 @@ class DatasetManagerService:
         )
 
     def diagnostics(self):
-        return self.resource_manager.diagnostics()
+        return {
+            "resources": self.resource_manager.diagnostics(),
+            "file_handles": self.file_handle_manager.diagnostics(),
+            "cache_entries": self.cache_manager.diagnostics(),
+        }

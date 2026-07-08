@@ -5,7 +5,7 @@ import shutil
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Any, Callable, Iterable, MutableMapping
 
 ReleaseCallback = Callable[[], None]
 
@@ -172,6 +172,183 @@ class ResourceManager:
 
 
 @dataclass(frozen=True)
+class FileHandleRecord:
+    """A registered file handle or file-backed resource."""
+
+    path: Path
+    owner: str
+    resource_id: str
+    description: str = ""
+
+
+class FileHandleManager:
+    """Tracks file-backed resources and delegates release to ResourceManager.
+
+    The class does not keep operating-system file descriptors open.  It records
+    the logical owner of file-backed objects so destructive storage operations
+    can release previews, cached readers and workbook-like objects before
+    Windows attempts to remove the underlying file or directory.
+    """
+
+    def __init__(self, resource_manager: ResourceManager | None = None) -> None:
+        self.resource_manager = resource_manager or ResourceManager()
+
+    def register_file(
+        self,
+        path: Path | str,
+        *,
+        owner: str,
+        resource_id: str | None = None,
+        description: str = "",
+        release_callback: ReleaseCallback | None = None,
+    ) -> FileHandleRecord:
+        resource = self.resource_manager.register_file(
+            path,
+            owner=owner,
+            resource_id=resource_id,
+            description=description,
+            release_callback=release_callback,
+        )
+        assert resource.path is not None
+        return FileHandleRecord(
+            path=resource.path,
+            owner=resource.owner,
+            resource_id=resource.id,
+            description=resource.description,
+        )
+
+    def release_path(self, path: Path | str) -> int:
+        return self.resource_manager.release_path(path)
+
+    def release_owner(self, owner: str) -> int:
+        return self.resource_manager.release_owner(owner)
+
+    def release_all(self) -> int:
+        return self.resource_manager.release_all()
+
+    def diagnostics(self) -> tuple[FileHandleRecord, ...]:
+        records: list[FileHandleRecord] = []
+        for resource in self.resource_manager.diagnostics().open_files:
+            assert resource.path is not None
+            records.append(
+                FileHandleRecord(
+                    path=resource.path,
+                    owner=resource.owner,
+                    resource_id=resource.id,
+                    description=resource.description,
+                )
+            )
+        return tuple(records)
+
+
+@dataclass(frozen=True)
+class CacheEntry:
+    """A logical cache object registered with the platform cache manager."""
+
+    key: str
+    owner: str
+    path: Path | None = None
+    description: str = ""
+
+
+class CacheManager:
+    """Central cache registry and cleanup point for previews/tables/plots.
+
+    The manager intentionally supports two cleanup mechanisms:
+    1. registered callbacks for explicit cache owners;
+    2. optional mutable mappings (for example ``st.session_state`` in UI code)
+       cleaned by key prefix.
+
+    Core services can use the first mechanism without importing Streamlit, while
+    UI integration can pass session mappings when it is safe to do so.
+    """
+
+    def __init__(self) -> None:
+        self._entries: dict[str, CacheEntry] = {}
+        self._callbacks: dict[str, ReleaseCallback] = {}
+
+    def register(
+        self,
+        key: str,
+        *,
+        owner: str,
+        path: Path | str | None = None,
+        description: str = "",
+        release_callback: ReleaseCallback | None = None,
+    ) -> CacheEntry:
+        clean_key = str(key).strip()
+        if not clean_key:
+            raise ValueError("cache key must not be empty")
+        entry = CacheEntry(
+            key=clean_key,
+            owner=str(owner).strip() or "unknown",
+            path=None if path is None else Path(path),
+            description=str(description or ""),
+        )
+        self._entries[clean_key] = entry
+        if release_callback is not None:
+            self._callbacks[clean_key] = release_callback
+        return entry
+
+    def clear(self, key: str) -> bool:
+        clean_key = str(key)
+        entry = self._entries.pop(clean_key, None)
+        callback = self._callbacks.pop(clean_key, None)
+        if callback is not None:
+            callback()
+        return entry is not None or callback is not None
+
+    def clear_owner(self, owner: str) -> int:
+        owner_value = str(owner)
+        keys = [key for key, entry in self._entries.items() if entry.owner == owner_value]
+        return self.clear_many(keys)
+
+    def clear_path(self, path: Path | str) -> int:
+        target = Path(path).resolve()
+        keys: list[str] = []
+        for key, entry in self._entries.items():
+            if entry.path is None:
+                continue
+            try:
+                entry_path = entry.path.resolve()
+            except OSError:
+                entry_path = entry.path
+            if entry_path == target or entry_path in target.parents or target in entry_path.parents:
+                keys.append(key)
+        return self.clear_many(keys)
+
+    def clear_many(self, keys: Iterable[str]) -> int:
+        count = 0
+        for key in tuple(keys):
+            if self.clear(key):
+                count += 1
+        if count:
+            gc.collect()
+        return count
+
+    def clear_all(self) -> int:
+        return self.clear_many(tuple(self._entries))
+
+    def clear_mapping_prefixes(self, mapping: MutableMapping[str, Any], prefixes: Iterable[str]) -> int:
+        """Remove keys from a mutable mapping by prefix.
+
+        This is used by UI adapters for session-state cleanup without making the
+        storage lifecycle module depend on Streamlit.
+        """
+
+        prefix_tuple = tuple(str(prefix) for prefix in prefixes)
+        keys = [key for key in tuple(mapping.keys()) if str(key).startswith(prefix_tuple)]
+        for key in keys:
+            del mapping[key]
+        if keys:
+            gc.collect()
+        return len(keys)
+
+    def diagnostics(self) -> tuple[CacheEntry, ...]:
+        return tuple(self._entries.values())
+
+
+@dataclass(frozen=True)
 class DeleteResult:
     """Result of a lifecycle-managed delete operation."""
 
@@ -200,14 +377,26 @@ class StorageDeleteError(RuntimeError):
 class DeleteEngine:
     """Single deletion entry point for project storage objects."""
 
-    def __init__(self, resource_manager: ResourceManager | None = None, *, attempts: int = 3, delay_seconds: float = 0.2) -> None:
+    def __init__(
+        self,
+        resource_manager: ResourceManager | None = None,
+        *,
+        cache_manager: CacheManager | None = None,
+        file_handle_manager: FileHandleManager | None = None,
+        attempts: int = 3,
+        delay_seconds: float = 0.2,
+    ) -> None:
         self.resource_manager = resource_manager or ResourceManager()
+        self.cache_manager = cache_manager or CacheManager()
+        self.file_handle_manager = file_handle_manager or FileHandleManager(self.resource_manager)
         self.attempts = max(1, int(attempts))
         self.delay_seconds = max(0.0, float(delay_seconds))
 
     def delete_path(self, path: Path | str, *, missing_ok: bool = True) -> DeleteResult:
         target = Path(path)
-        released = self.resource_manager.release_path(target)
+        released = self.file_handle_manager.release_path(target)
+        released += self.resource_manager.release_path(target)
+        self.cache_manager.clear_path(target)
         gc.collect()
 
         if not target.exists():
@@ -225,7 +414,9 @@ class DeleteEngine:
                 return DeleteResult(path=target, deleted=True, attempts=attempt, released_resources=released)
             except (PermissionError, OSError) as exc:
                 last_error = exc
+                self.file_handle_manager.release_path(target)
                 self.resource_manager.release_path(target)
+                self.cache_manager.clear_path(target)
                 gc.collect()
                 if attempt < self.attempts and self.delay_seconds:
                     time.sleep(self.delay_seconds)
@@ -239,7 +430,13 @@ class DeleteEngine:
 
 
 DEFAULT_RESOURCE_MANAGER = ResourceManager()
-DEFAULT_DELETE_ENGINE = DeleteEngine(DEFAULT_RESOURCE_MANAGER)
+DEFAULT_CACHE_MANAGER = CacheManager()
+DEFAULT_FILE_HANDLE_MANAGER = FileHandleManager(DEFAULT_RESOURCE_MANAGER)
+DEFAULT_DELETE_ENGINE = DeleteEngine(
+    DEFAULT_RESOURCE_MANAGER,
+    cache_manager=DEFAULT_CACHE_MANAGER,
+    file_handle_manager=DEFAULT_FILE_HANDLE_MANAGER,
+)
 
 @dataclass(frozen=True)
 class IndexSyncResult:

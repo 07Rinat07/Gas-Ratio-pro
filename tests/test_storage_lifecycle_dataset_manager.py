@@ -130,3 +130,62 @@ def test_index_manager_rebuild_project_index_removes_stale_entries(tmp_path: Pat
 
     assert result.entries_count == 0
     assert load_project_file_index(tmp_path, project_id) == ()
+
+from core.storage_lifecycle import CacheManager, FileHandleManager
+
+
+def test_cache_manager_clears_path_bound_entries(tmp_path: Path) -> None:
+    cache = CacheManager()
+    released: list[str] = []
+    dataset_dir = tmp_path / "dataset"
+    source = dataset_dir / "source.xlsx"
+    dataset_dir.mkdir()
+    source.write_bytes(b"placeholder")
+
+    cache.register("preview:source", owner="Dataset Preview", path=source, release_callback=lambda: released.append("cache"))
+
+    assert len(cache.diagnostics()) == 1
+    assert cache.clear_path(dataset_dir) == 1
+    assert released == ["cache"]
+    assert cache.diagnostics() == ()
+
+
+def test_file_handle_manager_delegates_release_to_resource_manager(tmp_path: Path) -> None:
+    resource_manager = ResourceManager()
+    handles = FileHandleManager(resource_manager)
+    released: list[str] = []
+    source = tmp_path / "dataset" / "source.xlsx"
+    source.parent.mkdir()
+    source.write_bytes(b"placeholder")
+
+    handles.register_file(source, owner="Dataset Preview", release_callback=lambda: released.append("handle"))
+
+    assert len(handles.diagnostics()) == 1
+    assert handles.release_path(source.parent) == 1
+    assert released == ["handle"]
+    assert handles.diagnostics() == ()
+
+
+def test_dataset_manager_service_releases_file_handles_and_cache_before_delete(tmp_path: Path) -> None:
+    project_id = "demo"
+    record = save_project_mud_log_dataset(
+        b"DEPTH,C1\n100,1\n",
+        root=tmp_path,
+        project_id=project_id,
+        file_name="mud.csv",
+        name="Mud Lifecycle Test",
+    )
+    service = DatasetManagerService(tmp_path)
+    dataset_path = service._spec("mud_log").dataset_dir(tmp_path, project_id, record.id)
+    source_path = dataset_path / "source.csv"
+    released: list[str] = []
+
+    service.file_handle_manager.register_file(source_path, owner="Dataset Preview", release_callback=lambda: released.append("file"))
+    service.cache_manager.register("preview:mud", owner="Dataset Preview", path=source_path, release_callback=lambda: released.append("cache"))
+
+    summary = service.delete_dataset(project_id, "mud_log", record.id)
+
+    assert summary.deleted == 1
+    assert sorted(released) == ["cache", "file"]
+    assert service.diagnostics()["file_handles"] == ()
+    assert service.diagnostics()["cache_entries"] == ()
