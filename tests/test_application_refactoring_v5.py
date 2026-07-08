@@ -89,3 +89,16 @@ def test_delete_well_version_updates_manifest_without_restoring_deleted_data(tmp
     assert deleted_version not in {version.id for version in updated.versions}
     assert not (tmp_path / record.id / "versions" / deleted_version).exists()
     assert len(updated.versions) == 1
+
+
+def test_application_state_controller_manages_application_values():
+    state = {}
+    controller = ApplicationStateController(state)
+
+    controller.set_value("interpretation_session_source", "LAS")
+    controller.update_values({"table_preview": [1, 2], "active_summary_table": {"rows": 2}})
+
+    assert controller.get_value("interpretation_session_source") == "LAS"
+    assert controller.get_value("missing", "fallback") == "fallback"
+    assert state["table_preview"] == [1, 2]
+    assert state["active_summary_table"] == {"rows": 2}

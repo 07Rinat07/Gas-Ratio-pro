@@ -83,6 +83,27 @@ class ApplicationStateController:
     def context(self) -> ApplicationContext:
         return ApplicationContext.from_state(self.state)
 
+    def get_value(self, key: str, default: Any = None) -> Any:
+        """Read a session value through the application-state boundary.
+
+        UI code should prefer this helper over direct ``st.session_state`` access
+        for application-owned keys.  The method stays intentionally small so it
+        remains compatible with Streamlit session state and plain dict tests.
+        """
+
+        return self.state.get(str(key), default)
+
+    def set_value(self, key: str, value: Any) -> None:
+        """Write a session value through the application-state boundary."""
+
+        self.state[str(key)] = value
+
+    def update_values(self, values: dict[str, Any]) -> None:
+        """Write multiple application-owned session values atomically."""
+
+        for key, value in values.items():
+            self.set_value(key, value)
+
     def ensure_project(self, project_id: str) -> StateTransition:
         """Initialize active project if missing without clearing existing state."""
 

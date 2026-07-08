@@ -597,3 +597,9 @@ git status --short
 - Added overwrite protection for existing project directories.
 - Added service-layer backup, restore and recovery checkpoint methods.
 - Added tests for restore workflow, overwrite protection and service integration.
+
+## Application State Controller cleanup foundation
+
+- Added generic application-owned session value helpers to `ApplicationStateController`.
+- Routed interpretation dataset storage through the application-state controller.
+- Added regression tests preventing direct `st.session_state` writes in the interpretation storage helper.

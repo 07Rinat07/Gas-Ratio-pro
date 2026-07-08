@@ -78,6 +78,16 @@ def test_store_interpretation_dataset_updates_session_state(monkeypatch):
     assert session_state[module.INTERPRETATION_SESSION_SOURCE_KEY] == "LAS"
 
 
+def test_store_interpretation_dataset_uses_application_state_controller():
+    module = importlib.import_module("app.streamlit_app")
+    import inspect
+
+    body = inspect.getsource(module._store_interpretation_dataset)
+
+    assert "_application_state_controller().update_values" in body
+    assert "st.session_state[" not in body
+
+
 def test_streamlit_app_documentation_docs_include_project_plan():
     module = importlib.import_module("app.streamlit_app")
     doc_paths = {path for _title, path in module.DOCUMENTATION_TAB_DOCS}

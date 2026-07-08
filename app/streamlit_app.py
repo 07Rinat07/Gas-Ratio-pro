@@ -2445,8 +2445,12 @@ def _filter_by_depth_range(df: pd.DataFrame, top_depth: float, bottom_depth: flo
     return df.loc[(depth >= top) & (depth <= bottom)].copy()
 
 def _store_interpretation_dataset(calculated_df: pd.DataFrame, source_label: str) -> None:
-    st.session_state[INTERPRETATION_SESSION_DATA_KEY] = calculated_df
-    st.session_state[INTERPRETATION_SESSION_SOURCE_KEY] = str(source_label)
+    _application_state_controller().update_values(
+        {
+            INTERPRETATION_SESSION_DATA_KEY: calculated_df,
+            INTERPRETATION_SESSION_SOURCE_KEY: str(source_label),
+        }
+    )
 
 
 def _plotly_figures_to_html(
