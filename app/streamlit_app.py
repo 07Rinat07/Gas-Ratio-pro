@@ -242,6 +242,8 @@ from projects import (
 )
 from projects.workspace_controller import WorkspaceController
 from projects.workspace_manager import WorkspaceManagerItem
+from las_editor.las_workspace_controller import LasWorkspaceController
+from las_editor.las_workspace_home import action_table_rows
 from projects.recent_projects import (
     clear_recent_projects,
     list_recent_projects,
@@ -4879,6 +4881,21 @@ def _workspace_controller() -> WorkspaceController:
     )
 
 
+def _las_workspace_controller() -> LasWorkspaceController:
+    """Return the LAS Workspace 3.0 controller bound to the current UI state.
+
+    LAS Workspace UI entry points must use this facade instead of directly
+    creating generic workspaces or reading ``st.session_state``. The facade keeps
+    LAS-specific defaults in one place while delegating persistence and active
+    workspace transitions to the generic WorkspaceController.
+    """
+    return LasWorkspaceController(
+        _application_state_controller().state,
+        LAS_CORRELATION_PROJECTS_ROOT,
+        workspace_controller=_workspace_controller(),
+    )
+
+
 def _refresh_ui() -> None:
     """Centralized UI refresh helper used by repository/service actions.
 
@@ -9180,6 +9197,21 @@ def _render_project_las_zip_download(
     )
 
 
+def _las_workspace_actions_table(controller_state) -> pd.DataFrame:
+    """Build a UI-ready table for the LAS Workspace 3.0 home actions."""
+
+    return pd.DataFrame(action_table_rows(controller_state.home.actions))[
+        ["title", "description", "enabled_without_file", "target_panel"]
+    ].rename(
+        columns={
+            "title": "Действие",
+            "description": "Описание",
+            "enabled_without_file": "Без файла",
+            "target_panel": "Панель",
+        }
+    )
+
+
 def _workspace_manager_items_table(items: tuple[WorkspaceManagerItem, ...]) -> pd.DataFrame:
     """Build a compact table for the Project Workspace UI panel."""
 
@@ -9265,6 +9297,42 @@ def _workspace_project_explorer_shortcuts_html(items: tuple[WorkspaceManagerItem
     return "<div class='workspace-explorer-shortcuts' data-workspace-explorer-shortcuts='ready'>" + "".join(shortcut_rows) + "</div>"
 
 
+def _render_las_workspace_controller_entry(project: ProjectRecord, logger) -> None:
+    """Render the LAS Workspace 3.0 entry point through LasWorkspaceController."""
+
+    controller = _las_workspace_controller()
+    try:
+        controller_state = controller.ensure_project_las_workspace(project.id, activate=False)
+    except Exception:
+        logger.exception("las_workspace_controller_prepare_failed project_id=%s", safe_log_value(project.id))
+        st.error("Не удалось подготовить LAS Workspace 3.0.")
+        return
+
+    st.markdown(
+        "<div class='las-workspace-entry' data-las-workspace-entry='3.0'>"
+        "<b>LAS Workspace 3.0</b>"
+        "<span>Создание, открытие, импорт, проверка и экспорт LAS через Workspace Framework.</span>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+    st.dataframe(_las_workspace_actions_table(controller_state), width="stretch", hide_index=True, height=210)
+
+    if st.button("Открыть LAS Workspace 3.0", width="stretch", key=f"las_workspace_open_{project.id}"):
+        try:
+            result = controller.open_project_las_workspace(project.id)
+        except Exception:
+            logger.exception("las_workspace_controller_open_failed project_id=%s", safe_log_value(project.id))
+            st.error("Не удалось открыть LAS Workspace 3.0.")
+        else:
+            logger.info(
+                "las_workspace_controller_opened project_id=%s workspace_id=%s",
+                safe_log_value(project.id),
+                safe_log_value(result.workspace.id),
+            )
+            st.success(f"Открыт workspace: {result.workspace.name}")
+            _refresh_ui()
+
+
 def _render_project_workspace_controller_panel(project: ProjectRecord, logger) -> None:
     """Render Workspace Framework controls through WorkspaceController only."""
 
@@ -9280,6 +9348,7 @@ def _render_project_workspace_controller_panel(project: ProjectRecord, logger) -
         st.caption("Управление workspace выполняется через UI → Controller → Manager → Service → Repository → Storage.")
         st.markdown(_workspace_dashboard_cards_html(items), unsafe_allow_html=True)
         st.markdown(_workspace_project_explorer_shortcuts_html(items), unsafe_allow_html=True)
+        _render_las_workspace_controller_entry(project, logger)
         if items:
             st.dataframe(_workspace_manager_items_table(items), width="stretch", hide_index=True, height=210)
         else:
