@@ -6,13 +6,28 @@ from typing import Iterable, Mapping, Sequence
 import pandas as pd
 
 
-HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v1"
+HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v2"
 
 NON_PROSPECTIVE_LABELS = (
     "Недостаточно данных",
     "Сухой газ / непродуктивно",
     "Остаточная нефть / непродуктивно",
 )
+
+FLUID_TYPE_LABELS = {
+    "gas": "Газовый интервал",
+    "oil": "Нефтяной интервал",
+    "condensate": "Газоконденсатный интервал",
+    "mixed": "Смешанный нефтегазовый интервал",
+    "transition": "Переходный интервал",
+    "insufficient": "Недостаточно данных",
+}
+
+CONFIDENCE_LABELS = {
+    "high": "высокая уверенность",
+    "medium": "средняя уверенность",
+    "low": "низкая уверенность",
+}
 
 
 @dataclass(frozen=True)
@@ -49,6 +64,14 @@ class HydrocarbonInterval:
     average_pixler_c1_c3: float | None = None
     average_oil_indicator: float | None = None
     evidence: tuple[str, ...] = ()
+    engineering_note: str = ""
+    warnings: tuple[str, ...] = ()
+
+    @property
+    def thickness(self) -> float:
+        """Interval thickness in depth units used by the source dataset."""
+
+        return round(abs(float(self.base) - float(self.top)), 6)
 
 
 @dataclass(frozen=True)
@@ -95,6 +118,8 @@ def normalize_fluid_type(row: Mapping[str, object]) -> str:
 
     if _contains_any(label, ("недостат", "insufficient")):
         return "insufficient"
+    if _contains_any(label, ("переход", "transition", "границ", "boundary")):
+        return "transition"
     if _contains_any(label, ("конденсат", "condensate")):
         return "condensate"
     if _contains_any(label, ("нефт", "oil")) and _contains_any(label, ("газ", "gas")):
@@ -105,7 +130,8 @@ def normalize_fluid_type(row: Mapping[str, object]) -> str:
         return "gas"
 
     # Ratio fallback. This keeps Pixler/OI signals available for reports even
-    # when the row has no text interpretation yet.
+    # when the row has no text interpretation yet. Ranges are deliberately
+    # broad and should be treated as preliminary engineering hints.
     if oil_indicator is not None:
         if 0.10 <= oil_indicator < 0.40:
             return "oil"
@@ -127,7 +153,7 @@ def normalize_fluid_type(row: Mapping[str, object]) -> str:
             return "gas"
         if 0.5 <= wh < 17.5 and bh <= wh:
             return "condensate"
-    return "mixed"
+    return "transition"
 
 
 def is_prospective_fluid(fluid_type: str, *, include_low_confidence: bool = True) -> bool:
@@ -139,7 +165,7 @@ def is_prospective_fluid(fluid_type: str, *, include_low_confidence: bool = True
 def _fluid_group(fluid_type: str, *, merge_compatible_fluids: bool) -> str:
     if not merge_compatible_fluids:
         return fluid_type
-    if fluid_type in {"oil", "gas", "condensate", "mixed"}:
+    if fluid_type in {"oil", "gas", "condensate", "mixed", "transition"}:
         return "hydrocarbon"
     return fluid_type
 
@@ -152,7 +178,7 @@ def _dominant(values: Iterable[str], default: str = "mixed") -> str:
 
 
 def _confidence(values: Iterable[str]) -> str:
-    useful = [value for value in values if value]
+    useful = [value for value in values if value and value != "nan"]
     if not useful:
         return "low"
     if "high" in useful:
@@ -171,12 +197,44 @@ def _mean(frame: pd.DataFrame, *columns: str) -> float | None:
     return None
 
 
+def _classification_confidence(frame: pd.DataFrame, fluid_type: str) -> str:
+    """Estimate confidence from independent evidence count.
+
+    This is intentionally conservative: it does not prove a reservoir, it only
+    grades how many mud-gas indicators consistently support the interval type.
+    """
+
+    signals = 0
+    wh = _mean(frame, "wh", "wetness")
+    bh = _mean(frame, "bh", "balance")
+    pixler = _mean(frame, "c1_c2", "pixler_c1_c2")
+    oi = _mean(frame, "oil_indicator")
+
+    if wh is not None and bh is not None:
+        signals += 1
+    if pixler is not None:
+        signals += 1
+    if oi is not None:
+        signals += 1
+    if "interpretation" in frame.columns and frame["interpretation"].astype(str).str.strip().ne("").any():
+        signals += 1
+
+    if fluid_type == "transition":
+        return "low"
+    if signals >= 3 and len(frame) >= 2:
+        return "high"
+    if signals >= 2:
+        return "medium"
+    return "low"
+
+
 def _evidence_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[str, ...]:
     evidence: list[str] = []
     wh = _mean(frame, "wh", "wetness")
     bh = _mean(frame, "bh", "balance")
     ch = _mean(frame, "ch", "character")
     c1_c2 = _mean(frame, "c1_c2", "pixler_c1_c2")
+    c1_c3 = _mean(frame, "c1_c3", "pixler_c1_c3")
     oil_indicator = _mean(frame, "oil_indicator")
 
     if wh is not None or bh is not None:
@@ -185,12 +243,50 @@ def _evidence_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[str, ...]
         evidence.append(f"Character ratio CH={ch:g}.")
     if c1_c2 is not None:
         evidence.append(f"Pixler C1/C2={c1_c2:g}.")
+    if c1_c3 is not None:
+        evidence.append(f"Pixler C1/C3={c1_c3:g}.")
     if oil_indicator is not None:
         evidence.append(f"Oil indicator={oil_indicator:g}.")
     if not evidence:
         evidence.append("Интервал выделен по текстовой классификации строк.")
     evidence.append(f"Итоговый тип интервала: {fluid_type}.")
     return tuple(evidence)
+
+
+def _warnings_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[str, ...]:
+    warnings: list[str] = []
+    numeric_columns = ["wh", "bh", "c1_c2", "c1_c3", "oil_indicator"]
+    available = [column for column in numeric_columns if column in frame.columns]
+    if not available:
+        warnings.append("Нет числовых газовых коэффициентов; интервал основан только на текстовой классификации.")
+    elif any(pd.to_numeric(frame[column], errors="coerce").isna().all() for column in available):
+        warnings.append("Часть расчетных коэффициентов отсутствует или содержит только NaN.")
+    if fluid_type == "transition":
+        warnings.append("Переходный тип требует ручной проверки по соседним интервалам, ГИС и литологии.")
+    if len(frame) == 1:
+        warnings.append("Интервал представлен одной строкой; проверьте устойчивость признака по соседним глубинам.")
+    return tuple(warnings)
+
+
+def build_interval_engineering_note(interval: HydrocarbonInterval) -> str:
+    """Return short printable interpretation text for one hydrocarbon interval."""
+
+    label = FLUID_TYPE_LABELS.get(interval.fluid_type, interval.fluid_type)
+    confidence = CONFIDENCE_LABELS.get(interval.confidence, interval.confidence)
+    parts = [
+        f"{label} {interval.top:g}-{interval.base:g} м, мощность {interval.thickness:g} м, {confidence}.",
+    ]
+    if interval.average_wh is not None or interval.average_bh is not None:
+        parts.append(
+            f"Средние Haworth-показатели: Wh={'' if interval.average_wh is None else f'{interval.average_wh:g}'}, "
+            f"Bh={'' if interval.average_bh is None else f'{interval.average_bh:g}'}.",
+        )
+    if interval.average_pixler_c1_c2 is not None:
+        parts.append(f"Pixler C1/C2={interval.average_pixler_c1_c2:g} используется как один из признаков флюидного характера.")
+    if interval.average_oil_indicator is not None:
+        parts.append(f"Oil indicator={interval.average_oil_indicator:g} добавлен в доказательную базу интервала.")
+    parts.append("Вывод предварительный: требуется сверка с ГИС, литологией, испытаниями и качеством газового каротажа.")
+    return " ".join(parts)
 
 
 def _interval_from_group(group: Sequence[Mapping[str, object]]) -> HydrocarbonInterval:
@@ -200,22 +296,29 @@ def _interval_from_group(group: Sequence[Mapping[str, object]]) -> HydrocarbonIn
     base = float(pd.to_numeric(frame["depth"], errors="coerce").max())
     interpretation = _dominant(frame.get("interpretation", pd.Series(dtype=str)).astype(str), default=fluid_type)
     confidence_values = frame.get("confidence", pd.Series(dtype=str)).astype(str)
+    confidence = _confidence(confidence_values)
+    if confidence == "low":
+        confidence = _classification_confidence(frame, fluid_type)
 
-    return HydrocarbonInterval(
+    interval = HydrocarbonInterval(
         top=top,
         base=base,
         sample_count=len(frame),
         fluid_type=fluid_type,
-        confidence=_confidence(confidence_values),
+        confidence=confidence,
         interpretation=interpretation,
         average_wh=_mean(frame, "wh", "wetness"),
         average_bh=_mean(frame, "bh", "balance"),
         average_ch=_mean(frame, "ch", "character"),
         average_bar2=_mean(frame, "bar2"),
         average_pixler_c1_c2=_mean(frame, "c1_c2", "pixler_c1_c2"),
-        average_pixler_c1_c3=_mean(frame, "c1_c3"),
+        average_pixler_c1_c3=_mean(frame, "c1_c3", "pixler_c1_c3"),
         average_oil_indicator=_mean(frame, "oil_indicator"),
         evidence=_evidence_for_group(frame, fluid_type),
+        warnings=_warnings_for_group(frame, fluid_type),
+    )
+    return HydrocarbonInterval(
+        **{**interval.__dict__, "engineering_note": build_interval_engineering_note(interval)}
     )
 
 
@@ -294,6 +397,7 @@ def detect_hydrocarbon_intervals(
         f"Проверено строк: {len(rows)}.",
         f"Кандидатов УВ: {int(rows['hydrocarbon_candidate'].sum())}.",
         f"Сформировано УВ-интервалов: {len(intervals)}.",
+        f"Схема интервалов: {HYDROCARBON_INTERVAL_SCHEMA}.",
     )
     return HydrocarbonIntervalResult(intervals=intervals, rows=rows, diagnostics=diagnostics)
 
@@ -305,6 +409,7 @@ def hydrocarbon_interval_table_rows(intervals: Iterable[HydrocarbonInterval]) ->
         {
             "top": interval.top,
             "base": interval.base,
+            "thickness": interval.thickness,
             "samples": interval.sample_count,
             "fluid_type": interval.fluid_type,
             "confidence": interval.confidence,
@@ -317,6 +422,8 @@ def hydrocarbon_interval_table_rows(intervals: Iterable[HydrocarbonInterval]) ->
             "avg_C1/C3": interval.average_pixler_c1_c3,
             "avg_OI": interval.average_oil_indicator,
             "evidence": " ".join(interval.evidence),
+            "engineering_note": interval.engineering_note,
+            "warnings": " ".join(interval.warnings),
         }
         for interval in intervals
     )

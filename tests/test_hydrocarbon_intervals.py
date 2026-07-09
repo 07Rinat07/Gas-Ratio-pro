@@ -56,3 +56,43 @@ def test_hydrocarbon_interval_engine_uses_ratio_fallback_without_text_interpreta
     assert table_rows[0]["top"] == 1500.0
     assert "avg_C1/C2" in table_rows[0]
     assert "Oil indicator" in table_rows[0]["evidence"]
+
+
+def test_hydrocarbon_interval_engine_adds_printable_notes_and_thickness() -> None:
+    frame = pd.DataFrame(
+        {
+            "depth": [1200.0, 1201.5],
+            "wh": [28.0, 30.0],
+            "bh": [9.0, 11.0],
+            "c1_c2": [6.0, 7.0],
+            "oil_indicator": [0.18, 0.22],
+        }
+    )
+
+    result = detect_hydrocarbon_intervals(frame, rules=HydrocarbonIntervalRuleSet(max_depth_gap=2.0))
+    interval = result.intervals[0]
+    table_rows = hydrocarbon_interval_table_rows(result.intervals)
+
+    assert interval.fluid_type == "oil"
+    assert interval.thickness == 1.5
+    assert interval.confidence in {"medium", "high"}
+    assert "Нефтяной интервал" in interval.engineering_note
+    assert "предварительный" in interval.engineering_note
+    assert table_rows[0]["thickness"] == 1.5
+    assert "engineering_note" in table_rows[0]
+
+
+def test_hydrocarbon_interval_engine_keeps_transition_candidates_when_enabled() -> None:
+    frame = pd.DataFrame(
+        {
+            "depth": [1300.0, 1301.0],
+            "interpretation": ["Переходный нефтегазовый признак", "boundary anomaly"],
+        }
+    )
+
+    result = detect_hydrocarbon_intervals(frame, rules=HydrocarbonIntervalRuleSet(max_depth_gap=2.0))
+
+    assert len(result.intervals) == 1
+    assert result.intervals[0].fluid_type in {"mixed", "transition"}
+    assert result.rows["hydrocarbon_candidate"].all()
+    assert result.schema.endswith("/v2")
