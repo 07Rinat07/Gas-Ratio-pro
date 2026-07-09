@@ -12,3 +12,8 @@ Completed in v26:
 Next implementation step:
 - Build PDF export on top of the same `PresentationModel` / presentation renderer contract.
 - Keep the default report engineer-first: conclusions, intervals, confidence, recommendations and limitations before technical appendices.
+
+## v27 — Presentation Export Package
+
+Added `reports.presentation_export` for writing printable presentation HTML and an audit manifest from `PresentationModel`. Next step: PDF/DOCX renderer foundations using the same presentation model.
+
