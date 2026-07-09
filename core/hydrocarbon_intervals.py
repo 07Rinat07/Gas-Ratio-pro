@@ -6,7 +6,7 @@ from typing import Iterable, Mapping, Sequence
 import pandas as pd
 
 
-HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v6"
+HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v7"
 
 NON_PROSPECTIVE_LABELS = (
     "Недостаточно данных",
@@ -83,6 +83,24 @@ class HydrocarbonIntervalRuleSet:
 
 
 @dataclass(frozen=True)
+class IntervalEvidence:
+    """Structured evidence item used by interval interpretation and reports.
+
+    This object keeps calculation evidence machine-readable. Printable strings are
+    still produced for legacy tables, but future Interpretation/Report engines can
+    consume `method`, `parameter`, `value`, `direction` and `weight` without
+    parsing human text.
+    """
+
+    method: str
+    parameter: str
+    value: float | str | None
+    direction: str = "observed"
+    weight: float = 1.0
+    description: str = ""
+
+
+@dataclass(frozen=True)
 class HydrocarbonInterval:
     """Unified interval model for reports, charts and future PDF export."""
 
@@ -99,7 +117,9 @@ class HydrocarbonInterval:
     average_pixler_c1_c2: float | None = None
     average_pixler_c1_c3: float | None = None
     average_oil_indicator: float | None = None
+    evidence_items: tuple[IntervalEvidence, ...] = ()
     evidence: tuple[str, ...] = ()
+    quality_flags: tuple[str, ...] = ()
     engineering_note: str = ""
     warnings: tuple[str, ...] = ()
     source_start_row: int | None = None
@@ -385,8 +405,10 @@ def _classification_confidence(frame: pd.DataFrame, fluid_type: str) -> str:
     return "low"
 
 
-def _evidence_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[str, ...]:
-    evidence: list[str] = []
+def _evidence_items_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[IntervalEvidence, ...]:
+    """Build structured evidence records for one interpreted interval."""
+
+    items: list[IntervalEvidence] = []
     wh = _mean(frame, "wh", "wetness")
     bh = _mean(frame, "bh", "balance")
     ch = _mean(frame, "ch", "character")
@@ -394,21 +416,147 @@ def _evidence_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[str, ...]
     c1_c3 = _mean(frame, "c1_c3", "pixler_c1_c3")
     oil_indicator = _mean(frame, "oil_indicator")
 
-    if wh is not None or bh is not None:
-        evidence.append(f"Haworth Wh/Bh: Wh={'' if wh is None else wh:g}, Bh={'' if bh is None else bh:g}.")
+    if wh is not None:
+        items.append(
+            IntervalEvidence(
+                method="Haworth",
+                parameter="Wh",
+                value=wh,
+                direction="wetness",
+                weight=1.0,
+                description="Average wetness ratio inside the interval.",
+            )
+        )
+    if bh is not None:
+        items.append(
+            IntervalEvidence(
+                method="Haworth",
+                parameter="Bh",
+                value=bh,
+                direction="balance",
+                weight=1.0,
+                description="Average balance ratio inside the interval.",
+            )
+        )
     if ch is not None:
-        evidence.append(f"Character ratio CH={ch:g}.")
+        items.append(
+            IntervalEvidence(
+                method="Haworth",
+                parameter="Ch",
+                value=ch,
+                direction="character",
+                weight=0.8,
+                description="Character ratio from heavy hydrocarbon components.",
+            )
+        )
     if c1_c2 is not None:
-        evidence.append(f"Pixler C1/C2={c1_c2:g}.")
+        items.append(
+            IntervalEvidence(
+                method="Pixler",
+                parameter="C1/C2",
+                value=c1_c2,
+                direction="gas_ratio",
+                weight=1.0,
+                description="Pixler methane-to-ethane ratio used as one fluid-character indicator.",
+            )
+        )
     if c1_c3 is not None:
-        evidence.append(f"Pixler C1/C3={c1_c3:g}.")
+        items.append(
+            IntervalEvidence(
+                method="Pixler",
+                parameter="C1/C3",
+                value=c1_c3,
+                direction="gas_ratio",
+                weight=0.8,
+                description="Pixler methane-to-propane ratio used as supporting evidence.",
+            )
+        )
     if oil_indicator is not None:
-        evidence.append(f"Oil indicator={oil_indicator:g}.")
-    if not evidence:
-        evidence.append("Интервал выделен по текстовой классификации строк.")
-    evidence.append(f"Итоговый тип интервала: {fluid_type}.")
-    return tuple(evidence)
+        items.append(
+            IntervalEvidence(
+                method="Project",
+                parameter="Oil indicator",
+                value=oil_indicator,
+                direction="oil_gas_indicator",
+                weight=1.0,
+                description="Project oil/gas indicator derived from calculated ratio fields.",
+            )
+        )
 
+    if "interpretation" in frame.columns:
+        labels = sorted({str(value).strip() for value in frame["interpretation"] if str(value).strip() and str(value).lower() != "nan"})
+        if labels:
+            items.append(
+                IntervalEvidence(
+                    method="Classification",
+                    parameter="Text interpretation",
+                    value="; ".join(labels[:3]),
+                    direction="label",
+                    weight=0.6,
+                    description="Existing row-level interpretation label supplied by calculation or import pipeline.",
+                )
+            )
+
+    items.append(
+        IntervalEvidence(
+            method="HydrocarbonIntervalEngine",
+            parameter="fluid_type",
+            value=fluid_type,
+            direction="final_class",
+            weight=1.0,
+            description="Final interval class after rule-based normalization and grouping.",
+        )
+    )
+    return tuple(items)
+
+
+def _format_evidence_item(item: IntervalEvidence) -> str:
+    value = item.value
+    if isinstance(value, float):
+        value_text = f"{value:g}"
+    elif value is None:
+        value_text = ""
+    else:
+        value_text = str(value)
+    if value_text:
+        return f"{item.method} {item.parameter}={value_text}."
+    return f"{item.method} {item.parameter}."
+
+
+def _evidence_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[str, ...]:
+    """Return legacy printable evidence strings from structured evidence."""
+
+    items = _evidence_items_for_group(frame, fluid_type)
+    if not items:
+        return ("Интервал выделен по текстовой классификации строк.",)
+    return tuple(_format_evidence_item(item) for item in items)
+
+
+def _quality_flags_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[str, ...]:
+    """Return machine-readable quality flags for interval QA and reporting."""
+
+    flags: list[str] = []
+    numeric_columns = ["wh", "bh", "c1_c2", "c1_c3", "oil_indicator"]
+    available = [column for column in numeric_columns if column in frame.columns]
+    valid_numeric = 0
+    for column in available:
+        if not pd.to_numeric(frame[column], errors="coerce").dropna().empty:
+            valid_numeric += 1
+
+    if not available or valid_numeric == 0:
+        flags.append("no_numeric_gas_ratios")
+    elif valid_numeric < 2:
+        flags.append("limited_numeric_evidence")
+
+    if len(frame) == 1:
+        flags.append("single_sample_interval")
+    if fluid_type in {"transition", "uncertain"}:
+        flags.append("uncertain_fluid_character")
+    if any(pd.to_numeric(frame[column], errors="coerce").isna().any() for column in available):
+        flags.append("contains_missing_ratio_values")
+    if "barrier_candidate" in frame.columns and frame["barrier_candidate"].astype(bool).any():
+        flags.append("contains_barrier_rows")
+    return tuple(dict.fromkeys(flags))
 
 def _warnings_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[str, ...]:
     warnings: list[str] = []
@@ -505,7 +653,9 @@ def _interval_from_group(group: Sequence[Mapping[str, object]]) -> HydrocarbonIn
         average_pixler_c1_c2=_mean(frame, "c1_c2", "pixler_c1_c2"),
         average_pixler_c1_c3=_mean(frame, "c1_c3", "pixler_c1_c3"),
         average_oil_indicator=_mean(frame, "oil_indicator"),
+        evidence_items=_evidence_items_for_group(frame, fluid_type),
         evidence=_evidence_for_group(frame, fluid_type),
+        quality_flags=_quality_flags_for_group(frame, fluid_type),
         warnings=_warnings_for_group(frame, fluid_type),
         source_start_row=int(frame.get("__source_row", pd.Series([0])).min()) if "__source_row" in frame.columns else None,
         source_end_row=int(frame.get("__source_row", pd.Series([0])).max()) if "__source_row" in frame.columns else None,
@@ -667,6 +817,8 @@ def hydrocarbon_interval_table_rows(intervals: Iterable[HydrocarbonInterval]) ->
             "avg_C1/C3": interval.average_pixler_c1_c3,
             "avg_OI": interval.average_oil_indicator,
             "evidence": " ".join(interval.evidence),
+            "evidence_items": tuple(item.__dict__ for item in interval.evidence_items),
+            "quality_flags": " ".join(interval.quality_flags),
             "engineering_note": interval.engineering_note,
             "warnings": " ".join(interval.warnings),
             "source_start_row": interval.source_start_row,
@@ -733,6 +885,7 @@ def hydrocarbon_interval_marker_rows(intervals: Iterable[HydrocarbonInterval]) -
                 "fill_color": style["fill"],
                 "annotation": f"{style['label']} {interval.top:g}-{interval.base:g} м ({interval.confidence})",
                 "engineering_note": interval.engineering_note,
+                "quality_flags": " ".join(interval.quality_flags),
             }
         )
     return tuple(rows)

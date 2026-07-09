@@ -96,7 +96,7 @@ def test_hydrocarbon_interval_engine_keeps_transition_candidates_when_enabled() 
     assert len(result.intervals) == 1
     assert result.intervals[0].fluid_type in {"mixed", "transition"}
     assert result.rows["hydrocarbon_candidate"].all()
-    assert result.schema.endswith("/v6")
+    assert result.schema.endswith("/v7")
 
 
 def test_hydrocarbon_interval_engine_builds_graph_marker_rows() -> None:
@@ -141,7 +141,7 @@ def test_hydrocarbon_interval_engine_distinguishes_directional_oil_gas_labels() 
     )
 
     assert [interval.fluid_type for interval in result.intervals] == ["gas_oil", "oil_gas"]
-    assert result.schema.endswith("/v6")
+    assert result.schema.endswith("/v7")
 
 
 def test_hydrocarbon_interval_engine_keeps_uncertain_candidates_but_excludes_water() -> None:
@@ -251,3 +251,29 @@ def test_hydrocarbon_interval_engine_records_inferred_barrier_for_explicit_gap()
     assert result.barriers[0].base == 2150.2
     assert result.barriers[0].lithology == "unknown_barrier"
     assert result.barriers[0].inferred is True
+
+
+def test_hydrocarbon_interval_engine_exports_structured_evidence_and_quality_flags() -> None:
+    frame = pd.DataFrame(
+        {
+            "depth": [2200.0],
+            "interpretation": ["Газовая залежь"],
+            "wh": [6.0],
+            "bh": [44.0],
+            "c1_c2": [82.0],
+            "oil_indicator": [0.04],
+        }
+    )
+
+    result = detect_hydrocarbon_intervals(frame)
+    interval = result.intervals[0]
+    table_rows = hydrocarbon_interval_table_rows(result.intervals)
+    markers = hydrocarbon_interval_marker_rows(result.intervals)
+
+    assert result.schema.endswith("/v7")
+    assert interval.evidence_items
+    assert {item.method for item in interval.evidence_items} >= {"Haworth", "Pixler", "HydrocarbonIntervalEngine"}
+    assert "single_sample_interval" in interval.quality_flags
+    assert table_rows[0]["evidence_items"]
+    assert "single_sample_interval" in table_rows[0]["quality_flags"]
+    assert "single_sample_interval" in markers[0]["quality_flags"]

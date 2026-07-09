@@ -39,3 +39,19 @@ These completed markers remain in the plan for compatibility with previous imple
 Compatibility markers:
 - Sprint 2 Workspace Framework
 - LasWorkspaceController.create_las_working_copy
+
+## Hydrocarbon Interval Engine v7 — Structured Evidence and Quality Flags
+
+The active interval model now separates printable evidence from machine-readable evidence.
+Every interpreted interval may expose:
+
+- `evidence_items` — structured method/parameter/value/direction/weight records;
+- `quality_flags` — machine-readable QA markers such as `single_sample_interval`,
+  `limited_numeric_evidence`, `no_numeric_gas_ratios`, `contains_missing_ratio_values`,
+  and `uncertain_fluid_character`;
+- legacy printable `evidence` strings remain available for current HTML/report tables.
+
+This keeps the Hydrocarbon Interval Engine as the single source of truth for later
+Interpretation Engine, graph markers, PDF reports and dashboards. Report modules must
+consume the existing interval model and must not recalculate their own evidence.
+
