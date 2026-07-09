@@ -155,6 +155,7 @@ class LasVisualizationPayload:
     legend: tuple[dict[str, Any], ...] = field(default_factory=tuple)
     visible_tracks: tuple[str, ...] = field(default_factory=tuple)
     plot_summary: dict[str, Any] = field(default_factory=dict)
+    preview: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -175,6 +176,7 @@ class LasVisualizationPayload:
             "legend": [dict(item) for item in self.legend],
             "visible_tracks": list(self.visible_tracks),
             "plot_summary": dict(self.plot_summary),
+            "preview": dict(self.preview),
         }
 
 
@@ -333,6 +335,91 @@ def _plot_summary(
         "curve_count": len(curves),
         "overlay_count": len(overlays),
         "renderer_ready": bool(tracks and curves),
+    }
+
+
+def _svg_escape(value: Any) -> str:
+    return (
+        str(value or "")
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
+def _mini_svg_preview(
+    *,
+    tracks: Sequence[LasTrackPlotPayload],
+    curves: Sequence[LasCurvePlotPayload],
+    overlays: Sequence[LasIntervalOverlayPayload],
+    depth_range: Mapping[str, float | None],
+) -> dict[str, Any]:
+    """Return a tiny renderer-neutral SVG preview descriptor.
+
+    The SVG is intentionally schematic.  It is not the final plotting backend and
+    does not contain all curve points.  Its job is to give Workbench and reports a
+    stable, lightweight preview artifact while preserving the rule that UI layers
+    only consume prepared payloads.
+    """
+
+    width = max(360, 120 * max(len(tracks), 1))
+    height = 240
+    top_margin = 28
+    bottom_margin = 18
+    plot_height = height - top_margin - bottom_margin
+    track_width = width / max(len(tracks), 1)
+    depth_start = _float_or_none(depth_range.get("start"))
+    depth_stop = _float_or_none(depth_range.get("stop"))
+    depth_span = max((depth_stop or 0.0) - (depth_start or 0.0), 1e-9)
+
+    curve_by_track: dict[str, list[LasCurvePlotPayload]] = {}
+    for curve in curves:
+        curve_by_track.setdefault(curve.track_id, []).append(curve)
+
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img">',
+        '<rect width="100%" height="100%" fill="white"/>',
+    ]
+    for index, track in enumerate(tracks):
+        x = index * track_width
+        parts.append(f'<g data-track="{_svg_escape(track.id)}">')
+        parts.append(f'<rect x="{x:.1f}" y="{top_margin}" width="{track_width:.1f}" height="{plot_height}" fill="{track.style.get("fill", "#ffffff")}" stroke="#cfd8dc"/>')
+        parts.append(f'<text x="{x + 6:.1f}" y="18" font-size="11" font-family="Arial, sans-serif">{_svg_escape(track.title)}</text>')
+        for overlay in overlays:
+            if track.id not in overlay.track_scope:
+                continue
+            y1 = top_margin + ((overlay.top - (depth_start or overlay.top)) / depth_span) * plot_height
+            y2 = top_margin + ((overlay.base - (depth_start or overlay.top)) / depth_span) * plot_height
+            oy = max(top_margin, min(y1, y2))
+            oh = max(2.0, min(top_margin + plot_height, max(y1, y2)) - oy)
+            parts.append(f'<rect x="{x + 2:.1f}" y="{oy:.1f}" width="{track_width - 4:.1f}" height="{oh:.1f}" fill="{overlay.style.get("fill", "#b0bec5")}" opacity="0.26"/>')
+        for curve in curve_by_track.get(track.id, [])[:3]:
+            if not curve.points:
+                continue
+            value_span = max(float(curve.max_value or 0.0) - float(curve.min_value or 0.0), 1e-9)
+            poly_points: list[str] = []
+            for point in curve.points[:80]:
+                depth = float(point["depth"])
+                value = float(point["value"])
+                px = x + 8 + ((value - float(curve.min_value or 0.0)) / value_span) * max(track_width - 16, 1.0)
+                py = top_margin + ((depth - (depth_start or depth)) / depth_span) * plot_height
+                poly_points.append(f"{px:.1f},{py:.1f}")
+            parts.append(f'<polyline points="{" ".join(poly_points)}" fill="none" stroke="{curve.style.get("stroke", "#455a64")}" stroke-width="1.4"/>')
+        parts.append('</g>')
+    parts.append('</svg>')
+    svg = "".join(parts)
+    return {
+        "kind": "svg_preview",
+        "format": "svg",
+        "width": width,
+        "height": height,
+        "track_count": len(tracks),
+        "curve_count": len(curves),
+        "overlay_count": len(overlays),
+        "export_ready": bool(tracks and curves),
+        "contains_raw_dataframe": False,
+        "svg": svg,
     }
 
 def _track_style(track_id: str) -> dict[str, Any]:
@@ -620,5 +707,11 @@ class LasVisualizationPayloadService:
                 tracks=tracks,
                 curves=curve_payloads,
                 overlays=overlays,
+            ),
+            preview=_mini_svg_preview(
+                tracks=tracks,
+                curves=curve_payloads,
+                overlays=overlays,
+                depth_range=depth_info,
             ),
         )

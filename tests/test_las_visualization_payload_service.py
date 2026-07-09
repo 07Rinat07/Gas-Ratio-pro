@@ -201,3 +201,28 @@ def test_las_visualization_payload_exposes_renderer_ready_legend_and_summary(tmp
     assert legend_ids == ["curve.GR", "curve.C1", "curve.RHOB", "overlay.gas"]
     assert payload["legend"][0]["label"] == "GR (API)"
     assert payload["legend"][-1]["label"] == "Gas interval"
+
+
+def test_las_visualization_payload_exposes_lightweight_svg_preview(tmp_path):
+    manager = LasManagerService(tmp_path)
+    record = manager.save_file(project_id="demo", data=LAS_WITH_GAS, file_name="demo.las").record
+
+    payload = LasVisualizationPayloadService(tmp_path).build(
+        "demo",
+        record.id,
+        interval_ids=["1000.5-1001.0"],
+        interval_metadata={"1000.5-1001.0": {"fluid_type": "gas", "label": "Gas interval"}},
+    ).to_dict()
+
+    preview = payload["preview"]
+    assert preview["kind"] == "svg_preview"
+    assert preview["format"] == "svg"
+    assert preview["export_ready"] is True
+    assert preview["contains_raw_dataframe"] is False
+    assert preview["track_count"] == 3
+    assert preview["curve_count"] == 3
+    assert preview["overlay_count"] == 1
+    assert preview["svg"].startswith("<svg")
+    assert "data-track=&quot;track.gamma&quot;" not in preview["svg"]
+    assert 'data-track="track.gamma"' in preview["svg"]
+    assert "<polyline" in preview["svg"]

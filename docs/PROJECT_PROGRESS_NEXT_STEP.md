@@ -182,3 +182,11 @@ Completed:
 
 Next step:
 Implement the first thin renderer adapter for LAS visualization payloads using only `tracks`, `curves`, `overlays`, `legend`, `visible_tracks` and `plot_summary` from the contract.
+### V67 LAS visualization SVG preview
+
+- Added lightweight renderer-neutral SVG preview to LAS visualization payload.
+- Preview includes tracks, sampled curves and interval overlays without raw DataFrame content.
+- Added regression coverage for preview metadata and SVG output.
+
+Next step: connect the SVG preview to report preview and printable visualization export flow.
+

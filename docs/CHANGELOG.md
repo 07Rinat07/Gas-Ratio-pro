@@ -10,6 +10,7 @@
 ## LAS Visualization Renderer Ready Payload v66
 
 - Added renderer-ready legend entries for LAS curves and interval overlays.
+- Added lightweight SVG preview payload for LAS visualization.
 - Added default visible track ids for printable LAS rendering.
 - Added compact plot summary metadata for Workbench cards and renderer headers.
 - Added regression tests while preserving release export QA.
