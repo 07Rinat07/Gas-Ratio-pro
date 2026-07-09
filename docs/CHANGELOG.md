@@ -940,3 +940,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 ### Rationale
 - Users should be able to close and reopen Gas Ratio Pro and continue work from the same well, report, tablet and interval context.
 - Workspace sessions are UI/workflow descriptors, not geological data stores.
+
+## v55 Workbench lifecycle foundation
+
+- Added framework-neutral Workbench lifecycle manager for initialization, workspace opening and workspace closing.
+- Added lightweight WorkspaceContext payload for project, well, LAS, workspace, navigation, dock pane, selection and renderer state.
+- Added Workbench Selection Service for selected report, plot and interval references.
+- Added typed Workbench events for navigation, active panel, lifecycle and selection changes.
+- Added regression tests for lifecycle operations, context serialization and selection behavior.

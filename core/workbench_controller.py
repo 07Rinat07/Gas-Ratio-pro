@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from typing import Any, MutableMapping
 
 from core.command_framework import CommandExecutionResult, WorkbenchCommandRegistry
+from core.workbench_context import WorkbenchSelection, WorkbenchSelectionService, WorkspaceContext
+from core.workbench_lifecycle import WorkbenchLifecycleManager, WorkbenchLifecycleResult
 from core.workbench_shell import (
     WORKBENCH_ACTIVATE_DOCK_PANE_COMMAND_ID,
     WORKBENCH_SELECT_NAVIGATION_COMMAND_ID,
@@ -72,10 +74,17 @@ class WorkbenchController:
 
         return build_workbench_renderer_contract(self.shell(), renderer=self.renderer, version=self.version)
 
+    def context(self) -> WorkspaceContext:
+        """Return the aggregated workspace context for controllers/renderers."""
+
+        return WorkspaceContext.from_state(self.state, self.shell())
+
     def view_model(self) -> dict[str, Any]:
         """Return a serializable renderer payload for UI adapters."""
 
-        return self.contract().to_dict()
+        payload = self.contract().to_dict()
+        payload["workspace_context"] = self.context().to_dict()
+        return payload
 
     def _navigation_ids(self) -> set[str]:
         return {item.id for item in self.shell().navigation if item.visible and item.enabled}
@@ -108,6 +117,36 @@ class WorkbenchController:
         )
         shell = self.shell()
         return WorkbenchControllerResult(result, shell, build_workbench_renderer_contract(shell, renderer=self.renderer, version=self.version))
+
+    def select_object(self, target: str, object_id: str, metadata: dict[str, Any] | None = None) -> WorkbenchSelection:
+        """Change Workbench object selection through the selection service."""
+
+        return WorkbenchSelectionService(self.state).select(target, object_id, metadata)
+
+    def clear_selection(self, reason: str = "selection_cleared") -> WorkbenchSelection:
+        """Clear Workbench object selection through the selection service."""
+
+        return WorkbenchSelectionService(self.state).clear(reason)
+
+    def lifecycle(self) -> WorkbenchLifecycleManager:
+        """Return the lifecycle manager bound to this controller."""
+
+        return WorkbenchLifecycleManager(self.state, controller=self)
+
+    def initialize(self) -> WorkbenchLifecycleResult:
+        """Initialize Workbench lifecycle through the controller boundary."""
+
+        return self.lifecycle().initialize()
+
+    def open_workspace(self) -> WorkbenchLifecycleResult:
+        """Open the current lightweight workspace through the lifecycle manager."""
+
+        return self.lifecycle().open_workspace()
+
+    def close_workspace(self, *, save: bool = False) -> WorkbenchLifecycleResult:
+        """Close the current lightweight workspace through the lifecycle manager."""
+
+        return self.lifecycle().close_workspace(save=save)
 
     def dispatch_renderer_action(self, action_id: str, payload: dict[str, Any] | None = None) -> WorkbenchControllerResult:
         """Execute a renderer action using controller-level validation."""

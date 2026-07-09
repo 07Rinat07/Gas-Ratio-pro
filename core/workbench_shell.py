@@ -12,6 +12,7 @@ from typing import Any, Iterable, MutableMapping
 
 from core.application_state import ApplicationContext, ApplicationStateController
 from core.command_framework import WorkbenchCommand, WorkbenchCommandRegistry, default_workbench_commands
+from core.event_bus import ApplicationEventBus
 from core.workspace_session import (
     SESSION_ACTIVE_PLOT_KEY,
     SESSION_ACTIVE_REPORT_KEY,
@@ -270,6 +271,11 @@ def register_workbench_interaction_commands(
     def _select_navigation(payload: dict[str, Any]) -> dict[str, str]:
         navigation_id = str(payload.get("navigation_id") or payload.get("id") or "").strip()
         select_workbench_navigation(state, navigation_id)
+        ApplicationEventBus(state).publish(
+            "workbench.navigation.changed",
+            {"active_navigation_id": state[WORKBENCH_ACTIVE_NAVIGATION_KEY]},
+            source="WorkbenchCommandRegistry",
+        )
         return {
             "active_navigation_id": state[WORKBENCH_ACTIVE_NAVIGATION_KEY],
         }
@@ -277,6 +283,11 @@ def register_workbench_interaction_commands(
     def _activate_dock_pane(payload: dict[str, Any]) -> dict[str, str]:
         pane_id = str(payload.get("pane_id") or payload.get("id") or "").strip()
         activate_workbench_dock_pane(state, pane_id)
+        ApplicationEventBus(state).publish(
+            "workbench.active_panel.changed",
+            {"active_dock_pane_id": state[WORKBENCH_ACTIVE_DOCK_PANE_KEY]},
+            source="WorkbenchCommandRegistry",
+        )
         return {
             "active_dock_pane_id": state[WORKBENCH_ACTIVE_DOCK_PANE_KEY],
         }

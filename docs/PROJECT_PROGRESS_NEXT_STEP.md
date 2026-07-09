@@ -52,6 +52,8 @@ Completed in v53: the first thin Streamlit Modern Workbench renderer adapter is 
 
 Completed in v54: the Modern Workbench now has a controller layer in `core.workbench_controller`. The controller coordinates renderer actions, Command Framework execution, shell rebuilding and renderer-contract refresh. It validates navigation and dock targets before state changes, so Streamlit adapters can remain thin presentation code.
 
+Completed in v55: the Modern Workbench now has a lifecycle foundation. `core.workbench_lifecycle` manages initialization, workspace open and workspace close operations. `core.workbench_context` provides a lightweight WorkspaceContext and Selection Service for selected LAS/report/interval/plot references. Navigation, active panel, lifecycle and selection changes are published through the event bus, while Streamlit remains a renderer-only boundary.
+
 ## Next recommended increment
 
-Integrate the controller-backed Streamlit Modern Workbench renderer into the main application behind a safe entry point or feature flag. Keep legacy screens available while validating the renderer contract against real session state. Keep `scripts/release_export_qa.py` as the release check before packaging builds.
+Integrate the lifecycle-backed Streamlit Modern Workbench entry point into the main application behind a safe feature flag. Keep legacy screens available while validating WorkspaceContext, selection changes and renderer payloads against real session state. Keep `scripts/release_export_qa.py` as the release check before packaging builds.
