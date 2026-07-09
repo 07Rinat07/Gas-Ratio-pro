@@ -50,6 +50,8 @@ def test_preflight_passes_for_rule_based_fixture(tmp_path):
         "project_files",
         "dependencies",
         "static_export",
+        "professional_export_backends",
+        "pdf_unicode_font",
         "palette_config",
         "logs",
     }

@@ -53,6 +53,8 @@ Heavy export backends must be imported lazily:
 - `python-docx` is required only for DOCX export.
 - The Streamlit interface, command palette and normal calculations must start without importing PDF/DOCX renderers eagerly.
 
+Preflight diagnostics must report professional export readiness without failing application startup. Missing `reportlab`, `docx` or Unicode PDF fonts are warnings, not startup errors. The concrete export command must still raise a clear runtime message when a required backend or font is absent.
+
 ## PDF Unicode fonts
 
 PDF export requires a Unicode TrueType/OpenType font. On Windows the renderer

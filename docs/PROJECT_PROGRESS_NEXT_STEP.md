@@ -24,8 +24,10 @@ The application can now capture, save, load and restore a lightweight workspace 
 
 PDF Unicode i18n and export QA are the current stabilization priority.
 
-The next implementation step is to keep the document in `docs/`, update all tests to read progress documentation from `docs/PROJECT_PROGRESS_NEXT_STEP.md`, and continue validation of PDF Unicode fonts, dependency guards and export behavior.
+Completed in v42: progress-document tests now read `docs/PROJECT_PROGRESS_NEXT_STEP.md`, and the interval engineering HTML report shows the hydrocarbon summary expected by Engineering profile users.
+
+Completed in v43: preflight diagnostics now include professional PDF/DOCX export backend readiness and Unicode PDF font readiness as non-blocking warnings. This keeps application startup stable while making missing export dependencies visible before the user runs a report export.
 
 ## Next recommended increment
 
-Modern Workspace shell foundation: Project Explorer, central workspace area, toolbar/status boundary and integration points for session restore, reset and export actions.
+Finish the P0 export QA layer by adding a small reproducible sample export smoke command for HTML/PDF/DOCX bundles, then move to the Modern Workspace shell foundation: Project Explorer, central workspace area, toolbar/status boundary and integration points for session restore, reset and export actions.
