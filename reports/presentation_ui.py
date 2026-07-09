@@ -186,3 +186,115 @@ def export_options_from_ui_state(state: PresentationExportUiState) -> Presentati
         include_technical_appendix=state.include_technical_appendix,
         overwrite=True,
     )
+
+# v35: renderer-neutral UI export execution
+from dataclasses import dataclass as _dataclass
+from tempfile import TemporaryDirectory
+from zipfile import ZipFile, ZIP_DEFLATED
+
+from reports.presentation_export import (
+    export_presentation_bundle_package,
+    export_presentation_docx_package,
+    export_presentation_html_package,
+    export_presentation_pdf_package,
+)
+from reports.presentation_model import PresentationModel
+
+
+@_dataclass(frozen=True)
+class PresentationUiExportArtifact:
+    """Download-ready export artifact for Streamlit or another UI shell.
+
+    The UI should not know how HTML, PDF, DOCX or bundle reports are rendered.
+    It passes a PresentationModel plus normalized UI state and receives bytes,
+    a safe file name and the correct MIME type.
+    """
+
+    content: bytes
+    file_name: str
+    mime_type: str
+    export_format: ExportFormat
+    profile: ReportProfile
+    manifest_names: tuple[str, ...] = ()
+
+
+def _read_single_export(path: Path) -> bytes:
+    return path.read_bytes()
+
+
+def build_ui_export_artifact(
+    model: PresentationModel,
+    state: PresentationExportUiState,
+) -> PresentationUiExportArtifact:
+    """Render a UI-selected report export into download-ready bytes.
+
+    This is the handoff point between Modern UI and Presentation Layer.  It is
+    intentionally renderer-neutral: Streamlit does not branch into HTML/PDF/DOCX
+    internals and does not duplicate report content logic.
+    """
+
+    options = export_options_from_ui_state(state)
+    format_option = export_format_by_id(state.export_format)
+
+    if state.export_format == "html":
+        result = export_presentation_html_package(model, options=options)
+        return PresentationUiExportArtifact(
+            content=_read_single_export(result.html_path),
+            file_name=result.html_path.name,
+            mime_type=format_option.mime_type,
+            export_format=state.export_format,
+            profile=state.profile,
+            manifest_names=(result.manifest_path.name,),
+        )
+
+    if state.export_format == "pdf":
+        result = export_presentation_pdf_package(model, options=options)
+        return PresentationUiExportArtifact(
+            content=_read_single_export(result.pdf_path),
+            file_name=result.pdf_path.name,
+            mime_type=format_option.mime_type,
+            export_format=state.export_format,
+            profile=state.profile,
+            manifest_names=(result.manifest_path.name,),
+        )
+
+    if state.export_format == "docx":
+        result = export_presentation_docx_package(model, options=options)
+        return PresentationUiExportArtifact(
+            content=_read_single_export(result.docx_path),
+            file_name=result.docx_path.name,
+            mime_type=format_option.mime_type,
+            export_format=state.export_format,
+            profile=state.profile,
+            manifest_names=(result.manifest_path.name,),
+        )
+
+    with TemporaryDirectory(prefix="gas_ratio_presentation_bundle_") as temp_dir:
+        temp_state = PresentationExportUiState(
+            profile=state.profile,
+            export_format=state.export_format,
+            include_figures=state.include_figures,
+            include_technical_appendix=state.include_technical_appendix,
+            base_name=state.base_name,
+            output_dir=Path(temp_dir),
+        )
+        temp_options = export_options_from_ui_state(temp_state)
+        result = export_presentation_bundle_package(model, options=temp_options)
+        zip_path = Path(temp_dir) / f"{safe_export_basename(state.base_name)}.zip"
+        bundle_files = (
+            result.html_path,
+            result.pdf_path,
+            result.docx_path,
+            result.manifest_path,
+        )
+        with ZipFile(zip_path, "w", compression=ZIP_DEFLATED) as archive:
+            for path in bundle_files:
+                archive.write(path, arcname=path.name)
+        return PresentationUiExportArtifact(
+            content=zip_path.read_bytes(),
+            file_name=zip_path.name,
+            mime_type=format_option.mime_type,
+            export_format=state.export_format,
+            profile=state.profile,
+            manifest_names=(result.manifest_path.name,),
+        )

@@ -1,24 +1,25 @@
-# Current status after v34
+# Current status after v35
 
 ## Completed
 
 - Hydrocarbon Interpretation Engine v1.0 freeze.
 - Presentation Layer v1 freeze gate.
-- Unified HTML/PDF/DOCX bundle export.
+- HTML/PDF/DOCX/bundle export from one PresentationModel.
 - Presentation UI integration foundation.
+- Streamlit report export controls wired to the Presentation Layer adapter.
 
 ## Current result
 
-The reporting UI now has a renderer-neutral adapter in `reports/presentation_ui.py`.
-UI controls can use stable report profiles and export formats without hardcoding renderer details in Streamlit code.
+The report workspace can expose engineer/expert profiles and HTML/PDF/DOCX/bundle
+export actions without duplicating renderer logic in the UI.
 
 ## Next implementation module
 
-Modern UI / Workspace integration.
+Modern UI / Workspace shell.
 
 Priority tasks:
 
-1. Wire the Streamlit report export panel to `reports.presentation_ui`.
-2. Add a visible report profile selector: engineering / expert.
-3. Add stable export actions for HTML, PDF, DOCX and bundle.
-4. Keep technical diagnostics out of the default engineering view.
+1. Add a clean workspace header and report actions panel.
+2. Add project reset/clear workflow with safe confirmation.
+3. Add visual consistency rules for cards, tables and toolbar actions.
+4. Keep calculations and interpretation behind controllers/services.

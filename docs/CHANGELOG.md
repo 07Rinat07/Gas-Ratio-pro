@@ -1,3 +1,10 @@
+
+## v35 - Presentation UI export bridge
+
+- Added download-ready UI export artifacts for HTML/PDF/DOCX/bundle reports.
+- Connected Streamlit report controls to `reports.presentation_ui`.
+- Kept renderer internals out of the UI layer.
+
 # Changelog
 
 ## Professional Reporting System v21

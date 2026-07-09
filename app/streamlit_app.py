@@ -271,6 +271,13 @@ from projects import las_files as project_las_files
 from reports.export_csv import export_csv_bytes
 from reports.export_html import HtmlReportMetadata, HtmlReportTable, build_plotly_html_report
 from reports.interval_report import build_interval_print_report
+from reports.hydrocarbon_report import build_hydrocarbon_report_payload
+from reports.presentation_ui import (
+    build_presentation_export_ui_state,
+    build_ui_export_artifact,
+    export_format_options,
+    report_profile_options,
+)
 from reports.export_las import export_las_bytes
 from reports.export_xlsx import export_xlsx_bytes
 from las_editor.las_creation_wizard import (
@@ -7775,6 +7782,50 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             mime="text/html",
             width="stretch",
         )
+        with st.expander("Профессиональный экспорт отчета", expanded=False):
+            profile_options = report_profile_options()
+            format_options = export_format_options()
+            selected_profile_label = st.selectbox(
+                "Профиль отчета",
+                options=[option.label for option in profile_options],
+                index=0,
+                key=f"presentation_report_profile_{active_project.id}",
+                help="Инженерный профиль скрывает техническую диагностику; экспертный добавляет приложения и таблицы проверки.",
+            )
+            selected_format_label = st.selectbox(
+                "Формат экспорта",
+                options=[option.label for option in format_options],
+                index=0,
+                key=f"presentation_export_format_{active_project.id}",
+            )
+            selected_profile = next(option for option in profile_options if option.label == selected_profile_label)
+            selected_format = next(option for option in format_options if option.label == selected_format_label)
+            presentation_state = build_presentation_export_ui_state(
+                profile=selected_profile.id,
+                export_format=selected_format.id,
+                output_dir=ROOT_DIR / "artifacts" / "presentation_exports",
+                base_name_parts=(active_project.name, str(source_label), "professional_report"),
+                include_figures=True,
+            )
+            presentation_payload = build_hydrocarbon_report_payload(
+                filtered_df,
+                source_label=str(source_label),
+                project_label=f"{active_project.name} ({active_project.id})",
+                depth_label=_range_label(depth_range, unit="м"),
+                report_profile=presentation_state.profile,
+                include_plot=True,
+            )
+            if presentation_payload.presentation_model is not None:
+                export_artifact = build_ui_export_artifact(presentation_payload.presentation_model, presentation_state)
+                st.download_button(
+                    f"Скачать {selected_format.label}",
+                    data=export_artifact.content,
+                    file_name=export_artifact.file_name,
+                    mime=export_artifact.mime_type,
+                    width="stretch",
+                    key=f"presentation_download_{active_project.id}_{selected_format.id}",
+                )
+                st.caption("Экспорт формируется из единого PresentationModel: экран, HTML, PDF и DOCX не дублируют инженерскую логику.")
         if html_save_col.button("Сохранить отчет в проект", width="stretch", key=f"save_interpretation_html_export_{active_project.id}"):
             _save_project_export_with_feedback(
                 project=active_project,

@@ -217,17 +217,31 @@ def _metadata_table(rows: Sequence[tuple[str, str]], styles: dict[str, Paragraph
 def _document_table(block: DocumentTable, styles: dict[str, ParagraphStyle]) -> list[object]:
     if not block.headers or not block.rows:
         return []
-    max_cols = len(block.headers)
+    original_cols = len(block.headers)
+    max_cols = min(original_cols, 8)
+    visible_headers = list(block.headers[:max_cols])
+    if original_cols > max_cols:
+        visible_headers.append("…")
     data: list[list[Paragraph]] = [
-        [_paragraph(header, styles["table_header"]) for header in block.headers]
+        [_paragraph(header, styles["table_header"]) for header in visible_headers]
     ]
     for row in block.rows:
         cells = list(row[:max_cols])
         if len(cells) < max_cols:
             cells.extend([""] * (max_cols - len(cells)))
+        if original_cols > max_cols:
+            cells.append(f"+{original_cols - max_cols} колонок в HTML/DOCX")
         data.append([_paragraph(cell, styles["table_cell"]) for cell in cells])
+    max_cols = len(visible_headers)
 
-    table = Table(data, repeatRows=1, hAlign="LEFT")
+    # Technical appendix tables can contain many LAS/calculation columns.  Auto
+    # column sizing may allocate a cell width smaller than ReportLab paddings,
+    # which breaks PDF export.  Use deterministic compact widths so expert
+    # reports stay printable even when tables are wide.
+    compact = max_cols > 8
+    col_width = (12 * mm) if compact else max(22 * mm, min(42 * mm, (160 * mm) / max_cols))
+    table = Table(data, repeatRows=1, hAlign="LEFT", colWidths=[col_width] * max_cols)
+    cell_padding = 2 if compact else 4
     table.setStyle(
         TableStyle(
             [
@@ -235,8 +249,8 @@ def _document_table(block: DocumentTable, styles: dict[str, ParagraphStyle]) -> 
                 ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor("#d7dde8")),
                 ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#d7dde8")),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 4),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), cell_padding),
+                ("RIGHTPADDING", (0, 0), (-1, -1), cell_padding),
                 ("TOPPADDING", (0, 0), (-1, -1), 3),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
             ]
