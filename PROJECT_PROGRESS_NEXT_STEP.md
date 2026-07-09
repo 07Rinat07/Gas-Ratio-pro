@@ -21,7 +21,7 @@ Recommended next step:
 - Start implementing Hydrocarbon Interval data model and detector service after the current LAS Workspace workflow is stable.
 - Then connect detector output to marked graph report and printable report package.
 
-Regression history markers preserved for release validation:
+Compatibility markers retained for regression tests:
 
 - Architecture Review
 - Core LTS Freeze
@@ -31,3 +31,7 @@ Regression history markers preserved for release validation:
 - LAS Workspace 3.0 UI entry point
 - LAS creation wizard UI
 - LasWorkspaceController.create_las_working_copy
+
+Current implementation step:
+
+- Hydrocarbon Interval Engine foundation added as the shared model for detector, interpretation, marked graphs and printable reports.
