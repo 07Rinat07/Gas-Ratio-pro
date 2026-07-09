@@ -59,3 +59,73 @@ def test_streamlit_adapter_payload_exposes_tool_view_contract():
 
     assert "tool_views" in payload
     assert payload["tool_views"]["active_tool"]["id"] == "tool.workspace_explorer"
+
+
+def _item(payload: dict, tool_id: str) -> dict:
+    return next(item for item in payload["items"] if item["id"] == tool_id)
+
+
+def test_las_viewer_provider_exposes_selected_las_context():
+    state = {
+        "active_project_id": "project_alpha",
+        "active_well_id": "well_one",
+        "active_las_id": "well_one_main_las",
+    }
+    controller = build_workbench_controller(state)
+
+    payload = controller.view_model()["tool_views"]
+    las_view = _item(payload, "tool.las_viewer")
+
+    assert las_view["status"] == "ready"
+    assert las_view["empty_state"] == ""
+    assert las_view["content"]["selected_las"]["las_id"] == "well_one_main_las"
+    assert las_view["content"]["summary_cards"][2]["title"] == "LAS"
+    assert las_view["metadata"]["primary_target"] == "las"
+
+
+def test_gas_ratio_provider_waits_for_interval_after_las_is_selected():
+    state = {"active_las_id": "las_main"}
+    controller = build_workbench_controller(state)
+
+    payload = controller.activate_tool("tool.gas_ratio_analysis").view_model()["tool_views"]
+    gas_view = payload["active_tool"]
+
+    assert gas_view["id"] == "tool.gas_ratio_analysis"
+    assert gas_view["status"] == "waiting_for_interval"
+    assert gas_view["content"]["las_id"] == "las_main"
+    assert gas_view["content"]["selected_intervals"] == []
+
+
+def test_gas_ratio_provider_exposes_selected_intervals_without_calculating():
+    state = {
+        "active_las_id": "las_main",
+        "workspace_session_selected_intervals": ["int_top", "int_bottom"],
+    }
+    controller = build_workbench_controller(state)
+    controller.select_object("interval", "int_mid", {"source": "test"})
+
+    payload = controller.activate_tool("tool.gas_ratio_analysis").view_model()["tool_views"]
+    gas_view = payload["active_tool"]
+
+    assert gas_view["status"] == "ready"
+    assert gas_view["content"]["active_interval"] == "int_mid"
+    assert gas_view["content"]["selected_intervals"] == ["int_top", "int_bottom", "int_mid"]
+    assert gas_view["metadata"]["interval_count"] == 3
+
+
+def test_report_preview_provider_exposes_report_summary_and_export_action():
+    state = {
+        "workspace_session_active_report": "report_engineering",
+        "workspace_session_active_plot": "plot_ratio",
+        "workspace_session_selected_intervals": ["int_a"],
+    }
+    controller = build_workbench_controller(state)
+
+    payload = controller.activate_tool("tool.report_preview").view_model()["tool_views"]
+    report_view = payload["active_tool"]
+
+    assert report_view["status"] == "ready"
+    assert report_view["content"]["report"]["report_id"] == "report_engineering"
+    assert report_view["content"]["report"]["plot_id"] == "plot_ratio"
+    assert report_view["actions"][-1]["payload"] == {"tool_id": "tool.export"}
+    assert report_view["metadata"]["primary_target"] == "report"

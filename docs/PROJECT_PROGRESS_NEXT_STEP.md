@@ -56,7 +56,7 @@ Completed in v55: the Modern Workbench now has a lifecycle foundation. `core.wor
 
 ## Next recommended increment
 
-Add the first real tool content adapters for LAS Viewer, Gas Ratio Analysis and Report Preview. Keep each adapter renderer-neutral: it should consume WorkspaceContext and domain service outputs, then return a tool view payload for the existing Workbench renderer. Keep `scripts/release_export_qa.py` as the release check before packaging builds.
+Start connecting domain services to the Workbench tools incrementally. The next safest step is a LAS Viewer data summary provider that reads normalized curve metadata through the existing LAS/workspace boundaries and exposes only lightweight renderer payloads. Keep `scripts/release_export_qa.py` as the release check before packaging builds.
 
 ## V56 Modern Workbench Tool Registry
 
@@ -81,5 +81,15 @@ Completed:
 - Added `tool_views` to controller and Streamlit adapter view-model payloads.
 - Added tests for tool view payload creation, LAS Viewer readiness state and controller integration.
 
+## V58 Workbench Tool Content Providers
+
+Completed:
+- Added provider-based tool view enrichment for LAS Viewer, Gas Ratio Analysis and Report Preview.
+- Added lightweight `content` payloads to the Workbench tool view contract.
+- LAS Viewer now exposes selected project, well and LAS ids plus summary cards when LAS context exists.
+- Gas Ratio Analysis now exposes selected intervals and waits for interval selection after LAS activation.
+- Report Preview now exposes active report, plot and interval references plus an export action.
+- Added regression tests for all first tool content providers.
+
 Next step:
-Implement the first domain-backed tool content adapters for LAS Viewer and Gas Ratio Analysis using the new tool view contract.
+Connect LAS Viewer to normalized LAS curve metadata while keeping heavy parsing and engineering calculations outside renderer state.

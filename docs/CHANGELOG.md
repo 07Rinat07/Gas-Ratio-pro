@@ -1,5 +1,12 @@
 # Changelog
 
+## Modern Workbench Tool Content Providers v58
+
+- Added provider-based Workbench tool view enrichment for LAS Viewer, Gas Ratio Analysis and Report Preview.
+- Added lightweight `content` payloads to the renderer-neutral tool view contract.
+- Exposed selected LAS, selected interval and active report references without moving calculations into UI state.
+- Added regression tests for provider-enriched tool views and preserved release export QA.
+
 ## Modern Workbench Tool View Contract v57
 
 - Added renderer-neutral tool view models for Workbench tools.
