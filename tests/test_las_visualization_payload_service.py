@@ -89,6 +89,7 @@ def test_las_visualization_payload_adds_renderer_neutral_interval_overlays(tmp_p
             "confidence": "high",
             "selected": True,
             "track_scope": ["track.gamma", "track.gas", "track.resistivity", "track.porosity"],
+            "style": {"palette_key": "fluid.gas", "fill": "#ef8f35", "stroke": "#a84c00"},
         }
     ]
     assert "dataframe" not in payload
@@ -102,3 +103,27 @@ def test_las_visualization_payload_reports_empty_overlay_flag_for_invalid_interv
 
     assert payload["overlays"] == []
     assert "interval_overlays_empty" in payload["quality_flags"]
+
+
+def test_las_visualization_payload_exposes_axis_style_and_print_profile(tmp_path):
+    manager = LasManagerService(tmp_path)
+    record = manager.save_file(project_id="demo", data=LAS_WITH_GAS, file_name="demo.las").record
+
+    payload = LasVisualizationPayloadService(tmp_path).build("demo", record.id).to_dict()
+
+    gamma_track = next(track for track in payload["tracks"] if track["id"] == "track.gamma")
+    gamma_curve = next(curve for curve in payload["curves"] if curve["mnemonic"] == "GR")
+
+    assert gamma_track["style"]["palette_key"] == "gamma"
+    assert gamma_track["axis"] == {"depth_unit": "", "orientation": "vertical", "grid": True}
+    assert gamma_curve["axis"]["unit"] == "API"
+    assert gamma_curve["axis"]["scale"] == "linear"
+    assert gamma_curve["style"]["stroke"] == "#2f7d32"
+    assert payload["print_profile"] == {
+        "quality": "print",
+        "preferred_format": "svg_pdf",
+        "depth_axis": "vertical",
+        "min_curve_width_px": 2,
+        "grid": True,
+        "legend": True,
+    }

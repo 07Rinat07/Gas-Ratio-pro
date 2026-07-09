@@ -25,6 +25,22 @@ RESISTIVITY_HINTS = {"RT", "ILD", "ILM", "LLD", "LLS", "RES", "AT90"}
 POROSITY_HINTS = {"NPHI", "DPHI", "RHOB", "DT", "PEF"}
 GAMMA_HINTS = {"GR", "SGR", "CGR"}
 
+TRACK_STYLE_PRESETS: dict[str, dict[str, Any]] = {
+    "track.gamma": {"palette_key": "gamma", "stroke": "#2f7d32", "fill": "#e8f5e9", "line_width": 1.3},
+    "track.gas": {"palette_key": "gas", "stroke": "#ef6c00", "fill": "#fff3e0", "line_width": 1.4},
+    "track.resistivity": {"palette_key": "resistivity", "stroke": "#1565c0", "fill": "#e3f2fd", "line_width": 1.2},
+    "track.porosity": {"palette_key": "porosity", "stroke": "#6a1b9a", "fill": "#f3e5f5", "line_width": 1.2},
+    "track.other": {"palette_key": "other", "stroke": "#455a64", "fill": "#eceff1", "line_width": 1.0},
+}
+
+FLUID_STYLE_PRESETS: dict[str, dict[str, str]] = {
+    "oil": {"palette_key": "fluid.oil", "fill": "#d7a84f", "stroke": "#8d6e20"},
+    "gas": {"palette_key": "fluid.gas", "fill": "#ef8f35", "stroke": "#a84c00"},
+    "condensate": {"palette_key": "fluid.condensate", "fill": "#f6c96d", "stroke": "#ad7d00"},
+    "water": {"palette_key": "fluid.water", "fill": "#64b5f6", "stroke": "#1565c0"},
+    "unknown": {"palette_key": "fluid.unknown", "fill": "#b0bec5", "stroke": "#546e7a"},
+}
+
 
 @dataclass(frozen=True, slots=True)
 class LasCurvePlotPayload:
@@ -33,6 +49,8 @@ class LasCurvePlotPayload:
     mnemonic: str
     unit: str = ""
     track_id: str = "track.other"
+    axis: dict[str, Any] = field(default_factory=dict)
+    style: dict[str, Any] = field(default_factory=dict)
     point_count: int = 0
     sampled_count: int = 0
     min_value: float | None = None
@@ -44,6 +62,8 @@ class LasCurvePlotPayload:
             "mnemonic": self.mnemonic,
             "unit": self.unit,
             "track_id": self.track_id,
+            "axis": dict(self.axis),
+            "style": dict(self.style),
             "point_count": self.point_count,
             "sampled_count": self.sampled_count,
             "min_value": self.min_value,
@@ -61,6 +81,8 @@ class LasTrackPlotPayload:
     curve_ids: tuple[str, ...] = field(default_factory=tuple)
     width: float = 1.0
     printable: bool = True
+    axis: dict[str, Any] = field(default_factory=dict)
+    style: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -69,6 +91,8 @@ class LasTrackPlotPayload:
             "curve_ids": list(self.curve_ids),
             "width": self.width,
             "printable": self.printable,
+            "axis": dict(self.axis),
+            "style": dict(self.style),
         }
 
 
@@ -89,6 +113,7 @@ class LasIntervalOverlayPayload:
     confidence: str = ""
     selected: bool = False
     track_scope: tuple[str, ...] = field(default_factory=tuple)
+    style: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -100,6 +125,7 @@ class LasIntervalOverlayPayload:
             "confidence": self.confidence,
             "selected": self.selected,
             "track_scope": list(self.track_scope),
+            "style": dict(self.style),
         }
 
 
@@ -118,6 +144,7 @@ class LasVisualizationPayload:
     curves: tuple[LasCurvePlotPayload, ...] = field(default_factory=tuple)
     overlays: tuple[LasIntervalOverlayPayload, ...] = field(default_factory=tuple)
     quality_flags: tuple[str, ...] = field(default_factory=tuple)
+    print_profile: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -132,6 +159,7 @@ class LasVisualizationPayload:
             "curves": [curve.to_dict() for curve in self.curves],
             "overlays": [overlay.to_dict() for overlay in self.overlays],
             "quality_flags": list(self.quality_flags),
+            "print_profile": dict(self.print_profile),
         }
 
 
@@ -162,6 +190,46 @@ def _depth_range(depth: pd.Series) -> dict[str, float | None]:
         "step": float(non_zero.median()) if not non_zero.empty else None,
     }
 
+
+
+def _track_style(track_id: str) -> dict[str, Any]:
+    return dict(TRACK_STYLE_PRESETS.get(track_id, TRACK_STYLE_PRESETS["track.other"]))
+
+
+def _fluid_style(fluid_type: str) -> dict[str, Any]:
+    key = str(fluid_type or "unknown").strip().lower()
+    return dict(FLUID_STYLE_PRESETS.get(key, FLUID_STYLE_PRESETS["unknown"]))
+
+
+def _axis_scale(track_id: str, values: pd.Series) -> str:
+    if track_id in {"track.resistivity", "track.gas"}:
+        clean = pd.to_numeric(values, errors="coerce").dropna()
+        if not clean.empty and float(clean.min()) > 0 and float(clean.max()) / max(float(clean.min()), 1e-12) >= 100:
+            return "log"
+    return "linear"
+
+
+def _axis_payload(track_id: str, unit: str, values: pd.Series) -> dict[str, Any]:
+    clean = pd.to_numeric(values, errors="coerce").dropna()
+    return {
+        "unit": unit,
+        "scale": _axis_scale(track_id, values),
+        "min": float(clean.min()) if not clean.empty else None,
+        "max": float(clean.max()) if not clean.empty else None,
+        "grid": True,
+        "printable": True,
+    }
+
+
+def _print_profile() -> dict[str, Any]:
+    return {
+        "quality": "print",
+        "preferred_format": "svg_pdf",
+        "depth_axis": "vertical",
+        "min_curve_width_px": 2,
+        "grid": True,
+        "legend": True,
+    }
 
 def _track_id(mnemonic: str) -> str:
     key = mnemonic.strip().upper()
@@ -217,10 +285,13 @@ def _curve_payload(
     indices = _sample_indices(len(valid), sample_limit)
     sampled = valid.iloc[indices]
     points = tuple({"depth": float(row.depth), "value": float(row.value)} for row in sampled.itertuples(index=False))
+    track_id = _track_id(str(curve))
     return LasCurvePlotPayload(
         mnemonic=str(curve),
         unit=units.get(str(curve), ""),
-        track_id=_track_id(str(curve)),
+        track_id=track_id,
+        axis=_axis_payload(track_id, units.get(str(curve), ""), valid["value"]),
+        style=_track_style(track_id),
         point_count=int(len(valid)),
         sampled_count=int(len(points)),
         min_value=float(valid["value"].min()),
@@ -278,16 +349,18 @@ def _build_overlays(
         if depth_stop is not None and top > depth_stop:
             continue
         label = str(item.get("label") or item.get("title") or interval_id)
+        fluid_type = str(item.get("fluid_type") or item.get("fluid") or "unknown")
         overlays.append(
             LasIntervalOverlayPayload(
                 id=interval_id,
                 top=float(top),
                 base=float(base),
                 label=label,
-                fluid_type=str(item.get("fluid_type") or item.get("fluid") or "unknown"),
+                fluid_type=fluid_type,
                 confidence=str(item.get("confidence") or item.get("confidence_level") or ""),
                 selected=True,
                 track_scope=("track.gamma", "track.gas", "track.resistivity", "track.porosity"),
+                style=_fluid_style(fluid_type),
             )
         )
     return tuple(overlays)
@@ -301,7 +374,15 @@ def _build_tracks(curves: Iterable[LasCurvePlotPayload]) -> tuple[LasTrackPlotPa
     tracks: list[LasTrackPlotPayload] = []
     for track_id in order:
         if track_id in grouped:
-            tracks.append(LasTrackPlotPayload(track_id, _track_title(track_id), tuple(grouped[track_id])))
+            tracks.append(
+                LasTrackPlotPayload(
+                    track_id,
+                    _track_title(track_id),
+                    tuple(grouped[track_id]),
+                    axis={"depth_unit": "", "orientation": "vertical", "grid": True},
+                    style=_track_style(track_id),
+                )
+            )
     return tuple(tracks)
 
 
@@ -374,4 +455,5 @@ class LasVisualizationPayloadService:
             curves=curve_payloads,
             overlays=overlays,
             quality_flags=tuple(flags),
+            print_profile=_print_profile(),
         )

@@ -155,3 +155,15 @@ Completed:
 
 Next step:
 Connect the visualization payload to a thin renderer adapter and add chart layout rules for printable LAS tracks, including stable track order, axis descriptors and interval overlay rendering hints.
+
+## V64 LAS Visualization Styling Contract
+
+Completed:
+- Added renderer-neutral curve axis metadata for LAS visualization payloads.
+- Added track and curve style descriptors with palette keys, stroke, fill and line width hints.
+- Added fluid interval overlay style descriptors for oil, gas, condensate, water and unknown intervals.
+- Added print profile metadata for SVG/PDF-ready rendering without binding the service to a plotting backend.
+- Added regression tests for axis metadata, style metadata and print profile payloads.
+
+Next step:
+Implement the first renderer adapter for LAS visualization payloads. It should render tracks from the contract only, without recalculating curves or interval overlays inside Streamlit.

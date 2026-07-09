@@ -7,6 +7,15 @@
 
 # Changelog
 
+## LAS Visualization Styling Contract v64
+
+- Added renderer-neutral axis metadata for LAS curve payloads.
+- Added track and curve style hints with palette keys, stroke, fill and line width metadata.
+- Added fluid overlay style hints for printable interval bands.
+- Added print profile metadata for SVG/PDF-ready LAS rendering.
+- Added regression tests for the visualization styling contract while preserving release export QA.
+
+
 ## Workbench Tool Workflow State v60
 
 - Connected accepted Workbench tool actions to lightweight workflow state updates.
