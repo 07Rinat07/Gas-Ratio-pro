@@ -6,7 +6,7 @@ from typing import Iterable, Mapping, Sequence
 import pandas as pd
 
 
-HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v5"
+HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v6"
 
 NON_PROSPECTIVE_LABELS = (
     "Недостаточно данных",
@@ -44,6 +44,24 @@ MARKER_STYLE_BY_FLUID = {
     "uncertain": {"label": "UNCERTAIN", "color": "#bcbd22", "fill": "rgba(188,189,34,0.16)"},
     "water": {"label": "WATER", "color": "#1f77b4", "fill": "rgba(31,119,180,0.12)"},
 }
+
+
+LITHOLOGY_CLASS_LABELS = {
+    "clay": "Clay",
+    "claystone": "Claystone",
+    "shale": "Shale",
+    "siltstone": "Siltstone",
+    "sandstone": "Sandstone",
+    "limestone": "Limestone",
+    "dolomite": "Dolomite",
+    "coal": "Coal",
+    "tight": "Tight interval",
+    "barrier": "Barrier",
+    "unknown_barrier": "Unclassified barrier",
+    "unknown": "Unknown",
+}
+
+BARRIER_LITHOLOGY_CLASSES = {"clay", "claystone", "shale", "tight", "barrier", "unknown_barrier"}
 
 
 @dataclass(frozen=True)
@@ -96,11 +114,37 @@ class HydrocarbonInterval:
 
 
 @dataclass(frozen=True)
+class LithologyBarrier:
+    """Non-productive lithological separator between interpreted intervals.
+
+    The barrier is not a reservoir interval. It is stored separately so reports can
+    show gas/oil intervals exactly as detected while still preserving claystone,
+    shale or tight separators that may matter for geological interpretation.
+    """
+
+    top: float
+    base: float
+    lithology: str
+    seal_quality: str = "possible"
+    remarks: str = ""
+    source_start_row: int | None = None
+    source_end_row: int | None = None
+    inferred: bool = False
+
+    @property
+    def thickness(self) -> float:
+        """Barrier thickness in depth units used by the source dataset."""
+
+        return round(abs(float(self.base) - float(self.top)), 6)
+
+
+@dataclass(frozen=True)
 class HydrocarbonIntervalResult:
     """Complete hydrocarbon interval result shared by UI, graph and reports."""
 
     intervals: tuple[HydrocarbonInterval, ...]
     rows: pd.DataFrame
+    barriers: tuple[LithologyBarrier, ...] = ()
     diagnostics: tuple[str, ...] = ()
     schema: str = HYDROCARBON_INTERVAL_SCHEMA
 
@@ -135,6 +179,50 @@ def _ordered_mixed_type(label: str) -> str:
         return "gas_oil" if min(gas_positions) < min(oil_positions) else "oil_gas"
     return "mixed"
 
+
+def normalize_lithology(row: Mapping[str, object]) -> str:
+    """Normalize common lithology labels to project terminology.
+
+    The project uses `Claystone` for аргиллит / indurated clay-rich rock and
+    `Clay` for unconsolidated глина. The returned value is a stable machine key;
+    display labels are defined in `LITHOLOGY_CLASS_LABELS`.
+    """
+
+    text_parts = [
+        str(row.get(column) or "")
+        for column in ("lithology", "lithology_class", "rock_type", "facies", "formation", "barrier_type", "interpretation")
+    ]
+    text = " ".join(text_parts).lower()
+    if not text.strip():
+        return "unknown"
+    # Russian and legacy English terms are accepted on input, but project output
+    # must use Clay / Claystone / Shale terminology.
+    if any(token in text for token in ("аргил", "argillite", "claystone")):
+        return "claystone"
+    if any(token in text for token in ("глина", "clay")) and "claystone" not in text:
+        return "clay"
+    if any(token in text for token in ("слан", "shale")):
+        return "shale"
+    if any(token in text for token in ("алев", "siltstone")):
+        return "siltstone"
+    if any(token in text for token in ("песч", "sandstone", "sand")):
+        return "sandstone"
+    if any(token in text for token in ("извест", "limestone")):
+        return "limestone"
+    if any(token in text for token in ("долом", "dolomite")):
+        return "dolomite"
+    if any(token in text for token in ("уголь", "coal")):
+        return "coal"
+    if any(token in text for token in ("плотн", "tight")):
+        return "tight"
+    if any(token in text for token in ("перемыч", "seal", "barrier")):
+        return "barrier"
+    return "unknown"
+
+
+def _is_barrier_lithology(lithology: str, rules: HydrocarbonIntervalRuleSet) -> bool:
+    labels = {label.lower() for label in rules.barrier_lithology_labels}
+    return lithology in BARRIER_LITHOLOGY_CLASSES or lithology.lower() in labels
 
 def _ratio_conflict_type(oil_indicator: float | None, pixler: float | None, wh: float | None, bh: float | None) -> str | None:
     """Detect mixed oil/gas indications when independent ratios disagree.
@@ -360,6 +448,36 @@ def build_interval_engineering_note(interval: HydrocarbonInterval) -> str:
     return " ".join(parts)
 
 
+def _barrier_seal_quality(lithology: str) -> str:
+    if lithology in {"claystone", "shale", "tight", "barrier"}:
+        return "probable"
+    if lithology == "clay":
+        return "possible"
+    return "unknown"
+
+
+def _barrier_from_group(group: Sequence[Mapping[str, object]], *, inferred: bool = False) -> LithologyBarrier:
+    frame = pd.DataFrame(group)
+    top_values = pd.to_numeric(frame.get("top", frame["depth"]), errors="coerce")
+    base_values = pd.to_numeric(frame.get("base", frame["depth"]), errors="coerce")
+    top = float(top_values.min())
+    base = float(base_values.max())
+    lithology = _dominant(frame.get("lithology_class", pd.Series(dtype=str)).astype(str), default="unknown_barrier")
+    if lithology == "unknown":
+        lithology = "unknown_barrier"
+    remarks = "Inferred from explicit top/base gap between productive intervals." if inferred else "Detected from non-productive lithology row(s)."
+    return LithologyBarrier(
+        top=top,
+        base=base,
+        lithology=lithology,
+        seal_quality=_barrier_seal_quality(lithology),
+        remarks=remarks,
+        source_start_row=int(frame.get("__source_row", pd.Series([0])).min()) if "__source_row" in frame.columns else None,
+        source_end_row=int(frame.get("__source_row", pd.Series([0])).max()) if "__source_row" in frame.columns else None,
+        inferred=inferred,
+    )
+
+
 def _interval_from_group(group: Sequence[Mapping[str, object]]) -> HydrocarbonInterval:
     frame = pd.DataFrame(group)
     fluid_type = _dominant(frame["hydrocarbon_fluid_type"].astype(str), default="mixed")
@@ -433,12 +551,22 @@ def detect_hydrocarbon_intervals(
 
     fluid_types = [normalize_fluid_type(row._asdict() if hasattr(row, "_asdict") else row) for _, row in rows.iterrows()]
     rows["hydrocarbon_fluid_type"] = fluid_types
+    lithology_classes = [normalize_lithology(row._asdict() if hasattr(row, "_asdict") else row) for _, row in rows.iterrows()]
+    rows["lithology_class"] = lithology_classes
+    lithology_barriers = [_is_barrier_lithology(lithology, rules) for lithology in lithology_classes]
     rows["hydrocarbon_candidate"] = [
-        is_prospective_fluid(fluid_type, include_low_confidence=rules.include_low_confidence)
-        for fluid_type in fluid_types
+        is_prospective_fluid(fluid_type, include_low_confidence=rules.include_low_confidence) and not is_barrier
+        for fluid_type, is_barrier in zip(fluid_types, lithology_barriers)
+    ]
+    rows["barrier_candidate"] = [
+        (not bool(candidate)) and bool(is_barrier)
+        for candidate, is_barrier in zip(rows["hydrocarbon_candidate"], lithology_barriers)
     ]
 
     groups: list[list[Mapping[str, object]]] = []
+    barrier_groups: list[list[Mapping[str, object]]] = []
+    inferred_barriers: list[LithologyBarrier] = []
+    current_barrier: list[Mapping[str, object]] = []
     current: list[Mapping[str, object]] = []
     previous_depth: float | None = None
     previous_base: float | None = None
@@ -449,10 +577,19 @@ def detect_hydrocarbon_intervals(
             if current:
                 groups.append(current)
                 current = []
+            if record.get("barrier_candidate"):
+                current_barrier.append(record)
+            elif current_barrier:
+                barrier_groups.append(current_barrier)
+                current_barrier = []
             previous_depth = None
             previous_base = None
             previous_group = None
             continue
+
+        if current_barrier:
+            barrier_groups.append(current_barrier)
+            current_barrier = []
 
         depth = float(record[depth_column])
         row_top = _to_float(record.get("top"))
@@ -460,6 +597,21 @@ def detect_hydrocarbon_intervals(
         explicit_top = depth if row_top is None else row_top
         explicit_base = depth if row_base is None else row_base
         explicit_gap = bool(has_explicit_bounds and previous_base is not None and explicit_top > previous_base)
+        if explicit_gap and rules.preserve_explicit_gaps:
+            inferred_barriers.append(
+                _barrier_from_group(
+                    (
+                        {
+                            "top": previous_base,
+                            "base": explicit_top,
+                            "depth": previous_base,
+                            "lithology_class": "unknown_barrier",
+                            "__source_row": record.get("__source_row"),
+                        },
+                    ),
+                    inferred=True,
+                )
+            )
         record["__separated_by_gap"] = bool(explicit_gap)
         group_key = _fluid_group(str(record["hydrocarbon_fluid_type"]), merge_compatible_fluids=rules.merge_compatible_fluids)
         gap_ok = rules.max_depth_gap is None or previous_depth is None or abs(depth - previous_depth) <= rules.max_depth_gap
@@ -475,6 +627,10 @@ def detect_hydrocarbon_intervals(
 
     if current:
         groups.append(current)
+    if current_barrier:
+        barrier_groups.append(current_barrier)
+
+    barriers = tuple(_barrier_from_group(group) for group in barrier_groups) + tuple(inferred_barriers)
 
     intervals = tuple(
         _interval_from_group(group)
@@ -485,9 +641,10 @@ def detect_hydrocarbon_intervals(
         f"Проверено строк: {len(rows)}.",
         f"Кандидатов УВ: {int(rows['hydrocarbon_candidate'].sum())}.",
         f"Сформировано УВ-интервалов: {len(intervals)}.",
+        f"Обнаружено литологических перемычек: {len(barriers)}.",
         f"Схема интервалов: {HYDROCARBON_INTERVAL_SCHEMA}.",
     )
-    return HydrocarbonIntervalResult(intervals=intervals, rows=rows, diagnostics=diagnostics)
+    return HydrocarbonIntervalResult(intervals=intervals, rows=rows, barriers=barriers, diagnostics=diagnostics)
 
 
 def hydrocarbon_interval_table_rows(intervals: Iterable[HydrocarbonInterval]) -> tuple[dict[str, object], ...]:
@@ -524,6 +681,32 @@ def hydrocarbon_interval_dataframe(intervals: Iterable[HydrocarbonInterval]) -> 
     """Convert interval model to DataFrame for HTML/PDF report tables."""
 
     return pd.DataFrame(hydrocarbon_interval_table_rows(intervals))
+
+
+def lithology_barrier_table_rows(barriers: Iterable[LithologyBarrier]) -> tuple[dict[str, object], ...]:
+    """Return report-friendly lithology barrier rows."""
+
+    return tuple(
+        {
+            "top": barrier.top,
+            "base": barrier.base,
+            "thickness": barrier.thickness,
+            "lithology": barrier.lithology,
+            "lithology_label": LITHOLOGY_CLASS_LABELS.get(barrier.lithology, barrier.lithology),
+            "seal_quality": barrier.seal_quality,
+            "remarks": barrier.remarks,
+            "source_start_row": barrier.source_start_row,
+            "source_end_row": barrier.source_end_row,
+            "inferred": barrier.inferred,
+        }
+        for barrier in barriers
+    )
+
+
+def lithology_barrier_dataframe(barriers: Iterable[LithologyBarrier]) -> pd.DataFrame:
+    """Convert barrier model to DataFrame for reports and UI grids."""
+
+    return pd.DataFrame(lithology_barrier_table_rows(barriers))
 
 
 def hydrocarbon_interval_marker_rows(intervals: Iterable[HydrocarbonInterval]) -> tuple[dict[str, object], ...]:

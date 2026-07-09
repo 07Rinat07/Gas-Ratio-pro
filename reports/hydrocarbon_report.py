@@ -11,6 +11,7 @@ from core.hydrocarbon_intervals import (
     detect_hydrocarbon_intervals,
     hydrocarbon_interval_dataframe,
     hydrocarbon_interval_marker_dataframe,
+    lithology_barrier_dataframe,
 )
 from reports.export_html import HtmlReportTable
 
@@ -27,6 +28,7 @@ class HydrocarbonReportPayload:
     result: HydrocarbonIntervalResult
     summary_table: HtmlReportTable | None = None
     marker_table: HtmlReportTable | None = None
+    barrier_table: HtmlReportTable | None = None
     interpretation_table: HtmlReportTable | None = None
     diagnostics_table: HtmlReportTable | None = None
 
@@ -41,6 +43,7 @@ class HydrocarbonReportPayload:
             for table in (
                 self.summary_table,
                 self.marker_table,
+                self.barrier_table,
                 self.interpretation_table,
                 self.diagnostics_table,
             )
@@ -142,6 +145,7 @@ def build_hydrocarbon_report_payload(
     result = detect_hydrocarbon_intervals(df, depth_column=depth_column)
     interval_df = hydrocarbon_interval_dataframe(result.intervals)
     marker_df = hydrocarbon_interval_marker_dataframe(result.intervals)
+    barrier_df = lithology_barrier_dataframe(result.barriers)
 
     summary_table = dataframe_to_html_report_table(
         "Сводка выявленных УВ-интервалов",
@@ -163,6 +167,20 @@ def build_hydrocarbon_report_payload(
         ),
         max_rows=max_summary_rows,
     )
+    barrier_table = dataframe_to_html_report_table(
+        "Литологические перемычки между интервалами",
+        barrier_df,
+        columns=(
+            "top",
+            "base",
+            "thickness",
+            "lithology_label",
+            "seal_quality",
+            "remarks",
+            "inferred",
+        ),
+        max_rows=max_summary_rows,
+    )
     interpretation_table = build_hydrocarbon_interpretation_table(result.intervals)
     diagnostics_table = build_hydrocarbon_diagnostics_table(result)
 
@@ -170,6 +188,7 @@ def build_hydrocarbon_report_payload(
         result=result,
         summary_table=summary_table,
         marker_table=marker_table,
+        barrier_table=barrier_table,
         interpretation_table=interpretation_table,
         diagnostics_table=diagnostics_table,
     )

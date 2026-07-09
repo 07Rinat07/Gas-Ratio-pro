@@ -42,3 +42,23 @@ def test_hydrocarbon_report_payload_handles_missing_depth_without_tables() -> No
     assert payload.interpretation_table is None
     assert payload.diagnostics_table is not None
     assert "Колонка глубины не найдена" in payload.diagnostics[0]
+
+
+def test_hydrocarbon_report_payload_includes_lithology_barrier_table() -> None:
+    frame = pd.DataFrame(
+        {
+            "top": [2148.2, 2150.0, 2150.2],
+            "base": [2150.0, 2150.2, 2154.8],
+            "depth": [2148.2, 2150.0, 2150.2],
+            "interpretation": ["Газовая залежь", "Claystone barrier", "Газовая залежь"],
+            "lithology": ["Sandstone", "Claystone", "Sandstone"],
+            "c1_c2": [80.0, None, 82.0],
+        }
+    )
+
+    payload = build_hydrocarbon_report_payload(frame)
+
+    assert payload.barrier_table is not None
+    assert payload.barrier_table.title == "Литологические перемычки между интервалами"
+    assert "Claystone" in payload.barrier_table.rows[0]
+    assert len(payload.intervals) == 2

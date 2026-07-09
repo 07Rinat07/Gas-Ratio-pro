@@ -258,3 +258,30 @@ Accepted reporting example:
 ```
 
 The two gas intervals remain separate productive intervals in the report.
+
+---
+
+## Current implementation update — Hydrocarbon Interval Engine v6
+
+Hydrocarbon Interval Engine v6 adds lithology and barrier awareness.
+
+Implemented rules:
+
+- productive intervals remain separated across explicit Clay / Claystone / Shale / Tight barrier intervals;
+- the result object now stores `barriers` separately from `intervals`;
+- report payloads can include a dedicated lithological barrier table;
+- English output uses `Claystone` for аргиллит / глинистая порода;
+- `Argillite` should not be used as the preferred project output term.
+
+Current schema:
+
+```text
+gas-ratio-pro/hydrocarbon-intervals/v6
+```
+
+Next work remains inside Hydrocarbon Interval Engine:
+
+1. structured evidence model;
+2. confidence scoring;
+3. quality flags;
+4. acceptance tests on real project datasets.

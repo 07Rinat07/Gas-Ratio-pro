@@ -1523,3 +1523,11 @@ Project Manager 2.0 расширен восстановлением проект
 - Added stable project-scoped LAS workspace defaults: id `las-workspace-3`, kind `las`, schema `gas-ratio-pro.las-workspace.v3`.
 - LAS Workspace 3.0 activation now goes through `WorkspaceController` and `ApplicationStateController` instead of direct UI state writes.
 - Added tests for create/open/idempotent LAS workspace controller workflows.
+
+---
+
+## Hydrocarbon Interval Engine v6 note
+
+Current active module remains **Hydrocarbon Interval Engine**. The project must complete this module before moving to Interpretation Engine, Report Engine or Petrophysics.
+
+Version v6 adds lithology/barrier awareness. Productive intervals separated by Clay, Claystone, Shale or Tight barrier intervals must remain separate in reports and graph markers by default. Barriers are stored in a dedicated barrier model and may be shown as a separate report table.

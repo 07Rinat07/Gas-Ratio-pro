@@ -96,7 +96,7 @@ def test_hydrocarbon_interval_engine_keeps_transition_candidates_when_enabled() 
     assert len(result.intervals) == 1
     assert result.intervals[0].fluid_type in {"mixed", "transition"}
     assert result.rows["hydrocarbon_candidate"].all()
-    assert result.schema.endswith("/v5")
+    assert result.schema.endswith("/v6")
 
 
 def test_hydrocarbon_interval_engine_builds_graph_marker_rows() -> None:
@@ -141,7 +141,7 @@ def test_hydrocarbon_interval_engine_distinguishes_directional_oil_gas_labels() 
     )
 
     assert [interval.fluid_type for interval in result.intervals] == ["gas_oil", "oil_gas"]
-    assert result.schema.endswith("/v5")
+    assert result.schema.endswith("/v6")
 
 
 def test_hydrocarbon_interval_engine_keeps_uncertain_candidates_but_excludes_water() -> None:
@@ -203,3 +203,51 @@ def test_hydrocarbon_interval_engine_can_merge_explicit_gaps_when_requested() ->
     assert len(result.intervals) == 1
     assert result.intervals[0].top == 2148.2
     assert result.intervals[0].base == 2154.8
+
+
+def test_hydrocarbon_interval_engine_records_lithology_barrier_rows() -> None:
+    frame = pd.DataFrame(
+        {
+            "top": [2148.2, 2150.0, 2150.2],
+            "base": [2150.0, 2150.2, 2154.8],
+            "depth": [2148.2, 2150.0, 2150.2],
+            "interpretation": ["Газовая залежь", "Claystone barrier", "Газовая залежь"],
+            "lithology": ["Sandstone", "Claystone", "Sandstone"],
+            "wh": [7.0, None, 8.0],
+            "bh": [45.0, None, 48.0],
+            "c1_c2": [80.0, None, 82.0],
+        }
+    )
+
+    result = detect_hydrocarbon_intervals(frame)
+
+    assert [(interval.top, interval.base, interval.fluid_type) for interval in result.intervals] == [
+        (2148.2, 2150.0, "gas"),
+        (2150.2, 2154.8, "gas"),
+    ]
+    assert len(result.barriers) == 1
+    assert result.barriers[0].top == 2150.0
+    assert result.barriers[0].base == 2150.2
+    assert result.barriers[0].lithology == "claystone"
+    assert result.barriers[0].inferred is False
+    assert result.rows.loc[1, "barrier_candidate"] is True or bool(result.rows.loc[1, "barrier_candidate"])
+
+
+def test_hydrocarbon_interval_engine_records_inferred_barrier_for_explicit_gap() -> None:
+    frame = pd.DataFrame(
+        {
+            "top": [2148.2, 2150.2],
+            "base": [2150.0, 2154.8],
+            "depth": [2148.2, 2150.2],
+            "interpretation": ["Газовая залежь", "Газовая залежь"],
+        }
+    )
+
+    result = detect_hydrocarbon_intervals(frame)
+
+    assert len(result.intervals) == 2
+    assert len(result.barriers) == 1
+    assert result.barriers[0].top == 2150.0
+    assert result.barriers[0].base == 2150.2
+    assert result.barriers[0].lithology == "unknown_barrier"
+    assert result.barriers[0].inferred is True
