@@ -1,11 +1,9 @@
-# Next Step
+# Project Progress - Next Step
 
-Current increment: `v29 Document Model`.
+## Completed in v30
 
-Implemented:
-- Renderer-neutral document model for Presentation Layer.
-- HTML renderer integration with `EngineeringDocument`.
-- Tests for document block composition and table profile consistency.
+PDF Renderer Foundation was added on top of the shared `EngineeringDocument` model. The renderer produces PDF bytes and PDF export packages without rerunning calculations or interpretation rules.
 
-Next recommended increment:
-- `PDF Renderer` over `EngineeringDocument`.
+## Next Step
+
+PRS-7: add plot image backend for PDF reports so professional well-log tablets can be embedded as print-ready raster/SVG pages.

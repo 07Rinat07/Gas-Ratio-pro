@@ -789,3 +789,14 @@ Added:
 
 Purpose:
 - Keep one source of engineering interpretation for HTML, future PDF, DOCX and UI renderers.
+
+## v30 - PDF Renderer Foundation
+
+### Added
+- Added `reports/presentation_pdf.py` for PDF rendering from `EngineeringDocument`.
+- Added PDF export package support with manifest JSON.
+- Added documentation for the PDF renderer foundation.
+
+### Notes
+- Plot blocks are preserved as document blocks; raster/SVG plot embedding is planned as the next renderer backend increment.
+
