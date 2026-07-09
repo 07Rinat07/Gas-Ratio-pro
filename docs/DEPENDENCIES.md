@@ -83,3 +83,8 @@ python scripts/release_export_qa.py --output-dir tmp/release-export-qa
 ```
 
 The command generates the multilingual HTML/PDF/DOCX bundle, validates the bundle manifest, checks visualization assets and writes a machine-readable validation report next to the bundle manifest. CI tools should read the `validation.validation_report` path from the command JSON output instead of parsing console text.
+
+### Export contract schema QA
+
+Release export QA now includes a pure-Python schema contract validator. It uses only the standard library and adds no runtime dependency.
+

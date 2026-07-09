@@ -18,6 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from reports.presentation_export import validate_presentation_bundle_export, write_presentation_bundle_validation_report
+from reports.presentation_export_contract import validate_export_contract
 from scripts.export_smoke import run_export_smoke
 
 
@@ -62,10 +63,12 @@ def run_release_export_qa(output_dir: str | Path) -> dict[str, object]:
     validation = validate_presentation_bundle_export(smoke["manifest"])
     validation_report_path = write_presentation_bundle_validation_report(validation)
     visualization_assets = _read_visualization_asset_summary(smoke["manifest"])
+    contract = validate_export_contract(smoke["manifest"], validation_report_path=validation_report_path)
     return {
-        "ok": bool(smoke.get("ok")) and validation.ok,
+        "ok": bool(smoke.get("ok")) and validation.ok and contract.ok,
         "smoke": smoke,
         "visualization_assets": visualization_assets,
+        "contract": contract.to_dict(),
         "validation": {
             "ok": validation.ok,
             "manifest": str(validation.manifest_path),

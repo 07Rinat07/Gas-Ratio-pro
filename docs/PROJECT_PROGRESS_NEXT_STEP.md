@@ -251,3 +251,11 @@ Completed:
 
 Next step:
 Use indexed SVG visualization assets as concrete inputs for PDF/DOCX renderers so printable formats can embed the prepared Visualization Engine output instead of keeping placeholders.
+
+## v73 Export Contract Schema
+
+- Added formal presentation export contract validation for bundle manifests.
+- Release QA now validates manifest schema, visualization asset index schema and validation report schema.
+- Contract validation is filesystem-only and does not rebuild engineering calculations.
+- This stabilizes the external bundle format before deeper Visualization Engine work.
+
