@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any, MutableMapping, Protocol
 
 from core.command_framework import CommandExecutionResult, WorkbenchCommandRegistry
+from core.workbench_controller import WorkbenchController, build_workbench_controller
 from core.workbench_shell import (
     WorkbenchRendererContract,
     WorkbenchShellBuilder,
@@ -44,6 +45,7 @@ class StreamlitWorkbenchAdapter:
 
     contract: WorkbenchRendererContract
     registry: WorkbenchCommandRegistry
+    controller: WorkbenchController | None = None
 
     def payload(self) -> dict[str, Any]:
         """Return the serializable contract payload for diagnostics/tests."""
@@ -54,14 +56,17 @@ class StreamlitWorkbenchAdapter:
 def build_streamlit_workbench_adapter(state: MutableMapping[str, Any]) -> StreamlitWorkbenchAdapter:
     """Build a Streamlit Workbench adapter from application/session state."""
 
-    builder = WorkbenchShellBuilder(state)
-    shell = builder.build()
-    contract = build_workbench_renderer_contract(
-        shell,
+    controller = build_workbench_controller(
+        state,
         renderer=WORKBENCH_RENDERER_NAME,
         version=WORKBENCH_RENDERER_CONTRACT_VERSION,
     )
-    return StreamlitWorkbenchAdapter(contract=contract, registry=builder.command_registry)
+    contract = controller.contract()
+    return StreamlitWorkbenchAdapter(
+        contract=contract,
+        registry=controller.command_registry,
+        controller=controller,
+    )
 
 
 def _contract_action_map(contract: WorkbenchRendererContract) -> dict[str, dict[str, Any]]:
@@ -85,8 +90,17 @@ def dispatch_workbench_renderer_action(
     actions = _contract_action_map(contract)
     if clean_action_id not in actions:
         raise KeyError(f"Unknown or disabled renderer action: {clean_action_id}")
-    command_id = str(actions[clean_action_id]["command_id"])
-    return registry.execute(command_id, dict(payload or {}))
+
+    # Keep the public helper backward compatible, but route known renderer
+    # actions through the controller so UI adapters never mutate or validate
+    # Workbench state themselves.
+    controller = WorkbenchController(
+        registry.state,
+        renderer=contract.renderer,
+        version=contract.version,
+        command_registry=registry,
+    )
+    return controller.dispatch_renderer_action(clean_action_id, dict(payload or {})).command_result
 
 
 def _navigation_button_key(item_id: str) -> str:

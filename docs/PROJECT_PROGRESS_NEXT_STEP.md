@@ -50,6 +50,8 @@ Completed in v52: the Modern Workbench shell now exposes a renderer contract for
 
 Completed in v53: the first thin Streamlit Modern Workbench renderer adapter is available in `app.workbench_renderer`. It builds the renderer contract from session state, renders navigation and dock controls from contract payload, and dispatches all clicks through command-backed renderer actions instead of mutating Workbench state directly.
 
+Completed in v54: the Modern Workbench now has a controller layer in `core.workbench_controller`. The controller coordinates renderer actions, Command Framework execution, shell rebuilding and renderer-contract refresh. It validates navigation and dock targets before state changes, so Streamlit adapters can remain thin presentation code.
+
 ## Next recommended increment
 
-Integrate the Streamlit Modern Workbench renderer adapter into the main application behind a safe entry point or feature flag. Keep legacy screens available while validating the renderer contract against real session state. Keep `scripts/release_export_qa.py` as the release check before packaging builds.
+Integrate the controller-backed Streamlit Modern Workbench renderer into the main application behind a safe entry point or feature flag. Keep legacy screens available while validating the renderer contract against real session state. Keep `scripts/release_export_qa.py` as the release check before packaging builds.

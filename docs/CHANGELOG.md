@@ -1,3 +1,12 @@
+# Changelog
+
+## Modern Workbench Controller Layer v54
+
+- Added `core.workbench_controller` as the coordination boundary between renderer adapters, command execution, shell state and renderer contracts.
+- Added controller-level validation for navigation and dock-pane targets before state changes are executed.
+- Updated the Streamlit Workbench adapter to build from the controller while preserving its public compatibility surface.
+- Added regression tests for controller view-model creation, renderer action dispatch and invalid target rejection.
+
 
 ## v35 - Presentation UI export bridge
 
@@ -5,7 +14,6 @@
 - Connected Streamlit report controls to `reports.presentation_ui`.
 - Kept renderer internals out of the UI layer.
 
-# Changelog
 
 ## Modern Workbench Command Actions v51
 
@@ -169,7 +177,6 @@
 - Updated `README.md` with project summary, author, setup, launch and testing instructions.
 - Added tests for Curve Manager Professional foundation.
 
-# Changelog
 
 ## Modern Workbench Command Actions v51
 
