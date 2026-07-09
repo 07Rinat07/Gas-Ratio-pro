@@ -12,6 +12,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Iterable, MutableMapping, Protocol
 
 from services.las_curve_metadata_service import LasCurveMetadataService
+from services.las_visualization_payload_service import LasVisualizationPayloadService
 from core.workbench_context import WorkspaceContext
 from core.workbench_tools import WorkbenchToolDescriptor, WorkbenchToolManager, WorkbenchToolRegistry
 
@@ -193,6 +194,8 @@ class LasViewerToolViewProvider:
             "las_id": las_id,
         }
         metadata_summary: dict[str, Any] = {}
+        visualization_payload: dict[str, Any] = {}
+        visualization_error = ""
         metadata_error = ""
         if context.application.project_id:
             try:
@@ -202,8 +205,13 @@ class LasViewerToolViewProvider:
                 ).to_dict()
                 selected_las["well_id"] = metadata_summary.get("well_id") or selected_las["well_id"]
                 selected_las["well_name"] = metadata_summary.get("well_name", "")
+                visualization_payload = LasVisualizationPayloadService(state.get("projects_root") or state.get("project_root") or "projects").build(
+                    context.application.project_id,
+                    las_id,
+                ).to_dict()
             except Exception as exc:  # renderer payload must remain safe even if storage is unavailable
                 metadata_error = str(exc)
+                visualization_error = str(exc)
         content.update(
             {
                 "selected_las": selected_las,
@@ -215,6 +223,8 @@ class LasViewerToolViewProvider:
                 ],
                 "available_sections": ["curve_overview", "depth_range", "quality_flags"],
                 "curve_metadata": metadata_summary,
+                "visualization": visualization_payload,
+                "visualization_error": visualization_error,
                 "metadata_error": metadata_error,
             }
         )

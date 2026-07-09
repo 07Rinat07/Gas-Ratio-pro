@@ -130,3 +130,16 @@ Completed:
 
 Next step:
 Start Visualization Engine foundation with renderer-neutral curve track models and printable plot payloads while keeping plotting implementation outside Streamlit UI.
+
+## V62 LAS Visualization Payload Foundation
+
+Completed:
+- Added `services/las_visualization_payload_service.py` for renderer-neutral LAS visualization payloads.
+- Added printable track descriptors for gamma, gas, resistivity, porosity and other curves.
+- Added sampled curve point payloads with depth axis, units, min/max values and decimation flags.
+- LAS Viewer now exposes a lightweight `visualization` payload beside curve metadata.
+- Kept plotting backend, Streamlit rendering and raw LAS dataframe data outside Workbench UI state.
+- Added regression tests for visualization payload generation and LAS Viewer provider integration.
+
+Next step:
+Connect the visualization payload to a thin renderer adapter and then start building Visualization Engine 2.0 chart layout rules for professional LAS print/export output.
