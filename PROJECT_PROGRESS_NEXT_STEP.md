@@ -1,6 +1,6 @@
 # Project progress
 
-Current completed step: **PRS-1 — Executive Summary Engine foundation**.
+Current completed step: **PRS-2 — Interval Cards Engine**.
 
 ## Completed foundations preserved
 
@@ -12,26 +12,31 @@ Current completed step: **PRS-1 — Executive Summary Engine foundation**.
 6. Workspace Dashboard cards
 7. Project Explorer shortcuts
 8. Hydrocarbon Interpretation Engine v1.0 Freeze Gate
+9. PRS-1 — Executive Summary Engine
 
 ## Result
 
-Professional Reporting System has started with an engineer-first Executive Summary layer.
-The report payload now separates the first-page engineering summary from technical diagnostics.
+Professional Reporting System now includes engineer-facing interval cards. The report can show each interpreted interval as a practical decision object instead of exposing raw rows, internal counters or technical diagnostics first.
 
 ## Current implementation
 
-- Added `reports.executive_summary`.
-- Added `ExecutiveSummary`, `ExecutiveSummaryItem` and first-page report tables.
-- Added `professional_tables` on the hydrocarbon report payload.
-- Kept existing technical `tables` property backward-compatible.
-- Updated interval print report header to hide row count and tablet-parameter noise from the main header.
+- Added `reports.interval_cards`.
+- Added `IntervalReportCard`.
+- Added interval overview table for report front matter.
+- Added interval reasoning table with grounds, recommendations and limitations.
+- Integrated interval cards into `HydrocarbonReportPayload.professional_tables`.
+- Preserved backward-compatible technical `tables` for expert appendix/export workflows.
+
+## Test status
+
+`1070 passed`
 
 ## Next stage
 
 Continue **Professional Reporting System**:
 
-1. Interval Cards.
-2. Engineer-facing detailed interpretation sections.
-3. Technical Appendix separated from default report.
-4. Preparation for PDF/DOCX export.
-5. Professional Well Log Plot Engine planning.
+1. Split default report and Technical Appendix.
+2. Move raw row tables, diagnostics, NaN/data-quality details and full calculation dumps into the appendix.
+3. Keep the default engineering report focused on conclusion, intervals, reasoning and recommendations.
+4. Prepare PDF/DOCX export structure.
+5. Start Professional Well Log Plot Engine planning after report sections are stabilized.

@@ -21,6 +21,12 @@ from reports.executive_summary import (
     executive_summary_table,
     main_intervals_table,
 )
+from reports.interval_cards import (
+    IntervalReportCard,
+    build_interval_report_cards,
+    interval_cards_overview_table,
+    interval_cards_reasoning_table,
+)
 
 
 @dataclass(frozen=True)
@@ -42,6 +48,9 @@ class HydrocarbonReportPayload:
     executive_summary_table: HtmlReportTable | None = None
     main_intervals_table: HtmlReportTable | None = None
     executive_recommendations_table: HtmlReportTable | None = None
+    interval_cards: tuple[IntervalReportCard, ...] = ()
+    interval_cards_table: HtmlReportTable | None = None
+    interval_card_reasoning_table: HtmlReportTable | None = None
 
     @property
     def intervals(self) -> tuple[HydrocarbonInterval, ...]:
@@ -73,6 +82,8 @@ class HydrocarbonReportPayload:
                 self.executive_summary_table,
                 self.main_intervals_table,
                 self.executive_recommendations_table,
+                self.interval_cards_table,
+                self.interval_card_reasoning_table,
                 self.summary_table,
                 self.marker_table,
                 self.barrier_table,
@@ -216,6 +227,7 @@ def build_hydrocarbon_report_payload(
     )
     interpretation_table = build_hydrocarbon_interpretation_table(result.intervals)
     diagnostics_table = build_hydrocarbon_diagnostics_table(result)
+    interval_cards = build_interval_report_cards(result.intervals)
 
     return HydrocarbonReportPayload(
         result=result,
@@ -223,6 +235,9 @@ def build_hydrocarbon_report_payload(
         executive_summary_table=executive_summary_table(executive_summary),
         main_intervals_table=main_intervals_table(executive_summary),
         executive_recommendations_table=executive_recommendations_table(executive_summary),
+        interval_cards=interval_cards,
+        interval_cards_table=interval_cards_overview_table(interval_cards),
+        interval_card_reasoning_table=interval_cards_reasoning_table(interval_cards),
         summary_table=summary_table,
         marker_table=marker_table,
         barrier_table=barrier_table,

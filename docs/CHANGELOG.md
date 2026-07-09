@@ -1,3 +1,14 @@
+# Changelog
+
+## Professional Reporting System v21
+
+- Added `reports.interval_cards` with engineer-facing interval report cards.
+- Added compact interval overview cards for report front matter.
+- Added detailed interval reasoning table with grounds, recommendations and limitations.
+- Integrated interval cards into `HydrocarbonReportPayload.professional_tables`.
+- Preserved backward-compatible technical report tables.
+- Added regression tests for interval card generation and report integration.
+
 
 ## Hydrocarbon Interpretation Engine v16
 

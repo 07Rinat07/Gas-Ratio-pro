@@ -105,3 +105,15 @@ Status: frozen public API after Validation Dataset v2 passes. Next major module:
 The first Professional Reporting System increment adds an Executive Summary layer.
 Reports should answer engineering questions first: what intervals were found, where they are located, how reliable they are and what should be checked next. Technical row counters, raw diagnostics and full calculation dumps belong to technical appendices, not to the first report header.
 
+
+
+## Professional Reporting System
+
+The current reporting layer starts with engineer-facing outputs instead of raw technical counters.
+
+Implemented increments:
+
+- Executive Summary — first-page engineering conclusion.
+- Interval Cards — compact cards for each interpreted interval with depth, thickness, fluid type, confidence, explanation, recommendations and limitations.
+
+Technical tables and diagnostics are still preserved for expert/appendix workflows, but they are no longer the primary report experience.
