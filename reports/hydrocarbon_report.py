@@ -14,6 +14,13 @@ from core.hydrocarbon_intervals import (
     lithology_barrier_dataframe,
 )
 from reports.export_html import HtmlReportTable
+from reports.executive_summary import (
+    ExecutiveSummary,
+    build_executive_summary,
+    executive_recommendations_table,
+    executive_summary_table,
+    main_intervals_table,
+)
 
 
 @dataclass(frozen=True)
@@ -31,6 +38,10 @@ class HydrocarbonReportPayload:
     barrier_table: HtmlReportTable | None = None
     interpretation_table: HtmlReportTable | None = None
     diagnostics_table: HtmlReportTable | None = None
+    executive_summary: ExecutiveSummary | None = None
+    executive_summary_table: HtmlReportTable | None = None
+    main_intervals_table: HtmlReportTable | None = None
+    executive_recommendations_table: HtmlReportTable | None = None
 
     @property
     def intervals(self) -> tuple[HydrocarbonInterval, ...]:
@@ -38,9 +49,30 @@ class HydrocarbonReportPayload:
 
     @property
     def tables(self) -> tuple[HtmlReportTable, ...]:
+        """Backward-compatible technical table set used by existing exports."""
+
         return tuple(
             table
             for table in (
+                self.summary_table,
+                self.marker_table,
+                self.barrier_table,
+                self.interpretation_table,
+                self.diagnostics_table,
+            )
+            if table is not None
+        )
+
+    @property
+    def professional_tables(self) -> tuple[HtmlReportTable, ...]:
+        """Engineer-first table sequence for Professional Reporting System."""
+
+        return tuple(
+            table
+            for table in (
+                self.executive_summary_table,
+                self.main_intervals_table,
+                self.executive_recommendations_table,
                 self.summary_table,
                 self.marker_table,
                 self.barrier_table,
@@ -143,6 +175,7 @@ def build_hydrocarbon_report_payload(
     """
 
     result = detect_hydrocarbon_intervals(df, depth_column=depth_column)
+    executive_summary = build_executive_summary(result)
     interval_df = hydrocarbon_interval_dataframe(result.intervals)
     marker_df = hydrocarbon_interval_marker_dataframe(result.intervals)
     barrier_df = lithology_barrier_dataframe(result.barriers)
@@ -186,6 +219,10 @@ def build_hydrocarbon_report_payload(
 
     return HydrocarbonReportPayload(
         result=result,
+        executive_summary=executive_summary,
+        executive_summary_table=executive_summary_table(executive_summary),
+        main_intervals_table=main_intervals_table(executive_summary),
+        executive_recommendations_table=executive_recommendations_table(executive_summary),
         summary_table=summary_table,
         marker_table=marker_table,
         barrier_table=barrier_table,

@@ -100,3 +100,8 @@ http://localhost:8501
 ## Hydrocarbon Interpretation Engine v1.0
 
 Status: frozen public API after Validation Dataset v2 passes. Next major module: Professional Reporting System.
+## Professional Reporting System
+
+The first Professional Reporting System increment adds an Executive Summary layer.
+Reports should answer engineering questions first: what intervals were found, where they are located, how reliable they are and what should be checked next. Technical row counters, raw diagnostics and full calculation dumps belong to technical appendices, not to the first report header.
+

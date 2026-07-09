@@ -691,3 +691,10 @@ git status --short
 - Updated schema to `gas-ratio-pro/hydrocarbon-intervals/v19`.
 - Updated freeze and architecture audit documentation.
 - Added regression test for freeze status.
+## PRS-1 — Executive Summary Engine foundation
+
+- Added engineer-first Executive Summary model for Professional Reporting System.
+- Added professional report table sequence without breaking legacy technical table payloads.
+- Updated print report header to focus on project and analysis interval instead of technical row counters.
+- Added regression tests for summary behavior and report header noise reduction.
+

@@ -134,7 +134,7 @@ def build_interval_print_report(
     tables: list[HtmlReportTable] = []
 
     hydrocarbon_payload = build_hydrocarbon_report_payload(interval_df)
-    tables.extend(hydrocarbon_payload.tables)
+    tables.extend(hydrocarbon_payload.professional_tables)
 
     interpretation_table = build_interpretation_counts_table(interval_df)
     if interpretation_table is not None:
@@ -162,13 +162,11 @@ def build_interval_print_report(
         figures,
         HtmlReportMetadata(
             title=title,
-            subtitle="Печатный отчет по выбранному интервалу",
+            subtitle="Печатный отчет по выбранному интервалу · Инженерное заключение по вероятным УВ-интервалам",
             rows=(
                 ("Источник данных", str(source_label)),
                 ("Проект", str(project_label)),
-                ("Диапазон глубины", str(depth_label)),
-                ("Строк в интервале", str(rows_count)),
-                ("Планшетные параметры", ", ".join(selected_tablet_columns) if selected_tablet_columns else "не выбраны"),
+                ("Интервал анализа", str(depth_label)),
             ),
             notes=report_notes,
             tables=tuple(tables),
