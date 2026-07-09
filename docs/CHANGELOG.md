@@ -779,3 +779,13 @@ git status --short
 
 ### Rationale
 - HTML, PDF, DOCX and UI exports must consume the same `PresentationModel` so report outputs stay consistent with HIE, interval cards and professional plots.
+
+## v29 — Document Model foundation
+
+Added:
+- Renderer-neutral `EngineeringDocument` document object model.
+- `DocumentTable`, `DocumentPlot`, `DocumentNotice` blocks.
+- HTML renderer now consumes the document model instead of composing sections directly from `PresentationModel`.
+
+Purpose:
+- Keep one source of engineering interpretation for HTML, future PDF, DOCX and UI renderers.

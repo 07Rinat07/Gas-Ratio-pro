@@ -6,7 +6,14 @@ from typing import Sequence
 
 import plotly.io as pio
 
-from reports.export_html import HtmlReportMetadata, HtmlReportTable
+from reports.document_model import (
+    DocumentNotice,
+    DocumentPlot,
+    DocumentTable,
+    EngineeringDocument,
+    build_engineering_document,
+)
+from reports.export_html import HtmlReportTable
 from reports.presentation_model import PresentationModel
 
 
@@ -148,6 +155,54 @@ def _technical_appendix_notice() -> str:
     )
 
 
+
+
+def _render_document_table(table: DocumentTable) -> str:
+    return _render_table(HtmlReportTable(title=table.title, headers=table.headers, rows=table.rows))
+
+
+def _render_document_notice(notice: DocumentNotice) -> str:
+    title = escape(_clean_text(notice.title) or "Примечание")
+    text = escape(_clean_text(notice.text))
+    css_class = "technical-appendix-notice" if notice.role == "technical-appendix-notice" else "report-section"
+    return f"<section class='{css_class}'><h2>{title}</h2><p>{text}</p></section>"
+
+
+def _render_document_plot(plot: DocumentPlot, *, include_plotlyjs: bool) -> str:
+    return "\n".join(
+        (
+            "<section class='report-section report-plot avoid-break'>",
+            f"<h2>{escape(_clean_text(plot.title) or 'Профессиональный планшет интерпретации')}</h2>",
+            pio.to_html(plot.figure, include_plotlyjs=include_plotlyjs, full_html=False),
+            "</section>",
+        )
+    )
+
+
+def _render_document_sections(document: EngineeringDocument) -> str:
+    parts: list[str] = []
+    include_plotlyjs = True
+    for section in document.sections:
+        section_classes = ["document-section"]
+        if section.page_break_before:
+            section_classes.append("page-break-before")
+        if section.avoid_break_inside:
+            section_classes.append("avoid-break")
+        for block in section.blocks:
+            if isinstance(block, DocumentTable):
+                rendered = _render_document_table(block)
+            elif isinstance(block, DocumentPlot):
+                rendered = _render_document_plot(block, include_plotlyjs=include_plotlyjs)
+                include_plotlyjs = False
+            elif isinstance(block, DocumentNotice):
+                rendered = _render_document_notice(block)
+            else:
+                rendered = ""
+            if rendered:
+                parts.append(rendered)
+    return "\n".join(parts)
+
+
 def select_presentation_tables(
     model: PresentationModel,
     *,
@@ -170,30 +225,23 @@ def build_presentation_html_report(
 ) -> PresentationHtmlResult:
     """Render an engineer-first printable HTML report from PresentationModel.
 
-    The resulting HTML is intentionally suitable for browser printing and future
-    PDF conversion. It avoids technical row counters in the header and appends
-    raw diagnostics only when the expert profile is explicitly requested.
+    The HTML renderer now consumes a renderer-neutral EngineeringDocument. This
+    prevents HTML, future PDF and future DOCX exporters from duplicating
+    engineering report composition rules.
     """
 
     opts = options or PresentationHtmlOptions()
     include_technical = opts.include_technical_appendix or model.metadata.report_profile == "expert"
-    tables = select_presentation_tables(model, include_technical_appendix=include_technical)
-    figures = model.figures if opts.include_figures else ()
-
-    metadata = HtmlReportMetadata(
-        title=model.metadata.title or opts.page_title,
-        subtitle=model.metadata.subtitle,
-        rows=model.metadata.as_report_rows(),
-        notes=(
-            "Каждая интерпретация является инженерной гипотезой и должна оцениваться совместно с ГИС, литологией, керном и испытаниями.",
-        ),
-        tables=tables,
+    document = build_engineering_document(
+        model,
+        include_figures=opts.include_figures,
+        include_technical_appendix=include_technical,
     )
 
     parts = [
         "<!doctype html>",
         f"<html lang='{escape(opts.language)}'><head><meta charset='utf-8'>",
-        f"<title>{escape(metadata.title)}</title>",
+        f"<title>{escape(document.metadata.title or opts.page_title)}</title>",
         "<style>",
         "body{font-family:Arial,sans-serif;margin:22px;color:#172033;background:#fff;}",
         ".report-cover{border-bottom:2px solid #d7dde8;margin-bottom:22px;padding-bottom:16px;}",
@@ -205,6 +253,7 @@ def build_presentation_html_report(
         ".meta th,.meta td{border:1px solid #d7dde8;padding:6px 9px;vertical-align:top;}",
         ".notes{font-size:12px;color:#4b5870;margin-top:12px;}",
         ".report-section{page-break-inside:avoid;margin:18px 0 24px 0;}",
+        ".document-section{margin:0;}",
         ".report-table{border-collapse:collapse;width:100%;font-size:12px;}",
         ".report-table th{background:#f1f4f8;text-align:left;}",
         ".report-table th,.report-table td{border:1px solid #d7dde8;padding:5px 7px;vertical-align:top;white-space:pre-line;}",
@@ -214,23 +263,19 @@ def build_presentation_html_report(
         "</style>",
         "</head><body>",
         "<section class='report-cover'>",
-        f"<h1>{escape(metadata.title)}</h1>",
+        f"<h1>{escape(document.metadata.title or opts.page_title)}</h1>",
     ]
-    if metadata.subtitle:
-        parts.append(f"<p class='subtitle'>{escape(metadata.subtitle)}</p>")
-    parts.append(_metadata_table(metadata.rows))
-    parts.append(_notes(metadata.notes))
+    if document.metadata.subtitle:
+        parts.append(f"<p class='subtitle'>{escape(document.metadata.subtitle)}</p>")
+    parts.append(_metadata_table(document.metadata.rows))
+    parts.append(_notes(document.metadata.notes))
     parts.append("</section>")
-    parts.append(_render_tables(tables))
-    if figures:
-        parts.append(_render_figures(figures))
-    if not include_technical:
-        parts.append(_technical_appendix_notice())
+    parts.append(_render_document_sections(document))
     parts.append("</body></html>")
 
     return PresentationHtmlResult(
         content="\n".join(parts).encode("utf-8"),
-        table_titles=tuple(table.title for table in tables),
-        figure_count=len(figures),
-        profile="expert" if include_technical else "engineering",
+        table_titles=document.table_titles,
+        figure_count=document.plot_count,
+        profile=document.metadata.profile,
     )

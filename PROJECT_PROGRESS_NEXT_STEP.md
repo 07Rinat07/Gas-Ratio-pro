@@ -1,17 +1,11 @@
-# Project Progress
+# Next Step
 
-## Completed
+Current increment: `v29 Document Model`.
 
-- Hydrocarbon Interpretation Engine v1.0 freeze.
-- Executive Summary reporting.
-- Interval Cards reporting.
-- Engineering report profile.
-- Professional Well Log Plot foundation.
-- PresentationModel.
-- Presentation HTML renderer and export package.
-- README cleanup and documentation policy.
-- Print-ready presentation layout.
+Implemented:
+- Renderer-neutral document model for Presentation Layer.
+- HTML renderer integration with `EngineeringDocument`.
+- Tests for document block composition and table profile consistency.
 
-## Next step
-
-Implement a dedicated PDF export bridge that converts the print-ready presentation document into a controlled output workflow without duplicating report logic.
+Next recommended increment:
+- `PDF Renderer` over `EngineeringDocument`.
