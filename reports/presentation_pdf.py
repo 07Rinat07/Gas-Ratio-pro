@@ -5,21 +5,32 @@ from io import BytesIO
 from pathlib import Path
 from typing import Sequence
 
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_LEFT
-from reportlab.lib.pagesizes import A3, A4, LETTER, landscape, portrait
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import mm
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import (
-    PageBreak,
-    Paragraph,
-    SimpleDocTemplate,
-    Spacer,
-    Table,
-    TableStyle,
-)
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_LEFT
+    from reportlab.lib.pagesizes import A3, A4, LETTER, landscape, portrait
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.platypus import (
+        PageBreak,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
+    REPORTLAB_AVAILABLE = True
+except ModuleNotFoundError:  # pragma: no cover - depends on user environment
+    colors = None
+    TA_LEFT = None
+    A3 = A4 = LETTER = landscape = portrait = None
+    ParagraphStyle = getSampleStyleSheet = None
+    mm = 1
+    pdfmetrics = TTFont = None
+    PageBreak = Paragraph = SimpleDocTemplate = Spacer = Table = TableStyle = None
+    REPORTLAB_AVAILABLE = False
 
 from reports.document_model import (
     DocumentNotice,
@@ -281,6 +292,16 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
     ]
 
 
+def ensure_reportlab_available() -> None:
+    """Raise a clear runtime error when PDF export dependency is missing."""
+
+    if not REPORTLAB_AVAILABLE:
+        raise RuntimeError(
+            "PDF export requires the optional dependency 'reportlab'. "
+            "Install project dependencies with: pip install -r requirements.txt"
+        )
+
+
 def build_presentation_pdf_report(
     model: PresentationModel,
     *,
@@ -288,6 +309,7 @@ def build_presentation_pdf_report(
 ) -> PresentationPdfResult:
     """Render a print-ready PDF from PresentationModel through EngineeringDocument."""
 
+    ensure_reportlab_available()
     opts = options or PresentationPdfOptions()
     include_technical = opts.include_technical_appendix or model.metadata.report_profile == "expert"
     document = build_engineering_document(
@@ -310,6 +332,7 @@ def render_engineering_document_pdf(
     never rebuilds report content from lower-level hydrocarbon calculations.
     """
 
+    ensure_reportlab_available()
     opts = options or PresentationPdfOptions()
     styles = _styles()
     buffer = BytesIO()
@@ -365,6 +388,8 @@ def render_engineering_document_pdf(
 __all__ = [
     "PresentationPdfOptions",
     "PresentationPdfResult",
+    "REPORTLAB_AVAILABLE",
+    "ensure_reportlab_available",
     "build_presentation_pdf_report",
     "render_engineering_document_pdf",
 ]
