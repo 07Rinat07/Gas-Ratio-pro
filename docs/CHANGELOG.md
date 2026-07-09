@@ -1033,3 +1033,14 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 ### Notes
 - Plotting backend code is still not part of the service layer.
 - Workbench UI state still receives only lightweight serializable payloads, not raw LAS dataframes.
+
+## v69 - Visualization Export Manifest Contract
+
+### Added
+- Added export manifest metadata for prepared Visualization Engine previews.
+- Added bundle consistency flag for visualization preview propagation.
+- Added tests proving visualization previews are tracked in report bundles without exposing raw dataframe content.
+
+### Notes
+- HTML can embed SVG directly.
+- PDF and DOCX still preserve renderer-safe placeholders; binary/vector insertion remains a dedicated renderer backend task.

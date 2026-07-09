@@ -173,6 +173,29 @@ def _metadata_manifest(model: PresentationModel) -> dict[str, str]:
     }
 
 
+def _visualization_manifest(model: PresentationModel) -> dict[str, object]:
+    """Return export-audit metadata for prepared visualization previews.
+
+    Export manifests must describe whether renderer-ready visualization previews
+    travelled with the report contract.  The function only inspects the
+    already-prepared PresentationModel previews and never rebuilds LAS tracks,
+    sampled curves or interval overlays.
+    """
+
+    raw_previews = getattr(model, "visualization_previews", ()) or ()
+    previews = [dict(preview or {}) for preview in raw_previews]
+    formats = sorted({str(preview.get("format") or "").strip() for preview in previews if str(preview.get("format") or "").strip()})
+    return {
+        "preview_count": len(previews),
+        "export_ready": bool(previews) and all(bool(preview.get("export_ready")) for preview in previews),
+        "formats": formats,
+        "contains_raw_dataframe": any(bool(preview.get("contains_raw_dataframe")) for preview in previews),
+        "total_tracks": sum(int(preview.get("track_count") or 0) for preview in previews),
+        "total_curves": sum(int(preview.get("curve_count") or 0) for preview in previews),
+        "total_overlays": sum(int(preview.get("overlay_count") or 0) for preview in previews),
+    }
+
+
 def _export_manifest(
     *,
     schema: str,
@@ -195,6 +218,7 @@ def _export_manifest(
         "figure_count": figure_count,
         "presentation_schema": model.schema,
         "metadata": _metadata_manifest(model),
+        "visualization": _visualization_manifest(model),
     }
     if renderer_schema:
         manifest["renderer_schema"] = renderer_schema
@@ -408,6 +432,8 @@ def export_presentation_bundle_package(
     if len(figure_set) != 1:
         raise ValueError("Presentation export figure count diverged between formats")
 
+    visualization_preview_count = int(_visualization_manifest(model)["preview_count"])
+
     bundle_manifest_path = output_dir / f"{base_name}.bundle.manifest.json"
     manifest = _export_manifest(
         schema="gas-ratio-pro/presentation/bundle-export/v1",
@@ -427,6 +453,7 @@ def export_presentation_bundle_package(
             "same_profile": True,
             "same_table_titles": True,
             "same_figure_count": True,
+            "same_visualization_preview_count": True,
             "single_source_model": True,
         },
     )
@@ -484,7 +511,13 @@ def validate_presentation_bundle_export(manifest_path: str | Path) -> Presentati
 
     raw_consistency = payload.get("consistency", {})
     consistency = {str(key): bool(value) for key, value in raw_consistency.items()} if isinstance(raw_consistency, dict) else {}
-    required_consistency = ("same_profile", "same_table_titles", "same_figure_count", "single_source_model")
+    required_consistency = (
+        "same_profile",
+        "same_table_titles",
+        "same_figure_count",
+        "same_visualization_preview_count",
+        "single_source_model",
+    )
     consistency_ok = all(consistency.get(key) is True for key in required_consistency)
     ok = not missing and not empty and consistency_ok
 

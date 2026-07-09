@@ -203,3 +203,14 @@ Completed:
 Next step:
 Add a dedicated visualization export artifact writer so SVG previews can be saved beside HTML/PDF/DOCX bundles and referenced from export manifests.
 
+
+## V69 Visualization Export Manifest Contract
+
+Completed:
+- Added visualization preview audit metadata to HTML, PDF, DOCX and bundle export manifests.
+- Manifests now record preview count, export readiness, preview formats, track/curve/overlay totals and raw-data safety flag.
+- Bundle validation now checks the visualization preview consistency flag together with profile, table and figure consistency.
+- Added regression coverage for visualization manifest propagation across the bundle export path.
+
+Next step:
+Add a dedicated visualization artifact writer that saves SVG previews beside export bundles and lets PDF/DOCX reference those prepared artifacts without rebuilding plots.

@@ -72,3 +72,33 @@ def test_html_report_renders_visualization_svg_preview_from_document_model() -> 
     assert "<svg" in html
     assert "Tracks: 2" in html
     assert "dataframe" not in html.lower()
+
+
+def test_bundle_export_manifest_records_visualization_contract(tmp_path) -> None:
+    from reports.presentation_export import PresentationExportOptions, export_presentation_bundle_package
+
+    payload = build_hydrocarbon_report_payload(_sample_frame(), include_plot=False)
+    assert payload.presentation_model is not None
+    model = replace(payload.presentation_model, visualization_payloads=(_visualization_payload(),))
+
+    result = export_presentation_bundle_package(
+        model,
+        options=PresentationExportOptions(
+            output_dir=tmp_path,
+            base_name="visualization-report",
+            include_figures=True,
+            include_technical_appendix=False,
+            overwrite=True,
+        ),
+    )
+
+    import json
+
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["figure_count"] == 1
+    assert manifest["visualization"]["preview_count"] == 1
+    assert manifest["visualization"]["export_ready"] is True
+    assert manifest["visualization"]["formats"] == ["svg"]
+    assert manifest["visualization"]["contains_raw_dataframe"] is False
+    assert manifest["visualization"]["total_tracks"] == 2
+    assert manifest["consistency"]["same_visualization_preview_count"] is True
