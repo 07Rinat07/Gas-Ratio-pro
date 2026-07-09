@@ -71,6 +71,8 @@ Important roadmap decisions:
 
 Детальный план добавлен в `docs/15_Implementation_Plan/HYDROCARBON_INTERVAL_REPORTING_PLAN.md`.
 
+Дополнительно зафиксирован порядок выполнения этапов без перескакивания между модулями: `docs/15_Implementation_Plan/HYDROCARBON_INTERPRETATION_STAGE_LOCK.md`. Текущий активный этап — Hydrocarbon Interval Engine; следующие модули начинаются только после его Definition of Done.
+
 ## Completed Milestones
 
 Ниже перечислены крупные блоки, уже перенесенные в новую дорожную карту и закрытые в рамках Project Plan v2.

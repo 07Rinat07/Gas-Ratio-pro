@@ -42,3 +42,11 @@ Current implementation step:
 - Added hydrocarbon interval graph marker model.
 - Added printable marker table for interval reports.
 - Updated hydrocarbon interval schema to v3.
+
+## Stage discipline update
+
+- Added `docs/15_Implementation_Plan/HYDROCARBON_INTERPRETATION_STAGE_LOCK.md`.
+- Fixed the implementation order so the project completes one module before starting another.
+- Current locked priority: Hydrocarbon Interval Engine.
+- Next stages are Interpretation Engine, Marked Graph Report, Professional Report Engine, Export/Print, Petrophysics, Toolbar/Design System and Modeling.
+- New modules must not start until the active stage reaches Definition of Done.
