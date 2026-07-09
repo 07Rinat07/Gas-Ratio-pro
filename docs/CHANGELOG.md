@@ -7,6 +7,13 @@
 
 # Changelog
 
+## Export Reliability v45
+
+- Added a single renderer-neutral export facade for professional presentation reports.
+- Normalized HTML, PDF, DOCX and bundle manifest creation through one helper.
+- Preserved backward-compatible manifest fields used by existing UI/tests.
+- Added regression tests for the unified export facade and unsupported export kinds.
+
 ## Professional Reporting System v21
 
 - Added `reports.interval_cards` with engineer-facing interval report cards.

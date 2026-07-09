@@ -30,6 +30,8 @@ Completed in v43: preflight diagnostics now include professional PDF/DOCX export
 
 Completed in v44: DOCX export now has the same explicit dependency guard contract as PDF export, and `scripts/export_smoke.py` provides a reproducible multilingual HTML/PDF/DOCX bundle smoke command for P0 export QA.
 
+Completed in v45: presentation exports now have a single renderer-neutral facade for HTML, PDF, DOCX and bundle modes. Export manifests are normalized through one helper while preserving backward-compatible fields for existing tests and UI code.
+
 ## Next recommended increment
 
 Finish the P0 export QA layer by wiring the export smoke command into release validation and documenting the expected operator workflow, then move to the Modern Workspace shell foundation: Project Explorer, central workspace area, toolbar/status boundary and integration points for session restore, reset and export actions.

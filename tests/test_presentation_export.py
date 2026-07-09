@@ -109,3 +109,39 @@ def test_export_presentation_bundle_package_writes_all_formats_from_one_model(tm
         "same_figure_count": True,
         "single_source_model": True,
     }
+
+from reports.presentation_export import export_presentation_package
+
+
+def test_export_presentation_package_facade_writes_html_with_normalized_result(tmp_path) -> None:
+    payload = build_hydrocarbon_report_payload(_sample_frame(), source_label="unicode-well.las")
+    assert payload.presentation_model is not None
+
+    result = export_presentation_package(
+        payload.presentation_model,
+        kind="html",
+        options=PresentationExportOptions(output_dir=tmp_path, base_name="единый экспорт"),
+    )
+
+    assert result.kind == "html"
+    assert result.files["html"].exists()
+    assert result.primary_path() == result.files["html"]
+    assert result.manifest_path.exists()
+    assert result.profile == "engineering"
+
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["files"] == {"html": result.files["html"].name}
+    assert manifest["html_file"] == result.files["html"].name
+    assert manifest["metadata"]["source_label"] == "unicode-well.las"
+
+
+def test_export_presentation_package_rejects_unknown_kind(tmp_path) -> None:
+    payload = build_hydrocarbon_report_payload(_sample_frame())
+    assert payload.presentation_model is not None
+
+    with pytest.raises(ValueError):
+        export_presentation_package(
+            payload.presentation_model,
+            kind="xlsx",  # type: ignore[arg-type]
+            options=PresentationExportOptions(output_dir=tmp_path),
+        )

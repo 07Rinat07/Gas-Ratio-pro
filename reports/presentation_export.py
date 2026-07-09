@@ -1,16 +1,49 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 import json
 import re
+from typing import Literal
 
 from reports.presentation_html import PresentationHtmlOptions, build_presentation_html_report
 from reports.presentation_model import PresentationModel
 
 
 _SAFE_NAME_RE = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+PresentationExportKind = Literal["html", "pdf", "docx", "bundle"]
+
+
+@dataclass(frozen=True)
+class PresentationUnifiedExportResult:
+    """Unified result returned by the renderer-neutral export facade.
+
+    The result exposes the common audit fields for every export mode and keeps
+    format-specific paths in one dictionary. UI/controllers can depend on this
+    stable object instead of branching over individual renderer return classes.
+    """
+
+    kind: str
+    files: dict[str, Path]
+    manifest_path: Path
+    profile: str
+    table_titles: tuple[str, ...]
+    figure_count: int
+
+    def primary_path(self) -> Path:
+        """Return the main user-facing file for single-format exports.
+
+        Bundle exports do not have one primary artifact, therefore the bundle
+        manifest is returned as the auditable entry point.
+        """
+
+        for key in ("html", "pdf", "docx"):
+            if key in self.files:
+                return self.files[key]
+        return self.manifest_path
 
 
 @dataclass(frozen=True)
@@ -104,6 +137,47 @@ def _write_bytes(path: Path, content: bytes, *, overwrite: bool) -> None:
     path.write_bytes(content)
 
 
+def _metadata_manifest(model: PresentationModel) -> dict[str, str]:
+    return {
+        "title": model.metadata.title,
+        "subtitle": model.metadata.subtitle,
+        "source_label": model.metadata.source_label,
+        "project_label": model.metadata.project_label,
+        "depth_label": model.metadata.depth_label,
+        "report_profile": model.metadata.report_profile,
+    }
+
+
+def _export_manifest(
+    *,
+    schema: str,
+    model: PresentationModel,
+    profile: str,
+    table_titles: tuple[str, ...],
+    figure_count: int,
+    files: dict[str, str],
+    renderer_schema: dict[str, str] | None = None,
+    consistency: dict[str, bool] | None = None,
+) -> dict[str, object]:
+    """Build a normalized manifest for HTML, PDF, DOCX and bundle exports."""
+
+    manifest: dict[str, object] = {
+        "schema": schema,
+        "created_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "profile": profile,
+        "files": files,
+        "table_titles": list(table_titles),
+        "figure_count": figure_count,
+        "presentation_schema": model.schema,
+        "metadata": _metadata_manifest(model),
+    }
+    if renderer_schema:
+        manifest["renderer_schema"] = renderer_schema
+    if consistency:
+        manifest["consistency"] = consistency
+    return manifest
+
+
 def export_presentation_html_package(
     model: PresentationModel,
     *,
@@ -133,23 +207,15 @@ def export_presentation_html_package(
     manifest_path = output_dir / f"{base_name}.manifest.json"
     _write_bytes(html_path, rendered.content, overwrite=options.overwrite)
 
-    manifest = {
-        "schema": "gas-ratio-pro/presentation/export/v1",
-        "created_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-        "profile": rendered.profile,
-        "html_file": html_path.name,
-        "table_titles": list(rendered.table_titles),
-        "figure_count": rendered.figure_count,
-        "presentation_schema": model.schema,
-        "metadata": {
-            "title": model.metadata.title,
-            "subtitle": model.metadata.subtitle,
-            "source_label": model.metadata.source_label,
-            "project_label": model.metadata.project_label,
-            "depth_label": model.metadata.depth_label,
-            "report_profile": model.metadata.report_profile,
-        },
-    }
+    manifest = _export_manifest(
+        schema="gas-ratio-pro/presentation/export/v1",
+        model=model,
+        profile=rendered.profile,
+        table_titles=rendered.table_titles,
+        figure_count=rendered.figure_count,
+        files={"html": html_path.name},
+    )
+    manifest["html_file"] = html_path.name  # Backward-compatible manifest field.
     manifest_bytes = json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8")
     _write_bytes(manifest_path, manifest_bytes, overwrite=options.overwrite)
 
@@ -197,24 +263,17 @@ def export_presentation_docx_package(
     manifest_path = output_dir / f"{base_name}.docx.manifest.json"
     _write_bytes(docx_path, rendered.content, overwrite=options.overwrite)
 
-    manifest = {
-        "schema": "gas-ratio-pro/presentation/docx-export/v1",
-        "created_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-        "profile": rendered.profile,
-        "docx_file": docx_path.name,
-        "table_titles": list(rendered.table_titles),
-        "figure_count": rendered.figure_count,
-        "presentation_schema": model.schema,
-        "docx_schema": rendered.schema,
-        "metadata": {
-            "title": model.metadata.title,
-            "subtitle": model.metadata.subtitle,
-            "source_label": model.metadata.source_label,
-            "project_label": model.metadata.project_label,
-            "depth_label": model.metadata.depth_label,
-            "report_profile": model.metadata.report_profile,
-        },
-    }
+    manifest = _export_manifest(
+        schema="gas-ratio-pro/presentation/docx-export/v1",
+        model=model,
+        profile=rendered.profile,
+        table_titles=rendered.table_titles,
+        figure_count=rendered.figure_count,
+        files={"docx": docx_path.name},
+        renderer_schema={"docx": rendered.schema},
+    )
+    manifest["docx_file"] = docx_path.name  # Backward-compatible manifest field.
+    manifest["docx_schema"] = rendered.schema
     _write_bytes(manifest_path, json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"), overwrite=options.overwrite)
 
     return PresentationDocxExportResult(
@@ -258,24 +317,17 @@ def export_presentation_pdf_package(
     manifest_path = output_dir / f"{base_name}.pdf.manifest.json"
     _write_bytes(pdf_path, rendered.content, overwrite=options.overwrite)
 
-    manifest = {
-        "schema": "gas-ratio-pro/presentation/pdf-export/v1",
-        "created_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-        "profile": rendered.profile,
-        "pdf_file": pdf_path.name,
-        "table_titles": list(rendered.table_titles),
-        "figure_count": rendered.figure_count,
-        "presentation_schema": model.schema,
-        "pdf_schema": rendered.schema,
-        "metadata": {
-            "title": model.metadata.title,
-            "subtitle": model.metadata.subtitle,
-            "source_label": model.metadata.source_label,
-            "project_label": model.metadata.project_label,
-            "depth_label": model.metadata.depth_label,
-            "report_profile": model.metadata.report_profile,
-        },
-    }
+    manifest = _export_manifest(
+        schema="gas-ratio-pro/presentation/pdf-export/v1",
+        model=model,
+        profile=rendered.profile,
+        table_titles=rendered.table_titles,
+        figure_count=rendered.figure_count,
+        files={"pdf": pdf_path.name},
+        renderer_schema={"pdf": rendered.schema},
+    )
+    manifest["pdf_file"] = pdf_path.name  # Backward-compatible manifest field.
+    manifest["pdf_schema"] = rendered.schema
     _write_bytes(manifest_path, json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"), overwrite=options.overwrite)
 
     return PresentationPdfExportResult(
@@ -285,17 +337,6 @@ def export_presentation_pdf_package(
         table_titles=rendered.table_titles,
         figure_count=rendered.figure_count,
     )
-
-
-def _metadata_manifest(model: PresentationModel) -> dict[str, str]:
-    return {
-        "title": model.metadata.title,
-        "subtitle": model.metadata.subtitle,
-        "source_label": model.metadata.source_label,
-        "project_label": model.metadata.project_label,
-        "depth_label": model.metadata.depth_label,
-        "report_profile": model.metadata.report_profile,
-    }
 
 
 def export_presentation_bundle_package(
@@ -343,11 +384,13 @@ def export_presentation_bundle_package(
         raise ValueError("Presentation export figure count diverged between formats")
 
     bundle_manifest_path = output_dir / f"{base_name}.bundle.manifest.json"
-    manifest = {
-        "schema": "gas-ratio-pro/presentation/bundle-export/v1",
-        "created_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-        "profile": html_result.profile,
-        "files": {
+    manifest = _export_manifest(
+        schema="gas-ratio-pro/presentation/bundle-export/v1",
+        model=model,
+        profile=html_result.profile,
+        table_titles=html_result.table_titles,
+        figure_count=html_result.figure_count,
+        files={
             "html": html_result.html_path.name,
             "pdf": pdf_result.pdf_path.name,
             "docx": docx_result.docx_path.name,
@@ -355,17 +398,13 @@ def export_presentation_bundle_package(
             "pdf_manifest": pdf_result.manifest_path.name,
             "docx_manifest": docx_result.manifest_path.name,
         },
-        "table_titles": list(html_result.table_titles),
-        "figure_count": html_result.figure_count,
-        "presentation_schema": model.schema,
-        "metadata": _metadata_manifest(model),
-        "consistency": {
+        consistency={
             "same_profile": True,
             "same_table_titles": True,
             "same_figure_count": True,
             "single_source_model": True,
         },
-    }
+    )
     _write_bytes(
         bundle_manifest_path,
         json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"),
@@ -383,15 +422,82 @@ def export_presentation_bundle_package(
     )
 
 
+def export_presentation_package(
+    model: PresentationModel,
+    *,
+    kind: PresentationExportKind,
+    options: PresentationExportOptions,
+    pdf_options: object | None = None,
+    docx_options: object | None = None,
+) -> PresentationUnifiedExportResult:
+    """Export a presentation report through one stable facade.
+
+    Controllers and UI code should call this function instead of selecting
+    renderer-specific functions directly. The facade preserves lazy imports and
+    still returns a normalized audit result for HTML, PDF, DOCX or bundle mode.
+    """
+
+    normalized_kind = str(kind or "").strip().lower()
+    if normalized_kind == "html":
+        result = export_presentation_html_package(model, options=options)
+        return PresentationUnifiedExportResult(
+            kind="html",
+            files={"html": result.html_path},
+            manifest_path=result.manifest_path,
+            profile=result.profile,
+            table_titles=result.table_titles,
+            figure_count=result.figure_count,
+        )
+    if normalized_kind == "pdf":
+        result = export_presentation_pdf_package(model, options=options, pdf_options=pdf_options)
+        return PresentationUnifiedExportResult(
+            kind="pdf",
+            files={"pdf": result.pdf_path},
+            manifest_path=result.manifest_path,
+            profile=result.profile,
+            table_titles=result.table_titles,
+            figure_count=result.figure_count,
+        )
+    if normalized_kind == "docx":
+        result = export_presentation_docx_package(model, options=options, docx_options=docx_options)
+        return PresentationUnifiedExportResult(
+            kind="docx",
+            files={"docx": result.docx_path},
+            manifest_path=result.manifest_path,
+            profile=result.profile,
+            table_titles=result.table_titles,
+            figure_count=result.figure_count,
+        )
+    if normalized_kind == "bundle":
+        result = export_presentation_bundle_package(
+            model,
+            options=options,
+            pdf_options=pdf_options,
+            docx_options=docx_options,
+        )
+        return PresentationUnifiedExportResult(
+            kind="bundle",
+            files={"html": result.html_path, "pdf": result.pdf_path, "docx": result.docx_path},
+            manifest_path=result.manifest_path,
+            profile=result.profile,
+            table_titles=result.table_titles,
+            figure_count=result.figure_count,
+        )
+    raise ValueError(f"Unsupported presentation export kind: {kind!r}")
+
+
 __all__ = [
     "PresentationExportOptions",
+    "PresentationExportKind",
     "PresentationExportResult",
+    "PresentationUnifiedExportResult",
     "PresentationDocxExportResult",
     "PresentationPdfExportResult",
     "PresentationBundleExportResult",
     "export_presentation_bundle_package",
     "export_presentation_docx_package",
     "export_presentation_html_package",
+    "export_presentation_package",
     "export_presentation_pdf_package",
     "safe_export_basename",
 ]
