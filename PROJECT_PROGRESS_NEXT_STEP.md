@@ -1,5 +1,7 @@
 # Next Step
 
-Completed in v36: Workspace Reset Foundation for Modern UI.
+Completed in v37: Workspace Session Manager for Modern UI.
 
-Next recommended increment: integrate reset actions into Streamlit/Modern UI controls so users can clear stale tables, graphs, reports and active LAS context without restarting the application.
+The application can now capture, save, load and restore a lightweight workspace session: active project, well, LAS, workspace, selected intervals, active report, active plot, recent exports and window layout.
+
+Next recommended increment: Modern Workspace shell foundation — Project Explorer, central workspace area, toolbar/status boundary and integration points for session restore/reset/export actions.

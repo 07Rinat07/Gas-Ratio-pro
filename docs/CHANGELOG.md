@@ -864,3 +864,16 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 ### Notes
 - Reset clears temporary application state only and does not delete project files from disk.
 
+
+## v37 - Workspace Session Manager
+
+### Added
+- Added `core/workspace_session.py` for lightweight workspace session capture, save, load and restore.
+- Added `WorkspaceSession` descriptor for active project, well, LAS, workspace, selected intervals, active report/plot, recent exports and window layout.
+- Added restore conflict policies: `overwrite` and `preserve`.
+- Added JSON persistence for sessions without storing heavy LAS dataframes, rendered plots or calculation dumps.
+- Added documentation `docs/WORKSPACE_SESSION_MANAGER_V37.md`.
+
+### Rationale
+- Users should be able to close and reopen Gas Ratio Pro and continue work from the same well, report, tablet and interval context.
+- Workspace sessions are UI/workflow descriptors, not geological data stores.
