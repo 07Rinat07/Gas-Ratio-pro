@@ -1,5 +1,14 @@
 # Changelog
 
+## Workbench Tool Workflow State v60
+
+- Connected accepted Workbench tool actions to lightweight workflow state updates.
+- LAS open actions now update active LAS context, Workbench selection and active tool focus through core services.
+- Gas ratio actions now persist selected interval ids and focus the analysis tool without running calculations in UI state.
+- Report preview and export actions now persist active report context and recent export descriptors.
+- Added regression tests for action-driven context, selection, active tool and session updates while preserving release export QA.
+
+
 ## Modern Workbench Tool Actions v59
 
 - Added command-backed Workbench tool action requests for LAS open, gas ratio analysis, report preview refresh and report bundle export.

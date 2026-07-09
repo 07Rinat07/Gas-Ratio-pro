@@ -104,4 +104,17 @@ Completed:
 - Added regression tests for LAS, gas-ratio, report-preview and export tool actions.
 
 Next step:
+Connect tool actions to lightweight workflow state so accepted actions update the selected LAS, selected intervals, active report, active tool and recent exports through core services instead of remaining passive request records.
+
+## V60 Workbench Tool Workflow State
+
+Completed:
+- Accepted LAS open actions now update the active LAS context, Workbench selection and active LAS Viewer focus.
+- Accepted gas ratio actions now merge selected interval ids into Workspace Session and focus the Gas Ratio Analysis tool.
+- Accepted report preview actions now persist active report context and focus Report Preview.
+- Accepted export actions now focus the Export tool and update lightweight recent export descriptors.
+- Tool action results now return refreshed workspace context after state changes.
+- Added regression tests for action-driven context, selection, active tool and session updates.
+
+Next step:
 Connect LAS Viewer to normalized LAS curve metadata through a provider/service boundary. The renderer should receive only lightweight curve summaries, depth range and quality flags, while parsing and heavy data tables remain outside UI state.

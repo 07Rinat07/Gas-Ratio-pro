@@ -14,7 +14,10 @@ from typing import Any, MutableMapping
 
 from core.command_framework import WorkbenchCommand, WorkbenchCommandRegistry
 from core.event_bus import ApplicationEventBus
-from core.workbench_context import WorkspaceContext
+from core.application_state import ApplicationStateController
+from core.workbench_context import WorkspaceContext, WorkbenchSelectionService
+from core.workbench_tools import WorkbenchToolManager
+from core.workspace_session import SESSION_ACTIVE_REPORT_KEY, SESSION_RECENT_EXPORTS_KEY, SESSION_SELECTED_INTERVALS_KEY
 
 WORKBENCH_OPEN_LAS_COMMAND_ID = "workbench.tool.open_las"
 WORKBENCH_RUN_GAS_RATIO_ANALYSIS_COMMAND_ID = "workbench.tool.run_gas_ratio_analysis"
@@ -66,11 +69,42 @@ class WorkbenchToolActionService:
         self.event_bus.publish("workbench.tool_action.executed", payload, source="WorkbenchToolActionService")
         return result
 
+    def _activate_tool(self, tool_id: str, metadata: dict[str, Any] | None = None) -> None:
+        """Mirror accepted workflow actions to the active Workbench tool."""
+
+        WorkbenchToolManager(self.state).activate(tool_id, metadata=metadata or {})
+
+    def _set_selected_intervals(self, interval_ids: list[str]) -> list[str]:
+        """Persist interval selections while keeping existing order stable."""
+
+        merged: list[str] = []
+        for item in list(self.state.get(SESSION_SELECTED_INTERVALS_KEY, ()) or ()) + list(interval_ids):
+            text = str(item or "").strip()
+            if text and text not in merged:
+                merged.append(text)
+        self.state[SESSION_SELECTED_INTERVALS_KEY] = merged
+        return merged
+
+    def _remember_recent_export(self, report_id: str, formats: list[str]) -> list[str]:
+        """Store a lightweight export request descriptor in recent exports."""
+
+        descriptor = f"{report_id}:{','.join(formats)}"
+        recent = [str(item) for item in (self.state.get(SESSION_RECENT_EXPORTS_KEY, ()) or ()) if str(item or "").strip()]
+        recent = [item for item in recent if item != descriptor]
+        recent.append(descriptor)
+        self.state[SESSION_RECENT_EXPORTS_KEY] = recent[-20:]
+        return list(self.state[SESSION_RECENT_EXPORTS_KEY])
+
     def open_las(self, payload: dict[str, Any] | None = None) -> WorkbenchToolActionResult:
         clean_payload = dict(payload or {})
         context = self._context()
         las_id = str(clean_payload.get("las_id") or context.application.las_id or "").strip()
         accepted = bool(las_id)
+        if accepted:
+            ApplicationStateController(self.state).activate_las(las_id)
+            WorkbenchSelectionService(self.state).select("las", las_id, {"source": "tool_action", **dict(clean_payload.get("metadata", {}) or {})})
+            self._activate_tool("tool.las_viewer", {"action_id": WORKBENCH_OPEN_LAS_COMMAND_ID, "las_id": las_id})
+            context = self._context()
         result = WorkbenchToolActionResult(
             WORKBENCH_OPEN_LAS_COMMAND_ID,
             "tool.las_viewer",
@@ -87,7 +121,13 @@ class WorkbenchToolActionService:
         intervals = list(clean_payload.get("interval_ids") or context.selected_intervals or ())
         if context.selection.target == "interval" and context.selection.object_id not in intervals:
             intervals.append(context.selection.object_id)
+        intervals = [str(item).strip() for item in intervals if str(item or "").strip()]
         accepted = bool(context.application.las_id and intervals)
+        if accepted:
+            intervals = self._set_selected_intervals(intervals)
+            WorkbenchSelectionService(self.state).select("interval", intervals[-1], {"source": "tool_action", "las_id": context.application.las_id})
+            self._activate_tool("tool.gas_ratio_analysis", {"action_id": WORKBENCH_RUN_GAS_RATIO_ANALYSIS_COMMAND_ID, "interval_ids": intervals})
+            context = self._context()
         result = WorkbenchToolActionResult(
             WORKBENCH_RUN_GAS_RATIO_ANALYSIS_COMMAND_ID,
             "tool.gas_ratio_analysis",
@@ -103,6 +143,11 @@ class WorkbenchToolActionService:
         context = self._context()
         report_id = str(clean_payload.get("report_id") or context.active_report or "").strip()
         accepted = bool(report_id)
+        if accepted:
+            self.state[SESSION_ACTIVE_REPORT_KEY] = report_id
+            WorkbenchSelectionService(self.state).select("report", report_id, {"source": "tool_action"})
+            self._activate_tool("tool.report_preview", {"action_id": WORKBENCH_REFRESH_REPORT_PREVIEW_COMMAND_ID, "report_id": report_id})
+            context = self._context()
         result = WorkbenchToolActionResult(
             WORKBENCH_REFRESH_REPORT_PREVIEW_COMMAND_ID,
             "tool.report_preview",
@@ -117,14 +162,20 @@ class WorkbenchToolActionService:
         clean_payload = dict(payload or {})
         context = self._context()
         report_id = str(clean_payload.get("report_id") or context.active_report or "").strip()
-        formats = clean_payload.get("formats") or ["html", "pdf", "docx"]
+        formats = [str(item).strip() for item in (clean_payload.get("formats") or ["html", "pdf", "docx"]) if str(item or "").strip()]
         accepted = bool(report_id)
+        recent_exports: list[str] = []
+        if accepted:
+            self.state[SESSION_ACTIVE_REPORT_KEY] = report_id
+            recent_exports = self._remember_recent_export(report_id, formats)
+            self._activate_tool("tool.export", {"action_id": WORKBENCH_EXPORT_REPORT_BUNDLE_COMMAND_ID, "report_id": report_id})
+            context = self._context()
         result = WorkbenchToolActionResult(
             WORKBENCH_EXPORT_REPORT_BUNDLE_COMMAND_ID,
             "tool.export",
             accepted,
             "Export bundle request accepted." if accepted else "Select or create a report before exporting.",
-            {"report_id": report_id, "formats": list(formats), **clean_payload},
+            {"report_id": report_id, "formats": formats, "recent_exports": recent_exports, **clean_payload},
             context.to_dict(),
         )
         return self._remember(result)
