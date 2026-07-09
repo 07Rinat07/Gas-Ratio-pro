@@ -21,6 +21,8 @@ from core.workspace_session import (
 
 WORKBENCH_NAVIGATION_KEY = "workbench_navigation"
 WORKBENCH_DOCK_LAYOUT_KEY = "workbench_dock_layout"
+WORKBENCH_ACTIVE_NAVIGATION_KEY = "workbench_active_navigation"
+WORKBENCH_ACTIVE_DOCK_PANE_KEY = "workbench_active_dock_pane"
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,6 +176,82 @@ class WorkbenchDockLayout:
         }
 
 
+
+
+@dataclass(frozen=True, slots=True)
+class WorkbenchInteractionState:
+    """Serializable transient Workbench UI state.
+
+    The state stores only user-interface selection intent: which navigation item
+    is active and which dock pane currently has focus.  It deliberately does
+    not store calculations, LAS parsing results, interpretation decisions or
+    export data, so the UI can restore its view without owning business logic.
+    """
+
+    active_navigation_id: str = ""
+    active_workspace: str = ""
+    active_dock_pane_id: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "active_navigation_id": self.active_navigation_id,
+            "active_workspace": self.active_workspace,
+            "active_dock_pane_id": self.active_dock_pane_id,
+        }
+
+
+def _choose_active_navigation_id(state: MutableMapping[str, Any], navigation: Iterable[WorkbenchNavigationItem]) -> str:
+    visible_enabled = tuple(item for item in navigation if item.visible and item.enabled)
+    requested = str(state.get(WORKBENCH_ACTIVE_NAVIGATION_KEY, "") or "").strip()
+    if requested and any(item.id == requested for item in visible_enabled):
+        return requested
+    return visible_enabled[0].id if visible_enabled else ""
+
+
+def _choose_active_dock_pane_id(state: MutableMapping[str, Any], dock_layout: WorkbenchDockLayout) -> str:
+    visible_panes = tuple(pane for pane in dock_layout.panes if not pane.collapsed)
+    requested = str(state.get(WORKBENCH_ACTIVE_DOCK_PANE_KEY, "") or "").strip()
+    if requested and any(pane.id == requested for pane in visible_panes):
+        return requested
+    center_panes = tuple(pane for pane in visible_panes if pane.region == "center")
+    if center_panes:
+        return center_panes[0].id
+    return visible_panes[0].id if visible_panes else ""
+
+
+def _build_interaction_state(
+    state: MutableMapping[str, Any],
+    navigation: Iterable[WorkbenchNavigationItem],
+    dock_layout: WorkbenchDockLayout,
+) -> WorkbenchInteractionState:
+    navigation_items = tuple(navigation)
+    active_navigation_id = _choose_active_navigation_id(state, navigation_items)
+    active_navigation = next((item for item in navigation_items if item.id == active_navigation_id), None)
+    return WorkbenchInteractionState(
+        active_navigation_id=active_navigation_id,
+        active_workspace=active_navigation.workspace if active_navigation is not None else "",
+        active_dock_pane_id=_choose_active_dock_pane_id(state, dock_layout),
+    )
+
+
+def select_workbench_navigation(state: MutableMapping[str, Any], navigation_id: str) -> None:
+    """Persist the currently selected Workbench navigation entry."""
+
+    clean_id = str(navigation_id or "").strip()
+    if not clean_id:
+        raise ValueError("Navigation id must not be empty.")
+    state[WORKBENCH_ACTIVE_NAVIGATION_KEY] = clean_id
+
+
+def activate_workbench_dock_pane(state: MutableMapping[str, Any], pane_id: str) -> None:
+    """Persist the currently focused Workbench dock pane."""
+
+    clean_id = str(pane_id or "").strip()
+    if not clean_id:
+        raise ValueError("Dock pane id must not be empty.")
+    state[WORKBENCH_ACTIVE_DOCK_PANE_KEY] = clean_id
+
+
 @dataclass(frozen=True, slots=True)
 class WorkbenchStatus:
     """Compact status bar payload for the shell footer."""
@@ -213,6 +291,7 @@ class WorkbenchShellModel:
     layout: dict[str, Any] = field(default_factory=dict)
     navigation: tuple[WorkbenchNavigationItem, ...] = field(default_factory=tuple)
     dock_layout: WorkbenchDockLayout = field(default_factory=lambda: WorkbenchDockLayout(()))
+    interaction: WorkbenchInteractionState = field(default_factory=WorkbenchInteractionState)
 
     def panel_ids(self) -> tuple[str, ...]:
         return tuple(panel.id for panel in self.panels if panel.visible)
@@ -232,6 +311,7 @@ class WorkbenchShellModel:
             "layout": dict(self.layout),
             "navigation": [item.to_dict() for item in self.navigation],
             "dock_layout": self.dock_layout.to_dict(),
+            "interaction": self.interaction.to_dict(),
         }
 
 
@@ -298,6 +378,7 @@ class WorkbenchShellBuilder:
         panel_list = tuple(sorted(tuple(panels or DEFAULT_WORKBENCH_PANELS), key=lambda item: (item.order, item.id)))
         navigation_items = tuple(sorted((item.normalized() for item in (navigation or _build_navigation(self.state, DEFAULT_WORKBENCH_NAVIGATION))), key=lambda item: (item.order, item.group, item.id)))
         dock_layout = _build_dock_layout(self.state, dock_panes or DEFAULT_WORKBENCH_DOCK_PANES)
+        interaction = _build_interaction_state(self.state, navigation_items, dock_layout)
         status = WorkbenchStatus(
             project_id=context.project_id,
             well_id=context.well_id,
@@ -316,4 +397,5 @@ class WorkbenchShellBuilder:
             layout=layout,
             navigation=navigation_items,
             dock_layout=dock_layout,
+            interaction=interaction,
         )

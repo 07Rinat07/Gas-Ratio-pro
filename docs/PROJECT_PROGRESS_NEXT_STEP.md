@@ -40,6 +40,8 @@ Completed in v47: the first Modern Workbench shell foundation is available as fr
 
 Completed in v48: the Workbench shell now includes a framework-neutral navigation model and dock layout model. Navigation entries describe available workspaces, while dock panes describe panel placement, size and collapsed state without placing business logic in the UI layer.
 
+Completed in v49: the Workbench shell now includes a framework-neutral interaction state for the active navigation entry and active dock pane. Saved selections are restored only when they still match visible enabled navigation items and non-collapsed panes; otherwise the model falls back to safe defaults for predictable session recovery.
+
 ## Next recommended increment
 
-Connect the Modern Workbench shell, navigation and dock layout models to a Streamlit renderer boundary without moving calculations, persistence or export logic into UI code. Keep `scripts/release_export_qa.py` as the release check before packaging builds.
+Connect the Modern Workbench shell, navigation, dock layout and interaction state models to a Streamlit renderer boundary without moving calculations, persistence or export logic into UI code. Keep `scripts/release_export_qa.py` as the release check before packaging builds.

@@ -7,6 +7,13 @@
 
 # Changelog
 
+## Modern Workbench Interaction State v49
+
+- Added framework-neutral interaction state for active Workbench navigation and active dock pane.
+- Added safe fallback behavior for stale saved navigation and dock-pane selections.
+- Added helper functions for persisting selected navigation and focused dock pane identifiers.
+- Added regression tests for default state, restored state, stale-state fallback and selection helpers.
+
 ## Export Release QA v46
 
 - Added bundle-manifest validation for professional presentation exports.
@@ -149,6 +156,13 @@
 - Added tests for Curve Manager Professional foundation.
 
 # Changelog
+
+## Modern Workbench Interaction State v49
+
+- Added framework-neutral interaction state for active Workbench navigation and active dock pane.
+- Added safe fallback behavior for stale saved navigation and dock-pane selections.
+- Added helper functions for persisting selected navigation and focused dock pane identifiers.
+- Added regression tests for default state, restored state, stale-state fallback and selection helpers.
 
 ## Export Release QA v46
 
