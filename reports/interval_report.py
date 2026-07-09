@@ -141,8 +141,20 @@ def build_interval_print_report(
     selected_tablet_columns = tuple(str(column) for column in tablet_columns if str(column).strip())
     tables: list[HtmlReportTable] = []
 
-    hydrocarbon_payload = build_hydrocarbon_report_payload(interval_df)
-    tables.extend(hydrocarbon_payload.professional_tables)
+    hydrocarbon_payload = build_hydrocarbon_report_payload(
+        interval_df,
+        source_label=str(source_label),
+        project_label=str(project_label),
+        depth_label=str(depth_label),
+        report_profile=profile,
+    )
+    if hydrocarbon_payload.presentation_model is not None:
+        if profile == "expert":
+            tables.extend(hydrocarbon_payload.presentation_model.expert_tables)
+        else:
+            tables.extend(hydrocarbon_payload.presentation_model.engineer_first_tables)
+    else:
+        tables.extend(hydrocarbon_payload.professional_tables)
 
     if profile == "expert":
         interpretation_table = build_interpretation_counts_table(interval_df)

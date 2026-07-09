@@ -27,6 +27,7 @@ from reports.interval_cards import (
     interval_cards_overview_table,
     interval_cards_reasoning_table,
 )
+from reports.presentation_model import PresentationMetadata, PresentationModel, build_presentation_model
 
 
 @dataclass(frozen=True)
@@ -51,6 +52,7 @@ class HydrocarbonReportPayload:
     interval_cards: tuple[IntervalReportCard, ...] = ()
     interval_cards_table: HtmlReportTable | None = None
     interval_card_reasoning_table: HtmlReportTable | None = None
+    presentation_model: PresentationModel | None = None
 
     @property
     def intervals(self) -> tuple[HydrocarbonInterval, ...]:
@@ -177,6 +179,11 @@ def build_hydrocarbon_report_payload(
     *,
     depth_column: str = "depth",
     max_summary_rows: int | None = None,
+    source_label: str = "",
+    project_label: str = "",
+    depth_label: str = "",
+    report_profile: str = "engineering",
+    include_plot: bool = False,
 ) -> HydrocarbonReportPayload:
     """Build the single source of truth for hydrocarbon report exports.
 
@@ -228,16 +235,53 @@ def build_hydrocarbon_report_payload(
     interpretation_table = build_hydrocarbon_interpretation_table(result.intervals)
     diagnostics_table = build_hydrocarbon_diagnostics_table(result)
     interval_cards = build_interval_report_cards(result.intervals)
+    executive_summary_report_table = executive_summary_table(executive_summary)
+    main_intervals_report_table = main_intervals_table(executive_summary)
+    executive_recommendations_report_table = executive_recommendations_table(executive_summary)
+    interval_cards_report_table = interval_cards_overview_table(interval_cards)
+    interval_card_reasoning_report_table = interval_cards_reasoning_table(interval_cards)
+
+    engineering_tables = (
+        executive_summary_report_table,
+        main_intervals_report_table,
+        executive_recommendations_report_table,
+        interval_cards_report_table,
+        interval_card_reasoning_report_table,
+    )
+    technical_tables = (
+        summary_table,
+        marker_table,
+        barrier_table,
+        interpretation_table,
+        diagnostics_table,
+    )
+    presentation_model = build_presentation_model(
+        result=result,
+        source_df=df,
+        executive_summary=executive_summary,
+        interval_cards=interval_cards,
+        engineering_tables=engineering_tables,
+        technical_tables=technical_tables,
+        metadata=PresentationMetadata(
+            source_label=source_label,
+            project_label=project_label,
+            depth_label=depth_label,
+            report_profile=report_profile if report_profile in {"engineering", "expert"} else "engineering",
+        ),
+        depth_column=depth_column,
+        include_plot=include_plot,
+    )
 
     return HydrocarbonReportPayload(
         result=result,
         executive_summary=executive_summary,
-        executive_summary_table=executive_summary_table(executive_summary),
-        main_intervals_table=main_intervals_table(executive_summary),
-        executive_recommendations_table=executive_recommendations_table(executive_summary),
+        executive_summary_table=executive_summary_report_table,
+        main_intervals_table=main_intervals_report_table,
+        executive_recommendations_table=executive_recommendations_report_table,
         interval_cards=interval_cards,
-        interval_cards_table=interval_cards_overview_table(interval_cards),
-        interval_card_reasoning_table=interval_cards_reasoning_table(interval_cards),
+        interval_cards_table=interval_cards_report_table,
+        interval_card_reasoning_table=interval_card_reasoning_report_table,
+        presentation_model=presentation_model,
         summary_table=summary_table,
         marker_table=marker_table,
         barrier_table=barrier_table,

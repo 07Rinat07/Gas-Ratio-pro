@@ -749,3 +749,18 @@ git status --short
 ### Rationale
 - README should explain what GAS RATIO PRO is, what it does, how to install and run it, and where to find documentation.
 - Development history belongs in changelog, roadmap, progress and architecture documents.
+
+## v25 — Presentation Model foundation
+
+### Added
+- Added `reports/presentation_model.py` as the single source of presentation data for reports, plots, UI and future PDF/DOCX export.
+- Added `PresentationModel` and `PresentationMetadata`.
+- Connected `HydrocarbonReportPayload` to the presentation model.
+- Added optional professional well-log plot composition through the same model.
+- Added documentation for the Presentation Model contract.
+
+### Changed
+- Report payloads can now pass one composed presentation object downstream instead of letting each renderer rebuild executive summary, interval cards and plots independently.
+
+### Rationale
+- Reports, plots, PDF/DOCX exports and UI cards must use the same interpreted intervals, confidence, explanations, recommendations and limitations.
