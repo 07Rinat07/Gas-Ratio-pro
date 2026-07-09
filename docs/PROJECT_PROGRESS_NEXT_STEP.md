@@ -48,6 +48,8 @@ Completed in v51: Workbench interaction actions now go through the Command Frame
 
 Completed in v52: the Modern Workbench shell now exposes a renderer contract for future Streamlit integration. The contract contains only presentation-safe payload sections: context, status, navigation, dock regions, panels, commands, interaction state and command-backed renderer actions. UI renderers can display this payload and submit command ids without owning business logic or persistence decisions.
 
+Completed in v53: the first thin Streamlit Modern Workbench renderer adapter is available in `app.workbench_renderer`. It builds the renderer contract from session state, renders navigation and dock controls from contract payload, and dispatches all clicks through command-backed renderer actions instead of mutating Workbench state directly.
+
 ## Next recommended increment
 
-Implement the first Streamlit Modern Workbench renderer adapter using the renderer contract. The adapter must only render contract payload and dispatch command ids through the command framework; calculations, persistence and export logic must stay in core/application services. Keep `scripts/release_export_qa.py` as the release check before packaging builds.
+Integrate the Streamlit Modern Workbench renderer adapter into the main application behind a safe entry point or feature flag. Keep legacy screens available while validating the renderer contract against real session state. Keep `scripts/release_export_qa.py` as the release check before packaging builds.
