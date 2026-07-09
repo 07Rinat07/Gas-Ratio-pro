@@ -722,3 +722,19 @@ git status --short
 
 ### Validation
 - Regression suite: 1071 passed.
+
+## v23 — Professional Well Log Plot Engine foundation
+
+### Added
+- Added `reports/well_log_plot.py` as the first implementation of the Professional Plot/Tablet Engine.
+- Added deterministic depth-based downsampling to avoid unreadable fence-like plots on large LAS datasets.
+- Added a report-ready well-log tablet builder with one common reversed depth axis.
+- Added an interpreted interval track with interval labels, fluid type and confidence.
+- Added interval zone overlays across all tracks using the frozen Hydrocarbon Interpretation Engine interval model.
+
+### Changed
+- Professional plotting now consumes interpreted intervals from HIE instead of recomputing interval logic in visualization code.
+- The plotting layer now has a clear separation between engineering interpretation data and visual rendering.
+
+### Validation
+- Added regression tests for downsampling, interval overlays and safe track filtering.

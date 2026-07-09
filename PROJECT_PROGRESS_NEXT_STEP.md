@@ -1,18 +1,19 @@
 # Current progress
 
-## Completed increment: PRS-3 Engineering Report Profile v22
+## Completed increment: PRS-4 Professional Well Log Plot Engine foundation v23
 
-Default print/export behavior is now engineer-first. Technical row counters, statistics and raw dataframe previews are moved behind the `expert` report profile.
+The Professional Reporting System now has the first dedicated plot/tablet engine. It creates report-ready well-log tablets with a common depth axis, deterministic downsampling, interpreted interval zones, and labels that show interval ID, fluid type and confidence.
 
 ## Validation
 
-`pytest -q` => 1071 passed.
+`python -m pytest tests/test_professional_well_log_plot.py -q` => 3 passed.
 
 ## Next recommended step
 
-PRS-4: Professional Plot/Tablet preparation.
+PRS-5: Integrate professional plot into interval report export.
 
 Focus:
-- prepare clean plot payloads from hydrocarbon interval markers;
-- introduce plot profile settings;
-- define interval color/label contracts for later professional well-log tablet rendering.
+- add professional tablet figure into the default engineering report flow;
+- keep old Plotly figures available for compatibility;
+- ensure the engineering report shows interval conclusions first, then the professional tablet;
+- prepare the next stage for PDF/DOCX export.
