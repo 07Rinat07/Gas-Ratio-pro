@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from typing import Iterable, Mapping, Sequence
 
 from core.method_registry import get_method_profile, method_id_for_parameter, method_registry_rows
@@ -8,7 +8,7 @@ from core.method_registry import get_method_profile, method_id_for_parameter, me
 import pandas as pd
 
 
-HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v15"
+HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v16"
 
 NON_PROSPECTIVE_LABELS = (
     "Недостаточно данных",
@@ -326,6 +326,28 @@ class HydrocarbonInterval:
 
 
 @dataclass(frozen=True)
+class InterpretationLimitation:
+    """Structured limitation that explains why an interval conclusion is not final."""
+
+    category: str
+    severity: str
+    message: str
+    source: str = "hydrocarbon_interval_engine"
+    recommendation: str = ""
+
+
+@dataclass(frozen=True)
+class InterpretationRecommendation:
+    """Structured practical next action for an interpreted interval."""
+
+    priority: str
+    action: str
+    reason: str = ""
+    target: str = "interval"
+    source: str = "hydrocarbon_interval_engine"
+
+
+@dataclass(frozen=True)
 class InterpretationExplanation:
     """Engineer-facing explanation for one interpreted interval.
 
@@ -342,6 +364,8 @@ class InterpretationExplanation:
     supporting_evidence: tuple[str, ...] = ()
     limitations: tuple[str, ...] = ()
     recommendations: tuple[str, ...] = ()
+    structured_limitations: tuple[InterpretationLimitation, ...] = ()
+    structured_recommendations: tuple[InterpretationRecommendation, ...] = ()
     references: tuple[str, ...] = ()
     engineering_hypothesis: bool = True
 
@@ -1408,38 +1432,134 @@ def _context_reasoning(context: HydrocarbonInterpretationContext | None) -> tupl
     return tuple(reasons)
 
 
-def _limitations_for_interval(interval: HydrocarbonInterval) -> tuple[str, ...]:
-    limitations: list[str] = []
+def build_interpretation_limitations(interval: HydrocarbonInterval) -> tuple[InterpretationLimitation, ...]:
+    """Return structured limitations for one interval interpretation.
+
+    This is the v16 Limitation Engine. It standardizes why confidence is reduced
+    without forcing report builders to parse free text. Engineer-facing reports
+    can display concise messages; expert appendices can show category/severity.
+    """
+
+    limitations: list[InterpretationLimitation] = []
     flag_messages = {
-        "no_numeric_gas_ratios": "Недостаточно числовых газовых отношений для самостоятельного подтверждения вывода.",
-        "limited_numeric_evidence": "Числовая доказательная база ограничена.",
-        "single_sample_interval": "Интервал представлен одной глубинной точкой и может быть одиночным всплеском.",
-        "uncertain_fluid_character": "Флюидный характер неоднозначен и требует ручной проверки.",
-        "contains_missing_ratio_values": "Внутри интервала есть пропуски расчетных коэффициентов.",
-        "contains_barrier_rows": "В группу попали строки с барьерной литологией; границы нужно проверить.",
+        "no_numeric_gas_ratios": ("data_quality", "high", "Недостаточно числовых газовых отношений для самостоятельного подтверждения вывода."),
+        "limited_numeric_evidence": ("data_support", "medium", "Числовая доказательная база ограничена."),
+        "single_sample_interval": ("interval_geometry", "medium", "Интервал представлен одной глубинной точкой и может быть одиночным всплеском."),
+        "uncertain_fluid_character": ("classification", "medium", "Флюидный характер неоднозначен и требует ручной проверки."),
+        "contains_missing_ratio_values": ("calculation", "medium", "Внутри интервала есть пропуски расчетных коэффициентов."),
+        "contains_barrier_rows": ("geological_context", "high", "В группу попали строки с барьерной литологией; границы нужно проверить."),
     }
     for flag in interval.quality_flags:
         if flag in flag_messages:
-            limitations.append(flag_messages[flag])
+            category, severity, message = flag_messages[flag]
+            limitations.append(
+                InterpretationLimitation(
+                    category=category,
+                    severity=severity,
+                    message=message,
+                    source=f"quality_flag:{flag}",
+                    recommendation="Проверить исходные кривые, расчетные признаки и устойчивость интервала по соседним глубинам.",
+                )
+            )
     if interval.data_confidence_score < 60:
-        limitations.append("Качество исходных расчетных признаков снижает надежность интерпретации.")
+        limitations.append(
+            InterpretationLimitation(
+                category="data_confidence",
+                severity="high",
+                message="Качество исходных расчетных признаков снижает надежность интерпретации.",
+                source="data_confidence_score",
+                recommendation="Проверить пропуски, нулевые значения, выбросы и корректность компонент C1-C5.",
+            )
+        )
     if interval.geological_confidence_score < 60:
-        limitations.append("Геологический контекст недостаточно поддерживает выбранную классификацию.")
+        limitations.append(
+            InterpretationLimitation(
+                category="geological_confidence",
+                severity="medium",
+                message="Геологический контекст недостаточно поддерживает выбранную классификацию.",
+                source="geological_confidence_score",
+                recommendation="Сопоставить интервал с литологией, перемычками, ГИС, керном и соседними пластами.",
+            )
+        )
     if not limitations:
-        limitations.append("Интерпретация остается предварительной и требует сопоставления с ГИС, керном, испытаниями и буровым контекстом.")
-    return tuple(dict.fromkeys(limitations))
+        limitations.append(
+            InterpretationLimitation(
+                category="professional_caution",
+                severity="info",
+                message="Интерпретация остается предварительной и требует сопоставления с ГИС, керном, испытаниями и буровым контекстом.",
+                source="interpretation_policy",
+                recommendation="Использовать вывод как инженерную гипотезу до комплексного подтверждения.",
+            )
+        )
+    unique: dict[str, InterpretationLimitation] = {}
+    for item in limitations:
+        unique.setdefault(item.message, item)
+    return tuple(unique.values())
+
+
+def _limitations_for_interval(interval: HydrocarbonInterval) -> tuple[str, ...]:
+    return tuple(item.message for item in build_interpretation_limitations(interval))
+
+
+def build_interpretation_recommendations(interval: HydrocarbonInterval) -> tuple[InterpretationRecommendation, ...]:
+    """Return structured engineering recommendations for one interval."""
+
+    recommendations: list[InterpretationRecommendation] = []
+    for trace in interval.rule_traces:
+        if trace.status == "applied" and trace.recommendation:
+            recommendations.append(
+                InterpretationRecommendation(
+                    priority="high" if interval.decision_level in {"very_high", "high"} else "medium",
+                    action=trace.recommendation,
+                    reason=trace.title,
+                    source=f"rule:{trace.rule_id}",
+                )
+            )
+    if interval.decision_level in {"very_high", "high"}:
+        recommendations.append(
+            InterpretationRecommendation(
+                priority="high",
+                action="Рассмотреть интервал как приоритетный объект для детального геолого-геофизического анализа.",
+                reason="Высокий уровень решения и согласованная доказательная база.",
+                source="decision_level",
+            )
+        )
+    elif interval.decision_level in {"medium", "review"}:
+        recommendations.append(
+            InterpretationRecommendation(
+                priority="medium",
+                action="Проверить интервал по ГИС, литологии, соседним пластам и качеству исходных газовых данных.",
+                reason="Интерпретация требует подтверждения дополнительным контекстом.",
+                source="decision_level",
+            )
+        )
+    else:
+        recommendations.append(
+            InterpretationRecommendation(
+                priority="low",
+                action="Не использовать интервал как самостоятельное заключение без дополнительной проверки исходных данных.",
+                reason="Низкая или неопределенная достоверность решения.",
+                source="decision_level",
+            )
+        )
+    for limitation in build_interpretation_limitations(interval):
+        if limitation.severity in {"high", "medium"} and limitation.recommendation:
+            recommendations.append(
+                InterpretationRecommendation(
+                    priority="high" if limitation.severity == "high" else "medium",
+                    action=limitation.recommendation,
+                    reason=limitation.message,
+                    source=limitation.source,
+                )
+            )
+    unique: dict[tuple[str, str], InterpretationRecommendation] = {}
+    for item in recommendations:
+        unique.setdefault((item.action, item.source), item)
+    return tuple(unique.values())
 
 
 def _recommendations_for_interval(interval: HydrocarbonInterval) -> tuple[str, ...]:
-    recommendations: list[str] = [trace.recommendation for trace in interval.rule_traces if trace.status == "applied" and trace.recommendation]
-    if interval.decision_level in {"very_high", "high"}:
-        recommendations.append("Рассмотреть интервал как приоритетный объект для детального геолого-геофизического анализа.")
-    elif interval.decision_level in {"medium", "review"}:
-        recommendations.append("Проверить интервал по ГИС, литологии, соседним пластам и качеству исходных газовых данных.")
-    else:
-        recommendations.append("Не использовать интервал как самостоятельное заключение без дополнительной проверки исходных данных.")
-    return tuple(dict.fromkeys(recommendations))
-
+    return tuple(item.action for item in build_interpretation_recommendations(interval))
 
 def build_interpretation_explanation(interval: HydrocarbonInterval) -> InterpretationExplanation:
     """Build a concise explanation package for one interval.
@@ -1458,14 +1578,18 @@ def build_interpretation_explanation(interval: HydrocarbonInterval) -> Interpret
     ) + applied_messages + _context_reasoning(interval.context)
     supporting_evidence = tuple(_evidence_sentence(item) for item in interval.evidence_items if item.parameter != "fluid_type")[:8]
     references = tuple(dict.fromkeys(item.reference for item in interval.evidence_items if item.reference))
+    structured_limitations = build_interpretation_limitations(interval)
+    structured_recommendations = build_interpretation_recommendations(interval)
     return InterpretationExplanation(
         summary=summary,
         classification=classification,
         decision_level=interval.decision_level,
         reasoning=reasoning,
         supporting_evidence=supporting_evidence,
-        limitations=_limitations_for_interval(interval),
-        recommendations=_recommendations_for_interval(interval),
+        limitations=tuple(item.message for item in structured_limitations),
+        recommendations=tuple(item.action for item in structured_recommendations),
+        structured_limitations=structured_limitations,
+        structured_recommendations=structured_recommendations,
         references=references,
         engineering_hypothesis=True,
     )
@@ -1765,7 +1889,7 @@ def hydrocarbon_interval_table_rows(intervals: Iterable[HydrocarbonInterval]) ->
             "decision_level": interval.decision_level,
             "context": interval.context.__dict__ if interval.context is not None else {},
             "evidence_tree": interval.evidence_tree,
-            "explanation": interval.explanation.__dict__ if interval.explanation is not None else {},
+            "explanation": asdict(interval.explanation) if interval.explanation is not None else {},
             "confidence_factors": " ".join(interval.confidence_factors),
             "applied_rule_ids": " ".join(interval.applied_rule_ids),
             "rule_traces": _trace_rows(interval.rule_traces),
@@ -2044,6 +2168,8 @@ def hydrocarbon_engine_api_contract() -> dict[str, object]:
         "barrier_model": "LithologyBarrier",
         "context_model": "HydrocarbonInterpretationContext",
         "explanation_model": "InterpretationExplanation",
+        "limitation_model": "InterpretationLimitation",
+        "recommendation_model": "InterpretationRecommendation",
         "public_builders": (
             "detect_hydrocarbon_intervals",
             "hydrocarbon_interval_table_rows",
@@ -2054,6 +2180,8 @@ def hydrocarbon_engine_api_contract() -> dict[str, object]:
             "validate_hydrocarbon_interval_result",
             "build_hydrocarbon_interval_engine_payload",
             "build_interpretation_explanation",
+            "build_interpretation_limitations",
+            "build_interpretation_recommendations",
         ),
         "consumer_rule": "Reports, plots, UI and export layers must consume interval/barrier/evidence/context payloads from this engine and must not duplicate interval-classification logic.",
         "technical_details_policy": "Diagnostics, source row counts, NaN statistics, rule traces and provenance belong to expert/technical views, not to the default engineer-facing report summary.",

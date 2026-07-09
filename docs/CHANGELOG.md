@@ -1,3 +1,12 @@
+
+## Hydrocarbon Interpretation Engine v16
+
+- Added structured `InterpretationLimitation` model.
+- Added structured `InterpretationRecommendation` model.
+- Added public builders for limitations and recommendations.
+- Extended `InterpretationExplanation` with structured limitation/recommendation payloads.
+- Updated Hydrocarbon Interval Engine schema to v16.
+
 # Formula Source Audit
 
 - Added formula/source audit for mud-gas and petrophysical calculations.
