@@ -1,52 +1,22 @@
-# GAS RATIO PRO — Project Progress Next Step
+# Next Step
 
-Current stage: Sprint 2 — LAS Workspace / Hydrocarbon Interpretation planning update.
+Active module: Hydrocarbon Interval Engine.
 
-Completed in this archive:
+Completed in the latest step:
 
-- Added product-priority plan for hydrocarbon interval reporting.
-- Added explicit roadmap block for automatic hydrocarbon interval detection.
-- Added requirements for interpretation text, marked graphs and printable reports.
-- Added petrophysics and modeling integration requirements for interval results.
-- Added toolbar/ribbon requirements for Detect, Interpret, Plot, Report, Export and Print actions.
-- Updated project plan so this goal is visible before continuing implementation.
+- expanded interval schema to v4;
+- added directional `gas_oil` and `oil_gas` classifications;
+- added `water` and `uncertain` classes;
+- extended graph marker rows for new interval classes;
+- added tests for refined classification behavior.
 
-Validation:
+Next implementation target:
 
-- Documentation update only.
-- No runtime code changed.
+- add merge/split metadata to HydrocarbonInterval;
+- expose source-row coverage for each interval;
+- keep Hydrocarbon Interval Engine as the only active module until Definition of Done is reached.
 
-Recommended next step:
+Validation status:
 
-- Start implementing Hydrocarbon Interval data model and detector service after the current LAS Workspace workflow is stable.
-- Then connect detector output to marked graph report and printable report package.
-
-Compatibility markers retained for regression tests:
-
-- Architecture Review
-- Core LTS Freeze
-- Sprint 2 Workspace Framework
-- Workspace Dashboard cards
-- Project Explorer shortcuts
-- LAS Workspace 3.0 UI entry point
-- LAS creation wizard UI
-- LasWorkspaceController.create_las_working_copy
-
-Current implementation step:
-
-- Hydrocarbon Interval Engine foundation added as the shared model for detector, interpretation, marked graphs and printable reports.
-
-
-## Current step
-
-- Added hydrocarbon interval graph marker model.
-- Added printable marker table for interval reports.
-- Updated hydrocarbon interval schema to v3.
-
-## Stage discipline update
-
-- Added `docs/15_Implementation_Plan/HYDROCARBON_INTERPRETATION_STAGE_LOCK.md`.
-- Fixed the implementation order so the project completes one module before starting another.
-- Current locked priority: Hydrocarbon Interval Engine.
-- Next stages are Interpretation Engine, Marked Graph Report, Professional Report Engine, Export/Print, Petrophysics, Toolbar/Design System and Modeling.
-- New modules must not start until the active stage reaches Definition of Done.
+- compileall: PASS;
+- pytest: 1041 passed / 0 failed.

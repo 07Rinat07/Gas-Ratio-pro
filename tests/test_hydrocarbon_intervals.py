@@ -96,7 +96,7 @@ def test_hydrocarbon_interval_engine_keeps_transition_candidates_when_enabled() 
     assert len(result.intervals) == 1
     assert result.intervals[0].fluid_type in {"mixed", "transition"}
     assert result.rows["hydrocarbon_candidate"].all()
-    assert result.schema.endswith("/v3")
+    assert result.schema.endswith("/v4")
 
 
 def test_hydrocarbon_interval_engine_builds_graph_marker_rows() -> None:
@@ -118,3 +118,43 @@ def test_hydrocarbon_interval_engine_builds_graph_marker_rows() -> None:
     assert markers[0]["label"] == "OIL"
     assert markers[0]["line_color"].startswith("#")
     assert "1600" in markers[0]["annotation"]
+
+
+def test_hydrocarbon_interval_engine_distinguishes_directional_oil_gas_labels() -> None:
+    frame = pd.DataFrame(
+        {
+            "depth": [1700.0, 1701.0, 1705.0, 1706.0],
+            "interpretation": [
+                "Газонефтяной смешанный интервал",
+                "Газонефтяной смешанный интервал",
+                "Нефтегазовый смешанный интервал",
+                "Нефтегазовый смешанный интервал",
+            ],
+            "wh": [12.0, 13.0, 26.0, 28.0],
+            "bh": [40.0, 42.0, 10.0, 11.0],
+        }
+    )
+
+    result = detect_hydrocarbon_intervals(
+        frame,
+        rules=HydrocarbonIntervalRuleSet(max_depth_gap=2.0, merge_compatible_fluids=False),
+    )
+
+    assert [interval.fluid_type for interval in result.intervals] == ["gas_oil", "oil_gas"]
+    assert result.schema.endswith("/v4")
+
+
+def test_hydrocarbon_interval_engine_keeps_uncertain_candidates_but_excludes_water() -> None:
+    frame = pd.DataFrame(
+        {
+            "depth": [1800.0, 1801.0, 1810.0],
+            "interpretation": ["Сомнительный газовый признак", "ambiguous anomaly", "Водонасыщенный интервал"],
+        }
+    )
+
+    result = detect_hydrocarbon_intervals(frame, rules=HydrocarbonIntervalRuleSet(max_depth_gap=2.0))
+
+    assert len(result.intervals) == 1
+    assert result.intervals[0].fluid_type == "uncertain"
+    assert result.rows.loc[result.rows["hydrocarbon_fluid_type"] == "water", "hydrocarbon_candidate"].eq(False).all()
+    assert "неустойчивый" in " ".join(result.intervals[0].warnings)

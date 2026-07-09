@@ -205,3 +205,24 @@ A stage is finished only if:
 - no unrelated module is started in the same step;
 - release ZIP excludes `.git`, `.venv`, caches, logs and generated debug artifacts.
 
+
+## Current implementation update — Hydrocarbon Interval Engine v4
+
+The active stage remains Hydrocarbon Interval Engine. This step refines the shared interval classification model without starting the next module.
+
+Implemented in this step:
+
+- schema updated to `gas-ratio-pro/hydrocarbon-intervals/v4`;
+- directional mixed fluid classes added:
+  - `gas_oil`;
+  - `oil_gas`;
+- `water` classification added as non-prospective interval type;
+- `uncertain` classification added as low-confidence candidate type;
+- marker style mapping extended for new classes;
+- ratio-conflict fallback added for rows where Pixler, Oil Indicator and Haworth signs disagree;
+- tests added for directional gas/oil labels, uncertain candidates and water exclusion.
+
+Validation:
+
+- compileall: PASS;
+- pytest: 1041 passed / 0 failed.

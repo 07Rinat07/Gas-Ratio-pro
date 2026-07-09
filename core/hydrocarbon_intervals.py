@@ -6,7 +6,7 @@ from typing import Iterable, Mapping, Sequence
 import pandas as pd
 
 
-HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v3"
+HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v4"
 
 NON_PROSPECTIVE_LABELS = (
     "Недостаточно данных",
@@ -17,9 +17,13 @@ NON_PROSPECTIVE_LABELS = (
 FLUID_TYPE_LABELS = {
     "gas": "Газовый интервал",
     "oil": "Нефтяной интервал",
+    "gas_oil": "Газонефтяной интервал",
+    "oil_gas": "Нефтегазовый интервал",
     "condensate": "Газоконденсатный интервал",
     "mixed": "Смешанный нефтегазовый интервал",
     "transition": "Переходный интервал",
+    "water": "Водонасыщенный интервал",
+    "uncertain": "Неопределенный интервал",
     "insufficient": "Недостаточно данных",
 }
 
@@ -32,9 +36,13 @@ CONFIDENCE_LABELS = {
 MARKER_STYLE_BY_FLUID = {
     "gas": {"label": "GAS", "color": "#d62728", "fill": "rgba(214,39,40,0.18)"},
     "oil": {"label": "OIL", "color": "#2ca02c", "fill": "rgba(44,160,44,0.18)"},
+    "gas_oil": {"label": "GAS→OIL", "color": "#8c564b", "fill": "rgba(140,86,75,0.18)"},
+    "oil_gas": {"label": "OIL→GAS", "color": "#17becf", "fill": "rgba(23,190,207,0.18)"},
     "condensate": {"label": "COND", "color": "#ff7f0e", "fill": "rgba(255,127,14,0.18)"},
     "mixed": {"label": "GAS/OIL", "color": "#9467bd", "fill": "rgba(148,103,189,0.18)"},
     "transition": {"label": "CHECK", "color": "#7f7f7f", "fill": "rgba(127,127,127,0.14)"},
+    "uncertain": {"label": "UNCERTAIN", "color": "#bcbd22", "fill": "rgba(188,189,34,0.16)"},
+    "water": {"label": "WATER", "color": "#1f77b4", "fill": "rgba(31,119,180,0.12)"},
 }
 
 
@@ -112,6 +120,47 @@ def _contains_any(text: str, needles: Sequence[str]) -> bool:
     return any(needle.lower() in low for needle in needles)
 
 
+def _ordered_mixed_type(label: str) -> str:
+    """Return directional gas/oil class when the label expresses both fluids."""
+
+    low = label.lower()
+    gas_positions = [pos for token in ("газ", "gas") if (pos := low.find(token)) >= 0]
+    oil_positions = [pos for token in ("нефт", "oil") if (pos := low.find(token)) >= 0]
+    if gas_positions and oil_positions:
+        return "gas_oil" if min(gas_positions) < min(oil_positions) else "oil_gas"
+    return "mixed"
+
+
+def _ratio_conflict_type(oil_indicator: float | None, pixler: float | None, wh: float | None, bh: float | None) -> str | None:
+    """Detect mixed oil/gas indications when independent ratios disagree.
+
+    The function deliberately returns a directional class only when there are
+    competing oil and gas indicators. Pure oil/gas/condensate fallbacks remain in
+    `normalize_fluid_type` so existing behaviour stays backward compatible.
+    """
+
+    oil_votes = 0
+    gas_votes = 0
+    if oil_indicator is not None:
+        if 0.10 <= oil_indicator < 0.40:
+            oil_votes += 1
+        elif 0.01 <= oil_indicator < 0.07:
+            gas_votes += 1
+    if pixler is not None:
+        if 2 <= pixler < 15:
+            oil_votes += 1
+        elif pixler >= 65:
+            gas_votes += 1
+    if wh is not None and bh is not None:
+        if 17.5 <= wh < 40:
+            oil_votes += 1
+        elif 0.5 <= wh < 17.5 and bh > wh:
+            gas_votes += 1
+    if oil_votes and gas_votes:
+        return "oil_gas" if oil_votes >= gas_votes else "gas_oil"
+    return None
+
+
 def normalize_fluid_type(row: Mapping[str, object]) -> str:
     """Normalize mixed Russian/English classification labels to report classes."""
 
@@ -126,12 +175,16 @@ def normalize_fluid_type(row: Mapping[str, object]) -> str:
 
     if _contains_any(label, ("недостат", "insufficient")):
         return "insufficient"
+    if _contains_any(label, ("вода", "водона", "water", "aquifer")):
+        return "water"
+    if _contains_any(label, ("неопредел", "сомнит", "uncertain", "ambiguous")):
+        return "uncertain"
     if _contains_any(label, ("переход", "transition", "границ", "boundary")):
         return "transition"
     if _contains_any(label, ("конденсат", "condensate")):
         return "condensate"
     if _contains_any(label, ("нефт", "oil")) and _contains_any(label, ("газ", "gas")):
-        return "mixed"
+        return _ordered_mixed_type(label)
     if _contains_any(label, ("нефт", "oil")):
         return "oil"
     if _contains_any(label, ("газ", "gas")):
@@ -140,6 +193,9 @@ def normalize_fluid_type(row: Mapping[str, object]) -> str:
     # Ratio fallback. This keeps Pixler/OI signals available for reports even
     # when the row has no text interpretation yet. Ranges are deliberately
     # broad and should be treated as preliminary engineering hints.
+    conflict_type = _ratio_conflict_type(oil_indicator, pixler, wh, bh)
+    if conflict_type is not None:
+        return conflict_type
     if oil_indicator is not None:
         if 0.10 <= oil_indicator < 0.40:
             return "oil"
@@ -161,19 +217,19 @@ def normalize_fluid_type(row: Mapping[str, object]) -> str:
             return "gas"
         if 0.5 <= wh < 17.5 and bh <= wh:
             return "condensate"
-    return "transition"
+    return "uncertain"
 
 
 def is_prospective_fluid(fluid_type: str, *, include_low_confidence: bool = True) -> bool:
-    if fluid_type in {"oil", "gas", "condensate", "mixed"}:
+    if fluid_type in {"oil", "gas", "condensate", "mixed", "gas_oil", "oil_gas"}:
         return True
-    return bool(include_low_confidence and fluid_type == "transition")
+    return bool(include_low_confidence and fluid_type in {"transition", "uncertain"})
 
 
 def _fluid_group(fluid_type: str, *, merge_compatible_fluids: bool) -> str:
     if not merge_compatible_fluids:
         return fluid_type
-    if fluid_type in {"oil", "gas", "condensate", "mixed", "transition"}:
+    if fluid_type in {"oil", "gas", "condensate", "mixed", "gas_oil", "oil_gas", "transition", "uncertain"}:
         return "hydrocarbon"
     return fluid_type
 
@@ -227,7 +283,7 @@ def _classification_confidence(frame: pd.DataFrame, fluid_type: str) -> str:
     if "interpretation" in frame.columns and frame["interpretation"].astype(str).str.strip().ne("").any():
         signals += 1
 
-    if fluid_type == "transition":
+    if fluid_type in {"transition", "uncertain"}:
         return "low"
     if signals >= 3 and len(frame) >= 2:
         return "high"
@@ -271,6 +327,8 @@ def _warnings_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[str, ...]
         warnings.append("Часть расчетных коэффициентов отсутствует или содержит только NaN.")
     if fluid_type == "transition":
         warnings.append("Переходный тип требует ручной проверки по соседним интервалам, ГИС и литологии.")
+    if fluid_type == "uncertain":
+        warnings.append("Тип флюида неустойчивый: признаки недостаточно согласованы для уверенной классификации.")
     if len(frame) == 1:
         warnings.append("Интервал представлен одной строкой; проверьте устойчивость признака по соседним глубинам.")
     return tuple(warnings)
