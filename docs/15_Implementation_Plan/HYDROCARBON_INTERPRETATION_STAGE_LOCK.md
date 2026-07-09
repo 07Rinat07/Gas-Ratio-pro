@@ -371,3 +371,17 @@ Next work remains inside Hydrocarbon Interval Engine:
 2. стабилизировать публичный API результата интервалов;
 3. подготовить финальный acceptance checklist для `Hydrocarbon Interval Engine v1.0`;
 4. после этого переходить к `Professional Reporting System`.
+
+
+## Update: Hydrocarbon Interval Engine v12
+
+Добавлен слой validation/API contract.
+
+Новые элементы:
+
+- validation cases для проверки практических сценариев;
+- validation results для QA;
+- публичный API contract для отчетов, графиков, UI и экспорта;
+- правило: downstream-модули используют результат Hydrocarbon Interval Engine и не дублируют классификационную логику.
+
+Это приближает Hydrocarbon Interval Engine к статусу v1.0 Complete.

@@ -8,7 +8,7 @@ from core.method_registry import get_method_profile, method_id_for_parameter, me
 import pandas as pd
 
 
-HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v11"
+HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v12"
 
 NON_PROSPECTIVE_LABELS = (
     "Недостаточно данных",
@@ -215,6 +215,42 @@ class IntervalEvidence:
     comment: str = ""
     reference: str = ""
 
+
+
+
+@dataclass(frozen=True)
+class HydrocarbonValidationCase:
+    """Expected interpretation outcome for a reference validation dataset.
+
+    This object is intentionally small and serializable. It is used to verify
+    that changes in the interval engine do not silently break practical
+    geological scenarios such as gas, oil, gas-condensate, mixed fluid,
+    Claystone barrier separation or low-quality data handling.
+    """
+
+    case_id: str
+    title: str
+    expected_fluid_types: tuple[str, ...]
+    expected_min_intervals: int = 1
+    expected_barriers: int = 0
+    minimum_confidence_score: int = 0
+    required_quality_flags: tuple[str, ...] = ()
+    required_rule_ids: tuple[str, ...] = ()
+    description: str = ""
+
+
+@dataclass(frozen=True)
+class HydrocarbonValidationResult:
+    """Result of one validation-case check against engine output."""
+
+    case_id: str
+    title: str
+    passed: bool
+    messages: tuple[str, ...]
+    observed_fluid_types: tuple[str, ...]
+    observed_interval_count: int
+    observed_barrier_count: int
+    minimum_observed_confidence_score: int | None = None
 
 @dataclass(frozen=True)
 class HydrocarbonInterval:
@@ -1376,3 +1412,109 @@ def hydrocarbon_interval_marker_dataframe(intervals: Iterable[HydrocarbonInterva
     """Convert marker model to DataFrame for printable reports and UI grids."""
 
     return pd.DataFrame(hydrocarbon_interval_marker_rows(intervals))
+
+
+def validate_hydrocarbon_interval_result(
+    result: HydrocarbonIntervalResult,
+    case: HydrocarbonValidationCase,
+) -> HydrocarbonValidationResult:
+    """Validate one engine result against a practical reference case.
+
+    The validator does not decide geological truth. It protects the software
+    from regressions: if a known gas case stops producing a gas interval, if a
+    Claystone barrier disappears, or if confidence unexpectedly drops below the
+    agreed threshold, the validation result fails and documents why.
+    """
+
+    messages: list[str] = []
+    intervals = tuple(result.intervals)
+    observed_fluid_types = tuple(interval.fluid_type for interval in intervals)
+    observed_rule_ids = {rule_id for interval in intervals for rule_id in interval.applied_rule_ids}
+    observed_quality_flags = {flag for interval in intervals for flag in interval.quality_flags}
+    confidence_scores = [interval.confidence_score for interval in intervals]
+    minimum_observed_confidence = min(confidence_scores) if confidence_scores else None
+
+    if len(intervals) < case.expected_min_intervals:
+        messages.append(
+            f"Expected at least {case.expected_min_intervals} interval(s), got {len(intervals)}."
+        )
+
+    missing_fluids = [fluid for fluid in case.expected_fluid_types if fluid not in observed_fluid_types]
+    if missing_fluids:
+        messages.append(f"Missing expected fluid types: {', '.join(missing_fluids)}.")
+
+    if len(result.barriers) < case.expected_barriers:
+        messages.append(
+            f"Expected at least {case.expected_barriers} barrier(s), got {len(result.barriers)}."
+        )
+
+    if case.minimum_confidence_score and (minimum_observed_confidence is None or minimum_observed_confidence < case.minimum_confidence_score):
+        messages.append(
+            f"Minimum confidence score below expected threshold: expected >= {case.minimum_confidence_score}, got {minimum_observed_confidence}."
+        )
+
+    missing_flags = [flag for flag in case.required_quality_flags if flag not in observed_quality_flags]
+    if missing_flags:
+        messages.append(f"Missing expected quality flags: {', '.join(missing_flags)}.")
+
+    missing_rules = [rule_id for rule_id in case.required_rule_ids if rule_id not in observed_rule_ids]
+    if missing_rules:
+        messages.append(f"Missing expected rule ids: {', '.join(missing_rules)}.")
+
+    return HydrocarbonValidationResult(
+        case_id=case.case_id,
+        title=case.title,
+        passed=not messages,
+        messages=tuple(messages),
+        observed_fluid_types=observed_fluid_types,
+        observed_interval_count=len(intervals),
+        observed_barrier_count=len(result.barriers),
+        minimum_observed_confidence_score=minimum_observed_confidence,
+    )
+
+
+def hydrocarbon_validation_result_rows(
+    validation_results: Iterable[HydrocarbonValidationResult],
+) -> tuple[dict[str, object], ...]:
+    """Return serializable validation rows for QA tables and documentation."""
+
+    return tuple(
+        {
+            "case_id": item.case_id,
+            "title": item.title,
+            "passed": item.passed,
+            "messages": " ".join(item.messages),
+            "observed_fluid_types": " ".join(item.observed_fluid_types),
+            "observed_interval_count": item.observed_interval_count,
+            "observed_barrier_count": item.observed_barrier_count,
+            "minimum_observed_confidence_score": item.minimum_observed_confidence_score,
+        }
+        for item in validation_results
+    )
+
+
+def hydrocarbon_engine_api_contract() -> dict[str, object]:
+    """Return the stable public API contract for downstream modules.
+
+    Professional reports, plot tracks, dashboards and future PDF/DOCX exporters
+    should consume this contract instead of re-calculating intervals or reading
+    private implementation fields. This keeps the Hydrocarbon Interval Engine as
+    the single source of truth.
+    """
+
+    return {
+        "schema": HYDROCARBON_INTERVAL_SCHEMA,
+        "result_model": "HydrocarbonIntervalResult",
+        "interval_model": "HydrocarbonInterval",
+        "barrier_model": "LithologyBarrier",
+        "public_builders": (
+            "detect_hydrocarbon_intervals",
+            "hydrocarbon_interval_table_rows",
+            "hydrocarbon_interval_marker_rows",
+            "lithology_barrier_table_rows",
+            "hydrocarbon_method_registry_rows",
+            "validate_hydrocarbon_interval_result",
+        ),
+        "consumer_rule": "Reports, plots, UI and export layers must consume interval/barrier/evidence payloads from this engine and must not duplicate interval-classification logic.",
+        "technical_details_policy": "Diagnostics, source row counts, NaN statistics, rule traces and provenance belong to expert/technical views, not to the default engineer-facing report summary.",
+    }

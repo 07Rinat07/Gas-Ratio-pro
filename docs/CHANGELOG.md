@@ -633,3 +633,11 @@ git status --short
 - Added interpretation status for practical reporting workflows.
 - Added rule-based confidence adjustment factors.
 - Updated interval schema to `gas-ratio-pro/hydrocarbon-intervals/v11`.
+
+
+## Hydrocarbon Interval Engine v12
+
+- Added validation case model for practical geology scenarios.
+- Added validation result export rows for QA tables.
+- Added public API contract for report, plot, UI and export consumers.
+- Updated schema to `gas-ratio-pro/hydrocarbon-intervals/v12`.

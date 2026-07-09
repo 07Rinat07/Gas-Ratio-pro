@@ -96,7 +96,7 @@ def test_hydrocarbon_interval_engine_keeps_transition_candidates_when_enabled() 
     assert len(result.intervals) == 1
     assert result.intervals[0].fluid_type in {"mixed", "transition"}
     assert result.rows["hydrocarbon_candidate"].all()
-    assert result.schema.endswith("/v11")
+    assert result.schema.endswith("/v12")
 
 
 def test_hydrocarbon_interval_engine_builds_graph_marker_rows() -> None:
@@ -141,7 +141,7 @@ def test_hydrocarbon_interval_engine_distinguishes_directional_oil_gas_labels() 
     )
 
     assert [interval.fluid_type for interval in result.intervals] == ["gas_oil", "oil_gas"]
-    assert result.schema.endswith("/v11")
+    assert result.schema.endswith("/v12")
 
 
 def test_hydrocarbon_interval_engine_keeps_uncertain_candidates_but_excludes_water() -> None:
@@ -270,7 +270,7 @@ def test_hydrocarbon_interval_engine_exports_structured_evidence_and_quality_fla
     table_rows = hydrocarbon_interval_table_rows(result.intervals)
     markers = hydrocarbon_interval_marker_rows(result.intervals)
 
-    assert result.schema.endswith("/v11")
+    assert result.schema.endswith("/v12")
     assert interval.evidence_items
     assert {item.method for item in interval.evidence_items} >= {"Haworth", "Pixler", "HydrocarbonIntervalEngine"}
     assert "single_sample_interval" in interval.quality_flags
@@ -297,7 +297,7 @@ def test_hydrocarbon_interval_engine_calculates_confidence_score_and_factors() -
     table_rows = hydrocarbon_interval_table_rows(result.intervals)
     markers = hydrocarbon_interval_marker_rows(result.intervals)
 
-    assert result.schema.endswith("/v11")
+    assert result.schema.endswith("/v12")
     assert interval.confidence_score >= 75
     assert interval.confidence == "high"
     assert any(factor.startswith("haworth_evidence=") for factor in interval.confidence_factors)
@@ -348,7 +348,7 @@ def test_interval_evidence_framework_exports_status_expected_and_reference() -> 
     interval = result.intervals[0]
     rows = hydrocarbon_interval_table_rows(result.intervals)
 
-    assert result.schema.endswith("/v11")
+    assert result.schema.endswith("/v12")
     assert interval.evidence_items
     assert all(item.evidence_id for item in interval.evidence_items)
     assert all(item.status in {"pass", "observed", "missing"} for item in interval.evidence_items)
@@ -378,7 +378,7 @@ def test_hydrocarbon_interval_rule_engine_exports_applied_rules_and_trace() -> N
     rows = hydrocarbon_interval_table_rows(result.intervals)
     markers = hydrocarbon_interval_marker_rows(result.intervals)
 
-    assert result.schema.endswith("/v11")
+    assert result.schema.endswith("/v12")
     assert "HC-GAS-HIGH-001" in interval.applied_rule_ids
     assert interval.rule_traces
     assert any(trace.status == "applied" for trace in interval.rule_traces)
@@ -408,3 +408,74 @@ def test_hydrocarbon_interval_rule_engine_flags_single_sample_review() -> None:
     assert interval.interpretation_status == "requires_review"
     assert "rule_delta=" in rows[0]["confidence_factors"]
     assert any(trace.rule_id == "HC-SINGLE-SAMPLE-001" and trace.status == "applied" for trace in interval.rule_traces)
+
+
+def test_hydrocarbon_interval_engine_validation_case_passes_for_gas_reference() -> None:
+    from core.hydrocarbon_intervals import (
+        HydrocarbonValidationCase,
+        hydrocarbon_engine_api_contract,
+        hydrocarbon_validation_result_rows,
+        validate_hydrocarbon_interval_result,
+    )
+
+    frame = pd.DataFrame(
+        {
+            "depth": [2800.0, 2801.0, 2802.0],
+            "interpretation": ["Газовая залежь", "Газовая залежь", "Газовая залежь"],
+            "wh": [7.0, 8.0, 9.0],
+            "bh": [42.0, 43.0, 44.0],
+            "c1_c2": [82.0, 80.0, 78.0],
+            "c1_c3": [180.0, 175.0, 170.0],
+            "oil_indicator": [0.04, 0.05, 0.04],
+        }
+    )
+
+    result = detect_hydrocarbon_intervals(frame, rules=HydrocarbonIntervalRuleSet(max_depth_gap=2.0))
+    case = HydrocarbonValidationCase(
+        case_id="gas-reference",
+        title="Reference gas-bearing interval",
+        expected_fluid_types=("gas",),
+        minimum_confidence_score=70,
+        required_rule_ids=("HC-GAS-HIGH-001",),
+    )
+
+    validation = validate_hydrocarbon_interval_result(result, case)
+    rows = hydrocarbon_validation_result_rows((validation,))
+    contract = hydrocarbon_engine_api_contract()
+
+    assert validation.passed is True
+    assert rows[0]["passed"] is True
+    assert contract["schema"].endswith("/v12")
+    assert "detect_hydrocarbon_intervals" in contract["public_builders"]
+
+
+def test_hydrocarbon_interval_engine_validation_case_catches_barrier_regression() -> None:
+    from core.hydrocarbon_intervals import HydrocarbonValidationCase, validate_hydrocarbon_interval_result
+
+    frame = pd.DataFrame(
+        {
+            "top": [2900.0, 2901.0, 2901.2],
+            "base": [2901.0, 2901.2, 2903.0],
+            "depth": [2900.0, 2901.0, 2901.2],
+            "interpretation": ["Газовая залежь", "Claystone barrier", "Газовая залежь"],
+            "lithology": ["Sandstone", "Claystone", "Sandstone"],
+            "wh": [8.0, None, 9.0],
+            "bh": [44.0, None, 45.0],
+            "c1_c2": [80.0, None, 82.0],
+        }
+    )
+
+    result = detect_hydrocarbon_intervals(frame)
+    case = HydrocarbonValidationCase(
+        case_id="barrier-reference",
+        title="Separated gas intervals with Claystone barrier",
+        expected_fluid_types=("gas",),
+        expected_min_intervals=2,
+        expected_barriers=1,
+    )
+
+    validation = validate_hydrocarbon_interval_result(result, case)
+
+    assert validation.passed is True
+    assert validation.observed_interval_count == 2
+    assert validation.observed_barrier_count == 1
