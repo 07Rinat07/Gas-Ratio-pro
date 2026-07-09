@@ -95,6 +95,121 @@ def build_interpretation_counts_table(df: pd.DataFrame, *, column: str = "interp
     )
 
 
+
+def _is_hydrocarbon_interpretation(value: object) -> bool:
+    """Return True for preliminary classes that should appear in HC interval reports.
+
+    The printable report must not be limited to one selected row. This helper
+    keeps gas, wet-gas/condensate, oil and transition classes visible, while
+    excluding clearly non-productive or missing-data rows.
+    """
+
+    text = str(value or "").strip().lower()
+    if not text:
+        return False
+
+    negative_markers = ("недостаточно", "сухой газ / непродуктивно", "остаточная нефть / непродуктивно", "not classified")
+    if any(marker in text for marker in negative_markers):
+        return False
+
+    positive_markers = (
+        "газовая",
+        "жирный газ",
+        "конденсат",
+        "нефтяная",
+        "переходная",
+        "mixed",
+        "gas",
+        "oil",
+        "condensate",
+        "hydrocarbon",
+    )
+    return any(marker in text for marker in positive_markers)
+
+
+def _mean_value(df: pd.DataFrame, column: str) -> str:
+    if column not in df.columns:
+        return ""
+    values = pd.to_numeric(df[column], errors="coerce").dropna()
+    if values.empty:
+        return ""
+    return f"{float(values.mean()):g}"
+
+
+def build_hydrocarbon_intervals_table(
+    df: pd.DataFrame,
+    *,
+    depth_column: str = "depth",
+    interpretation_column: str = "interpretation",
+) -> HtmlReportTable | None:
+    """Build a printable summary of all detected hydrocarbon-bearing intervals.
+
+    The table groups consecutive rows whose preliminary interpretation points to
+    gas, oil, condensate or transition hydrocarbons. It is intentionally
+    conservative: it summarizes already calculated interpretation labels and does
+    not introduce a new geological method.
+    """
+
+    if df is None or df.empty or interpretation_column not in df.columns:
+        return None
+
+    work = df.copy()
+    if depth_column in work.columns:
+        work[depth_column] = pd.to_numeric(work[depth_column], errors="coerce")
+        work = work.sort_values(depth_column, kind="stable", na_position="last")
+
+    rows: list[tuple[str, str, str, str, str, str, str, str, str]] = []
+    current_indices: list[int] = []
+    current_label = ""
+
+    def flush() -> None:
+        nonlocal current_indices, current_label
+        if not current_indices:
+            return
+        block = work.loc[current_indices]
+        if depth_column in block.columns:
+            depths = pd.to_numeric(block[depth_column], errors="coerce").dropna()
+        else:
+            depths = pd.Series(dtype="float64")
+        top = float(depths.min()) if not depths.empty else float(current_indices[0])
+        base = float(depths.max()) if not depths.empty else float(current_indices[-1])
+        thickness = max(0.0, base - top)
+        rows.append(
+            (
+                str(len(rows) + 1),
+                f"{top:g}",
+                f"{base:g}",
+                f"{thickness:g}",
+                current_label,
+                str(len(block)),
+                _mean_value(block, "wh"),
+                _mean_value(block, "bh"),
+                _mean_value(block, "oil_indicator"),
+            )
+        )
+        current_indices = []
+        current_label = ""
+
+    for index, row in work.iterrows():
+        label = str(row.get(interpretation_column, "") or "").strip()
+        if not _is_hydrocarbon_interpretation(label):
+            flush()
+            continue
+        if current_indices and label != current_label:
+            flush()
+        current_indices.append(index)
+        current_label = label
+    flush()
+
+    if not rows:
+        return None
+
+    return HtmlReportTable(
+        title="Сводка выявленных интервалов с признаками УВ",
+        headers=("№", "Кровля", "Подошва", "Толщина", "Интерпретация", "Строк", "Wh avg", "Bh avg", "Oil indicator avg"),
+        rows=tuple(rows),
+    )
+
 def build_interval_print_report(
     figures,
     *,
@@ -123,6 +238,10 @@ def build_interval_print_report(
     interpretation_table = build_interpretation_counts_table(interval_df)
     if interpretation_table is not None:
         tables.append(interpretation_table)
+
+    hydrocarbon_table = build_hydrocarbon_intervals_table(interval_df)
+    if hydrocarbon_table is not None:
+        tables.append(hydrocarbon_table)
 
     stats_table = build_numeric_statistics_table(interval_df, columns=selected_tablet_columns)
     if stats_table is not None:

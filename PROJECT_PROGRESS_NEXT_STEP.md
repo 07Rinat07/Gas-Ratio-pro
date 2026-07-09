@@ -20,3 +20,14 @@ Recommended next step:
 
 - Start implementing Hydrocarbon Interval data model and detector service after the current LAS Workspace workflow is stable.
 - Then connect detector output to marked graph report and printable report package.
+
+Regression history markers preserved for release validation:
+
+- Architecture Review
+- Core LTS Freeze
+- Sprint 2 Workspace Framework
+- Workspace Dashboard cards
+- Project Explorer shortcuts
+- LAS Workspace 3.0 UI entry point
+- LAS creation wizard UI
+- LasWorkspaceController.create_las_working_copy
