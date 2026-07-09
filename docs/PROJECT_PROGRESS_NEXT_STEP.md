@@ -34,6 +34,10 @@ Completed in v45: presentation exports now have a single renderer-neutral facade
 
 Completed in v46: release export QA now runs the multilingual smoke bundle and validates the generated bundle manifest, referenced files, non-empty artifacts and cross-format consistency flags.
 
+## Completed Modern Workbench foundation
+
+Completed in v47: the first Modern Workbench shell foundation is available as framework-neutral core code. `core.command_framework` defines command descriptors, registry execution and event publication. `core.workbench_shell` builds a serializable shell model with Project Explorer, Workspace Toolbar, Workspace Area, Properties and Status Bar regions using application state and lightweight workspace session keys.
+
 ## Next recommended increment
 
-Move from P0 export stabilization to the Modern Workspace shell foundation: Project Explorer, central workspace area, toolbar/status boundary and integration points for session restore, reset and export actions. Keep `scripts/release_export_qa.py` as the release check before packaging builds.
+Connect the Modern Workbench shell model to a Streamlit renderer boundary without moving calculations, persistence or export logic into UI code. Keep `scripts/release_export_qa.py` as the release check before packaging builds.
