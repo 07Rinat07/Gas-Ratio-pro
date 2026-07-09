@@ -7,6 +7,13 @@
 
 # Changelog
 
+## Modern Workbench Session Persistence v50
+
+- Added workspace-session persistence for Workbench navigation entries.
+- Added workspace-session persistence for Workbench dock layout panes.
+- Added restore support for active Workbench navigation and active dock pane selections.
+- Added regression tests for Workbench state roundtrip through WorkspaceSessionManager.
+
 ## Modern Workbench Interaction State v49
 
 - Added framework-neutral interaction state for active Workbench navigation and active dock pane.

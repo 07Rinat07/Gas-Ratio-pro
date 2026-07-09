@@ -111,3 +111,57 @@ def test_workspace_session_keys_are_declared_for_ui_boundary():
     assert SESSION_OPENED_FILES_KEY in keys
     assert SESSION_RECENT_EXPORTS_KEY in keys
     assert SESSION_WINDOW_LAYOUT_KEY in keys
+
+
+def test_workspace_session_persists_workbench_state(tmp_path: Path):
+    from core.workbench_shell import (
+        WORKBENCH_ACTIVE_DOCK_PANE_KEY,
+        WORKBENCH_ACTIVE_NAVIGATION_KEY,
+        WORKBENCH_DOCK_LAYOUT_KEY,
+        WORKBENCH_NAVIGATION_KEY,
+    )
+
+    source_state = _state() | {
+        WORKBENCH_NAVIGATION_KEY: [
+            {"id": "nav.reports", "title": "Reports", "workspace": "reports", "order": 10},
+        ],
+        WORKBENCH_DOCK_LAYOUT_KEY: [
+            {"id": "dock.reports", "panel_id": "workspace_area", "region": "center", "title": "Reports"},
+        ],
+        WORKBENCH_ACTIVE_NAVIGATION_KEY: "nav.reports",
+        WORKBENCH_ACTIVE_DOCK_PANE_KEY: "dock.reports",
+    }
+
+    manager = WorkspaceSessionManager(source_state, sessions_dir=tmp_path)
+    saved = manager.save()
+    restored_session = manager.load(saved.path)
+
+    assert restored_session.workbench_navigation[0]["id"] == "nav.reports"
+    assert restored_session.workbench_dock_layout[0]["id"] == "dock.reports"
+    assert restored_session.workbench_active_navigation == "nav.reports"
+    assert restored_session.workbench_active_dock_pane == "dock.reports"
+
+    target_state = {}
+    restore_result = WorkspaceSessionManager(target_state, sessions_dir=tmp_path).restore(restored_session)
+
+    assert restore_result.executed is True
+    assert target_state[WORKBENCH_NAVIGATION_KEY][0]["workspace"] == "reports"
+    assert target_state[WORKBENCH_DOCK_LAYOUT_KEY][0]["panel_id"] == "workspace_area"
+    assert target_state[WORKBENCH_ACTIVE_NAVIGATION_KEY] == "nav.reports"
+    assert target_state[WORKBENCH_ACTIVE_DOCK_PANE_KEY] == "dock.reports"
+
+
+def test_workspace_session_keys_include_workbench_boundary_keys():
+    from core.workspace_session import (
+        WORKBENCH_SESSION_ACTIVE_DOCK_PANE_KEY,
+        WORKBENCH_SESSION_ACTIVE_NAVIGATION_KEY,
+        WORKBENCH_SESSION_DOCK_LAYOUT_KEY,
+        WORKBENCH_SESSION_NAVIGATION_KEY,
+    )
+
+    keys = workspace_session_keys()
+
+    assert WORKBENCH_SESSION_NAVIGATION_KEY in keys
+    assert WORKBENCH_SESSION_DOCK_LAYOUT_KEY in keys
+    assert WORKBENCH_SESSION_ACTIVE_NAVIGATION_KEY in keys
+    assert WORKBENCH_SESSION_ACTIVE_DOCK_PANE_KEY in keys

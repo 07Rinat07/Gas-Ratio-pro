@@ -42,6 +42,8 @@ Completed in v48: the Workbench shell now includes a framework-neutral navigatio
 
 Completed in v49: the Workbench shell now includes a framework-neutral interaction state for the active navigation entry and active dock pane. Saved selections are restored only when they still match visible enabled navigation items and non-collapsed panes; otherwise the model falls back to safe defaults for predictable session recovery.
 
+Completed in v50: workspace sessions now persist and restore Workbench navigation, dock layout and active interaction selections. This keeps layout restoration inside the session boundary and prevents future Streamlit renderer code from owning Workbench state decisions.
+
 ## Next recommended increment
 
-Connect the Modern Workbench shell, navigation, dock layout and interaction state models to a Streamlit renderer boundary without moving calculations, persistence or export logic into UI code. Keep `scripts/release_export_qa.py` as the release check before packaging builds.
+Connect the persisted Modern Workbench shell state to a Streamlit renderer boundary without moving calculations, persistence or export logic into UI code. Keep `scripts/release_export_qa.py` as the release check before packaging builds.

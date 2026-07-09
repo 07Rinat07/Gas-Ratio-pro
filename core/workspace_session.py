@@ -41,6 +41,13 @@ SESSION_WINDOW_LAYOUT_KEY = "workspace_session_window_layout"
 SESSION_LAST_RESTORED_KEY = "workspace_session_last_restored"
 SESSION_LAST_SAVED_KEY = "workspace_session_last_saved"
 
+# Workbench-owned UI state keys are mirrored here as string constants to avoid
+# importing core.workbench_shell and creating a circular dependency.
+WORKBENCH_SESSION_NAVIGATION_KEY = "workbench_navigation"
+WORKBENCH_SESSION_DOCK_LAYOUT_KEY = "workbench_dock_layout"
+WORKBENCH_SESSION_ACTIVE_NAVIGATION_KEY = "workbench_active_navigation"
+WORKBENCH_SESSION_ACTIVE_DOCK_PANE_KEY = "workbench_active_dock_pane"
+
 RestoreConflictPolicy = Literal["overwrite", "preserve"]
 
 _SAFE_ID_RE = re.compile(r"[^a-zA-Z0-9_.-]+")
@@ -70,6 +77,16 @@ def _dict_copy(value: Any) -> dict[str, Any]:
     return dict(value) if isinstance(value, dict) else {}
 
 
+def _dict_tuple(value: Any) -> tuple[dict[str, Any], ...]:
+    if not isinstance(value, Iterable) or isinstance(value, (str, bytes, dict)):
+        return ()
+    result: list[dict[str, Any]] = []
+    for item in value:
+        if isinstance(item, dict):
+            result.append(dict(item))
+    return tuple(result)
+
+
 def _safe_filename_token(value: str, *, fallback: str = "workspace") -> str:
     token = _SAFE_ID_RE.sub("_", str(value or "").strip()).strip("._-")
     return token or fallback
@@ -90,6 +107,10 @@ class WorkspaceSession:
     user_profile: str = "engineering"
     recent_exports: tuple[str, ...] = ()
     window_layout: dict[str, Any] = field(default_factory=dict)
+    workbench_navigation: tuple[dict[str, Any], ...] = ()
+    workbench_dock_layout: tuple[dict[str, Any], ...] = ()
+    workbench_active_navigation: str = ""
+    workbench_active_dock_pane: str = ""
     created_at: str = field(default_factory=_now_utc)
     updated_at: str = field(default_factory=_now_utc)
     schema: str = WORKSPACE_SESSION_SCHEMA
@@ -114,6 +135,10 @@ class WorkspaceSession:
             user_profile=str(state.get(SESSION_USER_PROFILE_KEY, "engineering") or "engineering"),
             recent_exports=_string_tuple(state.get(SESSION_RECENT_EXPORTS_KEY, ())),
             window_layout=_dict_copy(state.get(SESSION_WINDOW_LAYOUT_KEY, {})),
+            workbench_navigation=_dict_tuple(state.get(WORKBENCH_SESSION_NAVIGATION_KEY, ())),
+            workbench_dock_layout=_dict_tuple(state.get(WORKBENCH_SESSION_DOCK_LAYOUT_KEY, ())),
+            workbench_active_navigation=str(state.get(WORKBENCH_SESSION_ACTIVE_NAVIGATION_KEY, "") or ""),
+            workbench_active_dock_pane=str(state.get(WORKBENCH_SESSION_ACTIVE_DOCK_PANE_KEY, "") or ""),
         )
 
     @classmethod
@@ -132,6 +157,10 @@ class WorkspaceSession:
             user_profile=str(data.get("user_profile", "engineering") or "engineering"),
             recent_exports=_string_tuple(data.get("recent_exports", ())),
             window_layout=_dict_copy(data.get("window_layout", {})),
+            workbench_navigation=_dict_tuple(data.get("workbench_navigation", ())),
+            workbench_dock_layout=_dict_tuple(data.get("workbench_dock_layout", ())),
+            workbench_active_navigation=str(data.get("workbench_active_navigation", "") or ""),
+            workbench_active_dock_pane=str(data.get("workbench_active_dock_pane", "") or ""),
             created_at=str(data.get("created_at", "") or _now_utc()),
             updated_at=str(data.get("updated_at", "") or _now_utc()),
             schema=str(data.get("schema", WORKSPACE_SESSION_SCHEMA) or WORKSPACE_SESSION_SCHEMA),
@@ -153,6 +182,10 @@ class WorkspaceSession:
             "user_profile": self.user_profile,
             "recent_exports": list(self.recent_exports),
             "window_layout": dict(self.window_layout),
+            "workbench_navigation": [dict(item) for item in self.workbench_navigation],
+            "workbench_dock_layout": [dict(item) for item in self.workbench_dock_layout],
+            "workbench_active_navigation": self.workbench_active_navigation,
+            "workbench_active_dock_pane": self.workbench_active_dock_pane,
         }
 
     def session_id(self) -> str:
@@ -248,6 +281,10 @@ class WorkspaceSessionManager:
             SESSION_USER_PROFILE_KEY: session.user_profile,
             SESSION_RECENT_EXPORTS_KEY: list(session.recent_exports),
             SESSION_WINDOW_LAYOUT_KEY: dict(session.window_layout),
+            WORKBENCH_SESSION_NAVIGATION_KEY: [dict(item) for item in session.workbench_navigation],
+            WORKBENCH_SESSION_DOCK_LAYOUT_KEY: [dict(item) for item in session.workbench_dock_layout],
+            WORKBENCH_SESSION_ACTIVE_NAVIGATION_KEY: session.workbench_active_navigation,
+            WORKBENCH_SESSION_ACTIVE_DOCK_PANE_KEY: session.workbench_active_dock_pane,
         }
         affected: list[str] = []
         for key, value in values.items():
@@ -264,6 +301,8 @@ class WorkspaceSessionManager:
                 "las_id": session.las_id,
                 "workspace_id": session.workspace_id,
                 "conflict_policy": conflict_policy,
+                "workbench_active_navigation": session.workbench_active_navigation,
+                "workbench_active_dock_pane": session.workbench_active_dock_pane,
             },
         )
         return WorkspaceSessionResult(
@@ -301,6 +340,10 @@ def workspace_session_keys() -> tuple[str, ...]:
         SESSION_USER_PROFILE_KEY,
         SESSION_RECENT_EXPORTS_KEY,
         SESSION_WINDOW_LAYOUT_KEY,
+        WORKBENCH_SESSION_NAVIGATION_KEY,
+        WORKBENCH_SESSION_DOCK_LAYOUT_KEY,
+        WORKBENCH_SESSION_ACTIVE_NAVIGATION_KEY,
+        WORKBENCH_SESSION_ACTIVE_DOCK_PANE_KEY,
         SESSION_LAST_RESTORED_KEY,
         SESSION_LAST_SAVED_KEY,
     )
