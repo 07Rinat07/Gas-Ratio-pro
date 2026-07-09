@@ -118,3 +118,15 @@ Completed:
 
 Next step:
 Connect LAS Viewer to normalized LAS curve metadata through a provider/service boundary. The renderer should receive only lightweight curve summaries, depth range and quality flags, while parsing and heavy data tables remain outside UI state.
+
+## V61 Workbench LAS Metadata Provider
+
+Completed:
+- Added `services/las_curve_metadata_service.py` for lightweight LAS metadata summaries.
+- LAS Viewer now reads selected LAS metadata through `LasManagerService` and exposes only renderer-safe payloads.
+- Added curve count, row count, depth curve, depth range, curve units and quality flags to the Workbench tool view contract.
+- Kept raw LAS tables and engineering calculations outside renderer state.
+- Added tests for the metadata service and LAS Viewer provider integration.
+
+Next step:
+Start Visualization Engine foundation with renderer-neutral curve track models and printable plot payloads while keeping plotting implementation outside Streamlit UI.

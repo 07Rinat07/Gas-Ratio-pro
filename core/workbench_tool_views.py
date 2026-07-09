@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Any, Iterable, MutableMapping, Protocol
 
+from services.las_curve_metadata_service import LasCurveMetadataService
 from core.workbench_context import WorkspaceContext
 from core.workbench_tools import WorkbenchToolDescriptor, WorkbenchToolManager, WorkbenchToolRegistry
 
@@ -167,7 +168,12 @@ class WorkbenchToolViewProvider(Protocol):
 
     tool_id: str
 
-    def build(self, base: WorkbenchToolViewModel, context: WorkspaceContext) -> WorkbenchToolViewModel:
+    def build(
+        self,
+        base: WorkbenchToolViewModel,
+        context: WorkspaceContext,
+        state: MutableMapping[str, Any],
+    ) -> WorkbenchToolViewModel:
         """Return a tool-specific renderer view model."""
 
 
@@ -176,24 +182,40 @@ class LasViewerToolViewProvider:
 
     tool_id = "tool.las_viewer"
 
-    def build(self, base: WorkbenchToolViewModel, context: WorkspaceContext) -> WorkbenchToolViewModel:
+    def build(self, base: WorkbenchToolViewModel, context: WorkspaceContext, state: MutableMapping[str, Any]) -> WorkbenchToolViewModel:
         las_id = context.application.las_id
         if not las_id:
             return base
         content = dict(base.content)
+        selected_las = {
+            "project_id": context.application.project_id,
+            "well_id": context.application.well_id,
+            "las_id": las_id,
+        }
+        metadata_summary: dict[str, Any] = {}
+        metadata_error = ""
+        if context.application.project_id:
+            try:
+                metadata_summary = LasCurveMetadataService(state.get("projects_root") or state.get("project_root") or "projects").summarize(
+                    context.application.project_id,
+                    las_id,
+                ).to_dict()
+                selected_las["well_id"] = metadata_summary.get("well_id") or selected_las["well_id"]
+                selected_las["well_name"] = metadata_summary.get("well_name", "")
+            except Exception as exc:  # renderer payload must remain safe even if storage is unavailable
+                metadata_error = str(exc)
         content.update(
             {
-                "selected_las": {
-                    "project_id": context.application.project_id,
-                    "well_id": context.application.well_id,
-                    "las_id": las_id,
-                },
+                "selected_las": selected_las,
                 "summary_cards": [
                     {"title": "Project", "value": context.application.project_id or "not selected"},
-                    {"title": "Well", "value": context.application.well_id or "not selected"},
+                    {"title": "Well", "value": selected_las.get("well_name") or context.application.well_id or selected_las.get("well_id") or "not selected"},
                     {"title": "LAS", "value": las_id},
+                    {"title": "Curves", "value": str(metadata_summary.get("curve_count", "not loaded"))},
                 ],
                 "available_sections": ["curve_overview", "depth_range", "quality_flags"],
+                "curve_metadata": metadata_summary,
+                "metadata_error": metadata_error,
             }
         )
         actions = tuple(base.actions) + (
@@ -216,7 +238,7 @@ class GasRatioAnalysisToolViewProvider:
 
     tool_id = "tool.gas_ratio_analysis"
 
-    def build(self, base: WorkbenchToolViewModel, context: WorkspaceContext) -> WorkbenchToolViewModel:
+    def build(self, base: WorkbenchToolViewModel, context: WorkspaceContext, state: MutableMapping[str, Any]) -> WorkbenchToolViewModel:
         selected_intervals = list(context.selected_intervals)
         selected_interval = context.selection.object_id if context.selection.target == "interval" else ""
         if selected_interval and selected_interval not in selected_intervals:
@@ -264,7 +286,7 @@ class ReportPreviewToolViewProvider:
 
     tool_id = "tool.report_preview"
 
-    def build(self, base: WorkbenchToolViewModel, context: WorkspaceContext) -> WorkbenchToolViewModel:
+    def build(self, base: WorkbenchToolViewModel, context: WorkspaceContext, state: MutableMapping[str, Any]) -> WorkbenchToolViewModel:
         if not context.active_report:
             return base
         content = dict(base.content)
@@ -318,7 +340,7 @@ class WorkbenchToolViewService:
             context=context,
         )
         provider = self.providers.get(tool.id)
-        return provider.build(base, context) if provider is not None else base
+        return provider.build(base, context, self.state) if provider is not None else base
 
     def build_all(self, context: WorkspaceContext) -> tuple[WorkbenchToolViewModel, ...]:
         return tuple(self.build_one(tool, context) for tool in self.registry.list())

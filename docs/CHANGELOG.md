@@ -1,3 +1,10 @@
+## Workbench LAS Metadata Provider v61
+
+- Added lightweight LAS curve metadata service for renderer-safe Workbench summaries.
+- LAS Viewer now exposes curve count, row count, depth range, curve units and quality flags through the tool view contract.
+- Metadata is loaded through the LAS manager service boundary and does not expose raw dataframes to UI state.
+- Added regression tests for metadata service and Workbench LAS Viewer provider.
+
 # Changelog
 
 ## Workbench Tool Workflow State v60
