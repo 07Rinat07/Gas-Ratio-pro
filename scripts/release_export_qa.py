@@ -21,14 +21,50 @@ from reports.presentation_export import validate_presentation_bundle_export
 from scripts.export_smoke import run_export_smoke
 
 
+def _read_visualization_asset_summary(manifest_path: str | Path) -> dict[str, object]:
+    """Return a compact release QA summary for visualization bundle assets."""
+
+    manifest = Path(manifest_path)
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    visualization = payload.get("visualization", {}) if isinstance(payload, dict) else {}
+    if not isinstance(visualization, dict):
+        visualization = {}
+    index_name = str(visualization.get("asset_index") or "").strip()
+    summary: dict[str, object] = {
+        "preview_count": int(visualization.get("preview_count") or 0),
+        "asset_count": int(visualization.get("asset_count") or 0),
+        "asset_index": index_name,
+        "asset_index_ready": False,
+    }
+    if not index_name:
+        return summary
+    index_path = manifest.parent / index_name
+    if not index_path.exists():
+        return summary
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    summary.update(
+        {
+            "asset_index_ready": True,
+            "index_schema": index.get("schema", ""),
+            "indexed_asset_count": int(index.get("asset_count") or 0),
+            "total_size_bytes": int(index.get("total_size_bytes") or 0),
+            "formats": list(index.get("formats") or []),
+            "contains_raw_dataframe": bool(index.get("contains_raw_dataframe")),
+        }
+    )
+    return summary
+
+
 def run_release_export_qa(output_dir: str | Path) -> dict[str, object]:
     """Run smoke export and validate the resulting bundle manifest."""
 
     smoke = run_export_smoke(output_dir)
     validation = validate_presentation_bundle_export(smoke["manifest"])
+    visualization_assets = _read_visualization_asset_summary(smoke["manifest"])
     return {
         "ok": bool(smoke.get("ok")) and validation.ok,
         "smoke": smoke,
+        "visualization_assets": visualization_assets,
         "validation": {
             "ok": validation.ok,
             "manifest": str(validation.manifest_path),

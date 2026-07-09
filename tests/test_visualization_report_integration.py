@@ -137,3 +137,45 @@ def test_bundle_export_writes_shared_visualization_svg_asset(tmp_path) -> None:
     validation = validate_presentation_bundle_export(result.manifest_path)
     assert validation.ok is True
     assert asset_path in validation.files_checked
+
+
+def test_bundle_export_writes_visualization_asset_index_for_external_tools(tmp_path) -> None:
+    from reports.presentation_export import PresentationExportOptions, export_presentation_bundle_package, validate_presentation_bundle_export
+
+    payload = build_hydrocarbon_report_payload(_sample_frame(), include_plot=False)
+    assert payload.presentation_model is not None
+    model = replace(payload.presentation_model, visualization_payloads=(_visualization_payload(),))
+
+    result = export_presentation_bundle_package(
+        model,
+        options=PresentationExportOptions(
+            output_dir=tmp_path,
+            base_name="visualization-report",
+            include_figures=True,
+            include_technical_appendix=False,
+            overwrite=True,
+        ),
+    )
+
+    import json
+
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    index_name = manifest["visualization"]["asset_index"]
+    index_path = tmp_path / index_name
+    assert manifest["files"]["visualization_asset_index"] == index_name
+    assert manifest["visualization"]["asset_index_schema"] == "gas-ratio-pro/presentation/visualization-assets/v1"
+    assert manifest["consistency"]["visualization_asset_index_ready"] is True
+
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    assert index["schema"] == "gas-ratio-pro/presentation/visualization-assets/v1"
+    assert index["asset_count"] == 1
+    assert index["all_export_ready"] is True
+    assert index["contains_raw_dataframe"] is False
+    assert index["assets"][0]["id"] == "visualization_preview_1"
+    assert index["assets"][0]["format"] == "svg"
+    assert index["assets"][0]["size_bytes"] > 0
+    assert len(index["assets"][0]["sha256"]) == 64
+
+    validation = validate_presentation_bundle_export(result.manifest_path)
+    assert validation.ok is True
+    assert index_path in validation.files_checked

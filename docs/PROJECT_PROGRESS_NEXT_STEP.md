@@ -227,3 +227,16 @@ Completed:
 
 Next step:
 Use the exported visualization assets in PDF/DOCX renderers as real embedded images or linked report resources instead of placeholders.
+
+## V71 Visualization Asset Index
+
+Completed:
+- Added a machine-readable visualization asset index for exported bundle assets.
+- The index records visualization preview asset ids, roles, relative paths, file sizes, SHA-256 digests, SVG format and renderer metadata.
+- Bundle manifests now reference `visualization_asset_index` so external tools and release QA can verify visualization artifacts without filesystem guessing.
+- Release export QA now reports a compact visualization asset summary.
+- Bundle validation checks the visualization asset index file together with report files and SVG preview assets.
+
+Next step:
+Use indexed SVG visualization assets as concrete inputs for PDF/DOCX renderers so printable formats can embed the prepared Visualization Engine output instead of keeping placeholders.
+

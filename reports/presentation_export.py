@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+import hashlib
 import json
 import re
 from typing import Literal
@@ -239,7 +240,89 @@ def _write_visualization_preview_assets(model: PresentationModel, *, output_dir:
     return asset_paths
 
 
-def _with_visualization_assets(manifest: dict[str, object], assets: dict[str, str]) -> dict[str, object]:
+
+
+def _asset_digest(path: Path) -> str:
+    """Return a stable sha256 digest for an exported bundle asset."""
+
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _build_visualization_asset_index(
+    *,
+    output_dir: Path,
+    assets: dict[str, str],
+    model: PresentationModel,
+) -> dict[str, object]:
+    """Build a machine-readable index for visualization bundle assets.
+
+    The bundle manifest records where visualization assets are, while the asset
+    index gives external tools a compact, filesystem-verifiable catalogue with
+    size, digest and renderer metadata.  It reads only already written assets
+    and already prepared preview contracts; no plotting or LAS calculations are
+    executed here.
+    """
+
+    previews = tuple(getattr(model, "visualization_previews", ()) or ())
+    entries: list[dict[str, object]] = []
+    total_size = 0
+    for index, preview in enumerate(previews, start=1):
+        key = f"visualization_preview_{index}"
+        relative_name = assets.get(key)
+        if not relative_name:
+            continue
+        path = output_dir / relative_name
+        data = dict(preview or {})
+        size = path.stat().st_size if path.exists() else 0
+        total_size += size
+        entries.append(
+            {
+                "id": key,
+                "role": "visualization_preview",
+                "format": str(data.get("format") or "svg"),
+                "path": relative_name,
+                "size_bytes": size,
+                "sha256": _asset_digest(path) if path.exists() else "",
+                "export_ready": bool(data.get("export_ready")),
+                "track_count": int(data.get("track_count") or 0),
+                "curve_count": int(data.get("curve_count") or 0),
+                "overlay_count": int(data.get("overlay_count") or 0),
+                "contains_raw_dataframe": bool(data.get("contains_raw_dataframe")),
+            }
+        )
+
+    return {
+        "schema": "gas-ratio-pro/presentation/visualization-assets/v1",
+        "asset_count": len(entries),
+        "total_size_bytes": total_size,
+        "formats": sorted({str(entry["format"]) for entry in entries}),
+        "all_export_ready": bool(entries) and all(bool(entry["export_ready"]) for entry in entries),
+        "contains_raw_dataframe": any(bool(entry["contains_raw_dataframe"]) for entry in entries),
+        "assets": entries,
+    }
+
+
+def _write_visualization_asset_index(
+    *,
+    output_dir: Path,
+    base_name: str,
+    assets: dict[str, str],
+    model: PresentationModel,
+    overwrite: bool,
+) -> str:
+    """Persist the visualization asset index and return its relative path."""
+
+    if not assets:
+        return ""
+    index = _build_visualization_asset_index(output_dir=output_dir, assets=assets, model=model)
+    relative_name = f"assets/{base_name}-visualization-assets.index.json"
+    index_path = output_dir / relative_name
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_bytes(index_path, json.dumps(index, ensure_ascii=False, indent=2).encode("utf-8"), overwrite=overwrite)
+    return relative_name
+
+
+def _with_visualization_assets(manifest: dict[str, object], assets: dict[str, str], *, asset_index: str = "") -> dict[str, object]:
     """Attach shared visualization asset references to an export manifest."""
 
     if not assets:
@@ -253,6 +336,10 @@ def _with_visualization_assets(manifest: dict[str, object], assets: dict[str, st
         visualization["asset_format"] = "svg"
         visualization["assets"] = dict(assets)
         visualization["single_shared_asset_source"] = True
+        if asset_index:
+            files["visualization_asset_index"] = asset_index
+            visualization["asset_index"] = asset_index
+            visualization["asset_index_schema"] = "gas-ratio-pro/presentation/visualization-assets/v1"
     return manifest
 
 
@@ -500,6 +587,14 @@ def export_presentation_bundle_package(
         overwrite=options.overwrite,
     )
 
+    visualization_asset_index = _write_visualization_asset_index(
+        output_dir=output_dir,
+        base_name=base_name,
+        assets=visualization_assets,
+        model=model,
+        overwrite=options.overwrite,
+    )
+
     bundle_manifest_path = output_dir / f"{base_name}.bundle.manifest.json"
     manifest = _export_manifest(
         schema="gas-ratio-pro/presentation/bundle-export/v1",
@@ -515,6 +610,7 @@ def export_presentation_bundle_package(
             "pdf_manifest": pdf_result.manifest_path.name,
             "docx_manifest": docx_result.manifest_path.name,
             **visualization_assets,
+            **({"visualization_asset_index": visualization_asset_index} if visualization_asset_index else {}),
         },
         consistency={
             "same_profile": True,
@@ -523,10 +619,11 @@ def export_presentation_bundle_package(
             "same_visualization_preview_count": True,
             "same_visualization_asset_count": len(visualization_assets) == visualization_preview_count,
             "single_visualization_asset_source": True,
+            "visualization_asset_index_ready": bool(visualization_assets) == bool(visualization_asset_index),
             "single_source_model": True,
         },
     )
-    _with_visualization_assets(manifest, visualization_assets)
+    _with_visualization_assets(manifest, visualization_assets, asset_index=visualization_asset_index)
     _write_bytes(
         bundle_manifest_path,
         json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"),
@@ -569,7 +666,9 @@ def validate_presentation_bundle_export(manifest_path: str | Path) -> Presentati
     missing: list[str] = []
     empty: list[str] = []
 
-    for key in required_keys + tuple(str(key) for key in visualization_assets.keys()):
+    asset_index_key = "visualization_asset_index" if files.get("visualization_asset_index") else ""
+
+    for key in required_keys + tuple(str(key) for key in visualization_assets.keys()) + ((asset_index_key,) if asset_index_key else ()): 
         name = files.get(key)
         if not isinstance(name, str) or not name.strip():
             missing.append(key)

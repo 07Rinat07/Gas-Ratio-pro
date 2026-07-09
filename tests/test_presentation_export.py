@@ -110,6 +110,7 @@ def test_export_presentation_bundle_package_writes_all_formats_from_one_model(tm
         "same_visualization_preview_count": True,
         "same_visualization_asset_count": True,
         "single_visualization_asset_source": True,
+        "visualization_asset_index_ready": True,
         "single_source_model": True,
     }
 

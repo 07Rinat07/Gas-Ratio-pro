@@ -1,3 +1,12 @@
+# Changelog
+
+## Visualization Asset Index v71
+
+- Added a machine-readable visualization asset index for bundle exports.
+- Bundle manifests now reference the index through `files.visualization_asset_index` and `visualization.asset_index`.
+- Asset index entries include relative path, size, SHA-256 digest and renderer metadata.
+- Release export QA now exposes a compact visualization asset summary while preserving existing smoke checks.
+
 ## LAS Visualization Report Integration v68
 
 - Attached prepared Visualization Engine SVG previews to the PresentationModel and EngineeringDocument flow.
