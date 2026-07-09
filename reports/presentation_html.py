@@ -9,6 +9,7 @@ import plotly.io as pio
 from reports.document_model import (
     DocumentNotice,
     DocumentPlot,
+    DocumentVisualizationPreview,
     DocumentTable,
     EngineeringDocument,
     build_engineering_document,
@@ -179,6 +180,27 @@ def _render_document_plot(plot: DocumentPlot, *, include_plotlyjs: bool) -> str:
     )
 
 
+
+def _render_visualization_preview(block: DocumentVisualizationPreview) -> str:
+    preview = dict(block.preview or {})
+    svg = str(preview.get("svg") or "").strip()
+    if not svg.startswith("<svg"):
+        return ""
+    meta = (
+        f"Tracks: {escape(_clean_text(preview.get('track_count')))} · "
+        f"Curves: {escape(_clean_text(preview.get('curve_count')))} · "
+        f"Overlays: {escape(_clean_text(preview.get('overlay_count')))}"
+    )
+    return "\n".join(
+        (
+            "<section class='report-section visualization-preview avoid-break'>",
+            f"<h2>{escape(_clean_text(block.title) or 'LAS visualization preview')}</h2>",
+            svg,
+            f"<p class='visualization-preview-meta'>{meta}</p>",
+            "</section>",
+        )
+    )
+
 def _render_document_sections(document: EngineeringDocument) -> str:
     parts: list[str] = []
     include_plotlyjs = True
@@ -194,6 +216,8 @@ def _render_document_sections(document: EngineeringDocument) -> str:
             elif isinstance(block, DocumentPlot):
                 rendered = _render_document_plot(block, include_plotlyjs=include_plotlyjs)
                 include_plotlyjs = False
+            elif isinstance(block, DocumentVisualizationPreview):
+                rendered = _render_visualization_preview(block)
             elif isinstance(block, DocumentNotice):
                 rendered = _render_document_notice(block)
             else:
@@ -258,6 +282,9 @@ def build_presentation_html_report(
         ".report-table th{background:#f1f4f8;text-align:left;}",
         ".report-table th,.report-table td{border:1px solid #d7dde8;padding:5px 7px;vertical-align:top;white-space:pre-line;}",
         ".report-plot{page-break-before:always;}",
+        ".visualization-preview{border:1px solid #d7dde8;padding:10px;margin:12px 0;background:#fff;}",
+        ".visualization-preview svg{max-width:100%;height:auto;display:block;}",
+        ".visualization-preview-meta{font-size:11px;color:#4b5870;margin-top:6px;}",
         ".technical-appendix-notice{border-top:1px solid #d7dde8;margin-top:28px;padding-top:14px;color:#4b5870;font-size:12px;}",
         _print_css(opts),
         "</style>",
@@ -276,6 +303,6 @@ def build_presentation_html_report(
     return PresentationHtmlResult(
         content="\n".join(parts).encode("utf-8"),
         table_titles=document.table_titles,
-        figure_count=document.plot_count,
+        figure_count=document.plot_count + document.visualization_preview_count,
         profile=document.metadata.profile,
     )

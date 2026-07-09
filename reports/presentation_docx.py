@@ -21,6 +21,7 @@ except ModuleNotFoundError:  # pragma: no cover - depends on user environment
 from reports.document_model import (
     DocumentNotice,
     DocumentPlot,
+    DocumentVisualizationPreview,
     DocumentTable,
     EngineeringDocument,
     build_engineering_document,
@@ -182,6 +183,19 @@ def _add_notice(doc: Document, block: DocumentNotice) -> None:
     doc.add_paragraph()
 
 
+def _add_visualization_preview_placeholder(doc: Document, block: DocumentVisualizationPreview) -> None:
+    _add_paragraph(doc, block.title or "LAS visualization preview", style="Heading 2")
+    preview = dict(block.preview or {})
+    paragraph = doc.add_paragraph()
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = paragraph.add_run(
+        f"SVG preview prepared by Visualization Engine: "
+        f"tracks={preview.get('track_count', 0)}, curves={preview.get('curve_count', 0)}, overlays={preview.get('overlay_count', 0)}."
+    )
+    run.italic = True
+    doc.add_paragraph()
+
+
 def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
     # Foundation renderer: plot binary rendering will be attached later through
     # the same DocumentPlot block. We still preserve the plot position and title
@@ -228,6 +242,8 @@ def render_engineering_document_docx(
                 _add_notice(doc, block)
             elif isinstance(block, DocumentPlot):
                 _add_plot_placeholder(doc, block)
+            elif isinstance(block, DocumentVisualizationPreview):
+                _add_visualization_preview_placeholder(doc, block)
 
     buffer = BytesIO()
     doc.save(buffer)
@@ -235,7 +251,7 @@ def render_engineering_document_docx(
         content=buffer.getvalue(),
         profile=document.metadata.profile,
         table_titles=document.table_titles,
-        figure_count=document.plot_count,
+        figure_count=document.plot_count + document.visualization_preview_count,
     )
 
 

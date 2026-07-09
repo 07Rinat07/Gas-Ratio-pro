@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Any, Mapping, Sequence
 
 from reports.export_html import HtmlReportTable
 from reports.presentation_model import PresentationModel
@@ -53,6 +53,19 @@ class DocumentPlot:
 
 
 @dataclass(frozen=True)
+class DocumentVisualizationPreview:
+    """Renderer-neutral visualization preview block for reports and exports.
+
+    The block carries a prepared SVG preview from the Visualization Engine.
+    Concrete renderers may embed it or show a placeholder, but they must not
+    reconstruct LAS curves or interval overlays from raw source data.
+    """
+
+    title: str
+    preview: Mapping[str, Any]
+
+
+@dataclass(frozen=True)
 class DocumentNotice:
     """Short renderer-neutral informational block."""
 
@@ -61,7 +74,7 @@ class DocumentNotice:
     role: str = "notice"
 
 
-DocumentBlock = DocumentTable | DocumentPlot | DocumentNotice
+DocumentBlock = DocumentTable | DocumentPlot | DocumentVisualizationPreview | DocumentNotice
 
 
 @dataclass(frozen=True)
@@ -104,6 +117,15 @@ class EngineeringDocument:
             for section in self.sections
             for block in section.blocks
             if isinstance(block, DocumentPlot)
+        )
+
+    @property
+    def visualization_preview_count(self) -> int:
+        return sum(
+            1
+            for section in self.sections
+            for block in section.blocks
+            if isinstance(block, DocumentVisualizationPreview)
         )
 
 
@@ -175,11 +197,16 @@ def build_engineering_document(
             DocumentPlot(title="Профессиональный планшет интерпретации", figure=figure)
             for figure in model.figures
         )
-        if plot_blocks:
+        preview_blocks = tuple(
+            DocumentVisualizationPreview(title="LAS visualization preview", preview=preview)
+            for preview in model.visualization_previews
+        )
+        combined_blocks = plot_blocks + preview_blocks
+        if combined_blocks:
             sections.append(
                 DocumentSection(
                     title="Профессиональный планшет интерпретации",
-                    blocks=plot_blocks,
+                    blocks=combined_blocks,
                     page_break_before=True,
                 )
             )

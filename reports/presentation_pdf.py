@@ -37,6 +37,7 @@ except ModuleNotFoundError:  # pragma: no cover - depends on user environment
 from reports.document_model import (
     DocumentNotice,
     DocumentPlot,
+    DocumentVisualizationPreview,
     DocumentTable,
     EngineeringDocument,
     build_engineering_document,
@@ -342,6 +343,19 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
     ]
 
 
+def _document_visualization_preview(block: DocumentVisualizationPreview, styles: dict[str, ParagraphStyle]) -> list[object]:
+    preview = dict(block.preview or {})
+    return [
+        _paragraph(block.title or "LAS visualization preview", styles["h2"]),
+        _paragraph(
+            f"SVG preview prepared by Visualization Engine: "
+            f"tracks={preview.get('track_count', 0)}, curves={preview.get('curve_count', 0)}, overlays={preview.get('overlay_count', 0)}.",
+            styles["small"],
+        ),
+        Spacer(1, 8),
+    ]
+
+
 def ensure_reportlab_available() -> None:
     """Raise a clear runtime error when PDF export dependency is missing."""
 
@@ -422,6 +436,8 @@ def render_engineering_document_pdf(
                 story.extend(_document_notice(block, styles))
             elif isinstance(block, DocumentPlot):
                 story.extend(_document_plot(block, styles))
+            elif isinstance(block, DocumentVisualizationPreview):
+                story.extend(_document_visualization_preview(block, styles))
 
     if not story:
         story.append(_paragraph("Gas Ratio Pro report", styles["body"]))
@@ -431,7 +447,7 @@ def render_engineering_document_pdf(
         content=buffer.getvalue(),
         profile=document.metadata.profile,
         table_titles=document.table_titles,
-        figure_count=document.plot_count,
+        figure_count=document.plot_count + document.visualization_preview_count,
     )
 
 

@@ -190,3 +190,16 @@ Implement the first thin renderer adapter for LAS visualization payloads using o
 
 Next step: connect the SVG preview to report preview and printable visualization export flow.
 
+## V68 Visualization Report Integration
+
+Completed:
+- Attached prepared Visualization Engine preview payloads to `PresentationModel`.
+- Added `DocumentVisualizationPreview` to the shared EngineeringDocument contract.
+- HTML reports now embed lightweight SVG previews directly from the document model.
+- PDF and DOCX renderers preserve visualization preview placement with renderer-safe placeholders.
+- Export figure counts now include visualization previews without recalculating LAS curves in renderers.
+- Added regression tests proving reports consume prepared SVG previews and do not expose raw dataframe content.
+
+Next step:
+Add a dedicated visualization export artifact writer so SVG previews can be saved beside HTML/PDF/DOCX bundles and referenced from export manifests.
+

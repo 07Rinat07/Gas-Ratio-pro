@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, Sequence
+from typing import Mapping, Sequence, Any
 
 import pandas as pd
 
@@ -57,6 +57,7 @@ class PresentationModel:
     engineering_tables: tuple[HtmlReportTable, ...] = ()
     technical_tables: tuple[HtmlReportTable, ...] = ()
     well_log_plot: WellLogPlotResult | None = None
+    visualization_payloads: tuple[Mapping[str, Any], ...] = ()
     metadata: PresentationMetadata = PresentationMetadata()
     schema: str = "gas-ratio-pro/presentation/model/v1"
 
@@ -69,6 +70,22 @@ class PresentationModel:
         if self.well_log_plot is None:
             return ()
         return (self.well_log_plot.figure,)
+
+    @property
+    def visualization_previews(self) -> tuple[Mapping[str, Any], ...]:
+        """Renderer-neutral visualization preview payloads attached to reports.
+
+        The presentation model stores already prepared Visualization Engine
+        payloads. Exporters may embed their lightweight previews, but must not
+        rebuild LAS tracks, recalculate intervals or inspect raw dataframes.
+        """
+
+        previews: list[Mapping[str, Any]] = []
+        for payload in self.visualization_payloads:
+            preview = dict(payload.get("preview", {}) or {})
+            if preview.get("kind") and preview.get("export_ready"):
+                previews.append(preview)
+        return tuple(previews)
 
     @property
     def engineer_first_tables(self) -> tuple[HtmlReportTable, ...]:
@@ -95,6 +112,7 @@ def build_presentation_model(
     depth_column: str = "depth",
     plot_config: WellLogPlotConfig | None = None,
     include_plot: bool = True,
+    visualization_payloads: Sequence[Mapping[str, Any]] = (),
 ) -> PresentationModel:
     """Build a presentation model from already computed interpretation sections.
 
@@ -118,5 +136,6 @@ def build_presentation_model(
         engineering_tables=clean_engineering_tables,
         technical_tables=clean_technical_tables,
         well_log_plot=plot_result,
+        visualization_payloads=tuple(dict(payload) for payload in visualization_payloads),
         metadata=metadata or PresentationMetadata(),
     )

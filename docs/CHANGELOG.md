@@ -1,3 +1,10 @@
+## LAS Visualization Report Integration v68
+
+- Attached prepared Visualization Engine SVG previews to the PresentationModel and EngineeringDocument flow.
+- Added DocumentVisualizationPreview so HTML/PDF/DOCX renderers consume the same report contract.
+- HTML reports can embed SVG previews without rebuilding LAS curves or interval overlays in UI/renderers.
+- Added regression coverage for report integration and raw-data isolation.
+
 ## Workbench LAS Metadata Provider v61
 
 - Added lightweight LAS curve metadata service for renderer-safe Workbench summaries.
