@@ -102,3 +102,38 @@ def test_bundle_export_manifest_records_visualization_contract(tmp_path) -> None
     assert manifest["visualization"]["contains_raw_dataframe"] is False
     assert manifest["visualization"]["total_tracks"] == 2
     assert manifest["consistency"]["same_visualization_preview_count"] is True
+
+
+def test_bundle_export_writes_shared_visualization_svg_asset(tmp_path) -> None:
+    from reports.presentation_export import PresentationExportOptions, export_presentation_bundle_package, validate_presentation_bundle_export
+
+    payload = build_hydrocarbon_report_payload(_sample_frame(), include_plot=False)
+    assert payload.presentation_model is not None
+    model = replace(payload.presentation_model, visualization_payloads=(_visualization_payload(),))
+
+    result = export_presentation_bundle_package(
+        model,
+        options=PresentationExportOptions(
+            output_dir=tmp_path,
+            base_name="visualization-report",
+            include_figures=True,
+            include_technical_appendix=False,
+            overwrite=True,
+        ),
+    )
+
+    import json
+
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    assets = manifest["visualization"]["assets"]
+    assert manifest["visualization"]["asset_count"] == 1
+    assert manifest["visualization"]["single_shared_asset_source"] is True
+    assert manifest["consistency"]["same_visualization_asset_count"] is True
+    asset_name = assets["visualization_preview_1"]
+    asset_path = tmp_path / asset_name
+    assert asset_path.exists()
+    assert asset_path.read_text(encoding="utf-8").startswith("<svg")
+
+    validation = validate_presentation_bundle_export(result.manifest_path)
+    assert validation.ok is True
+    assert asset_path in validation.files_checked

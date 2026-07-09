@@ -196,6 +196,66 @@ def _visualization_manifest(model: PresentationModel) -> dict[str, object]:
     }
 
 
+
+
+def _visualization_preview_assets(model: PresentationModel, *, base_name: str) -> dict[str, str]:
+    """Write stable SVG visualization assets for report bundles.
+
+    The bundle manifest must point every report format to one shared
+    Visualization Engine output instead of letting HTML, PDF and DOCX invent
+    their own copies.  Only lightweight SVG previews are exported; raw LAS
+    dataframes and sampled point payloads remain inside service-layer contracts.
+    """
+
+    assets: dict[str, str] = {}
+    for index, preview in enumerate(getattr(model, "visualization_previews", ()) or (), start=1):
+        data = dict(preview or {})
+        if str(data.get("format") or "").lower() != "svg":
+            continue
+        svg = str(data.get("svg") or "").strip()
+        if not svg.startswith("<svg"):
+            continue
+        key = f"visualization_preview_{index}"
+        assets[key] = f"assets/{base_name}-{key}.svg"
+    return assets
+
+
+def _write_visualization_preview_assets(model: PresentationModel, *, output_dir: Path, base_name: str, overwrite: bool) -> dict[str, str]:
+    """Persist visualization SVG previews as auditable bundle assets."""
+
+    asset_paths = _visualization_preview_assets(model, base_name=base_name)
+    if not asset_paths:
+        return {}
+    assets_dir = output_dir / "assets"
+    assets_dir.mkdir(parents=True, exist_ok=True)
+    previews = tuple(getattr(model, "visualization_previews", ()) or ())
+    for index, preview in enumerate(previews, start=1):
+        key = f"visualization_preview_{index}"
+        relative_name = asset_paths.get(key)
+        if not relative_name:
+            continue
+        svg = str(dict(preview or {}).get("svg") or "").strip()
+        _write_bytes(output_dir / relative_name, svg.encode("utf-8"), overwrite=overwrite)
+    return asset_paths
+
+
+def _with_visualization_assets(manifest: dict[str, object], assets: dict[str, str]) -> dict[str, object]:
+    """Attach shared visualization asset references to an export manifest."""
+
+    if not assets:
+        return manifest
+    files = manifest.setdefault("files", {})
+    if isinstance(files, dict):
+        files.update(assets)
+    visualization = manifest.setdefault("visualization", {})
+    if isinstance(visualization, dict):
+        visualization["asset_count"] = len(assets)
+        visualization["asset_format"] = "svg"
+        visualization["assets"] = dict(assets)
+        visualization["single_shared_asset_source"] = True
+    return manifest
+
+
 def _export_manifest(
     *,
     schema: str,
@@ -433,6 +493,12 @@ def export_presentation_bundle_package(
         raise ValueError("Presentation export figure count diverged between formats")
 
     visualization_preview_count = int(_visualization_manifest(model)["preview_count"])
+    visualization_assets = _write_visualization_preview_assets(
+        model,
+        output_dir=output_dir,
+        base_name=base_name,
+        overwrite=options.overwrite,
+    )
 
     bundle_manifest_path = output_dir / f"{base_name}.bundle.manifest.json"
     manifest = _export_manifest(
@@ -448,15 +514,19 @@ def export_presentation_bundle_package(
             "html_manifest": html_result.manifest_path.name,
             "pdf_manifest": pdf_result.manifest_path.name,
             "docx_manifest": docx_result.manifest_path.name,
+            **visualization_assets,
         },
         consistency={
             "same_profile": True,
             "same_table_titles": True,
             "same_figure_count": True,
             "same_visualization_preview_count": True,
+            "same_visualization_asset_count": len(visualization_assets) == visualization_preview_count,
+            "single_visualization_asset_source": True,
             "single_source_model": True,
         },
     )
+    _with_visualization_assets(manifest, visualization_assets)
     _write_bytes(
         bundle_manifest_path,
         json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"),
@@ -492,11 +562,14 @@ def validate_presentation_bundle_export(manifest_path: str | Path) -> Presentati
         files = {}
 
     required_keys = ("html", "pdf", "docx", "html_manifest", "pdf_manifest", "docx_manifest")
+    visualization_assets = payload.get("visualization", {}).get("assets", {}) if isinstance(payload.get("visualization"), dict) else {}
+    if not isinstance(visualization_assets, dict):
+        visualization_assets = {}
     checked: list[Path] = []
     missing: list[str] = []
     empty: list[str] = []
 
-    for key in required_keys:
+    for key in required_keys + tuple(str(key) for key in visualization_assets.keys()):
         name = files.get(key)
         if not isinstance(name, str) or not name.strip():
             missing.append(key)

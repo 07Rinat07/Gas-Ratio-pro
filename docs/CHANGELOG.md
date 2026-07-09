@@ -14,6 +14,14 @@
 
 # Changelog
 
+## Visualization Bundle Assets v70
+
+- Added stable SVG visualization assets under export bundle `assets/`.
+- Bundle manifests now reference visualization preview asset files as the single shared source for HTML/PDF/DOCX audit.
+- Bundle validation now checks visualization asset files for existence and non-empty payloads.
+- Added regression tests while preserving release export QA.
+
+
 ## LAS Visualization Renderer Ready Payload v66
 
 - Added renderer-ready legend entries for LAS curves and interval overlays.

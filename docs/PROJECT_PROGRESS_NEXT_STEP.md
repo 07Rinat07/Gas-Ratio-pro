@@ -214,3 +214,16 @@ Completed:
 
 Next step:
 Add a dedicated visualization artifact writer that saves SVG previews beside export bundles and lets PDF/DOCX reference those prepared artifacts without rebuilding plots.
+
+## V70 Visualization Bundle Assets
+
+Completed:
+- Added a dedicated visualization asset writer for bundle exports.
+- SVG visualization previews are now saved as stable files under `assets/` beside HTML/PDF/DOCX outputs.
+- Bundle manifests now reference the same shared visualization asset instead of relying only on embedded report content.
+- Bundle validation checks visualization asset files for existence and non-empty content.
+- Added consistency flags for visualization asset count and single shared visualization asset source.
+- Added regression tests for visualization asset writing and validation.
+
+Next step:
+Use the exported visualization assets in PDF/DOCX renderers as real embedded images or linked report resources instead of placeholders.
