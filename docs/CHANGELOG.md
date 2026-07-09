@@ -7,6 +7,14 @@
 
 # Changelog
 
+## LAS Visualization Renderer Ready Payload v66
+
+- Added renderer-ready legend entries for LAS curves and interval overlays.
+- Added default visible track ids for printable LAS rendering.
+- Added compact plot summary metadata for Workbench cards and renderer headers.
+- Added regression tests while preserving release export QA.
+
+
 ## LAS Visualization Styling Contract v64
 
 - Added renderer-neutral axis metadata for LAS curve payloads.

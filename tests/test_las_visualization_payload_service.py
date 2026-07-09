@@ -172,3 +172,32 @@ def test_las_visualization_payload_exposes_sampling_and_quality_metadata(tmp_pat
     assert gr_curve["quality"]["missing_points"] == 1
     assert gr_curve["quality"]["has_depth_gaps"] is True
     assert gr_curve["quality"]["depth_gaps"] == [7.0]
+
+
+def test_las_visualization_payload_exposes_renderer_ready_legend_and_summary(tmp_path):
+    manager = LasManagerService(tmp_path)
+    record = manager.save_file(project_id="demo", data=LAS_WITH_GAS, file_name="demo.las").record
+
+    payload = LasVisualizationPayloadService(tmp_path).build(
+        "demo",
+        record.id,
+        interval_ids=["1000.5-1001.0"],
+        interval_metadata={"1000.5-1001.0": {"fluid_type": "gas", "label": "Gas bearing interval"}},
+    ).to_dict()
+
+    assert payload["visible_tracks"] == ["track.gamma", "track.gas", "track.porosity"]
+    assert payload["plot_summary"] == {
+        "title": "LAS visualization",
+        "depth_curve": "DEPT",
+        "depth_unit": "M",
+        "depth_start": 1000.0,
+        "depth_stop": 1001.5,
+        "track_count": 3,
+        "curve_count": 3,
+        "overlay_count": 1,
+        "renderer_ready": True,
+    }
+    legend_ids = [item["id"] for item in payload["legend"]]
+    assert legend_ids == ["curve.GR", "curve.C1", "curve.RHOB", "overlay.gas"]
+    assert payload["legend"][0]["label"] == "GR (API)"
+    assert payload["legend"][-1]["label"] == "Gas interval"

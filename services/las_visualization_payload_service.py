@@ -152,6 +152,9 @@ class LasVisualizationPayload:
     print_profile: dict[str, Any] = field(default_factory=dict)
     sampling_profile: dict[str, Any] = field(default_factory=dict)
     data_quality: dict[str, Any] = field(default_factory=dict)
+    legend: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    visible_tracks: tuple[str, ...] = field(default_factory=tuple)
+    plot_summary: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -169,6 +172,9 @@ class LasVisualizationPayload:
             "print_profile": dict(self.print_profile),
             "sampling_profile": dict(self.sampling_profile),
             "data_quality": dict(self.data_quality),
+            "legend": [dict(item) for item in self.legend],
+            "visible_tracks": list(self.visible_tracks),
+            "plot_summary": dict(self.plot_summary),
         }
 
 
@@ -248,6 +254,85 @@ def _payload_data_quality(curves: Sequence[LasCurvePlotPayload], frame_length: i
         "total_missing_points": missing_total,
         "curves_with_depth_gaps": gap_curves,
         "raw_dataframe_included": False,
+    }
+
+
+
+def _legend(curves: Sequence[LasCurvePlotPayload], overlays: Sequence[LasIntervalOverlayPayload]) -> tuple[dict[str, Any], ...]:
+    """Build a renderer-ready legend without requiring UI-side inspection.
+
+    The legend is intentionally compact: curve entries describe printable line
+    labels and overlay entries describe interpreted fluid bands.  Renderers can
+    display this payload directly and should not recalculate colors or labels.
+    """
+
+    items: list[dict[str, Any]] = []
+    for curve in curves:
+        label = curve.mnemonic if not curve.unit else f"{curve.mnemonic} ({curve.unit})"
+        items.append(
+            {
+                "id": f"curve.{curve.mnemonic}",
+                "kind": "curve",
+                "label": label,
+                "track_id": curve.track_id,
+                "style": dict(curve.style),
+            }
+        )
+    seen_fluids: set[str] = set()
+    for overlay in overlays:
+        fluid = str(overlay.fluid_type or "unknown").lower()
+        if fluid in seen_fluids:
+            continue
+        seen_fluids.add(fluid)
+        items.append(
+            {
+                "id": f"overlay.{fluid}",
+                "kind": "interval_overlay",
+                "label": _fluid_label(fluid),
+                "fluid_type": fluid,
+                "style": dict(overlay.style),
+            }
+        )
+    return tuple(items)
+
+
+def _fluid_label(fluid_type: str) -> str:
+    return {
+        "oil": "Oil interval",
+        "gas": "Gas interval",
+        "condensate": "Condensate interval",
+        "water": "Water interval",
+        "unknown": "Interpreted interval",
+    }.get(str(fluid_type or "unknown").lower(), "Interpreted interval")
+
+
+def _visible_tracks(tracks: Sequence[LasTrackPlotPayload]) -> tuple[str, ...]:
+    """Return track ids that renderers should show by default."""
+
+    return tuple(track.id for track in tracks if track.curve_ids and track.printable)
+
+
+def _plot_summary(
+    *,
+    depth_curve: str,
+    depth_unit: str,
+    depth_range: Mapping[str, float | None],
+    tracks: Sequence[LasTrackPlotPayload],
+    curves: Sequence[LasCurvePlotPayload],
+    overlays: Sequence[LasIntervalOverlayPayload],
+) -> dict[str, Any]:
+    """Return a compact human-readable plot summary for Workbench cards."""
+
+    return {
+        "title": "LAS visualization",
+        "depth_curve": depth_curve,
+        "depth_unit": depth_unit,
+        "depth_start": depth_range.get("start"),
+        "depth_stop": depth_range.get("stop"),
+        "track_count": len(tracks),
+        "curve_count": len(curves),
+        "overlay_count": len(overlays),
+        "renderer_ready": bool(tracks and curves),
     }
 
 def _track_style(track_id: str) -> dict[str, Any]:
@@ -510,6 +595,7 @@ class LasVisualizationPayloadService:
         )
         if interval_ids and not overlays:
             flags.append("interval_overlays_empty")
+        tracks = _build_tracks(curve_payloads)
         return LasVisualizationPayload(
             project_id=clean_project_id,
             las_id=clean_las_id,
@@ -518,11 +604,21 @@ class LasVisualizationPayloadService:
             depth_range=depth_info,
             sample_limit=max(2, int(sample_limit or DEFAULT_SAMPLE_LIMIT)),
             truncated=bool(flags),
-            tracks=_build_tracks(curve_payloads),
+            tracks=tracks,
             curves=curve_payloads,
             overlays=overlays,
             quality_flags=tuple(flags),
             print_profile=_print_profile(),
             sampling_profile=_sampling_profile(sample_limit),
             data_quality=_payload_data_quality(curve_payloads, len(frame)),
+            legend=_legend(curve_payloads, overlays),
+            visible_tracks=_visible_tracks(tracks),
+            plot_summary=_plot_summary(
+                depth_curve=depth_curve,
+                depth_unit=unit_map.get(depth_curve, ""),
+                depth_range=depth_info,
+                tracks=tracks,
+                curves=curve_payloads,
+                overlays=overlays,
+            ),
         )

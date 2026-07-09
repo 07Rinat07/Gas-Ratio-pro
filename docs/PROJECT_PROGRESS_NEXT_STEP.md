@@ -170,3 +170,15 @@ Implement the first renderer adapter for LAS visualization payloads. It should r
 
 
 V65 added LAS visualization sampling and data quality metadata for large LAS payloads.
+
+## V66 LAS Visualization Renderer Ready Payload
+
+Completed:
+- Added renderer-ready legend entries for LAS curves and interpreted interval overlays.
+- Added `visible_tracks` for default printable track visibility.
+- Added compact `plot_summary` with depth range, track count, curve count, overlay count and renderer readiness.
+- Kept all rendering decisions in the service contract and kept raw LAS dataframes outside UI payloads.
+- Added regression tests for legend, visible tracks and plot summary.
+
+Next step:
+Implement the first thin renderer adapter for LAS visualization payloads using only `tracks`, `curves`, `overlays`, `legend`, `visible_tracks` and `plot_summary` from the contract.
