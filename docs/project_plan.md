@@ -1565,3 +1565,8 @@ The active module remains Hydrocarbon Interval Engine. Version v14 adds the API 
 - engineer-facing payloads must hide internal diagnostics by default;
 - technical diagnostics remain available only through explicit technical payload mode;
 - reports and dashboards must start from interval summary, not row counts or calculation noise.
+
+
+### Current implementation note: Hydrocarbon Interpretation Engine v15
+
+The active module remains Hydrocarbon Interpretation Engine. Version v15 adds the Interpretation Explanation Engine. Each interval now exports an `InterpretationExplanation` object with summary, reasoning, supporting evidence, limitations, recommendations and references. Reports and UI should consume this object instead of generating their own interpretation text.

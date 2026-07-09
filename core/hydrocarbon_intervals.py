@@ -8,7 +8,7 @@ from core.method_registry import get_method_profile, method_id_for_parameter, me
 import pandas as pd
 
 
-HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v14"
+HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v15"
 
 NON_PROSPECTIVE_LABELS = (
     "Недостаточно данных",
@@ -295,6 +295,7 @@ class HydrocarbonInterval:
     decision_level: str = "unknown"
     context: HydrocarbonInterpretationContext | None = None
     evidence_tree: tuple[dict[str, object], ...] = ()
+    explanation: InterpretationExplanation | None = None
     confidence_factors: tuple[str, ...] = ()
     rule_traces: tuple[HydrocarbonRuleTrace, ...] = ()
     applied_rule_ids: tuple[str, ...] = ()
@@ -321,6 +322,28 @@ class HydrocarbonInterval:
 
         return round(abs(float(self.base) - float(self.top)), 6)
 
+
+
+
+@dataclass(frozen=True)
+class InterpretationExplanation:
+    """Engineer-facing explanation for one interpreted interval.
+
+    The object is deliberately separated from raw calculations. It converts
+    evidence, rules, confidence and geological context into a concise
+    human-readable decision package for interval cards, reports, PDF/DOCX export
+    and future API consumers. It does not compute new geochemical values.
+    """
+
+    summary: str
+    classification: str
+    decision_level: str
+    reasoning: tuple[str, ...] = ()
+    supporting_evidence: tuple[str, ...] = ()
+    limitations: tuple[str, ...] = ()
+    recommendations: tuple[str, ...] = ()
+    references: tuple[str, ...] = ()
+    engineering_hypothesis: bool = True
 
 @dataclass(frozen=True)
 class LithologyBarrier:
@@ -826,16 +849,17 @@ def _enrich_intervals_with_neighbors(
             context=context,
             confidence_factors=confidence_factors,
         )
-        enriched.append(
-            replace(
-                interval,
-                context=context,
-                geological_confidence_score=geological_score,
-                decision_level=decision_level,
-                confidence_factors=confidence_factors,
-                evidence_tree=evidence_tree,
-            )
+        updated = replace(
+            interval,
+            context=context,
+            geological_confidence_score=geological_score,
+            decision_level=decision_level,
+            confidence_factors=confidence_factors,
+            evidence_tree=evidence_tree,
         )
+        explanation = build_interpretation_explanation(updated)
+        updated = replace(updated, explanation=explanation, engineering_note=build_interval_engineering_note(replace(updated, explanation=explanation)))
+        enriched.append(updated)
     return tuple(enriched)
 
 
@@ -1326,8 +1350,137 @@ def _trace_rows(traces: Iterable[HydrocarbonRuleTrace]) -> tuple[dict[str, objec
     return tuple(trace.__dict__ for trace in traces)
 
 
+
+def _decision_level_label(decision_level: str) -> str:
+    return {
+        "very_high": "очень высокая достоверность",
+        "high": "высокая достоверность",
+        "medium": "средняя достоверность",
+        "low": "низкая достоверность",
+        "review": "требуется ручная проверка",
+        "unknown": "достоверность не определена",
+    }.get(decision_level, decision_level)
+
+
+def _classification_summary(fluid_type: str, decision_level: str) -> str:
+    label = FLUID_TYPE_LABELS.get(fluid_type, fluid_type).replace("интервал", "коллектор")
+    level = _decision_level_label(decision_level)
+    if fluid_type in {"uncertain", "transition"}:
+        return f"Интервал требует дополнительной проверки; уровень решения: {level}."
+    if fluid_type == "water":
+        return f"Признаки соответствуют вероятному водонасыщенному интервалу; уровень решения: {level}."
+    if fluid_type == "insufficient":
+        return "Недостаточно данных для уверенной инженерной интерпретации."
+    return f"Признаки соответствуют вероятному {label.lower()}у; уровень решения: {level}."
+
+
+def _evidence_sentence(item: IntervalEvidence) -> str:
+    value = item.value
+    if isinstance(value, float):
+        value_text = f"{value:g}"
+    elif value is None or str(value).strip() == "":
+        value_text = ""
+    else:
+        value_text = str(value)
+    prefix = f"{item.method} {item.parameter}"
+    if value_text:
+        prefix += f" = {value_text}"
+    if item.status and item.status != "observed":
+        prefix += f" ({item.status})"
+    if item.comment:
+        return f"{prefix}: {item.comment}"
+    return prefix
+
+
+def _context_reasoning(context: HydrocarbonInterpretationContext | None) -> tuple[str, ...]:
+    if context is None:
+        return ()
+    reasons: list[str] = []
+    if context.lithology and context.lithology != "unknown":
+        lithology = LITHOLOGY_CLASS_LABELS.get(context.lithology, context.lithology)
+        reasons.append(f"Литологический контекст: {lithology}.")
+    if context.gas_trend and context.gas_trend != "unknown":
+        reasons.append(f"Тренд газовых признаков: {context.gas_trend}.")
+    if context.barrier_above != "none" or context.barrier_below != "none":
+        reasons.append(f"Перемычки учтены отдельно: выше — {context.barrier_above}; ниже — {context.barrier_below}.")
+    if context.neighbor_summary != "none":
+        reasons.append(f"Соседние интервалы: {context.neighbor_summary}.")
+    return tuple(reasons)
+
+
+def _limitations_for_interval(interval: HydrocarbonInterval) -> tuple[str, ...]:
+    limitations: list[str] = []
+    flag_messages = {
+        "no_numeric_gas_ratios": "Недостаточно числовых газовых отношений для самостоятельного подтверждения вывода.",
+        "limited_numeric_evidence": "Числовая доказательная база ограничена.",
+        "single_sample_interval": "Интервал представлен одной глубинной точкой и может быть одиночным всплеском.",
+        "uncertain_fluid_character": "Флюидный характер неоднозначен и требует ручной проверки.",
+        "contains_missing_ratio_values": "Внутри интервала есть пропуски расчетных коэффициентов.",
+        "contains_barrier_rows": "В группу попали строки с барьерной литологией; границы нужно проверить.",
+    }
+    for flag in interval.quality_flags:
+        if flag in flag_messages:
+            limitations.append(flag_messages[flag])
+    if interval.data_confidence_score < 60:
+        limitations.append("Качество исходных расчетных признаков снижает надежность интерпретации.")
+    if interval.geological_confidence_score < 60:
+        limitations.append("Геологический контекст недостаточно поддерживает выбранную классификацию.")
+    if not limitations:
+        limitations.append("Интерпретация остается предварительной и требует сопоставления с ГИС, керном, испытаниями и буровым контекстом.")
+    return tuple(dict.fromkeys(limitations))
+
+
+def _recommendations_for_interval(interval: HydrocarbonInterval) -> tuple[str, ...]:
+    recommendations: list[str] = [trace.recommendation for trace in interval.rule_traces if trace.status == "applied" and trace.recommendation]
+    if interval.decision_level in {"very_high", "high"}:
+        recommendations.append("Рассмотреть интервал как приоритетный объект для детального геолого-геофизического анализа.")
+    elif interval.decision_level in {"medium", "review"}:
+        recommendations.append("Проверить интервал по ГИС, литологии, соседним пластам и качеству исходных газовых данных.")
+    else:
+        recommendations.append("Не использовать интервал как самостоятельное заключение без дополнительной проверки исходных данных.")
+    return tuple(dict.fromkeys(recommendations))
+
+
+def build_interpretation_explanation(interval: HydrocarbonInterval) -> InterpretationExplanation:
+    """Build a concise explanation package for one interval.
+
+    The explanation is the stable bridge from the interval engine to reports and
+    UI. It intentionally uses cautious wording: the result is an engineering
+    hypothesis supported by evidence, not an absolute geological fact.
+    """
+
+    classification = FLUID_TYPE_LABELS.get(interval.fluid_type, interval.fluid_type)
+    summary = _classification_summary(interval.fluid_type, interval.decision_level)
+    applied_messages = tuple(trace.message for trace in interval.rule_traces if trace.status == "applied" and trace.message)
+    reasoning = (
+        f"Интервал {interval.top:g}-{interval.base:g} м, мощность {interval.thickness:g} м.",
+        f"Data confidence: {interval.data_confidence_score}%; geological confidence: {interval.geological_confidence_score}%.",
+    ) + applied_messages + _context_reasoning(interval.context)
+    supporting_evidence = tuple(_evidence_sentence(item) for item in interval.evidence_items if item.parameter != "fluid_type")[:8]
+    references = tuple(dict.fromkeys(item.reference for item in interval.evidence_items if item.reference))
+    return InterpretationExplanation(
+        summary=summary,
+        classification=classification,
+        decision_level=interval.decision_level,
+        reasoning=reasoning,
+        supporting_evidence=supporting_evidence,
+        limitations=_limitations_for_interval(interval),
+        recommendations=_recommendations_for_interval(interval),
+        references=references,
+        engineering_hypothesis=True,
+    )
+
 def build_interval_engineering_note(interval: HydrocarbonInterval) -> str:
     """Return short printable interpretation text for one hydrocarbon interval."""
+
+    if interval.explanation is not None:
+        parts = [FLUID_TYPE_LABELS.get(interval.fluid_type, interval.fluid_type) + ".", interval.explanation.summary]
+        if interval.explanation.reasoning:
+            parts.append(" ".join(interval.explanation.reasoning[:2]))
+        if interval.explanation.limitations:
+            parts.append("Ограничение: " + interval.explanation.limitations[0])
+        parts.append("Вывод предварительный: требуется подтверждение комплексом геолого-геофизических данных.")
+        return " ".join(parts)
 
     label = FLUID_TYPE_LABELS.get(interval.fluid_type, interval.fluid_type)
     confidence = CONFIDENCE_LABELS.get(interval.confidence, interval.confidence)
@@ -1458,9 +1611,9 @@ def _interval_from_group(group: Sequence[Mapping[str, object]]) -> HydrocarbonIn
         source_end_row=int(frame.get("__source_row", pd.Series([0])).max()) if "__source_row" in frame.columns else None,
         separated_by_gap=bool(frame.get("__separated_by_gap", pd.Series([False])).astype(bool).any()) if "__separated_by_gap" in frame.columns else False,
     )
-    return HydrocarbonInterval(
-        **{**interval.__dict__, "engineering_note": build_interval_engineering_note(interval)}
-    )
+    explanation = build_interpretation_explanation(interval)
+    interval = replace(interval, explanation=explanation)
+    return replace(interval, engineering_note=build_interval_engineering_note(interval))
 
 
 def detect_hydrocarbon_intervals(
@@ -1612,6 +1765,7 @@ def hydrocarbon_interval_table_rows(intervals: Iterable[HydrocarbonInterval]) ->
             "decision_level": interval.decision_level,
             "context": interval.context.__dict__ if interval.context is not None else {},
             "evidence_tree": interval.evidence_tree,
+            "explanation": interval.explanation.__dict__ if interval.explanation is not None else {},
             "confidence_factors": " ".join(interval.confidence_factors),
             "applied_rule_ids": " ".join(interval.applied_rule_ids),
             "rule_traces": _trace_rows(interval.rule_traces),
@@ -1701,6 +1855,7 @@ def hydrocarbon_interval_marker_rows(intervals: Iterable[HydrocarbonInterval]) -
                 "fill_color": style["fill"],
                 "annotation": f"{style['label']} {interval.top:g}-{interval.base:g} м ({interval.confidence}, {interval.confidence_score}%)",
                 "engineering_note": interval.engineering_note,
+                "explanation_summary": interval.explanation.summary if interval.explanation is not None else "",
                 "quality_flags": " ".join(interval.quality_flags),
             }
         )
@@ -1755,6 +1910,7 @@ def summarize_hydrocarbon_interval_result(result: HydrocarbonIntervalResult) -> 
                 "decision_level": item.decision_level,
                 "interpretation_status": item.interpretation_status,
                 "engineering_note": item.engineering_note,
+                "explanation_summary": item.explanation.summary if item.explanation is not None else "",
             }
             for item in intervals
         ),
@@ -1887,6 +2043,7 @@ def hydrocarbon_engine_api_contract() -> dict[str, object]:
         "interval_model": "HydrocarbonInterval",
         "barrier_model": "LithologyBarrier",
         "context_model": "HydrocarbonInterpretationContext",
+        "explanation_model": "InterpretationExplanation",
         "public_builders": (
             "detect_hydrocarbon_intervals",
             "hydrocarbon_interval_table_rows",
@@ -1896,6 +2053,7 @@ def hydrocarbon_engine_api_contract() -> dict[str, object]:
             "hydrocarbon_interval_marker_rows",
             "validate_hydrocarbon_interval_result",
             "build_hydrocarbon_interval_engine_payload",
+            "build_interpretation_explanation",
         ),
         "consumer_rule": "Reports, plots, UI and export layers must consume interval/barrier/evidence/context payloads from this engine and must not duplicate interval-classification logic.",
         "technical_details_policy": "Diagnostics, source row counts, NaN statistics, rule traces and provenance belong to expert/technical views, not to the default engineer-facing report summary.",

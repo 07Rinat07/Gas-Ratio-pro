@@ -651,6 +651,13 @@ git status --short
 - Added neighbor/barrier context enrichment.
 - Updated schema to `gas-ratio-pro/hydrocarbon-intervals/v13`.
 
+## Hydrocarbon Interpretation Engine v15
+
+- Added `InterpretationExplanation` as the engineer-facing explanation package for every interval.
+- Added explanation summaries to interval, marker and public API payloads.
+- Added cautious preliminary interpretation wording and recommendation/limitation blocks.
+- Updated schema to `gas-ratio-pro/hydrocarbon-intervals/v15`.
+
 ## Hydrocarbon Interval Engine v14
 
 - Stabilized the public Hydrocarbon Interval Engine payload for downstream UI, plot, report and export consumers.
