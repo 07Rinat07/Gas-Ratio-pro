@@ -48,8 +48,10 @@ class StreamlitWorkbenchAdapter:
     controller: WorkbenchController | None = None
 
     def payload(self) -> dict[str, Any]:
-        """Return the serializable contract payload for diagnostics/tests."""
+        """Return the serializable renderer view model for diagnostics/tests."""
 
+        if self.controller is not None:
+            return self.controller.view_model()
         return self.contract.to_dict()
 
 

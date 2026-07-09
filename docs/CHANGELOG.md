@@ -1,5 +1,12 @@
 # Changelog
 
+## Modern Workbench Tool View Contract v57
+
+- Added renderer-neutral tool view models for Workbench tools.
+- Added tool readiness statuses, empty states, renderer hints and command-backed tool actions.
+- Exposed `tool_views` through the Workbench controller and Streamlit adapter payloads.
+- Added regression tests for tool view payloads and controller integration.
+
 ## Modern Workbench Controller Layer v54
 
 - Added `core.workbench_controller` as the coordination boundary between renderer adapters, command execution, shell state and renderer contracts.

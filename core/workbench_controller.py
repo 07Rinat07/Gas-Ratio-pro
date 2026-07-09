@@ -18,6 +18,7 @@ from core.workbench_tools import (
     WorkbenchToolDescriptor,
     WorkbenchToolManager,
 )
+from core.workbench_tool_views import WorkbenchToolViewService
 from core.workbench_shell import (
     WORKBENCH_ACTIVATE_DOCK_PANE_COMMAND_ID,
     WORKBENCH_SELECT_NAVIGATION_COMMAND_ID,
@@ -36,6 +37,7 @@ class WorkbenchControllerResult:
     shell: WorkbenchShellModel
     contract: WorkbenchRendererContract
     workspace_context: WorkspaceContext | None = None
+    tool_views: dict[str, Any] | None = None
 
     def view_model(self) -> dict[str, Any]:
         """Return the renderer-facing payload after the interaction."""
@@ -43,6 +45,8 @@ class WorkbenchControllerResult:
         payload = self.contract.to_dict()
         if self.workspace_context is not None:
             payload["workspace_context"] = self.workspace_context.to_dict()
+        if self.tool_views is not None:
+            payload["tool_views"] = dict(self.tool_views)
         return payload
 
 
@@ -92,8 +96,24 @@ class WorkbenchController:
         """Return a serializable renderer payload for UI adapters."""
 
         payload = self.contract().to_dict()
-        payload["workspace_context"] = self.context().to_dict()
+        context = self.context()
+        payload["workspace_context"] = context.to_dict()
+        payload["tool_views"] = WorkbenchToolViewService(self.state).payload(context)
         return payload
+
+
+    def _result(self, command_result: CommandExecutionResult) -> WorkbenchControllerResult:
+        """Build a controller result with a fresh shell, contract and tool views."""
+
+        shell = self.shell()
+        context = WorkspaceContext.from_state(self.state, shell)
+        return WorkbenchControllerResult(
+            command_result,
+            shell,
+            build_workbench_renderer_contract(shell, renderer=self.renderer, version=self.version),
+            context,
+            WorkbenchToolViewService(self.state).payload(context),
+        )
 
     def _navigation_ids(self) -> set[str]:
         return {item.id for item in self.shell().navigation if item.visible and item.enabled}
@@ -114,8 +134,7 @@ class WorkbenchController:
             WORKBENCH_SELECT_NAVIGATION_COMMAND_ID,
             {"navigation_id": clean_id},
         )
-        shell = self.shell()
-        return WorkbenchControllerResult(result, shell, build_workbench_renderer_contract(shell, renderer=self.renderer, version=self.version), WorkspaceContext.from_state(self.state, shell))
+        return self._result(result)
 
     def activate_dock_pane(self, pane_id: str) -> WorkbenchControllerResult:
         """Activate a dock pane through the command framework."""
@@ -127,8 +146,7 @@ class WorkbenchController:
             WORKBENCH_ACTIVATE_DOCK_PANE_COMMAND_ID,
             {"pane_id": clean_id},
         )
-        shell = self.shell()
-        return WorkbenchControllerResult(result, shell, build_workbench_renderer_contract(shell, renderer=self.renderer, version=self.version), WorkspaceContext.from_state(self.state, shell))
+        return self._result(result)
 
 
     def tool_manager(self) -> WorkbenchToolManager:
@@ -146,8 +164,7 @@ class WorkbenchController:
             WORKBENCH_ACTIVATE_TOOL_COMMAND_ID,
             {"tool_id": clean_id, "metadata": dict(metadata or {})},
         )
-        shell = self.shell()
-        return WorkbenchControllerResult(result, shell, build_workbench_renderer_contract(shell, renderer=self.renderer, version=self.version), WorkspaceContext.from_state(self.state, shell))
+        return self._result(result)
 
     def list_tools(self) -> tuple[WorkbenchToolDescriptor, ...]:
         """List visible Workbench tool descriptors."""
