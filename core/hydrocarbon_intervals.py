@@ -8,7 +8,7 @@ from core.method_registry import get_method_profile, method_id_for_parameter, me
 import pandas as pd
 
 
-HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v16"
+HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v17"
 
 NON_PROSPECTIVE_LABELS = (
     "Недостаточно данных",
@@ -205,6 +205,15 @@ INTERPRETATION_RULES: tuple[HydrocarbonInterpretationRule, ...] = (
         confidence_bonus=-6,
         message="Интерпретация ограничена неполной числовой доказательной базой.",
         recommendation="Не использовать интервал как окончательный вывод без проверки исходных кривых и пропусков данных.",
+    ),
+    HydrocarbonInterpretationRule(
+        rule_id="HC-NO-NUMERIC-DATA-001",
+        target_fluid_types=("gas", "oil", "condensate", "mixed", "gas_oil", "oil_gas", "transition", "uncertain"),
+        title="No numeric gas-ratio evidence warning",
+        required_quality_flags=("no_numeric_gas_ratios",),
+        confidence_bonus=-10,
+        message="Интерпретация ограничена отсутствием числовых газовых отношений.",
+        recommendation="Сначала проверить наличие и корректность компонент C1-C5 и расчетных коэффициентов, затем повторить интерпретацию.",
     ),
     HydrocarbonInterpretationRule(
         rule_id="HC-SINGLE-SAMPLE-001",
@@ -2073,6 +2082,168 @@ def build_hydrocarbon_interval_engine_payload(
         }
     return payload
 
+
+
+def _validation_frame_from_rows(rows: Sequence[Mapping[str, object]]) -> pd.DataFrame:
+    """Build a validation DataFrame from inline reference rows.
+
+    Validation fixtures are intentionally stored as simple dictionaries so the
+    engine can run without external files. This keeps the regression suite
+    deterministic and allows future field-specific datasets to be added as
+    separate adapters without changing the public validator API.
+    """
+
+    return pd.DataFrame(tuple(dict(row) for row in rows))
+
+
+VALIDATION_DATASET_VERSION = "hie-validation-dataset/v2"
+
+
+HYDROCARBON_VALIDATION_DATASETS: dict[str, tuple[dict[str, object], ...]] = {
+    "TC-001-DRY-GAS": (
+        {"depth": 2800.0, "interpretation": "Газовая залежь", "lithology": "Sandstone", "c1": 1.0, "wh": 7.0, "bh": 42.0, "c1_c2": 82.0, "c1_c3": 180.0, "oil_indicator": 0.04},
+        {"depth": 2801.0, "interpretation": "Газовая залежь", "lithology": "Sandstone", "c1": 1.1, "wh": 8.0, "bh": 43.0, "c1_c2": 80.0, "c1_c3": 175.0, "oil_indicator": 0.05},
+        {"depth": 2802.0, "interpretation": "Газовая залежь", "lithology": "Sandstone", "c1": 1.2, "wh": 9.0, "bh": 44.0, "c1_c2": 78.0, "c1_c3": 170.0, "oil_indicator": 0.04},
+    ),
+    "TC-002-OIL": (
+        {"depth": 2850.0, "interpretation": "Нефтяная залежь", "lithology": "Sandstone", "wh": 26.0, "bh": 9.0, "c1_c2": 6.0, "c1_c3": 10.0, "oil_indicator": 0.20},
+        {"depth": 2851.0, "interpretation": "Нефтяная залежь", "lithology": "Sandstone", "wh": 28.0, "bh": 10.0, "c1_c2": 7.0, "c1_c3": 11.0, "oil_indicator": 0.22},
+        {"depth": 2852.0, "interpretation": "Нефтяная залежь", "lithology": "Sandstone", "wh": 27.0, "bh": 10.5, "c1_c2": 8.0, "c1_c3": 12.0, "oil_indicator": 0.21},
+    ),
+    "TC-003-GAS-CONDENSATE": (
+        {"depth": 2860.0, "interpretation": "Жирный газ / конденсат", "lithology": "Sandstone", "wh": 12.0, "bh": 8.0, "c1_c2": 18.0, "c1_c3": 40.0, "oil_indicator": 0.08},
+        {"depth": 2861.0, "interpretation": "Жирный газ / конденсат", "lithology": "Sandstone", "wh": 13.0, "bh": 8.5, "c1_c2": 20.0, "c1_c3": 42.0, "oil_indicator": 0.08},
+        {"depth": 2862.0, "interpretation": "Жирный газ / конденсат", "lithology": "Sandstone", "wh": 14.0, "bh": 9.0, "c1_c2": 22.0, "c1_c3": 44.0, "oil_indicator": 0.09},
+    ),
+    "TC-004-CLAYSTONE-BARRIER": (
+        {"top": 2900.0, "base": 2901.0, "depth": 2900.0, "interpretation": "Газовая залежь", "lithology": "Sandstone", "wh": 8.0, "bh": 44.0, "c1_c2": 80.0},
+        {"top": 2901.0, "base": 2901.2, "depth": 2901.0, "interpretation": "Claystone barrier", "lithology": "Claystone", "wh": None, "bh": None, "c1_c2": None},
+        {"top": 2901.2, "base": 2903.0, "depth": 2901.2, "interpretation": "Газовая залежь", "lithology": "Sandstone", "wh": 9.0, "bh": 45.0, "c1_c2": 82.0},
+    ),
+    "TC-005-NOISY-UNCERTAIN": (
+        {"depth": 3000.0, "interpretation": "Сомнительный газовый признак", "lithology": "Unknown", "wh": 4.0, "bh": 80.0, "c1_c2": 9.0, "oil_indicator": 0.18},
+        {"depth": 3001.0, "interpretation": "ambiguous anomaly", "lithology": "Unknown", "wh": 35.0, "bh": 5.0, "c1_c2": 90.0, "oil_indicator": 0.03},
+        {"depth": 3002.0, "interpretation": "uncertain", "lithology": "Unknown", "wh": 6.0, "bh": 70.0, "c1_c2": 12.0, "oil_indicator": 0.16},
+    ),
+    "TC-006-MISSING-CURVES": (
+        {"depth": 3050.0, "interpretation": "Переходная зона / проверить", "lithology": "Sandstone", "wh": None, "bh": None, "c1_c2": None},
+    ),
+}
+
+
+HYDROCARBON_VALIDATION_CASES: tuple[HydrocarbonValidationCase, ...] = (
+    HydrocarbonValidationCase(
+        case_id="TC-001-DRY-GAS",
+        title="Reference dry gas interval",
+        expected_fluid_types=("gas",),
+        expected_min_intervals=1,
+        minimum_confidence_score=70,
+        required_rule_ids=("HC-GAS-HIGH-001",),
+        description="Clean gas-bearing sandstone interval with consistent Haworth and Pixler support.",
+    ),
+    HydrocarbonValidationCase(
+        case_id="TC-002-OIL",
+        title="Reference oil interval",
+        expected_fluid_types=("oil",),
+        expected_min_intervals=1,
+        minimum_confidence_score=70,
+        required_rule_ids=("HC-OIL-HIGH-001",),
+        description="Clean oil-bearing sandstone interval with oil indicator support.",
+    ),
+    HydrocarbonValidationCase(
+        case_id="TC-003-GAS-CONDENSATE",
+        title="Reference gas-condensate interval",
+        expected_fluid_types=("condensate",),
+        expected_min_intervals=1,
+        minimum_confidence_score=55,
+        required_rule_ids=("HC-COND-MED-001",),
+        description="Gas-condensate style interval with medium confidence evidence.",
+    ),
+    HydrocarbonValidationCase(
+        case_id="TC-004-CLAYSTONE-BARRIER",
+        title="Separated gas intervals across Claystone barrier",
+        expected_fluid_types=("gas",),
+        expected_min_intervals=2,
+        expected_barriers=1,
+        description="Productive gas intervals must stay separated by a Claystone barrier.",
+    ),
+    HydrocarbonValidationCase(
+        case_id="TC-005-NOISY-UNCERTAIN",
+        title="Noisy uncertain interval",
+        expected_fluid_types=("uncertain",),
+        expected_min_intervals=1,
+        required_quality_flags=("uncertain_fluid_character",),
+        description="Contradictory gas/oil signals should remain review-oriented, not high-confidence pay.",
+    ),
+    HydrocarbonValidationCase(
+        case_id="TC-006-MISSING-CURVES",
+        title="Missing curves low confidence interval",
+        expected_fluid_types=("transition",),
+        expected_min_intervals=1,
+        required_quality_flags=("no_numeric_gas_ratios",),
+        required_rule_ids=("HC-NO-NUMERIC-DATA-001", "HC-SINGLE-SAMPLE-001"),
+        description="Missing calculated curves must produce explicit quality limitations and review recommendations.",
+    ),
+)
+
+
+def hydrocarbon_validation_cases() -> tuple[HydrocarbonValidationCase, ...]:
+    """Return the built-in regression validation catalog for HIE v1.0 freeze."""
+
+    return HYDROCARBON_VALIDATION_CASES
+
+
+def hydrocarbon_validation_case_frame(case_id: str) -> pd.DataFrame:
+    """Return a deterministic input DataFrame for a built-in validation case."""
+
+    try:
+        rows = HYDROCARBON_VALIDATION_DATASETS[case_id]
+    except KeyError as exc:
+        known = ", ".join(sorted(HYDROCARBON_VALIDATION_DATASETS))
+        raise KeyError(f"Unknown hydrocarbon validation case: {case_id}. Known cases: {known}") from exc
+    return _validation_frame_from_rows(rows)
+
+
+def hydrocarbon_validation_catalog_rows() -> tuple[dict[str, object], ...]:
+    """Return serializable metadata for validation dataset documentation."""
+
+    return tuple(
+        {
+            "case_id": case.case_id,
+            "title": case.title,
+            "expected_fluid_types": " ".join(case.expected_fluid_types),
+            "expected_min_intervals": case.expected_min_intervals,
+            "expected_barriers": case.expected_barriers,
+            "minimum_confidence_score": case.minimum_confidence_score,
+            "required_quality_flags": " ".join(case.required_quality_flags),
+            "required_rule_ids": " ".join(case.required_rule_ids),
+            "description": case.description,
+            "dataset_version": VALIDATION_DATASET_VERSION,
+        }
+        for case in hydrocarbon_validation_cases()
+    )
+
+
+def run_hydrocarbon_validation_suite(
+    cases: Sequence[HydrocarbonValidationCase] | None = None,
+    *,
+    rules: HydrocarbonIntervalRuleSet | None = None,
+) -> tuple[HydrocarbonValidationResult, ...]:
+    """Run all built-in validation cases through the public engine.
+
+    The suite is a regression guard, not a geological truth database. It checks
+    that agreed reference scenarios keep producing expected interval classes,
+    barrier separation, rule traces and quality flags while the project evolves.
+    """
+
+    active_cases = tuple(cases or hydrocarbon_validation_cases())
+    results: list[HydrocarbonValidationResult] = []
+    for case in active_cases:
+        frame = hydrocarbon_validation_case_frame(case.case_id)
+        result = detect_hydrocarbon_intervals(frame, rules=rules or HydrocarbonIntervalRuleSet(max_depth_gap=2.0))
+        results.append(validate_hydrocarbon_interval_result(result, case))
+    return tuple(results)
+
 def validate_hydrocarbon_interval_result(
     result: HydrocarbonIntervalResult,
     case: HydrocarbonValidationCase,
@@ -2178,11 +2349,16 @@ def hydrocarbon_engine_api_contract() -> dict[str, object]:
             "hydrocarbon_method_registry_rows",
             "hydrocarbon_interval_marker_rows",
             "validate_hydrocarbon_interval_result",
+            "hydrocarbon_validation_cases",
+            "hydrocarbon_validation_case_frame",
+            "hydrocarbon_validation_catalog_rows",
+            "run_hydrocarbon_validation_suite",
             "build_hydrocarbon_interval_engine_payload",
             "build_interpretation_explanation",
             "build_interpretation_limitations",
             "build_interpretation_recommendations",
         ),
         "consumer_rule": "Reports, plots, UI and export layers must consume interval/barrier/evidence/context payloads from this engine and must not duplicate interval-classification logic.",
+        "validation_dataset_version": VALIDATION_DATASET_VERSION,
         "technical_details_policy": "Diagnostics, source row counts, NaN statistics, rule traces and provenance belong to expert/technical views, not to the default engineer-facing report summary.",
     }

@@ -673,3 +673,11 @@ git status --short
 - Added engineer-facing result summary that focuses on intervals, fluid type, confidence and review status instead of internal row counters.
 - Added technical payload opt-in for diagnostics, row counts, method registry and expert/debug views.
 - Updated schema to `gas-ratio-pro/hydrocarbon-intervals/v14`.
+
+## Hydrocarbon Interpretation Engine v17
+
+- Added built-in Validation Dataset v2 for regression checks of practical geological scenarios.
+- Added validation catalog helpers: `hydrocarbon_validation_cases`, `hydrocarbon_validation_case_frame`, `hydrocarbon_validation_catalog_rows`.
+- Added `run_hydrocarbon_validation_suite` as a public regression suite entry point.
+- Added no-numeric-data interpretation rule for missing gas-ratio evidence.
+- Updated public API contract and schema to `gas-ratio-pro/hydrocarbon-intervals/v17`.

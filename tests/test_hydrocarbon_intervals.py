@@ -96,7 +96,7 @@ def test_hydrocarbon_interval_engine_keeps_transition_candidates_when_enabled() 
     assert len(result.intervals) == 1
     assert result.intervals[0].fluid_type in {"mixed", "transition"}
     assert result.rows["hydrocarbon_candidate"].all()
-    assert result.schema.endswith("/v16")
+    assert result.schema.endswith("/v17")
 
 
 def test_hydrocarbon_interval_engine_builds_graph_marker_rows() -> None:
@@ -141,7 +141,7 @@ def test_hydrocarbon_interval_engine_distinguishes_directional_oil_gas_labels() 
     )
 
     assert [interval.fluid_type for interval in result.intervals] == ["gas_oil", "oil_gas"]
-    assert result.schema.endswith("/v16")
+    assert result.schema.endswith("/v17")
 
 
 def test_hydrocarbon_interval_engine_keeps_uncertain_candidates_but_excludes_water() -> None:
@@ -270,7 +270,7 @@ def test_hydrocarbon_interval_engine_exports_structured_evidence_and_quality_fla
     table_rows = hydrocarbon_interval_table_rows(result.intervals)
     markers = hydrocarbon_interval_marker_rows(result.intervals)
 
-    assert result.schema.endswith("/v16")
+    assert result.schema.endswith("/v17")
     assert interval.evidence_items
     assert {item.method for item in interval.evidence_items} >= {"Haworth", "Pixler", "HydrocarbonIntervalEngine"}
     assert "single_sample_interval" in interval.quality_flags
@@ -297,7 +297,7 @@ def test_hydrocarbon_interval_engine_calculates_confidence_score_and_factors() -
     table_rows = hydrocarbon_interval_table_rows(result.intervals)
     markers = hydrocarbon_interval_marker_rows(result.intervals)
 
-    assert result.schema.endswith("/v16")
+    assert result.schema.endswith("/v17")
     assert interval.confidence_score >= 75
     assert interval.confidence == "high"
     assert any(factor.startswith("haworth_evidence=") for factor in interval.confidence_factors)
@@ -348,7 +348,7 @@ def test_interval_evidence_framework_exports_status_expected_and_reference() -> 
     interval = result.intervals[0]
     rows = hydrocarbon_interval_table_rows(result.intervals)
 
-    assert result.schema.endswith("/v16")
+    assert result.schema.endswith("/v17")
     assert interval.evidence_items
     assert all(item.evidence_id for item in interval.evidence_items)
     assert all(item.status in {"pass", "observed", "missing"} for item in interval.evidence_items)
@@ -378,7 +378,7 @@ def test_hydrocarbon_interval_rule_engine_exports_applied_rules_and_trace() -> N
     rows = hydrocarbon_interval_table_rows(result.intervals)
     markers = hydrocarbon_interval_marker_rows(result.intervals)
 
-    assert result.schema.endswith("/v16")
+    assert result.schema.endswith("/v17")
     assert "HC-GAS-HIGH-001" in interval.applied_rule_ids
     assert interval.rule_traces
     assert any(trace.status == "applied" for trace in interval.rule_traces)
@@ -445,7 +445,7 @@ def test_hydrocarbon_interval_engine_validation_case_passes_for_gas_reference() 
 
     assert validation.passed is True
     assert rows[0]["passed"] is True
-    assert contract["schema"].endswith("/v16")
+    assert contract["schema"].endswith("/v17")
     assert "detect_hydrocarbon_intervals" in contract["public_builders"]
 
 
@@ -503,7 +503,7 @@ def test_hydrocarbon_interval_engine_exports_interpretation_context_and_decision
     rows = hydrocarbon_interval_table_rows(result.intervals)
     markers = hydrocarbon_interval_marker_rows(result.intervals)
 
-    assert result.schema.endswith("/v16")
+    assert result.schema.endswith("/v17")
     assert interval.context is not None
     assert interval.context.lithology == "sandstone"
     assert interval.context.curve_quality in {"good", "limited"}
@@ -561,7 +561,7 @@ def test_hydrocarbon_interval_engine_public_payload_hides_technical_details_by_d
     payload = build_hydrocarbon_interval_engine_payload(result)
     technical_payload = build_hydrocarbon_interval_engine_payload(result, include_technical=True)
 
-    assert result.schema.endswith("/v16")
+    assert result.schema.endswith("/v17")
     assert summary["total_intervals"] == 1
     assert summary["productive_intervals"] == 1
     assert "row_count" not in payload
@@ -592,7 +592,7 @@ def test_hydrocarbon_interval_engine_exports_explanation_package() -> None:
     interval = result.intervals[0]
     payload = build_hydrocarbon_interval_engine_payload(result)
 
-    assert result.schema.endswith("/v16")
+    assert result.schema.endswith("/v17")
     assert interval.explanation is not None
     assert interval.explanation.engineering_hypothesis is True
     assert interval.explanation.summary
@@ -630,7 +630,7 @@ def test_hydrocarbon_interval_engine_exports_structured_recommendations_and_limi
     recommendations = build_interpretation_recommendations(interval)
     payload = build_hydrocarbon_interval_engine_payload(result)
 
-    assert result.schema.endswith("/v16")
+    assert result.schema.endswith("/v17")
     assert limitations
     assert recommendations
     assert all(item.category for item in limitations)
@@ -641,3 +641,36 @@ def test_hydrocarbon_interval_engine_exports_structured_recommendations_and_limi
     assert interval.explanation.structured_recommendations == recommendations
     assert payload["intervals"][0]["explanation"]["structured_limitations"][0]["message"] == limitations[0].message
     assert payload["intervals"][0]["explanation"]["structured_recommendations"][0]["action"] == recommendations[0].action
+
+
+
+def test_hydrocarbon_interval_engine_runs_builtin_validation_suite_v2() -> None:
+    from core.hydrocarbon_intervals import (
+        VALIDATION_DATASET_VERSION,
+        hydrocarbon_validation_catalog_rows,
+        hydrocarbon_validation_cases,
+        run_hydrocarbon_validation_suite,
+    )
+
+    cases = hydrocarbon_validation_cases()
+    results = run_hydrocarbon_validation_suite()
+    catalog = hydrocarbon_validation_catalog_rows()
+
+    assert VALIDATION_DATASET_VERSION.endswith('/v2')
+    assert len(cases) >= 6
+    assert len(results) == len(cases)
+    assert all(result.passed for result in results)
+    assert {row['case_id'] for row in catalog} == {case.case_id for case in cases}
+    assert any(row['case_id'] == 'TC-004-CLAYSTONE-BARRIER' for row in catalog)
+
+
+def test_hydrocarbon_interval_engine_validation_case_frame_is_public_and_deterministic() -> None:
+    from core.hydrocarbon_intervals import hydrocarbon_validation_case_frame, detect_hydrocarbon_intervals
+
+    frame = hydrocarbon_validation_case_frame('TC-001-DRY-GAS')
+    result = detect_hydrocarbon_intervals(frame)
+
+    assert list(frame['depth']) == [2800.0, 2801.0, 2802.0]
+    assert result.intervals[0].fluid_type == 'gas'
+    assert result.intervals[0].explanation is not None
+    assert result.intervals[0].explanation.recommendations
