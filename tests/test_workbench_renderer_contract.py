@@ -29,6 +29,7 @@ def test_renderer_contract_lists_only_command_backed_actions():
     assert contract.action_ids() == (
         "action.select_navigation",
         "action.activate_dock_pane",
+        "action.activate_tool",
     )
     assert actions["action.select_navigation"]["command_id"] == WORKBENCH_SELECT_NAVIGATION_COMMAND_ID
     assert actions["action.select_navigation"]["payload_schema"] == {"navigation_id": "string"}

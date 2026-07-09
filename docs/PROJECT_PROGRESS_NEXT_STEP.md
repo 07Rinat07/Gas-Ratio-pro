@@ -57,3 +57,17 @@ Completed in v55: the Modern Workbench now has a lifecycle foundation. `core.wor
 ## Next recommended increment
 
 Integrate the lifecycle-backed Streamlit Modern Workbench entry point into the main application behind a safe feature flag. Keep legacy screens available while validating WorkspaceContext, selection changes and renderer payloads against real session state. Keep `scripts/release_export_qa.py` as the release check before packaging builds.
+
+## V56 Modern Workbench Tool Registry
+
+Completed:
+- Added `core/workbench_tools.py` with `WorkbenchToolDescriptor`, `WorkbenchToolRegistry` and `WorkbenchToolManager`.
+- Added default engineering tool descriptors for Workspace Explorer, LAS Viewer, Log Viewer, Gas Ratio Analysis, Report Preview, Export and Settings.
+- Added command-backed tool activation through `workbench.tool.activate`.
+- Added renderer-facing `action.activate_tool` to the Workbench renderer contract.
+- Added tool state persistence through Workspace Session.
+- Added tests for registry, activation pipeline, renderer action dispatch and session restore.
+
+Next step:
+Connect the first real tool view models to the Workbench renderer, starting with LAS Viewer and Gas Ratio Analysis, while keeping Streamlit as a thin presentation adapter.
+

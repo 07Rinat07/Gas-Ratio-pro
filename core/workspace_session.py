@@ -47,6 +47,10 @@ WORKBENCH_SESSION_NAVIGATION_KEY = "workbench_navigation"
 WORKBENCH_SESSION_DOCK_LAYOUT_KEY = "workbench_dock_layout"
 WORKBENCH_SESSION_ACTIVE_NAVIGATION_KEY = "workbench_active_navigation"
 WORKBENCH_SESSION_ACTIVE_DOCK_PANE_KEY = "workbench_active_dock_pane"
+WORKBENCH_SESSION_TOOLS_KEY = "workbench_tools"
+WORKBENCH_SESSION_ACTIVE_TOOL_KEY = "workbench_active_tool"
+WORKBENCH_SESSION_OPEN_TOOLS_KEY = "workbench_open_tools"
+WORKBENCH_SESSION_TOOL_ORDER_KEY = "workbench_tool_order"
 
 RestoreConflictPolicy = Literal["overwrite", "preserve"]
 
@@ -111,6 +115,10 @@ class WorkspaceSession:
     workbench_dock_layout: tuple[dict[str, Any], ...] = ()
     workbench_active_navigation: str = ""
     workbench_active_dock_pane: str = ""
+    workbench_tools: tuple[dict[str, Any], ...] = ()
+    workbench_active_tool: str = ""
+    workbench_open_tools: tuple[str, ...] = ()
+    workbench_tool_order: tuple[str, ...] = ()
     created_at: str = field(default_factory=_now_utc)
     updated_at: str = field(default_factory=_now_utc)
     schema: str = WORKSPACE_SESSION_SCHEMA
@@ -139,6 +147,10 @@ class WorkspaceSession:
             workbench_dock_layout=_dict_tuple(state.get(WORKBENCH_SESSION_DOCK_LAYOUT_KEY, ())),
             workbench_active_navigation=str(state.get(WORKBENCH_SESSION_ACTIVE_NAVIGATION_KEY, "") or ""),
             workbench_active_dock_pane=str(state.get(WORKBENCH_SESSION_ACTIVE_DOCK_PANE_KEY, "") or ""),
+            workbench_tools=_dict_tuple(state.get(WORKBENCH_SESSION_TOOLS_KEY, ())),
+            workbench_active_tool=str(state.get(WORKBENCH_SESSION_ACTIVE_TOOL_KEY, "") or ""),
+            workbench_open_tools=_string_tuple(state.get(WORKBENCH_SESSION_OPEN_TOOLS_KEY, ())),
+            workbench_tool_order=_string_tuple(state.get(WORKBENCH_SESSION_TOOL_ORDER_KEY, ())),
         )
 
     @classmethod
@@ -161,6 +173,10 @@ class WorkspaceSession:
             workbench_dock_layout=_dict_tuple(data.get("workbench_dock_layout", ())),
             workbench_active_navigation=str(data.get("workbench_active_navigation", "") or ""),
             workbench_active_dock_pane=str(data.get("workbench_active_dock_pane", "") or ""),
+            workbench_tools=_dict_tuple(data.get("workbench_tools", ())),
+            workbench_active_tool=str(data.get("workbench_active_tool", "") or ""),
+            workbench_open_tools=_string_tuple(data.get("workbench_open_tools", ())),
+            workbench_tool_order=_string_tuple(data.get("workbench_tool_order", ())),
             created_at=str(data.get("created_at", "") or _now_utc()),
             updated_at=str(data.get("updated_at", "") or _now_utc()),
             schema=str(data.get("schema", WORKSPACE_SESSION_SCHEMA) or WORKSPACE_SESSION_SCHEMA),
@@ -186,6 +202,10 @@ class WorkspaceSession:
             "workbench_dock_layout": [dict(item) for item in self.workbench_dock_layout],
             "workbench_active_navigation": self.workbench_active_navigation,
             "workbench_active_dock_pane": self.workbench_active_dock_pane,
+            "workbench_tools": [dict(item) for item in self.workbench_tools],
+            "workbench_active_tool": self.workbench_active_tool,
+            "workbench_open_tools": list(self.workbench_open_tools),
+            "workbench_tool_order": list(self.workbench_tool_order),
         }
 
     def session_id(self) -> str:
@@ -285,6 +305,10 @@ class WorkspaceSessionManager:
             WORKBENCH_SESSION_DOCK_LAYOUT_KEY: [dict(item) for item in session.workbench_dock_layout],
             WORKBENCH_SESSION_ACTIVE_NAVIGATION_KEY: session.workbench_active_navigation,
             WORKBENCH_SESSION_ACTIVE_DOCK_PANE_KEY: session.workbench_active_dock_pane,
+            WORKBENCH_SESSION_TOOLS_KEY: [dict(item) for item in session.workbench_tools],
+            WORKBENCH_SESSION_ACTIVE_TOOL_KEY: session.workbench_active_tool,
+            WORKBENCH_SESSION_OPEN_TOOLS_KEY: list(session.workbench_open_tools),
+            WORKBENCH_SESSION_TOOL_ORDER_KEY: list(session.workbench_tool_order),
         }
         affected: list[str] = []
         for key, value in values.items():
@@ -303,6 +327,8 @@ class WorkspaceSessionManager:
                 "conflict_policy": conflict_policy,
                 "workbench_active_navigation": session.workbench_active_navigation,
                 "workbench_active_dock_pane": session.workbench_active_dock_pane,
+                "workbench_active_tool": session.workbench_active_tool,
+                "workbench_open_tools": list(session.workbench_open_tools),
             },
         )
         return WorkspaceSessionResult(
@@ -344,6 +370,10 @@ def workspace_session_keys() -> tuple[str, ...]:
         WORKBENCH_SESSION_DOCK_LAYOUT_KEY,
         WORKBENCH_SESSION_ACTIVE_NAVIGATION_KEY,
         WORKBENCH_SESSION_ACTIVE_DOCK_PANE_KEY,
+        WORKBENCH_SESSION_TOOLS_KEY,
+        WORKBENCH_SESSION_ACTIVE_TOOL_KEY,
+        WORKBENCH_SESSION_OPEN_TOOLS_KEY,
+        WORKBENCH_SESSION_TOOL_ORDER_KEY,
         SESSION_LAST_RESTORED_KEY,
         SESSION_LAST_SAVED_KEY,
     )

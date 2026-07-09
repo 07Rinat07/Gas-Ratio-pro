@@ -13,6 +13,11 @@ from typing import Any, MutableMapping
 from core.command_framework import CommandExecutionResult, WorkbenchCommandRegistry
 from core.workbench_context import WorkbenchSelection, WorkbenchSelectionService, WorkspaceContext
 from core.workbench_lifecycle import WorkbenchLifecycleManager, WorkbenchLifecycleResult
+from core.workbench_tools import (
+    WORKBENCH_ACTIVATE_TOOL_COMMAND_ID,
+    WorkbenchToolDescriptor,
+    WorkbenchToolManager,
+)
 from core.workbench_shell import (
     WORKBENCH_ACTIVATE_DOCK_PANE_COMMAND_ID,
     WORKBENCH_SELECT_NAVIGATION_COMMAND_ID,
@@ -30,11 +35,15 @@ class WorkbenchControllerResult:
     command_result: CommandExecutionResult
     shell: WorkbenchShellModel
     contract: WorkbenchRendererContract
+    workspace_context: WorkspaceContext | None = None
 
     def view_model(self) -> dict[str, Any]:
         """Return the renderer-facing payload after the interaction."""
 
-        return self.contract.to_dict()
+        payload = self.contract.to_dict()
+        if self.workspace_context is not None:
+            payload["workspace_context"] = self.workspace_context.to_dict()
+        return payload
 
 
 class WorkbenchController:
@@ -92,6 +101,9 @@ class WorkbenchController:
     def _dock_pane_ids(self) -> set[str]:
         return {pane.id for pane in self.shell().dock_layout.panes if not pane.collapsed}
 
+    def _tool_ids(self) -> set[str]:
+        return {tool.id for tool in self.shell().tools if tool.visible and tool.enabled}
+
     def select_navigation(self, navigation_id: str) -> WorkbenchControllerResult:
         """Select a navigation item through the command framework."""
 
@@ -103,7 +115,7 @@ class WorkbenchController:
             {"navigation_id": clean_id},
         )
         shell = self.shell()
-        return WorkbenchControllerResult(result, shell, build_workbench_renderer_contract(shell, renderer=self.renderer, version=self.version))
+        return WorkbenchControllerResult(result, shell, build_workbench_renderer_contract(shell, renderer=self.renderer, version=self.version), WorkspaceContext.from_state(self.state, shell))
 
     def activate_dock_pane(self, pane_id: str) -> WorkbenchControllerResult:
         """Activate a dock pane through the command framework."""
@@ -116,7 +128,31 @@ class WorkbenchController:
             {"pane_id": clean_id},
         )
         shell = self.shell()
-        return WorkbenchControllerResult(result, shell, build_workbench_renderer_contract(shell, renderer=self.renderer, version=self.version))
+        return WorkbenchControllerResult(result, shell, build_workbench_renderer_contract(shell, renderer=self.renderer, version=self.version), WorkspaceContext.from_state(self.state, shell))
+
+
+    def tool_manager(self) -> WorkbenchToolManager:
+        """Return the Workbench tool manager bound to this controller state."""
+
+        return WorkbenchToolManager(self.state)
+
+    def activate_tool(self, tool_id: str, metadata: dict[str, Any] | None = None) -> WorkbenchControllerResult:
+        """Activate a Workbench tool through the command framework."""
+
+        clean_id = str(tool_id or "").strip()
+        if clean_id not in self._tool_ids():
+            raise KeyError(f"Unknown or unavailable Workbench tool: {clean_id}")
+        result = self.command_registry.execute(
+            WORKBENCH_ACTIVATE_TOOL_COMMAND_ID,
+            {"tool_id": clean_id, "metadata": dict(metadata or {})},
+        )
+        shell = self.shell()
+        return WorkbenchControllerResult(result, shell, build_workbench_renderer_contract(shell, renderer=self.renderer, version=self.version), WorkspaceContext.from_state(self.state, shell))
+
+    def list_tools(self) -> tuple[WorkbenchToolDescriptor, ...]:
+        """List visible Workbench tool descriptors."""
+
+        return self.shell().tools
 
     def select_object(self, target: str, object_id: str, metadata: dict[str, Any] | None = None) -> WorkbenchSelection:
         """Change Workbench object selection through the selection service."""
@@ -157,6 +193,8 @@ class WorkbenchController:
             return self.select_navigation(str(clean_payload.get("navigation_id") or clean_payload.get("id") or ""))
         if clean_action_id == "action.activate_dock_pane":
             return self.activate_dock_pane(str(clean_payload.get("pane_id") or clean_payload.get("id") or ""))
+        if clean_action_id == "action.activate_tool":
+            return self.activate_tool(str(clean_payload.get("tool_id") or clean_payload.get("id") or ""), metadata=dict(clean_payload.get("metadata", {}) or {}))
         available = set(self.contract().action_ids())
         if clean_action_id not in available:
             raise KeyError(f"Unknown or disabled renderer action: {clean_action_id}")

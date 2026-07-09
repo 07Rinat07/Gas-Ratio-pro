@@ -19,6 +19,7 @@ from core.workspace_session import (
     SESSION_SELECTED_INTERVALS_KEY,
 )
 from core.workbench_shell import WorkbenchInteractionState, WorkbenchShellModel
+from core.workbench_tools import WORKBENCH_ACTIVE_TOOL_KEY
 
 WORKBENCH_SELECTION_KEY = "workbench_selection"
 WORKBENCH_RENDERER_STATE_KEY = "workbench_renderer_state"
@@ -146,7 +147,7 @@ class WorkspaceContext:
             application=application,
             interaction=interaction,
             selection=WorkbenchSelectionService(state).current(),
-            active_tool=str(state.get("workbench_active_tool", "") or ""),
+            active_tool=str(state.get(WORKBENCH_ACTIVE_TOOL_KEY, "") or ""),
             selected_intervals=_string_tuple(state.get(SESSION_SELECTED_INTERVALS_KEY, ())),
             active_report=str(state.get(SESSION_ACTIVE_REPORT_KEY, "") or ""),
             active_plot=str(state.get(SESSION_ACTIVE_PLOT_KEY, "") or ""),

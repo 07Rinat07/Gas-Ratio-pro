@@ -13,6 +13,12 @@ from typing import Any, Iterable, MutableMapping
 from core.application_state import ApplicationContext, ApplicationStateController
 from core.command_framework import WorkbenchCommand, WorkbenchCommandRegistry, default_workbench_commands
 from core.event_bus import ApplicationEventBus
+from core.workbench_tools import (
+    WORKBENCH_ACTIVATE_TOOL_COMMAND_ID,
+    WorkbenchToolDescriptor,
+    WorkbenchToolManager,
+    register_workbench_tool_commands,
+)
 from core.workspace_session import (
     SESSION_ACTIVE_PLOT_KEY,
     SESSION_ACTIVE_REPORT_KEY,
@@ -357,6 +363,9 @@ class WorkbenchShellModel:
     navigation: tuple[WorkbenchNavigationItem, ...] = field(default_factory=tuple)
     dock_layout: WorkbenchDockLayout = field(default_factory=lambda: WorkbenchDockLayout(()))
     interaction: WorkbenchInteractionState = field(default_factory=WorkbenchInteractionState)
+    tools: tuple[WorkbenchToolDescriptor, ...] = field(default_factory=tuple)
+    active_tool_id: str = ""
+    open_tool_ids: tuple[str, ...] = field(default_factory=tuple)
 
     def panel_ids(self) -> tuple[str, ...]:
         return tuple(panel.id for panel in self.panels if panel.visible)
@@ -377,6 +386,9 @@ class WorkbenchShellModel:
             "navigation": [item.to_dict() for item in self.navigation],
             "dock_layout": self.dock_layout.to_dict(),
             "interaction": self.interaction.to_dict(),
+            "tools": [tool.to_dict() for tool in self.tools if tool.visible],
+            "active_tool_id": self.active_tool_id,
+            "open_tool_ids": list(self.open_tool_ids),
         }
 
 
@@ -459,6 +471,9 @@ class WorkbenchRendererContract:
             "panels": [panel.to_dict() for panel in self.shell.panels if panel.visible],
             "commands": [command.to_dict() for command in self.shell.commands if command.visible],
             "interaction": self.shell.interaction.to_dict(),
+            "tools": [tool.to_dict() for tool in self.shell.tools if tool.visible],
+            "active_tool_id": self.shell.active_tool_id,
+            "open_tool_ids": list(self.shell.open_tool_ids),
             "actions": [action.to_dict() for action in self.actions],
         }
 
@@ -490,6 +505,14 @@ def build_workbench_renderer_contract(
             "dock",
             payload_schema={"pane_id": "string"},
             metadata={"active_dock_pane_id": shell.interaction.active_dock_pane_id},
+        ),
+        WorkbenchRendererAction(
+            "action.activate_tool",
+            WORKBENCH_ACTIVATE_TOOL_COMMAND_ID,
+            "Активировать инструмент",
+            "tool",
+            payload_schema={"tool_id": "string"},
+            metadata={"active_tool_id": shell.active_tool_id},
         ),
     )
     return WorkbenchRendererContract(
@@ -553,6 +576,7 @@ class WorkbenchShellBuilder:
         if not self.command_registry.list(visible_only=False):
             self.command_registry.register_many(default_workbench_commands())
         register_workbench_interaction_commands(self.state, self.command_registry)
+        register_workbench_tool_commands(self.state, self.command_registry)
 
     def build(
         self,
@@ -575,6 +599,9 @@ class WorkbenchShellBuilder:
             recent_exports_count=len(tuple(self.state.get(SESSION_RECENT_EXPORTS_KEY, ()) or ())),
         )
         layout = dict(self.state.get(SESSION_WINDOW_LAYOUT_KEY, {}) or {})
+        tool_manager = WorkbenchToolManager(self.state)
+        tool_summary = tool_manager.summary()
+        tools = tuple(WorkbenchToolDescriptor.from_dict(item) for item in tool_summary["tools"])
         return WorkbenchShellModel(
             context=context,
             panels=panel_list,
@@ -584,4 +611,7 @@ class WorkbenchShellBuilder:
             navigation=navigation_items,
             dock_layout=dock_layout,
             interaction=interaction,
+            tools=tools,
+            active_tool_id=str(tool_summary["active_tool_id"] or ""),
+            open_tool_ids=tuple(tool_summary["open_tool_ids"]),
         )

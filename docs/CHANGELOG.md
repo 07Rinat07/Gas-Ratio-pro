@@ -948,3 +948,12 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added Workbench Selection Service for selected report, plot and interval references.
 - Added typed Workbench events for navigation, active panel, lifecycle and selection changes.
 - Added regression tests for lifecycle operations, context serialization and selection behavior.
+
+## V56 Modern Workbench Tool Registry
+
+- Added Workbench tool registry and tool manager.
+- Added default engineering tool descriptors.
+- Added command-backed tool activation and renderer action support.
+- Added Workbench tool state persistence in workspace sessions.
+- Added Workbench tool registry tests and kept release export QA green.
+
