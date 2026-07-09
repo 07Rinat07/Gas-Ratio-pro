@@ -95,3 +95,8 @@ http://localhost:8501
 ## Лицензия
 
 Частный проект. Все права защищены.
+
+
+## Hydrocarbon Interpretation Engine v1.0
+
+Status: frozen public API after Validation Dataset v2 passes. Next major module: Professional Reporting System.

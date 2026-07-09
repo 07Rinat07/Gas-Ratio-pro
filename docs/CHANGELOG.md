@@ -681,3 +681,13 @@ git status --short
 - Added `run_hydrocarbon_validation_suite` as a public regression suite entry point.
 - Added no-numeric-data interpretation rule for missing gas-ratio evidence.
 - Updated public API contract and schema to `gas-ratio-pro/hydrocarbon-intervals/v17`.
+
+
+## v19 - Hydrocarbon Interpretation Engine v1.0 Freeze Gate
+
+- Added `HYDROCARBON_ENGINE_VERSION = HIE v1.0`.
+- Added `HYDROCARBON_ENGINE_STATUS = frozen`.
+- Added `hydrocarbon_engine_freeze_status()` as the public release gate.
+- Updated schema to `gas-ratio-pro/hydrocarbon-intervals/v19`.
+- Updated freeze and architecture audit documentation.
+- Added regression test for freeze status.

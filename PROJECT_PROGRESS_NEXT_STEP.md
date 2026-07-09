@@ -1,45 +1,17 @@
-# Project Progress / Next Step
+# Project progress
 
-## Completed platform checkpoints retained for regression tests
+Current completed step: **HIE-19 — Hydrocarbon Interpretation Engine v1.0 Freeze Gate**.
 
-1. Architecture Review
-2. Core LTS Freeze
-3. Sprint 2 Workspace Framework
-4. LAS Workspace 3.0 UI entry point
-5. LAS creation wizard UI via LasWorkspaceController.create_las_working_copy
-6. Workspace Dashboard cards
-7. Project Explorer shortcuts
+## Result
 
-## Current active module
+The first engineering kernel is now treated as a frozen public contract after validation passes.
 
-Hydrocarbon Interval Engine
+## Next stage
 
-## Current schema
+Start **Professional Reporting System**:
 
-`gas-ratio-pro/hydrocarbon-intervals/v11`
-
-## Completed in latest step
-
-- Rule Engine foundation.
-- Rule Trace for explainable interval decisions.
-- Applied rule IDs in report payloads.
-- Practical `interpretation_status` for UI/report logic.
-- Rule-based confidence adjustment factors.
-- Tests for high-confidence gas rule and single-sample review rule.
-
-## Next step
-
-Validation Dataset and API Stabilization.
-
-The next implementation should prepare stable test scenarios for:
-
-- gas interval;
-- oil interval;
-- gas-condensate interval;
-- mixed/transition interval;
-- single-sample spike;
-- missing numeric evidence;
-- intervals separated by Claystone barrier;
-- noisy and incomplete mud-gas data.
-
-After this validation pass, the module can be prepared for `Hydrocarbon Interval Engine v1.0` freeze.
+1. Executive Summary Engine.
+2. Interval Cards.
+3. Engineer-facing report payload.
+4. Technical Appendix separated from default report.
+5. Preparation for PDF/DOCX export.

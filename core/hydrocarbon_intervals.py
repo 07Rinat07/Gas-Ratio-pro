@@ -8,7 +8,9 @@ from core.method_registry import get_method_profile, method_id_for_parameter, me
 import pandas as pd
 
 
-HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v17"
+HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v19"
+HYDROCARBON_ENGINE_VERSION = "HIE v1.0"
+HYDROCARBON_ENGINE_STATUS = "frozen"
 
 NON_PROSPECTIVE_LABELS = (
     "Недостаточно данных",
@@ -2323,6 +2325,41 @@ def hydrocarbon_validation_result_rows(
     )
 
 
+def hydrocarbon_engine_freeze_status() -> dict[str, object]:
+    """Return the v1.0 freeze status for the Hydrocarbon Interpretation Engine.
+
+    This is the release gate for the first engineering kernel. It intentionally
+    uses only public APIs and the built-in validation catalog so future changes
+    can prove that they did not break the agreed gas/oil/condensate/barrier and
+    low-quality-data scenarios.
+    """
+
+    validation_results = run_hydrocarbon_validation_suite()
+    failed = tuple(item for item in validation_results if not item.passed)
+    return {
+        "engine": "Hydrocarbon Interpretation Engine",
+        "version": HYDROCARBON_ENGINE_VERSION,
+        "status": HYDROCARBON_ENGINE_STATUS if not failed else "blocked",
+        "schema": HYDROCARBON_INTERVAL_SCHEMA,
+        "validation_dataset_version": VALIDATION_DATASET_VERSION,
+        "validation_case_count": len(validation_results),
+        "validation_passed": not failed,
+        "failed_case_ids": tuple(item.case_id for item in failed),
+        "public_api": hydrocarbon_engine_api_contract()["public_builders"],
+        "definition_of_done": (
+            "interval model stable",
+            "barrier model stable",
+            "evidence framework stable",
+            "rule trace stable",
+            "explanation model stable",
+            "recommendation and limitation models stable",
+            "validation dataset available",
+            "engineer-facing payload available",
+        ),
+        "next_stage": "Professional Reporting System",
+    }
+
+
 def hydrocarbon_engine_api_contract() -> dict[str, object]:
     """Return the stable public API contract for downstream modules.
 
@@ -2334,6 +2371,8 @@ def hydrocarbon_engine_api_contract() -> dict[str, object]:
 
     return {
         "schema": HYDROCARBON_INTERVAL_SCHEMA,
+        "version": HYDROCARBON_ENGINE_VERSION,
+        "status": HYDROCARBON_ENGINE_STATUS,
         "result_model": "HydrocarbonIntervalResult",
         "interval_model": "HydrocarbonInterval",
         "barrier_model": "LithologyBarrier",
