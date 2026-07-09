@@ -1061,3 +1061,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 ### Notes
 - HTML can embed SVG directly.
 - PDF and DOCX still preserve renderer-safe placeholders; binary/vector insertion remains a dedicated renderer backend task.
+
+## v74 Visualization Engine Core Foundation
+
+- Added renderer-neutral Visualization Engine scene contracts.
+- Added layer manager for curve layers and interval overlay layers.
+- Added shared depth synchronization contract across LAS tracks.
+- Exposed `engine_scene` from LAS visualization payloads for future UI and export renderers.

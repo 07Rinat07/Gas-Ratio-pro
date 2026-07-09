@@ -259,3 +259,28 @@ Use indexed SVG visualization assets as concrete inputs for PDF/DOCX renderers s
 - Contract validation is filesystem-only and does not rebuild engineering calculations.
 - This stabilizes the external bundle format before deeper Visualization Engine work.
 
+
+## v74 Visualization Engine Core Foundation
+
+Completed:
+- Added an independent renderer-neutral `VisualizationEngineCore`.
+- Added `VisualizationLayerManager` for deterministic curve and interval overlay layers.
+- Added `DepthSynchronizationContract` so LAS tracks share one printable depth domain.
+- LAS visualization payloads now expose an `engine_scene` contract for UI, reports and future renderers.
+- The scene contract keeps UI layers from recalculating curves, overlays, legend or depth synchronization.
+
+Next step:
+Implement the first dedicated Visualization Engine renderer adapter that consumes `engine_scene` instead of legacy LAS payload fields.
+
+## v75 Visualization Scene Pipeline
+
+Completed:
+- Added a renderer-neutral `VisualizationScenePipeline` above `VisualizationEngineCore`.
+- Added `VisualizationSceneContext` so scene inputs carry track, curve, overlay and depth metadata through a stable pipeline contract.
+- Added dedicated pipeline stages: context preparation, scene build and scene validation.
+- LAS visualization payloads now expose `scene_pipeline` alongside the existing `engine_scene` contract.
+- Added validation metadata for empty or invalid scenes without requiring UI or report renderers to inspect raw payloads.
+- Added regression tests for valid LAS scene pipeline output and invalid empty payload diagnostics.
+
+Next step:
+Add the first renderer adapter that consumes `scene_pipeline.scene` directly and produces a printable SVG scene output from the engine contract.

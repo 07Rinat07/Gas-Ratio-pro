@@ -226,3 +226,16 @@ def test_las_visualization_payload_exposes_lightweight_svg_preview(tmp_path):
     assert "data-track=&quot;track.gamma&quot;" not in preview["svg"]
     assert 'data-track="track.gamma"' in preview["svg"]
     assert "<polyline" in preview["svg"]
+
+
+def test_las_visualization_payload_exposes_scene_pipeline_contract(tmp_path):
+    manager = LasManagerService(tmp_path)
+    record = manager.save_file(project_id="demo", data=LAS_WITH_GAS, file_name="demo.las").record
+
+    payload = LasVisualizationPayloadService(tmp_path).build("demo", record.id).to_dict()
+
+    assert payload["scene_pipeline"]["schema"] == "visualization.scene.pipeline.result"
+    assert payload["scene_pipeline"]["ok"] is True
+    assert payload["scene_pipeline"]["context"]["curve_count"] == 3
+    assert payload["scene_pipeline"]["scene"] == payload["engine_scene"]
+    assert payload["scene_pipeline"]["validation"]["renderer_neutral"] is True

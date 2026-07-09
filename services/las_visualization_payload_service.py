@@ -17,6 +17,8 @@ import pandas as pd
 from projects.repository import DEFAULT_PROJECTS_ROOT, safe_project_id
 from services.las_curve_metadata_service import DEPTH_MNEMONICS
 from services.las_manager_service import LasManagerService
+from services.visualization_engine_core import VisualizationEngineCore
+from services.visualization_scene_pipeline import VisualizationScenePipeline
 
 DEFAULT_SAMPLE_LIMIT = 240
 DEFAULT_CURVE_LIMIT = 8
@@ -156,6 +158,8 @@ class LasVisualizationPayload:
     visible_tracks: tuple[str, ...] = field(default_factory=tuple)
     plot_summary: dict[str, Any] = field(default_factory=dict)
     preview: dict[str, Any] = field(default_factory=dict)
+    engine_scene: dict[str, Any] = field(default_factory=dict)
+    scene_pipeline: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -177,6 +181,8 @@ class LasVisualizationPayload:
             "visible_tracks": list(self.visible_tracks),
             "plot_summary": dict(self.plot_summary),
             "preview": dict(self.preview),
+            "engine_scene": dict(self.engine_scene),
+            "scene_pipeline": dict(self.scene_pipeline),
         }
 
 
@@ -683,6 +689,34 @@ class LasVisualizationPayloadService:
         if interval_ids and not overlays:
             flags.append("interval_overlays_empty")
         tracks = _build_tracks(curve_payloads)
+        preview = _mini_svg_preview(
+            tracks=tracks,
+            curves=curve_payloads,
+            overlays=overlays,
+            depth_range=depth_info,
+        )
+        base_payload_for_engine = {
+            "tracks": [track.to_dict() for track in tracks],
+            "curves": [curve.to_dict() for curve in curve_payloads],
+            "overlays": [overlay.to_dict() for overlay in overlays],
+            "depth_curve": depth_curve,
+            "depth_unit": unit_map.get(depth_curve, ""),
+            "depth_range": dict(depth_info),
+            "quality_flags": list(flags),
+            "legend": [dict(item) for item in _legend(curve_payloads, overlays)],
+            "visible_tracks": list(_visible_tracks(tracks)),
+            "plot_summary": _plot_summary(
+                depth_curve=depth_curve,
+                depth_unit=unit_map.get(depth_curve, ""),
+                depth_range=depth_info,
+                tracks=tracks,
+                curves=curve_payloads,
+                overlays=overlays,
+            ),
+            "preview": dict(preview),
+        }
+        pipeline_result = VisualizationScenePipeline().run(base_payload_for_engine).to_dict()
+        engine_scene = dict(pipeline_result["scene"])
         return LasVisualizationPayload(
             project_id=clean_project_id,
             las_id=clean_las_id,
@@ -698,20 +732,10 @@ class LasVisualizationPayloadService:
             print_profile=_print_profile(),
             sampling_profile=_sampling_profile(sample_limit),
             data_quality=_payload_data_quality(curve_payloads, len(frame)),
-            legend=_legend(curve_payloads, overlays),
-            visible_tracks=_visible_tracks(tracks),
-            plot_summary=_plot_summary(
-                depth_curve=depth_curve,
-                depth_unit=unit_map.get(depth_curve, ""),
-                depth_range=depth_info,
-                tracks=tracks,
-                curves=curve_payloads,
-                overlays=overlays,
-            ),
-            preview=_mini_svg_preview(
-                tracks=tracks,
-                curves=curve_payloads,
-                overlays=overlays,
-                depth_range=depth_info,
-            ),
+            legend=tuple(base_payload_for_engine["legend"]),
+            visible_tracks=tuple(base_payload_for_engine["visible_tracks"]),
+            plot_summary=dict(base_payload_for_engine["plot_summary"]),
+            preview=preview,
+            engine_scene=engine_scene,
+            scene_pipeline=pipeline_result,
         )
