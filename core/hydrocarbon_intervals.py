@@ -8,7 +8,7 @@ from core.method_registry import get_method_profile, method_id_for_parameter, me
 import pandas as pd
 
 
-HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v10"
+HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v11"
 
 NON_PROSPECTIVE_LABELS = (
     "Недостаточно данных",
@@ -85,6 +85,113 @@ class HydrocarbonIntervalRuleSet:
 
 
 @dataclass(frozen=True)
+class HydrocarbonInterpretationRule:
+    """Auditable interval-level interpretation rule.
+
+    Rules do not replace published methods. They are project-level decision
+    logic that combines registered evidence, quality flags, lithology/barrier
+    context and confidence factors into practical engineering interpretation.
+    """
+
+    rule_id: str
+    target_fluid_types: tuple[str, ...]
+    title: str
+    method_id: str = "hydrocarbon_interval_engine"
+    minimum_confidence_score: int = 0
+    required_methods: tuple[str, ...] = ()
+    required_parameters: tuple[str, ...] = ()
+    forbidden_quality_flags: tuple[str, ...] = ()
+    required_quality_flags: tuple[str, ...] = ()
+    confidence_bonus: int = 0
+    message: str = ""
+    recommendation: str = ""
+
+
+@dataclass(frozen=True)
+class HydrocarbonRuleTrace:
+    """Trace of one interpretation rule evaluation for an interval."""
+
+    rule_id: str
+    title: str
+    status: str
+    reasons: tuple[str, ...] = ()
+    confidence_delta: int = 0
+    message: str = ""
+    recommendation: str = ""
+    method_id: str = "hydrocarbon_interval_engine"
+    reference: str = ""
+
+
+INTERPRETATION_RULES: tuple[HydrocarbonInterpretationRule, ...] = (
+    HydrocarbonInterpretationRule(
+        rule_id="HC-GAS-HIGH-001",
+        target_fluid_types=("gas",),
+        title="High probability gas-bearing interval",
+        minimum_confidence_score=70,
+        required_methods=("haworth", "pixler"),
+        required_parameters=("wh", "bh", "c1/c2"),
+        forbidden_quality_flags=("no_numeric_gas_ratios", "contains_barrier_rows"),
+        confidence_bonus=4,
+        message="Вероятный газонасыщенный интервал высокой достоверности.",
+        recommendation="Проверить по ГИС, литологии, испытаниям и буровому контексту перед окончательным выводом.",
+    ),
+    HydrocarbonInterpretationRule(
+        rule_id="HC-OIL-HIGH-001",
+        target_fluid_types=("oil",),
+        title="High probability oil-bearing interval",
+        minimum_confidence_score=70,
+        required_methods=("haworth", "pixler"),
+        required_parameters=("wh", "bh", "oil indicator"),
+        forbidden_quality_flags=("no_numeric_gas_ratios", "contains_barrier_rows"),
+        confidence_bonus=4,
+        message="Вероятный нефтенасыщенный интервал высокой достоверности.",
+        recommendation="Сопоставить с коллекторскими свойствами, ГИС, керном и результатами испытаний.",
+    ),
+    HydrocarbonInterpretationRule(
+        rule_id="HC-COND-MED-001",
+        target_fluid_types=("condensate",),
+        title="Possible gas-condensate interval",
+        minimum_confidence_score=55,
+        required_methods=("haworth",),
+        required_parameters=("wh", "bh"),
+        forbidden_quality_flags=("no_numeric_gas_ratios",),
+        confidence_bonus=2,
+        message="Возможный газоконденсатный интервал.",
+        recommendation="Уточнить по составу газа, динамике тяжелых компонентов и данным испытаний.",
+    ),
+    HydrocarbonInterpretationRule(
+        rule_id="HC-MIXED-CHECK-001",
+        target_fluid_types=("gas_oil", "oil_gas", "mixed", "transition"),
+        title="Mixed or transition fluid character",
+        minimum_confidence_score=35,
+        required_methods=(),
+        required_parameters=(),
+        confidence_bonus=0,
+        message="Смешанный или переходный характер флюида; требуется ручная проверка.",
+        recommendation="Проверить границы интервала, соседние пласты, литологические перемычки и согласованность методов.",
+    ),
+    HydrocarbonInterpretationRule(
+        rule_id="HC-LOW-DATA-001",
+        target_fluid_types=("gas", "oil", "condensate", "mixed", "gas_oil", "oil_gas", "transition", "uncertain"),
+        title="Limited data quality warning",
+        required_quality_flags=("limited_numeric_evidence",),
+        confidence_bonus=-6,
+        message="Интерпретация ограничена неполной числовой доказательной базой.",
+        recommendation="Не использовать интервал как окончательный вывод без проверки исходных кривых и пропусков данных.",
+    ),
+    HydrocarbonInterpretationRule(
+        rule_id="HC-SINGLE-SAMPLE-001",
+        target_fluid_types=("gas", "oil", "condensate", "mixed", "gas_oil", "oil_gas", "transition", "uncertain"),
+        title="Single sample interval warning",
+        required_quality_flags=("single_sample_interval",),
+        confidence_bonus=-8,
+        message="Интервал представлен одной глубинной точкой и может быть одиночным всплеском.",
+        recommendation="Проверить устойчивость признака по соседним глубинам до включения в инженерное заключение.",
+    ),
+)
+
+
+@dataclass(frozen=True)
 class IntervalEvidence:
     """Structured evidence item used by interval interpretation and reports.
 
@@ -121,6 +228,9 @@ class HydrocarbonInterval:
     interpretation: str
     confidence_score: int = 0
     confidence_factors: tuple[str, ...] = ()
+    rule_traces: tuple[HydrocarbonRuleTrace, ...] = ()
+    applied_rule_ids: tuple[str, ...] = ()
+    interpretation_status: str = "preliminary"
     average_wh: float | None = None
     average_bh: float | None = None
     average_ch: float | None = None
@@ -790,6 +900,128 @@ def _warnings_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[str, ...]
     return tuple(warnings)
 
 
+def _rule_reference(rule: HydrocarbonInterpretationRule) -> str:
+    """Return source reference for project rule evaluation."""
+
+    return _method_reference(rule.method_id)
+
+
+def _rule_matches(
+    rule: HydrocarbonInterpretationRule,
+    *,
+    fluid_type: str,
+    confidence_score: int,
+    evidence_items: Sequence[IntervalEvidence],
+    quality_flags: Sequence[str],
+) -> tuple[bool, tuple[str, ...]]:
+    """Evaluate one rule and return match status with human-readable reasons."""
+
+    reasons: list[str] = []
+    if fluid_type not in rule.target_fluid_types:
+        reasons.append(f"fluid_type {fluid_type} not in {','.join(rule.target_fluid_types)}")
+        return False, tuple(reasons)
+    reasons.append(f"fluid_type={fluid_type}")
+
+    if confidence_score < rule.minimum_confidence_score:
+        reasons.append(f"confidence_score {confidence_score} < {rule.minimum_confidence_score}")
+        return False, tuple(reasons)
+    if rule.minimum_confidence_score:
+        reasons.append(f"confidence_score {confidence_score} >= {rule.minimum_confidence_score}")
+
+    methods = {item.method.lower() for item in evidence_items}
+    parameters = {item.parameter.lower() for item in evidence_items}
+    flags = {str(flag).lower() for flag in quality_flags}
+
+    for method in rule.required_methods:
+        if method.lower() not in methods:
+            reasons.append(f"missing method {method}")
+            return False, tuple(reasons)
+        reasons.append(f"method {method}=present")
+
+    for parameter in rule.required_parameters:
+        if parameter.lower() not in parameters:
+            reasons.append(f"missing parameter {parameter}")
+            return False, tuple(reasons)
+        reasons.append(f"parameter {parameter}=present")
+
+    for flag in rule.required_quality_flags:
+        if flag.lower() not in flags:
+            reasons.append(f"required flag {flag}=absent")
+            return False, tuple(reasons)
+        reasons.append(f"required flag {flag}=present")
+
+    for flag in rule.forbidden_quality_flags:
+        if flag.lower() in flags:
+            reasons.append(f"forbidden flag {flag}=present")
+            return False, tuple(reasons)
+        reasons.append(f"forbidden flag {flag}=absent")
+
+    return True, tuple(reasons)
+
+
+def _rule_traces_for_interval(
+    *,
+    fluid_type: str,
+    confidence_score: int,
+    evidence_items: Sequence[IntervalEvidence],
+    quality_flags: Sequence[str],
+) -> tuple[HydrocarbonRuleTrace, ...]:
+    """Evaluate registered project interpretation rules for one interval."""
+
+    traces: list[HydrocarbonRuleTrace] = []
+    for rule in INTERPRETATION_RULES:
+        matched, reasons = _rule_matches(
+            rule,
+            fluid_type=fluid_type,
+            confidence_score=confidence_score,
+            evidence_items=evidence_items,
+            quality_flags=quality_flags,
+        )
+        traces.append(
+            HydrocarbonRuleTrace(
+                rule_id=rule.rule_id,
+                title=rule.title,
+                status="applied" if matched else "skipped",
+                reasons=reasons,
+                confidence_delta=rule.confidence_bonus if matched else 0,
+                message=rule.message if matched else "",
+                recommendation=rule.recommendation if matched else "",
+                method_id=rule.method_id,
+                reference=_rule_reference(rule),
+            )
+        )
+    return tuple(traces)
+
+
+def _apply_rule_confidence_delta(score: int, traces: Sequence[HydrocarbonRuleTrace]) -> tuple[int, tuple[str, ...]]:
+    """Apply transparent rule bonuses/penalties after base evidence score."""
+
+    delta = sum(trace.confidence_delta for trace in traces if trace.status == "applied")
+    if not delta:
+        return score, ()
+    adjusted = max(0, min(100, int(round(score + delta))))
+    return adjusted, (f"rule_delta={delta:+d}", f"rule_adjusted_final={adjusted}")
+
+
+def _interpretation_status_from_rules(confidence_score: int, traces: Sequence[HydrocarbonRuleTrace], quality_flags: Sequence[str]) -> str:
+    """Return practical readiness status for interval reporting."""
+
+    applied = {trace.rule_id for trace in traces if trace.status == "applied"}
+    if "HC-SINGLE-SAMPLE-001" in applied or "HC-LOW-DATA-001" in applied:
+        return "requires_review"
+    if confidence_score >= 75 and any(rule_id.endswith("HIGH-001") for rule_id in applied):
+        return "high_confidence_preliminary"
+    if "uncertain_fluid_character" in quality_flags:
+        return "requires_review"
+    return "preliminary"
+
+
+def _trace_rows(traces: Iterable[HydrocarbonRuleTrace]) -> tuple[dict[str, object], ...]:
+    """Serialize rule traces for report payloads and UI diagnostics."""
+
+    return tuple(trace.__dict__ for trace in traces)
+
+
 def build_interval_engineering_note(interval: HydrocarbonInterval) -> str:
     """Return short printable interpretation text for one hydrocarbon interval."""
 
@@ -798,6 +1030,9 @@ def build_interval_engineering_note(interval: HydrocarbonInterval) -> str:
     parts = [
         f"{label} {interval.top:g}-{interval.base:g} м, мощность {interval.thickness:g} м, {confidence}, score {interval.confidence_score}%.",
     ]
+    applied_messages = [trace.message for trace in interval.rule_traces if trace.status == "applied" and trace.message]
+    if applied_messages:
+        parts.append(applied_messages[0])
     if interval.average_wh is not None or interval.average_bh is not None:
         parts.append(
             f"Средние Haworth-показатели: Wh={'' if interval.average_wh is None else f'{interval.average_wh:g}'}, "
@@ -854,6 +1089,15 @@ def _interval_from_group(group: Sequence[Mapping[str, object]]) -> HydrocarbonIn
     evidence_items = _evidence_items_for_group(frame, fluid_type)
     quality_flags = _quality_flags_for_group(frame, fluid_type)
     confidence_score, confidence_factors = _confidence_score_for_group(frame, fluid_type, evidence_items, quality_flags)
+    rule_traces = _rule_traces_for_interval(
+        fluid_type=fluid_type,
+        confidence_score=confidence_score,
+        evidence_items=evidence_items,
+        quality_flags=quality_flags,
+    )
+    adjusted_score, rule_factors = _apply_rule_confidence_delta(confidence_score, rule_traces)
+    confidence_score = adjusted_score
+    confidence_factors = confidence_factors + rule_factors
     confidence = _confidence_label_from_score(confidence_score)
     if source_confidence == "high" and confidence == "medium":
         confidence = "high"
@@ -871,6 +1115,9 @@ def _interval_from_group(group: Sequence[Mapping[str, object]]) -> HydrocarbonIn
         interpretation=interpretation,
         confidence_score=confidence_score,
         confidence_factors=confidence_factors,
+        rule_traces=rule_traces,
+        applied_rule_ids=tuple(trace.rule_id for trace in rule_traces if trace.status == "applied"),
+        interpretation_status=_interpretation_status_from_rules(confidence_score, rule_traces, quality_flags),
         average_wh=_mean(frame, "wh", "wetness"),
         average_bh=_mean(frame, "bh", "balance"),
         average_ch=_mean(frame, "ch", "character"),
@@ -1035,6 +1282,9 @@ def hydrocarbon_interval_table_rows(intervals: Iterable[HydrocarbonInterval]) ->
             "confidence": interval.confidence,
             "confidence_score": interval.confidence_score,
             "confidence_factors": " ".join(interval.confidence_factors),
+            "applied_rule_ids": " ".join(interval.applied_rule_ids),
+            "rule_traces": _trace_rows(interval.rule_traces),
+            "interpretation_status": interval.interpretation_status,
             "interpretation": interval.interpretation,
             "avg_Wh": interval.average_wh,
             "avg_Bh": interval.average_bh,
@@ -1110,6 +1360,8 @@ def hydrocarbon_interval_marker_rows(intervals: Iterable[HydrocarbonInterval]) -
                 "fluid_type": interval.fluid_type,
                 "confidence": interval.confidence,
                 "confidence_score": interval.confidence_score,
+                "applied_rule_ids": " ".join(interval.applied_rule_ids),
+                "interpretation_status": interval.interpretation_status,
                 "line_color": style["color"],
                 "fill_color": style["fill"],
                 "annotation": f"{style['label']} {interval.top:g}-{interval.base:g} м ({interval.confidence}, {interval.confidence_score}%)",

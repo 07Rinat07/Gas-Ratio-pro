@@ -624,3 +624,12 @@ git status --short
 - Added interval evidence provenance metadata.
 - Added method/source fields to structured evidence records.
 - Updated hydrocarbon interval schema to v9.
+
+## Hydrocarbon Interval Engine v11
+
+- Added auditable interpretation rule model.
+- Added rule traces for interval-level decision explanation.
+- Added applied rule IDs to interval/table/marker payloads.
+- Added interpretation status for practical reporting workflows.
+- Added rule-based confidence adjustment factors.
+- Updated interval schema to `gas-ratio-pro/hydrocarbon-intervals/v11`.

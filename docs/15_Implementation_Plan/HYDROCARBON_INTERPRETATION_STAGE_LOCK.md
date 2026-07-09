@@ -352,3 +352,22 @@ Next work remains inside Hydrocarbon Interval Engine:
 1. validate Method Registry coverage for all current interval evidence;
 2. add real-LAS acceptance tests for weak / uncertain / water / barrier cases;
 3. prepare Definition of Done checklist before moving to Interpretation Engine.
+
+## Update: Hydrocarbon Interval Rule Engine v11
+
+Текущий активный модуль остается `Hydrocarbon Interval Engine`.
+
+Добавлен подэтап `Rule Engine & Rule Trace`:
+
+- интерпретационные правила оформлены как отдельные auditable-объекты;
+- каждый интервал получает список примененных правил;
+- каждый интервал получает трассировку причин срабатывания или пропуска правил;
+- `confidence_score` корректируется через прозрачные rule-delta факторы;
+- итоговый статус интервала отделен от технической диагностики.
+
+После v11 до закрытия Hydrocarbon Interval Engine остаются:
+
+1. собрать Validation Dataset для газовых, нефтяных, газоконденсатных, переходных и шумных примеров;
+2. стабилизировать публичный API результата интервалов;
+3. подготовить финальный acceptance checklist для `Hydrocarbon Interval Engine v1.0`;
+4. после этого переходить к `Professional Reporting System`.
