@@ -650,3 +650,10 @@ git status --short
 - Added grouped `evidence_tree` for UI/report explanations.
 - Added neighbor/barrier context enrichment.
 - Updated schema to `gas-ratio-pro/hydrocarbon-intervals/v13`.
+
+## Hydrocarbon Interval Engine v14
+
+- Stabilized the public Hydrocarbon Interval Engine payload for downstream UI, plot, report and export consumers.
+- Added engineer-facing result summary that focuses on intervals, fluid type, confidence and review status instead of internal row counters.
+- Added technical payload opt-in for diagnostics, row counts, method registry and expert/debug views.
+- Updated schema to `gas-ratio-pro/hydrocarbon-intervals/v14`.

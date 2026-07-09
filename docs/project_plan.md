@@ -1556,3 +1556,12 @@ Version v9 adds Method Registry and evidence provenance:
 - method profiles document authors, source, status, limitations and citation policy;
 - report payloads can expose `evidence_provenance` for audit and future PDF/DOCX output;
 - formulas and interpretation methods must be registered before production/report use.
+
+### Current implementation note: Hydrocarbon Interval Engine v14
+
+The active module remains Hydrocarbon Interval Engine. Version v14 adds the API stabilization boundary:
+
+- downstream modules must consume `build_hydrocarbon_interval_engine_payload()`;
+- engineer-facing payloads must hide internal diagnostics by default;
+- technical diagnostics remain available only through explicit technical payload mode;
+- reports and dashboards must start from interval summary, not row counts or calculation noise.

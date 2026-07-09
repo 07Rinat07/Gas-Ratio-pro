@@ -8,7 +8,7 @@ from core.method_registry import get_method_profile, method_id_for_parameter, me
 import pandas as pd
 
 
-HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v13"
+HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v14"
 
 NON_PROSPECTIVE_LABELS = (
     "Недостаточно данных",
@@ -1713,6 +1713,86 @@ def hydrocarbon_interval_marker_dataframe(intervals: Iterable[HydrocarbonInterva
     return pd.DataFrame(hydrocarbon_interval_marker_rows(intervals))
 
 
+
+def summarize_hydrocarbon_interval_result(result: HydrocarbonIntervalResult) -> dict[str, object]:
+    """Return engineer-facing summary without technical row-count noise.
+
+    The default summary is designed for reports and dashboards: it answers what
+    was found, where it was found, how reliable the interpretation is and what
+    requires review. Processing diagnostics remain available only through the
+    technical payload so end users are not distracted by internal counters.
+    """
+
+    intervals = tuple(result.intervals)
+    by_fluid: dict[str, int] = {}
+    by_decision: dict[str, int] = {}
+    review_required = 0
+    for interval in intervals:
+        by_fluid[interval.fluid_type] = by_fluid.get(interval.fluid_type, 0) + 1
+        by_decision[interval.decision_level] = by_decision.get(interval.decision_level, 0) + 1
+        if interval.interpretation_status == "requires_review" or interval.decision_level in {"low", "unknown", "review"}:
+            review_required += 1
+
+    return {
+        "schema": result.schema,
+        "total_intervals": len(intervals),
+        "productive_intervals": sum(
+            1 for item in intervals if item.fluid_type in {"gas", "oil", "condensate", "mixed", "gas_oil", "oil_gas"}
+        ),
+        "barrier_count": len(result.barriers),
+        "review_required": review_required,
+        "fluid_type_counts": by_fluid,
+        "decision_level_counts": by_decision,
+        "main_intervals": tuple(
+            {
+                "top": item.top,
+                "base": item.base,
+                "thickness": item.thickness,
+                "fluid_type": item.fluid_type,
+                "confidence_score": item.confidence_score,
+                "data_confidence_score": item.data_confidence_score,
+                "geological_confidence_score": item.geological_confidence_score,
+                "decision_level": item.decision_level,
+                "interpretation_status": item.interpretation_status,
+                "engineering_note": item.engineering_note,
+            }
+            for item in intervals
+        ),
+    }
+
+
+def build_hydrocarbon_interval_engine_payload(
+    result: HydrocarbonIntervalResult,
+    *,
+    include_technical: bool = False,
+) -> dict[str, object]:
+    """Build the stable public payload for UI, reports, plots and exports.
+
+    This is the API-stabilization boundary of the Hydrocarbon Interval Engine.
+    Downstream modules must consume this payload instead of re-reading private
+    dataclass fields or duplicating classification logic. By default the payload
+    is engineer-facing and excludes diagnostics, row counts, provenance dumps and
+    rule traces; expert/technical views can opt in with `include_technical=True`.
+    """
+
+    payload: dict[str, object] = {
+        "schema": result.schema,
+        "summary": summarize_hydrocarbon_interval_result(result),
+        "intervals": hydrocarbon_interval_table_rows(result.intervals),
+        "markers": hydrocarbon_interval_marker_rows(result.intervals),
+        "barriers": lithology_barrier_table_rows(result.barriers),
+        "consumer_rule": hydrocarbon_engine_api_contract()["consumer_rule"],
+        "technical_details_policy": hydrocarbon_engine_api_contract()["technical_details_policy"],
+    }
+    if include_technical:
+        payload["technical"] = {
+            "diagnostics": result.diagnostics,
+            "method_registry": hydrocarbon_method_registry_rows(),
+            "row_columns": tuple(str(column) for column in result.rows.columns),
+            "row_count": len(result.rows),
+        }
+    return payload
+
 def validate_hydrocarbon_interval_result(
     result: HydrocarbonIntervalResult,
     case: HydrocarbonValidationCase,
@@ -1815,6 +1895,7 @@ def hydrocarbon_engine_api_contract() -> dict[str, object]:
             "hydrocarbon_method_registry_rows",
             "hydrocarbon_interval_marker_rows",
             "validate_hydrocarbon_interval_result",
+            "build_hydrocarbon_interval_engine_payload",
         ),
         "consumer_rule": "Reports, plots, UI and export layers must consume interval/barrier/evidence/context payloads from this engine and must not duplicate interval-classification logic.",
         "technical_details_policy": "Diagnostics, source row counts, NaN statistics, rule traces and provenance belong to expert/technical views, not to the default engineer-facing report summary.",
