@@ -5,11 +5,18 @@ from io import BytesIO
 from pathlib import Path
 from typing import Sequence
 
-from docx import Document
-from docx.enum.section import WD_ORIENT
-from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.shared import Inches, Pt
+try:
+    from docx import Document
+    from docx.enum.section import WD_ORIENT
+    from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.shared import Inches, Pt
+    DOCX_AVAILABLE = True
+except ModuleNotFoundError:  # pragma: no cover - depends on user environment
+    Document = None
+    WD_ORIENT = WD_TABLE_ALIGNMENT = WD_CELL_VERTICAL_ALIGNMENT = WD_ALIGN_PARAGRAPH = None
+    Inches = Pt = None
+    DOCX_AVAILABLE = False
 
 from reports.document_model import (
     DocumentNotice,
@@ -48,6 +55,16 @@ class PresentationDocxResult:
     table_titles: tuple[str, ...]
     figure_count: int
     schema: str = "gas-ratio-pro/presentation/docx/v1"
+
+
+def ensure_docx_available() -> None:
+    """Raise a clear runtime error when DOCX export dependency is missing."""
+
+    if not DOCX_AVAILABLE:
+        raise RuntimeError(
+            "DOCX export requires the optional dependency 'python-docx'. "
+            "Install project dependencies with: pip install -r requirements.txt"
+        )
 
 
 def _clean_text(value: object) -> str:
@@ -187,6 +204,7 @@ def render_engineering_document_docx(
     """Render a renderer-neutral EngineeringDocument into DOCX bytes."""
 
     opts = options or PresentationDocxOptions()
+    ensure_docx_available()
     doc = Document()
     _configure_document(doc, opts)
 
@@ -241,6 +259,8 @@ def build_presentation_docx_report(
 __all__ = [
     "PresentationDocxOptions",
     "PresentationDocxResult",
+    "DOCX_AVAILABLE",
+    "ensure_docx_available",
     "build_presentation_docx_report",
     "render_engineering_document_docx",
 ]

@@ -45,6 +45,17 @@ python -m pip install python-docx
 
 The application must not fail on startup only because the DOCX backend is missing. DOCX export should show a clear runtime message if the dependency is not installed.
 
+
+## Export smoke QA
+
+Use the reproducible export smoke command before handing a build to users:
+
+```bash
+python scripts/export_smoke.py --output-dir tmp/export-smoke
+```
+
+The command generates one multilingual engineering report bundle: HTML, PDF, DOCX and a bundle manifest. It intentionally contains Russian and Kazakh text so missing PDF Unicode fonts are detected before a real engineering report is exported.
+
 ## Startup dependency rule
 
 Heavy export backends must be imported lazily:

@@ -28,6 +28,8 @@ Completed in v42: progress-document tests now read `docs/PROJECT_PROGRESS_NEXT_S
 
 Completed in v43: preflight diagnostics now include professional PDF/DOCX export backend readiness and Unicode PDF font readiness as non-blocking warnings. This keeps application startup stable while making missing export dependencies visible before the user runs a report export.
 
+Completed in v44: DOCX export now has the same explicit dependency guard contract as PDF export, and `scripts/export_smoke.py` provides a reproducible multilingual HTML/PDF/DOCX bundle smoke command for P0 export QA.
+
 ## Next recommended increment
 
-Finish the P0 export QA layer by adding a small reproducible sample export smoke command for HTML/PDF/DOCX bundles, then move to the Modern Workspace shell foundation: Project Explorer, central workspace area, toolbar/status boundary and integration points for session restore, reset and export actions.
+Finish the P0 export QA layer by wiring the export smoke command into release validation and documenting the expected operator workflow, then move to the Modern Workspace shell foundation: Project Explorer, central workspace area, toolbar/status boundary and integration points for session restore, reset and export actions.

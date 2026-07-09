@@ -175,15 +175,9 @@ def export_presentation_docx_package(
     installed yet. The user only needs the dependency when exporting DOCX.
     """
 
-    try:
-        from reports.presentation_docx import PresentationDocxOptions, build_presentation_docx_report
-    except ModuleNotFoundError as exc:  # pragma: no cover - environment dependent
-        if exc.name == "docx":
-            raise RuntimeError(
-                "DOCX export requires the 'python-docx' package. "
-                "Install it with: python -m pip install python-docx"
-            ) from exc
-        raise
+    from reports.presentation_docx import PresentationDocxOptions, build_presentation_docx_report, ensure_docx_available
+
+    ensure_docx_available()
 
     output_dir = Path(options.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
