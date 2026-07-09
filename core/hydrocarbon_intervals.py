@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Iterable, Mapping, Sequence
 
 from core.method_registry import get_method_profile, method_id_for_parameter, method_registry_rows
@@ -8,7 +8,7 @@ from core.method_registry import get_method_profile, method_id_for_parameter, me
 import pandas as pd
 
 
-HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v12"
+HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v13"
 
 NON_PROSPECTIVE_LABELS = (
     "Недостаточно данных",
@@ -120,6 +120,33 @@ class HydrocarbonRuleTrace:
     recommendation: str = ""
     method_id: str = "hydrocarbon_interval_engine"
     reference: str = ""
+
+
+@dataclass(frozen=True)
+class HydrocarbonInterpretationContext:
+    """Engineer-facing context used before final rule interpretation.
+
+    The context keeps geological and data-quality information close to the
+    interval so downstream reports can answer practical questions: where the
+    interval is, what lithology dominates, whether barriers are nearby, whether
+    the gas trend is stable and whether the conclusion is limited by data
+    quality. This prevents reports and UI layers from reconstructing geological
+    context on their own.
+    """
+
+    top: float
+    base: float
+    thickness: float
+    lithology: str = "unknown"
+    barrier_above: str = "none"
+    barrier_below: str = "none"
+    gas_trend: str = "unknown"
+    curve_quality: str = "unknown"
+    missing_curves: tuple[str, ...] = ()
+    noise_level: str = "unknown"
+    neighbor_summary: str = "none"
+    formation: str = ""
+    well_name: str = ""
 
 
 INTERPRETATION_RULES: tuple[HydrocarbonInterpretationRule, ...] = (
@@ -263,6 +290,11 @@ class HydrocarbonInterval:
     confidence: str
     interpretation: str
     confidence_score: int = 0
+    data_confidence_score: int = 0
+    geological_confidence_score: int = 0
+    decision_level: str = "unknown"
+    context: HydrocarbonInterpretationContext | None = None
+    evidence_tree: tuple[dict[str, object], ...] = ()
     confidence_factors: tuple[str, ...] = ()
     rule_traces: tuple[HydrocarbonRuleTrace, ...] = ()
     applied_rule_ids: tuple[str, ...] = ()
@@ -569,6 +601,242 @@ def _confidence_label_from_score(score: int) -> str:
     if score >= 50:
         return "medium"
     return "low"
+
+
+def _decision_level_from_scores(data_score: int, geological_score: int, fluid_type: str) -> str:
+    """Return practical decision level without claiming geological certainty."""
+
+    combined = min(int(data_score), int(geological_score))
+    if fluid_type in {"uncertain", "transition"}:
+        return "review" if combined >= 45 else "unknown"
+    if combined >= 85:
+        return "very_high"
+    if combined >= 70:
+        return "high"
+    if combined >= 50:
+        return "medium"
+    if combined >= 30:
+        return "low"
+    return "unknown"
+
+
+def _gas_trend_for_group(frame: pd.DataFrame) -> str:
+    """Classify simple C1/total-gas trend inside an interval."""
+
+    for column in ("c1", "Суммагазов", "sum_c"):
+        if column in frame.columns:
+            values = pd.to_numeric(frame[column], errors="coerce").dropna()
+            if len(values) < 2:
+                continue
+            first = float(values.iloc[0])
+            last = float(values.iloc[-1])
+            spread = max(abs(first), abs(last), 1e-9)
+            if abs(last - first) / spread < 0.10:
+                return "stable"
+            return "increasing" if last > first else "decreasing"
+    return "unknown"
+
+
+def _curve_quality_for_group(frame: pd.DataFrame) -> tuple[str, tuple[str, ...], str]:
+    """Estimate data completeness and noise for interval context."""
+
+    candidate_columns = ("c1", "c2", "c3", "ic4", "nc4", "ic5", "nc5", "wh", "bh", "ch", "c1_c2", "oil_indicator")
+    available = [column for column in candidate_columns if column in frame.columns]
+    missing = tuple(column for column in candidate_columns if column not in frame.columns)
+    if not available:
+        return "poor", missing, "unknown"
+
+    numeric = frame[available].apply(pd.to_numeric, errors="coerce")
+    completeness = float(numeric.notna().sum().sum()) / max(1, numeric.size)
+    if completeness >= 0.80:
+        quality = "good"
+    elif completeness >= 0.50:
+        quality = "limited"
+    else:
+        quality = "poor"
+
+    variability: list[float] = []
+    for column in available:
+        values = numeric[column].dropna()
+        if len(values) >= 3:
+            mean = abs(float(values.mean()))
+            if mean > 1e-9:
+                variability.append(float(values.std()) / mean)
+    if not variability:
+        noise = "unknown"
+    elif max(variability) > 2.5:
+        noise = "high"
+    elif max(variability) > 1.0:
+        noise = "moderate"
+    else:
+        noise = "low"
+    return quality, missing, noise
+
+
+def _context_for_group(frame: pd.DataFrame, *, top: float, base: float) -> HydrocarbonInterpretationContext:
+    """Build interval context before neighbor/barrier enrichment."""
+
+    lithology = _dominant(frame.get("lithology_class", pd.Series(dtype=str)).astype(str), default="unknown")
+    curve_quality, missing_curves, noise_level = _curve_quality_for_group(frame)
+    formation = _dominant(frame.get("formation", pd.Series(dtype=str)).astype(str), default="")
+    well_name = _dominant(frame.get("well_name", pd.Series(dtype=str)).astype(str), default="")
+    return HydrocarbonInterpretationContext(
+        top=top,
+        base=base,
+        thickness=round(abs(float(base) - float(top)), 6),
+        lithology=lithology,
+        gas_trend=_gas_trend_for_group(frame),
+        curve_quality=curve_quality,
+        missing_curves=missing_curves,
+        noise_level=noise_level,
+        formation=formation,
+        well_name=well_name,
+    )
+
+
+def _geological_confidence_score(
+    *,
+    fluid_type: str,
+    context: HydrocarbonInterpretationContext | None,
+    sample_count: int,
+    quality_flags: Sequence[str],
+) -> tuple[int, tuple[str, ...]]:
+    """Score how well geological context supports the interval interpretation."""
+
+    score = 50
+    factors: list[str] = ["geological_base=50"]
+    if context is not None:
+        if context.lithology in {"sandstone", "limestone", "dolomite", "siltstone"}:
+            score += 12
+            factors.append(f"reservoir_lithology:{context.lithology}=+12")
+        elif context.lithology in BARRIER_LITHOLOGY_CLASSES:
+            score -= 25
+            factors.append(f"barrier_lithology:{context.lithology}=-25")
+        if context.barrier_above != "none" or context.barrier_below != "none":
+            score += 6
+            factors.append("nearby_barrier_context=+6")
+        if context.gas_trend == "stable":
+            score += 6
+            factors.append("stable_trend=+6")
+        elif context.gas_trend in {"increasing", "decreasing"}:
+            score += 3
+            factors.append(f"interpretable_trend:{context.gas_trend}=+3")
+        if context.curve_quality == "good":
+            score += 8
+            factors.append("good_curve_quality=+8")
+        elif context.curve_quality == "poor":
+            score -= 15
+            factors.append("poor_curve_quality=-15")
+        if context.noise_level == "high":
+            score -= 12
+            factors.append("high_noise=-12")
+    if sample_count >= 3:
+        score += 8
+        factors.append("geological_continuity=+8")
+    elif sample_count == 1:
+        score -= 10
+        factors.append("single_depth_point=-10")
+    if fluid_type in {"uncertain", "transition"}:
+        score -= 12
+        factors.append("uncertain_geological_class=-12")
+    if "contains_barrier_rows" in quality_flags:
+        score -= 20
+        factors.append("barrier_inside_interval=-20")
+    score = max(0, min(100, int(round(score))))
+    factors.append(f"geological_final={score}")
+    return score, tuple(factors)
+
+
+def _evidence_tree_for_interval(
+    *,
+    evidence_items: Sequence[IntervalEvidence],
+    rule_traces: Sequence[HydrocarbonRuleTrace],
+    context: HydrocarbonInterpretationContext | None,
+    confidence_factors: Sequence[str],
+) -> tuple[dict[str, object], ...]:
+    """Return grouped evidence tree for UI/report explanation panels."""
+
+    def evidence_for(method: str) -> tuple[dict[str, object], ...]:
+        return tuple(
+            {"parameter": item.parameter, "value": item.value, "status": item.status, "reference": item.reference}
+            for item in evidence_items
+            if item.method.lower() == method.lower()
+        )
+
+    applied_rules = tuple(
+        {"rule_id": trace.rule_id, "title": trace.title, "message": trace.message, "confidence_delta": trace.confidence_delta}
+        for trace in rule_traces
+        if trace.status == "applied"
+    )
+    context_payload = () if context is None else (context.__dict__,)
+    return (
+        {"category": "Gas ratios", "items": evidence_for("Pixler") + evidence_for("Haworth")},
+        {"category": "Project indicators", "items": evidence_for("Project") + evidence_for("Classification")},
+        {"category": "Geological context", "items": context_payload},
+        {"category": "Applied rules", "items": applied_rules},
+        {"category": "Confidence", "items": tuple({"factor": factor} for factor in confidence_factors)},
+    )
+
+
+def _barrier_descriptor(barrier: LithologyBarrier | None) -> str:
+    if barrier is None:
+        return "none"
+    lithology = LITHOLOGY_CLASS_LABELS.get(barrier.lithology, barrier.lithology)
+    return f"{lithology} {barrier.top:g}-{barrier.base:g} m, seal={barrier.seal_quality}"
+
+
+def _enrich_intervals_with_neighbors(
+    intervals: Sequence[HydrocarbonInterval],
+    barriers: Sequence[LithologyBarrier],
+) -> tuple[HydrocarbonInterval, ...]:
+    """Attach neighbor/barrier context after all intervals are known."""
+
+    ordered = tuple(sorted(intervals, key=lambda item: (item.top, item.base)))
+    enriched: list[HydrocarbonInterval] = []
+    for index, interval in enumerate(ordered):
+        previous_interval = ordered[index - 1] if index > 0 else None
+        next_interval = ordered[index + 1] if index + 1 < len(ordered) else None
+        barrier_above = max((b for b in barriers if b.base <= interval.top), key=lambda b: b.base, default=None)
+        barrier_below = min((b for b in barriers if b.top >= interval.base), key=lambda b: b.top, default=None)
+        neighbor_parts = []
+        if previous_interval is not None:
+            neighbor_parts.append(f"above:{previous_interval.fluid_type}:{previous_interval.top:g}-{previous_interval.base:g}")
+        if next_interval is not None:
+            neighbor_parts.append(f"below:{next_interval.fluid_type}:{next_interval.top:g}-{next_interval.base:g}")
+        base_context = interval.context or HydrocarbonInterpretationContext(
+            top=interval.top, base=interval.base, thickness=interval.thickness
+        )
+        context = replace(
+            base_context,
+            barrier_above=_barrier_descriptor(barrier_above),
+            barrier_below=_barrier_descriptor(barrier_below),
+            neighbor_summary="; ".join(neighbor_parts) if neighbor_parts else "none",
+        )
+        geological_score, geological_factors = _geological_confidence_score(
+            fluid_type=interval.fluid_type,
+            context=context,
+            sample_count=interval.sample_count,
+            quality_flags=interval.quality_flags,
+        )
+        confidence_factors = interval.confidence_factors + geological_factors
+        decision_level = _decision_level_from_scores(interval.data_confidence_score or interval.confidence_score, geological_score, interval.fluid_type)
+        evidence_tree = _evidence_tree_for_interval(
+            evidence_items=interval.evidence_items,
+            rule_traces=interval.rule_traces,
+            context=context,
+            confidence_factors=confidence_factors,
+        )
+        enriched.append(
+            replace(
+                interval,
+                context=context,
+                geological_confidence_score=geological_score,
+                decision_level=decision_level,
+                confidence_factors=confidence_factors,
+                evidence_tree=evidence_tree,
+            )
+        )
+    return tuple(enriched)
 
 
 def _confidence_score_for_group(
@@ -1133,7 +1401,23 @@ def _interval_from_group(group: Sequence[Mapping[str, object]]) -> HydrocarbonIn
     )
     adjusted_score, rule_factors = _apply_rule_confidence_delta(confidence_score, rule_traces)
     confidence_score = adjusted_score
+    data_confidence_score = confidence_score
     confidence_factors = confidence_factors + rule_factors
+    context = _context_for_group(frame, top=top, base=base)
+    geological_confidence_score, geological_factors = _geological_confidence_score(
+        fluid_type=fluid_type,
+        context=context,
+        sample_count=len(frame),
+        quality_flags=quality_flags,
+    )
+    confidence_factors = confidence_factors + geological_factors
+    decision_level = _decision_level_from_scores(data_confidence_score, geological_confidence_score, fluid_type)
+    evidence_tree = _evidence_tree_for_interval(
+        evidence_items=evidence_items,
+        rule_traces=rule_traces,
+        context=context,
+        confidence_factors=confidence_factors,
+    )
     confidence = _confidence_label_from_score(confidence_score)
     if source_confidence == "high" and confidence == "medium":
         confidence = "high"
@@ -1150,6 +1434,11 @@ def _interval_from_group(group: Sequence[Mapping[str, object]]) -> HydrocarbonIn
         confidence=confidence,
         interpretation=interpretation,
         confidence_score=confidence_score,
+        data_confidence_score=data_confidence_score,
+        geological_confidence_score=geological_confidence_score,
+        decision_level=decision_level,
+        context=context,
+        evidence_tree=evidence_tree,
         confidence_factors=confidence_factors,
         rule_traces=rule_traces,
         applied_rule_ids=tuple(trace.rule_id for trace in rule_traces if trace.status == "applied"),
@@ -1295,6 +1584,7 @@ def detect_hydrocarbon_intervals(
         for group in groups
         if len(group) >= max(1, int(rules.minimum_samples))
     )
+    intervals = _enrich_intervals_with_neighbors(intervals, barriers)
     diagnostics = (
         f"Проверено строк: {len(rows)}.",
         f"Кандидатов УВ: {int(rows['hydrocarbon_candidate'].sum())}.",
@@ -1317,6 +1607,11 @@ def hydrocarbon_interval_table_rows(intervals: Iterable[HydrocarbonInterval]) ->
             "fluid_type": interval.fluid_type,
             "confidence": interval.confidence,
             "confidence_score": interval.confidence_score,
+            "data_confidence_score": interval.data_confidence_score,
+            "geological_confidence_score": interval.geological_confidence_score,
+            "decision_level": interval.decision_level,
+            "context": interval.context.__dict__ if interval.context is not None else {},
+            "evidence_tree": interval.evidence_tree,
             "confidence_factors": " ".join(interval.confidence_factors),
             "applied_rule_ids": " ".join(interval.applied_rule_ids),
             "rule_traces": _trace_rows(interval.rule_traces),
@@ -1396,6 +1691,10 @@ def hydrocarbon_interval_marker_rows(intervals: Iterable[HydrocarbonInterval]) -
                 "fluid_type": interval.fluid_type,
                 "confidence": interval.confidence,
                 "confidence_score": interval.confidence_score,
+                "data_confidence_score": interval.data_confidence_score,
+                "geological_confidence_score": interval.geological_confidence_score,
+                "decision_level": interval.decision_level,
+                "context": interval.context.__dict__ if interval.context is not None else {},
                 "applied_rule_ids": " ".join(interval.applied_rule_ids),
                 "interpretation_status": interval.interpretation_status,
                 "line_color": style["color"],
@@ -1507,14 +1806,16 @@ def hydrocarbon_engine_api_contract() -> dict[str, object]:
         "result_model": "HydrocarbonIntervalResult",
         "interval_model": "HydrocarbonInterval",
         "barrier_model": "LithologyBarrier",
+        "context_model": "HydrocarbonInterpretationContext",
         "public_builders": (
             "detect_hydrocarbon_intervals",
             "hydrocarbon_interval_table_rows",
             "hydrocarbon_interval_marker_rows",
             "lithology_barrier_table_rows",
             "hydrocarbon_method_registry_rows",
+            "hydrocarbon_interval_marker_rows",
             "validate_hydrocarbon_interval_result",
         ),
-        "consumer_rule": "Reports, plots, UI and export layers must consume interval/barrier/evidence payloads from this engine and must not duplicate interval-classification logic.",
+        "consumer_rule": "Reports, plots, UI and export layers must consume interval/barrier/evidence/context payloads from this engine and must not duplicate interval-classification logic.",
         "technical_details_policy": "Diagnostics, source row counts, NaN statistics, rule traces and provenance belong to expert/technical views, not to the default engineer-facing report summary.",
     }

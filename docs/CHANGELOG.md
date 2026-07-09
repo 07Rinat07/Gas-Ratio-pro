@@ -641,3 +641,12 @@ git status --short
 - Added validation result export rows for QA tables.
 - Added public API contract for report, plot, UI and export consumers.
 - Updated schema to `gas-ratio-pro/hydrocarbon-intervals/v12`.
+
+## Hydrocarbon Interval Engine v13
+
+- Added `HydrocarbonInterpretationContext`.
+- Added data/geological confidence split.
+- Added engineer-facing `decision_level`.
+- Added grouped `evidence_tree` for UI/report explanations.
+- Added neighbor/barrier context enrichment.
+- Updated schema to `gas-ratio-pro/hydrocarbon-intervals/v13`.
