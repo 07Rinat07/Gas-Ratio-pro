@@ -20,6 +20,7 @@ from services.las_manager_service import LasManagerService
 
 DEFAULT_SAMPLE_LIMIT = 240
 DEFAULT_CURVE_LIMIT = 8
+DEFAULT_MAX_POINT_GAP_FACTOR = 3.0
 GAS_MNEMONICS = {"C1", "C2", "C3", "IC4", "NC4", "IC5", "NC5", "TG", "GAS", "TOTALGAS"}
 RESISTIVITY_HINTS = {"RT", "ILD", "ILM", "LLD", "LLS", "RES", "AT90"}
 POROSITY_HINTS = {"NPHI", "DPHI", "RHOB", "DT", "PEF"}
@@ -56,6 +57,8 @@ class LasCurvePlotPayload:
     min_value: float | None = None
     max_value: float | None = None
     points: tuple[dict[str, float], ...] = field(default_factory=tuple)
+    sampling: dict[str, Any] = field(default_factory=dict)
+    quality: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -69,6 +72,8 @@ class LasCurvePlotPayload:
             "min_value": self.min_value,
             "max_value": self.max_value,
             "points": [dict(point) for point in self.points],
+            "sampling": dict(self.sampling),
+            "quality": dict(self.quality),
         }
 
 
@@ -145,6 +150,8 @@ class LasVisualizationPayload:
     overlays: tuple[LasIntervalOverlayPayload, ...] = field(default_factory=tuple)
     quality_flags: tuple[str, ...] = field(default_factory=tuple)
     print_profile: dict[str, Any] = field(default_factory=dict)
+    sampling_profile: dict[str, Any] = field(default_factory=dict)
+    data_quality: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -160,6 +167,8 @@ class LasVisualizationPayload:
             "overlays": [overlay.to_dict() for overlay in self.overlays],
             "quality_flags": list(self.quality_flags),
             "print_profile": dict(self.print_profile),
+            "sampling_profile": dict(self.sampling_profile),
+            "data_quality": dict(self.data_quality),
         }
 
 
@@ -191,6 +200,55 @@ def _depth_range(depth: pd.Series) -> dict[str, float | None]:
     }
 
 
+
+
+def _sampling_profile(sample_limit: int) -> dict[str, Any]:
+    safe_limit = max(2, int(sample_limit or DEFAULT_SAMPLE_LIMIT))
+    return {
+        "strategy": "depth_preserving_even_decimation",
+        "sample_limit": safe_limit,
+        "preserve_first_last": True,
+        "renderer_may_smooth": True,
+        "raw_dataframe_included": False,
+    }
+
+
+def _curve_quality(valid: pd.DataFrame, *, depth_range: dict[str, float | None], original_count: int) -> dict[str, Any]:
+    clean_depth = pd.to_numeric(valid["depth"], errors="coerce").dropna() if "depth" in valid else pd.Series(dtype="float64")
+    gaps: list[float] = []
+    has_depth_gaps = False
+    if len(clean_depth) >= 3:
+        diffs = clean_depth.sort_values().diff().dropna().abs()
+        non_zero = diffs[diffs > 0]
+        if not non_zero.empty:
+            expected_step = _float_or_none(depth_range.get("step")) or float(non_zero.median())
+            threshold = expected_step * DEFAULT_MAX_POINT_GAP_FACTOR
+            gaps = [float(value) for value in non_zero[non_zero > threshold].head(10).tolist()]
+            has_depth_gaps = bool(gaps)
+    missing_values = max(0, int(original_count) - int(len(valid)))
+    return {
+        "valid_points": int(len(valid)),
+        "missing_points": missing_values,
+        "missing_ratio": round(missing_values / max(int(original_count), 1), 6),
+        "has_depth_gaps": has_depth_gaps,
+        "depth_gaps": gaps,
+        "within_depth_range": {
+            "start": depth_range.get("start"),
+            "stop": depth_range.get("stop"),
+        },
+    }
+
+
+def _payload_data_quality(curves: Sequence[LasCurvePlotPayload], frame_length: int) -> dict[str, Any]:
+    missing_total = sum(int(curve.quality.get("missing_points", 0)) for curve in curves)
+    gap_curves = [curve.mnemonic for curve in curves if curve.quality.get("has_depth_gaps")]
+    return {
+        "row_count": int(frame_length),
+        "curve_count": len(curves),
+        "total_missing_points": missing_total,
+        "curves_with_depth_gaps": gap_curves,
+        "raw_dataframe_included": False,
+    }
 
 def _track_style(track_id: str) -> dict[str, Any]:
     return dict(TRACK_STYLE_PRESETS.get(track_id, TRACK_STYLE_PRESETS["track.other"]))
@@ -274,11 +332,13 @@ def _curve_payload(
     curve: str,
     units: dict[str, str],
     sample_limit: int,
+    depth_info: dict[str, float | None],
 ) -> LasCurvePlotPayload | None:
     if curve == depth_curve:
         return None
     values = pd.to_numeric(frame[curve], errors="coerce")
     depths = pd.to_numeric(frame[depth_curve], errors="coerce") if depth_curve in frame.columns else pd.Series(dtype="float64")
+    original_count = int(len(values))
     valid = pd.DataFrame({"depth": depths, "value": values}).dropna()
     if valid.empty:
         return None
@@ -297,6 +357,13 @@ def _curve_payload(
         min_value=float(valid["value"].min()),
         max_value=float(valid["value"].max()),
         points=points,
+        sampling={
+            "strategy": "depth_preserving_even_decimation",
+            "sample_limit": max(2, int(sample_limit or DEFAULT_SAMPLE_LIMIT)),
+            "decimated": len(points) < len(valid),
+            "preserve_first_last": True,
+        },
+        quality=_curve_quality(valid, depth_range=depth_info, original_count=original_count),
     )
 
 
@@ -417,12 +484,13 @@ class LasVisualizationPayloadService:
                 sample_limit=sample_limit,
                 quality_flags=("missing_depth_curve",),
             )
+        depth_info = _depth_range(frame[depth_curve])
         candidate_curves = [str(column) for column in frame.columns if str(column) != depth_curve]
         limited_curves = candidate_curves[: max(1, int(curve_limit or DEFAULT_CURVE_LIMIT))]
         curve_payloads = tuple(
             payload
             for payload in (
-                _curve_payload(frame, depth_curve=depth_curve, curve=curve, units=unit_map, sample_limit=sample_limit)
+                _curve_payload(frame, depth_curve=depth_curve, curve=curve, units=unit_map, sample_limit=sample_limit, depth_info=depth_info)
                 for curve in limited_curves
             )
             if payload is not None
@@ -434,7 +502,6 @@ class LasVisualizationPayloadService:
             flags.append("curves_decimated")
         if not curve_payloads:
             flags.append("no_numeric_visualization_curves")
-        depth_info = _depth_range(frame[depth_curve])
         overlays = _build_overlays(
             interval_ids,
             depth_start=depth_info.get("start"),
@@ -456,4 +523,6 @@ class LasVisualizationPayloadService:
             overlays=overlays,
             quality_flags=tuple(flags),
             print_profile=_print_profile(),
+            sampling_profile=_sampling_profile(sample_limit),
+            data_quality=_payload_data_quality(curve_payloads, len(frame)),
         )

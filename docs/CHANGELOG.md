@@ -288,6 +288,8 @@
 
 ## Unreleased
 
+- Added LAS visualization quality metadata for sampling, missing points and depth gaps.
+
 - Added Curve Manager category tools for LAS curves with automatic category suggestions, manual overrides, category history, undo support, UI summary tables, metadata references and tests.
 
 

@@ -127,3 +127,48 @@ def test_las_visualization_payload_exposes_axis_style_and_print_profile(tmp_path
         "grid": True,
         "legend": True,
     }
+
+LAS_WITH_GAPS_AND_NULLS = b"""~Version Information
+VERS. 2.0 : CWLS LOG ASCII STANDARD - VERSION 2.0
+WRAP. NO : ONE LINE PER DEPTH STEP
+~Well Information
+STRT.M 1000.0 : START DEPTH
+STOP.M 1008.0 : STOP DEPTH
+STEP.M 0.5 : STEP
+NULL. -999.25 : NULL VALUE
+WELL. Demo : WELL
+~Curve Information
+DEPT.M : DEPTH
+GR.API : Gamma Ray
+C1.PPM : Methane
+~ASCII
+1000.0 80 12
+1000.5 -999.25 18
+1001.0 85 25
+1008.0 90 30
+"""
+
+
+def test_las_visualization_payload_exposes_sampling_and_quality_metadata(tmp_path):
+    manager = LasManagerService(tmp_path)
+    record = manager.save_file(project_id="demo", data=LAS_WITH_GAPS_AND_NULLS, file_name="demo.las").record
+
+    payload = LasVisualizationPayloadService(tmp_path).build("demo", record.id, sample_limit=3).to_dict()
+
+    assert payload["sampling_profile"] == {
+        "strategy": "depth_preserving_even_decimation",
+        "sample_limit": 3,
+        "preserve_first_last": True,
+        "renderer_may_smooth": True,
+        "raw_dataframe_included": False,
+    }
+    assert payload["data_quality"]["row_count"] == 4
+    assert payload["data_quality"]["raw_dataframe_included"] is False
+    assert "GR" in payload["data_quality"]["curves_with_depth_gaps"]
+
+    gr_curve = next(curve for curve in payload["curves"] if curve["mnemonic"] == "GR")
+    assert gr_curve["sampling"]["strategy"] == "depth_preserving_even_decimation"
+    assert gr_curve["sampling"]["preserve_first_last"] is True
+    assert gr_curve["quality"]["missing_points"] == 1
+    assert gr_curve["quality"]["has_depth_gaps"] is True
+    assert gr_curve["quality"]["depth_gaps"] == [7.0]

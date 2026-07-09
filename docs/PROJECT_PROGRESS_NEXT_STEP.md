@@ -167,3 +167,6 @@ Completed:
 
 Next step:
 Implement the first renderer adapter for LAS visualization payloads. It should render tracks from the contract only, without recalculating curves or interval overlays inside Streamlit.
+
+
+V65 added LAS visualization sampling and data quality metadata for large LAS payloads.
