@@ -38,6 +38,8 @@ Completed in v46: release export QA now runs the multilingual smoke bundle and v
 
 Completed in v47: the first Modern Workbench shell foundation is available as framework-neutral core code. `core.command_framework` defines command descriptors, registry execution and event publication. `core.workbench_shell` builds a serializable shell model with Project Explorer, Workspace Toolbar, Workspace Area, Properties and Status Bar regions using application state and lightweight workspace session keys.
 
+Completed in v48: the Workbench shell now includes a framework-neutral navigation model and dock layout model. Navigation entries describe available workspaces, while dock panes describe panel placement, size and collapsed state without placing business logic in the UI layer.
+
 ## Next recommended increment
 
-Connect the Modern Workbench shell model to a Streamlit renderer boundary without moving calculations, persistence or export logic into UI code. Keep `scripts/release_export_qa.py` as the release check before packaging builds.
+Connect the Modern Workbench shell, navigation and dock layout models to a Streamlit renderer boundary without moving calculations, persistence or export logic into UI code. Keep `scripts/release_export_qa.py` as the release check before packaging builds.

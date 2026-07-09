@@ -19,6 +19,9 @@ from core.workspace_session import (
     SESSION_WINDOW_LAYOUT_KEY,
 )
 
+WORKBENCH_NAVIGATION_KEY = "workbench_navigation"
+WORKBENCH_DOCK_LAYOUT_KEY = "workbench_dock_layout"
+
 
 @dataclass(frozen=True, slots=True)
 class WorkbenchPanel:
@@ -39,6 +42,135 @@ class WorkbenchPanel:
             "visible": self.visible,
             "order": self.order,
             "metadata": dict(self.metadata),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class WorkbenchNavigationItem:
+    """Serializable navigation entry for the future Workbench sidebar."""
+
+    id: str
+    title: str
+    workspace: str
+    group: str = "workspace"
+    icon: str = ""
+    order: int = 0
+    enabled: bool = True
+    visible: bool = True
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def normalized(self) -> "WorkbenchNavigationItem":
+        clean_id = str(self.id or "").strip()
+        if not clean_id:
+            raise ValueError("Navigation item id must not be empty.")
+        clean_title = str(self.title or "").strip()
+        if not clean_title:
+            raise ValueError("Navigation item title must not be empty.")
+        clean_workspace = str(self.workspace or "").strip()
+        if not clean_workspace:
+            raise ValueError("Navigation item workspace must not be empty.")
+        return WorkbenchNavigationItem(
+            id=clean_id,
+            title=clean_title,
+            workspace=clean_workspace,
+            group=str(self.group or "workspace").strip() or "workspace",
+            icon=str(self.icon or "").strip(),
+            order=int(self.order or 0),
+            enabled=bool(self.enabled),
+            visible=bool(self.visible),
+            metadata=dict(self.metadata or {}),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        item = self.normalized()
+        return {
+            "id": item.id,
+            "title": item.title,
+            "workspace": item.workspace,
+            "group": item.group,
+            "icon": item.icon,
+            "order": item.order,
+            "enabled": item.enabled,
+            "visible": item.visible,
+            "metadata": dict(item.metadata),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class WorkbenchDockPane:
+    """Framework-neutral dock pane description.
+
+    The pane stores layout intent only.  Width, height and collapsed state are
+    safe to persist in session state because they are rendering preferences, not
+    domain decisions.
+    """
+
+    id: str
+    panel_id: str
+    region: str
+    title: str = ""
+    order: int = 0
+    size: int | None = None
+    collapsed: bool = False
+    floating: bool = False
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def normalized(self) -> "WorkbenchDockPane":
+        clean_id = str(self.id or "").strip()
+        if not clean_id:
+            raise ValueError("Dock pane id must not be empty.")
+        clean_panel_id = str(self.panel_id or "").strip()
+        if not clean_panel_id:
+            raise ValueError("Dock pane panel id must not be empty.")
+        clean_region = str(self.region or "").strip() or "center"
+        return WorkbenchDockPane(
+            id=clean_id,
+            panel_id=clean_panel_id,
+            region=clean_region,
+            title=str(self.title or "").strip() or clean_panel_id.replace("_", " ").title(),
+            order=int(self.order or 0),
+            size=self.size if self.size is None else int(self.size),
+            collapsed=bool(self.collapsed),
+            floating=bool(self.floating),
+            metadata=dict(self.metadata or {}),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        pane = self.normalized()
+        return {
+            "id": pane.id,
+            "panel_id": pane.panel_id,
+            "region": pane.region,
+            "title": pane.title,
+            "order": pane.order,
+            "size": pane.size,
+            "collapsed": pane.collapsed,
+            "floating": pane.floating,
+            "metadata": dict(pane.metadata),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class WorkbenchDockLayout:
+    """Serializable dock layout grouped by region."""
+
+    panes: tuple[WorkbenchDockPane, ...]
+
+    def region(self, name: str) -> tuple[WorkbenchDockPane, ...]:
+        clean_name = str(name or "").strip()
+        return tuple(pane for pane in self.panes if pane.region == clean_name and not pane.collapsed)
+
+    def pane_ids(self) -> tuple[str, ...]:
+        return tuple(pane.id for pane in self.panes)
+
+    def to_dict(self) -> dict[str, Any]:
+        panes = tuple(sorted((pane.normalized() for pane in self.panes), key=lambda item: (item.region, item.order, item.id)))
+        return {
+            "panes": [pane.to_dict() for pane in panes],
+            "regions": {
+                region: [pane.id for pane in panes if pane.region == region and not pane.collapsed]
+                for region in sorted({pane.region for pane in panes})
+            },
         }
 
 
@@ -79,12 +211,17 @@ class WorkbenchShellModel:
     commands: tuple[WorkbenchCommand, ...]
     status: WorkbenchStatus
     layout: dict[str, Any] = field(default_factory=dict)
+    navigation: tuple[WorkbenchNavigationItem, ...] = field(default_factory=tuple)
+    dock_layout: WorkbenchDockLayout = field(default_factory=lambda: WorkbenchDockLayout(()))
 
     def panel_ids(self) -> tuple[str, ...]:
         return tuple(panel.id for panel in self.panels if panel.visible)
 
     def command_ids(self) -> tuple[str, ...]:
         return tuple(command.id for command in self.commands if command.visible)
+
+    def navigation_ids(self) -> tuple[str, ...]:
+        return tuple(item.id for item in self.navigation if item.visible)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -93,6 +230,8 @@ class WorkbenchShellModel:
             "commands": [command.to_dict() for command in self.commands],
             "status": self.status.to_dict(),
             "layout": dict(self.layout),
+            "navigation": [item.to_dict() for item in self.navigation],
+            "dock_layout": self.dock_layout.to_dict(),
         }
 
 
@@ -103,6 +242,40 @@ DEFAULT_WORKBENCH_PANELS: tuple[WorkbenchPanel, ...] = (
     WorkbenchPanel("properties", "Properties", "right", order=40),
     WorkbenchPanel("status_bar", "Status", "bottom", order=50),
 )
+
+DEFAULT_WORKBENCH_NAVIGATION: tuple[WorkbenchNavigationItem, ...] = (
+    WorkbenchNavigationItem("nav.dashboard", "Dashboard", "dashboard", "main", "dashboard", order=10),
+    WorkbenchNavigationItem("nav.las_workspace", "LAS Workspace", "las_workspace", "main", "well", order=20),
+    WorkbenchNavigationItem("nav.interpretation", "Interpretation", "interpretation", "analysis", "ratio", order=30),
+    WorkbenchNavigationItem("nav.reports", "Reports", "reports", "output", "report", order=40),
+    WorkbenchNavigationItem("nav.exports", "Exports", "exports", "output", "export", order=50),
+)
+
+DEFAULT_WORKBENCH_DOCK_PANES: tuple[WorkbenchDockPane, ...] = (
+    WorkbenchDockPane("dock.project_explorer", "project_explorer", "left", "Project Explorer", order=10, size=280),
+    WorkbenchDockPane("dock.workspace_toolbar", "workspace_toolbar", "top", "Workspace Toolbar", order=20, size=64),
+    WorkbenchDockPane("dock.workspace_area", "workspace_area", "center", "Workspace Area", order=30),
+    WorkbenchDockPane("dock.properties", "properties", "right", "Properties", order=40, size=320),
+    WorkbenchDockPane("dock.status_bar", "status_bar", "bottom", "Status", order=50, size=36),
+)
+
+
+def _build_navigation(state: MutableMapping[str, Any], defaults: Iterable[WorkbenchNavigationItem]) -> tuple[WorkbenchNavigationItem, ...]:
+    raw_items = state.get(WORKBENCH_NAVIGATION_KEY)
+    if raw_items:
+        items = [WorkbenchNavigationItem(**dict(item)) for item in raw_items]
+    else:
+        items = list(defaults)
+    return tuple(sorted((item.normalized() for item in items), key=lambda item: (item.order, item.group, item.id)))
+
+
+def _build_dock_layout(state: MutableMapping[str, Any], defaults: Iterable[WorkbenchDockPane]) -> WorkbenchDockLayout:
+    raw_panes = state.get(WORKBENCH_DOCK_LAYOUT_KEY)
+    if raw_panes:
+        panes = [WorkbenchDockPane(**dict(item)) for item in raw_panes]
+    else:
+        panes = list(defaults)
+    return WorkbenchDockLayout(tuple(sorted((pane.normalized() for pane in panes), key=lambda item: (item.region, item.order, item.id))))
 
 
 class WorkbenchShellBuilder:
@@ -115,9 +288,16 @@ class WorkbenchShellBuilder:
         if not self.command_registry.list(visible_only=False):
             self.command_registry.register_many(default_workbench_commands())
 
-    def build(self, panels: Iterable[WorkbenchPanel] | None = None) -> WorkbenchShellModel:
+    def build(
+        self,
+        panels: Iterable[WorkbenchPanel] | None = None,
+        navigation: Iterable[WorkbenchNavigationItem] | None = None,
+        dock_panes: Iterable[WorkbenchDockPane] | None = None,
+    ) -> WorkbenchShellModel:
         context = self.state_controller.context()
         panel_list = tuple(sorted(tuple(panels or DEFAULT_WORKBENCH_PANELS), key=lambda item: (item.order, item.id)))
+        navigation_items = tuple(sorted((item.normalized() for item in (navigation or _build_navigation(self.state, DEFAULT_WORKBENCH_NAVIGATION))), key=lambda item: (item.order, item.group, item.id)))
+        dock_layout = _build_dock_layout(self.state, dock_panes or DEFAULT_WORKBENCH_DOCK_PANES)
         status = WorkbenchStatus(
             project_id=context.project_id,
             well_id=context.well_id,
@@ -134,4 +314,6 @@ class WorkbenchShellBuilder:
             commands=self.command_registry.list(),
             status=status,
             layout=layout,
+            navigation=navigation_items,
+            dock_layout=dock_layout,
         )
