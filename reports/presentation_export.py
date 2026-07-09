@@ -65,6 +65,24 @@ class PresentationPdfExportResult:
     figure_count: int
 
 
+@dataclass(frozen=True)
+class PresentationBundleExportResult:
+    """Multi-format export created from one PresentationModel.
+
+    The bundle exporter is the consistency gate for Professional Reporting.
+    It writes HTML, PDF and DOCX from the same source model and records one
+    bundle manifest so engineering content can be audited across formats.
+    """
+
+    html_path: Path
+    pdf_path: Path
+    docx_path: Path
+    manifest_path: Path
+    profile: str
+    table_titles: tuple[str, ...]
+    figure_count: int
+
+
 def safe_export_basename(value: str, *, fallback: str = "gas-ratio-professional-report") -> str:
     """Return a filesystem-safe export basename without directory traversal.
 
@@ -256,11 +274,109 @@ def export_presentation_pdf_package(
     )
 
 
+def _metadata_manifest(model: PresentationModel) -> dict[str, str]:
+    return {
+        "title": model.metadata.title,
+        "subtitle": model.metadata.subtitle,
+        "source_label": model.metadata.source_label,
+        "project_label": model.metadata.project_label,
+        "depth_label": model.metadata.depth_label,
+        "report_profile": model.metadata.report_profile,
+    }
+
+
+def export_presentation_bundle_package(
+    model: PresentationModel,
+    *,
+    options: PresentationExportOptions,
+    pdf_options: PresentationPdfOptions | None = None,
+    docx_options: PresentationDocxOptions | None = None,
+) -> PresentationBundleExportResult:
+    """Write HTML, PDF and DOCX reports from the same PresentationModel.
+
+    This function is intentionally a thin orchestration layer. It does not
+    rebuild interpretation content and it does not call calculation engines.
+    All formats are rendered from the same PresentationModel/EngineeringDocument
+    chain, which prevents the engineering report, printable PDF and DOCX copy
+    from diverging.
+    """
+
+    output_dir = Path(options.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    base_name = safe_export_basename(options.base_name)
+
+    html_result = export_presentation_html_package(model, options=options)
+    pdf_result = export_presentation_pdf_package(
+        model,
+        options=options,
+        pdf_options=pdf_options,
+    )
+    docx_result = export_presentation_docx_package(
+        model,
+        options=options,
+        docx_options=docx_options,
+    )
+
+    profile_set = {html_result.profile, pdf_result.profile, docx_result.profile}
+    if len(profile_set) != 1:
+        raise ValueError(f"Presentation export profiles diverged: {sorted(profile_set)}")
+
+    title_set = {html_result.table_titles, pdf_result.table_titles, docx_result.table_titles}
+    if len(title_set) != 1:
+        raise ValueError("Presentation export table composition diverged between formats")
+
+    figure_set = {html_result.figure_count, pdf_result.figure_count, docx_result.figure_count}
+    if len(figure_set) != 1:
+        raise ValueError("Presentation export figure count diverged between formats")
+
+    bundle_manifest_path = output_dir / f"{base_name}.bundle.manifest.json"
+    manifest = {
+        "schema": "gas-ratio-pro/presentation/bundle-export/v1",
+        "created_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "profile": html_result.profile,
+        "files": {
+            "html": html_result.html_path.name,
+            "pdf": pdf_result.pdf_path.name,
+            "docx": docx_result.docx_path.name,
+            "html_manifest": html_result.manifest_path.name,
+            "pdf_manifest": pdf_result.manifest_path.name,
+            "docx_manifest": docx_result.manifest_path.name,
+        },
+        "table_titles": list(html_result.table_titles),
+        "figure_count": html_result.figure_count,
+        "presentation_schema": model.schema,
+        "metadata": _metadata_manifest(model),
+        "consistency": {
+            "same_profile": True,
+            "same_table_titles": True,
+            "same_figure_count": True,
+            "single_source_model": True,
+        },
+    }
+    _write_bytes(
+        bundle_manifest_path,
+        json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"),
+        overwrite=options.overwrite,
+    )
+
+    return PresentationBundleExportResult(
+        html_path=html_result.html_path,
+        pdf_path=pdf_result.pdf_path,
+        docx_path=docx_result.docx_path,
+        manifest_path=bundle_manifest_path,
+        profile=html_result.profile,
+        table_titles=html_result.table_titles,
+        figure_count=html_result.figure_count,
+    )
+
+
 __all__ = [
     "PresentationExportOptions",
     "PresentationExportResult",
     "PresentationDocxExportResult",
     "PresentationPdfExportResult",
+    "PresentationBundleExportResult",
+    "export_presentation_bundle_package",
     "export_presentation_docx_package",
     "export_presentation_html_package",
     "export_presentation_pdf_package",

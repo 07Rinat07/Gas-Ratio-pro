@@ -800,3 +800,17 @@ Purpose:
 ### Notes
 - Plot blocks are preserved as document blocks; raster/SVG plot embedding is planned as the next renderer backend increment.
 
+## v32 — Presentation Bundle Export
+
+### Added
+- Added `export_presentation_bundle_package()` for HTML, PDF and DOCX export from one `PresentationModel`.
+- Added `PresentationBundleExportResult`.
+- Added one bundle manifest with exported files, report profile, table titles, figure count and consistency flags.
+- Added consistency checks to prevent HTML/PDF/DOCX report divergence.
+
+### Rationale
+- Engineering interpretation must exist once and be rendered consistently across all report formats.
+- If one format starts showing different tables or figures, the export package now fails loudly instead of producing conflicting reports.
+
+### Validation
+- Presentation export, HTML, PDF, DOCX and Document Model tests passed together.

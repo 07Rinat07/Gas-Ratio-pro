@@ -73,3 +73,39 @@ def test_export_presentation_html_package_respects_overwrite_flag(tmp_path) -> N
 
     with pytest.raises(FileExistsError):
         export_presentation_html_package(payload.presentation_model, options=options)
+from reports.presentation_export import export_presentation_bundle_package
+
+
+def test_export_presentation_bundle_package_writes_all_formats_from_one_model(tmp_path) -> None:
+    payload = build_hydrocarbon_report_payload(
+        _sample_frame(),
+        source_label="well.las",
+        project_label="Default",
+        depth_label="2148.2–2156.0 м",
+        include_plot=True,
+    )
+    assert payload.presentation_model is not None
+
+    result = export_presentation_bundle_package(
+        payload.presentation_model,
+        options=PresentationExportOptions(output_dir=tmp_path, base_name="bundle/report v32"),
+    )
+
+    assert result.html_path.exists()
+    assert result.pdf_path.exists()
+    assert result.docx_path.exists()
+    assert result.manifest_path.exists()
+    assert result.profile == "engineering"
+    assert result.figure_count == 1
+
+    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["schema"] == "gas-ratio-pro/presentation/bundle-export/v1"
+    assert manifest["files"]["html"] == result.html_path.name
+    assert manifest["files"]["pdf"] == result.pdf_path.name
+    assert manifest["files"]["docx"] == result.docx_path.name
+    assert manifest["consistency"] == {
+        "same_profile": True,
+        "same_table_titles": True,
+        "same_figure_count": True,
+        "single_source_model": True,
+    }
