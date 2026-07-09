@@ -45,3 +45,16 @@ This document records the formula/source audit for calculation modules. Every fo
 - Add UI warnings for `project_engineering_hint` and `draft_requires_validation` methods.
 - Add regression tests proving that `CH` equals `(ΣC4 + ΣC5) / C3` in both calculation paths.
 - Keep all productive intervals separated across explicit Clay/Claystone/Tight barrier gaps.
+
+## Method Registry update
+
+Hydrocarbon Interval Engine now links structured interval evidence to `core.method_registry`.
+
+Implemented profiles:
+
+- `haworth_mud_gas` — Haworth mud-gas ratios used for Wh, Bh and Ch evidence;
+- `pixler_gas_ratio` — Pixler hydrocarbon gas ratios used for C1/C2 and C1/C3 evidence;
+- `project_oil_indicator` — internal project engineering hint, not a standalone published method;
+- `hydrocarbon_interval_engine` — internal rule engine combining sourced indicators, quality flags and lithology/barrier context.
+
+Rule: any new formula or interpretation method must be registered before it is used in report-facing calculations.

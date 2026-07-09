@@ -326,3 +326,29 @@ Next work remains inside Hydrocarbon Interval Engine:
 1. finish confidence scoring tests on real LAS examples;
 2. validate weak, uncertain and water cases;
 3. prepare Definition of Done checklist for this module before moving to Interpretation Engine.
+
+## Hydrocarbon Interval Engine v9 — Method Registry and Evidence Provenance
+
+The active stage remains **Hydrocarbon Interval Engine**.
+
+This step adds method registry and provenance metadata to interval evidence.
+
+Implemented:
+
+- `core.method_registry` with auditable method profiles;
+- evidence-level `method_id` and `source_id`;
+- report/table payload field `evidence_provenance`;
+- registered profiles for Haworth mud-gas ratios, Pixler gas ratios, internal oil indicator and the Hydrocarbon Interval Engine itself;
+- project rule: no report-facing formula should enter production logic without a registry entry.
+
+Current schema:
+
+```text
+gas-ratio-pro/hydrocarbon-intervals/v9
+```
+
+Next work remains inside Hydrocarbon Interval Engine:
+
+1. validate Method Registry coverage for all current interval evidence;
+2. add real-LAS acceptance tests for weak / uncertain / water / barrier cases;
+3. prepare Definition of Done checklist before moving to Interpretation Engine.

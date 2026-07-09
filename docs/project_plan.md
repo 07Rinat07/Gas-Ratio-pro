@@ -1545,3 +1545,14 @@ Version v8 adds evidence-based confidence scoring:
 - no automatic merging through explicit lithological barriers.
 
 Confidence score is an engineering QA value for mud-gas interpretation only. It is not a reserve probability, test result or commercial productivity proof.
+
+## Hydrocarbon Interval Engine v9 note
+
+Current active module remains **Hydrocarbon Interval Engine**.
+
+Version v9 adds Method Registry and evidence provenance:
+
+- every interval evidence item can carry `method_id` and `source_id`;
+- method profiles document authors, source, status, limitations and citation policy;
+- report payloads can expose `evidence_provenance` for audit and future PDF/DOCX output;
+- formulas and interpretation methods must be registered before production/report use.

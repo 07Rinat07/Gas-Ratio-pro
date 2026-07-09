@@ -65,3 +65,11 @@ Implemented inside the active module only.
 - Confidence now uses structured evidence and quality flags.
 - Barrier-aware interval separation remains unchanged.
 - Next step: validate confidence behavior on weak / uncertain / water / real LAS cases before moving to another module.
+
+## Hydrocarbon Interval Engine v9 — Method Registry and Evidence Provenance
+
+- Added registered method profiles for Haworth, Pixler, internal oil indicator and Hydrocarbon Interval Engine.
+- Added evidence-level `method_id` and `source_id`.
+- Added serializable `evidence_provenance` for report payloads.
+- Updated active schema to `gas-ratio-pro/hydrocarbon-intervals/v9`.
+- Next step remains inside Hydrocarbon Interval Engine: acceptance tests for weak / uncertain / water / barrier cases.

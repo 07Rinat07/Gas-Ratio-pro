@@ -617,3 +617,10 @@ git status --short
 - Added Core LTS Freeze checklist before Sprint 2 Workspace Framework.
 - Added regression tests for required freeze-gate sections and core architecture rules.
 
+
+## Hydrocarbon Interval Engine v9
+
+- Added Method Registry for report-facing calculation methods.
+- Added interval evidence provenance metadata.
+- Added method/source fields to structured evidence records.
+- Updated hydrocarbon interval schema to v9.

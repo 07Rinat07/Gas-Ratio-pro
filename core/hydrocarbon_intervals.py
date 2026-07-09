@@ -3,10 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Mapping, Sequence
 
+from core.method_registry import get_method_profile, method_id_for_parameter, method_registry_rows
+
 import pandas as pd
 
 
-HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v8"
+HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v9"
 
 NON_PROSPECTIVE_LABELS = (
     "Недостаточно данных",
@@ -98,6 +100,8 @@ class IntervalEvidence:
     direction: str = "observed"
     weight: float = 1.0
     description: str = ""
+    method_id: str = "hydrocarbon_interval_engine"
+    source_id: str = "project_internal"
 
 
 @dataclass(frozen=True)
@@ -514,6 +518,8 @@ def _evidence_items_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[Int
                 direction="wetness",
                 weight=1.0,
                 description="Average wetness ratio inside the interval.",
+                method_id="haworth_mud_gas",
+                source_id="haworth_mud_gas",
             )
         )
     if bh is not None:
@@ -525,6 +531,8 @@ def _evidence_items_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[Int
                 direction="balance",
                 weight=1.0,
                 description="Average balance ratio inside the interval.",
+                method_id="haworth_mud_gas",
+                source_id="haworth_mud_gas",
             )
         )
     if ch is not None:
@@ -536,6 +544,8 @@ def _evidence_items_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[Int
                 direction="character",
                 weight=0.8,
                 description="Character ratio from heavy hydrocarbon components.",
+                method_id="haworth_mud_gas",
+                source_id="haworth_mud_gas",
             )
         )
     if c1_c2 is not None:
@@ -547,6 +557,8 @@ def _evidence_items_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[Int
                 direction="gas_ratio",
                 weight=1.0,
                 description="Pixler methane-to-ethane ratio used as one fluid-character indicator.",
+                method_id="pixler_gas_ratio",
+                source_id="pixler_gas_ratio",
             )
         )
     if c1_c3 is not None:
@@ -558,6 +570,8 @@ def _evidence_items_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[Int
                 direction="gas_ratio",
                 weight=0.8,
                 description="Pixler methane-to-propane ratio used as supporting evidence.",
+                method_id="pixler_gas_ratio",
+                source_id="pixler_gas_ratio",
             )
         )
     if oil_indicator is not None:
@@ -569,6 +583,8 @@ def _evidence_items_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[Int
                 direction="oil_gas_indicator",
                 weight=1.0,
                 description="Project oil/gas indicator derived from calculated ratio fields.",
+                method_id="project_oil_indicator",
+                source_id="project_oil_indicator",
             )
         )
 
@@ -583,6 +599,8 @@ def _evidence_items_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[Int
                     direction="label",
                     weight=0.6,
                     description="Existing row-level interpretation label supplied by calculation or import pipeline.",
+                    method_id="hydrocarbon_interval_engine",
+                    source_id="hydrocarbon_interval_engine",
                 )
             )
 
@@ -594,6 +612,8 @@ def _evidence_items_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[Int
             direction="final_class",
             weight=1.0,
             description="Final interval class after rule-based normalization and grouping.",
+            method_id="hydrocarbon_interval_engine",
+            source_id="hydrocarbon_interval_engine",
         )
     )
     return tuple(items)
@@ -610,6 +630,32 @@ def _format_evidence_item(item: IntervalEvidence) -> str:
     if value_text:
         return f"{item.method} {item.parameter}={value_text}."
     return f"{item.method} {item.parameter}."
+
+
+def _evidence_provenance(item: IntervalEvidence) -> dict[str, object]:
+    """Return auditable provenance for one evidence item."""
+
+    method_id = item.method_id or method_id_for_parameter(item.parameter)
+    profile = get_method_profile(method_id)
+    return {
+        "method_id": method_id,
+        "method": item.method,
+        "parameter": item.parameter,
+        "value": item.value,
+        "source_id": item.source_id or method_id,
+        "source_title": profile.source_title,
+        "authors": "; ".join(profile.authors),
+        "year": profile.year,
+        "status": profile.status,
+        "implementation_status": profile.implementation_status,
+        "limitations": profile.limitations,
+    }
+
+
+def hydrocarbon_method_registry_rows() -> tuple[dict[str, object], ...]:
+    """Return registered method metadata used by Hydrocarbon Interval Engine."""
+
+    return method_registry_rows()
 
 
 def _evidence_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[str, ...]:
@@ -919,6 +965,7 @@ def hydrocarbon_interval_table_rows(intervals: Iterable[HydrocarbonInterval]) ->
             "avg_OI": interval.average_oil_indicator,
             "evidence": " ".join(interval.evidence),
             "evidence_items": tuple(item.__dict__ for item in interval.evidence_items),
+            "evidence_provenance": tuple(_evidence_provenance(item) for item in interval.evidence_items),
             "quality_flags": " ".join(interval.quality_flags),
             "engineering_note": interval.engineering_note,
             "warnings": " ".join(interval.warnings),
