@@ -32,6 +32,8 @@ Completed in v44: DOCX export now has the same explicit dependency guard contrac
 
 Completed in v45: presentation exports now have a single renderer-neutral facade for HTML, PDF, DOCX and bundle modes. Export manifests are normalized through one helper while preserving backward-compatible fields for existing tests and UI code.
 
+Completed in v46: release export QA now runs the multilingual smoke bundle and validates the generated bundle manifest, referenced files, non-empty artifacts and cross-format consistency flags.
+
 ## Next recommended increment
 
-Finish the P0 export QA layer by wiring the export smoke command into release validation and documenting the expected operator workflow, then move to the Modern Workspace shell foundation: Project Explorer, central workspace area, toolbar/status boundary and integration points for session restore, reset and export actions.
+Move from P0 export stabilization to the Modern Workspace shell foundation: Project Explorer, central workspace area, toolbar/status boundary and integration points for session restore, reset and export actions. Keep `scripts/release_export_qa.py` as the release check before packaging builds.

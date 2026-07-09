@@ -97,6 +97,31 @@ class PresentationPdfExportResult:
 
 
 @dataclass(frozen=True)
+class PresentationBundleValidationResult:
+    """Audit result for a generated multi-format presentation bundle.
+
+    Release QA needs a deterministic check that all files referenced by the
+    bundle manifest exist, have non-empty payloads and keep the declared
+    cross-format consistency flags. The validator reads only the export
+    artifacts; it never rebuilds engineering calculations or presentation
+    models.
+    """
+
+    manifest_path: Path
+    ok: bool
+    files_checked: tuple[Path, ...]
+    missing_files: tuple[str, ...]
+    empty_files: tuple[str, ...]
+    consistency: dict[str, bool]
+
+    @property
+    def issue_count(self) -> int:
+        """Return the number of concrete file-level validation issues."""
+
+        return len(self.missing_files) + len(self.empty_files)
+
+
+@dataclass(frozen=True)
 class PresentationBundleExportResult:
     """Multi-format export created from one PresentationModel.
 
@@ -422,6 +447,57 @@ def export_presentation_bundle_package(
     )
 
 
+def validate_presentation_bundle_export(manifest_path: str | Path) -> PresentationBundleValidationResult:
+    """Validate an already written presentation bundle manifest.
+
+    The bundle manifest is the release-audit entry point for professional
+    reports. This function confirms that every referenced artifact is present,
+    non-empty and that the consistency flags created by the bundle exporter are
+    still true. It is intentionally filesystem-only so it can run in CI, smoke
+    scripts and operator checks without loading LAS data again.
+    """
+
+    manifest = Path(manifest_path)
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    base_dir = manifest.parent
+    files = payload.get("files", {})
+    if not isinstance(files, dict):
+        files = {}
+
+    required_keys = ("html", "pdf", "docx", "html_manifest", "pdf_manifest", "docx_manifest")
+    checked: list[Path] = []
+    missing: list[str] = []
+    empty: list[str] = []
+
+    for key in required_keys:
+        name = files.get(key)
+        if not isinstance(name, str) or not name.strip():
+            missing.append(key)
+            continue
+        path = base_dir / name
+        checked.append(path)
+        if not path.exists():
+            missing.append(name)
+            continue
+        if path.stat().st_size <= 0:
+            empty.append(name)
+
+    raw_consistency = payload.get("consistency", {})
+    consistency = {str(key): bool(value) for key, value in raw_consistency.items()} if isinstance(raw_consistency, dict) else {}
+    required_consistency = ("same_profile", "same_table_titles", "same_figure_count", "single_source_model")
+    consistency_ok = all(consistency.get(key) is True for key in required_consistency)
+    ok = not missing and not empty and consistency_ok
+
+    return PresentationBundleValidationResult(
+        manifest_path=manifest,
+        ok=ok,
+        files_checked=tuple(checked),
+        missing_files=tuple(missing),
+        empty_files=tuple(empty),
+        consistency=consistency,
+    )
+
+
 def export_presentation_package(
     model: PresentationModel,
     *,
@@ -494,10 +570,12 @@ __all__ = [
     "PresentationDocxExportResult",
     "PresentationPdfExportResult",
     "PresentationBundleExportResult",
+    "PresentationBundleValidationResult",
     "export_presentation_bundle_package",
     "export_presentation_docx_package",
     "export_presentation_html_package",
     "export_presentation_package",
     "export_presentation_pdf_package",
     "safe_export_basename",
+    "validate_presentation_bundle_export",
 ]

@@ -7,6 +7,13 @@
 
 # Changelog
 
+## Export Release QA v46
+
+- Added bundle-manifest validation for professional presentation exports.
+- Added `scripts/release_export_qa.py` as the release-level HTML/PDF/DOCX export QA command.
+- Verified referenced bundle files, non-empty artifacts and cross-format consistency flags.
+- Added regression tests for successful bundle validation, missing artifact detection and CLI JSON output.
+
 ## Export Reliability v45
 
 - Added a single renderer-neutral export facade for professional presentation reports.
@@ -142,6 +149,13 @@
 - Added tests for Curve Manager Professional foundation.
 
 # Changelog
+
+## Export Release QA v46
+
+- Added bundle-manifest validation for professional presentation exports.
+- Added `scripts/release_export_qa.py` as the release-level HTML/PDF/DOCX export QA command.
+- Verified referenced bundle files, non-empty artifacts and cross-format consistency flags.
+- Added regression tests for successful bundle validation, missing artifact detection and CLI JSON output.
 
 ## gas-ratio-pro-phase2-specification
 
