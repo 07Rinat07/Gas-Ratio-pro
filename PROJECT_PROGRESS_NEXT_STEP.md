@@ -1,9 +1,11 @@
-# Project Progress - Next Step
+# Next Step
 
-## Completed in v30
+Current increment: v31 — DOCX Renderer Foundation.
 
-PDF Renderer Foundation was added on top of the shared `EngineeringDocument` model. The renderer produces PDF bytes and PDF export packages without rerunning calculations or interpretation rules.
+Completed:
+- Added DOCX rendering over EngineeringDocument.
+- Added DOCX export package and manifest.
+- Kept HTML/PDF/DOCX synchronized through Document Model.
 
-## Next Step
-
-PRS-7: add plot image backend for PDF reports so professional well-log tablets can be embedded as print-ready raster/SVG pages.
+Recommended next step:
+- Add shared plot image renderer for PDF/DOCX exports, or unify multi-format export package.

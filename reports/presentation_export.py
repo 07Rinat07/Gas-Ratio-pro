@@ -8,6 +8,7 @@ import re
 
 from reports.presentation_html import PresentationHtmlOptions, build_presentation_html_report
 from reports.presentation_pdf import PresentationPdfOptions, build_presentation_pdf_report
+from reports.presentation_docx import PresentationDocxOptions, build_presentation_docx_report
 from reports.presentation_model import PresentationModel
 
 
@@ -36,6 +37,17 @@ class PresentationExportResult:
     """Files created by the presentation export layer."""
 
     html_path: Path
+    manifest_path: Path
+    profile: str
+    table_titles: tuple[str, ...]
+    figure_count: int
+
+
+@dataclass(frozen=True)
+class PresentationDocxExportResult:
+    """DOCX file created by the presentation export layer."""
+
+    docx_path: Path
     manifest_path: Path
     profile: str
     table_titles: tuple[str, ...]
@@ -134,6 +146,61 @@ def export_presentation_html_package(
     )
 
 
+def export_presentation_docx_package(
+    model: PresentationModel,
+    *,
+    options: PresentationExportOptions,
+    docx_options: PresentationDocxOptions | None = None,
+) -> PresentationDocxExportResult:
+    """Write a professional DOCX report plus a reproducible export manifest."""
+
+    output_dir = Path(options.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    base_name = safe_export_basename(options.base_name)
+
+    rendered = build_presentation_docx_report(
+        model,
+        options=docx_options
+        or PresentationDocxOptions(
+            include_figures=options.include_figures,
+            include_technical_appendix=options.include_technical_appendix,
+            title=model.metadata.title,
+        ),
+    )
+
+    docx_path = output_dir / f"{base_name}.docx"
+    manifest_path = output_dir / f"{base_name}.docx.manifest.json"
+    _write_bytes(docx_path, rendered.content, overwrite=options.overwrite)
+
+    manifest = {
+        "schema": "gas-ratio-pro/presentation/docx-export/v1",
+        "created_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "profile": rendered.profile,
+        "docx_file": docx_path.name,
+        "table_titles": list(rendered.table_titles),
+        "figure_count": rendered.figure_count,
+        "presentation_schema": model.schema,
+        "docx_schema": rendered.schema,
+        "metadata": {
+            "title": model.metadata.title,
+            "subtitle": model.metadata.subtitle,
+            "source_label": model.metadata.source_label,
+            "project_label": model.metadata.project_label,
+            "depth_label": model.metadata.depth_label,
+            "report_profile": model.metadata.report_profile,
+        },
+    }
+    _write_bytes(manifest_path, json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"), overwrite=options.overwrite)
+
+    return PresentationDocxExportResult(
+        docx_path=docx_path,
+        manifest_path=manifest_path,
+        profile=rendered.profile,
+        table_titles=rendered.table_titles,
+        figure_count=rendered.figure_count,
+    )
+
+
 def export_presentation_pdf_package(
     model: PresentationModel,
     *,
@@ -192,7 +259,9 @@ def export_presentation_pdf_package(
 __all__ = [
     "PresentationExportOptions",
     "PresentationExportResult",
+    "PresentationDocxExportResult",
     "PresentationPdfExportResult",
+    "export_presentation_docx_package",
     "export_presentation_html_package",
     "export_presentation_pdf_package",
     "safe_export_basename",
