@@ -6,7 +6,7 @@ from typing import Iterable, Mapping, Sequence
 import pandas as pd
 
 
-HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v7"
+HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v8"
 
 NON_PROSPECTIVE_LABELS = (
     "Недостаточно данных",
@@ -110,6 +110,8 @@ class HydrocarbonInterval:
     fluid_type: str
     confidence: str
     interpretation: str
+    confidence_score: int = 0
+    confidence_factors: tuple[str, ...] = ()
     average_wh: float | None = None
     average_bh: float | None = None
     average_ch: float | None = None
@@ -374,6 +376,93 @@ def _mean(frame: pd.DataFrame, *columns: str) -> float | None:
     return None
 
 
+
+def _confidence_label_from_score(score: int) -> str:
+    """Convert numeric engineering confidence score to a stable label."""
+
+    if score >= 75:
+        return "high"
+    if score >= 50:
+        return "medium"
+    return "low"
+
+
+def _confidence_score_for_group(
+    frame: pd.DataFrame,
+    fluid_type: str,
+    evidence_items: Sequence[IntervalEvidence],
+    quality_flags: Sequence[str],
+) -> tuple[int, tuple[str, ...]]:
+    """Calculate evidence-based confidence score for one interval.
+
+    The score is not a reserve/economic probability. It only describes how well
+    the current mud-gas indicators support the interval classification. The
+    calculation is intentionally transparent: every bonus or penalty is returned
+    as a machine-readable factor for reports, QA and future audit trails.
+    """
+
+    score = 20
+    factors: list[str] = ["base=20"]
+
+    methods = {item.method.lower() for item in evidence_items}
+    parameters = {item.parameter.lower() for item in evidence_items}
+
+    if "haworth" in methods:
+        score += 18
+        factors.append("haworth_evidence=+18")
+    if "pixler" in methods:
+        score += 18
+        factors.append("pixler_evidence=+18")
+    if "oil indicator" in parameters:
+        score += 12
+        factors.append("oil_indicator=+12")
+    if "text interpretation" in parameters:
+        score += 8
+        factors.append("row_interpretation=+8")
+
+    sample_count = len(frame)
+    if sample_count >= 3:
+        score += 12
+        factors.append("multi_sample_interval=+12")
+    elif sample_count == 2:
+        score += 6
+        factors.append("two_sample_interval=+6")
+
+    if fluid_type in {"transition", "uncertain"}:
+        score -= 18
+        factors.append("uncertain_or_transition=-18")
+    if fluid_type == "water":
+        score -= 10
+        factors.append("water_class=-10")
+
+    penalty_by_flag = {
+        "no_numeric_gas_ratios": -30,
+        "limited_numeric_evidence": -12,
+        "single_sample_interval": -10,
+        "uncertain_fluid_character": -18,
+        "contains_missing_ratio_values": -8,
+        "contains_barrier_rows": -20,
+    }
+    for flag in quality_flags:
+        penalty = penalty_by_flag.get(flag, 0)
+        if penalty:
+            score += penalty
+            factors.append(f"{flag}={penalty}")
+
+    # Explicit Claystone/Shale/Tight barriers are handled outside productive
+    # intervals. If a barrier row still leaked into the group, keep the interval
+    # printable but reduce confidence strongly instead of hiding it.
+    if "lithology_class" in frame.columns:
+        barrier_rows = frame["lithology_class"].astype(str).isin(BARRIER_LITHOLOGY_CLASSES).sum()
+        if barrier_rows:
+            penalty = -15 * int(barrier_rows)
+            score += penalty
+            factors.append(f"barrier_lithology_rows={penalty}")
+
+    score = max(0, min(100, int(round(score))))
+    factors.append(f"final={score}")
+    return score, tuple(factors)
+
 def _classification_confidence(frame: pd.DataFrame, fluid_type: str) -> str:
     """Estimate confidence from independent evidence count.
 
@@ -581,7 +670,7 @@ def build_interval_engineering_note(interval: HydrocarbonInterval) -> str:
     label = FLUID_TYPE_LABELS.get(interval.fluid_type, interval.fluid_type)
     confidence = CONFIDENCE_LABELS.get(interval.confidence, interval.confidence)
     parts = [
-        f"{label} {interval.top:g}-{interval.base:g} м, мощность {interval.thickness:g} м, {confidence}.",
+        f"{label} {interval.top:g}-{interval.base:g} м, мощность {interval.thickness:g} м, {confidence}, score {interval.confidence_score}%.",
     ]
     if interval.average_wh is not None or interval.average_bh is not None:
         parts.append(
@@ -635,9 +724,17 @@ def _interval_from_group(group: Sequence[Mapping[str, object]]) -> HydrocarbonIn
     base = float(base_values.max())
     interpretation = _dominant(frame.get("interpretation", pd.Series(dtype=str)).astype(str), default=fluid_type)
     confidence_values = frame.get("confidence", pd.Series(dtype=str)).astype(str)
-    confidence = _confidence(confidence_values)
+    source_confidence = _confidence(confidence_values)
+    evidence_items = _evidence_items_for_group(frame, fluid_type)
+    quality_flags = _quality_flags_for_group(frame, fluid_type)
+    confidence_score, confidence_factors = _confidence_score_for_group(frame, fluid_type, evidence_items, quality_flags)
+    confidence = _confidence_label_from_score(confidence_score)
+    if source_confidence == "high" and confidence == "medium":
+        confidence = "high"
     if confidence == "low":
-        confidence = _classification_confidence(frame, fluid_type)
+        legacy_confidence = _classification_confidence(frame, fluid_type)
+        if legacy_confidence == "medium" and confidence_score >= 45:
+            confidence = "medium"
 
     interval = HydrocarbonInterval(
         top=top,
@@ -646,6 +743,8 @@ def _interval_from_group(group: Sequence[Mapping[str, object]]) -> HydrocarbonIn
         fluid_type=fluid_type,
         confidence=confidence,
         interpretation=interpretation,
+        confidence_score=confidence_score,
+        confidence_factors=confidence_factors,
         average_wh=_mean(frame, "wh", "wetness"),
         average_bh=_mean(frame, "bh", "balance"),
         average_ch=_mean(frame, "ch", "character"),
@@ -653,9 +752,9 @@ def _interval_from_group(group: Sequence[Mapping[str, object]]) -> HydrocarbonIn
         average_pixler_c1_c2=_mean(frame, "c1_c2", "pixler_c1_c2"),
         average_pixler_c1_c3=_mean(frame, "c1_c3", "pixler_c1_c3"),
         average_oil_indicator=_mean(frame, "oil_indicator"),
-        evidence_items=_evidence_items_for_group(frame, fluid_type),
-        evidence=_evidence_for_group(frame, fluid_type),
-        quality_flags=_quality_flags_for_group(frame, fluid_type),
+        evidence_items=evidence_items,
+        evidence=tuple(_format_evidence_item(item) for item in evidence_items),
+        quality_flags=quality_flags,
         warnings=_warnings_for_group(frame, fluid_type),
         source_start_row=int(frame.get("__source_row", pd.Series([0])).min()) if "__source_row" in frame.columns else None,
         source_end_row=int(frame.get("__source_row", pd.Series([0])).max()) if "__source_row" in frame.columns else None,
@@ -808,6 +907,8 @@ def hydrocarbon_interval_table_rows(intervals: Iterable[HydrocarbonInterval]) ->
             "samples": interval.sample_count,
             "fluid_type": interval.fluid_type,
             "confidence": interval.confidence,
+            "confidence_score": interval.confidence_score,
+            "confidence_factors": " ".join(interval.confidence_factors),
             "interpretation": interval.interpretation,
             "avg_Wh": interval.average_wh,
             "avg_Bh": interval.average_bh,
@@ -881,9 +982,10 @@ def hydrocarbon_interval_marker_rows(intervals: Iterable[HydrocarbonInterval]) -
                 "label": style["label"],
                 "fluid_type": interval.fluid_type,
                 "confidence": interval.confidence,
+                "confidence_score": interval.confidence_score,
                 "line_color": style["color"],
                 "fill_color": style["fill"],
-                "annotation": f"{style['label']} {interval.top:g}-{interval.base:g} м ({interval.confidence})",
+                "annotation": f"{style['label']} {interval.top:g}-{interval.base:g} м ({interval.confidence}, {interval.confidence_score}%)",
                 "engineering_note": interval.engineering_note,
                 "quality_flags": " ".join(interval.quality_flags),
             }

@@ -1531,3 +1531,17 @@ Project Manager 2.0 расширен восстановлением проект
 Current active module remains **Hydrocarbon Interval Engine**. The project must complete this module before moving to Interpretation Engine, Report Engine or Petrophysics.
 
 Version v6 adds lithology/barrier awareness. Productive intervals separated by Clay, Claystone, Shale or Tight barrier intervals must remain separate in reports and graph markers by default. Barriers are stored in a dedicated barrier model and may be shown as a separate report table.
+
+## Hydrocarbon Interval Engine v8 note
+
+Current active module remains **Hydrocarbon Interval Engine**.
+
+Version v8 adds evidence-based confidence scoring:
+
+- numeric confidence score 0-100;
+- label low / medium / high derived from score;
+- auditable confidence factors;
+- penalties from quality flags;
+- no automatic merging through explicit lithological barriers.
+
+Confidence score is an engineering QA value for mud-gas interpretation only. It is not a reserve probability, test result or commercial productivity proof.

@@ -55,3 +55,13 @@ This keeps the Hydrocarbon Interval Engine as the single source of truth for lat
 Interpretation Engine, graph markers, PDF reports and dashboards. Report modules must
 consume the existing interval model and must not recalculate their own evidence.
 
+
+## Hydrocarbon Interval Engine v8 — Confidence Scoring
+
+Implemented inside the active module only.
+
+- Added numeric `confidence_score` from 0 to 100.
+- Added `confidence_factors` for audit and future reports.
+- Confidence now uses structured evidence and quality flags.
+- Barrier-aware interval separation remains unchanged.
+- Next step: validate confidence behavior on weak / uncertain / water / real LAS cases before moving to another module.

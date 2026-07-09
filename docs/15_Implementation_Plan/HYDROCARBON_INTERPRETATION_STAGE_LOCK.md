@@ -301,3 +301,28 @@ This keeps the Hydrocarbon Interval Engine as the single source of truth for lat
 Interpretation Engine, graph markers, PDF reports and dashboards. Report modules must
 consume the existing interval model and must not recalculate their own evidence.
 
+
+## Hydrocarbon Interval Engine v8 — Confidence Scoring
+
+The active stage remains **Hydrocarbon Interval Engine**.
+
+This step adds transparent, evidence-based confidence scoring to the interval model.
+Confidence is no longer only a text label. Each interval now carries:
+
+- `confidence_score` — numeric engineering confidence from 0 to 100;
+- `confidence` — stable label derived from score: low / medium / high;
+- `confidence_factors` — machine-readable list of bonuses and penalties;
+- quality penalties from `quality_flags`;
+- support from structured evidence such as Haworth, Pixler and project oil indicator values.
+
+Important rule:
+
+> Confidence score is not an economic probability and does not prove commercial productivity. It only describes how consistently the available mud-gas indicators support the current interval classification.
+
+The module still preserves separated hydrocarbon intervals across explicit gaps and lithological barriers such as Claystone, Shale or tight intervals.
+
+Next work remains inside Hydrocarbon Interval Engine:
+
+1. finish confidence scoring tests on real LAS examples;
+2. validate weak, uncertain and water cases;
+3. prepare Definition of Done checklist for this module before moving to Interpretation Engine.

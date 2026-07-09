@@ -96,7 +96,7 @@ def test_hydrocarbon_interval_engine_keeps_transition_candidates_when_enabled() 
     assert len(result.intervals) == 1
     assert result.intervals[0].fluid_type in {"mixed", "transition"}
     assert result.rows["hydrocarbon_candidate"].all()
-    assert result.schema.endswith("/v7")
+    assert result.schema.endswith("/v8")
 
 
 def test_hydrocarbon_interval_engine_builds_graph_marker_rows() -> None:
@@ -141,7 +141,7 @@ def test_hydrocarbon_interval_engine_distinguishes_directional_oil_gas_labels() 
     )
 
     assert [interval.fluid_type for interval in result.intervals] == ["gas_oil", "oil_gas"]
-    assert result.schema.endswith("/v7")
+    assert result.schema.endswith("/v8")
 
 
 def test_hydrocarbon_interval_engine_keeps_uncertain_candidates_but_excludes_water() -> None:
@@ -270,10 +270,39 @@ def test_hydrocarbon_interval_engine_exports_structured_evidence_and_quality_fla
     table_rows = hydrocarbon_interval_table_rows(result.intervals)
     markers = hydrocarbon_interval_marker_rows(result.intervals)
 
-    assert result.schema.endswith("/v7")
+    assert result.schema.endswith("/v8")
     assert interval.evidence_items
     assert {item.method for item in interval.evidence_items} >= {"Haworth", "Pixler", "HydrocarbonIntervalEngine"}
     assert "single_sample_interval" in interval.quality_flags
     assert table_rows[0]["evidence_items"]
     assert "single_sample_interval" in table_rows[0]["quality_flags"]
     assert "single_sample_interval" in markers[0]["quality_flags"]
+
+
+
+def test_hydrocarbon_interval_engine_calculates_confidence_score_and_factors() -> None:
+    frame = pd.DataFrame(
+        {
+            "depth": [2300.0, 2301.0, 2302.0],
+            "interpretation": ["Нефтяная залежь", "Нефтяная залежь", "Нефтяная залежь"],
+            "wh": [26.0, 27.0, 28.0],
+            "bh": [9.0, 10.0, 11.0],
+            "c1_c2": [6.0, 7.0, 8.0],
+            "oil_indicator": [0.18, 0.2, 0.22],
+        }
+    )
+
+    result = detect_hydrocarbon_intervals(frame, rules=HydrocarbonIntervalRuleSet(max_depth_gap=2.0))
+    interval = result.intervals[0]
+    table_rows = hydrocarbon_interval_table_rows(result.intervals)
+    markers = hydrocarbon_interval_marker_rows(result.intervals)
+
+    assert result.schema.endswith("/v8")
+    assert interval.confidence_score >= 75
+    assert interval.confidence == "high"
+    assert any(factor.startswith("haworth_evidence=") for factor in interval.confidence_factors)
+    assert any(factor.startswith("pixler_evidence=") for factor in interval.confidence_factors)
+    assert table_rows[0]["confidence_score"] == interval.confidence_score
+    assert "final=" in table_rows[0]["confidence_factors"]
+    assert markers[0]["confidence_score"] == interval.confidence_score
+    assert "%" in markers[0]["annotation"]
