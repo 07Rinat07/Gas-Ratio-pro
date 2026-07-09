@@ -738,3 +738,14 @@ git status --short
 
 ### Validation
 - Added regression tests for downsampling, interval overlays and safe track filtering.
+
+## v24 — README cleanup and documentation policy
+
+### Changed
+- Reworked `README.md` into a stable project overview instead of a development diary.
+- Removed sprint/version-specific implementation notes from the README.
+- Added a README policy document to keep progress notes, release notes and technical history out of the public project introduction.
+
+### Rationale
+- README should explain what GAS RATIO PRO is, what it does, how to install and run it, and where to find documentation.
+- Development history belongs in changelog, roadmap, progress and architecture documents.

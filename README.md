@@ -1,51 +1,81 @@
 # GAS RATIO PRO
 
-**GAS RATIO PRO** — профессиональная инженерная платформа для обработки, анализа, интерпретации и визуализации геолого-геофизических данных скважин.
+**GAS RATIO PRO** — профессиональная инженерная платформа для обработки, анализа, интерпретации и визуализации данных нефтегазовых скважин.
 
-Программа предназначена для работы с каротажными данными, LAS-файлами, кривыми ГИС, данными скважин, инженерными расчетами, корреляцией, геологическим моделированием, визуализацией и подготовкой отчетов.
+Проект предназначен для практической работы с LAS/Excel-данными, газовым каротажем, кривыми ГИС, интерпретацией углеводородных интервалов, подготовкой инженерных отчетов и дальнейшего развития в сторону петрофизики и геологического моделирования.
 
-Проект разрабатывается как модульное программное обеспечение для нефтегазовых, геологических, геофизических и петрофизических задач. Основная идея проекта — объединить в одном рабочем пространстве инструменты для загрузки, проверки, редактирования, анализа, интерпретации и экспорта данных скважин.
+## Главный принцип
 
+> Каждая интерпретация должна быть понятной, объяснимой и воспроизводимой.
 
-## Roadmap 2.0 status
+Программа не должна быть «черным ящиком». Пользователь должен видеть не только результат, но и основания: какие признаки сработали, насколько достоверен вывод, какие ограничения есть у интерпретации и что необходимо проверить дополнительно.
 
-Текущий завершенный инкремент: **PRS-4 Professional Well Log Plot Engine foundation v23**.
+## Назначение
 
-Добавлено ядро профессионального планшета: общая шкала глубины, ограничение количества точек для читаемой печати, зоны интерпретации УВ-интервалов, подписи типа флюида и достоверности.
+GAS RATIO PRO помогает специалисту быстро ответить на основные инженерные вопросы:
 
-Следующий шаг: интеграция профессионального планшета в инженерный отчет по умолчанию.
+- где находятся потенциально продуктивные интервалы;
+- какой тип флюида наиболее вероятен;
+- насколько надежна интерпретация;
+- какие признаки подтверждают вывод;
+- какие интервалы требуют дополнительной проверки;
+- какие результаты можно включить в инженерный отчет.
 
 ## Основные возможности
 
-- просмотр и анализ LAS-файлов;
-- создание и редактирование LAS-файлов;
-- управление каротажными кривыми;
-- редактирование заголовков и табличных данных LAS;
-- работа с проектами и скважинами;
-- визуализация геофизических данных;
-- корреляция скважин;
-- базовое геологическое моделирование;
-- расчетные и статистические инструменты;
-- импорт и экспорт инженерных данных;
-- подготовка отчетов.
+- импорт и просмотр LAS-файлов;
+- импорт табличных данных из Excel/CSV;
+- контроль качества исходных данных;
+- расчет газогеохимических параметров и отношений;
+- выделение и классификация углеводородных интервалов;
+- учет литологии и непроницаемых перемычек;
+- формирование объяснимой интерпретации;
+- подготовка инженерных отчетов;
+- визуализация кривых и интервалов;
+- экспорт результатов;
+- развитие в сторону петрофизического анализа и геологического моделирования.
 
-## Системные требования
+## Архитектурная идея
 
-- Python 3.10 или выше;
-- Windows 10/11, Linux или macOS;
-- рекомендуется 8 ГБ оперативной памяти и выше.
+```text
+Import
+  ↓
+Quality Control
+  ↓
+Calculations
+  ↓
+Hydrocarbon Interpretation
+  ↓
+Explanation / Confidence / Recommendations
+  ↓
+Visualization
+  ↓
+Engineering Reports
+```
+
+Расчетная логика, интерпретация, визуализация и отчетность разделены по слоям. UI не должен содержать собственных расчетов, а отчеты и графики должны использовать результаты интерпретационного ядра.
+
+## Структура проекта
+
+```text
+app/        Streamlit-интерфейс приложения
+core/       расчетное и интерпретационное ядро
+reports/    отчеты, таблицы и инженерные представления
+importers/  импорт LAS, Excel, CSV и других данных
+las_editor/ инструменты редактирования LAS
+las_correlation/ корреляция и работа с несколькими скважинами
+tests/      автоматические тесты
+docs/       техническая, научная и проектная документация
+examples/   демонстрационные данные
+```
 
 ## Установка
 
-Распакуйте архив проекта или клонируйте репозиторий, затем откройте терминал в папке проекта.
-
-Создайте виртуальное окружение:
+Требуется Python 3.10 или выше.
 
 ```bash
 python -m venv .venv
 ```
-
-Активируйте окружение.
 
 Windows PowerShell:
 
@@ -65,9 +95,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Запуск проекта
-
-Запуск через Streamlit:
+## Запуск
 
 ```bash
 streamlit run app/streamlit_app.py
@@ -79,17 +107,38 @@ streamlit run app/streamlit_app.py
 python -m streamlit run app/streamlit_app.py
 ```
 
-После запуска откройте в браузере адрес, который покажет Streamlit. Обычно это:
+После запуска откройте адрес, который покажет Streamlit. Обычно это:
 
 ```text
 http://localhost:8501
 ```
 
-На Windows также можно использовать файл:
+На Windows также можно использовать:
 
 ```powershell
 .\run_app.ps1
 ```
+
+## Документация
+
+Основная документация находится в каталоге `docs/`.
+
+Рекомендуемая структура документации:
+
+- `docs/CHANGELOG.md` — история изменений;
+- `docs/project_plan.md` — общий план проекта;
+- `docs/formulas.md` — расчетные формулы;
+- `docs/mud_gas_analysis_literature.md` — источники и литература;
+- `docs/user_guide.md` — руководство пользователя;
+- `docs/development.md` — информация для разработчика;
+- `docs/setup.md` — настройка окружения;
+- `docs/troubleshooting.md` — диагностика проблем.
+
+README описывает назначение и запуск проекта. История версий, текущие инкременты и внутренний прогресс разработки должны храниться в `CHANGELOG.md`, `ROADMAP.md`, `PROJECT_PROGRESS.md` или других документах из каталога `docs/`.
+
+## Статус проекта
+
+Проект находится в активной стадии разработки.
 
 ## Автор проекта
 
@@ -97,37 +146,6 @@ http://localhost:8501
 
 Инженер-программист, автор и разработчик программного комплекса **GAS RATIO PRO**.
 
-## Статус проекта
-
-Проект находится в активной стадии разработки.
-
 ## Лицензия
 
 Частный проект. Все права защищены.
-
-
-## Hydrocarbon Interpretation Engine v1.0
-
-Status: frozen public API after Validation Dataset v2 passes. Next major module: Professional Reporting System.
-## Professional Reporting System
-
-The first Professional Reporting System increment adds an Executive Summary layer.
-Reports should answer engineering questions first: what intervals were found, where they are located, how reliable they are and what should be checked next. Technical row counters, raw diagnostics and full calculation dumps belong to technical appendices, not to the first report header.
-
-
-
-## Professional Reporting System
-
-The current reporting layer starts with engineer-facing outputs instead of raw technical counters.
-
-Implemented increments:
-
-- Executive Summary — first-page engineering conclusion.
-- Interval Cards — compact cards for each interpreted interval with depth, thickness, fluid type, confidence, explanation, recommendations and limitations.
-
-Technical tables and diagnostics are still preserved for expert/appendix workflows, but they are no longer the primary report experience.
-
-## v22 Reporting behavior
-
-The default interval print report now uses an `engineering` profile. It emphasizes executive summary, interval cards, confidence, recommendations and limitations. Technical row-count tables and raw dataframe previews are available through the `expert` profile.
-
