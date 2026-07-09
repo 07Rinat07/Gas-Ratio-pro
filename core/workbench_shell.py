@@ -369,6 +369,126 @@ class WorkbenchShellModel:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class WorkbenchRendererAction:
+    """UI-facing action descriptor for renderer adapters.
+
+    Renderer actions are intentionally declarative.  A Streamlit, desktop or web
+    renderer can show buttons, links or keyboard shortcuts from this payload and
+    submit only the command id plus user-provided payload back to the command
+    framework.  No renderer needs to know how navigation or dock state is
+    persisted.
+    """
+
+    id: str
+    command_id: str
+    title: str
+    target: str
+    payload_schema: dict[str, Any] = field(default_factory=dict)
+    enabled: bool = True
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def normalized(self) -> "WorkbenchRendererAction":
+        clean_id = str(self.id or "").strip()
+        if not clean_id:
+            raise ValueError("Renderer action id must not be empty.")
+        clean_command_id = str(self.command_id or "").strip()
+        if not clean_command_id:
+            raise ValueError("Renderer action command id must not be empty.")
+        clean_title = str(self.title or "").strip()
+        if not clean_title:
+            raise ValueError("Renderer action title must not be empty.")
+        clean_target = str(self.target or "").strip() or "workbench"
+        return WorkbenchRendererAction(
+            id=clean_id,
+            command_id=clean_command_id,
+            title=clean_title,
+            target=clean_target,
+            payload_schema=dict(self.payload_schema or {}),
+            enabled=bool(self.enabled),
+            metadata=dict(self.metadata or {}),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        action = self.normalized()
+        return {
+            "id": action.id,
+            "command_id": action.command_id,
+            "title": action.title,
+            "target": action.target,
+            "payload_schema": dict(action.payload_schema),
+            "enabled": action.enabled,
+            "metadata": dict(action.metadata),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class WorkbenchRendererContract:
+    """Stable payload consumed by future Workbench UI renderers.
+
+    The contract is narrower than the full shell model: it contains the exact
+    renderer-facing navigation, dock regions, status, command palette and
+    allowed interaction actions.  It deliberately excludes handlers, storage
+    objects and calculation data, so the UI boundary remains presentation-only.
+    """
+
+    version: str
+    renderer: str
+    shell: WorkbenchShellModel
+    actions: tuple[WorkbenchRendererAction, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "version": self.version,
+            "renderer": self.renderer,
+            "context": self.shell.context.to_dict(),
+            "status": self.shell.status.to_dict(),
+            "navigation": [item.to_dict() for item in self.shell.navigation if item.visible],
+            "dock_regions": self.shell.dock_layout.to_dict()["regions"],
+            "panels": [panel.to_dict() for panel in self.shell.panels if panel.visible],
+            "commands": [command.to_dict() for command in self.shell.commands if command.visible],
+            "interaction": self.shell.interaction.to_dict(),
+            "actions": [action.to_dict() for action in self.actions],
+        }
+
+    def action_ids(self) -> tuple[str, ...]:
+        return tuple(action.normalized().id for action in self.actions if action.enabled)
+
+
+def build_workbench_renderer_contract(
+    shell: WorkbenchShellModel,
+    *,
+    renderer: str = "streamlit",
+    version: str = "workbench-renderer-contract",
+) -> WorkbenchRendererContract:
+    """Build a framework-neutral renderer contract from the shell model."""
+
+    actions = (
+        WorkbenchRendererAction(
+            "action.select_navigation",
+            WORKBENCH_SELECT_NAVIGATION_COMMAND_ID,
+            "Выбрать раздел",
+            "navigation",
+            payload_schema={"navigation_id": "string"},
+            metadata={"active_navigation_id": shell.interaction.active_navigation_id},
+        ),
+        WorkbenchRendererAction(
+            "action.activate_dock_pane",
+            WORKBENCH_ACTIVATE_DOCK_PANE_COMMAND_ID,
+            "Активировать панель",
+            "dock",
+            payload_schema={"pane_id": "string"},
+            metadata={"active_dock_pane_id": shell.interaction.active_dock_pane_id},
+        ),
+    )
+    return WorkbenchRendererContract(
+        version=str(version or "workbench-renderer-contract").strip() or "workbench-renderer-contract",
+        renderer=str(renderer or "streamlit").strip() or "streamlit",
+        shell=shell,
+        actions=actions,
+    )
+
+
 DEFAULT_WORKBENCH_PANELS: tuple[WorkbenchPanel, ...] = (
     WorkbenchPanel("project_explorer", "Project Explorer", "left", order=10),
     WorkbenchPanel("workspace_toolbar", "Workspace Toolbar", "top", order=20),

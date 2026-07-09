@@ -46,6 +46,8 @@ Completed in v50: workspace sessions now persist and restore Workbench navigatio
 
 Completed in v51: Workbench interaction actions now go through the Command Framework. Navigation selection and dock-pane activation publish command events and update persisted shell state through core handlers instead of direct UI mutation.
 
+Completed in v52: the Modern Workbench shell now exposes a renderer contract for future Streamlit integration. The contract contains only presentation-safe payload sections: context, status, navigation, dock regions, panels, commands, interaction state and command-backed renderer actions. UI renderers can display this payload and submit command ids without owning business logic or persistence decisions.
+
 ## Next recommended increment
 
-Connect the command-driven Modern Workbench shell state to a Streamlit renderer boundary without moving calculations, persistence or export logic into UI code. Keep `scripts/release_export_qa.py` as the release check before packaging builds.
+Implement the first Streamlit Modern Workbench renderer adapter using the renderer contract. The adapter must only render contract payload and dispatch command ids through the command framework; calculations, persistence and export logic must stay in core/application services. Keep `scripts/release_export_qa.py` as the release check before packaging builds.
