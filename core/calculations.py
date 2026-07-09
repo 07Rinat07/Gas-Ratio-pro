@@ -9,7 +9,7 @@ import pandas as pd
 from core.models import CalculationConfig, CalculationResult, GAS_COMPONENT_FIELDS
 
 
-CH_WARNING = "Формула Ch требует подтверждения по корпоративной методике. См. docs/formulas.md#ch."
+CH_WARNING = "Формула Ch приведена к Haworth Character Ratio: (ΣC4 + ΣC5) / C3. См. docs/formulas.md#ch."
 METHODOLOGY_WARNING = (
     "Расчеты Wh/Bh/BAR2/Pixler/oil indicator являются предварительной инженерной "
     "подсказкой; проверьте единицы измерения C1-C5, mapping, нули и буровой контекст. "
@@ -172,12 +172,12 @@ def calculate_gas_ratios(
 
     if config.ch_mode == "A":
         result["ch"] = safe_divide(
-            result["c3"] + result["sum_c4"] + result["sum_c5"],
             result["sum_c4"] + result["sum_c5"],
+            result["c3"],
         )
     else:
         result["ch"] = np.nan
-        warnings.append("Ch отключен: выбран резервный режим без подтвержденной формулы.")
+        warnings.append("Ch отключен: выбран резервный режим без расчета Character Ratio.")
 
     warnings.append(CH_WARNING)
     warnings.append(METHODOLOGY_WARNING)

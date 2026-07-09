@@ -141,3 +141,21 @@ def test_calculation_warnings_reference_methodology_and_units_checks():
 
     assert any("единицы измерения C1-C5" in warning for warning in calculation.warnings)
     assert calculation.metadata["methodology_notice"].startswith("Расчеты Wh/Bh")
+
+
+def test_ch_uses_haworth_character_ratio_in_core_calculation():
+    df = pd.DataFrame(
+        {
+            "c1": [80.0],
+            "c2": [10.0],
+            "c3": [5.0],
+            "ic4": [3.0],
+            "nc4": [2.0],
+            "ic5": [1.0],
+            "nc5": [1.0],
+        }
+    )
+
+    result = calculate_gas_ratios(df).data
+
+    assert result.loc[0, "ch"] == pytest.approx((3.0 + 2.0 + 1.0 + 1.0) / 5.0)

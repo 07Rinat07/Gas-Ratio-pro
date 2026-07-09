@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from las_editor.mud_gas_interpretation import (
     build_mud_gas_interpretation_manifest,
@@ -107,3 +108,24 @@ def test_missing_required_curve_is_reported_as_error():
 
     assert not result.rows
     assert any(issue.code == "missing_curve" for issue in result.issues)
+
+
+def test_mud_gas_character_ratio_uses_haworth_formula():
+    df = pd.DataFrame(
+        {
+            "DEPTH": [1000.0],
+            "C1": [80.0],
+            "C2": [10.0],
+            "C3": [5.0],
+            "C4": [5.0],
+            "C5": [2.0],
+        }
+    )
+
+    ratios, issues = calculate_mud_gas_ratios(
+        df,
+        {"depth": "DEPTH", "c1": "C1", "c2": "C2", "c3": "C3", "c4": "C4", "c5": "C5"},
+    )
+
+    assert not [issue for issue in issues if issue.severity == "error"]
+    assert ratios[0].character == pytest.approx((5.0 + 2.0) / 5.0)

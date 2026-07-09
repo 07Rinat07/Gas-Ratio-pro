@@ -1,3 +1,10 @@
+# Formula Source Audit
+
+- Added formula/source audit for mud-gas and petrophysical calculations.
+- Corrected core `CH` calculation to Haworth Character Ratio `(ΣC4 + ΣC5) / C3`.
+- Updated formula documentation with bibliography, authorship and copyright/patent handling rules.
+- Added regression tests for `CH` in the core calculation path and mud-gas interpretation path.
+
 ## Phase II → C.11 Model Validation & Audit Workspace Foundation
 
 - Added `projects/model_validation_audit_workspace.py`.
