@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
+import os
+import sys
 from typing import Sequence
 
 try:
@@ -75,33 +77,81 @@ _FONT_REGULAR = "GasRatioProSans"
 _FONT_BOLD = "GasRatioProSans-Bold"
 
 
-def _register_fonts() -> tuple[str, str]:
-    """Register Unicode-capable fonts for Cyrillic engineering reports.
+def _font_candidates() -> tuple[tuple[Path, Path], ...]:
+    """Return Unicode-capable regular/bold font pairs for PDF rendering.
 
-    ReportLab built-in Helvetica is not sufficient for Russian text. We use a
-    system font when available and fall back to Helvetica only when the runtime
-    does not provide TrueType fonts. Font files are not bundled into exports.
+    The renderer must work on Windows, Linux and macOS because reports can be
+    generated from a desktop workstation or a server.  Built-in PDF fonts such
+    as Helvetica do not contain Cyrillic/Kazakh glyphs, therefore the renderer
+    must actively discover a real TrueType/OpenType font.
     """
 
-    candidates = (
-        (
-            Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
-            Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
-        ),
-        (
-            Path("/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf"),
-            Path("/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf"),
-        ),
+    project_root = Path(__file__).resolve().parents[1]
+    configured_regular = os.getenv("GAS_RATIO_PRO_PDF_FONT")
+    configured_bold = os.getenv("GAS_RATIO_PRO_PDF_FONT_BOLD")
+    configured_pair: tuple[Path, Path] | None = None
+    if configured_regular:
+        regular = Path(configured_regular)
+        bold = Path(configured_bold) if configured_bold else regular
+        configured_pair = (regular, bold)
+
+    candidates: list[tuple[Path, Path]] = []
+    if configured_pair is not None:
+        candidates.append(configured_pair)
+
+    candidates.extend(
+        [
+            # Optional project-local fonts.  Do not commit proprietary system
+            # fonts here; this path is for open fonts when the project owner
+            # explicitly decides to bundle them.
+            (project_root / "assets" / "fonts" / "NotoSans-Regular.ttf", project_root / "assets" / "fonts" / "NotoSans-Bold.ttf"),
+            (project_root / "assets" / "fonts" / "DejaVuSans.ttf", project_root / "assets" / "fonts" / "DejaVuSans-Bold.ttf"),
+            # Linux distributions.
+            (Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"), Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")),
+            (Path("/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf"), Path("/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf")),
+            (Path("/usr/local/share/fonts/NotoSans-Regular.ttf"), Path("/usr/local/share/fonts/NotoSans-Bold.ttf")),
+            # Windows.  Arial supports Russian and Kazakh Cyrillic glyphs on
+            # standard Windows installations.
+            (Path("C:/Windows/Fonts/arial.ttf"), Path("C:/Windows/Fonts/arialbd.ttf")),
+            (Path("C:/Windows/Fonts/segoeui.ttf"), Path("C:/Windows/Fonts/segoeuib.ttf")),
+            (Path("C:/Windows/Fonts/calibri.ttf"), Path("C:/Windows/Fonts/calibrib.ttf")),
+            # macOS.
+            (Path("/System/Library/Fonts/Supplemental/Arial.ttf"), Path("/System/Library/Fonts/Supplemental/Arial Bold.ttf")),
+            (Path("/System/Library/Fonts/Supplemental/DejaVu Sans.ttf"), Path("/System/Library/Fonts/Supplemental/DejaVu Sans Bold.ttf")),
+        ]
     )
-    for regular, bold in candidates:
+    if sys.platform == "win32":
+        windir = Path(os.environ.get("WINDIR", "C:/Windows"))
+        candidates.extend(
+            [
+                (windir / "Fonts" / "arial.ttf", windir / "Fonts" / "arialbd.ttf"),
+                (windir / "Fonts" / "segoeui.ttf", windir / "Fonts" / "segoeuib.ttf"),
+                (windir / "Fonts" / "calibri.ttf", windir / "Fonts" / "calibrib.ttf"),
+            ]
+        )
+    return tuple(candidates)
+
+
+def _register_fonts() -> tuple[str, str]:
+    """Register Unicode-capable fonts for multilingual engineering reports.
+
+    ReportLab built-in Helvetica is not sufficient for Russian/Kazakh text and
+    produces black square placeholders in PDF viewers.  This function searches
+    project-local fonts first, then common Linux/Windows/macOS system fonts.
+    """
+
+    for regular, bold in _font_candidates():
         if regular.exists() and bold.exists():
             if _FONT_REGULAR not in pdfmetrics.getRegisteredFontNames():
                 pdfmetrics.registerFont(TTFont(_FONT_REGULAR, str(regular)))
             if _FONT_BOLD not in pdfmetrics.getRegisteredFontNames():
                 pdfmetrics.registerFont(TTFont(_FONT_BOLD, str(bold)))
             return _FONT_REGULAR, _FONT_BOLD
-    return "Helvetica", "Helvetica-Bold"
-
+    raise RuntimeError(
+        "PDF export requires a Unicode TrueType font for Russian/Kazakh text. "
+        "Install Noto Sans/DejaVu Sans or set GAS_RATIO_PRO_PDF_FONT and "
+        "GAS_RATIO_PRO_PDF_FONT_BOLD to valid .ttf files."
+    )
 
 def _safe_paper_size(value: str):
     text = str(value or "A4").strip().upper()
@@ -389,6 +439,7 @@ __all__ = [
     "PresentationPdfOptions",
     "PresentationPdfResult",
     "REPORTLAB_AVAILABLE",
+    "_font_candidates",
     "ensure_reportlab_available",
     "build_presentation_pdf_report",
     "render_engineering_document_pdf",

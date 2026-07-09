@@ -52,3 +52,11 @@ Heavy export backends must be imported lazily:
 - `reportlab` is required only for PDF export.
 - `python-docx` is required only for DOCX export.
 - The Streamlit interface, command palette and normal calculations must start without importing PDF/DOCX renderers eagerly.
+
+## PDF Unicode fonts
+
+PDF export requires a Unicode TrueType/OpenType font. On Windows the renderer
+uses standard system fonts such as Arial, Segoe UI or Calibri. On Linux it uses
+DejaVu Sans or Noto Sans when available. For custom deployments set
+`GAS_RATIO_PRO_PDF_FONT` and `GAS_RATIO_PRO_PDF_FONT_BOLD` to valid `.ttf` files.
+This is required for Russian, Kazakh and English multilingual reports.
