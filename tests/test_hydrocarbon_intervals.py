@@ -96,7 +96,7 @@ def test_hydrocarbon_interval_engine_keeps_transition_candidates_when_enabled() 
     assert len(result.intervals) == 1
     assert result.intervals[0].fluid_type in {"mixed", "transition"}
     assert result.rows["hydrocarbon_candidate"].all()
-    assert result.schema.endswith("/v4")
+    assert result.schema.endswith("/v5")
 
 
 def test_hydrocarbon_interval_engine_builds_graph_marker_rows() -> None:
@@ -141,7 +141,7 @@ def test_hydrocarbon_interval_engine_distinguishes_directional_oil_gas_labels() 
     )
 
     assert [interval.fluid_type for interval in result.intervals] == ["gas_oil", "oil_gas"]
-    assert result.schema.endswith("/v4")
+    assert result.schema.endswith("/v5")
 
 
 def test_hydrocarbon_interval_engine_keeps_uncertain_candidates_but_excludes_water() -> None:
@@ -158,3 +158,48 @@ def test_hydrocarbon_interval_engine_keeps_uncertain_candidates_but_excludes_wat
     assert result.intervals[0].fluid_type == "uncertain"
     assert result.rows.loc[result.rows["hydrocarbon_fluid_type"] == "water", "hydrocarbon_candidate"].eq(False).all()
     assert "неустойчивый" in " ".join(result.intervals[0].warnings)
+
+
+def test_hydrocarbon_interval_engine_preserves_explicit_barrier_gaps() -> None:
+    frame = pd.DataFrame(
+        {
+            "top": [2148.2, 2150.2],
+            "base": [2150.0, 2154.8],
+            "depth": [2148.2, 2150.2],
+            "interpretation": ["Газовая залежь", "Газовая залежь"],
+            "wh": [7.0, 8.0],
+            "bh": [45.0, 48.0],
+            "c1_c2": [80.0, 82.0],
+            "oil_indicator": [0.04, 0.05],
+        }
+    )
+
+    result = detect_hydrocarbon_intervals(frame)
+    table_rows = hydrocarbon_interval_table_rows(result.intervals)
+
+    assert len(result.intervals) == 2
+    assert [(interval.top, interval.base, interval.fluid_type) for interval in result.intervals] == [
+        (2148.2, 2150.0, "gas"),
+        (2150.2, 2154.8, "gas"),
+    ]
+    assert table_rows[1]["separated_by_gap"] is True
+
+
+def test_hydrocarbon_interval_engine_can_merge_explicit_gaps_when_requested() -> None:
+    frame = pd.DataFrame(
+        {
+            "top": [2148.2, 2150.2],
+            "base": [2150.0, 2154.8],
+            "depth": [2148.2, 2150.2],
+            "interpretation": ["Газовая залежь", "Газовая залежь"],
+        }
+    )
+
+    result = detect_hydrocarbon_intervals(
+        frame,
+        rules=HydrocarbonIntervalRuleSet(preserve_explicit_gaps=False),
+    )
+
+    assert len(result.intervals) == 1
+    assert result.intervals[0].top == 2148.2
+    assert result.intervals[0].base == 2154.8

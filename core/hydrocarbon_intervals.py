@@ -6,7 +6,7 @@ from typing import Iterable, Mapping, Sequence
 import pandas as pd
 
 
-HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v4"
+HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v5"
 
 NON_PROSPECTIVE_LABELS = (
     "Недостаточно данных",
@@ -60,6 +60,8 @@ class HydrocarbonIntervalRuleSet:
     minimum_samples: int = 1
     include_low_confidence: bool = True
     merge_compatible_fluids: bool = True
+    preserve_explicit_gaps: bool = True
+    barrier_lithology_labels: tuple[str, ...] = ("clay", "claystone", "shale", "tight", "barrier")
 
 
 @dataclass(frozen=True)
@@ -82,6 +84,9 @@ class HydrocarbonInterval:
     evidence: tuple[str, ...] = ()
     engineering_note: str = ""
     warnings: tuple[str, ...] = ()
+    source_start_row: int | None = None
+    source_end_row: int | None = None
+    separated_by_gap: bool = False
 
     @property
     def thickness(self) -> float:
@@ -358,8 +363,10 @@ def build_interval_engineering_note(interval: HydrocarbonInterval) -> str:
 def _interval_from_group(group: Sequence[Mapping[str, object]]) -> HydrocarbonInterval:
     frame = pd.DataFrame(group)
     fluid_type = _dominant(frame["hydrocarbon_fluid_type"].astype(str), default="mixed")
-    top = float(pd.to_numeric(frame["depth"], errors="coerce").min())
-    base = float(pd.to_numeric(frame["depth"], errors="coerce").max())
+    top_values = pd.to_numeric(frame.get("top", frame["depth"]), errors="coerce")
+    base_values = pd.to_numeric(frame.get("base", frame["depth"]), errors="coerce")
+    top = float(top_values.min())
+    base = float(base_values.max())
     interpretation = _dominant(frame.get("interpretation", pd.Series(dtype=str)).astype(str), default=fluid_type)
     confidence_values = frame.get("confidence", pd.Series(dtype=str)).astype(str)
     confidence = _confidence(confidence_values)
@@ -382,6 +389,9 @@ def _interval_from_group(group: Sequence[Mapping[str, object]]) -> HydrocarbonIn
         average_oil_indicator=_mean(frame, "oil_indicator"),
         evidence=_evidence_for_group(frame, fluid_type),
         warnings=_warnings_for_group(frame, fluid_type),
+        source_start_row=int(frame.get("__source_row", pd.Series([0])).min()) if "__source_row" in frame.columns else None,
+        source_end_row=int(frame.get("__source_row", pd.Series([0])).max()) if "__source_row" in frame.columns else None,
+        separated_by_gap=bool(frame.get("__separated_by_gap", pd.Series([False])).astype(bool).any()) if "__separated_by_gap" in frame.columns else False,
     )
     return HydrocarbonInterval(
         **{**interval.__dict__, "engineering_note": build_interval_engineering_note(interval)}
@@ -414,6 +424,8 @@ def detect_hydrocarbon_intervals(
         )
 
     rows = df.copy()
+    rows["__source_row"] = range(len(rows))
+    has_explicit_bounds = "top" in rows.columns and "base" in rows.columns
     rows[depth_column] = pd.to_numeric(rows[depth_column], errors="coerce")
     rows = rows.dropna(subset=[depth_column]).sort_values(depth_column).reset_index(drop=True)
     if rows.empty:
@@ -429,6 +441,7 @@ def detect_hydrocarbon_intervals(
     groups: list[list[Mapping[str, object]]] = []
     current: list[Mapping[str, object]] = []
     previous_depth: float | None = None
+    previous_base: float | None = None
     previous_group: str | None = None
 
     for record in rows.to_dict(orient="records"):
@@ -437,18 +450,27 @@ def detect_hydrocarbon_intervals(
                 groups.append(current)
                 current = []
             previous_depth = None
+            previous_base = None
             previous_group = None
             continue
 
         depth = float(record[depth_column])
+        row_top = _to_float(record.get("top"))
+        row_base = _to_float(record.get("base"))
+        explicit_top = depth if row_top is None else row_top
+        explicit_base = depth if row_base is None else row_base
+        explicit_gap = bool(has_explicit_bounds and previous_base is not None and explicit_top > previous_base)
+        record["__separated_by_gap"] = bool(explicit_gap)
         group_key = _fluid_group(str(record["hydrocarbon_fluid_type"]), merge_compatible_fluids=rules.merge_compatible_fluids)
         gap_ok = rules.max_depth_gap is None or previous_depth is None or abs(depth - previous_depth) <= rules.max_depth_gap
+        explicit_gap_ok = not (rules.preserve_explicit_gaps and explicit_gap)
         group_ok = previous_group is None or group_key == previous_group
-        if current and not (gap_ok and group_ok):
+        if current and not (gap_ok and explicit_gap_ok and group_ok):
             groups.append(current)
             current = []
         current.append(record)
         previous_depth = depth
+        previous_base = explicit_base
         previous_group = group_key
 
     if current:
@@ -490,6 +512,9 @@ def hydrocarbon_interval_table_rows(intervals: Iterable[HydrocarbonInterval]) ->
             "evidence": " ".join(interval.evidence),
             "engineering_note": interval.engineering_note,
             "warnings": " ".join(interval.warnings),
+            "source_start_row": interval.source_start_row,
+            "source_end_row": interval.source_end_row,
+            "separated_by_gap": interval.separated_by_gap,
         }
         for interval in intervals
     )

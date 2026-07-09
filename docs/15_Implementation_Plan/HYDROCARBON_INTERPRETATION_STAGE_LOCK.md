@@ -226,3 +226,35 @@ Validation:
 
 - compileall: PASS;
 - pytest: 1041 passed / 0 failed.
+
+## Current implementation update — Hydrocarbon Interval Engine v5
+
+The active stage remains Hydrocarbon Interval Engine. This step fixes the interval continuity policy and geological terminology before any report or petrophysics stage continues.
+
+Implemented in this step:
+
+- schema updated to `gas-ratio-pro/hydrocarbon-intervals/v5`;
+- explicit interval gaps are preserved by default;
+- hydrocarbon intervals are no longer automatically merged across explicit non-reservoir gaps;
+- merge across explicit gaps remains possible only through an explicit rule override: `preserve_explicit_gaps=False`;
+- interval rows now expose source row coverage metadata;
+- report table rows expose `source_start_row`, `source_end_row` and `separated_by_gap`;
+- terminology is fixed for lithological barriers:
+  - `Clay` means глина;
+  - `Claystone` means аргиллит / глинистая порода;
+  - `Shale` means глинистый сланец;
+  - `Tight barrier` means плотная непроницаемая перемычка.
+
+Geological rule:
+
+Productive intervals separated by a clay, claystone, shale or tight barrier interval must be reported as separate intervals by default. The engine may calculate total net pay separately, but it must not distort real tops and bases by joining intervals across barriers.
+
+Accepted reporting example:
+
+```text
+2148.2-2150.0  Gas
+2150.0-2150.2  Claystone / Tight barrier
+2150.2-2154.8  Gas
+```
+
+The two gas intervals remain separate productive intervals in the report.
