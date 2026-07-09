@@ -1,14 +1,14 @@
 # Project Progress — Next Step
 
-Current stage: Professional Reporting System.
+Current stage: Professional Reporting System / Presentation Layer.
 
-Completed in v25:
-- Added `reports/presentation_model.py`.
-- Introduced `PresentationModel` as the single presentation source for reports, plots, UI and future PDF/DOCX exporters.
-- Connected `HydrocarbonReportPayload` to the presentation model.
-- Added optional well-log plot composition through the same model.
-- Added regression tests that prevent report/plot renderers from diverging from the HIE result.
+Completed in v26:
+- Added `reports/presentation_html.py`.
+- Added a print-ready engineering HTML renderer that consumes `PresentationModel`.
+- Added explicit engineering/expert profile selection.
+- Added optional professional well-log plot embedding from the same presentation source.
+- Added regression tests to prevent HTML rendering from reintroducing technical diagnostics into the default engineering report.
 
 Next implementation step:
-- Build the first PDF-oriented renderer on top of `PresentationModel`.
-- Keep HTML, PDF, DOCX and UI consuming the same interpretation sections.
+- Build PDF export on top of the same `PresentationModel` / presentation renderer contract.
+- Keep the default report engineer-first: conclusions, intervals, confidence, recommendations and limitations before technical appendices.

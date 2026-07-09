@@ -764,3 +764,18 @@ git status --short
 
 ### Rationale
 - Reports, plots, PDF/DOCX exports and UI cards must use the same interpreted intervals, confidence, explanations, recommendations and limitations.
+
+## v26 — Presentation HTML renderer
+
+### Added
+- Added `reports/presentation_html.py` as a print-ready renderer on top of `PresentationModel`.
+- Added engineering/expert table profile selection without rebuilding report data.
+- Added optional professional well-log plot embedding from the same presentation model.
+- Added documentation for the Presentation HTML renderer contract.
+
+### Changed
+- The report presentation layer now has a dedicated HTML renderer that can become the basis for browser print/PDF export.
+- Engineering reports continue to hide technical diagnostics from the first report pages, while expert reports can include them explicitly.
+
+### Rationale
+- HTML, PDF, DOCX and UI exports must consume the same `PresentationModel` so report outputs stay consistent with HIE, interval cards and professional plots.
