@@ -5,11 +5,7 @@ from typing import Sequence
 import pandas as pd
 
 from reports.export_html import HtmlReportMetadata, HtmlReportTable, build_plotly_html_report
-from core.hydrocarbon_intervals import (
-    detect_hydrocarbon_intervals,
-    hydrocarbon_interval_dataframe,
-    hydrocarbon_interval_marker_dataframe,
-)
+from reports.hydrocarbon_report import build_hydrocarbon_report_payload
 
 
 def _format_cell(value: object) -> str:
@@ -101,38 +97,15 @@ def build_interpretation_counts_table(df: pd.DataFrame, *, column: str = "interp
 
 
 def build_hydrocarbon_interval_summary_table(df: pd.DataFrame) -> HtmlReportTable | None:
-    """Build report-ready summary of all detected hydrocarbon intervals.
+    """Build report-ready summary through the unified hydrocarbon payload."""
 
-    This table is intentionally separated from the raw selected interval table:
-    it represents interpreted oil/gas/condensate candidates and is the future
-    input model for marked graphs and PDF export.
-    """
-
-    result = detect_hydrocarbon_intervals(df)
-    interval_df = hydrocarbon_interval_dataframe(result.intervals)
-    if interval_df.empty:
-        return None
-    return dataframe_to_report_table("Сводка выявленных УВ-интервалов", interval_df)
+    return build_hydrocarbon_report_payload(df).summary_table
 
 
 def build_hydrocarbon_marker_table(df: pd.DataFrame) -> HtmlReportTable | None:
-    """Build printable marker table for graph overlays and report annotations."""
+    """Build printable marker table through the unified hydrocarbon payload."""
 
-    result = detect_hydrocarbon_intervals(df)
-    marker_df = hydrocarbon_interval_marker_dataframe(result.intervals)
-    if marker_df.empty:
-        return None
-    visible_columns = [
-        "marker_id",
-        "top",
-        "base",
-        "thickness",
-        "label",
-        "fluid_type",
-        "confidence",
-        "annotation",
-    ]
-    return dataframe_to_report_table("Маркеры УВ-интервалов для графиков", marker_df[visible_columns])
+    return build_hydrocarbon_report_payload(df).marker_table
 
 
 def build_interval_print_report(
@@ -160,13 +133,8 @@ def build_interval_print_report(
     selected_tablet_columns = tuple(str(column) for column in tablet_columns if str(column).strip())
     tables: list[HtmlReportTable] = []
 
-    hydrocarbon_summary_table = build_hydrocarbon_interval_summary_table(interval_df)
-    if hydrocarbon_summary_table is not None:
-        tables.append(hydrocarbon_summary_table)
-
-    marker_table = build_hydrocarbon_marker_table(interval_df)
-    if marker_table is not None:
-        tables.append(marker_table)
+    hydrocarbon_payload = build_hydrocarbon_report_payload(interval_df)
+    tables.extend(hydrocarbon_payload.tables)
 
     interpretation_table = build_interpretation_counts_table(interval_df)
     if interpretation_table is not None:
