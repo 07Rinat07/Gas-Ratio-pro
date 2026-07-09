@@ -7,8 +7,6 @@ import json
 import re
 
 from reports.presentation_html import PresentationHtmlOptions, build_presentation_html_report
-from reports.presentation_pdf import PresentationPdfOptions, build_presentation_pdf_report
-from reports.presentation_docx import PresentationDocxOptions, build_presentation_docx_report
 from reports.presentation_model import PresentationModel
 
 
@@ -168,9 +166,24 @@ def export_presentation_docx_package(
     model: PresentationModel,
     *,
     options: PresentationExportOptions,
-    docx_options: PresentationDocxOptions | None = None,
+    docx_options: object | None = None,
 ) -> PresentationDocxExportResult:
-    """Write a professional DOCX report plus a reproducible export manifest."""
+    """Write a professional DOCX report plus a reproducible export manifest.
+
+    DOCX support is imported lazily so the Streamlit application can start
+    even on environments where the optional ``python-docx`` package is not
+    installed yet. The user only needs the dependency when exporting DOCX.
+    """
+
+    try:
+        from reports.presentation_docx import PresentationDocxOptions, build_presentation_docx_report
+    except ModuleNotFoundError as exc:  # pragma: no cover - environment dependent
+        if exc.name == "docx":
+            raise RuntimeError(
+                "DOCX export requires the 'python-docx' package. "
+                "Install it with: python -m pip install python-docx"
+            ) from exc
+        raise
 
     output_dir = Path(options.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -223,9 +236,15 @@ def export_presentation_pdf_package(
     model: PresentationModel,
     *,
     options: PresentationExportOptions,
-    pdf_options: PresentationPdfOptions | None = None,
+    pdf_options: object | None = None,
 ) -> PresentationPdfExportResult:
-    """Write a professional PDF report plus a reproducible export manifest."""
+    """Write a professional PDF report plus a reproducible export manifest.
+
+    PDF support is imported lazily so reportlab is required only when the user
+    actually exports PDF or bundle reports.
+    """
+
+    from reports.presentation_pdf import PresentationPdfOptions, build_presentation_pdf_report
 
     output_dir = Path(options.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -289,8 +308,8 @@ def export_presentation_bundle_package(
     model: PresentationModel,
     *,
     options: PresentationExportOptions,
-    pdf_options: PresentationPdfOptions | None = None,
-    docx_options: PresentationDocxOptions | None = None,
+    pdf_options: object | None = None,
+    docx_options: object | None = None,
 ) -> PresentationBundleExportResult:
     """Write HTML, PDF and DOCX reports from the same PresentationModel.
 
