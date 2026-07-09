@@ -852,3 +852,15 @@ Purpose:
 ### Rationale
 
 The Streamlit UI must not duplicate presentation/export rules. It should pass normalized user choices to the Presentation Layer, while HTML/PDF/DOCX continue to render from one `PresentationModel`.
+
+## v36 - Workspace Reset Foundation
+
+### Added
+- Framework-neutral workspace reset controller for Modern UI.
+- Safe preview of affected session-state keys before reset.
+- Reset modes for derived results, active LAS, active workspace and full active context.
+- Confirmation requirement for context-changing reset actions.
+
+### Notes
+- Reset clears temporary application state only and does not delete project files from disk.
+
