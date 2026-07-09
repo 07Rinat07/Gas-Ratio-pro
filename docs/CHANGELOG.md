@@ -7,6 +7,13 @@
 
 # Changelog
 
+## Modern Workbench Command Actions v51
+
+- Added command-layer actions for Workbench navigation selection.
+- Added command-layer actions for Workbench dock-pane activation.
+- Registered interaction commands in the Workbench shell builder.
+- Added regression tests for state updates, command execution events and shell-model reflection.
+
 ## Modern Workbench Session Persistence v50
 
 - Added workspace-session persistence for Workbench navigation entries.
@@ -163,6 +170,13 @@
 - Added tests for Curve Manager Professional foundation.
 
 # Changelog
+
+## Modern Workbench Command Actions v51
+
+- Added command-layer actions for Workbench navigation selection.
+- Added command-layer actions for Workbench dock-pane activation.
+- Registered interaction commands in the Workbench shell builder.
+- Added regression tests for state updates, command execution events and shell-model reflection.
 
 ## Modern Workbench Interaction State v49
 

@@ -44,6 +44,8 @@ Completed in v49: the Workbench shell now includes a framework-neutral interacti
 
 Completed in v50: workspace sessions now persist and restore Workbench navigation, dock layout and active interaction selections. This keeps layout restoration inside the session boundary and prevents future Streamlit renderer code from owning Workbench state decisions.
 
+Completed in v51: Workbench interaction actions now go through the Command Framework. Navigation selection and dock-pane activation publish command events and update persisted shell state through core handlers instead of direct UI mutation.
+
 ## Next recommended increment
 
-Connect the persisted Modern Workbench shell state to a Streamlit renderer boundary without moving calculations, persistence or export logic into UI code. Keep `scripts/release_export_qa.py` as the release check before packaging builds.
+Connect the command-driven Modern Workbench shell state to a Streamlit renderer boundary without moving calculations, persistence or export logic into UI code. Keep `scripts/release_export_qa.py` as the release check before packaging builds.

@@ -23,6 +23,8 @@ WORKBENCH_NAVIGATION_KEY = "workbench_navigation"
 WORKBENCH_DOCK_LAYOUT_KEY = "workbench_dock_layout"
 WORKBENCH_ACTIVE_NAVIGATION_KEY = "workbench_active_navigation"
 WORKBENCH_ACTIVE_DOCK_PANE_KEY = "workbench_active_dock_pane"
+WORKBENCH_SELECT_NAVIGATION_COMMAND_ID = "workbench.navigation.select"
+WORKBENCH_ACTIVATE_DOCK_PANE_COMMAND_ID = "workbench.dock.activate"
 
 
 @dataclass(frozen=True, slots=True)
@@ -252,6 +254,58 @@ def activate_workbench_dock_pane(state: MutableMapping[str, Any], pane_id: str) 
     state[WORKBENCH_ACTIVE_DOCK_PANE_KEY] = clean_id
 
 
+def register_workbench_interaction_commands(
+    state: MutableMapping[str, Any],
+    registry: WorkbenchCommandRegistry | None = None,
+) -> WorkbenchCommandRegistry:
+    """Register state-changing Workbench commands.
+
+    The future UI must call these commands instead of mutating Workbench state
+    directly.  This keeps navigation clicks, dock focus changes and keyboard
+    shortcuts on the same command/event path.
+    """
+
+    command_registry = registry or WorkbenchCommandRegistry(state)
+
+    def _select_navigation(payload: dict[str, Any]) -> dict[str, str]:
+        navigation_id = str(payload.get("navigation_id") or payload.get("id") or "").strip()
+        select_workbench_navigation(state, navigation_id)
+        return {
+            "active_navigation_id": state[WORKBENCH_ACTIVE_NAVIGATION_KEY],
+        }
+
+    def _activate_dock_pane(payload: dict[str, Any]) -> dict[str, str]:
+        pane_id = str(payload.get("pane_id") or payload.get("id") or "").strip()
+        activate_workbench_dock_pane(state, pane_id)
+        return {
+            "active_dock_pane_id": state[WORKBENCH_ACTIVE_DOCK_PANE_KEY],
+        }
+
+    command_registry.register(
+        WorkbenchCommand(
+            WORKBENCH_SELECT_NAVIGATION_COMMAND_ID,
+            "Выбрать раздел Workbench",
+            "workbench",
+            "Сменить активный раздел навигации через command layer.",
+            payload={},
+        ),
+        _select_navigation,
+        replace=True,
+    )
+    command_registry.register(
+        WorkbenchCommand(
+            WORKBENCH_ACTIVATE_DOCK_PANE_COMMAND_ID,
+            "Активировать панель Workbench",
+            "workbench",
+            "Сменить активную dock-панель через command layer.",
+            payload={},
+        ),
+        _activate_dock_pane,
+        replace=True,
+    )
+    return command_registry
+
+
 @dataclass(frozen=True, slots=True)
 class WorkbenchStatus:
     """Compact status bar payload for the shell footer."""
@@ -367,6 +421,7 @@ class WorkbenchShellBuilder:
         self.command_registry = command_registry or WorkbenchCommandRegistry(state)
         if not self.command_registry.list(visible_only=False):
             self.command_registry.register_many(default_workbench_commands())
+        register_workbench_interaction_commands(self.state, self.command_registry)
 
     def build(
         self,
