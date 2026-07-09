@@ -35,3 +35,10 @@ Compatibility markers retained for regression tests:
 Current implementation step:
 
 - Hydrocarbon Interval Engine foundation added as the shared model for detector, interpretation, marked graphs and printable reports.
+
+
+## Current step
+
+- Added hydrocarbon interval graph marker model.
+- Added printable marker table for interval reports.
+- Updated hydrocarbon interval schema to v3.

@@ -5,6 +5,7 @@ import pandas as pd
 from core.hydrocarbon_intervals import (
     HydrocarbonIntervalRuleSet,
     detect_hydrocarbon_intervals,
+    hydrocarbon_interval_marker_rows,
     hydrocarbon_interval_table_rows,
 )
 
@@ -95,4 +96,25 @@ def test_hydrocarbon_interval_engine_keeps_transition_candidates_when_enabled() 
     assert len(result.intervals) == 1
     assert result.intervals[0].fluid_type in {"mixed", "transition"}
     assert result.rows["hydrocarbon_candidate"].all()
-    assert result.schema.endswith("/v2")
+    assert result.schema.endswith("/v3")
+
+
+def test_hydrocarbon_interval_engine_builds_graph_marker_rows() -> None:
+    frame = pd.DataFrame(
+        {
+            "depth": [1600.0, 1601.0],
+            "interpretation": ["Нефтяная залежь", "Нефтяная залежь"],
+            "wh": [26.0, 28.0],
+            "bh": [9.0, 10.0],
+            "c1_c2": [6.0, 7.0],
+            "oil_indicator": [0.19, 0.21],
+        }
+    )
+
+    result = detect_hydrocarbon_intervals(frame, rules=HydrocarbonIntervalRuleSet(max_depth_gap=2.0))
+    markers = hydrocarbon_interval_marker_rows(result.intervals)
+
+    assert markers[0]["marker_id"] == "HC-001"
+    assert markers[0]["label"] == "OIL"
+    assert markers[0]["line_color"].startswith("#")
+    assert "1600" in markers[0]["annotation"]

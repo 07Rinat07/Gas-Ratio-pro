@@ -6,7 +6,7 @@ from typing import Iterable, Mapping, Sequence
 import pandas as pd
 
 
-HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v2"
+HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v3"
 
 NON_PROSPECTIVE_LABELS = (
     "Недостаточно данных",
@@ -27,6 +27,14 @@ CONFIDENCE_LABELS = {
     "high": "высокая уверенность",
     "medium": "средняя уверенность",
     "low": "низкая уверенность",
+}
+
+MARKER_STYLE_BY_FLUID = {
+    "gas": {"label": "GAS", "color": "#d62728", "fill": "rgba(214,39,40,0.18)"},
+    "oil": {"label": "OIL", "color": "#2ca02c", "fill": "rgba(44,160,44,0.18)"},
+    "condensate": {"label": "COND", "color": "#ff7f0e", "fill": "rgba(255,127,14,0.18)"},
+    "mixed": {"label": "GAS/OIL", "color": "#9467bd", "fill": "rgba(148,103,189,0.18)"},
+    "transition": {"label": "CHECK", "color": "#7f7f7f", "fill": "rgba(127,127,127,0.14)"},
 }
 
 
@@ -433,3 +441,38 @@ def hydrocarbon_interval_dataframe(intervals: Iterable[HydrocarbonInterval]) -> 
     """Convert interval model to DataFrame for HTML/PDF report tables."""
 
     return pd.DataFrame(hydrocarbon_interval_table_rows(intervals))
+
+
+def hydrocarbon_interval_marker_rows(intervals: Iterable[HydrocarbonInterval]) -> tuple[dict[str, object], ...]:
+    """Return graph/report marker rows for highlighted hydrocarbon intervals.
+
+    The marker model is intentionally presentation-neutral. Plot widgets, printable
+    HTML/PDF reports and future LAS Workspace overlays can all use the same rows
+    without re-running interpretation logic or inventing their own colors.
+    """
+
+    rows: list[dict[str, object]] = []
+    for index, interval in enumerate(intervals, start=1):
+        style = MARKER_STYLE_BY_FLUID.get(interval.fluid_type, MARKER_STYLE_BY_FLUID["transition"])
+        rows.append(
+            {
+                "marker_id": f"HC-{index:03d}",
+                "top": interval.top,
+                "base": interval.base,
+                "thickness": interval.thickness,
+                "label": style["label"],
+                "fluid_type": interval.fluid_type,
+                "confidence": interval.confidence,
+                "line_color": style["color"],
+                "fill_color": style["fill"],
+                "annotation": f"{style['label']} {interval.top:g}-{interval.base:g} м ({interval.confidence})",
+                "engineering_note": interval.engineering_note,
+            }
+        )
+    return tuple(rows)
+
+
+def hydrocarbon_interval_marker_dataframe(intervals: Iterable[HydrocarbonInterval]) -> pd.DataFrame:
+    """Convert marker model to DataFrame for printable reports and UI grids."""
+
+    return pd.DataFrame(hydrocarbon_interval_marker_rows(intervals))

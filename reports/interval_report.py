@@ -5,7 +5,11 @@ from typing import Sequence
 import pandas as pd
 
 from reports.export_html import HtmlReportMetadata, HtmlReportTable, build_plotly_html_report
-from core.hydrocarbon_intervals import detect_hydrocarbon_intervals, hydrocarbon_interval_dataframe
+from core.hydrocarbon_intervals import (
+    detect_hydrocarbon_intervals,
+    hydrocarbon_interval_dataframe,
+    hydrocarbon_interval_marker_dataframe,
+)
 
 
 def _format_cell(value: object) -> str:
@@ -111,6 +115,26 @@ def build_hydrocarbon_interval_summary_table(df: pd.DataFrame) -> HtmlReportTabl
     return dataframe_to_report_table("Сводка выявленных УВ-интервалов", interval_df)
 
 
+def build_hydrocarbon_marker_table(df: pd.DataFrame) -> HtmlReportTable | None:
+    """Build printable marker table for graph overlays and report annotations."""
+
+    result = detect_hydrocarbon_intervals(df)
+    marker_df = hydrocarbon_interval_marker_dataframe(result.intervals)
+    if marker_df.empty:
+        return None
+    visible_columns = [
+        "marker_id",
+        "top",
+        "base",
+        "thickness",
+        "label",
+        "fluid_type",
+        "confidence",
+        "annotation",
+    ]
+    return dataframe_to_report_table("Маркеры УВ-интервалов для графиков", marker_df[visible_columns])
+
+
 def build_interval_print_report(
     figures,
     *,
@@ -139,6 +163,10 @@ def build_interval_print_report(
     hydrocarbon_summary_table = build_hydrocarbon_interval_summary_table(interval_df)
     if hydrocarbon_summary_table is not None:
         tables.append(hydrocarbon_summary_table)
+
+    marker_table = build_hydrocarbon_marker_table(interval_df)
+    if marker_table is not None:
+        tables.append(marker_table)
 
     interpretation_table = build_interpretation_counts_table(interval_df)
     if interpretation_table is not None:

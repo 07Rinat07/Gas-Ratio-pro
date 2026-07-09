@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 
 from reports.interval_report import (
     build_hydrocarbon_interval_summary_table,
+    build_hydrocarbon_marker_table,
     build_interval_print_report,
     build_interpretation_counts_table,
     build_numeric_statistics_table,
@@ -63,6 +64,25 @@ def test_hydrocarbon_interval_summary_table_lists_report_candidates():
     assert len(table.rows) >= 1
 
 
+def test_hydrocarbon_marker_table_lists_graph_annotations():
+    df = pd.DataFrame(
+        {
+            "depth": [1000.0, 1001.0],
+            "interpretation": ["Нефтяная залежь", "Нефтяная залежь"],
+            "c1_c2": [6.0, 7.0],
+            "oil_indicator": [0.2, 0.21],
+        }
+    )
+
+    table = build_hydrocarbon_marker_table(df)
+
+    assert table is not None
+    assert table.title == "Маркеры УВ-интервалов для графиков"
+    assert "marker_id" in table.headers
+    assert table.rows[0][0] == "HC-001"
+    assert "OIL" in table.rows[0]
+
+
 def test_interval_print_report_includes_metadata_tables_and_chart():
     df = pd.DataFrame(
         {
@@ -90,6 +110,7 @@ def test_interval_print_report_includes_metadata_tables_and_chart():
     assert "Печатный отчет по выбранному интервалу" in html
     assert "sample.las" in html
     assert "Сводка выявленных УВ-интервалов" in html
+    assert "Маркеры УВ-интервалов для графиков" in html
     assert "Сводка предварительной интерпретации" in html
     assert "Статистика выбранного интервала" in html
     assert "Таблица выбранного интервала (первые 1 из 2 строк)" in html
