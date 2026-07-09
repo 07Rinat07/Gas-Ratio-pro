@@ -196,12 +196,16 @@ class LasViewerToolViewProvider:
                 "available_sections": ["curve_overview", "depth_range", "quality_flags"],
             }
         )
+        actions = tuple(base.actions) + (
+            _action("action.open_las", "Open selected LAS", {"las_id": las_id}, enabled=True),
+        )
         metadata = dict(base.metadata)
         metadata.update({"primary_target": "las", "selected_las_id": las_id})
         return replace(
             base,
             status="ready",
             empty_state="",
+            actions=actions,
             metadata=metadata,
             content=content,
         )
@@ -236,6 +240,12 @@ class GasRatioAnalysisToolViewProvider:
                 {"navigation_id": "nav.interpretation"},
                 enabled=True,
             ),
+            _action(
+                "action.run_gas_ratio_analysis",
+                "Run gas ratio analysis",
+                {"las_id": context.application.las_id, "interval_ids": selected_intervals},
+                enabled=bool(selected_intervals),
+            ),
         )
         metadata = dict(base.metadata)
         metadata.update({"primary_target": "interval", "interval_count": len(selected_intervals)})
@@ -269,6 +279,8 @@ class ReportPreviewToolViewProvider:
             }
         )
         actions = tuple(base.actions) + (
+            _action("action.refresh_report_preview", "Refresh preview", {"report_id": context.active_report}, enabled=True),
+            _action("action.export_report_bundle", "Export report bundle", {"report_id": context.active_report, "formats": ["html", "pdf", "docx"]}, enabled=True),
             _action("action.activate_tool", "Open export", {"tool_id": "tool.export"}, enabled=True),
         )
         metadata = dict(base.metadata)

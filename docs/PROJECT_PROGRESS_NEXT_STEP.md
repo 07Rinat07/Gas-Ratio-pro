@@ -93,3 +93,15 @@ Completed:
 
 Next step:
 Connect LAS Viewer to normalized LAS curve metadata while keeping heavy parsing and engineering calculations outside renderer state.
+
+## V59 Workbench Tool Actions
+
+Completed:
+- Added `core/workbench_tool_actions.py` with command-backed tool action requests.
+- Added actions for opening LAS context, running gas ratio analysis, refreshing report preview and requesting report bundle export.
+- Tool action requests validate lightweight `WorkspaceContext` state and publish `workbench.tool_action.executed` events.
+- Tool views now expose concrete renderer actions while keeping Streamlit free of business logic.
+- Added regression tests for LAS, gas-ratio, report-preview and export tool actions.
+
+Next step:
+Connect LAS Viewer to normalized LAS curve metadata through a provider/service boundary. The renderer should receive only lightweight curve summaries, depth range and quality flags, while parsing and heavy data tables remain outside UI state.

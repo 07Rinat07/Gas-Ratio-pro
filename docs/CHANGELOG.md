@@ -1,5 +1,12 @@
 # Changelog
 
+## Modern Workbench Tool Actions v59
+
+- Added command-backed Workbench tool action requests for LAS open, gas ratio analysis, report preview refresh and report bundle export.
+- Added `core.workbench_tool_actions` with lightweight context validation and event publication.
+- Exposed concrete tool actions through tool view payloads without moving business logic into Streamlit.
+- Added regression tests for tool action dispatch and preserved release export QA.
+
 ## Modern Workbench Tool Content Providers v58
 
 - Added provider-based Workbench tool view enrichment for LAS Viewer, Gas Ratio Analysis and Report Preview.

@@ -577,6 +577,8 @@ class WorkbenchShellBuilder:
             self.command_registry.register_many(default_workbench_commands())
         register_workbench_interaction_commands(self.state, self.command_registry)
         register_workbench_tool_commands(self.state, self.command_registry)
+        from core.workbench_tool_actions import register_workbench_tool_action_commands
+        register_workbench_tool_action_commands(self.state, self.command_registry)
 
     def build(
         self,

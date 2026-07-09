@@ -19,6 +19,12 @@ from core.workbench_tools import (
     WorkbenchToolManager,
 )
 from core.workbench_tool_views import WorkbenchToolViewService
+from core.workbench_tool_actions import (
+    WORKBENCH_EXPORT_REPORT_BUNDLE_COMMAND_ID,
+    WORKBENCH_OPEN_LAS_COMMAND_ID,
+    WORKBENCH_REFRESH_REPORT_PREVIEW_COMMAND_ID,
+    WORKBENCH_RUN_GAS_RATIO_ANALYSIS_COMMAND_ID,
+)
 from core.workbench_shell import (
     WORKBENCH_ACTIVATE_DOCK_PANE_COMMAND_ID,
     WORKBENCH_SELECT_NAVIGATION_COMMAND_ID,
@@ -212,6 +218,18 @@ class WorkbenchController:
             return self.activate_dock_pane(str(clean_payload.get("pane_id") or clean_payload.get("id") or ""))
         if clean_action_id == "action.activate_tool":
             return self.activate_tool(str(clean_payload.get("tool_id") or clean_payload.get("id") or ""), metadata=dict(clean_payload.get("metadata", {}) or {}))
+        if clean_action_id == "action.open_las":
+            result = self.command_registry.execute(WORKBENCH_OPEN_LAS_COMMAND_ID, clean_payload)
+            return self._result(result)
+        if clean_action_id == "action.run_gas_ratio_analysis":
+            result = self.command_registry.execute(WORKBENCH_RUN_GAS_RATIO_ANALYSIS_COMMAND_ID, clean_payload)
+            return self._result(result)
+        if clean_action_id == "action.refresh_report_preview":
+            result = self.command_registry.execute(WORKBENCH_REFRESH_REPORT_PREVIEW_COMMAND_ID, clean_payload)
+            return self._result(result)
+        if clean_action_id == "action.export_report_bundle":
+            result = self.command_registry.execute(WORKBENCH_EXPORT_REPORT_BUNDLE_COMMAND_ID, clean_payload)
+            return self._result(result)
         available = set(self.contract().action_ids())
         if clean_action_id not in available:
             raise KeyError(f"Unknown or disabled renderer action: {clean_action_id}")
