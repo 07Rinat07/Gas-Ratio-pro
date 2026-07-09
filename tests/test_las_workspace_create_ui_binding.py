@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 SOURCE = Path("app/streamlit_app.py").read_text(encoding="utf-8")
-PLAN = Path("PROJECT_PROGRESS_NEXT_STEP.md").read_text(encoding="utf-8")
+PLAN = Path("docs/PROJECT_PROGRESS_NEXT_STEP.md").read_text(encoding="utf-8")
 
 
 def test_new_las_creator_panel_receives_active_project_context():

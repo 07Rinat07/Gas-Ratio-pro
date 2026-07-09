@@ -6,7 +6,7 @@ from projects.repository import create_project
 from las_editor.las_workspace_controller import LAS_WORKSPACE_DEFAULT_ID, LasWorkspaceController
 
 SOURCE = Path("app/streamlit_app.py").read_text(encoding="utf-8")
-PLAN = Path("PROJECT_PROGRESS_NEXT_STEP.md").read_text(encoding="utf-8")
+PLAN = Path("docs/PROJECT_PROGRESS_NEXT_STEP.md").read_text(encoding="utf-8")
 
 
 def test_las_workspace_ui_entry_uses_controller_boundary():

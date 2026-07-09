@@ -153,6 +153,14 @@ def build_interval_print_report(
             tables.extend(hydrocarbon_payload.presentation_model.expert_tables)
         else:
             tables.extend(hydrocarbon_payload.presentation_model.engineer_first_tables)
+            # The default engineering printout still needs interval and chart
+            # marker summaries on the first pages. Raw row dumps and numeric
+            # statistics remain expert-only appendices below.
+            tables.extend(
+                table
+                for table in (hydrocarbon_payload.summary_table, hydrocarbon_payload.marker_table)
+                if table is not None
+            )
     else:
         tables.extend(hydrocarbon_payload.professional_tables)
 
