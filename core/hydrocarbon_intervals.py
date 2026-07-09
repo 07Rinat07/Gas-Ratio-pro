@@ -8,7 +8,7 @@ from core.method_registry import get_method_profile, method_id_for_parameter, me
 import pandas as pd
 
 
-HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v9"
+HYDROCARBON_INTERVAL_SCHEMA = "gas-ratio-pro/hydrocarbon-intervals/v10"
 
 NON_PROSPECTIVE_LABELS = (
     "Недостаточно данных",
@@ -88,10 +88,10 @@ class HydrocarbonIntervalRuleSet:
 class IntervalEvidence:
     """Structured evidence item used by interval interpretation and reports.
 
-    This object keeps calculation evidence machine-readable. Printable strings are
-    still produced for legacy tables, but future Interpretation/Report engines can
-    consume `method`, `parameter`, `value`, `direction` and `weight` without
-    parsing human text.
+    Evidence is intentionally auditable. Each item stores method, parameter,
+    observed value, expected condition, status and source reference metadata so
+    printable reports can explain *why* an interval was classified without
+    re-running or reverse-engineering the calculation.
     """
 
     method: str
@@ -102,6 +102,11 @@ class IntervalEvidence:
     description: str = ""
     method_id: str = "hydrocarbon_interval_engine"
     source_id: str = "project_internal"
+    evidence_id: str = ""
+    expected: str = ""
+    status: str = "observed"
+    comment: str = ""
+    reference: str = ""
 
 
 @dataclass(frozen=True)
@@ -380,6 +385,35 @@ def _mean(frame: pd.DataFrame, *columns: str) -> float | None:
     return None
 
 
+def _evidence_status(value: float | str | None, *, expected: str = "") -> str:
+    """Return a conservative PASS/OBSERVED status for structured evidence.
+
+    Threshold interpretation remains intentionally lightweight in this engine.
+    Exact scientific classification belongs to the method-specific calculator;
+    here we only mark whether a usable value exists for audit/report purposes.
+    """
+
+    if value is None:
+        return "missing"
+    if isinstance(value, str) and not value.strip():
+        return "missing"
+    return "pass" if expected else "observed"
+
+
+def _method_reference(method_id: str) -> str:
+    """Return short source reference string for one registered method."""
+
+    profile = get_method_profile(method_id)
+    authors = ", ".join(profile.authors)
+    return f"{authors} ({profile.year}). {profile.source_title}."
+
+
+def _evidence_id(method_id: str, parameter: str) -> str:
+    """Build stable evidence identifier from registered method and parameter."""
+
+    clean = str(parameter).lower().replace("/", "_").replace(" ", "_")
+    return f"{method_id}:{clean}"
+
 
 def _confidence_label_from_score(score: int) -> str:
     """Convert numeric engineering confidence score to a stable label."""
@@ -520,6 +554,11 @@ def _evidence_items_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[Int
                 description="Average wetness ratio inside the interval.",
                 method_id="haworth_mud_gas",
                 source_id="haworth_mud_gas",
+                evidence_id=_evidence_id("haworth_mud_gas", "Wh"),
+                expected="Published Haworth wetness ratio component; interpret with Bh/Ch and field calibration.",
+                status=_evidence_status(wh, expected="haworth_wh"),
+                comment="Supporting mud-gas wetness evidence, not a standalone pay flag.",
+                reference=_method_reference("haworth_mud_gas"),
             )
         )
     if bh is not None:
@@ -533,6 +572,11 @@ def _evidence_items_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[Int
                 description="Average balance ratio inside the interval.",
                 method_id="haworth_mud_gas",
                 source_id="haworth_mud_gas",
+                evidence_id=_evidence_id("haworth_mud_gas", "Bh"),
+                expected="Published Haworth balance ratio component; interpret with Wh/Ch and field calibration.",
+                status=_evidence_status(bh, expected="haworth_bh"),
+                comment="Supporting mud-gas balance evidence.",
+                reference=_method_reference("haworth_mud_gas"),
             )
         )
     if ch is not None:
@@ -546,6 +590,11 @@ def _evidence_items_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[Int
                 description="Character ratio from heavy hydrocarbon components.",
                 method_id="haworth_mud_gas",
                 source_id="haworth_mud_gas",
+                evidence_id=_evidence_id("haworth_mud_gas", "Ch"),
+                expected="Haworth character ratio based on heavier hydrocarbon components.",
+                status=_evidence_status(ch, expected="haworth_ch"),
+                comment="Supports fluid character evaluation with Wh/Bh.",
+                reference=_method_reference("haworth_mud_gas"),
             )
         )
     if c1_c2 is not None:
@@ -559,6 +608,11 @@ def _evidence_items_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[Int
                 description="Pixler methane-to-ethane ratio used as one fluid-character indicator.",
                 method_id="pixler_gas_ratio",
                 source_id="pixler_gas_ratio",
+                evidence_id=_evidence_id("pixler_gas_ratio", "C1/C2"),
+                expected="Pixler methane-to-ethane ratio evidence; use only with other ratios and calibration.",
+                status=_evidence_status(c1_c2, expected="pixler_c1_c2"),
+                comment="Supporting Pixler gas-ratio evidence, not standalone proof of productivity.",
+                reference=_method_reference("pixler_gas_ratio"),
             )
         )
     if c1_c3 is not None:
@@ -572,6 +626,11 @@ def _evidence_items_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[Int
                 description="Pixler methane-to-propane ratio used as supporting evidence.",
                 method_id="pixler_gas_ratio",
                 source_id="pixler_gas_ratio",
+                evidence_id=_evidence_id("pixler_gas_ratio", "C1/C3"),
+                expected="Pixler methane-to-propane ratio evidence; use only with other ratios and calibration.",
+                status=_evidence_status(c1_c3, expected="pixler_c1_c3"),
+                comment="Supporting Pixler ratio evidence.",
+                reference=_method_reference("pixler_gas_ratio"),
             )
         )
     if oil_indicator is not None:
@@ -585,6 +644,11 @@ def _evidence_items_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[Int
                 description="Project oil/gas indicator derived from calculated ratio fields.",
                 method_id="project_oil_indicator",
                 source_id="project_oil_indicator",
+                evidence_id=_evidence_id("project_oil_indicator", "Oil indicator"),
+                expected="Internal project hint; must be calibrated before field-grade interpretation.",
+                status=_evidence_status(oil_indicator, expected="project_oil_indicator"),
+                comment="Internal engineering hint, clearly separated from published methods.",
+                reference=_method_reference("project_oil_indicator"),
             )
         )
 
@@ -601,6 +665,11 @@ def _evidence_items_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[Int
                     description="Existing row-level interpretation label supplied by calculation or import pipeline.",
                     method_id="hydrocarbon_interval_engine",
                     source_id="hydrocarbon_interval_engine",
+                    evidence_id=_evidence_id("hydrocarbon_interval_engine", "Text interpretation"),
+                    expected="Existing row-level classification labels are used as contextual support only.",
+                    status=_evidence_status("; ".join(labels[:3]), expected="text_interpretation"),
+                    comment="Imported or calculated label retained for traceability.",
+                    reference=_method_reference("hydrocarbon_interval_engine"),
                 )
             )
 
@@ -614,6 +683,11 @@ def _evidence_items_for_group(frame: pd.DataFrame, fluid_type: str) -> tuple[Int
             description="Final interval class after rule-based normalization and grouping.",
             method_id="hydrocarbon_interval_engine",
             source_id="hydrocarbon_interval_engine",
+            evidence_id=_evidence_id("hydrocarbon_interval_engine", "fluid_type"),
+            expected="Final class must be derived from registered evidence and explicit project rules.",
+            status="pass",
+            comment="Final interval classification output of the Hydrocarbon Interval Engine.",
+            reference=_method_reference("hydrocarbon_interval_engine"),
         )
     )
     return tuple(items)
@@ -642,6 +716,11 @@ def _evidence_provenance(item: IntervalEvidence) -> dict[str, object]:
         "method": item.method,
         "parameter": item.parameter,
         "value": item.value,
+        "expected": item.expected,
+        "status": item.status,
+        "weight": item.weight,
+        "comment": item.comment,
+        "reference": item.reference or _method_reference(method_id),
         "source_id": item.source_id or method_id,
         "source_title": profile.source_title,
         "authors": "; ".join(profile.authors),
@@ -649,6 +728,7 @@ def _evidence_provenance(item: IntervalEvidence) -> dict[str, object]:
         "status": profile.status,
         "implementation_status": profile.implementation_status,
         "limitations": profile.limitations,
+        "citation_note": profile.citation_note,
     }
 
 

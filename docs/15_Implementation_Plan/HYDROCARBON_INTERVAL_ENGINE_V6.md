@@ -83,3 +83,21 @@ This keeps the Hydrocarbon Interval Engine as the single source of truth for lat
 Interpretation Engine, graph markers, PDF reports and dashboards. Report modules must
 consume the existing interval model and must not recalculate their own evidence.
 
+
+## Hydrocarbon Interval Engine v10 — Evidence Framework
+
+The interval evidence model is now auditable instead of being only a printable text list.
+Each evidence item may expose:
+
+- `evidence_id` — stable method/parameter identifier;
+- `method_id` — link to Method Registry;
+- `parameter` and `value` — calculated or observed parameter;
+- `expected` — concise interpretation condition or usage note;
+- `status` — `pass`, `observed` or `missing`;
+- `weight` — contribution weight used by confidence logic;
+- `comment` — engineering note for reports/debugging;
+- `reference` — short bibliographic reference from Method Registry.
+
+Rule: report, dashboard and graph layers must consume these evidence objects and must not
+invent their own formula provenance. Any new calculated parameter must first be registered
+in `core/method_registry.py` and documented in `docs/06_Calculation_Engine/METHOD_REGISTRY.md`.

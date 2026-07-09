@@ -96,7 +96,7 @@ def test_hydrocarbon_interval_engine_keeps_transition_candidates_when_enabled() 
     assert len(result.intervals) == 1
     assert result.intervals[0].fluid_type in {"mixed", "transition"}
     assert result.rows["hydrocarbon_candidate"].all()
-    assert result.schema.endswith("/v9")
+    assert result.schema.endswith("/v10")
 
 
 def test_hydrocarbon_interval_engine_builds_graph_marker_rows() -> None:
@@ -141,7 +141,7 @@ def test_hydrocarbon_interval_engine_distinguishes_directional_oil_gas_labels() 
     )
 
     assert [interval.fluid_type for interval in result.intervals] == ["gas_oil", "oil_gas"]
-    assert result.schema.endswith("/v9")
+    assert result.schema.endswith("/v10")
 
 
 def test_hydrocarbon_interval_engine_keeps_uncertain_candidates_but_excludes_water() -> None:
@@ -270,7 +270,7 @@ def test_hydrocarbon_interval_engine_exports_structured_evidence_and_quality_fla
     table_rows = hydrocarbon_interval_table_rows(result.intervals)
     markers = hydrocarbon_interval_marker_rows(result.intervals)
 
-    assert result.schema.endswith("/v9")
+    assert result.schema.endswith("/v10")
     assert interval.evidence_items
     assert {item.method for item in interval.evidence_items} >= {"Haworth", "Pixler", "HydrocarbonIntervalEngine"}
     assert "single_sample_interval" in interval.quality_flags
@@ -297,7 +297,7 @@ def test_hydrocarbon_interval_engine_calculates_confidence_score_and_factors() -
     table_rows = hydrocarbon_interval_table_rows(result.intervals)
     markers = hydrocarbon_interval_marker_rows(result.intervals)
 
-    assert result.schema.endswith("/v9")
+    assert result.schema.endswith("/v10")
     assert interval.confidence_score >= 75
     assert interval.confidence == "high"
     assert any(factor.startswith("haworth_evidence=") for factor in interval.confidence_factors)
@@ -330,3 +330,31 @@ def test_hydrocarbon_interval_engine_exports_method_registry_and_provenance() ->
     provenance_ids = {item["method_id"] for item in rows[0]["evidence_provenance"]}
     assert "pixler_gas_ratio" in provenance_ids
     assert all(item["authors"] for item in rows[0]["evidence_provenance"])
+
+
+def test_interval_evidence_framework_exports_status_expected_and_reference() -> None:
+    frame = pd.DataFrame(
+        {
+            "depth": [2500.0, 2501.0],
+            "interpretation": ["Газовая залежь", "Газовая залежь"],
+            "wh": [7.0, 8.0],
+            "bh": [42.0, 40.0],
+            "c1_c2": [80.0, 78.0],
+            "oil_indicator": [0.04, 0.05],
+        }
+    )
+
+    result = detect_hydrocarbon_intervals(frame, rules=HydrocarbonIntervalRuleSet(max_depth_gap=2.0))
+    interval = result.intervals[0]
+    rows = hydrocarbon_interval_table_rows(result.intervals)
+
+    assert result.schema.endswith("/v10")
+    assert interval.evidence_items
+    assert all(item.evidence_id for item in interval.evidence_items)
+    assert all(item.status in {"pass", "observed", "missing"} for item in interval.evidence_items)
+    assert any(item.expected for item in interval.evidence_items)
+    assert any("Pixler" in item.reference for item in interval.evidence_items)
+    provenance = rows[0]["evidence_provenance"]
+    assert all(item["status"] for item in provenance)
+    assert all(item["reference"] for item in provenance)
+    assert all("citation_note" in item for item in provenance)
