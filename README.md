@@ -117,3 +117,8 @@ Implemented increments:
 - Interval Cards — compact cards for each interpreted interval with depth, thickness, fluid type, confidence, explanation, recommendations and limitations.
 
 Technical tables and diagnostics are still preserved for expert/appendix workflows, but they are no longer the primary report experience.
+
+## v22 Reporting behavior
+
+The default interval print report now uses an `engineering` profile. It emphasizes executive summary, interval cards, confidence, recommendations and limitations. Technical row-count tables and raw dataframe previews are available through the `expert` profile.
+

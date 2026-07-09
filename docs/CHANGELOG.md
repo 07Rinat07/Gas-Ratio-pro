@@ -709,3 +709,16 @@ git status --short
 - Updated print report header to focus on project and analysis interval instead of technical row counters.
 - Added regression tests for summary behavior and report header noise reduction.
 
+
+## v22 — Engineering report profile
+
+### Added
+- Added an engineer-first print/report profile for interval reports.
+- Added an expert profile for technical appendices with row-count-oriented tables, statistics, and raw bounded data.
+
+### Changed
+- Default interval print reports now prioritize executive summary, interval cards, recommendations and limitations.
+- Technical row counters, preliminary class counts, numeric statistics and raw row tables are no longer printed in the default engineering profile.
+
+### Validation
+- Regression suite: 1071 passed.

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Literal, Sequence
 
 import pandas as pd
 
@@ -120,14 +120,22 @@ def build_interval_print_report(
     extra_tables: Sequence[HtmlReportTable] = (),
     notes: Sequence[str] = (),
     max_interval_rows: int = 120,
+    report_profile: Literal["engineering", "expert"] = "engineering",
 ) -> bytes:
     """Create a complete printable HTML report for the selected depth interval.
 
-    The report combines charts, interpretation counts, numeric statistics,
-    marker/zone tables and a bounded interval table. A bounded raw table keeps
-    browser printing stable while CSV/XLSX exports remain the source for full
-    machine-readable data.
+    The default ``engineering`` profile is intentionally engineer-first: it
+    starts with conclusions, intervals, recommendations and limitations, and it
+    does not print raw dataframe row counts, min/max tables or full technical
+    dumps. Those details remain available through the ``expert`` profile and
+    machine-readable CSV/XLSX exports. This keeps the printed report focused on
+    what a practicing geologist or mud-logging engineer needs first: where the
+    probable accumulations are and why the interpretation was made.
     """
+
+    profile = str(report_profile or "engineering").strip().lower()
+    if profile not in {"engineering", "expert"}:
+        profile = "engineering"
 
     rows_count = 0 if interval_df is None else len(interval_df)
     selected_tablet_columns = tuple(str(column) for column in tablet_columns if str(column).strip())
@@ -136,23 +144,25 @@ def build_interval_print_report(
     hydrocarbon_payload = build_hydrocarbon_report_payload(interval_df)
     tables.extend(hydrocarbon_payload.professional_tables)
 
-    interpretation_table = build_interpretation_counts_table(interval_df)
-    if interpretation_table is not None:
-        tables.append(interpretation_table)
+    if profile == "expert":
+        interpretation_table = build_interpretation_counts_table(interval_df)
+        if interpretation_table is not None:
+            tables.append(interpretation_table)
 
-    stats_table = build_numeric_statistics_table(interval_df, columns=selected_tablet_columns)
-    if stats_table is not None:
-        tables.append(stats_table)
+        stats_table = build_numeric_statistics_table(interval_df, columns=selected_tablet_columns)
+        if stats_table is not None:
+            tables.append(stats_table)
 
     tables.extend(table for table in extra_tables if table is not None)
 
-    interval_table = dataframe_to_report_table(
-        f"Таблица выбранного интервала (первые {min(rows_count, max_interval_rows)} из {rows_count} строк)",
-        interval_df,
-        max_rows=max_interval_rows,
-    )
-    if interval_table is not None:
-        tables.append(interval_table)
+    if profile == "expert":
+        interval_table = dataframe_to_report_table(
+            f"Техническая таблица данных (первые {min(rows_count, max_interval_rows)} из {rows_count} строк)",
+            interval_df,
+            max_rows=max_interval_rows,
+        )
+        if interval_table is not None:
+            tables.append(interval_table)
 
     report_notes = tuple(str(note) for note in notes if str(note).strip()) + (
         "Интерпретация является предварительной инженерной подсказкой и требует проверки по ГИС, литологии, буровому контексту и качеству данных.",
@@ -167,6 +177,7 @@ def build_interval_print_report(
                 ("Источник данных", str(source_label)),
                 ("Проект", str(project_label)),
                 ("Интервал анализа", str(depth_label)),
+                ("Профиль отчета", "Инженерный" if profile == "engineering" else "Экспертный"),
             ),
             notes=report_notes,
             tables=tuple(tables),

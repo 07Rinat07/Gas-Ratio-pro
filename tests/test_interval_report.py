@@ -111,7 +111,39 @@ def test_interval_print_report_includes_metadata_tables_and_chart():
     assert "sample.las" in html
     assert "Сводка выявленных УВ-интервалов" in html
     assert "Маркеры УВ-интервалов для графиков" in html
+    assert "Профиль отчета" in html
+    assert "Инженерный" in html
+    assert "Сводка предварительной интерпретации" not in html
+    assert "Статистика выбранного интервала" not in html
+    assert "Техническая таблица данных" not in html
+    assert "Plotly.newPlot" in html
+
+
+def test_interval_print_report_expert_profile_keeps_technical_appendix():
+    df = pd.DataFrame(
+        {
+            "depth": [1000.0, 1001.0],
+            "GR": [80.0, 90.0],
+            "interpretation": ["gas", "oil"],
+            "c1_c2": [20.0, 6.0],
+            "oil_indicator": [0.05, 0.2],
+        }
+    )
+    figure = go.Figure(data=[go.Scatter(x=[80.0, 90.0], y=[1000.0, 1001.0])])
+
+    html = build_interval_print_report(
+        [figure],
+        title="Expert Report",
+        source_label="sample.las",
+        project_label="Default",
+        depth_label="1000-1001 м",
+        interval_df=df,
+        tablet_columns=("GR",),
+        max_interval_rows=1,
+        report_profile="expert",
+    ).decode("utf-8")
+
+    assert "Экспертный" in html
     assert "Сводка предварительной интерпретации" in html
     assert "Статистика выбранного интервала" in html
-    assert "Таблица выбранного интервала (первые 1 из 2 строк)" in html
-    assert "Plotly.newPlot" in html
+    assert "Техническая таблица данных (первые 1 из 2 строк)" in html
