@@ -114,6 +114,7 @@ class PresentationBundleValidationResult:
     missing_files: tuple[str, ...]
     empty_files: tuple[str, ...]
     consistency: dict[str, bool]
+    validation_report_path: Path | None = None
 
     @property
     def issue_count(self) -> int:
@@ -641,6 +642,71 @@ def export_presentation_bundle_package(
     )
 
 
+
+
+def build_presentation_bundle_validation_report(result: PresentationBundleValidationResult) -> dict[str, object]:
+    """Return a machine-readable validation report for a bundle audit.
+
+    The report is designed for CI and external QA tools.  It mirrors the
+    filesystem-only validation result in JSON-safe primitives and adds an
+    explicit status, issue list and checked-file catalogue so callers do not
+    have to parse console output or Python dataclasses.
+    """
+
+    issues: list[dict[str, str]] = []
+    for name in result.missing_files:
+        issues.append({"severity": "error", "kind": "missing_file", "target": str(name)})
+    for name in result.empty_files:
+        issues.append({"severity": "error", "kind": "empty_file", "target": str(name)})
+    failed_consistency = sorted(key for key, value in result.consistency.items() if value is not True)
+    for key in failed_consistency:
+        issues.append({"severity": "error", "kind": "failed_consistency", "target": key})
+
+    files = []
+    for path in result.files_checked:
+        files.append(
+            {
+                "path": str(path),
+                "exists": path.exists(),
+                "size_bytes": path.stat().st_size if path.exists() else 0,
+            }
+        )
+
+    return {
+        "schema": "gas-ratio-pro/presentation/bundle-validation/v1",
+        "status": "ok" if result.ok else "failed",
+        "ok": result.ok,
+        "manifest": str(result.manifest_path),
+        "files_checked": files,
+        "file_count": len(files),
+        "missing_files": list(result.missing_files),
+        "empty_files": list(result.empty_files),
+        "consistency": dict(result.consistency),
+        "failed_consistency": failed_consistency,
+        "issue_count": len(issues),
+        "issues": issues,
+    }
+
+
+def write_presentation_bundle_validation_report(
+    result: PresentationBundleValidationResult,
+    *,
+    report_path: str | Path | None = None,
+    overwrite: bool = True,
+) -> Path:
+    """Write a JSON validation report beside a bundle manifest.
+
+    The default filename is derived from the manifest name and is stable across
+    local QA, CI and release packaging.  This keeps release evidence inside the
+    export directory without re-running any presentation calculations.
+    """
+
+    path = Path(report_path) if report_path is not None else result.manifest_path.with_suffix(".validation.json")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = build_presentation_bundle_validation_report(result)
+    _write_bytes(path, json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8"), overwrite=overwrite)
+    return path
+
 def validate_presentation_bundle_export(manifest_path: str | Path) -> PresentationBundleValidationResult:
     """Validate an already written presentation bundle manifest.
 
@@ -776,6 +842,7 @@ __all__ = [
     "PresentationPdfExportResult",
     "PresentationBundleExportResult",
     "PresentationBundleValidationResult",
+    "build_presentation_bundle_validation_report",
     "export_presentation_bundle_package",
     "export_presentation_docx_package",
     "export_presentation_html_package",
@@ -783,4 +850,5 @@ __all__ = [
     "export_presentation_pdf_package",
     "safe_export_basename",
     "validate_presentation_bundle_export",
+    "write_presentation_bundle_validation_report",
 ]

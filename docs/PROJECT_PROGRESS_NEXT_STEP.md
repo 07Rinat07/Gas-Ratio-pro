@@ -240,3 +240,14 @@ Completed:
 Next step:
 Use indexed SVG visualization assets as concrete inputs for PDF/DOCX renderers so printable formats can embed the prepared Visualization Engine output instead of keeping placeholders.
 
+
+## V72 Bundle Validation Report
+
+Completed:
+- Added a machine-readable bundle validation report for release export QA.
+- The report records schema, status, checked files, file sizes, missing files, empty files, consistency flags and issue list.
+- `release_export_qa` now writes the validation JSON beside the bundle manifest and returns its path in the QA summary.
+- Added regression coverage for CI-friendly validation report generation.
+
+Next step:
+Use indexed SVG visualization assets as concrete inputs for PDF/DOCX renderers so printable formats can embed the prepared Visualization Engine output instead of keeping placeholders.

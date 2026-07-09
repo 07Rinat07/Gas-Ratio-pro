@@ -46,3 +46,19 @@ def test_release_export_qa_script_prints_json(tmp_path) -> None:
 
     assert payload["ok"] is True
     assert payload["validation"]["ok"] is True
+
+
+def test_release_export_qa_writes_machine_readable_validation_report(tmp_path) -> None:
+    summary = run_release_export_qa(tmp_path)
+    report_path = __import__("pathlib").Path(summary["validation"]["validation_report"])
+
+    assert report_path.exists()
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["schema"] == "gas-ratio-pro/presentation/bundle-validation/v1"
+    assert report["ok"] is True
+    assert report["status"] == "ok"
+    assert report["issue_count"] == 0
+    assert report["manifest"] == summary["validation"]["manifest"]
+    assert report["file_count"] == len(report["files_checked"])
+    assert all(item["exists"] is True for item in report["files_checked"])
+    assert all(item["size_bytes"] > 0 for item in report["files_checked"])

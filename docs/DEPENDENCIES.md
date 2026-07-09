@@ -73,3 +73,13 @@ uses standard system fonts such as Arial, Segoe UI or Calibri. On Linux it uses
 DejaVu Sans or Noto Sans when available. For custom deployments set
 `GAS_RATIO_PRO_PDF_FONT` and `GAS_RATIO_PRO_PDF_FONT_BOLD` to valid `.ttf` files.
 This is required for Russian, Kazakh and English multilingual reports.
+
+## Release export QA
+
+Use the release-level export QA command before handing a build to users:
+
+```bash
+python scripts/release_export_qa.py --output-dir tmp/release-export-qa
+```
+
+The command generates the multilingual HTML/PDF/DOCX bundle, validates the bundle manifest, checks visualization assets and writes a machine-readable validation report next to the bundle manifest. CI tools should read the `validation.validation_report` path from the command JSON output instead of parsing console text.

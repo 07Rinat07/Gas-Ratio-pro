@@ -17,7 +17,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from reports.presentation_export import validate_presentation_bundle_export
+from reports.presentation_export import validate_presentation_bundle_export, write_presentation_bundle_validation_report
 from scripts.export_smoke import run_export_smoke
 
 
@@ -60,6 +60,7 @@ def run_release_export_qa(output_dir: str | Path) -> dict[str, object]:
 
     smoke = run_export_smoke(output_dir)
     validation = validate_presentation_bundle_export(smoke["manifest"])
+    validation_report_path = write_presentation_bundle_validation_report(validation)
     visualization_assets = _read_visualization_asset_summary(smoke["manifest"])
     return {
         "ok": bool(smoke.get("ok")) and validation.ok,
@@ -73,6 +74,7 @@ def run_release_export_qa(output_dir: str | Path) -> dict[str, object]:
             "empty_files": list(validation.empty_files),
             "consistency": validation.consistency,
             "issue_count": validation.issue_count,
+            "validation_report": str(validation_report_path),
         },
     }
 
