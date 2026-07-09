@@ -208,6 +208,8 @@ class LasViewerToolViewProvider:
                 visualization_payload = LasVisualizationPayloadService(state.get("projects_root") or state.get("project_root") or "projects").build(
                     context.application.project_id,
                     las_id,
+                    interval_ids=context.selected_intervals,
+                    interval_metadata=state.get("workspace_interval_metadata") or state.get("interval_metadata"),
                 ).to_dict()
             except Exception as exc:  # renderer payload must remain safe even if storage is unavailable
                 metadata_error = str(exc)

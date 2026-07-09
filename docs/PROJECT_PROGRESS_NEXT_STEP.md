@@ -143,3 +143,15 @@ Completed:
 
 Next step:
 Connect the visualization payload to a thin renderer adapter and then start building Visualization Engine 2.0 chart layout rules for professional LAS print/export output.
+
+## V63 LAS Visualization Interval Overlays
+
+Completed:
+- Added renderer-neutral LAS interval overlay payloads to `LasVisualizationPayloadService`.
+- Visualization payloads can now carry selected interval bands with top/base depth, label, fluid type, confidence and track scope.
+- LAS Viewer passes Workbench selected intervals into the visualization payload without exposing raw LAS dataframes to UI state.
+- Invalid or out-of-range interval ids are ignored safely and reported with `interval_overlays_empty` quality flag.
+- Added regression tests for overlay generation and invalid interval handling.
+
+Next step:
+Connect the visualization payload to a thin renderer adapter and add chart layout rules for printable LAS tracks, including stable track order, axis descriptors and interval overlay rendering hints.

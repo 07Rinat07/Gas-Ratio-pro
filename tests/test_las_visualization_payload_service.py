@@ -60,3 +60,45 @@ def test_las_visualization_payload_limits_curves_without_raw_dataframe(tmp_path)
     assert payload["curves"][0]["mnemonic"] == "GR"
     assert "curves_truncated" in payload["quality_flags"]
     assert "dataframe" not in payload
+
+
+def test_las_visualization_payload_adds_renderer_neutral_interval_overlays(tmp_path):
+    manager = LasManagerService(tmp_path)
+    record = manager.save_file(project_id="demo", data=LAS_WITH_GAS, file_name="demo.las").record
+
+    payload = LasVisualizationPayloadService(tmp_path).build(
+        "demo",
+        record.id,
+        interval_ids=["1000.5-1001.0", "outside"],
+        interval_metadata={
+            "1000.5-1001.0": {
+                "label": "Gas bearing interval",
+                "fluid_type": "gas",
+                "confidence": "high",
+            }
+        },
+    ).to_dict()
+
+    assert payload["overlays"] == [
+        {
+            "id": "1000.5-1001.0",
+            "top": 1000.5,
+            "base": 1001.0,
+            "label": "Gas bearing interval",
+            "fluid_type": "gas",
+            "confidence": "high",
+            "selected": True,
+            "track_scope": ["track.gamma", "track.gas", "track.resistivity", "track.porosity"],
+        }
+    ]
+    assert "dataframe" not in payload
+
+
+def test_las_visualization_payload_reports_empty_overlay_flag_for_invalid_intervals(tmp_path):
+    manager = LasManagerService(tmp_path)
+    record = manager.save_file(project_id="demo", data=LAS_WITH_GAS, file_name="demo.las").record
+
+    payload = LasVisualizationPayloadService(tmp_path).build("demo", record.id, interval_ids=["bad_interval"]).to_dict()
+
+    assert payload["overlays"] == []
+    assert "interval_overlays_empty" in payload["quality_flags"]

@@ -1,0 +1,36 @@
+{
+  "schema": "gas-ratio-pro/presentation/bundle-export/v1",
+  "created_at_utc": "2026-07-09T19:51:16+00:00",
+  "profile": "engineering",
+  "files": {
+    "html": "gas-ratio-export-smoke.html",
+    "pdf": "gas-ratio-export-smoke.pdf",
+    "docx": "gas-ratio-export-smoke.docx",
+    "html_manifest": "gas-ratio-export-smoke.manifest.json",
+    "pdf_manifest": "gas-ratio-export-smoke.pdf.manifest.json",
+    "docx_manifest": "gas-ratio-export-smoke.docx.manifest.json"
+  },
+  "table_titles": [
+    "Краткое инженерное заключение",
+    "Основные интервалы для инженерной проверки",
+    "Рекомендации и ограничения интерпретации",
+    "Карточки интервалов залежей",
+    "Обоснование интерпретации по интервалам"
+  ],
+  "figure_count": 0,
+  "presentation_schema": "gas-ratio-pro/presentation/model/v1",
+  "metadata": {
+    "title": "Gas Ratio Professional Report",
+    "subtitle": "Инженерное заключение по вероятным УВ-интервалам",
+    "source_label": "export-smoke-sample.las",
+    "project_label": "Gas Ratio Pro QA",
+    "depth_label": "2148.2-2156.0 м",
+    "report_profile": "engineering"
+  },
+  "consistency": {
+    "same_profile": true,
+    "same_table_titles": true,
+    "same_figure_count": true,
+    "single_source_model": true
+  }
+}

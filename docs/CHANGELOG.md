@@ -994,3 +994,15 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added Workbench tool state persistence in workspace sessions.
 - Added Workbench tool registry tests and kept release export QA green.
 
+
+## v63 - LAS Visualization Interval Overlays
+
+### Added
+- Added renderer-neutral interval overlay payloads for LAS visualization.
+- Added selected interval bands with depth range, label, fluid type, confidence and track scope.
+- Added invalid interval safety flag for overlay generation.
+- Added tests for overlay payload generation and invalid interval handling.
+
+### Notes
+- Plotting backend code is still not part of the service layer.
+- Workbench UI state still receives only lightweight serializable payloads, not raw LAS dataframes.

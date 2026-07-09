@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping, Sequence
 
 import pandas as pd
 
@@ -73,6 +73,37 @@ class LasTrackPlotPayload:
 
 
 @dataclass(frozen=True, slots=True)
+class LasIntervalOverlayPayload:
+    """Renderer-neutral interval overlay for LAS plots.
+
+    The overlay describes only printable depth bands and engineering labels. It
+    intentionally avoids color objects, plotting callbacks and raw interval
+    calculation rows so any renderer can draw the same interpretation zones.
+    """
+
+    id: str
+    top: float
+    base: float
+    label: str = ""
+    fluid_type: str = "unknown"
+    confidence: str = ""
+    selected: bool = False
+    track_scope: tuple[str, ...] = field(default_factory=tuple)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "top": self.top,
+            "base": self.base,
+            "label": self.label,
+            "fluid_type": self.fluid_type,
+            "confidence": self.confidence,
+            "selected": self.selected,
+            "track_scope": list(self.track_scope),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class LasVisualizationPayload:
     """Complete renderer-neutral LAS visualization contract."""
 
@@ -85,6 +116,7 @@ class LasVisualizationPayload:
     truncated: bool = False
     tracks: tuple[LasTrackPlotPayload, ...] = field(default_factory=tuple)
     curves: tuple[LasCurvePlotPayload, ...] = field(default_factory=tuple)
+    overlays: tuple[LasIntervalOverlayPayload, ...] = field(default_factory=tuple)
     quality_flags: tuple[str, ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:
@@ -98,6 +130,7 @@ class LasVisualizationPayload:
             "truncated": self.truncated,
             "tracks": [track.to_dict() for track in self.tracks],
             "curves": [curve.to_dict() for curve in self.curves],
+            "overlays": [overlay.to_dict() for overlay in self.overlays],
             "quality_flags": list(self.quality_flags),
         }
 
@@ -196,6 +229,70 @@ def _curve_payload(
     )
 
 
+def _float_or_none(value: Any) -> float | None:
+    try:
+        if value is None or str(value).strip() == "":
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_interval_id(interval_id: str) -> tuple[float | None, float | None]:
+    clean = str(interval_id or "").strip()
+    for sep in ("-", "..", ":"):
+        if sep in clean:
+            left, right = clean.split(sep, 1)
+            return _float_or_none(left), _float_or_none(right)
+    return None, None
+
+
+def _interval_metadata(metadata: Mapping[str, Mapping[str, Any]] | None, interval_id: str) -> dict[str, Any]:
+    if not metadata:
+        return {}
+    return dict(metadata.get(interval_id, {}) or {})
+
+
+def _build_overlays(
+    interval_ids: Sequence[str] | None,
+    *,
+    depth_start: float | None,
+    depth_stop: float | None,
+    metadata: Mapping[str, Mapping[str, Any]] | None = None,
+) -> tuple[LasIntervalOverlayPayload, ...]:
+    overlays: list[LasIntervalOverlayPayload] = []
+    for raw_id in tuple(interval_ids or ()): 
+        interval_id = str(raw_id or "").strip()
+        if not interval_id:
+            continue
+        item = _interval_metadata(metadata, interval_id)
+        top = _float_or_none(item.get("top"))
+        base = _float_or_none(item.get("base"))
+        if top is None or base is None:
+            top, base = _parse_interval_id(interval_id)
+        if top is None or base is None:
+            continue
+        top, base = sorted((top, base))
+        if depth_start is not None and base < depth_start:
+            continue
+        if depth_stop is not None and top > depth_stop:
+            continue
+        label = str(item.get("label") or item.get("title") or interval_id)
+        overlays.append(
+            LasIntervalOverlayPayload(
+                id=interval_id,
+                top=float(top),
+                base=float(base),
+                label=label,
+                fluid_type=str(item.get("fluid_type") or item.get("fluid") or "unknown"),
+                confidence=str(item.get("confidence") or item.get("confidence_level") or ""),
+                selected=True,
+                track_scope=("track.gamma", "track.gas", "track.resistivity", "track.porosity"),
+            )
+        )
+    return tuple(overlays)
+
+
 def _build_tracks(curves: Iterable[LasCurvePlotPayload]) -> tuple[LasTrackPlotPayload, ...]:
     grouped: dict[str, list[str]] = {}
     for curve in curves:
@@ -222,6 +319,8 @@ class LasVisualizationPayloadService:
         *,
         curve_limit: int = DEFAULT_CURVE_LIMIT,
         sample_limit: int = DEFAULT_SAMPLE_LIMIT,
+        interval_ids: Sequence[str] | None = None,
+        interval_metadata: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> LasVisualizationPayload:
         clean_project_id = safe_project_id(project_id)
         clean_las_id = str(las_id or "").strip()
@@ -254,15 +353,25 @@ class LasVisualizationPayloadService:
             flags.append("curves_decimated")
         if not curve_payloads:
             flags.append("no_numeric_visualization_curves")
+        depth_info = _depth_range(frame[depth_curve])
+        overlays = _build_overlays(
+            interval_ids,
+            depth_start=depth_info.get("start"),
+            depth_stop=depth_info.get("stop"),
+            metadata=interval_metadata,
+        )
+        if interval_ids and not overlays:
+            flags.append("interval_overlays_empty")
         return LasVisualizationPayload(
             project_id=clean_project_id,
             las_id=clean_las_id,
             depth_curve=depth_curve,
             depth_unit=unit_map.get(depth_curve, ""),
-            depth_range=_depth_range(frame[depth_curve]),
+            depth_range=depth_info,
             sample_limit=max(2, int(sample_limit or DEFAULT_SAMPLE_LIMIT)),
             truncated=bool(flags),
             tracks=_build_tracks(curve_payloads),
             curves=curve_payloads,
+            overlays=overlays,
             quality_flags=tuple(flags),
         )
