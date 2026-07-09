@@ -831,3 +831,17 @@ Purpose:
 ### Next
 
 - Start Modern UI / Workspace integration on top of the frozen Presentation Layer.
+
+## v34 - Presentation UI Integration Foundation
+
+### Added
+
+- Added `reports/presentation_ui.py` as a renderer-neutral adapter for report/export controls.
+- Added stable engineering/expert report profile options for UI selectors.
+- Added stable HTML/PDF/DOCX/bundle export format options.
+- Added safe report basename generation for user/project/well labels.
+- Added tests for profile normalization, export format normalization and export options mapping.
+
+### Rationale
+
+The Streamlit UI must not duplicate presentation/export rules. It should pass normalized user choices to the Presentation Layer, while HTML/PDF/DOCX continue to render from one `PresentationModel`.
