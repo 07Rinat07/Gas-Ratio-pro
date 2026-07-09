@@ -24,6 +24,48 @@ class PresentationHtmlOptions:
     include_technical_appendix: bool = False
     page_title: str = "Gas Ratio Professional Report"
     language: str = "ru"
+    paper_size: str = "A4"
+    orientation: str = "portrait"
+    print_margin_mm: int = 10
+    compact_tables: bool = True
+
+
+def _safe_paper_size(value: str) -> str:
+    text = str(value or "A4").strip().upper()
+    return text if text in {"A4", "A3", "LETTER"} else "A4"
+
+
+def _safe_orientation(value: str) -> str:
+    text = str(value or "portrait").strip().lower()
+    return text if text in {"portrait", "landscape"} else "portrait"
+
+
+def _safe_margin_mm(value: int) -> int:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        number = 10
+    return max(5, min(number, 25))
+
+
+def _print_css(opts: PresentationHtmlOptions) -> str:
+    paper = _safe_paper_size(opts.paper_size)
+    orientation = _safe_orientation(opts.orientation)
+    margin = _safe_margin_mm(opts.print_margin_mm)
+    table_font = "11px" if opts.compact_tables else "12px"
+    return "\n".join(
+        (
+            f"@page{{size:{paper} {orientation};margin:{margin}mm;}}",
+            ".page-break-before{page-break-before:always;}",
+            ".avoid-break{page-break-inside:avoid;break-inside:avoid;}",
+            ".report-cover{page-break-after:avoid;}",
+            ".report-section{page-break-inside:avoid;break-inside:avoid;}",
+            ".report-table{font-size:" + table_font + ";}",
+            ".report-table th,.report-table td{padding:4px 6px;}",
+            ".report-plot{page-break-before:always;}",
+            "@media print{body{margin:0;} .modebar{display:none!important;} a{text-decoration:none;color:inherit;}}",
+        )
+    )
 
 
 @dataclass(frozen=True)
@@ -70,7 +112,7 @@ def _render_table(table: HtmlReportTable) -> str:
     if not rows:
         return ""
     return (
-        "<section class='report-section'>"
+        "<section class='report-section avoid-break'>"
         f"<h2>{escape(_clean_text(table.title) or 'Таблица')}</h2>"
         "<table class='report-table'>"
         f"<thead><tr>{head}</tr></thead>"
@@ -87,7 +129,7 @@ def _render_figures(figures: Sequence[object]) -> str:
     parts: list[str] = []
     include_plotlyjs = True
     for figure in figures:
-        parts.append("<section class='report-section report-plot'>")
+        parts.append("<section class='report-section report-plot avoid-break'>")
         parts.append("<h2>Профессиональный планшет интерпретации</h2>")
         parts.append(pio.to_html(figure, include_plotlyjs=include_plotlyjs, full_html=False))
         parts.append("</section>")
@@ -168,7 +210,7 @@ def build_presentation_html_report(
         ".report-table th,.report-table td{border:1px solid #d7dde8;padding:5px 7px;vertical-align:top;white-space:pre-line;}",
         ".report-plot{page-break-before:always;}",
         ".technical-appendix-notice{border-top:1px solid #d7dde8;margin-top:28px;padding-top:14px;color:#4b5870;font-size:12px;}",
-        "@media print{body{margin:10mm;} .report-section{page-break-inside:avoid;} .modebar{display:none!important;}}",
+        _print_css(opts),
         "</style>",
         "</head><body>",
         "<section class='report-cover'>",

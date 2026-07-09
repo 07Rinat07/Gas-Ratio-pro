@@ -1,19 +1,17 @@
-# Project Progress — Next Step
+# Project Progress
 
-Current stage: Professional Reporting System / Presentation Layer.
+## Completed
 
-Completed in v26:
-- Added `reports/presentation_html.py`.
-- Added a print-ready engineering HTML renderer that consumes `PresentationModel`.
-- Added explicit engineering/expert profile selection.
-- Added optional professional well-log plot embedding from the same presentation source.
-- Added regression tests to prevent HTML rendering from reintroducing technical diagnostics into the default engineering report.
+- Hydrocarbon Interpretation Engine v1.0 freeze.
+- Executive Summary reporting.
+- Interval Cards reporting.
+- Engineering report profile.
+- Professional Well Log Plot foundation.
+- PresentationModel.
+- Presentation HTML renderer and export package.
+- README cleanup and documentation policy.
+- Print-ready presentation layout.
 
-Next implementation step:
-- Build PDF export on top of the same `PresentationModel` / presentation renderer contract.
-- Keep the default report engineer-first: conclusions, intervals, confidence, recommendations and limitations before technical appendices.
+## Next step
 
-## v27 — Presentation Export Package
-
-Added `reports.presentation_export` for writing printable presentation HTML and an audit manifest from `PresentationModel`. Next step: PDF/DOCX renderer foundations using the same presentation model.
-
+Implement a dedicated PDF export bridge that converts the print-ready presentation document into a controlled output workflow without duplicating report logic.
