@@ -234,7 +234,7 @@ def test_snapshot_reports_pinned_count(tmp_path):
 
     snapshot = service.snapshot()
 
-    assert snapshot["version"] == "1.2"
+    assert snapshot["version"] == "1.3"
     assert snapshot["pinned_count"] == 1
     assert snapshot["items"][0]["pinned"] is True
 
@@ -295,6 +295,79 @@ def test_recent_sessions_snapshot_reports_filters(tmp_path):
 
     snapshot = LasViewerRecentSessions(repository).snapshot(query="a", pinned_only=True)
 
-    assert snapshot["version"] == "1.2"
+    assert snapshot["version"] == "1.3"
     assert snapshot["filters"]["query"] == "a"
     assert snapshot["filters"]["pinned_only"] is True
+
+
+def test_recent_sessions_sorts_by_filename_ascending(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("zeta.las"))
+    repository.save(_session("Alpha.las"))
+
+    items = LasViewerRecentSessions(repository).list(
+        sort_by="filename",
+        sort_order="asc",
+    )
+
+    assert [item.las_id for item in items] == ["Alpha.las", "zeta.las"]
+
+
+def test_recent_sessions_sorts_by_project_descending(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las", project_id="Alpha"))
+    repository.save(_session("b.las", project_id="Zulu"))
+
+    items = LasViewerRecentSessions(repository).list(
+        sort_by="project",
+        sort_order="desc",
+    )
+
+    assert [item.project_id for item in items] == ["Zulu", "Alpha"]
+
+
+def test_recent_sessions_can_disable_pinned_first(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("zeta.las"))
+    repository.save(_session("alpha.las"))
+    service = LasViewerRecentSessions(repository)
+    zeta = next(item for item in service.list() if item.las_id == "zeta.las")
+    service.pin(zeta.session_key)
+
+    items = service.list(
+        sort_by="filename",
+        sort_order="asc",
+        pinned_first=False,
+    )
+
+    assert [item.las_id for item in items] == ["alpha.las", "zeta.las"]
+
+
+def test_recent_sessions_rejects_invalid_sort_options(tmp_path):
+    service = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path))
+
+    for kwargs in ({"sort_by": "unknown"}, {"sort_order": "sideways"}):
+        try:
+            service.list(**kwargs)
+        except ValueError as exc:
+            assert "sort" in str(exc)
+        else:
+            raise AssertionError("ValueError expected")
+
+
+def test_recent_sessions_snapshot_reports_sorting(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las"))
+
+    snapshot = LasViewerRecentSessions(repository).snapshot(
+        sort_by="filename",
+        sort_order="asc",
+        pinned_first=False,
+    )
+
+    assert snapshot["version"] == "1.3"
+    assert snapshot["sorting"] == {
+        "sort_by": "filename",
+        "sort_order": "asc",
+        "pinned_first": False,
+    }

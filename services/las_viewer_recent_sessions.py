@@ -108,6 +108,9 @@ class LasViewerRecentSessions:
         las_id: str = "",
         pinned_only: bool = False,
         active_only: bool = False,
+        sort_by: str = "modified",
+        sort_order: str = "desc",
+        pinned_first: bool = True,
     ) -> tuple[LasViewerRecentSession, ...]:
         if int(limit) < 1:
             raise ValueError("limit must be >= 1")
@@ -139,7 +142,18 @@ class LasViewerRecentSessions:
                 active_only=bool(active_only),
             )
         ]
-        result.sort(key=lambda item: (not item.pinned, -item.modified_ns, item.filename))
+        normalized_sort_by = str(sort_by or "modified").strip().lower()
+        normalized_sort_order = str(sort_order or "desc").strip().lower()
+        if normalized_sort_by not in {"modified", "filename", "project", "las_id"}:
+            raise ValueError("sort_by must be one of: modified, filename, project, las_id")
+        if normalized_sort_order not in {"asc", "desc"}:
+            raise ValueError("sort_order must be either asc or desc")
+        result = self._sort_items(
+            result,
+            sort_by=normalized_sort_by,
+            sort_order=normalized_sort_order,
+            pinned_first=bool(pinned_first),
+        )
         return tuple(result[: int(limit)])
 
     def pin(self, session_key: str, *, pinned: bool = True) -> LasViewerRecentSessionPinResult:
@@ -233,6 +247,9 @@ class LasViewerRecentSessions:
         las_id: str = "",
         pinned_only: bool = False,
         active_only: bool = False,
+        sort_by: str = "modified",
+        sort_order: str = "desc",
+        pinned_first: bool = True,
     ) -> dict[str, object]:
         items = self.list(
             limit=limit,
@@ -244,10 +261,13 @@ class LasViewerRecentSessions:
             las_id=las_id,
             pinned_only=pinned_only,
             active_only=active_only,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            pinned_first=pinned_first,
         )
         return {
             "schema": "las.viewer.recent-sessions",
-            "version": "1.2",
+            "version": "1.3",
             "items": [item.to_dict() for item in items],
             "count": len(items),
             "pinned_count": sum(1 for item in items if item.pinned),
@@ -259,8 +279,40 @@ class LasViewerRecentSessions:
                 "active_only": bool(active_only),
                 "include_invalid": bool(include_invalid),
             },
+            "sorting": {
+                "sort_by": str(sort_by or "modified").strip().lower(),
+                "sort_order": str(sort_order or "desc").strip().lower(),
+                "pinned_first": bool(pinned_first),
+            },
             "renderer_neutral": True,
         }
+
+
+    @staticmethod
+    def _sort_items(
+        items: list[LasViewerRecentSession],
+        *,
+        sort_by: str,
+        sort_order: str,
+        pinned_first: bool,
+    ) -> list[LasViewerRecentSession]:
+        def field_value(item: LasViewerRecentSession):
+            if sort_by == "modified":
+                return item.modified_ns
+            if sort_by == "filename":
+                return item.filename.casefold()
+            if sort_by == "project":
+                return item.project_id.casefold()
+            return item.las_id.casefold()
+
+        ordered = sorted(
+            items,
+            key=lambda item: (field_value(item), item.filename.casefold(), item.session_key),
+            reverse=sort_order == "desc",
+        )
+        if pinned_first:
+            ordered = sorted(ordered, key=lambda item: not item.pinned)
+        return ordered
 
     @staticmethod
     def _matches_filters(
