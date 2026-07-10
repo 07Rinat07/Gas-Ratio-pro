@@ -92,3 +92,84 @@ def test_file_store_rejects_invalid_document(tmp_path) -> None:
     path.write_text(json.dumps([]), encoding="utf-8")
     with pytest.raises(ValueError):
         LasViewerOverlayPresetFileStore().load(path)
+
+from services.las_viewer_overlay_presets import LasViewerOverlayPresetExchange
+
+
+def test_exchange_exports_custom_presets_only_by_default() -> None:
+    repository = LasViewerOverlayPresetRepository.with_defaults()
+    repository.save(LasViewerOverlayPreset("Night", LasViewerInteractionOverlayStyle(cursor_color="#fff")))
+    package = LasViewerOverlayPresetExchange().export_dict(repository)
+    assert [item["name"] for item in package["presets"]] == ["Night"]
+    assert package["renderer_neutral"] is True
+
+
+def test_exchange_can_export_selected_presets() -> None:
+    repository = LasViewerOverlayPresetRepository()
+    repository.save(LasViewerOverlayPreset("A", LasViewerInteractionOverlayStyle()))
+    repository.save(LasViewerOverlayPreset("B", LasViewerInteractionOverlayStyle()))
+    package = LasViewerOverlayPresetExchange().export_dict(repository, names=("b",))
+    assert [item["name"] for item in package["presets"]] == ["B"]
+
+
+def test_exchange_imports_new_preset_and_reports_result() -> None:
+    source = LasViewerOverlayPresetRepository()
+    source.save(LasViewerOverlayPreset("Field", LasViewerInteractionOverlayStyle(cursor_width=2.0)))
+    package = LasViewerOverlayPresetExchange().export_dict(source)
+    target = LasViewerOverlayPresetRepository.with_defaults()
+    result = LasViewerOverlayPresetExchange().import_dict(target, package)
+    assert result.imported == ("Field",)
+    assert result.changed is True
+    assert target.get("Field").style.cursor_width == 2.0
+
+
+def test_exchange_collision_skip_replace_and_error() -> None:
+    exchange = LasViewerOverlayPresetExchange()
+    source = LasViewerOverlayPresetRepository()
+    source.save(LasViewerOverlayPreset("Custom", LasViewerInteractionOverlayStyle(cursor_width=3.0)))
+    package = exchange.export_dict(source)
+
+    target = LasViewerOverlayPresetRepository()
+    target.save(LasViewerOverlayPreset("Custom", LasViewerInteractionOverlayStyle(cursor_width=1.0)))
+    assert exchange.import_dict(target, package, collision="skip").skipped == ("Custom",)
+    assert target.get("Custom").style.cursor_width == 1.0
+    assert exchange.import_dict(target, package, collision="replace").replaced == ("Custom",)
+    assert target.get("Custom").style.cursor_width == 3.0
+    with pytest.raises(ValueError):
+        exchange.import_dict(target, package, collision="error")
+
+
+def test_exchange_never_replaces_builtin_preset() -> None:
+    exchange = LasViewerOverlayPresetExchange()
+    package = {
+        "schema": "las.viewer.interaction-overlay-preset-exchange",
+        "version": "1.0",
+        "presets": [LasViewerOverlayPreset("Default", LasViewerInteractionOverlayStyle(cursor_width=4.0)).to_dict()],
+    }
+    target = LasViewerOverlayPresetRepository.with_defaults()
+    assert exchange.import_dict(target, package, collision="replace").skipped == ("Default",)
+    assert target.get("Default").style.cursor_width != 4.0
+
+
+def test_exchange_rejects_duplicate_names_in_package() -> None:
+    preset = LasViewerOverlayPreset("Duplicate", LasViewerInteractionOverlayStyle()).to_dict()
+    package = {
+        "schema": "las.viewer.interaction-overlay-preset-exchange",
+        "version": "1.0",
+        "presets": [preset, preset],
+    }
+    with pytest.raises(ValueError):
+        LasViewerOverlayPresetExchange().import_dict(LasViewerOverlayPresetRepository(), package)
+
+
+def test_exchange_file_round_trip_preserves_unicode(tmp_path) -> None:
+    repository = LasViewerOverlayPresetRepository()
+    repository.save(LasViewerOverlayPreset("Полевой", LasViewerInteractionOverlayStyle(cursor_width=2.2)))
+    path = tmp_path / "shared-overlay-presets.json"
+    exchange = LasViewerOverlayPresetExchange()
+    exchange.export_file(path, repository)
+    restored = LasViewerOverlayPresetRepository()
+    result = exchange.import_file(path, restored)
+    assert result.imported == ("Полевой",)
+    assert restored.get("Полевой").style.cursor_width == 2.2
+    assert "Полевой" in path.read_text(encoding="utf-8")

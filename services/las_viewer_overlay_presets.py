@@ -184,3 +184,159 @@ class LasViewerOverlayPresetFileStore:
         if not isinstance(data, Mapping):
             raise ValueError("overlay preset file must contain an object")
         return LasViewerOverlayPresetRepository.from_dict(data)
+
+_EXCHANGE_SCHEMA = "las.viewer.interaction-overlay-preset-exchange"
+_EXCHANGE_VERSION = "1.0"
+
+
+@dataclass(frozen=True, slots=True)
+class LasViewerOverlayPresetImportResult:
+    imported: tuple[str, ...] = field(default_factory=tuple)
+    skipped: tuple[str, ...] = field(default_factory=tuple)
+    replaced: tuple[str, ...] = field(default_factory=tuple)
+
+    @property
+    def changed(self) -> bool:
+        return bool(self.imported or self.replaced)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "imported": list(self.imported),
+            "skipped": list(self.skipped),
+            "replaced": list(self.replaced),
+            "changed": self.changed,
+        }
+
+
+class LasViewerOverlayPresetExchange:
+    """Export and import portable overlay preset packages.
+
+    Builtin presets are excluded by default because they are part of the
+    application contract. Import collision policy is explicit: ``skip``,
+    ``replace`` or ``error``.
+    """
+
+    _POLICIES = frozenset({"skip", "replace", "error"})
+
+    def export_dict(
+        self,
+        repository: LasViewerOverlayPresetRepository,
+        *,
+        names: Iterable[str] | None = None,
+        include_builtin: bool = False,
+    ) -> dict[str, Any]:
+        selected_names = None if names is None else {_clean_name(name).casefold() for name in names}
+        presets = []
+        for preset in repository.list():
+            if selected_names is not None and preset.name.casefold() not in selected_names:
+                continue
+            if preset.builtin and not include_builtin:
+                continue
+            item = preset.to_dict()
+            # Imported packages must never acquire builtin protection.
+            item["builtin"] = False
+            presets.append(item)
+        return {
+            "schema": _EXCHANGE_SCHEMA,
+            "version": _EXCHANGE_VERSION,
+            "presets": presets,
+            "renderer_neutral": True,
+        }
+
+    def import_dict(
+        self,
+        repository: LasViewerOverlayPresetRepository,
+        package: Mapping[str, Any],
+        *,
+        collision: str = "skip",
+    ) -> LasViewerOverlayPresetImportResult:
+        policy = str(collision or "").strip().lower()
+        if policy not in self._POLICIES:
+            raise ValueError(f"unsupported overlay preset collision policy: {collision}")
+        if str(package.get("schema") or "") != _EXCHANGE_SCHEMA:
+            raise ValueError("unsupported overlay preset exchange schema")
+        raw = package.get("presets")
+        if not isinstance(raw, list):
+            raise ValueError("overlay preset exchange requires presets list")
+
+        imported: list[str] = []
+        skipped: list[str] = []
+        replaced: list[str] = []
+        seen: set[str] = set()
+        for item in raw:
+            if not isinstance(item, Mapping):
+                raise ValueError("overlay preset exchange contains invalid preset")
+            preset = LasViewerOverlayPreset.from_dict({**item, "builtin": False})
+            key = preset.name.casefold()
+            if key in seen:
+                raise ValueError(f"duplicate overlay preset in exchange package: {preset.name}")
+            seen.add(key)
+
+            try:
+                current = repository.get(preset.name)
+            except KeyError:
+                current = None
+
+            if current is None:
+                repository.save(preset, overwrite=False)
+                imported.append(preset.name)
+                continue
+            if current.builtin:
+                if policy == "error":
+                    raise ValueError(f"builtin overlay preset cannot be replaced: {preset.name}")
+                skipped.append(preset.name)
+                continue
+            if policy == "skip":
+                skipped.append(preset.name)
+            elif policy == "error":
+                raise ValueError(f"overlay preset already exists: {preset.name}")
+            else:
+                repository.save(preset, overwrite=True)
+                replaced.append(preset.name)
+
+        return LasViewerOverlayPresetImportResult(
+            imported=tuple(imported),
+            skipped=tuple(skipped),
+            replaced=tuple(replaced),
+        )
+
+    def export_file(
+        self,
+        path: str | os.PathLike[str],
+        repository: LasViewerOverlayPresetRepository,
+        *,
+        names: Iterable[str] | None = None,
+        include_builtin: bool = False,
+    ) -> Path:
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(
+            self.export_dict(repository, names=names, include_builtin=include_builtin),
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        ) + "\n"
+        temp_name: str | None = None
+        try:
+            with NamedTemporaryFile("w", encoding="utf-8", dir=target.parent, delete=False) as handle:
+                temp_name = handle.name
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp_name, target)
+        finally:
+            if temp_name and os.path.exists(temp_name):
+                os.unlink(temp_name)
+        return target
+
+    def import_file(
+        self,
+        path: str | os.PathLike[str],
+        repository: LasViewerOverlayPresetRepository,
+        *,
+        collision: str = "skip",
+    ) -> LasViewerOverlayPresetImportResult:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        if not isinstance(data, Mapping):
+            raise ValueError("overlay preset exchange file must contain an object")
+        return self.import_dict(repository, data, collision=collision)
