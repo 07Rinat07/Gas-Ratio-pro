@@ -242,7 +242,13 @@ class VisualizationViewportPrefetchScheduler:
         self.budget_adjustments = 0
         self.last_process_budget = 0
         self.distance_adjustments = 0
+        self.distance_holds = 0
+        self.telemetry_updates = 0
         self.last_distance_ratio = 0.0
+        self.smoothed_prefetch_hit_rate = 0.0
+        self._telemetry_initialized = False
+        self._observed_prefetch_hits = 0
+        self._observed_prefetch_wasted = 0
 
     def begin_navigation(self) -> int:
         self.cancelled += len(self._pending)
@@ -342,25 +348,72 @@ class VisualizationViewportPrefetchScheduler:
         base_ratio: float = 0.75,
         minimum: float = 0.25,
         maximum: float = 1.25,
+        minimum_samples: int = 4,
+        smoothing: float = 0.35,
+        shrink_threshold: float = 0.20,
+        expand_threshold: float = 0.60,
     ) -> float:
-        """Tune neighbor distance from observed speculative-cache usefulness."""
+        """Tune prefetch distance from stable telemetry windows.
+
+        Cache counters are cumulative.  The scheduler therefore evaluates only
+        the delta since the previous observation, ignores undersized windows and
+        smooths the resulting hit rate.  Re-reading the same counters cannot
+        repeatedly expand or shrink the distance.
+        """
         base = float(base_ratio)
         lower = float(minimum)
         upper = float(maximum)
-        if not (isfinite(base) and isfinite(lower) and isfinite(upper)):
-            raise ValueError("prefetch distance ratios must be finite")
+        alpha = float(smoothing)
+        shrink = float(shrink_threshold)
+        expand = float(expand_threshold)
+        sample_floor = int(minimum_samples)
+        if not all(isfinite(value) for value in (base, lower, upper, alpha, shrink, expand)):
+            raise ValueError("prefetch distance settings must be finite")
         if lower <= 0 or upper < lower or base <= 0:
             raise ValueError("invalid prefetch distance ratio bounds")
+        if sample_floor < 1:
+            raise ValueError("minimum_samples must be positive")
+        if not 0.0 < alpha <= 1.0:
+            raise ValueError("smoothing must be in the range (0, 1]")
+        if not 0.0 <= shrink < expand <= 1.0:
+            raise ValueError("invalid prefetch telemetry thresholds")
+
         hits = max(0, int(cache_stats.get("prefetch_hits", 0)))
         wasted = max(0, int(cache_stats.get("prefetch_wasted", 0)))
-        samples = hits + wasted
-        ratio = min(upper, max(lower, base))
-        if samples >= 4:
-            hit_rate = hits / samples
-            if hit_rate >= 0.6:
+        if hits < self._observed_prefetch_hits or wasted < self._observed_prefetch_wasted:
+            delta_hits, delta_wasted = hits, wasted
+        else:
+            delta_hits = hits - self._observed_prefetch_hits
+            delta_wasted = wasted - self._observed_prefetch_wasted
+        self._observed_prefetch_hits = hits
+        self._observed_prefetch_wasted = wasted
+
+        ratio = (
+            self.last_distance_ratio
+            if self.last_distance_ratio > 0.0
+            else min(upper, max(lower, base))
+        )
+        samples = delta_hits + delta_wasted
+        if samples >= sample_floor:
+            observed_rate = delta_hits / samples
+            if self._telemetry_initialized:
+                self.smoothed_prefetch_hit_rate = (
+                    alpha * observed_rate
+                    + (1.0 - alpha) * self.smoothed_prefetch_hit_rate
+                )
+            else:
+                self.smoothed_prefetch_hit_rate = observed_rate
+                self._telemetry_initialized = True
+            self.telemetry_updates += 1
+            if self.smoothed_prefetch_hit_rate >= expand:
                 ratio = min(upper, ratio * 1.25)
-            elif hit_rate <= 0.2:
+            elif self.smoothed_prefetch_hit_rate <= shrink:
                 ratio = max(lower, ratio * 0.75)
+            else:
+                self.distance_holds += 1
+        else:
+            self.distance_holds += 1
+
         if ratio != self.last_distance_ratio:
             self.distance_adjustments += 1
         self.last_distance_ratio = ratio
@@ -379,6 +432,11 @@ class VisualizationViewportPrefetchScheduler:
             "budget_adjustments": self.budget_adjustments,
             "last_process_budget": self.last_process_budget,
             "distance_adjustments": self.distance_adjustments,
+            "distance_holds": self.distance_holds,
+            "telemetry_updates": self.telemetry_updates,
+            "smoothed_prefetch_hit_rate_ppm": int(
+                1_000_000 * self.smoothed_prefetch_hit_rate
+            ),
             "last_distance_ratio": self.last_distance_ratio,
         }
 
@@ -554,6 +612,10 @@ class VisualizationViewportPipeline:
                 base_ratio=distance_ratio,
                 minimum=float(options.get("min_distance_ratio", 0.25)),
                 maximum=float(options.get("max_distance_ratio", 1.25)),
+                minimum_samples=int(options.get("minimum_telemetry_samples", 4)),
+                smoothing=float(options.get("telemetry_smoothing", 0.35)),
+                shrink_threshold=float(options.get("shrink_hit_rate", 0.20)),
+                expand_threshold=float(options.get("expand_hit_rate", 0.60)),
             )
 
         process_limit_value = options.get("process_limit")

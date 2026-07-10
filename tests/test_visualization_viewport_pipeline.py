@@ -556,3 +556,59 @@ def test_pipeline_exposes_adaptive_prefetch_distance() -> None:
     queue = result.payload["viewport_pipeline"]["prefetch_queue"]
     assert queue["last_distance_ratio"] == 0.75
     assert queue["distance_adjustments"] == 1
+
+
+def test_adaptive_prefetch_distance_does_not_drift_on_repeated_counters() -> None:
+    from services.visualization_viewport_pipeline import VisualizationViewportPrefetchScheduler
+
+    scheduler = VisualizationViewportPrefetchScheduler()
+    first = scheduler.adaptive_distance_ratio(
+        {"prefetch_hits": 8, "prefetch_wasted": 2},
+        base_ratio=0.75,
+    )
+    second = scheduler.adaptive_distance_ratio(
+        {"prefetch_hits": 8, "prefetch_wasted": 2},
+        base_ratio=0.75,
+    )
+
+    assert first == 0.9375
+    assert second == first
+    assert scheduler.stats()["telemetry_updates"] == 1
+    assert scheduler.stats()["distance_holds"] == 1
+
+
+def test_adaptive_prefetch_distance_ignores_small_noisy_window() -> None:
+    from services.visualization_viewport_pipeline import VisualizationViewportPrefetchScheduler
+
+    scheduler = VisualizationViewportPrefetchScheduler()
+    baseline = scheduler.adaptive_distance_ratio(
+        {"prefetch_hits": 0, "prefetch_wasted": 0},
+        base_ratio=0.75,
+    )
+    noisy = scheduler.adaptive_distance_ratio(
+        {"prefetch_hits": 1, "prefetch_wasted": 1},
+        base_ratio=0.75,
+        minimum_samples=4,
+    )
+
+    assert baseline == 0.75
+    assert noisy == 0.75
+    assert scheduler.stats()["telemetry_updates"] == 0
+
+
+def test_pipeline_exposes_stabilized_prefetch_telemetry() -> None:
+    pipeline = VisualizationViewportPipeline()
+    payload = _payload()
+    payload["viewport_prefetch"] = {
+        "adaptive_distance": True,
+        "process_limit": 1,
+        "minimum_telemetry_samples": 4,
+        "telemetry_smoothing": 0.5,
+    }
+
+    result = pipeline.run(payload, _viewport(1003.0, 1007.0))
+    queue = result.payload["viewport_pipeline"]["prefetch_queue"]
+
+    assert queue["distance_holds"] == 1
+    assert queue["telemetry_updates"] == 0
+    assert queue["smoothed_prefetch_hit_rate_ppm"] == 0
