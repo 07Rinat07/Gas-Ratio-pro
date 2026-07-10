@@ -8,6 +8,7 @@ from typing import Iterable
 
 from services.las_viewer_workspace_autosave_repository import (
     LasViewerAutosaveRepositoryEntry,
+    LasViewerAutosaveRepositoryRemoval,
     LasViewerWorkspaceAutosaveRepository,
 )
 
@@ -36,6 +37,27 @@ class LasViewerRecentSession:
             "modified_ns": self.modified_ns,
             "valid": self.valid,
             "active": self.active,
+            "reason": self.reason,
+            "renderer_neutral": True,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class LasViewerRecentSessionRemoval:
+    removed: bool
+    session_key: str = ""
+    filename: str = ""
+    removed_files: int = 0
+    reason: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": "las.viewer.recent-session-removal",
+            "version": "1.0",
+            "removed": self.removed,
+            "session_key": self.session_key,
+            "filename": self.filename,
+            "removed_files": self.removed_files,
             "reason": self.reason,
             "renderer_neutral": True,
         }
@@ -71,6 +93,37 @@ class LasViewerRecentSessions:
             if len(result) >= int(limit):
                 break
         return tuple(result)
+
+
+    def remove(self, session_key: str) -> LasViewerRecentSessionRemoval:
+        """Remove a recent session by its stable public key."""
+        key = str(session_key or "").strip()
+        if not key:
+            return LasViewerRecentSessionRemoval(removed=False, reason="missing_session_key")
+        for item in self.repository.entries():
+            recent = self._from_repository_entry(item)
+            if recent.session_key != key:
+                continue
+            result = self.repository.remove_entry(item.filename)
+            return self._removal_from_repository(key, result)
+        return LasViewerRecentSessionRemoval(
+            removed=False,
+            session_key=key,
+            reason="missing_recent_session",
+        )
+
+    @staticmethod
+    def _removal_from_repository(
+        session_key: str,
+        result: LasViewerAutosaveRepositoryRemoval,
+    ) -> LasViewerRecentSessionRemoval:
+        return LasViewerRecentSessionRemoval(
+            removed=result.removed,
+            session_key=session_key,
+            filename=result.filename,
+            removed_files=result.removed_files,
+            reason=result.reason,
+        )
 
     def latest(
         self,

@@ -37,6 +37,15 @@ class LasViewerAutosaveRepositoryRecovery:
     reason: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class LasViewerAutosaveRepositoryRemoval:
+    removed: bool
+    filename: str = ""
+    removed_files: int = 0
+    reason: str = ""
+
+
+
 class LasViewerWorkspaceAutosaveRepository:
     """Manage independent autosaves for multiple LAS Viewer sessions."""
 
@@ -106,6 +115,31 @@ class LasViewerWorkspaceAutosaveRepository:
             path=result.path,
             used_backup=result.used_backup,
             inspected=1,
+        )
+
+
+    def remove_entry(self, filename: str) -> LasViewerAutosaveRepositoryRemoval:
+        """Remove one autosave entry and its backup using a safe repository name."""
+        name = Path(str(filename or "")).name
+        if name != str(filename or "") or not name.startswith(self.PREFIX) or not name.endswith(self.SUFFIX):
+            return LasViewerAutosaveRepositoryRemoval(
+                removed=False,
+                filename=name,
+                reason="invalid_repository_filename",
+            )
+        candidates = {candidate for candidate, _modified in self._candidate_files()}
+        if name not in candidates:
+            return LasViewerAutosaveRepositoryRemoval(
+                removed=False,
+                filename=name,
+                reason="missing_autosave",
+            )
+        removed_files = LasViewerWorkspaceAutosaveStore(self.directory, filename=name).clear()
+        return LasViewerAutosaveRepositoryRemoval(
+            removed=removed_files > 0,
+            filename=name,
+            removed_files=removed_files,
+            reason="removed" if removed_files else "missing_autosave",
         )
 
     def recover_latest_session(self, *, project_id: str = "", las_id: str = "") -> LasViewerSession | None:

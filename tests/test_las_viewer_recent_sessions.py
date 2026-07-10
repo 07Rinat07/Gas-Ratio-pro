@@ -113,3 +113,60 @@ def test_switcher_activates_selected_recent_entry(tmp_path):
     assert result.switched is True
     assert result.recovered is True
     assert switcher.active_state is not None and switcher.active_state.las_id == "saved.las"
+
+
+def test_repository_removes_selected_entry_and_backup(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    session = _session("remove.las")
+    repository.save(session)
+    repository.save(LasViewerSession({
+        "project_id": "project-1",
+        "las_id": "remove.las",
+        "depth_unit": "M",
+        "depth_range": {"start": 1001.0, "stop": 1201.0},
+        "tracks": [{"id": "gamma"}],
+        "curves": [{"mnemonic": "GR", "track_id": "gamma"}],
+        "visible_tracks": ["gamma"],
+    }))
+    filename = repository.entries()[0].filename
+
+    result = repository.remove_entry(filename)
+
+    assert result.removed is True
+    assert result.removed_files == 2
+    assert repository.entries() == ()
+
+
+def test_repository_rejects_unsafe_removal(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+
+    result = repository.remove_entry("../outside.autosave.json")
+
+    assert result.removed is False
+    assert result.reason == "invalid_repository_filename"
+
+
+def test_recent_sessions_removes_by_public_session_key(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("remove-key.las"))
+    recent_service = LasViewerRecentSessions(repository)
+    item = recent_service.list()[0]
+
+    result = recent_service.remove(item.session_key)
+
+    assert result.removed is True
+    assert result.session_key == item.session_key
+    assert recent_service.list() == ()
+    assert result.to_dict()["renderer_neutral"] is True
+
+
+def test_recent_sessions_missing_key_does_not_delete_anything(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("keep.las"))
+    recent_service = LasViewerRecentSessions(repository)
+
+    result = recent_service.remove("unknown-key")
+
+    assert result.removed is False
+    assert result.reason == "missing_recent_session"
+    assert len(recent_service.list()) == 1
