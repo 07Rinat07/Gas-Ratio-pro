@@ -317,3 +317,66 @@ def test_prefetch_rejects_invalid_distance_ratio() -> None:
     import pytest
     with pytest.raises(ValueError, match="distance_ratio"):
         VisualizationViewportPipeline().run(payload, _viewport())
+
+
+def test_prefetch_scheduler_cancels_stale_navigation_work() -> None:
+    from services.visualization_viewport_pipeline import (
+        ViewportPrefetchTask,
+        VisualizationViewportPrefetchScheduler,
+    )
+
+    scheduler = VisualizationViewportPrefetchScheduler(max_pending=4)
+    generation = scheduler.begin_navigation()
+    scheduler.schedule(
+        ViewportPrefetchTask(
+            generation=generation,
+            key="old",
+            viewport=_viewport(1002.0, 1006.0),
+            direction="previous",
+        )
+    )
+
+    scheduler.begin_navigation()
+
+    assert len(scheduler) == 0
+    assert scheduler.stats()["cancelled"] == 1
+
+
+def test_prefetch_scheduler_limits_pending_queue() -> None:
+    from services.visualization_viewport_pipeline import (
+        ViewportPrefetchTask,
+        VisualizationViewportPrefetchScheduler,
+    )
+
+    scheduler = VisualizationViewportPrefetchScheduler(max_pending=1)
+    generation = scheduler.begin_navigation()
+    scheduler.schedule(ViewportPrefetchTask(generation, "a", _viewport(), "previous"))
+    scheduler.schedule(ViewportPrefetchTask(generation, "b", _viewport(), "next"))
+
+    assert len(scheduler) == 1
+    assert scheduler.stats()["cancelled"] == 1
+    assert scheduler.pop_next().key == "b"
+
+
+def test_prefetch_process_limit_leaves_cancellable_pending_work() -> None:
+    pipeline = VisualizationViewportPipeline()
+    payload = _payload()
+    payload["viewport_prefetch"] = {"process_limit": 1}
+
+    first = pipeline.run(payload, _viewport(1003.0, 1007.0))
+    assert first.payload["viewport_pipeline"]["prefetch_queue"]["pending"] == 1
+
+    second = pipeline.run(payload, _viewport(1004.0, 1008.0))
+    queue = second.payload["viewport_pipeline"]["prefetch_queue"]
+    assert queue["cancelled"] >= 1
+    assert queue["completed"] == 2
+
+
+def test_prefetch_rejects_negative_process_limit() -> None:
+    import pytest
+
+    payload = _payload()
+    payload["viewport_prefetch"] = {"process_limit": -1}
+
+    with pytest.raises(ValueError, match="process_limit"):
+        VisualizationViewportPipeline().run(payload, _viewport())

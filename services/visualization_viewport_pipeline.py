@@ -192,6 +192,80 @@ class VisualizationViewportPayloadCache:
         return len(self._items)
 
 
+@dataclass(frozen=True, slots=True)
+class ViewportPrefetchTask:
+    generation: int
+    key: str
+    viewport: InteractiveViewport
+    direction: str
+
+
+class VisualizationViewportPrefetchScheduler:
+    """Small cancellable FIFO queue for speculative viewport preparation.
+
+    A new navigation generation invalidates pending work from the previous
+    cursor position.  This keeps rapid pan/zoom sequences from preparing
+    payloads that the user can no longer reach.
+    """
+
+    def __init__(self, max_pending: int = 4) -> None:
+        if int(max_pending) < 1:
+            raise ValueError("max_pending must be positive")
+        self.max_pending = int(max_pending)
+        self.generation = 0
+        self._pending: OrderedDict[str, ViewportPrefetchTask] = OrderedDict()
+        self.scheduled = 0
+        self.completed = 0
+        self.cancelled = 0
+        self.deduplicated = 0
+
+    def begin_navigation(self) -> int:
+        self.cancelled += len(self._pending)
+        self._pending.clear()
+        self.generation += 1
+        return self.generation
+
+    def schedule(self, task: ViewportPrefetchTask) -> bool:
+        if task.generation != self.generation:
+            self.cancelled += 1
+            return False
+        if task.key in self._pending:
+            self.deduplicated += 1
+            return False
+        self._pending[task.key] = task
+        self.scheduled += 1
+        while len(self._pending) > self.max_pending:
+            self._pending.popitem(last=False)
+            self.cancelled += 1
+        return True
+
+    def pop_next(self) -> ViewportPrefetchTask | None:
+        while self._pending:
+            _key, task = self._pending.popitem(last=False)
+            if task.generation != self.generation:
+                self.cancelled += 1
+                continue
+            return task
+        return None
+
+    def mark_completed(self) -> None:
+        self.completed += 1
+
+    def stats(self) -> dict[str, int]:
+        return {
+            "generation": self.generation,
+            "pending": len(self._pending),
+            "max_pending": self.max_pending,
+            "scheduled": self.scheduled,
+            "completed": self.completed,
+            "cancelled": self.cancelled,
+            "deduplicated": self.deduplicated,
+        }
+
+    def __len__(self) -> int:
+        return len(self._pending)
+
+
 class VisualizationViewportPipeline:
     """Apply viewport depth bounds and run the standard scene pipeline."""
 
@@ -199,9 +273,15 @@ class VisualizationViewportPipeline:
         self,
         pipeline: VisualizationScenePipeline | None = None,
         payload_cache: VisualizationViewportPayloadCache | None = None,
+        prefetch_scheduler: VisualizationViewportPrefetchScheduler | None = None,
     ) -> None:
         self.pipeline = pipeline or VisualizationScenePipeline()
         self.payload_cache = payload_cache if payload_cache is not None else VisualizationViewportPayloadCache()
+        self.prefetch_scheduler = (
+            prefetch_scheduler
+            if prefetch_scheduler is not None
+            else VisualizationViewportPrefetchScheduler()
+        )
 
     def run(
         self,
@@ -256,6 +336,7 @@ class VisualizationViewportPipeline:
             "source_fingerprint": source_fingerprint,
             "render_fingerprint": render_fingerprint,
             "prefetch_keys": prefetch_keys,
+            "prefetch_queue": self.prefetch_scheduler.stats(),
             "cache_stats": self.payload_cache.stats(),
         }
         result = self.pipeline.run(prepared)
@@ -330,33 +411,39 @@ class VisualizationViewportPipeline:
         payload: Mapping[str, Any],
         viewport: InteractiveViewport,
     ) -> list[str]:
-        """Prepare adjacent viewport payloads without building render models.
+        """Queue and prepare adjacent viewport payloads.
 
-        Prefetch is intentionally limited to the payload cache. Exact scene and
-        render-model generation still occurs on demand, preserving predictable
-        memory use while avoiding repeated LAS clipping during pan operations.
+        Each navigation request starts a new generation and cancels queued work
+        from the previous one. ``process_limit`` can intentionally leave work
+        pending; a later pan/zoom then discards it before any clipping occurs.
         """
         config = payload.get("viewport_prefetch", False)
         if config is False:
             return []
         options = dict(config) if isinstance(config, Mapping) else {}
-        enabled = bool(options.get("enabled", True))
-        if not enabled:
+        if not bool(options.get("enabled", True)):
             return []
 
         distance_ratio = _optional_finite(options.get("distance_ratio", 0.75))
         if distance_ratio is None or distance_ratio <= 0:
             raise ValueError("viewport_prefetch.distance_ratio must be positive")
+        process_limit_value = options.get("process_limit")
+        process_limit = None if process_limit_value is None else int(process_limit_value)
+        if process_limit is not None and process_limit < 0:
+            raise ValueError("viewport_prefetch.process_limit must not be negative")
+
         directions_value = options.get("directions", ("previous", "next"))
         directions = tuple(str(item) for item in directions_value) if isinstance(
             directions_value, (list, tuple)
         ) else ("previous", "next")
 
+        generation = self.prefetch_scheduler.begin_navigation()
         source_fingerprint = self.source_fingerprint(payload)
         render_fingerprint = self.render_fingerprint(payload)
-        stored: list[str] = []
-        deltas = {"previous": -viewport.domain_span * distance_ratio,
-                  "next": viewport.domain_span * distance_ratio}
+        deltas = {
+            "previous": -viewport.domain_span * distance_ratio,
+            "next": viewport.domain_span * distance_ratio,
+        }
         for direction in directions:
             if direction not in deltas:
                 continue
@@ -368,16 +455,36 @@ class VisualizationViewportPipeline:
             if self.payload_cache.contains(key):
                 self.payload_cache.prefetch_skips += 1
                 continue
-            prepared, profile = self.prepare_payload(payload, neighbor)
+            self.prefetch_scheduler.schedule(
+                ViewportPrefetchTask(
+                    generation=generation,
+                    key=key,
+                    viewport=neighbor,
+                    direction=direction,
+                )
+            )
+
+        stored: list[str] = []
+        processed = 0
+        while process_limit is None or processed < process_limit:
+            task = self.prefetch_scheduler.pop_next()
+            if task is None:
+                break
+            if self.payload_cache.contains(task.key):
+                self.payload_cache.prefetch_skips += 1
+                continue
+            prepared, profile = self.prepare_payload(payload, task.viewport)
             self.payload_cache.put(
-                key,
+                task.key,
                 prepared,
                 profile,
                 source_fingerprint=source_fingerprint,
                 render_fingerprint=render_fingerprint,
             )
+            self.prefetch_scheduler.mark_completed()
             self.payload_cache.prefetches += 1
-            stored.append(key)
+            stored.append(task.key)
+            processed += 1
         return stored
 
     def prepare_payload(
@@ -560,5 +667,7 @@ __all__ = [
     "ViewportPipelineProfile",
     "ViewportPipelineResult",
     "VisualizationViewportPayloadCache",
+    "ViewportPrefetchTask",
+    "VisualizationViewportPrefetchScheduler",
     "VisualizationViewportPipeline",
 ]
