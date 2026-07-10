@@ -1004,3 +1004,67 @@ def test_recent_session_bookmark_import_reports_missing_sessions(tmp_path):
 
     assert result.missing_sessions == 1
     assert service.bookmarks() == ()
+
+
+def test_bookmark_exchange_migrates_legacy_contract_without_mutation():
+    legacy = {
+        "schema": "las.viewer.recent-session-bookmark-exchange",
+        "version": "0.9",
+        "renderer_neutral": True,
+        "items": [{"key": "abc", "name": "Gamma", "group": "Primary", "order": 4}],
+    }
+
+    migrated = LasViewerRecentSessions.migrate_bookmark_exchange(legacy)
+
+    assert legacy["version"] == "0.9"
+    assert migrated["version"] == "1.0"
+    assert migrated["bookmarks"][0]["session_key"] == "abc"
+    assert migrated["bookmarks"][0]["label"] == "Gamma"
+    assert migrated["bookmarks"][0]["folder"] == "Primary"
+    assert migrated["bookmarks"][0]["position"] == 4
+
+
+def test_bookmark_exchange_validation_rejects_missing_identity():
+    payload = {
+        "schema": "las.viewer.recent-session-bookmark-exchange",
+        "version": "1.0",
+        "renderer_neutral": True,
+        "bookmarks": [{"label": "Broken", "position": 0}],
+    }
+
+    try:
+        LasViewerRecentSessions.validate_bookmark_exchange(payload)
+    except ValueError as exc:
+        assert "identity" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")
+
+
+def test_bookmark_exchange_validation_reports_label_fallback():
+    payload = {
+        "schema": "las.viewer.recent-session-bookmark-exchange",
+        "version": "1.0",
+        "renderer_neutral": True,
+        "bookmarks": [{"session_key": "abc", "label": "", "position": 0}],
+    }
+
+    assert LasViewerRecentSessions.validate_bookmark_exchange(payload) == ("bookmark_label_fallback:0",)
+
+
+def test_recent_session_bookmark_import_accepts_legacy_contract(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("legacy-bookmark.las"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+    payload = {
+        "schema": "las.viewer.recent-session-bookmark-exchange",
+        "version": "0.9",
+        "renderer_neutral": True,
+        "items": [{"key": item.session_key, "name": "Legacy", "group": "Migrated", "order": 2}],
+    }
+
+    result = service.import_bookmarks(payload)
+
+    assert result.imported == 1
+    bookmark = service.bookmarks()[0]
+    assert (bookmark.label, bookmark.folder, bookmark.position) == ("Legacy", "Migrated", 2)

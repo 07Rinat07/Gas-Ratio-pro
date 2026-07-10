@@ -971,6 +971,73 @@ class LasViewerRecentSessions:
             os.replace(temporary, destination)
         return payload
 
+    @staticmethod
+    def migrate_bookmark_exchange(payload: dict[str, object]) -> dict[str, object]:
+        """Return the current bookmark exchange contract without mutating input."""
+        if not isinstance(payload, dict):
+            raise ValueError("bookmark exchange payload must be an object")
+        schema = payload.get("schema")
+        version = str(payload.get("version", "")).strip()
+        if schema != "las.viewer.recent-session-bookmark-exchange":
+            raise ValueError("unsupported bookmark exchange schema")
+        if payload.get("renderer_neutral") is not True:
+            raise ValueError("incompatible bookmark exchange contract")
+        if version == "1.0":
+            return json.loads(json.dumps(payload))
+        if version != "0.9":
+            raise ValueError(f"unsupported bookmark exchange version: {version or 'missing'}")
+
+        legacy_records = payload.get("items", payload.get("bookmarks", []))
+        if not isinstance(legacy_records, list):
+            raise ValueError("legacy bookmark items must be a list")
+        migrated: list[dict[str, object]] = []
+        for index, record in enumerate(legacy_records):
+            if not isinstance(record, dict):
+                raise ValueError(f"bookmark record {index} must be an object")
+            migrated.append({
+                "schema": "las.viewer.recent-session-bookmark",
+                "version": "1.1",
+                "session_key": str(record.get("session_key", record.get("key", ""))).strip(),
+                "label": str(record.get("label", record.get("name", ""))).strip(),
+                "folder": str(record.get("folder", record.get("group", "")) or "").strip(),
+                "position": record.get("position", record.get("order", index)),
+                "project_id": str(record.get("project_id", "")).strip(),
+                "las_id": str(record.get("las_id", "")).strip(),
+                "filename": str(record.get("filename", "")).strip(),
+                "renderer_neutral": True,
+            })
+        return {
+            "schema": "las.viewer.recent-session-bookmark-exchange",
+            "version": "1.0",
+            "bookmarks": migrated,
+            "renderer_neutral": True,
+        }
+
+    @staticmethod
+    def validate_bookmark_exchange(payload: dict[str, object]) -> tuple[str, ...]:
+        """Validate the current exchange contract and return deterministic diagnostics."""
+        current = LasViewerRecentSessions.migrate_bookmark_exchange(payload)
+        records = current.get("bookmarks", [])
+        if not isinstance(records, list):
+            raise ValueError("bookmarks must be a list")
+        diagnostics: list[str] = []
+        for index, record in enumerate(records):
+            if not isinstance(record, dict):
+                raise ValueError(f"bookmark record {index} must be an object")
+            label = str(record.get("label", "")).strip()
+            identity = any(str(record.get(name, "")).strip() for name in ("session_key", "las_id", "filename"))
+            if not identity:
+                raise ValueError(f"bookmark record {index} has no session identity")
+            if not label:
+                diagnostics.append(f"bookmark_label_fallback:{index}")
+            try:
+                position = int(record.get("position", index))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"bookmark record {index} has invalid position") from exc
+            if position < 0:
+                raise ValueError(f"bookmark record {index} has negative position")
+        return tuple(diagnostics)
+
     def import_bookmarks(
         self,
         source: dict[str, object] | str | Path,
@@ -985,10 +1052,8 @@ class LasViewerRecentSessions:
             payload = json.loads(Path(source).read_text(encoding="utf-8"))
         else:
             payload = source
-        if not isinstance(payload, dict) or payload.get("schema") != "las.viewer.recent-session-bookmark-exchange":
-            raise ValueError("unsupported bookmark exchange schema")
-        if payload.get("version") != "1.0" or payload.get("renderer_neutral") is not True:
-            raise ValueError("incompatible bookmark exchange contract")
+        payload = self.migrate_bookmark_exchange(payload)
+        self.validate_bookmark_exchange(payload)
         records = payload.get("bookmarks", [])
         if not isinstance(records, list):
             raise ValueError("bookmarks must be a list")
