@@ -238,3 +238,59 @@ def test_error_collision_policy_is_transactional() -> None:
     with pytest.raises(KeyError):
         target.get("New")
     assert target.get("Existing").style.cursor_width == 1.0
+
+
+def test_exchange_migrates_legacy_version_09_package() -> None:
+    package = {
+        "schema": "las.viewer.interaction-overlay-preset-exchange",
+        "version": "0.9",
+        "renderer_neutral": True,
+        "presets": [
+            {
+                "title": "Legacy Field",
+                "labels": ["legacy", "field"],
+                "overlay_style": {
+                    "show_cursor": False,
+                    "show_selection": True,
+                    "cursor_line_color": "#112233",
+                    "cursor_line_width": 2.5,
+                    "selection_color": "#445566",
+                },
+            }
+        ],
+    }
+    exchange = LasViewerOverlayPresetExchange()
+    report = exchange.inspect_package(package)
+    assert report.compatible is True
+    assert report.version == "1.0"
+    assert report.source_version == "0.9"
+    assert report.migrated is True
+    assert report.warnings == ("package migrated from version 0.9 to 1.0",)
+
+    repository = LasViewerOverlayPresetRepository()
+    result = exchange.import_dict(repository, package)
+    assert result.imported == ("Legacy Field",)
+    preset = repository.get("Legacy Field")
+    assert preset.tags == ("legacy", "field")
+    assert preset.style.cursor_visible is False
+    assert preset.style.cursor_color == "#112233"
+    assert preset.style.cursor_width == 2.5
+    assert preset.style.selection_accent == "#445566"
+
+
+def test_exchange_migration_does_not_mutate_source_package() -> None:
+    package = {
+        "schema": "las.viewer.interaction-overlay-preset-exchange",
+        "version": "0.9",
+        "presets": [{"title": "Legacy", "overlay_style": {"cursor_line_width": 2.0}}],
+    }
+    original = json.loads(json.dumps(package))
+    LasViewerOverlayPresetExchange().inspect_package(package)
+    assert package == original
+
+
+def test_repository_rejects_unknown_version() -> None:
+    payload = LasViewerOverlayPresetRepository().to_dict()
+    payload["version"] = "99.0"
+    with pytest.raises(ValueError, match="unsupported overlay preset repository version"):
+        LasViewerOverlayPresetRepository.from_dict(payload)

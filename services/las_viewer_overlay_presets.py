@@ -14,6 +14,7 @@ from services.las_viewer_interaction_overlay import LasViewerInteractionOverlayS
 
 _SCHEMA = "las.viewer.interaction-overlay-presets"
 _VERSION = "1.0"
+_LEGACY_VERSION = "0.9"
 
 
 def _clean_name(value: object) -> str:
@@ -152,6 +153,9 @@ class LasViewerOverlayPresetRepository:
     def from_dict(cls, data: Mapping[str, Any]) -> "LasViewerOverlayPresetRepository":
         if str(data.get("schema") or "") != _SCHEMA:
             raise ValueError("unsupported overlay preset repository schema")
+        version = str(data.get("version") or "").strip()
+        if version not in {_VERSION, _LEGACY_VERSION}:
+            raise ValueError(f"unsupported overlay preset repository version: {version or '<missing>'}")
         raw = data.get("presets")
         if not isinstance(raw, list):
             raise ValueError("overlay preset repository requires presets list")
@@ -187,6 +191,7 @@ class LasViewerOverlayPresetFileStore:
 
 _EXCHANGE_SCHEMA = "las.viewer.interaction-overlay-preset-exchange"
 _EXCHANGE_VERSION = "1.0"
+_LEGACY_VERSION = "0.9"
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,6 +201,8 @@ class LasViewerOverlayPresetValidationResult:
     preset_count: int
     preset_names: tuple[str, ...] = field(default_factory=tuple)
     warnings: tuple[str, ...] = field(default_factory=tuple)
+    source_version: str = _EXCHANGE_VERSION
+    migrated: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -204,6 +211,8 @@ class LasViewerOverlayPresetValidationResult:
             "preset_count": self.preset_count,
             "preset_names": list(self.preset_names),
             "warnings": list(self.warnings),
+            "source_version": self.source_version,
+            "migrated": self.migrated,
         }
 
 
@@ -235,16 +244,61 @@ class LasViewerOverlayPresetExchange:
     """
 
     _POLICIES = frozenset({"skip", "replace", "error"})
-    _SUPPORTED_VERSIONS = frozenset({_EXCHANGE_VERSION})
+    _SUPPORTED_VERSIONS = frozenset({_EXCHANGE_VERSION, _LEGACY_VERSION})
+
+    def migrate_package(self, package: Mapping[str, Any]) -> tuple[dict[str, Any], tuple[str, ...]]:
+        """Return a current-schema package without mutating the caller payload."""
+        source_version = str(package.get("version") or "").strip()
+        if source_version == _EXCHANGE_VERSION:
+            return dict(package), ()
+        if source_version != _LEGACY_VERSION:
+            raise ValueError(f"unsupported overlay preset exchange version: {source_version or '<missing>'}")
+
+        raw = package.get("presets")
+        if not isinstance(raw, list):
+            raise ValueError("overlay preset exchange requires presets list")
+        migrated_presets: list[dict[str, Any]] = []
+        for item in raw:
+            if not isinstance(item, Mapping):
+                raise ValueError("overlay preset exchange contains invalid preset")
+            style_raw = item.get("style", item.get("overlay_style"))
+            if not isinstance(style_raw, Mapping):
+                raise ValueError("overlay preset requires style")
+            style = dict(style_raw)
+            aliases = {
+                "show_cursor": "cursor_visible",
+                "show_selection": "selection_visible",
+                "cursor_line_color": "cursor_color",
+                "cursor_line_width": "cursor_width",
+                "selection_color": "selection_accent",
+            }
+            for old, new in aliases.items():
+                if new not in style and old in style:
+                    style[new] = style[old]
+            migrated_presets.append({
+                "name": item.get("name", item.get("title")),
+                "description": item.get("description", ""),
+                "builtin": False,
+                "tags": item.get("tags", item.get("labels", ())),
+                "style": style,
+            })
+        return {
+            "schema": _EXCHANGE_SCHEMA,
+            "version": _EXCHANGE_VERSION,
+            "renderer_neutral": package.get("renderer_neutral", True),
+            "presets": migrated_presets,
+        }, (f"package migrated from version {source_version} to {_EXCHANGE_VERSION}",)
 
     def validate_package(
         self, package: Mapping[str, Any]
     ) -> tuple[LasViewerOverlayPresetValidationResult, tuple[LasViewerOverlayPreset, ...]]:
         if str(package.get("schema") or "") != _EXCHANGE_SCHEMA:
             raise ValueError("unsupported overlay preset exchange schema")
+        source_version = str(package.get("version") or "").strip()
+        if source_version not in self._SUPPORTED_VERSIONS:
+            raise ValueError(f"unsupported overlay preset exchange version: {source_version or '<missing>'}")
+        package, migration_warnings = self.migrate_package(package)
         version = str(package.get("version") or "").strip()
-        if version not in self._SUPPORTED_VERSIONS:
-            raise ValueError(f"unsupported overlay preset exchange version: {version or '<missing>'}")
         if package.get("renderer_neutral") is False:
             raise ValueError("overlay preset exchange package must be renderer neutral")
         raw = package.get("presets")
@@ -263,7 +317,7 @@ class LasViewerOverlayPresetExchange:
             seen.add(key)
             presets.append(preset)
 
-        warnings: list[str] = []
+        warnings: list[str] = list(migration_warnings)
         if "renderer_neutral" not in package:
             warnings.append("renderer_neutral flag is missing; legacy package accepted")
         result = LasViewerOverlayPresetValidationResult(
@@ -272,6 +326,8 @@ class LasViewerOverlayPresetExchange:
             preset_count=len(presets),
             preset_names=tuple(item.name for item in presets),
             warnings=tuple(warnings),
+            source_version=source_version,
+            migrated=source_version != _EXCHANGE_VERSION,
         )
         return result, tuple(presets)
 
