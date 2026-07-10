@@ -1322,3 +1322,50 @@ def test_disabled_bookmark_trash_retention_does_not_purge(tmp_path):
 
     assert LasViewerRecentSessions(repository).synchronize_bookmark_trash(now_ns=10**18) == 0
     assert len(service.bookmark_trash()) == 1
+
+
+def test_bookmark_trash_journal_records_remove_restore_and_purge(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("audit.las"))
+    service = LasViewerRecentSessions(repository)
+    key = service.list()[0].session_key
+    service.set_bookmark(key, label="Audit")
+
+    import itertools
+    times = itertools.count(100, 100)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: next(times))
+
+    assert service.remove_bookmark(key).changed is True
+    assert service.restore_bookmark(key).changed is True
+    assert service.remove_bookmark(key).changed is True
+    assert service.purge_bookmark_trash(key) == 1
+
+    events = service.bookmark_trash_journal()
+    assert [event.action for event in events] == ["purged", "removed", "restored", "removed"]
+    assert all(event.session_key == key for event in events)
+    assert events[-1].label == "Audit"
+    assert events[0].to_dict()["renderer_neutral"] is True
+
+
+def test_bookmark_trash_journal_persists_and_can_be_cleared(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("persist-audit.las"))
+    service = LasViewerRecentSessions(repository)
+    key = service.list()[0].session_key
+    service.set_bookmark(key, label="Persistent")
+    service.remove_bookmark(key)
+
+    restarted = LasViewerRecentSessions(repository)
+    assert restarted.bookmark_trash_journal()[0].action == "removed"
+    assert restarted.clear_bookmark_trash_journal() == 1
+    assert LasViewerRecentSessions(repository).bookmark_trash_journal() == ()
+
+
+def test_bookmark_trash_journal_validates_limit(tmp_path):
+    service = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path))
+    try:
+        service.bookmark_trash_journal(limit=0)
+    except ValueError as exc:
+        assert "limit" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")

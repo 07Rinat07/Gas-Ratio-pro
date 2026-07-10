@@ -355,6 +355,31 @@ class LasViewerRecentSessionBookmarkTrashItem:
 
 
 
+
+
+@dataclass(frozen=True, slots=True)
+class LasViewerRecentSessionBookmarkTrashEvent:
+    """Persistent audit event for bookmark trash operations."""
+
+    action: str
+    session_key: str
+    label: str = ""
+    occurred_at_ns: int = 0
+    reason: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": "las.viewer.recent-session-bookmark-trash-event",
+            "version": "1.0",
+            "action": self.action,
+            "session_key": self.session_key,
+            "label": self.label,
+            "occurred_at_ns": self.occurred_at_ns,
+            "reason": self.reason,
+            "renderer_neutral": True,
+        }
+
+
 @dataclass(frozen=True, slots=True)
 class LasViewerRecentSessionBookmarkTrashRetention:
     """Persistent automatic cleanup policy for recoverable bookmarks."""
@@ -1298,6 +1323,7 @@ class LasViewerRecentSessions:
             navigation_history=self.navigation_history(),
             bookmarks=bookmarks,
             bookmark_trash=trash,
+            bookmark_trash_journal=self._append_bookmark_trash_event("removed", key, label),
         )
         return LasViewerRecentSessionBookmarkResult(True, key, label, "removed")
 
@@ -1346,9 +1372,31 @@ class LasViewerRecentSessions:
             navigation_history=self.navigation_history(),
             bookmarks=bookmarks,
             bookmark_trash=trash,
+            bookmark_trash_journal=self._append_bookmark_trash_event("restored", key, str(removed.get("label", ""))),
         )
         return LasViewerRecentSessionBookmarkResult(True, key, str(removed.get("label", "")), "restored")
 
+
+    def bookmark_trash_journal(self, *, limit: int = 100) -> tuple[LasViewerRecentSessionBookmarkTrashEvent, ...]:
+        """Return newest bookmark trash audit events first."""
+        if int(limit) < 1:
+            raise ValueError("limit must be >= 1")
+        events = self._load_bookmark_trash_journal()
+        events.sort(key=lambda item: (-item.occurred_at_ns, item.action, item.session_key))
+        return tuple(events[: int(limit)])
+
+    def clear_bookmark_trash_journal(self) -> int:
+        """Clear persisted trash audit events without changing trash contents."""
+        removed = len(self._load_bookmark_trash_journal())
+        if removed:
+            self._save_preferences(
+                pinned_keys=self._load_pinned_keys(),
+                collapsed_groups=self._load_collapsed_groups(),
+                navigation_state=self.navigation_state(),
+                navigation_history=self.navigation_history(),
+                bookmark_trash_journal=[],
+            )
+        return removed
 
     def bookmark_trash_retention(self) -> LasViewerRecentSessionBookmarkTrashRetention:
         """Load the persisted automatic trash cleanup policy."""
@@ -1435,6 +1483,7 @@ class LasViewerRecentSessions:
             navigation_history=self.navigation_history(),
             bookmark_trash=updated,
             bookmark_trash_retention=next_policy,
+            bookmark_trash_journal=(self._append_bookmark_trash_event("expired", "", reason=f"removed:{removed_count}", occurred_at_ns=current_ns) if removed_count else self._load_bookmark_trash_journal()),
         )
         return removed_count
 
@@ -1474,6 +1523,7 @@ class LasViewerRecentSessions:
                 navigation_state=self.navigation_state(),
                 navigation_history=self.navigation_history(),
                 bookmark_trash=updated,
+                bookmark_trash_journal=self._append_bookmark_trash_event("expired", "", reason=f"removed:{removed_count}", occurred_at_ns=current_ns),
             )
         return removed_count
 
@@ -1497,6 +1547,11 @@ class LasViewerRecentSessions:
                 navigation_state=self.navigation_state(),
                 navigation_history=self.navigation_history(),
                 bookmark_trash=updated,
+                bookmark_trash_journal=self._append_bookmark_trash_event(
+                    "purged",
+                    "" if session_key is None else str(session_key).strip(),
+                    reason=f"removed:{removed_count}",
+                ),
             )
         return removed_count
 
@@ -1822,6 +1877,42 @@ class LasViewerRecentSessions:
             }
         return result
 
+    def _load_bookmark_trash_journal(self) -> list[LasViewerRecentSessionBookmarkTrashEvent]:
+        payload = self._load_preferences()
+        raw = payload.get("bookmark_trash_journal", [])
+        if not isinstance(raw, list):
+            return []
+        result: list[LasViewerRecentSessionBookmarkTrashEvent] = []
+        for value in raw:
+            if not isinstance(value, dict):
+                continue
+            action = str(value.get("action", "")).strip()
+            session_key = str(value.get("session_key", "")).strip()
+            if action not in {"removed", "restored", "purged", "expired"}:
+                continue
+            try:
+                occurred_at_ns = max(0, int(value.get("occurred_at_ns", 0)))
+            except (TypeError, ValueError):
+                continue
+            result.append(LasViewerRecentSessionBookmarkTrashEvent(
+                action=action, session_key=session_key,
+                label=str(value.get("label", "")),
+                occurred_at_ns=occurred_at_ns,
+                reason=str(value.get("reason", "")),
+            ))
+        return result
+
+    def _append_bookmark_trash_event(
+        self, action: str, session_key: str, label: str = "", *, reason: str = "", occurred_at_ns: int | None = None
+    ) -> list[LasViewerRecentSessionBookmarkTrashEvent]:
+        events = self._load_bookmark_trash_journal()
+        events.append(LasViewerRecentSessionBookmarkTrashEvent(
+            action=action, session_key=session_key, label=label,
+            occurred_at_ns=time.time_ns() if occurred_at_ns is None else max(0, int(occurred_at_ns)),
+            reason=reason,
+        ))
+        return events[-200:]
+
     def _load_collapsed_groups(self) -> set[str]:
         payload = self._load_preferences()
         raw = payload.get("collapsed_groups", [])
@@ -1847,11 +1938,12 @@ class LasViewerRecentSessions:
         bookmarks: dict[str, dict[str, object]] | None = None,
         bookmark_trash: dict[str, dict[str, object]] | None = None,
         bookmark_trash_retention: LasViewerRecentSessionBookmarkTrashRetention | None = None,
+        bookmark_trash_journal: list[LasViewerRecentSessionBookmarkTrashEvent] | None = None,
     ) -> None:
         self.repository.directory.mkdir(parents=True, exist_ok=True)
         payload = {
             "schema": "las.viewer.recent-session-preferences",
-            "version": "1.8",
+            "version": "1.9",
             "pinned_session_keys": sorted(pinned_keys),
             "collapsed_groups": sorted(collapsed_groups),
             "navigation_state": (navigation_state or self.navigation_state()).to_dict(),
@@ -1859,6 +1951,7 @@ class LasViewerRecentSessions:
             "bookmarks": dict(sorted((bookmarks if bookmarks is not None else self._load_bookmarks()).items())),
             "bookmark_trash": dict(sorted((bookmark_trash if bookmark_trash is not None else self._load_bookmark_trash()).items())),
             "bookmark_trash_retention": (bookmark_trash_retention or self.bookmark_trash_retention()).to_dict(),
+            "bookmark_trash_journal": [event.to_dict() for event in (bookmark_trash_journal if bookmark_trash_journal is not None else self._load_bookmark_trash_journal())],
             "renderer_neutral": True,
         }
         with NamedTemporaryFile(
