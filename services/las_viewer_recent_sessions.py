@@ -103,6 +103,11 @@ class LasViewerRecentSessions:
         include_invalid: bool = False,
         active_project_id: str = "",
         active_las_id: str = "",
+        query: str = "",
+        project_id: str = "",
+        las_id: str = "",
+        pinned_only: bool = False,
+        active_only: bool = False,
     ) -> tuple[LasViewerRecentSession, ...]:
         if int(limit) < 1:
             raise ValueError("limit must be >= 1")
@@ -119,6 +124,21 @@ class LasViewerRecentSessions:
                     pinned_keys=pinned_keys,
                 )
             )
+        normalized_query = str(query or "").strip().casefold()
+        normalized_project_id = str(project_id or "").strip()
+        normalized_las_id = str(las_id or "").strip()
+        result = [
+            item
+            for item in result
+            if self._matches_filters(
+                item,
+                query=normalized_query,
+                project_id=normalized_project_id,
+                las_id=normalized_las_id,
+                pinned_only=bool(pinned_only),
+                active_only=bool(active_only),
+            )
+        ]
         result.sort(key=lambda item: (not item.pinned, -item.modified_ns, item.filename))
         return tuple(result[: int(limit)])
 
@@ -208,21 +228,63 @@ class LasViewerRecentSessions:
         include_invalid: bool = False,
         active_project_id: str = "",
         active_las_id: str = "",
+        query: str = "",
+        project_id: str = "",
+        las_id: str = "",
+        pinned_only: bool = False,
+        active_only: bool = False,
     ) -> dict[str, object]:
         items = self.list(
             limit=limit,
             include_invalid=include_invalid,
             active_project_id=active_project_id,
             active_las_id=active_las_id,
+            query=query,
+            project_id=project_id,
+            las_id=las_id,
+            pinned_only=pinned_only,
+            active_only=active_only,
         )
         return {
             "schema": "las.viewer.recent-sessions",
-            "version": "1.1",
+            "version": "1.2",
             "items": [item.to_dict() for item in items],
             "count": len(items),
             "pinned_count": sum(1 for item in items if item.pinned),
+            "filters": {
+                "query": str(query or "").strip(),
+                "project_id": str(project_id or "").strip(),
+                "las_id": str(las_id or "").strip(),
+                "pinned_only": bool(pinned_only),
+                "active_only": bool(active_only),
+                "include_invalid": bool(include_invalid),
+            },
             "renderer_neutral": True,
         }
+
+    @staticmethod
+    def _matches_filters(
+        item: LasViewerRecentSession,
+        *,
+        query: str,
+        project_id: str,
+        las_id: str,
+        pinned_only: bool,
+        active_only: bool,
+    ) -> bool:
+        if project_id and item.project_id != project_id:
+            return False
+        if las_id and item.las_id != las_id:
+            return False
+        if pinned_only and not item.pinned:
+            return False
+        if active_only and not item.active:
+            return False
+        if query:
+            searchable = "\0".join((item.filename, item.project_id, item.las_id)).casefold()
+            if query not in searchable:
+                return False
+        return True
 
     @staticmethod
     def _session_key(item: LasViewerAutosaveRepositoryEntry) -> str:

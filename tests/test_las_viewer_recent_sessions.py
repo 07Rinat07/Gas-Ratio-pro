@@ -234,6 +234,67 @@ def test_snapshot_reports_pinned_count(tmp_path):
 
     snapshot = service.snapshot()
 
-    assert snapshot["version"] == "1.1"
+    assert snapshot["version"] == "1.2"
     assert snapshot["pinned_count"] == 1
     assert snapshot["items"][0]["pinned"] is True
+
+
+def test_recent_sessions_searches_case_insensitively(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("Gamma_Main.LAS", project_id="North-Field"))
+    repository.save(_session("density.las", project_id="South-Field"))
+
+    items = LasViewerRecentSessions(repository).list(query="gamma_main")
+
+    assert [item.las_id for item in items] == ["Gamma_Main.LAS"]
+
+
+def test_recent_sessions_filters_by_project_and_las_id(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las", project_id="project-a"))
+    repository.save(_session("b.las", project_id="project-b"))
+    service = LasViewerRecentSessions(repository)
+
+    by_project = service.list(project_id="project-b")
+    by_las = service.list(las_id="a.las")
+
+    assert [item.las_id for item in by_project] == ["b.las"]
+    assert [item.project_id for item in by_las] == ["project-a"]
+
+
+def test_recent_sessions_filters_pinned_only(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("pinned.las"))
+    repository.save(_session("regular.las"))
+    service = LasViewerRecentSessions(repository)
+    pinned = next(item for item in service.list() if item.las_id == "pinned.las")
+    service.pin(pinned.session_key)
+
+    items = service.list(pinned_only=True)
+
+    assert [item.las_id for item in items] == ["pinned.las"]
+
+
+def test_recent_sessions_filters_active_only(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("active.las"))
+    repository.save(_session("other.las"))
+
+    items = LasViewerRecentSessions(repository).list(
+        active_project_id="project-1",
+        active_las_id="active.las",
+        active_only=True,
+    )
+
+    assert [item.las_id for item in items] == ["active.las"]
+
+
+def test_recent_sessions_snapshot_reports_filters(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las"))
+
+    snapshot = LasViewerRecentSessions(repository).snapshot(query="a", pinned_only=True)
+
+    assert snapshot["version"] == "1.2"
+    assert snapshot["filters"]["query"] == "a"
+    assert snapshot["filters"]["pinned_only"] is True
