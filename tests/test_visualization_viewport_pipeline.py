@@ -142,3 +142,51 @@ def test_result_contract_is_renderer_neutral() -> None:
     assert result["profile"]["schema"] == "visualization.viewport.pipeline.profile"
     assert result["profile"]["clipped"] is True
     assert result["payload"]["viewport"]["schema"] == "visualization.interactive.viewport"
+
+
+def test_repeated_viewport_run_reuses_prepared_payload_and_render_model() -> None:
+    pipeline = VisualizationViewportPipeline()
+
+    first = pipeline.run(_payload(), _viewport())
+    second = pipeline.run(_payload(), _viewport())
+
+    assert first.profile.cache_hit is False
+    assert second.profile.cache_hit is True
+    assert second.pipeline.performance.cache_hit is True
+    assert second.pipeline.validation["viewport_cache_hit"] is True
+    assert second.profile.cache_key == first.profile.cache_key
+
+
+def test_viewport_cache_key_changes_with_domain() -> None:
+    pipeline = VisualizationViewportPipeline()
+
+    first = pipeline.run(_payload(), _viewport(1002.0, 1006.0))
+    second = pipeline.run(_payload(), _viewport(1003.0, 1007.0))
+
+    assert first.profile.cache_key != second.profile.cache_key
+    assert second.profile.cache_hit is False
+
+
+def test_viewport_cache_can_be_disabled() -> None:
+    payload = _payload()
+    payload["viewport_cache"] = False
+    pipeline = VisualizationViewportPipeline()
+
+    first = pipeline.run(payload, _viewport())
+    second = pipeline.run(payload, _viewport())
+
+    assert first.profile.cache_enabled is False
+    assert second.profile.cache_enabled is False
+    assert second.profile.cache_hit is False
+    assert second.pipeline.validation["viewport_cache_enabled"] is False
+
+
+def test_viewport_cache_returns_isolated_payload_copy() -> None:
+    pipeline = VisualizationViewportPipeline()
+    first = pipeline.run(_payload(), _viewport())
+    first.payload["curves"][0]["points"].clear()
+
+    second = pipeline.run(_payload(), _viewport())
+
+    assert second.profile.cache_hit is True
+    assert len(second.payload["curves"][0]["points"]) == 4

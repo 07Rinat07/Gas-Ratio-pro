@@ -7,7 +7,10 @@ clip intervals or recalculate render geometry.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections import OrderedDict
+from dataclasses import dataclass, field, replace
+from hashlib import sha256
+import json
 from math import isfinite
 from typing import Any, Mapping
 
@@ -30,6 +33,10 @@ class ViewportPipelineProfile:
     source_point_count: int = 0
     visible_point_count: int = 0
     clipped_overlay_count: int = 0
+    cache_key: str = ""
+    cache_hit: bool = False
+    cache_enabled: bool = True
+    cache_entries: int = 0
     diagnostics: tuple[str, ...] = field(default_factory=tuple)
 
     @property
@@ -50,6 +57,10 @@ class ViewportPipelineProfile:
             "source_point_count": self.source_point_count,
             "visible_point_count": self.visible_point_count,
             "clipped_overlay_count": self.clipped_overlay_count,
+            "cache_key": self.cache_key,
+            "cache_hit": self.cache_hit,
+            "cache_enabled": self.cache_enabled,
+            "cache_entries": self.cache_entries,
             "clipped": self.clipped,
             "diagnostics": list(self.diagnostics),
             "renderer_neutral": True,
@@ -80,11 +91,44 @@ class ViewportPipelineResult:
         }
 
 
+class VisualizationViewportPayloadCache:
+    """Small LRU cache for prepared viewport payloads and profiles."""
+
+    def __init__(self, capacity: int = 16) -> None:
+        self.capacity = max(1, int(capacity))
+        self._items: OrderedDict[str, tuple[dict[str, Any], ViewportPipelineProfile]] = OrderedDict()
+
+    def get(self, key: str) -> tuple[dict[str, Any], ViewportPipelineProfile] | None:
+        item = self._items.get(key)
+        if item is None:
+            return None
+        self._items.move_to_end(key)
+        payload, profile = item
+        return _deep_copy(payload), profile
+
+    def put(self, key: str, payload: Mapping[str, Any], profile: ViewportPipelineProfile) -> None:
+        self._items[key] = (_deep_copy(payload), profile)
+        self._items.move_to_end(key)
+        while len(self._items) > self.capacity:
+            self._items.popitem(last=False)
+
+    def clear(self) -> None:
+        self._items.clear()
+
+    def __len__(self) -> int:
+        return len(self._items)
+
+
 class VisualizationViewportPipeline:
     """Apply viewport depth bounds and run the standard scene pipeline."""
 
-    def __init__(self, pipeline: VisualizationScenePipeline | None = None) -> None:
+    def __init__(
+        self,
+        pipeline: VisualizationScenePipeline | None = None,
+        payload_cache: VisualizationViewportPayloadCache | None = None,
+    ) -> None:
         self.pipeline = pipeline or VisualizationScenePipeline()
+        self.payload_cache = payload_cache if payload_cache is not None else VisualizationViewportPayloadCache()
 
     def run(
         self,
@@ -96,12 +140,57 @@ class VisualizationViewportPipeline:
             if isinstance(viewport, InteractiveViewport)
             else InteractiveViewport.from_dict(viewport)
         )
-        prepared, profile = self.prepare_payload(payload, resolved)
-        return ViewportPipelineResult(
-            pipeline=self.pipeline.run(prepared),
-            profile=profile,
-            payload=prepared,
+        cache_enabled = bool(payload.get("viewport_cache", True))
+        cache_key = self.cache_key(payload, resolved)
+        cached = self.payload_cache.get(cache_key) if cache_enabled else None
+        if cached is None:
+            prepared, profile = self.prepare_payload(payload, resolved)
+            if cache_enabled:
+                self.payload_cache.put(cache_key, prepared, profile)
+            profile = replace(
+                profile,
+                cache_key=cache_key,
+                cache_hit=False,
+                cache_enabled=cache_enabled,
+                cache_entries=len(self.payload_cache),
+            )
+        else:
+            prepared, cached_profile = cached
+            profile = replace(
+                cached_profile,
+                cache_key=cache_key,
+                cache_hit=True,
+                cache_enabled=True,
+                cache_entries=len(self.payload_cache),
+            )
+
+        prepared["viewport_pipeline"] = {
+            "cache_key": cache_key,
+            "cache_hit": profile.cache_hit,
+            "cache_enabled": cache_enabled,
+        }
+        result = self.pipeline.run(prepared)
+        result.validation["viewport_cache_key"] = cache_key
+        result.validation["viewport_cache_hit"] = profile.cache_hit
+        result.validation["viewport_cache_enabled"] = cache_enabled
+        return ViewportPipelineResult(pipeline=result, profile=profile, payload=prepared)
+
+    @staticmethod
+    def cache_key(
+        payload: Mapping[str, Any],
+        viewport: InteractiveViewport | Mapping[str, Any],
+    ) -> str:
+        viewport_contract = (
+            viewport.to_dict() if isinstance(viewport, InteractiveViewport) else dict(viewport)
         )
+        canonical = json.dumps(
+            [dict(payload), viewport_contract],
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        ).encode("utf-8")
+        return sha256(canonical).hexdigest()
 
     def prepare_payload(
         self,
@@ -266,3 +355,11 @@ def _deep_copy(value: Any) -> Any:
     if isinstance(value, tuple):
         return [_deep_copy(item) for item in value]
     return value
+
+
+__all__ = [
+    "ViewportPipelineProfile",
+    "ViewportPipelineResult",
+    "VisualizationViewportPayloadCache",
+    "VisualizationViewportPipeline",
+]
