@@ -1169,3 +1169,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - SVG and PDF renderer results now publish the same geometry signature when they consume the same pipeline result.
 - Renderer parity validation now detects missing or mismatched geometry signatures in addition to primitive and clip counts.
 - Added regression tests for cross-renderer signature equality and tamper detection.
+## v90
+
+- Added Visualization Asset Registry for SVG, PDF, Render Model and geometry contract assets built from one pipeline result.
+- Added shared geometry signature and SHA-256 metadata for every visualization asset.
+- Added tests proving that bundle creation does not require rebuilding Scene or Layout.
+

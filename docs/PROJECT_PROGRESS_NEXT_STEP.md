@@ -471,3 +471,7 @@ Completed:
 
 Next step:
 Export the visualization PDF generated from the existing Render Model as a shared bundle asset and record its geometry signature in the visualization asset index. Do not rebuild Scene or Layout in report exporters.
+
+## Visualization v90
+
+Visualization Asset Registry completed. Next priority: performance layer with deterministic cache keys based on geometry signature and viewport parameters.
