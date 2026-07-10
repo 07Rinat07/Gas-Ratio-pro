@@ -294,3 +294,79 @@ def test_repository_rejects_unknown_version() -> None:
     payload["version"] = "99.0"
     with pytest.raises(ValueError, match="unsupported overlay preset repository version"):
         LasViewerOverlayPresetRepository.from_dict(payload)
+
+from services.las_viewer_overlay_presets import LasViewerOverlayPresetBackupService
+
+
+def test_backup_service_round_trip_preserves_repository(tmp_path) -> None:
+    repository = LasViewerOverlayPresetRepository.with_defaults()
+    repository.save(LasViewerOverlayPreset("Field", LasViewerInteractionOverlayStyle(cursor_width=2.4)))
+    path = tmp_path / "overlay-presets-backup.zip"
+    service = LasViewerOverlayPresetBackupService()
+    metadata = service.create_backup(repository, path)
+    restored = service.load_backup(path)
+    assert metadata.preset_count == 4
+    assert metadata.size_bytes > 0
+    assert restored.to_dict() == repository.to_dict()
+
+
+def test_backup_service_restores_repository_file_atomically(tmp_path) -> None:
+    repository = LasViewerOverlayPresetRepository()
+    repository.save(LasViewerOverlayPreset("Полевой", LasViewerInteractionOverlayStyle(cursor_width=2.1)))
+    backup = tmp_path / "backup.zip"
+    destination = tmp_path / "restored" / "overlay-presets.json"
+    service = LasViewerOverlayPresetBackupService()
+    service.create_backup(repository, backup)
+    result = service.restore_backup(backup, destination)
+    assert result.preset_count == 1
+    assert LasViewerOverlayPresetFileStore().load(destination).get("Полевой").style.cursor_width == 2.1
+
+
+def test_backup_service_rejects_invalid_zip(tmp_path) -> None:
+    path = tmp_path / "invalid.zip"
+    path.write_text("not a zip", encoding="utf-8")
+    with pytest.raises(ValueError, match="not a valid ZIP"):
+        LasViewerOverlayPresetBackupService().load_backup(path)
+
+
+def test_backup_service_detects_payload_tampering(tmp_path) -> None:
+    from zipfile import ZIP_DEFLATED, ZipFile
+
+    repository = LasViewerOverlayPresetRepository.with_defaults()
+    path = tmp_path / "backup.zip"
+    service = LasViewerOverlayPresetBackupService()
+    service.create_backup(repository, path)
+    with ZipFile(path, "r") as archive:
+        manifest = archive.read("manifest.json")
+    with ZipFile(path, "w", compression=ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", manifest)
+        archive.writestr("overlay-presets.json", b"{}")
+    with pytest.raises(ValueError, match="size mismatch|checksum mismatch"):
+        service.load_backup(path)
+
+
+def test_delete_with_backup_removes_custom_preset_and_preserves_recovery(tmp_path) -> None:
+    repository = LasViewerOverlayPresetRepository.with_defaults()
+    repository.save(LasViewerOverlayPreset("Temporary", LasViewerInteractionOverlayStyle()))
+    path = tmp_path / "before-delete.zip"
+    service = LasViewerOverlayPresetBackupService()
+    service.delete_with_backup(repository, "Temporary", path)
+    with pytest.raises(KeyError):
+        repository.get("Temporary")
+    assert service.load_backup(path).get("Temporary").name == "Temporary"
+
+
+def test_delete_with_backup_rejects_builtin_without_creating_backup(tmp_path) -> None:
+    repository = LasViewerOverlayPresetRepository.with_defaults()
+    path = tmp_path / "should-not-exist.zip"
+    with pytest.raises(ValueError, match="builtin"):
+        LasViewerOverlayPresetBackupService().delete_with_backup(repository, "Default", path)
+    assert not path.exists()
+
+
+def test_backup_metadata_is_renderer_neutral(tmp_path) -> None:
+    repository = LasViewerOverlayPresetRepository()
+    metadata = LasViewerOverlayPresetBackupService().create_backup(repository, tmp_path / "empty.zip")
+    payload = metadata.to_dict()
+    assert payload["renderer_neutral"] is True
+    assert payload["schema"] == "las.viewer.interaction-overlay-preset-backup-metadata"

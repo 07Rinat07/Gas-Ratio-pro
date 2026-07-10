@@ -456,3 +456,193 @@ class LasViewerOverlayPresetExchange:
         if not isinstance(data, Mapping):
             raise ValueError("overlay preset exchange file must contain an object")
         return self.import_dict(repository, data, collision=collision)
+
+from datetime import datetime, timezone
+from hashlib import sha256
+import tempfile
+from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile
+
+
+@dataclass(frozen=True, slots=True)
+class LasViewerOverlayPresetBackupMetadata:
+    path: str
+    preset_count: int
+    size_bytes: int
+    checksum_sha256: str
+    created_at: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema": "las.viewer.interaction-overlay-preset-backup-metadata",
+            "version": "1.0",
+            "path": self.path,
+            "preset_count": self.preset_count,
+            "size_bytes": self.size_bytes,
+            "checksum_sha256": self.checksum_sha256,
+            "created_at": self.created_at,
+            "renderer_neutral": True,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class LasViewerOverlayPresetRestoreResult:
+    source_path: str
+    restored_path: str
+    preset_count: int
+    checksum_sha256: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema": "las.viewer.interaction-overlay-preset-backup-restore",
+            "version": "1.0",
+            "source_path": self.source_path,
+            "restored_path": self.restored_path,
+            "preset_count": self.preset_count,
+            "checksum_sha256": self.checksum_sha256,
+            "renderer_neutral": True,
+        }
+
+
+class LasViewerOverlayPresetBackupService:
+    """Create, validate and restore portable preset repository backups."""
+
+    SCHEMA = "las.viewer.interaction-overlay-preset-backup"
+    VERSION = "1.0"
+    MANIFEST_NAME = "manifest.json"
+    PAYLOAD_NAME = "overlay-presets.json"
+
+    def create_backup(
+        self,
+        repository: LasViewerOverlayPresetRepository,
+        destination: str | os.PathLike[str],
+    ) -> LasViewerOverlayPresetBackupMetadata:
+        target = Path(destination).expanduser()
+        if target.exists() and target.is_dir():
+            raise ValueError("overlay preset backup path points to a directory")
+        target.parent.mkdir(parents=True, exist_ok=True)
+
+        payload = self._canonical_bytes(repository.to_dict())
+        created_at = datetime.now(timezone.utc).isoformat()
+        manifest = {
+            "schema": self.SCHEMA,
+            "version": self.VERSION,
+            "created_at": created_at,
+            "preset_count": len(repository.list()),
+            "payload": {
+                "name": self.PAYLOAD_NAME,
+                "size_bytes": len(payload),
+                "checksum_sha256": sha256(payload).hexdigest(),
+            },
+        }
+
+        temporary_name: str | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                prefix=f".{target.name}.", suffix=".tmp", dir=target.parent, delete=False
+            ) as temporary:
+                temporary_name = temporary.name
+            with ZipFile(temporary_name, "w", compression=ZIP_DEFLATED) as archive:
+                archive.writestr(self.MANIFEST_NAME, self._canonical_bytes(manifest))
+                archive.writestr(self.PAYLOAD_NAME, payload)
+            os.replace(temporary_name, target)
+            temporary_name = None
+        finally:
+            if temporary_name is not None:
+                Path(temporary_name).unlink(missing_ok=True)
+
+        archive_bytes = target.read_bytes()
+        return LasViewerOverlayPresetBackupMetadata(
+            path=str(target),
+            preset_count=len(repository.list()),
+            size_bytes=len(archive_bytes),
+            checksum_sha256=sha256(archive_bytes).hexdigest(),
+            created_at=created_at,
+        )
+
+    def load_backup(
+        self,
+        source: str | os.PathLike[str],
+    ) -> LasViewerOverlayPresetRepository:
+        archive_path = Path(source).expanduser()
+        if not archive_path.is_file():
+            raise ValueError("overlay preset backup file does not exist")
+        try:
+            with ZipFile(archive_path, "r") as archive:
+                manifest = self._load_manifest(archive)
+                payload_info = manifest["payload"]
+                try:
+                    payload = archive.read(self.PAYLOAD_NAME)
+                except KeyError as exc:
+                    raise ValueError("overlay preset backup payload is missing") from exc
+                if len(payload) != int(payload_info["size_bytes"]):
+                    raise ValueError("overlay preset backup payload size mismatch")
+                if sha256(payload).hexdigest() != str(payload_info["checksum_sha256"]):
+                    raise ValueError("overlay preset backup payload checksum mismatch")
+        except BadZipFile as exc:
+            raise ValueError("overlay preset backup is not a valid ZIP archive") from exc
+
+        try:
+            document = json.loads(payload.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("overlay preset backup payload is invalid") from exc
+        if not isinstance(document, Mapping):
+            raise ValueError("overlay preset backup payload root must be an object")
+        repository = LasViewerOverlayPresetRepository.from_dict(document)
+        if len(repository.list()) != int(manifest["preset_count"]):
+            raise ValueError("overlay preset backup preset count mismatch")
+        return repository
+
+    def restore_backup(
+        self,
+        source: str | os.PathLike[str],
+        destination: str | os.PathLike[str],
+    ) -> LasViewerOverlayPresetRestoreResult:
+        repository = self.load_backup(source)
+        target = LasViewerOverlayPresetFileStore().save(destination, repository)
+        content = target.read_bytes()
+        return LasViewerOverlayPresetRestoreResult(
+            source_path=str(Path(source).expanduser()),
+            restored_path=str(target),
+            preset_count=len(repository.list()),
+            checksum_sha256=sha256(content).hexdigest(),
+        )
+
+    def delete_with_backup(
+        self,
+        repository: LasViewerOverlayPresetRepository,
+        name: str,
+        backup_path: str | os.PathLike[str],
+    ) -> LasViewerOverlayPresetBackupMetadata:
+        preset = repository.get(name)
+        if preset.builtin:
+            raise ValueError("builtin overlay preset cannot be deleted")
+        metadata = self.create_backup(repository, backup_path)
+        repository.delete(name)
+        return metadata
+
+    def _load_manifest(self, archive: ZipFile) -> Mapping[str, Any]:
+        try:
+            raw = archive.read(self.MANIFEST_NAME)
+        except KeyError as exc:
+            raise ValueError("overlay preset backup manifest is missing") from exc
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("overlay preset backup manifest is invalid") from exc
+        if not isinstance(payload, Mapping):
+            raise ValueError("overlay preset backup manifest root must be an object")
+        if payload.get("schema") != self.SCHEMA or payload.get("version") != self.VERSION:
+            raise ValueError("unsupported overlay preset backup format")
+        payload_info = payload.get("payload")
+        if not isinstance(payload_info, Mapping) or payload_info.get("name") != self.PAYLOAD_NAME:
+            raise ValueError("overlay preset backup manifest payload is invalid")
+        if int(payload.get("preset_count") or 0) < 0:
+            raise ValueError("overlay preset backup preset count is invalid")
+        return payload
+
+    @staticmethod
+    def _canonical_bytes(value: Mapping[str, Any]) -> bytes:
+        return (
+            json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            + "\n"
+        ).encode("utf-8")
