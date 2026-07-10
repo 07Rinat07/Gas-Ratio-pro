@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping
 
+from services.las_viewer_layout import LasViewerLayoutController, LasViewerLayoutState
 from services.visualization_interaction_session import (
     InteractionSessionState,
     VisualizationInteractionSession,
@@ -47,6 +48,7 @@ class LasViewerState:
     visible_curves: tuple[str, ...]
     active_track_id: str = ""
     active_curve_id: str = ""
+    layout: LasViewerLayoutState | None = None
     revision: int = 0
 
     @classmethod
@@ -64,13 +66,14 @@ class LasViewerState:
             visible_curves=_clean_ids(value.get("visible_curves") or ()),
             active_track_id=str(value.get("active_track_id") or "").strip(),
             active_curve_id=str(value.get("active_curve_id") or "").strip(),
+            layout=LasViewerLayoutState.from_dict(value["layout"]) if isinstance(value.get("layout"), Mapping) else None,
             revision=max(0, int(value.get("revision") or 0)),
         )
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "schema": "las.viewer.state",
-            "version": "1.0",
+            "version": "1.1",
             "project_id": self.project_id,
             "las_id": self.las_id,
             "interaction": self.interaction.to_dict(),
@@ -80,6 +83,7 @@ class LasViewerState:
             "visible_curves": list(self.visible_curves),
             "active_track_id": self.active_track_id,
             "active_curve_id": self.active_curve_id,
+            "layout": self.layout.to_dict() if self.layout is not None else None,
             "revision": self.revision,
             "renderer_neutral": True,
         }
@@ -131,6 +135,7 @@ class LasViewerSession:
             limits=ViewportLimits(minimum=start, maximum=stop),
         )
         self._interaction = VisualizationInteractionSession(viewport, history_limit=history_limit)
+        self._layout = LasViewerLayoutController.from_payload(payload)
         self._project_id = project_id
         self._las_id = las_id
         self._available_tracks = available_tracks
@@ -170,11 +175,17 @@ class LasViewerSession:
         }
         session = cls(payload)
         session._interaction = VisualizationInteractionSession.from_state(resolved.interaction)
+        if resolved.layout is not None:
+            session._layout = LasViewerLayoutController(resolved.layout)
         session._visible_curves = resolved.visible_curves
         session._active_track_id = resolved.active_track_id if resolved.active_track_id in resolved.visible_tracks else ""
         session._active_curve_id = resolved.active_curve_id if resolved.active_curve_id in resolved.visible_curves else ""
         session._revision = resolved.revision
         return session
+
+    @property
+    def layout_controller(self) -> LasViewerLayoutController:
+        return self._layout
 
     @property
     def interaction_session(self) -> VisualizationInteractionSession:
@@ -192,7 +203,8 @@ class LasViewerSession:
             visible_curves=self._visible_curves,
             active_track_id=self._active_track_id,
             active_curve_id=self._active_curve_id,
-            revision=self._revision + self._interaction.state.revision,
+            layout=self._layout.state,
+            revision=self._revision + self._interaction.state.revision + self._layout.state.revision,
         )
 
     def set_track_visible(self, track_id: str, visible: bool) -> LasViewerState:

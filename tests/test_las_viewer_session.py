@@ -115,3 +115,27 @@ def test_snapshot_contains_viewer_and_interaction_contracts():
     assert payload["schema"] == "las.viewer.session"
     assert payload["state"]["las_id"] == "well-a.las"
     assert payload["interaction"]["schema"] == "visualization.interactive.session"
+
+
+def test_viewer_state_contains_renderer_neutral_layout():
+    session = LasViewerSession(_payload())
+    layout = session.layout_controller
+
+    layout.move_track("track.gas", 0)
+    layout.set_track_width("track.gas", 2.0)
+    state = session.state
+
+    assert state.layout is not None
+    assert state.layout.track_order == ("track.gas", "track.gamma")
+    assert state.layout.tracks[0].width == 2.0
+    assert state.revision == 2
+
+
+def test_viewer_state_round_trip_preserves_layout():
+    session = LasViewerSession(_payload())
+    session.layout_controller.set_curve_visible("C1", False)
+
+    restored = LasViewerSession.from_state(session.state.to_dict())
+
+    assert restored.state.layout == session.state.layout
+    assert restored.state.to_dict()["version"] == "1.1"
