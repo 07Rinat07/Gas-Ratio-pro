@@ -19,6 +19,7 @@ from services.las_curve_metadata_service import DEPTH_MNEMONICS
 from services.las_manager_service import LasManagerService
 from services.visualization_engine_core import VisualizationEngineCore
 from services.visualization_scene_pipeline import VisualizationScenePipeline
+from services.visualization_svg_scene_renderer import VisualizationSvgSceneRenderer
 
 DEFAULT_SAMPLE_LIMIT = 240
 DEFAULT_CURVE_LIMIT = 8
@@ -160,6 +161,7 @@ class LasVisualizationPayload:
     preview: dict[str, Any] = field(default_factory=dict)
     engine_scene: dict[str, Any] = field(default_factory=dict)
     scene_pipeline: dict[str, Any] = field(default_factory=dict)
+    scene_renderers: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -183,6 +185,7 @@ class LasVisualizationPayload:
             "preview": dict(self.preview),
             "engine_scene": dict(self.engine_scene),
             "scene_pipeline": dict(self.scene_pipeline),
+            "scene_renderers": dict(self.scene_renderers),
         }
 
 
@@ -717,6 +720,7 @@ class LasVisualizationPayloadService:
         }
         pipeline_result = VisualizationScenePipeline().run(base_payload_for_engine).to_dict()
         engine_scene = dict(pipeline_result["scene"])
+        svg_scene = VisualizationSvgSceneRenderer().render(pipeline_result).to_dict()
         return LasVisualizationPayload(
             project_id=clean_project_id,
             las_id=clean_las_id,
@@ -738,4 +742,5 @@ class LasVisualizationPayloadService:
             preview=preview,
             engine_scene=engine_scene,
             scene_pipeline=pipeline_result,
+            scene_renderers={"svg": svg_scene},
         )

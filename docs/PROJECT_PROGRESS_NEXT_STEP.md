@@ -284,3 +284,16 @@ Completed:
 
 Next step:
 Add the first renderer adapter that consumes `scene_pipeline.scene` directly and produces a printable SVG scene output from the engine contract.
+
+## v76 Visualization SVG Scene Renderer
+
+Completed:
+- Added `VisualizationSvgSceneRenderer`, the first dedicated renderer adapter for Visualization Engine 2.0.
+- The renderer consumes `scene_pipeline.scene` and does not read legacy LAS payload curves, tracks or overlays directly.
+- Added printable SVG output with synchronized depth, track layout, curve layers and interval overlays.
+- LAS visualization payloads now expose the adapter result under `scene_renderers.svg`.
+- Invalid or empty scenes return a safe diagnostic SVG artifact instead of raising inside UI or report layers.
+- Added regression tests for valid scene rendering, payload integration and invalid scene diagnostics.
+
+Next step:
+Route report and bundle visualization assets through `scene_renderers.svg` so exports stop using the legacy mini SVG preview generator.

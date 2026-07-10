@@ -1068,3 +1068,8 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added layer manager for curve layers and interval overlay layers.
 - Added shared depth synchronization contract across LAS tracks.
 - Exposed `engine_scene` from LAS visualization payloads for future UI and export renderers.
+
+## v76
+- Added the first Visualization Engine SVG scene renderer adapter.
+- Added scene-renderer output to LAS visualization payloads.
+- Added SVG renderer regression coverage and empty-scene diagnostics.
