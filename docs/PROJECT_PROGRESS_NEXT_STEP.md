@@ -1,23 +1,16 @@
-
 ## Current completed increment
 
-Visualization Layout Engine v78 is implemented. The scene pipeline now produces
-a renderer-neutral layout with deterministic track geometry and shared depth mapping.
-The SVG renderer consumes this layout instead of owning primary geometry calculations.
-
-## Approved architecture update
-
-A renderer-neutral Render Model is now mandatory between Layout and concrete renderers.
-Layout remains responsible only for geometry. Render Model converts scene and layout data
-into backend-independent drawing primitives. SVG, PDF, Canvas, Streamlit and future
-renderers must consume these primitives instead of interpreting engineering objects.
+Visualization Curve and Overlay Render Model v83 is implemented. Curve normalization,
+depth mapping, interval band geometry and plot clipping are now completed before the
+SVG renderer. Pipeline SVG output consumes `render_model.primitives`; direct Scene
+rendering remains only as a temporary compatibility fallback.
 
 ## Next implementation step
 
-Implement the Visualization Render Model foundation: primitive contracts, stable ordering,
-clipping metadata and a builder that transforms Scene plus Layout into renderer-neutral
-polylines, rectangles, lines and text commands. Axis and Grid Model will follow on top of
-this contract.
+Implement the Curve Engine quality layer: split polylines at missing values, clip curve
+segments at plot boundaries, add optional fills and remove remaining curve calculations
+from legacy renderer paths.
+
 # Project Progress and Next Step
 
 ## Completed architecture milestones

@@ -69,6 +69,7 @@ class VisualizationSvgSceneRenderer:
         tracks = _mapping_list(scene.get("tracks"))
         layers = _mapping_list(scene.get("layers"))
         depth_sync = _mapping(scene.get("depth_sync"))
+        render_model = _mapping(source.get("render_model")) if source_schema == "visualization.scene.pipeline.result" else {}
 
         issues = list(upstream_issues)
         if not tracks:
@@ -104,18 +105,24 @@ class VisualizationSvgSceneRenderer:
         for values in layer_by_track.values():
             values.sort(key=lambda item: (int(item.get("z_index") or 0), str(item.get("id") or "")))
 
-        svg = self._render_svg(
-            tracks=tracks,
-            layer_by_track=layer_by_track,
-            depth_sync=depth_sync,
-            depth_start=depth_start,
-            depth_stop=depth_stop,
-            track_widths=track_widths,
-            layout_by_track=layout_by_track,
-            width=width,
-            height=height,
-            issues=issues,
-        )
+        if render_model.get("schema") == "visualization.render.model" and _mapping_list(render_model.get("primitives")):
+            width = int(_positive_float(render_model.get("width"), width))
+            height = int(_positive_float(render_model.get("height"), height))
+            svg = self._render_from_render_model(render_model, width=width, height=height, issues=issues)
+        else:
+            issues.append("svg_renderer_render_model_unavailable")
+            svg = self._render_svg(
+                tracks=tracks,
+                layer_by_track=layer_by_track,
+                depth_sync=depth_sync,
+                depth_start=depth_start,
+                depth_stop=depth_stop,
+                track_widths=track_widths,
+                layout_by_track=layout_by_track,
+                width=width,
+                height=height,
+                issues=issues,
+            )
         curve_count = sum(1 for layer in layers if str(layer.get("kind")) == "curve")
         overlay_count = sum(1 for layer in layers if str(layer.get("kind")) == "interval_overlay")
         export_ready = bool(tracks and curve_count and depth_start is not None and depth_stop is not None and depth_stop > depth_start)
@@ -131,6 +138,88 @@ class VisualizationSvgSceneRenderer:
             issues=tuple(dict.fromkeys(issues)),
             svg=svg,
         )
+
+
+    def _render_from_render_model(
+        self,
+        render_model: Mapping[str, Any],
+        *,
+        width: int,
+        height: int,
+        issues: list[str],
+    ) -> str:
+        clips = _mapping_list(render_model.get("clip_regions"))
+        primitives = _mapping_list(render_model.get("primitives"))
+        parts = [
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-label="LAS visualization">',
+            '<defs>',
+        ]
+        for clip in clips:
+            clip_id = escape(str(clip.get("id") or ""), quote=True)
+            if not clip_id:
+                continue
+            parts.append(
+                f'<clipPath id="{clip_id}"><rect x="{_finite_float(clip.get("x")) or 0:g}" '
+                f'y="{_finite_float(clip.get("y")) or 0:g}" width="{_positive_float(clip.get("width"), 0):g}" '
+                f'height="{_positive_float(clip.get("height"), 0):g}"/></clipPath>'
+            )
+        parts.extend(['</defs>', '<g font-family="Arial, DejaVu Sans, sans-serif">'])
+        for primitive in primitives:
+            if not bool(primitive.get("visible", True)) or not bool(primitive.get("printable", True)):
+                continue
+            payload = _mapping(primitive.get("payload"))
+            kind = str(primitive.get("kind") or "")
+            primitive_id = escape(str(primitive.get("id") or ""), quote=True)
+            track_id = escape(str(primitive.get("track_id") or ""), quote=True)
+            clip_id = escape(str(primitive.get("clip_id") or ""), quote=True)
+            attrs = f' data-primitive="{primitive_id}"'
+            if track_id:
+                attrs += f' data-track="{track_id}"'
+            data_kind = escape(str(payload.get("data_kind") or ""), quote=True)
+            if data_kind:
+                attrs += f' data-kind="{data_kind}"'
+            if clip_id:
+                attrs += f' clip-path="url(#{clip_id})"'
+            if kind == "rectangle":
+                parts.append(
+                    f'<rect{attrs} x="{_number(payload.get("x"))}" y="{_number(payload.get("y"))}" '
+                    f'width="{_number(payload.get("width"))}" height="{_number(payload.get("height"))}" '
+                    f'fill="{_safe_color_or_none(payload.get("fill"), "none")}" stroke="{_safe_color_or_none(payload.get("stroke"), "none")}" '
+                    f'stroke-width="{_number(payload.get("stroke_width"), 1)}" fill-opacity="{_number(payload.get("fill_opacity"), 1)}" '
+                    f'stroke-opacity="{_number(payload.get("stroke_opacity"), 1)}" rx="{_number(payload.get("corner_radius"), 0)}"/>'
+                )
+            elif kind == "line":
+                parts.append(
+                    f'<line{attrs} x1="{_number(payload.get("x1"))}" y1="{_number(payload.get("y1"))}" '
+                    f'x2="{_number(payload.get("x2"))}" y2="{_number(payload.get("y2"))}" '
+                    f'stroke="{_safe_color_or_none(payload.get("stroke"), "#607d8b")}" stroke-width="{_number(payload.get("stroke_width"), 1)}"/>'
+                )
+            elif kind == "text":
+                text = escape(str(payload.get("text") or ""))
+                anchor = escape(str(payload.get("text_anchor") or "start"), quote=True)
+                parts.append(
+                    f'<text{attrs} x="{_number(payload.get("x"))}" y="{_number(payload.get("y"))}" '
+                    f'font-size="{_number(payload.get("font_size"), 10)}" font-weight="{_number(payload.get("font_weight"), 400)}" '
+                    f'text-anchor="{anchor}" fill="{_safe_color_or_none(payload.get("fill"), "#263238")}">{text}</text>'
+                )
+            elif kind == "polyline":
+                points = _mapping_list(payload.get("points"))
+                point_text = " ".join(f'{_number(point.get("x"))},{_number(point.get("y"))}' for point in points)
+                if len(points) < 2:
+                    issues.append(f"svg_renderer_invalid_polyline:{primitive_id}")
+                    continue
+                parts.append(
+                    f'<polyline{attrs} points="{point_text}" fill="{_safe_color_or_none(payload.get("fill"), "none")}" '
+                    f'stroke="{_safe_color_or_none(payload.get("stroke"), "#455a64")}" stroke-width="{_number(payload.get("stroke_width"), 1.3)}" '
+                    f'vector-effect="non-scaling-stroke"/>'
+                )
+                title = escape(str(payload.get("title") or ""))
+                if title:
+                    parts.append(f'<title>{title}</title>')
+            else:
+                issues.append(f"svg_renderer_unsupported_primitive:{kind}")
+        parts.append("</g></svg>")
+        return "".join(parts)
 
     def _extract_scene(self, source: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any], str, list[str]]:
         source_schema = str(source.get("schema") or "")
@@ -319,6 +408,19 @@ class VisualizationSvgSceneRenderer:
         parts.append(f'<title>{mnemonic}</title>')
         parts.append("</g>")
 
+
+
+def _number(value: Any, default: float = 0.0) -> str:
+    number = _finite_float(value)
+    if number is None:
+        number = default
+    return f"{number:g}"
+
+def _safe_color_or_none(value: Any, default: str) -> str:
+    text = str(value or "").strip()
+    if text == "none":
+        return "none"
+    return _safe_color(text, default)
 
 def _mapping(value: Any) -> dict[str, Any]:
     return dict(value) if isinstance(value, Mapping) else {}

@@ -54,6 +54,8 @@ def test_svg_scene_renderer_consumes_pipeline_scene_without_legacy_payload_field
     assert 'data-track="track.gamma"' in rendered["svg"]
     assert 'data-kind="curve"' in rendered["svg"]
     assert 'data-kind="interval_overlay"' in rendered["svg"]
+    assert 'data-primitive="curve.curve.GR"' in rendered["svg"]
+    assert "svg_renderer_render_model_unavailable" not in rendered["issues"]
 
 
 def test_las_payload_exposes_svg_renderer_result_from_scene_pipeline(tmp_path):

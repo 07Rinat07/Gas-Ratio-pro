@@ -107,9 +107,12 @@ class VisualizationRenderModelBuilder:
 
     CANVAS_Z = 0
     TRACK_BACKGROUND_Z = 10
+    OVERLAY_Z = 12
     MINOR_GRID_Z = 14
     MAJOR_GRID_Z = 16
     TRACK_BORDER_Z = 20
+    CURVE_Z = 30
+    OVERLAY_LABEL_Z = 32
     AXIS_TEXT_Z = 35
     TRACK_TITLE_Z = 40
     DIAGNOSTIC_Z = 1000
@@ -238,10 +241,11 @@ class VisualizationRenderModelBuilder:
         axis_grid_payload = axis_grid_model.to_dict() if axis_grid_model is not None else dict(axis_grid or {})
         diagnostics.extend(str(item) for item in _sequence(axis_grid_payload.get("issues")) if str(item))
         primitives.extend(self._axis_grid_primitives(axis_grid_payload, layout_tracks))
-
-        pending_layers = [layer for layer in source_layers if str(layer.get("kind") or "") in {"curve", "interval_overlay"}]
-        if pending_layers:
-            diagnostics.append(f"render_model_pending_source_layers:{len(pending_layers)}")
+        layer_primitives, layer_diagnostics = self._source_layer_primitives(
+            source_layers, layout_tracks, _mapping(layout.get("depth"))
+        )
+        primitives.extend(layer_primitives)
+        diagnostics.extend(layer_diagnostics)
         if track_model_payload:
             diagnostics.extend(str(item) for item in _sequence(track_model_payload.get("issues")) if str(item))
         if scene_tracks and len(layout_tracks) != len(scene_tracks):
@@ -268,7 +272,9 @@ class VisualizationRenderModelBuilder:
                 "clip_region_count": len(ordered_clips),
                 "raw_dataframe_included": False,
                 "ui_objects_included": False,
-                "foundation_scope": "canvas_track_axis_grid_track_engine",
+                "foundation_scope": "canvas_track_axis_grid_curve_overlay",
+                "curve_primitive_count": len([item for item in ordered_primitives if item.kind == "polyline"]),
+                "overlay_primitive_count": len([item for item in ordered_primitives if item.id.startswith("overlay.") and item.kind == "rectangle"]),
                 "axis_count": len(_mapping_list(axis_grid_payload.get("axes"))),
                 "grid_line_count": len(_mapping_list(axis_grid_payload.get("grid_lines"))),
                 "axis_grid_ok": bool(axis_grid_payload.get("ok", False)),
@@ -277,6 +283,112 @@ class VisualizationRenderModelBuilder:
                 "active_track_id": str(track_model_payload.get("active_track_id") or ""),
             },
         )
+
+
+    def _source_layer_primitives(
+        self,
+        layers: list[dict[str, Any]],
+        layout_tracks: list[dict[str, Any]],
+        depth: Mapping[str, Any],
+    ) -> tuple[list[RenderPrimitive], list[str]]:
+        primitives: list[RenderPrimitive] = []
+        diagnostics: list[str] = []
+        layout_by_id = {str(item.get("id") or ""): item for item in layout_tracks}
+        depth_start = _finite_float(depth.get("start"))
+        depth_stop = _finite_float(depth.get("stop"))
+        if depth_start is None or depth_stop is None or depth_stop <= depth_start:
+            if any(str(layer.get("kind") or "") in {"curve", "interval_overlay"} for layer in layers):
+                diagnostics.append("render_model_error:invalid_depth_domain")
+            return primitives, diagnostics
+        depth_span = depth_stop - depth_start
+
+        for layer in layers:
+            if not bool(layer.get("visible", True)) or not bool(layer.get("printable", True)):
+                continue
+            layer_id = str(layer.get("id") or "")
+            track_id = str(layer.get("track_id") or "")
+            track_layout = _mapping(layout_by_id.get(track_id))
+            plot = _mapping(track_layout.get("plot_bounds"))
+            if not plot:
+                diagnostics.append(f"render_model_orphan_layer:{layer_id}")
+                continue
+            kind = str(layer.get("kind") or "")
+            payload = _mapping(layer.get("payload"))
+            if kind == "interval_overlay":
+                top = _finite_float(payload.get("top"))
+                base = _finite_float(payload.get("base"))
+                if top is None or base is None:
+                    diagnostics.append(f"render_model_invalid_overlay:{layer_id}")
+                    continue
+                y1 = _map_depth(top, depth_start, depth_span, _float(plot.get("y")), _non_negative_float(plot.get("height")))
+                y2 = _map_depth(base, depth_start, depth_span, _float(plot.get("y")), _non_negative_float(plot.get("height")))
+                y = max(_float(plot.get("y")), min(y1, y2))
+                bottom = min(_float(plot.get("y")) + _non_negative_float(plot.get("height")), max(y1, y2))
+                if bottom <= y:
+                    continue
+                style = _mapping(payload.get("style"))
+                primitives.append(RenderPrimitive(
+                    id=f"overlay.{layer_id}", kind="rectangle", z_index=self.OVERLAY_Z,
+                    track_id=track_id, clip_id=f"clip.{track_id}.plot",
+                    payload={
+                        "x": _float(plot.get("x")) + 1.0, "y": y,
+                        "width": max(_non_negative_float(plot.get("width")) - 2.0, 1.0),
+                        "height": bottom - y,
+                        "fill": str(style.get("fill") or "#b0bec5"),
+                        "fill_opacity": 0.24,
+                        "stroke": str(style.get("stroke") or "#607d8b"),
+                        "stroke_opacity": 0.55, "stroke_width": 0.7,
+                        "data_kind": "interval_overlay", "source_layer_id": layer_id,
+                    },
+                ))
+                label = str(payload.get("label") or "")
+                if label and bottom - y >= 14:
+                    primitives.append(RenderPrimitive(
+                        id=f"overlay.{layer_id}.label", kind="text", z_index=self.OVERLAY_LABEL_Z,
+                        track_id=track_id, clip_id=f"clip.{track_id}.plot",
+                        payload={"x": _float(plot.get("x")) + 8.0, "y": y + 12.0, "text": label,
+                                 "font_size": 8.0, "fill": "#37474f", "data_kind": "interval_overlay"},
+                    ))
+            elif kind == "curve":
+                points = _mapping_list(payload.get("points"))
+                axis = _mapping(payload.get("axis"))
+                finite_values = [value for value in (_finite_float(point.get("value")) for point in points) if value is not None]
+                axis_min = _finite_float(axis.get("min"))
+                axis_max = _finite_float(axis.get("max"))
+                if axis_min is None and finite_values:
+                    axis_min = min(finite_values)
+                if axis_max is None and finite_values:
+                    axis_max = max(finite_values)
+                if axis_min is None or axis_max is None or axis_max <= axis_min:
+                    diagnostics.append(f"render_model_invalid_curve_axis:{layer_id}")
+                    continue
+                scale = str(axis.get("scale") or "linear").lower()
+                coords: list[dict[str, float]] = []
+                for point in points:
+                    point_depth = _finite_float(point.get("depth"))
+                    value = _finite_float(point.get("value"))
+                    if point_depth is None or value is None:
+                        continue
+                    normalized = _normalize_value(value, axis_min, axis_max, scale)
+                    if normalized is None:
+                        continue
+                    x = _float(plot.get("x")) + 8.0 + normalized * max(_non_negative_float(plot.get("width")) - 16.0, 1.0)
+                    y = _map_depth(point_depth, depth_start, depth_span, _float(plot.get("y")), _non_negative_float(plot.get("height")))
+                    if _float(plot.get("y")) - 1 <= y <= _float(plot.get("y")) + _non_negative_float(plot.get("height")) + 1:
+                        coords.append({"x": x, "y": y})
+                if len(coords) < 2:
+                    diagnostics.append(f"render_model_curve_has_insufficient_points:{layer_id}")
+                    continue
+                style = _mapping(payload.get("style"))
+                primitives.append(RenderPrimitive(
+                    id=f"curve.{layer_id}", kind="polyline", z_index=self.CURVE_Z,
+                    track_id=track_id, clip_id=f"clip.{track_id}.plot",
+                    payload={"points": coords, "fill": "none", "stroke": str(style.get("stroke") or "#455a64"),
+                             "stroke_width": _positive_float(style.get("line_width"), 1.3),
+                             "data_kind": "curve", "source_layer_id": layer_id,
+                             "title": str(payload.get("mnemonic") or "")},
+                ))
+        return primitives, diagnostics
 
     def _axis_grid_primitives(
         self,
@@ -385,6 +497,30 @@ class VisualizationRenderModelBuilder:
             ),
         ]
 
+
+
+def _map_depth(value: float, start: float, span: float, plot_top: float, plot_height: float) -> float:
+    return plot_top + ((value - start) / span) * plot_height
+
+def _normalize_value(value: float, minimum: float, maximum: float, scale: str) -> float | None:
+    import math
+    if scale == "log":
+        if value <= 0 or minimum <= 0 or maximum <= 0:
+            return None
+        low = math.log10(minimum)
+        high = math.log10(maximum)
+        if high <= low:
+            return None
+        return min(1.0, max(0.0, (math.log10(value) - low) / (high - low)))
+    return min(1.0, max(0.0, (value - minimum) / (maximum - minimum)))
+
+def _finite_float(value: Any) -> float | None:
+    import math
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
 
 def _mapping(value: Any) -> dict[str, Any]:
     return dict(value) if isinstance(value, Mapping) else {}

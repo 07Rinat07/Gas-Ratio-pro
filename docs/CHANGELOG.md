@@ -1116,3 +1116,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added the `track_model` stage to Visualization Scene Pipeline.
 - Connected Render Model metadata and visible-track filtering to Track Model.
 - Added regression tests for ordering, visibility fallback and empty contracts.
+
+
+## v83
+- Moved LAS curve geometry into renderer-neutral polyline primitives.
+- Moved interpreted interval bands and labels into clipped Render Model primitives.
+- Updated the SVG renderer to serialize `VisualizationRenderModel` primitives for pipeline inputs.
+- Kept direct Scene rendering only as a temporary compatibility fallback.
+- Added regression coverage for curve, overlay and Render Model SVG output.

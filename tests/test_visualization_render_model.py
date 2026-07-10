@@ -11,8 +11,9 @@ def _scene():
             {"id": "track.gas", "title": "Gas"},
         ],
         "layers": [
-            {"id": "curve.GR", "kind": "curve", "track_id": "track.gamma", "payload": {"unit": "API", "axis": {"min": 0, "max": 150, "scale": "linear"}}},
-            {"id": "curve.C1", "kind": "curve", "track_id": "track.gas", "payload": {"unit": "PPM", "axis": {"min": 1, "max": 1000, "scale": "log"}}},
+            {"id": "curve.GR", "kind": "curve", "track_id": "track.gamma", "payload": {"mnemonic": "GR", "unit": "API", "axis": {"min": 0, "max": 150, "scale": "linear"}, "points": [{"depth": 1000, "value": 20}, {"depth": 1050, "value": 80}, {"depth": 1100, "value": 120}]}},
+            {"id": "curve.C1", "kind": "curve", "track_id": "track.gas", "payload": {"mnemonic": "C1", "unit": "PPM", "axis": {"min": 1, "max": 1000, "scale": "log"}, "points": [{"depth": 1000, "value": 2}, {"depth": 1050, "value": 20}, {"depth": 1100, "value": 200}]}},
+            {"id": "interval.gas", "kind": "interval_overlay", "track_id": "track.gas", "z_index": 10, "payload": {"top": 1020, "base": 1040, "label": "Gas", "style": {"fill": "#ffd54f", "stroke": "#ff8f00"}}},
         ],
     }
 
@@ -62,10 +63,14 @@ def test_render_model_builds_deterministic_structural_primitives():
     assert "axis.depth.label.0" in primitive_ids
     assert any(item["kind"] == "line" for item in result["primitives"])
     assert result["metadata"]["raw_dataframe_included"] is False
-    assert result["metadata"]["foundation_scope"] == "canvas_track_axis_grid_track_engine"
+    assert result["metadata"]["foundation_scope"] == "canvas_track_axis_grid_curve_overlay"
+    assert result["metadata"]["curve_primitive_count"] == 2
+    assert result["metadata"]["overlay_primitive_count"] == 1
     assert result["metadata"]["axis_count"] >= 1
     assert result["metadata"]["grid_line_count"] >= 1
-    assert result["diagnostics"] == ["render_model_pending_source_layers:2"]
+    assert result["diagnostics"] == []
+    assert any(item["kind"] == "polyline" and item["clip_id"] == "clip.track.gamma.plot" for item in result["primitives"])
+    assert any(item["id"] == "overlay.interval.gas" for item in result["primitives"])
 
 
 def test_render_model_serialization_is_deterministic():
