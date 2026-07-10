@@ -1,4 +1,4 @@
-"""Atomic file persistence for visualization interaction checkpoints."""
+"""Versioned atomic file persistence for visualization interaction checkpoints."""
 
 from __future__ import annotations
 
@@ -23,28 +23,33 @@ class CheckpointFileMetadata:
     size_bytes: int
     checksum_sha256: str
     checkpoint_count: int
+    format_version: str
+    migrated_from_version: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "schema": "visualization.interactive.checkpoint-file-metadata",
-            "version": "1.0",
+            "version": "1.1",
             "path": self.path,
             "size_bytes": self.size_bytes,
             "checksum_sha256": self.checksum_sha256,
             "checkpoint_count": self.checkpoint_count,
+            "format_version": self.format_version,
+            "migrated_from_version": self.migrated_from_version,
             "renderer_neutral": True,
         }
 
 
 class VisualizationInteractionCheckpointFileStore:
-    """Persist checkpoint stores as deterministic UTF-8 JSON files.
+    """Persist versioned checkpoint stores as deterministic UTF-8 JSON files.
 
-    Writes are atomic: data is written and fsynced to a temporary file in the
-    destination directory before ``os.replace`` publishes the new snapshot.
+    Version 2 adds explicit content metadata while retaining automatic loading
+    of version 1 files. Writes remain atomic and checksummed.
     """
 
     SCHEMA = "visualization.interactive.checkpoint-file"
-    VERSION = "1.0"
+    VERSION = "2.0"
+    LEGACY_VERSIONS = frozenset({"1.0"})
 
     def save(
         self,
@@ -59,11 +64,83 @@ class VisualizationInteractionCheckpointFileStore:
         envelope = {
             "schema": self.SCHEMA,
             "version": self.VERSION,
+            "content_type": "visualization-interaction-checkpoints",
+            "content_version": str(store_payload.get("version") or "1.0"),
             "store": store_payload,
             "store_checksum_sha256": sha256(canonical_store).hexdigest(),
         }
         content = self._canonical_bytes(envelope)
+        self._atomic_write(destination, content)
+        return self._metadata(destination, content, store, format_version=self.VERSION)
 
+    def load(
+        self,
+        path: str | os.PathLike[str],
+    ) -> tuple[VisualizationInteractionCheckpointStore, CheckpointFileMetadata]:
+        source = self._resolve_path(path)
+        content = self._read(source)
+        payload = self._decode(content)
+
+        if payload.get("schema") != self.SCHEMA:
+            raise ValueError("unsupported interaction checkpoint file schema")
+
+        source_version = str(payload.get("version") or "")
+        migrated_from = ""
+        if source_version == self.VERSION:
+            normalized = payload
+        elif source_version in self.LEGACY_VERSIONS:
+            normalized = self._migrate_legacy(payload, source_version)
+            migrated_from = source_version
+        else:
+            raise ValueError("unsupported interaction checkpoint file version")
+
+        raw_store = normalized.get("store")
+        if not isinstance(raw_store, Mapping):
+            raise ValueError("interaction checkpoint file requires store payload")
+
+        expected_checksum = str(normalized.get("store_checksum_sha256") or "")
+        actual_checksum = sha256(self._canonical_bytes(raw_store)).hexdigest()
+        if not expected_checksum or expected_checksum != actual_checksum:
+            raise ValueError("interaction checkpoint file checksum mismatch")
+
+        store = VisualizationInteractionCheckpointStore.from_dict(raw_store)
+        return store, self._metadata(
+            source,
+            content,
+            store,
+            format_version=self.VERSION,
+            migrated_from_version=migrated_from,
+        )
+
+    def migrate_file(
+        self,
+        source_path: str | os.PathLike[str],
+        destination_path: str | os.PathLike[str] | None = None,
+    ) -> CheckpointFileMetadata:
+        """Load any supported version and write the current format atomically."""
+
+        store, _ = self.load(source_path)
+        destination = source_path if destination_path is None else destination_path
+        return self.save(destination, store)
+
+    @staticmethod
+    def _migrate_legacy(payload: Mapping[str, Any], source_version: str) -> dict[str, Any]:
+        if source_version != "1.0":
+            raise ValueError("unsupported interaction checkpoint file migration")
+        raw_store = payload.get("store")
+        if not isinstance(raw_store, Mapping):
+            raise ValueError("interaction checkpoint file requires store payload")
+        return {
+            "schema": VisualizationInteractionCheckpointFileStore.SCHEMA,
+            "version": VisualizationInteractionCheckpointFileStore.VERSION,
+            "content_type": "visualization-interaction-checkpoints",
+            "content_version": str(raw_store.get("version") or "1.0"),
+            "store": raw_store,
+            "store_checksum_sha256": str(payload.get("store_checksum_sha256") or ""),
+        }
+
+    @staticmethod
+    def _atomic_write(destination: Path, content: bytes) -> None:
         temporary_name: str | None = None
         try:
             with tempfile.NamedTemporaryFile(
@@ -83,42 +160,24 @@ class VisualizationInteractionCheckpointFileStore:
             if temporary_name is not None:
                 Path(temporary_name).unlink(missing_ok=True)
 
-        return self._metadata(destination, content, store)
-
-    def load(
-        self,
-        path: str | os.PathLike[str],
-    ) -> tuple[VisualizationInteractionCheckpointStore, CheckpointFileMetadata]:
-        source = self._resolve_path(path)
+    @staticmethod
+    def _read(source: Path) -> bytes:
         try:
-            content = source.read_bytes()
+            return source.read_bytes()
         except FileNotFoundError as exc:
             raise ValueError(f"interaction checkpoint file does not exist: {source}") from exc
         except OSError as exc:
             raise ValueError(f"cannot read interaction checkpoint file: {source}") from exc
 
+    @staticmethod
+    def _decode(content: bytes) -> Mapping[str, Any]:
         try:
             payload = json.loads(content.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise ValueError("interaction checkpoint file is not valid UTF-8 JSON") from exc
         if not isinstance(payload, Mapping):
             raise ValueError("interaction checkpoint file root must be an object")
-        if payload.get("schema") != self.SCHEMA:
-            raise ValueError("unsupported interaction checkpoint file schema")
-        if str(payload.get("version") or "") != self.VERSION:
-            raise ValueError("unsupported interaction checkpoint file version")
-
-        raw_store = payload.get("store")
-        if not isinstance(raw_store, Mapping):
-            raise ValueError("interaction checkpoint file requires store payload")
-
-        expected_checksum = str(payload.get("store_checksum_sha256") or "")
-        actual_checksum = sha256(self._canonical_bytes(raw_store)).hexdigest()
-        if not expected_checksum or expected_checksum != actual_checksum:
-            raise ValueError("interaction checkpoint file checksum mismatch")
-
-        store = VisualizationInteractionCheckpointStore.from_dict(raw_store)
-        return store, self._metadata(source, content, store)
+        return payload
 
     @staticmethod
     def _resolve_path(path: str | os.PathLike[str]) -> Path:
@@ -147,10 +206,15 @@ class VisualizationInteractionCheckpointFileStore:
         path: Path,
         content: bytes,
         store: VisualizationInteractionCheckpointStore,
+        *,
+        format_version: str,
+        migrated_from_version: str = "",
     ) -> CheckpointFileMetadata:
         return CheckpointFileMetadata(
             path=str(path),
             size_bytes=len(content),
             checksum_sha256=sha256(content).hexdigest(),
             checkpoint_count=len(store.checkpoints),
+            format_version=format_version,
+            migrated_from_version=migrated_from_version,
         )

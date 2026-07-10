@@ -109,3 +109,73 @@ def test_missing_file_is_rejected(tmp_path: Path):
 def test_directory_path_is_rejected(tmp_path: Path):
     with pytest.raises(ValueError, match="directory"):
         VisualizationInteractionCheckpointFileStore().save(tmp_path, _store())
+
+
+def test_current_format_contains_explicit_content_metadata(tmp_path: Path):
+    repository = VisualizationInteractionCheckpointFileStore()
+    path = tmp_path / "state.json"
+    metadata = repository.save(path, _store())
+    payload = json.loads(path.read_text(encoding="utf-8"))
+
+    assert payload["version"] == "2.0"
+    assert payload["content_type"] == "visualization-interaction-checkpoints"
+    assert payload["content_version"] == "1.0"
+    assert metadata.format_version == "2.0"
+    assert metadata.migrated_from_version == ""
+
+
+def test_legacy_v1_file_is_loaded_and_reported_as_migrated(tmp_path: Path):
+    repository = VisualizationInteractionCheckpointFileStore()
+    store = _store()
+    raw_store = store.to_dict()
+    legacy_payload = {
+        "schema": repository.SCHEMA,
+        "version": "1.0",
+        "store": raw_store,
+        "store_checksum_sha256": __import__("hashlib").sha256(
+            repository._canonical_bytes(raw_store)
+        ).hexdigest(),
+    }
+    path = tmp_path / "legacy.json"
+    path.write_bytes(repository._canonical_bytes(legacy_payload))
+
+    restored, metadata = repository.load(path)
+
+    assert restored.to_dict() == store.to_dict()
+    assert metadata.format_version == "2.0"
+    assert metadata.migrated_from_version == "1.0"
+
+
+def test_migrate_file_rewrites_legacy_file_to_current_version(tmp_path: Path):
+    repository = VisualizationInteractionCheckpointFileStore()
+    store = _store()
+    raw_store = store.to_dict()
+    legacy_payload = {
+        "schema": repository.SCHEMA,
+        "version": "1.0",
+        "store": raw_store,
+        "store_checksum_sha256": __import__("hashlib").sha256(
+            repository._canonical_bytes(raw_store)
+        ).hexdigest(),
+    }
+    path = tmp_path / "legacy.json"
+    path.write_bytes(repository._canonical_bytes(legacy_payload))
+
+    metadata = repository.migrate_file(path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+
+    assert payload["version"] == "2.0"
+    assert metadata.format_version == "2.0"
+    assert metadata.migrated_from_version == ""
+
+
+def test_unknown_future_version_is_rejected(tmp_path: Path):
+    repository = VisualizationInteractionCheckpointFileStore()
+    path = tmp_path / "future.json"
+    repository.save(path, _store())
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["version"] = "99.0"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unsupported.*version"):
+        repository.load(path)
