@@ -101,3 +101,41 @@ def test_serialized_contracts_are_supported():
 def test_empty_cursor_color_is_rejected():
     with pytest.raises(ValueError):
         LasViewerInteractionOverlayEngine().resolve(_model(), _state(), cursor_color=" ")
+
+
+def test_style_can_hide_cursor_and_selection():
+    from services.las_viewer_interaction_overlay import LasViewerInteractionOverlayStyle
+    engine = LasViewerInteractionOverlayEngine()
+    hidden_cursor = engine.resolve(_model(), _state(), style=LasViewerInteractionOverlayStyle(cursor_visible=False))
+    assert all(not item.payload.get("cursor_overlay") for item in hidden_cursor.primitives)
+    hidden_selection = engine.resolve(_model(), _state(), style=LasViewerInteractionOverlayStyle(selection_visible=False))
+    assert all(not item.payload.get("selection_overlay") for item in hidden_selection.primitives)
+
+
+def test_style_controls_cursor_and_selection_appearance():
+    from services.las_viewer_interaction_overlay import LasViewerInteractionOverlayStyle
+    style = LasViewerInteractionOverlayStyle(
+        cursor_color="#123456",
+        cursor_width=2.5,
+        cursor_opacity=0.4,
+        selection_accent="#abcdef",
+        selection_opacity=0.6,
+    )
+    result = LasViewerInteractionOverlayEngine().resolve(_model(), _state(), style=style)
+    cursor = next(item for item in result.primitives if item.payload.get("cursor_overlay"))
+    selection = next(item for item in result.primitives if item.payload.get("selection_overlay"))
+    assert cursor.payload["stroke"] == "#123456"
+    assert cursor.payload["stroke_width"] == 2.5
+    assert cursor.payload["opacity"] == 0.4
+    assert selection.payload["selection_accent"] == "#abcdef"
+    assert selection.payload["opacity"] == 0.6
+
+
+def test_style_roundtrip_and_validation():
+    from services.las_viewer_interaction_overlay import LasViewerInteractionOverlayStyle
+    style = LasViewerInteractionOverlayStyle(cursor_width=2.0, selection_opacity=0.5)
+    assert LasViewerInteractionOverlayStyle.from_dict(style.to_dict()) == style
+    with pytest.raises(ValueError):
+        LasViewerInteractionOverlayStyle(cursor_width=0)
+    with pytest.raises(ValueError):
+        LasViewerInteractionOverlayStyle(cursor_opacity=1.5)
