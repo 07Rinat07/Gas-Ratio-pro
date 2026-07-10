@@ -1197,3 +1197,73 @@ def test_bookmark_trash_supports_single_and_full_purge(tmp_path):
     assert len(service.bookmark_trash()) == 1
     assert service.purge_bookmark_trash() == 1
     assert service.bookmark_trash() == ()
+
+
+def test_bookmark_trash_records_deletion_timestamp(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("timestamped-trash.las"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+    service.set_bookmark(item.session_key, label="Timestamped")
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 123456789)
+
+    service.remove_bookmark(item.session_key)
+    trash_item = service.bookmark_trash()[0]
+
+    assert trash_item.deleted_at_ns == 123456789
+    assert trash_item.to_dict()["deleted_at_ns"] == 123456789
+
+
+def test_expired_bookmark_trash_is_purged_by_retention_period(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("old-trash.las"))
+    repository.save(_session("fresh-trash.las"))
+    service = LasViewerRecentSessions(repository)
+    items = {item.las_id: item for item in service.list(limit=10)}
+    service.set_bookmark(items["old-trash.las"].session_key, label="Old")
+    service.set_bookmark(items["fresh-trash.las"].session_key, label="Fresh")
+
+    import services.las_viewer_recent_sessions as module
+    original = module.time.time_ns
+    try:
+        module.time.time_ns = lambda: 1_000_000_000_000_000
+        service.remove_bookmark(items["old-trash.las"].session_key)
+        module.time.time_ns = lambda: 1_000_000_000_000_000 + 5 * 86_400_000_000_000
+        service.remove_bookmark(items["fresh-trash.las"].session_key)
+    finally:
+        module.time.time_ns = original
+
+    removed = service.purge_expired_bookmark_trash(
+        3,
+        now_ns=1_000_000_000_000_000 + 6 * 86_400_000_000_000,
+    )
+
+    assert removed == 1
+    assert [item.label for item in service.bookmark_trash()] == ["Fresh"]
+
+
+def test_legacy_trash_without_timestamp_is_not_auto_purged(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.directory.mkdir(parents=True, exist_ok=True)
+    metadata = repository.directory / LasViewerRecentSessions.METADATA_FILENAME
+    metadata.write_text(
+        '{"schema":"las.viewer.recent-session-preferences","version":"1.6",'
+        '"bookmark_trash":{"legacy":{"label":"Legacy","deletion_order":1}},'
+        '"pinned_session_keys":[],"collapsed_groups":[]}',
+        encoding="utf-8",
+    )
+    service = LasViewerRecentSessions(repository)
+
+    assert service.purge_expired_bookmark_trash(0, now_ns=999999999) == 0
+    assert service.bookmark_trash()[0].label == "Legacy"
+
+
+def test_expired_bookmark_purge_validates_retention(tmp_path):
+    service = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path))
+    for value in (-1, float("inf"), "invalid"):
+        try:
+            service.purge_expired_bookmark_trash(value)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("ValueError expected")

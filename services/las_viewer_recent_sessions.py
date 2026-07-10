@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 import json
 import os
+import time
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile
@@ -336,6 +337,7 @@ class LasViewerRecentSessionBookmarkTrashItem:
     folder: str = ""
     position: int = 0
     deletion_order: int = 0
+    deleted_at_ns: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -346,6 +348,7 @@ class LasViewerRecentSessionBookmarkTrashItem:
             "folder": self.folder,
             "position": self.position,
             "deletion_order": self.deletion_order,
+            "deleted_at_ns": self.deleted_at_ns,
             "renderer_neutral": True,
         }
 
@@ -1264,6 +1267,7 @@ class LasViewerRecentSessions:
             "folder": str(removed.get("folder", "")),
             "position": int(removed.get("position", 0)),
             "deletion_order": next_order,
+            "deleted_at_ns": time.time_ns(),
         }
         label = str(removed.get("label", ""))
         self._save_preferences(
@@ -1286,6 +1290,7 @@ class LasViewerRecentSessions:
                 folder=str(value.get("folder", "")),
                 position=int(value.get("position", 0)),
                 deletion_order=int(value.get("deletion_order", 0)),
+                deleted_at_ns=int(value.get("deleted_at_ns", 0)),
             )
             for key, value in raw.items()
         ]
@@ -1322,6 +1327,45 @@ class LasViewerRecentSessions:
             bookmark_trash=trash,
         )
         return LasViewerRecentSessionBookmarkResult(True, key, str(removed.get("label", "")), "restored")
+
+    def purge_expired_bookmark_trash(
+        self,
+        retention_days: float,
+        *,
+        now_ns: int | None = None,
+    ) -> int:
+        """Permanently remove trash items older than the retention period.
+
+        Legacy trash entries without ``deleted_at_ns`` are preserved because their
+        age cannot be determined safely.
+        """
+        try:
+            days = float(retention_days)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("retention_days must be a non-negative number") from exc
+        if days < 0 or days != days or days == float("inf"):
+            raise ValueError("retention_days must be a finite non-negative number")
+        current_ns = time.time_ns() if now_ns is None else int(now_ns)
+        if current_ns < 0:
+            raise ValueError("now_ns must be non-negative")
+        cutoff_ns = current_ns - int(days * 86_400_000_000_000)
+        trash = self._load_bookmark_trash()
+        updated = {
+            key: value
+            for key, value in trash.items()
+            if int(value.get("deleted_at_ns", 0)) <= 0
+            or int(value.get("deleted_at_ns", 0)) > cutoff_ns
+        }
+        removed_count = len(trash) - len(updated)
+        if removed_count:
+            self._save_preferences(
+                pinned_keys=self._load_pinned_keys(),
+                collapsed_groups=self._load_collapsed_groups(),
+                navigation_state=self.navigation_state(),
+                navigation_history=self.navigation_history(),
+                bookmark_trash=updated,
+            )
+        return removed_count
 
     def purge_bookmark_trash(self, session_key: str | None = None) -> int:
         """Permanently remove one trash item or clear the entire bookmark trash."""
@@ -1656,6 +1700,7 @@ class LasViewerRecentSessions:
             try:
                 position = max(0, int(value.get("position", 0)))
                 deletion_order = max(0, int(value.get("deletion_order", index + 1)))
+                deleted_at_ns = max(0, int(value.get("deleted_at_ns", 0)))
             except (TypeError, ValueError):
                 continue
             result[normalized_key] = {
@@ -1663,6 +1708,7 @@ class LasViewerRecentSessions:
                 "folder": str(value.get("folder", "") or "").strip(),
                 "position": position,
                 "deletion_order": deletion_order,
+                "deleted_at_ns": deleted_at_ns,
             }
         return result
 
@@ -1694,7 +1740,7 @@ class LasViewerRecentSessions:
         self.repository.directory.mkdir(parents=True, exist_ok=True)
         payload = {
             "schema": "las.viewer.recent-session-preferences",
-            "version": "1.6",
+            "version": "1.7",
             "pinned_session_keys": sorted(pinned_keys),
             "collapsed_groups": sorted(collapsed_groups),
             "navigation_state": (navigation_state or self.navigation_state()).to_dict(),
