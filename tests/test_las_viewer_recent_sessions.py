@@ -170,3 +170,70 @@ def test_recent_sessions_missing_key_does_not_delete_anything(tmp_path):
     assert result.removed is False
     assert result.reason == "missing_recent_session"
     assert len(recent_service.list()) == 1
+
+
+def test_recent_sessions_can_pin_and_sort_items_first(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("older.las"))
+    repository.save(_session("newer.las"))
+    service = LasViewerRecentSessions(repository)
+    older = next(item for item in service.list() if item.las_id == "older.las")
+
+    result = service.pin(older.session_key)
+    items = service.list()
+
+    assert result.changed is True
+    assert items[0].las_id == "older.las"
+    assert items[0].pinned is True
+
+
+def test_recent_session_pin_is_persistent(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("pinned.las"))
+    first = LasViewerRecentSessions(repository)
+    item = first.list()[0]
+    first.pin(item.session_key)
+
+    restored = LasViewerRecentSessions(repository).list()[0]
+
+    assert restored.pinned is True
+
+
+def test_recent_session_can_be_unpinned(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("pinned.las"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+    service.pin(item.session_key)
+
+    result = service.pin(item.session_key, pinned=False)
+
+    assert result.changed is True
+    assert service.list()[0].pinned is False
+
+
+def test_removing_recent_session_cleans_pin_metadata(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("remove-pinned.las"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+    service.pin(item.session_key)
+
+    service.remove(item.session_key)
+    repository.save(_session("remove-pinned.las"))
+
+    assert service.list()[0].pinned is False
+
+
+def test_snapshot_reports_pinned_count(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("pinned.las"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+    service.pin(item.session_key)
+
+    snapshot = service.snapshot()
+
+    assert snapshot["version"] == "1.1"
+    assert snapshot["pinned_count"] == 1
+    assert snapshot["items"][0]["pinned"] is True
