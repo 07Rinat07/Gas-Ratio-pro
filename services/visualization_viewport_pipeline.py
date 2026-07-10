@@ -465,6 +465,59 @@ class VisualizationViewportPrefetchScheduler:
         self.last_distance_ratio = ratio
         return ratio
 
+    def tuning_state(self) -> dict[str, Any]:
+        """Return a compact serializable snapshot of adaptive tuning state."""
+        return {
+            "schema": "visualization.viewport-prefetch-tuning",
+            "version": "1.0",
+            "last_distance_ratio": self.last_distance_ratio,
+            "smoothed_prefetch_hit_rate": self.smoothed_prefetch_hit_rate,
+            "telemetry_initialized": self._telemetry_initialized,
+            "observed_prefetch_hits": self._observed_prefetch_hits,
+            "observed_prefetch_wasted": self._observed_prefetch_wasted,
+            "telemetry_windows_since_adjustment": self._telemetry_windows_since_adjustment,
+            "last_distance_direction": self._last_distance_direction,
+            "pending_reverse_direction": self._pending_reverse_direction,
+            "pending_reverse_windows": self._pending_reverse_windows,
+        }
+
+    def restore_tuning_state(self, state: Mapping[str, Any]) -> None:
+        """Restore adaptive tuning without restoring transient queue contents."""
+        if state.get("schema") != "visualization.viewport-prefetch-tuning":
+            raise ValueError("invalid prefetch tuning schema")
+        if str(state.get("version")) != "1.0":
+            raise ValueError("unsupported prefetch tuning version")
+
+        ratio = float(state.get("last_distance_ratio", 0.0))
+        hit_rate = float(state.get("smoothed_prefetch_hit_rate", 0.0))
+        hits = int(state.get("observed_prefetch_hits", 0))
+        wasted = int(state.get("observed_prefetch_wasted", 0))
+        windows = int(state.get("telemetry_windows_since_adjustment", 0))
+        reverse_windows = int(state.get("pending_reverse_windows", 0))
+        direction = str(state.get("last_distance_direction", ""))
+        pending_direction = str(state.get("pending_reverse_direction", ""))
+
+        if not isfinite(ratio) or ratio < 0.0:
+            raise ValueError("invalid prefetch tuning distance ratio")
+        if not isfinite(hit_rate) or not 0.0 <= hit_rate <= 1.0:
+            raise ValueError("invalid prefetch tuning hit rate")
+        if min(hits, wasted, windows, reverse_windows) < 0:
+            raise ValueError("prefetch tuning counters must not be negative")
+        if direction not in ("", "expand", "shrink"):
+            raise ValueError("invalid prefetch tuning direction")
+        if pending_direction not in ("", "expand", "shrink"):
+            raise ValueError("invalid pending prefetch tuning direction")
+
+        self.last_distance_ratio = ratio
+        self.smoothed_prefetch_hit_rate = hit_rate
+        self._telemetry_initialized = bool(state.get("telemetry_initialized", False))
+        self._observed_prefetch_hits = hits
+        self._observed_prefetch_wasted = wasted
+        self._telemetry_windows_since_adjustment = windows
+        self._last_distance_direction = direction
+        self._pending_reverse_direction = pending_direction
+        self._pending_reverse_windows = reverse_windows
+
     def stats(self) -> dict[str, Any]:
         return {
             "generation": self.generation,

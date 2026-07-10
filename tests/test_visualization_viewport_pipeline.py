@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from services.visualization_interactive_viewport import InteractiveViewport, ViewportLimits
 from services.visualization_viewport_pipeline import VisualizationViewportPipeline
 
@@ -682,3 +684,53 @@ def test_pipeline_exposes_prefetch_anti_oscillation_metrics() -> None:
     assert queue["cooldown_holds"] == 0
     assert queue["reversal_holds"] == 0
     assert queue["last_distance_direction"] == ""
+
+
+def test_prefetch_tuning_state_round_trip() -> None:
+    from services.visualization_viewport_pipeline import VisualizationViewportPrefetchScheduler
+
+    scheduler = VisualizationViewportPrefetchScheduler()
+    scheduler.adaptive_distance_ratio(
+        {"prefetch_hits": 8, "prefetch_wasted": 2},
+        smoothing=1.0,
+        adjustment_cooldown_windows=0,
+    )
+    snapshot = scheduler.tuning_state()
+
+    restored = VisualizationViewportPrefetchScheduler()
+    restored.restore_tuning_state(snapshot)
+
+    assert restored.tuning_state() == snapshot
+    assert restored.stats()["last_distance_ratio"] == scheduler.stats()["last_distance_ratio"]
+
+
+def test_prefetch_tuning_state_preserves_cumulative_counter_baseline() -> None:
+    from services.visualization_viewport_pipeline import VisualizationViewportPrefetchScheduler
+
+    scheduler = VisualizationViewportPrefetchScheduler()
+    scheduler.adaptive_distance_ratio({"prefetch_hits": 8, "prefetch_wasted": 2})
+    snapshot = scheduler.tuning_state()
+
+    restored = VisualizationViewportPrefetchScheduler()
+    restored.restore_tuning_state(snapshot)
+    ratio = restored.adaptive_distance_ratio(
+        {"prefetch_hits": 8, "prefetch_wasted": 2},
+        minimum_samples=4,
+    )
+
+    assert ratio == snapshot["last_distance_ratio"]
+    assert restored.stats()["telemetry_updates"] == 0
+
+
+def test_prefetch_tuning_state_rejects_invalid_contract() -> None:
+    from services.visualization_viewport_pipeline import VisualizationViewportPrefetchScheduler
+
+    scheduler = VisualizationViewportPrefetchScheduler()
+    with pytest.raises(ValueError, match="schema"):
+        scheduler.restore_tuning_state({"schema": "other", "version": "1.0"})
+    with pytest.raises(ValueError, match="hit rate"):
+        scheduler.restore_tuning_state({
+            "schema": "visualization.viewport-prefetch-tuning",
+            "version": "1.0",
+            "smoothed_prefetch_hit_rate": 2.0,
+        })
