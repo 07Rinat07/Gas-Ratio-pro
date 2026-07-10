@@ -1452,17 +1452,11 @@ class LasViewerRecentSessions:
         os.replace(temporary, destination)
         return payload
 
-    def import_bookmark_trash_journal(
-        self,
+    @staticmethod
+    def _read_bookmark_trash_journal_export(
         path: str | Path,
-        *,
-        mode: str = "append",
-    ) -> dict[str, object]:
-        """Restore an exported audit journal after validating schema and SHA-256 integrity."""
-        normalized_mode = str(mode or "append").strip().lower()
-        if normalized_mode not in {"append", "replace"}:
-            raise ValueError("mode must be one of: append, replace")
-
+    ) -> list[LasViewerRecentSessionBookmarkTrashEvent]:
+        """Validate and decode one portable bookmark trash journal export."""
         source = Path(path)
         try:
             payload = json.loads(source.read_text(encoding="utf-8"))
@@ -1479,15 +1473,14 @@ class LasViewerRecentSessions:
         unsigned = dict(payload)
         unsigned.pop("sha256", None)
         encoded = json.dumps(unsigned, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-        actual_sha = sha256(encoded).hexdigest()
-        if len(expected_sha) != 64 or expected_sha != actual_sha:
+        if len(expected_sha) != 64 or expected_sha != sha256(encoded).hexdigest():
             raise ValueError("bookmark trash journal integrity check failed")
 
         raw_events = payload.get("events", [])
         if not isinstance(raw_events, list) or int(payload.get("event_count", -1)) != len(raw_events):
             raise ValueError("bookmark trash journal event count mismatch")
 
-        imported: list[LasViewerRecentSessionBookmarkTrashEvent] = []
+        result: list[LasViewerRecentSessionBookmarkTrashEvent] = []
         for value in raw_events:
             if not isinstance(value, dict):
                 raise ValueError("invalid bookmark trash journal event")
@@ -1499,13 +1492,65 @@ class LasViewerRecentSessions:
                 occurred_at_ns = max(0, int(value.get("occurred_at_ns", 0)))
             except (TypeError, ValueError) as exc:
                 raise ValueError("invalid bookmark trash journal timestamp") from exc
-            imported.append(LasViewerRecentSessionBookmarkTrashEvent(
+            result.append(LasViewerRecentSessionBookmarkTrashEvent(
                 action=action,
                 session_key=session_key,
                 label=str(value.get("label", "")),
                 occurred_at_ns=occurred_at_ns,
                 reason=str(value.get("reason", "")),
             ))
+        return result
+
+    def merge_bookmark_trash_journals(
+        self,
+        paths: list[str | Path] | tuple[str | Path, ...],
+    ) -> dict[str, object]:
+        """Transactionally merge validated exports in deterministic event order."""
+        sources = tuple(paths)
+        decoded = [self._read_bookmark_trash_journal_export(path) for path in sources]
+        existing = self._load_bookmark_trash_journal()
+        seen = {(e.action, e.session_key, e.label, e.occurred_at_ns, e.reason) for e in existing}
+        added = 0
+        skipped = 0
+        for event in (item for batch in decoded for item in batch):
+            identity = (event.action, event.session_key, event.label, event.occurred_at_ns, event.reason)
+            if identity in seen:
+                skipped += 1
+                continue
+            existing.append(event)
+            seen.add(identity)
+            added += 1
+        existing.sort(key=lambda e: (e.occurred_at_ns, e.action, e.session_key, e.label, e.reason))
+        existing = existing[-200:]
+        self._save_preferences(
+            pinned_keys=self._load_pinned_keys(),
+            collapsed_groups=self._load_collapsed_groups(),
+            navigation_state=self.navigation_state(),
+            navigation_history=self.navigation_history(),
+            bookmark_trash_journal=existing,
+        )
+        return {
+            "schema": "las.viewer.recent-session-bookmark-trash-journal-merge-result",
+            "version": "1.0",
+            "source_count": len(sources),
+            "imported": added,
+            "skipped": skipped,
+            "stored": len(existing),
+            "renderer_neutral": True,
+        }
+
+    def import_bookmark_trash_journal(
+        self,
+        path: str | Path,
+        *,
+        mode: str = "append",
+    ) -> dict[str, object]:
+        """Restore an exported audit journal after validating schema and SHA-256 integrity."""
+        normalized_mode = str(mode or "append").strip().lower()
+        if normalized_mode not in {"append", "replace"}:
+            raise ValueError("mode must be one of: append, replace")
+
+        imported = self._read_bookmark_trash_journal_export(path)
 
         existing = [] if normalized_mode == "replace" else self._load_bookmark_trash_journal()
         seen = {(event.action, event.session_key, event.label, event.occurred_at_ns, event.reason) for event in existing}

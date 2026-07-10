@@ -1505,3 +1505,51 @@ def test_import_bookmark_trash_journal_replace_discards_existing_events(tmp_path
     events = target.bookmark_trash_journal()
     assert len(events) == 1
     assert events[0].session_key == key
+
+
+def test_merge_bookmark_trash_journals_is_deterministic_and_deduplicated(tmp_path, monkeypatch):
+    exports = []
+    for index, timestamp in enumerate((300, 100)):
+        repository = LasViewerWorkspaceAutosaveRepository(tmp_path / f"source-{index}")
+        repository.save(_session(f"merge-{index}.las"))
+        service = LasViewerRecentSessions(repository)
+        key = service.list()[0].session_key
+        service.set_bookmark(key, label=f"Merge {index}")
+        monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda value=timestamp: value)
+        service.remove_bookmark(key)
+        path = tmp_path / f"journal-{index}.json"
+        service.export_bookmark_trash_journal(path)
+        exports.append(path)
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target"))
+    result = target.merge_bookmark_trash_journals((exports[0], exports[1], exports[0]))
+    events = list(reversed(target.bookmark_trash_journal()))
+
+    assert result["source_count"] == 3
+    assert result["imported"] == 2
+    assert result["skipped"] == 1
+    assert [event.occurred_at_ns for event in events] == [100, 300]
+
+
+def test_merge_bookmark_trash_journals_is_transactional_on_invalid_source(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source")
+    repository.save(_session("valid-merge.las"))
+    source = LasViewerRecentSessions(repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 111)
+    source.remove_bookmark(key)
+    valid = tmp_path / "valid.json"
+    source.export_bookmark_trash_journal(valid)
+    invalid = tmp_path / "invalid.json"
+    invalid.write_text("{}", encoding="utf-8")
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target"))
+    try:
+        target.merge_bookmark_trash_journals((valid, invalid))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("ValueError expected")
+
+    assert target.bookmark_trash_journal() == ()
