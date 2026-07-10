@@ -63,7 +63,7 @@ def test_render_model_builds_deterministic_structural_primitives():
     assert "axis.depth.label.0" in primitive_ids
     assert any(item["kind"] == "line" for item in result["primitives"])
     assert result["metadata"]["raw_dataframe_included"] is False
-    assert result["metadata"]["foundation_scope"] == "canvas_track_axis_grid_curve_overlay"
+    assert result["metadata"]["foundation_scope"] == "canvas_track_axis_grid_curve_quality_overlay"
     assert result["metadata"]["curve_primitive_count"] == 2
     assert result["metadata"]["overlay_primitive_count"] == 1
     assert result["metadata"]["axis_count"] >= 1

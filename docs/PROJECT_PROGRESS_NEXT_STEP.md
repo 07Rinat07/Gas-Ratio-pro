@@ -1,3 +1,9 @@
+## Current increment: Curve Quality Engine v84
+
+Completed: gap-aware curve segmentation, logarithmic invalid-value handling and depth viewport clipping before renderer.
+
+Next: Label and Legend primitives, then print layout and renderer parity.
+
 ## Current completed increment
 
 Visualization Curve and Overlay Render Model v83 is implemented. Curve normalization,

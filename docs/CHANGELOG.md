@@ -1,3 +1,9 @@
+## v84 Curve Quality Engine
+
+- Added gap-aware curve segmentation and depth viewport clipping.
+- Render Model now emits separate polyline primitives for valid curve segments.
+- Added quality diagnostics for missing values, logarithmic invalid values and depth gaps.
+
 
 ## v79 Visualization Render Model Roadmap
 

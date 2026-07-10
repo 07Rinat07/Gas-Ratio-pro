@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from services.visualization_axis_grid import VisualizationAxisGridEngine
+from services.visualization_curve_quality import VisualizationCurveQualityEngine
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,8 +103,13 @@ class VisualizationRenderModel:
 class VisualizationRenderModelBuilder:
     """Build deterministic renderer primitives from scene/layout contracts."""
 
-    def __init__(self, axis_grid_engine: VisualizationAxisGridEngine | None = None) -> None:
+    def __init__(
+        self,
+        axis_grid_engine: VisualizationAxisGridEngine | None = None,
+        curve_quality_engine: VisualizationCurveQualityEngine | None = None,
+    ) -> None:
         self.axis_grid_engine = axis_grid_engine or VisualizationAxisGridEngine()
+        self.curve_quality_engine = curve_quality_engine or VisualizationCurveQualityEngine()
 
     CANVAS_Z = 0
     TRACK_BACKGROUND_Z = 10
@@ -272,7 +278,7 @@ class VisualizationRenderModelBuilder:
                 "clip_region_count": len(ordered_clips),
                 "raw_dataframe_included": False,
                 "ui_objects_included": False,
-                "foundation_scope": "canvas_track_axis_grid_curve_overlay",
+                "foundation_scope": "canvas_track_axis_grid_curve_quality_overlay",
                 "curve_primitive_count": len([item for item in ordered_primitives if item.kind == "polyline"]),
                 "overlay_primitive_count": len([item for item in ordered_primitives if item.id.startswith("overlay.") and item.kind == "rectangle"]),
                 "axis_count": len(_mapping_list(axis_grid_payload.get("axes"))),
@@ -363,31 +369,32 @@ class VisualizationRenderModelBuilder:
                     diagnostics.append(f"render_model_invalid_curve_axis:{layer_id}")
                     continue
                 scale = str(axis.get("scale") or "linear").lower()
-                coords: list[dict[str, float]] = []
-                for point in points:
-                    point_depth = _finite_float(point.get("depth"))
-                    value = _finite_float(point.get("value"))
-                    if point_depth is None or value is None:
-                        continue
-                    normalized = _normalize_value(value, axis_min, axis_max, scale)
-                    if normalized is None:
-                        continue
-                    x = _float(plot.get("x")) + 8.0 + normalized * max(_non_negative_float(plot.get("width")) - 16.0, 1.0)
-                    y = _map_depth(point_depth, depth_start, depth_span, _float(plot.get("y")), _non_negative_float(plot.get("height")))
-                    if _float(plot.get("y")) - 1 <= y <= _float(plot.get("y")) + _non_negative_float(plot.get("height")) + 1:
-                        coords.append({"x": x, "y": y})
-                if len(coords) < 2:
-                    diagnostics.append(f"render_model_curve_has_insufficient_points:{layer_id}")
-                    continue
+                quality = self.curve_quality_engine.build(
+                    layer_id=layer_id,
+                    points=points,
+                    axis_min=axis_min,
+                    axis_max=axis_max,
+                    scale=scale,
+                    depth_start=depth_start,
+                    depth_stop=depth_stop,
+                    plot_x=_float(plot.get("x")),
+                    plot_y=_float(plot.get("y")),
+                    plot_width=_non_negative_float(plot.get("width")),
+                    plot_height=_non_negative_float(plot.get("height")),
+                )
+                diagnostics.extend(quality.issues)
                 style = _mapping(payload.get("style"))
-                primitives.append(RenderPrimitive(
-                    id=f"curve.{layer_id}", kind="polyline", z_index=self.CURVE_Z,
-                    track_id=track_id, clip_id=f"clip.{track_id}.plot",
-                    payload={"points": coords, "fill": "none", "stroke": str(style.get("stroke") or "#455a64"),
-                             "stroke_width": _positive_float(style.get("line_width"), 1.3),
-                             "data_kind": "curve", "source_layer_id": layer_id,
-                             "title": str(payload.get("mnemonic") or "")},
-                ))
+                for segment_index, segment in enumerate(quality.segments):
+                    primitives.append(RenderPrimitive(
+                        id=(f"curve.{layer_id}" if segment_index == 0 else f"curve.{layer_id}.segment.{segment_index}"), kind="polyline", z_index=self.CURVE_Z,
+                        track_id=track_id, clip_id=f"clip.{track_id}.plot",
+                        payload={"points": list(segment.points), "fill": "none", "stroke": str(style.get("stroke") or "#455a64"),
+                                 "stroke_width": _positive_float(style.get("line_width"), 1.3),
+                                 "data_kind": "curve", "source_layer_id": layer_id,
+                                 "segment_index": segment_index,
+                                 "quality": dict(quality.metadata),
+                                 "title": str(payload.get("mnemonic") or "")},
+                    ))
         return primitives, diagnostics
 
     def _axis_grid_primitives(
