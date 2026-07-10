@@ -101,6 +101,7 @@ class LasViewerRecentSessionGroup:
     key: str
     label: str
     items: tuple[LasViewerRecentSession, ...]
+    collapsed: bool = False
 
     @property
     def count(self) -> int:
@@ -124,6 +125,8 @@ class LasViewerRecentSessionGroup:
             "count": self.count,
             "pinned_count": self.pinned_count,
             "active_count": self.active_count,
+            "collapsed": self.collapsed,
+            "expanded": not self.collapsed,
             "renderer_neutral": True,
         }
 
@@ -412,8 +415,14 @@ class LasViewerRecentSessions:
                 label = key.capitalize()
             buckets.setdefault(key, []).append(item)
             labels[key] = label
+        collapsed_groups = self._load_collapsed_groups()
         return tuple(
-            LasViewerRecentSessionGroup(key=key, label=labels[key], items=tuple(group_items))
+            LasViewerRecentSessionGroup(
+                key=key,
+                label=labels[key],
+                items=tuple(group_items),
+                collapsed=f"{normalized_group_by}:{key}" in collapsed_groups,
+            )
             for key, group_items in buckets.items()
         )
 
@@ -470,6 +479,50 @@ class LasViewerRecentSessions:
             total_item_count=total_item_count,
             page_count=page_count,
         )
+
+
+    def set_group_collapsed(
+        self,
+        group_by: str,
+        group_key: str,
+        *,
+        collapsed: bool = True,
+    ) -> bool:
+        """Persist collapsed state for a recent-session group."""
+        normalized_group_by = str(group_by or "").strip().lower()
+        if normalized_group_by not in {"project", "las_id", "status"}:
+            raise ValueError("group_by must be one of: project, las_id, status")
+        normalized_key = str(group_key or "").strip()
+        if not normalized_key:
+            raise ValueError("group_key must not be empty")
+        token = f"{normalized_group_by}:{normalized_key}"
+        collapsed_groups = self._load_collapsed_groups()
+        before = token in collapsed_groups
+        if collapsed:
+            collapsed_groups.add(token)
+        else:
+            collapsed_groups.discard(token)
+        changed = before != bool(collapsed)
+        if changed:
+            self._save_preferences(
+                pinned_keys=self._load_pinned_keys(),
+                collapsed_groups=collapsed_groups,
+            )
+        return changed
+
+    def toggle_group_collapsed(self, group_by: str, group_key: str) -> bool:
+        """Toggle and return the new collapsed state for a group."""
+        normalized_group_by = str(group_by or "").strip().lower()
+        normalized_key = str(group_key or "").strip()
+        if normalized_group_by not in {"project", "las_id", "status"}:
+            raise ValueError("group_by must be one of: project, las_id, status")
+        if not normalized_key:
+            raise ValueError("group_key must not be empty")
+        token = f"{normalized_group_by}:{normalized_key}"
+        collapsed_groups = self._load_collapsed_groups()
+        new_state = token not in collapsed_groups
+        self.set_group_collapsed(normalized_group_by, normalized_key, collapsed=new_state)
+        return new_state
 
     def pin(self, session_key: str, *, pinned: bool = True) -> LasViewerRecentSessionPinResult:
         key = str(session_key or "").strip()
@@ -686,26 +739,49 @@ class LasViewerRecentSessions:
             reason=item.reason,
         )
 
-    def _load_pinned_keys(self) -> set[str]:
+    def _load_preferences(self) -> dict[str, object]:
         if not self._metadata_path.is_file():
-            return set()
+            return {}
         try:
             payload = json.loads(self._metadata_path.read_text(encoding="utf-8"))
         except (OSError, ValueError, TypeError):
-            return set()
+            return {}
         if payload.get("schema") != "las.viewer.recent-session-preferences":
-            return set()
+            return {}
+        return payload
+
+    def _load_pinned_keys(self) -> set[str]:
+        payload = self._load_preferences()
         raw = payload.get("pinned_session_keys", [])
         if not isinstance(raw, list):
             return set()
         return {str(value).strip() for value in raw if str(value).strip()}
 
+    def _load_collapsed_groups(self) -> set[str]:
+        payload = self._load_preferences()
+        raw = payload.get("collapsed_groups", [])
+        if not isinstance(raw, list):
+            return set()
+        return {str(value).strip() for value in raw if str(value).strip()}
+
     def _save_pinned_keys(self, keys: set[str]) -> None:
+        self._save_preferences(
+            pinned_keys=keys,
+            collapsed_groups=self._load_collapsed_groups(),
+        )
+
+    def _save_preferences(
+        self,
+        *,
+        pinned_keys: set[str],
+        collapsed_groups: set[str],
+    ) -> None:
         self.repository.directory.mkdir(parents=True, exist_ok=True)
         payload = {
             "schema": "las.viewer.recent-session-preferences",
-            "version": "1.0",
-            "pinned_session_keys": sorted(keys),
+            "version": "1.1",
+            "pinned_session_keys": sorted(pinned_keys),
+            "collapsed_groups": sorted(collapsed_groups),
             "renderer_neutral": True,
         }
         with NamedTemporaryFile(
@@ -721,3 +797,4 @@ class LasViewerRecentSessions:
             os.fsync(handle.fileno())
             temporary = Path(handle.name)
         os.replace(temporary, self._metadata_path)
+

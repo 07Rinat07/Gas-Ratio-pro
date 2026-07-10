@@ -584,3 +584,60 @@ def test_recent_session_group_pagination_rejects_invalid_parameters(tmp_path):
             assert "page" in str(exc)
         else:
             raise AssertionError("ValueError expected")
+
+
+def test_recent_session_group_can_be_collapsed(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las", project_id="project-a"))
+    service = LasViewerRecentSessions(repository)
+
+    changed = service.set_group_collapsed("project", "project-a")
+    group = service.group(group_by="project")[0]
+
+    assert changed is True
+    assert group.collapsed is True
+    assert group.to_dict()["expanded"] is False
+
+
+def test_recent_session_group_collapse_state_is_persistent(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las", project_id="project-a"))
+    LasViewerRecentSessions(repository).set_group_collapsed("project", "project-a")
+
+    group = LasViewerRecentSessions(repository).group(group_by="project")[0]
+
+    assert group.collapsed is True
+
+
+def test_recent_session_group_can_be_expanded_again(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las", project_id="project-a"))
+    service = LasViewerRecentSessions(repository)
+    service.set_group_collapsed("project", "project-a")
+
+    changed = service.set_group_collapsed("project", "project-a", collapsed=False)
+
+    assert changed is True
+    assert service.group(group_by="project")[0].collapsed is False
+
+
+def test_recent_session_group_toggle_returns_new_state(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las", project_id="project-a"))
+    service = LasViewerRecentSessions(repository)
+
+    assert service.toggle_group_collapsed("project", "project-a") is True
+    assert service.toggle_group_collapsed("project", "project-a") is False
+
+
+def test_recent_session_group_preferences_preserve_pinned_sessions(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las", project_id="project-a"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+    service.pin(item.session_key)
+
+    service.set_group_collapsed("project", "project-a")
+
+    assert service.list()[0].pinned is True
+    assert service.group(group_by="project")[0].collapsed is True
