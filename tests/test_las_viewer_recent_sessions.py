@@ -371,3 +371,84 @@ def test_recent_sessions_snapshot_reports_sorting(tmp_path):
         "sort_order": "asc",
         "pinned_first": False,
     }
+
+
+def test_recent_sessions_paginates_sorted_results(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    for name in ("delta.las", "alpha.las", "charlie.las", "bravo.las", "echo.las"):
+        repository.save(_session(name))
+
+    page = LasViewerRecentSessions(repository).paginate(
+        page=2,
+        page_size=2,
+        sort_by="filename",
+        sort_order="asc",
+    )
+
+    assert [item.las_id for item in page.items] == ["charlie.las", "delta.las"]
+    assert page.total_count == 5
+    assert page.page_count == 3
+    assert page.has_previous is True
+    assert page.has_next is True
+    assert page.start_index == 3
+    assert page.end_index == 4
+
+
+def test_recent_sessions_pagination_handles_empty_out_of_range_page(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("only.las"))
+
+    page = LasViewerRecentSessions(repository).paginate(page=3, page_size=2)
+
+    assert page.items == ()
+    assert page.total_count == 1
+    assert page.page_count == 1
+    assert page.has_previous is True
+    assert page.has_next is False
+    assert page.start_index == 0
+    assert page.end_index == 0
+
+
+def test_recent_sessions_pagination_applies_filters_before_counting(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las", project_id="north"))
+    repository.save(_session("b.las", project_id="south"))
+    repository.save(_session("c.las", project_id="north"))
+
+    page = LasViewerRecentSessions(repository).paginate(
+        page=1,
+        page_size=1,
+        project_id="north",
+        sort_by="filename",
+        sort_order="asc",
+    )
+
+    assert [item.las_id for item in page.items] == ["a.las"]
+    assert page.total_count == 2
+    assert page.page_count == 2
+    assert page.has_next is True
+
+
+def test_recent_sessions_pagination_contract_is_renderer_neutral(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las"))
+
+    payload = LasViewerRecentSessions(repository).paginate(page=1, page_size=10).to_dict()
+
+    assert payload["schema"] == "las.viewer.recent-session-page"
+    assert payload["version"] == "1.0"
+    assert payload["renderer_neutral"] is True
+    assert payload["total_count"] == 1
+    assert payload["items"][0]["las_id"] == "a.las"
+
+
+def test_recent_sessions_pagination_rejects_invalid_parameters(tmp_path):
+    service = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path))
+
+    for kwargs in ({"page": 0}, {"page_size": 0}):
+        try:
+            service.paginate(**kwargs)
+        except ValueError as exc:
+            assert "page" in str(exc)
+        else:
+            raise AssertionError("ValueError expected")
