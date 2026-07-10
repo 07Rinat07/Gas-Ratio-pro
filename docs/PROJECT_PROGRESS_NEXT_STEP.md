@@ -441,3 +441,22 @@ Domain Model -> Scene -> Layout -> Axis/Grid -> Track Model -> Label/Legend -> P
 
 Next step:
 Introduce a PDF primitive renderer adapter over the same Render Model contract, then validate SVG/PDF geometry parity without rebuilding scene geometry inside the export layer.
+
+## v88 Visualization PDF Render Model Renderer
+
+Completed:
+- Added `VisualizationPdfRenderModelRenderer` over the existing renderer-neutral Render Model.
+- PDF rendering consumes only prepared primitives, clip regions and Print Layout geometry.
+- Added rectangle, line, polyline, text and clipping support with top-left to PDF coordinate conversion.
+- Added Unicode font discovery for DejaVu, Noto and configured system fonts.
+- Added machine-readable PDF metadata with byte size, SHA-256, page geometry and parity counters.
+- Reused `VisualizationRendererParityValidator` to verify shared primitive and clip counts.
+
+Current pipeline:
+
+```text
+Domain Model -> Scene -> Layout -> Axis/Grid -> Track Model -> Label/Legend -> Print Layout -> Render Model -> SVG/PDF Renderers -> Parity Validator
+```
+
+Next step:
+Add cross-renderer geometry signatures and bundle integration for the generated visualization PDF asset without recalculating Scene or Layout.

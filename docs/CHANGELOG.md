@@ -1,3 +1,10 @@
+## v88 Visualization PDF Render Model Renderer
+
+- Added a ReportLab PDF adapter that consumes the shared Visualization Render Model.
+- Added print-layout coordinate transformation, clipping, rectangle, line, polyline and text primitive support.
+- Added Unicode font discovery and machine-readable PDF artifact metadata.
+- Added shared renderer parity validation for PDF primitive and clip counts.
+
 ## v84 Curve Quality Engine
 
 - Added gap-aware curve segmentation and depth viewport clipping.
