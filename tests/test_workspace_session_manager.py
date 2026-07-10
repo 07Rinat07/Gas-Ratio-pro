@@ -165,3 +165,18 @@ def test_workspace_session_keys_include_workbench_boundary_keys():
     assert WORKBENCH_SESSION_DOCK_LAYOUT_KEY in keys
     assert WORKBENCH_SESSION_ACTIVE_NAVIGATION_KEY in keys
     assert WORKBENCH_SESSION_ACTIVE_DOCK_PANE_KEY in keys
+
+
+def test_workspace_session_persists_active_overlay_preset(tmp_path: Path):
+    from core.workspace_session import SESSION_ACTIVE_OVERLAY_PRESET_KEY
+
+    source = _state() | {SESSION_ACTIVE_OVERLAY_PRESET_KEY: "Field"}
+    saved = WorkspaceSessionManager(source, sessions_dir=tmp_path).save()
+    loaded = WorkspaceSessionManager({}, sessions_dir=tmp_path).load(saved.path)
+
+    assert loaded.active_overlay_preset == "Field"
+    assert loaded.to_dict()["active_overlay_preset"] == "Field"
+
+    target = {}
+    WorkspaceSessionManager(target, sessions_dir=tmp_path).restore(loaded)
+    assert target[SESSION_ACTIVE_OVERLAY_PRESET_KEY] == "Field"

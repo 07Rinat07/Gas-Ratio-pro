@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
-from typing import Any, Mapping
+from typing import Any, Mapping, MutableMapping
 
 from services.las_viewer_interaction_overlay import (
     LasViewerInteractionOverlay,
@@ -20,6 +20,7 @@ from services.las_viewer_interaction_overlay import (
 from services.las_viewer_overlay_presets import (
     LasViewerOverlayPresetRepository,
 )
+from core.workspace_session import SESSION_ACTIVE_OVERLAY_PRESET_KEY
 from services.las_viewer_session import LasViewerSession
 from services.visualization_render_model import VisualizationRenderModel
 
@@ -103,18 +104,23 @@ class LasViewerOverlayPresetRuntime:
         session: LasViewerSession,
         repository: LasViewerOverlayPresetRepository,
         *,
-        active_preset: str = "Default",
+        active_preset: str | None = None,
         overlay_engine: LasViewerInteractionOverlayEngine | None = None,
+        workspace_state: MutableMapping[str, Any] | None = None,
     ) -> None:
         self._session = session
         self._repository = repository
         self._overlay_engine = overlay_engine or LasViewerInteractionOverlayEngine()
+        self._workspace_state = workspace_state
         self._revision = 0
         self._fallback_applied = False
         self._active_preset = ""
         self._style = LasViewerInteractionOverlayStyle()
         self._repository_fingerprint = _fingerprint(repository)
-        self._set_active(active_preset, allow_fallback=True, increment=False)
+        requested = active_preset
+        if requested is None and workspace_state is not None:
+            requested = str(workspace_state.get(SESSION_ACTIVE_OVERLAY_PRESET_KEY, "Default") or "Default")
+        self._set_active(requested or "Default", allow_fallback=True, increment=False)
 
     @property
     def state(self) -> LasViewerOverlayRuntimeState:
@@ -201,5 +207,7 @@ class LasViewerOverlayPresetRuntime:
         self._active_preset = preset.name
         self._style = preset.style
         self._fallback_applied = fallback
+        if self._workspace_state is not None:
+            self._workspace_state[SESSION_ACTIVE_OVERLAY_PRESET_KEY] = self._active_preset
         if increment and changed:
             self._revision += 1

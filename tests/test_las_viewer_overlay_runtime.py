@@ -135,3 +135,35 @@ def test_runtime_unknown_preset_is_rejected() -> None:
     runtime = LasViewerOverlayPresetRuntime(_session(), _repository())
     with pytest.raises(KeyError):
         runtime.apply("Unknown")
+
+
+def test_runtime_restores_and_updates_workspace_active_preset() -> None:
+    from core.workspace_session import SESSION_ACTIVE_OVERLAY_PRESET_KEY
+
+    workspace_state = {SESSION_ACTIVE_OVERLAY_PRESET_KEY: "Field"}
+    runtime = LasViewerOverlayPresetRuntime(
+        _session(),
+        _repository(),
+        workspace_state=workspace_state,
+    )
+
+    assert runtime.active_preset == "Field"
+
+    runtime.apply("Default")
+    assert workspace_state[SESSION_ACTIVE_OVERLAY_PRESET_KEY] == "Default"
+
+
+def test_runtime_updates_workspace_state_after_fallback() -> None:
+    from core.workspace_session import SESSION_ACTIVE_OVERLAY_PRESET_KEY
+
+    workspace_state = {SESSION_ACTIVE_OVERLAY_PRESET_KEY: "Field"}
+    runtime = LasViewerOverlayPresetRuntime(
+        _session(),
+        _repository(),
+        workspace_state=workspace_state,
+    )
+
+    runtime.synchronize(LasViewerOverlayPresetRepository.with_defaults())
+
+    assert runtime.active_preset == "Default"
+    assert workspace_state[SESSION_ACTIVE_OVERLAY_PRESET_KEY] == "Default"
