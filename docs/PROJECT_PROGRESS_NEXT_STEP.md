@@ -423,3 +423,21 @@ Domain Model -> Scene -> Layout -> Axis/Grid -> Track Model -> Label/Legend -> R
 
 Next step:
 Implement Print Layout Engine with page formats, margins, printable regions and dedicated legend placement primitives.
+
+## v87 Visualization SVG Renderer Parity Foundation
+
+Completed:
+- Added `VisualizationRendererParityValidator` and a machine-readable parity report contract.
+- SVG pipeline rendering now consumes Render Model primitives and clip regions as the source of truth.
+- SVG output now applies the prepared Print Layout page bounds and content transform.
+- SVG renderer results expose primitive count, clip count, page size and print-layout status for QA.
+- Added regression coverage for parity count validation and print-layout application.
+
+Current pipeline:
+
+```text
+Domain Model -> Scene -> Layout -> Axis/Grid -> Track Model -> Label/Legend -> Print Layout -> Render Model -> SVG Renderer -> Parity Validator
+```
+
+Next step:
+Introduce a PDF primitive renderer adapter over the same Render Model contract, then validate SVG/PDF geometry parity without rebuilding scene geometry inside the export layer.

@@ -29,6 +29,10 @@ class SvgSceneRenderResult:
     layer_count: int = 0
     curve_count: int = 0
     overlay_count: int = 0
+    primitive_count: int = 0
+    clip_count: int = 0
+    print_layout_applied: bool = False
+    page_size: str = ""
     export_ready: bool = False
     issues: tuple[str, ...] = field(default_factory=tuple)
     svg: str = ""
@@ -46,6 +50,10 @@ class SvgSceneRenderResult:
             "layer_count": self.layer_count,
             "curve_count": self.curve_count,
             "overlay_count": self.overlay_count,
+            "primitive_count": self.primitive_count,
+            "clip_count": self.clip_count,
+            "print_layout_applied": self.print_layout_applied,
+            "page_size": self.page_size,
             "export_ready": self.export_ready,
             "contains_raw_dataframe": False,
             "issues": list(self.issues),
@@ -70,6 +78,7 @@ class VisualizationSvgSceneRenderer:
         layers = _mapping_list(scene.get("layers"))
         depth_sync = _mapping(scene.get("depth_sync"))
         render_model = _mapping(source.get("render_model")) if source_schema == "visualization.scene.pipeline.result" else {}
+        print_layout = _mapping(source.get("print_layout")) if source_schema == "visualization.scene.pipeline.result" else {}
 
         issues = list(upstream_issues)
         if not tracks:
@@ -105,10 +114,25 @@ class VisualizationSvgSceneRenderer:
         for values in layer_by_track.values():
             values.sort(key=lambda item: (int(item.get("z_index") or 0), str(item.get("id") or "")))
 
+        primitive_count = 0
+        clip_count = 0
+        print_layout_applied = False
+        page_size = ""
         if render_model.get("schema") == "visualization.render.model" and _mapping_list(render_model.get("primitives")):
             width = int(_positive_float(render_model.get("width"), width))
             height = int(_positive_float(render_model.get("height"), height))
-            svg = self._render_from_render_model(render_model, width=width, height=height, issues=issues)
+            primitive_count = len([item for item in _mapping_list(render_model.get("primitives")) if bool(item.get("visible", True)) and bool(item.get("printable", True))])
+            clip_count = len(_mapping_list(render_model.get("clip_regions")))
+            page = _mapping((_mapping_list(print_layout.get("pages")) or [{}])[0])
+            page_bounds = _mapping(page.get("page_bounds"))
+            if bool(print_layout.get("ok")) and page_bounds:
+                width = int(round(_positive_float(page_bounds.get("width"), width)))
+                height = int(round(_positive_float(page_bounds.get("height"), height)))
+                print_layout_applied = True
+                page_size = str(print_layout.get("page_size") or "")
+            svg = self._render_from_render_model(
+                render_model, width=width, height=height, issues=issues, print_layout=print_layout
+            )
         else:
             issues.append("svg_renderer_render_model_unavailable")
             svg = self._render_svg(
@@ -134,6 +158,10 @@ class VisualizationSvgSceneRenderer:
             layer_count=len(layers),
             curve_count=curve_count,
             overlay_count=overlay_count,
+            primitive_count=primitive_count,
+            clip_count=clip_count,
+            print_layout_applied=print_layout_applied,
+            page_size=page_size,
             export_ready=export_ready,
             issues=tuple(dict.fromkeys(issues)),
             svg=svg,
@@ -147,6 +175,7 @@ class VisualizationSvgSceneRenderer:
         width: int,
         height: int,
         issues: list[str],
+        print_layout: Mapping[str, Any] | None = None,
     ) -> str:
         clips = _mapping_list(render_model.get("clip_regions"))
         primitives = _mapping_list(render_model.get("primitives"))
@@ -163,7 +192,9 @@ class VisualizationSvgSceneRenderer:
                 f'y="{_finite_float(clip.get("y")) or 0:g}" width="{_positive_float(clip.get("width"), 0):g}" '
                 f'height="{_positive_float(clip.get("height"), 0):g}"/></clipPath>'
             )
-        parts.extend(['</defs>', '<g font-family="Arial, DejaVu Sans, sans-serif">'])
+        parts.append('</defs>')
+        transform = self._print_transform(print_layout or {}, render_model)
+        parts.append(f'<g font-family="Arial, DejaVu Sans, sans-serif"{transform}>')
         for primitive in primitives:
             if not bool(primitive.get("visible", True)) or not bool(primitive.get("printable", True)):
                 continue
@@ -220,6 +251,25 @@ class VisualizationSvgSceneRenderer:
                 issues.append(f"svg_renderer_unsupported_primitive:{kind}")
         parts.append("</g></svg>")
         return "".join(parts)
+
+    def _print_transform(self, print_layout: Mapping[str, Any], render_model: Mapping[str, Any]) -> str:
+        pages = _mapping_list(print_layout.get("pages"))
+        if not bool(print_layout.get("ok")) or not pages:
+            return ""
+        page = _mapping(pages[0])
+        content = _mapping(page.get("content_bounds"))
+        source = _mapping(page.get("source_bounds"))
+        dpi = _positive_float(print_layout.get("dpi"), 96.0)
+        content_scale = _positive_float(page.get("content_scale"), 1.0)
+        source_width = _positive_float(source.get("width"), _positive_float(render_model.get("width"), 1.0))
+        source_height = _positive_float(source.get("height"), _positive_float(render_model.get("height"), 1.0))
+        if source_width <= 0 or source_height <= 0:
+            return ""
+        px_to_pt = 72.0 / dpi
+        scale = px_to_pt * content_scale
+        tx = _finite_float(content.get("x")) or 0.0
+        ty = _finite_float(content.get("y")) or 0.0
+        return f' transform="translate({tx:g} {ty:g}) scale({scale:g})"'
 
     def _extract_scene(self, source: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any], str, list[str]]:
         source_schema = str(source.get("schema") or "")

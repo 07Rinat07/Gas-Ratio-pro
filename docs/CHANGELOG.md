@@ -1148,3 +1148,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Connected print-layout metadata to Visualization Render Model.
 - Added regression tests and kept release export QA green.
 
+
+## Visualization SVG Renderer Parity Foundation v87
+
+- Added a renderer-neutral parity validator for concrete visualization artifacts.
+- SVG renderer now applies Print Layout page geometry and content transforms.
+- SVG results now expose primitive and clip counts for automated contract validation.
+- Added parity regression tests for Render Model counts and print-layout application.
