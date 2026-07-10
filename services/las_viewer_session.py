@@ -186,7 +186,13 @@ class LasViewerSession:
         session._visible_curves = resolved.visible_curves
         session._active_track_id = resolved.active_track_id if resolved.active_track_id in resolved.visible_tracks else ""
         session._active_curve_id = resolved.active_curve_id if resolved.active_curve_id in resolved.visible_curves else ""
-        session._revision = resolved.revision
+        # ``LasViewerState.revision`` is an aggregate of the session-owned,
+        # interaction, and layout revisions. Restore only the session-owned
+        # component so reading ``session.state`` does not double-count child
+        # controller revisions after deserialization.
+        interaction_revision = resolved.interaction.revision
+        layout_revision = resolved.layout.revision if resolved.layout is not None else 0
+        session._revision = max(0, resolved.revision - interaction_revision - layout_revision)
         return session
 
     @property
