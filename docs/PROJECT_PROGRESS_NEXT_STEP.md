@@ -297,3 +297,16 @@ Completed:
 
 Next step:
 Route report and bundle visualization assets through `scene_renderers.svg` so exports stop using the legacy mini SVG preview generator.
+
+## v77 Visualization Domain Model Foundation
+
+Completed:
+- Added source-neutral `VisualizationDomainModel` contracts for tracks, curves and interpreted depth intervals.
+- Added `VisualizationDomainModelAdapter` as the source boundary between LAS payloads and Visualization Engine.
+- Updated `VisualizationScenePipeline` to run `domain_model → context → scene → validation`.
+- Pipeline results now expose the normalized domain model for QA and future adapters.
+- Kept existing scene and SVG renderer contracts compatible.
+- Added roadmap section before Layout Engine and regression tests for normalization and engine payload conversion.
+
+Next step:
+Implement the renderer-neutral Layout Engine. It should calculate track geometry, synchronized depth coordinates and axis regions from `VisualizationScene`, while SVG remains a drawing-only adapter.

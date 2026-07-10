@@ -420,3 +420,40 @@ Service → DeleteEngine → IndexManager.sync_project_storage → VersionManage
 Manual `Обновить индекс файлов` and `Обновить версии файлов` buttons remain as
 repair/diagnostic actions only.  Deleted datasets/LAS/exports/reports must not
 remain visible in Project Database after index/version synchronization.
+
+## Phase 6A — Visualization Engine Domain Model and Layout Foundation
+
+This phase is inserted before the Layout Engine so visualization geometry does not depend on LAS-specific payloads.
+
+### 6A.1 Source-neutral Visualization Domain Model
+
+- normalize tracks, curves, interpreted intervals and presentation metadata into one domain contract;
+- keep file-format parsing outside Visualization Engine;
+- support LAS first while preserving adapters for DLIS, WITSML, CSV and database sources;
+- prohibit raw DataFrame and renderer objects in the domain model;
+- expose a deterministic adapter boundary before scene construction.
+
+### 6A.2 Scene Pipeline Integration
+
+- pipeline order: source adapter → domain model → scene context → scene → validation;
+- scene builder consumes only the normalized domain model payload;
+- UI and report renderers must not recalculate engineering data;
+- maintain backward-compatible scene and SVG renderer contracts during migration.
+
+### 6A.3 Layout Engine
+
+After the domain model is stable:
+
+- calculate track widths and horizontal coordinates;
+- calculate shared depth-axis geometry;
+- produce renderer-neutral axis, grid, label and legend layout;
+- create a render model consumed by SVG, PDF and interactive renderers;
+- keep all geometry outside renderer adapters.
+
+### 6A.4 Completion criteria
+
+- one source-neutral domain schema;
+- LAS adapter covered by regression tests;
+- scene pipeline exposes the normalized domain model;
+- no raw DataFrame in domain, scene or renderer payloads;
+- Layout Engine can be added without changing importer contracts.

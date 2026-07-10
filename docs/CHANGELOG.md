@@ -1073,3 +1073,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added the first Visualization Engine SVG scene renderer adapter.
 - Added scene-renderer output to LAS visualization payloads.
 - Added SVG renderer regression coverage and empty-scene diagnostics.
+
+## v77
+- Added a source-neutral Visualization Domain Model and LAS payload adapter.
+- Inserted the domain-model stage into the Visualization Scene Pipeline.
+- Added roadmap and architecture documentation for the domain-first Layout Engine sequence.
+- Added regression tests for normalized tracks, curves, intervals and raw-data safety.

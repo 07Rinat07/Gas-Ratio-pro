@@ -12,6 +12,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from services.visualization_domain_model import (
+    VisualizationDomainModel,
+    VisualizationDomainModelAdapter,
+)
 from services.visualization_engine_core import VisualizationEngineCore, VisualizationScene
 
 
@@ -46,6 +50,7 @@ class VisualizationScenePipelineResult:
 
     schema: str = "visualization.scene.pipeline.result"
     version: str = "1.0"
+    domain_model: VisualizationDomainModel = field(default_factory=VisualizationDomainModel)
     context: VisualizationSceneContext = field(default_factory=VisualizationSceneContext)
     scene: VisualizationScene = field(default_factory=VisualizationScene)
     validation: dict[str, Any] = field(default_factory=dict)
@@ -59,6 +64,7 @@ class VisualizationScenePipelineResult:
         return {
             "schema": self.schema,
             "version": self.version,
+            "domain_model": self.domain_model.to_dict(),
             "context": self.context.to_dict(),
             "scene": self.scene.to_dict(),
             "validation": dict(self.validation),
@@ -67,11 +73,26 @@ class VisualizationScenePipelineResult:
         }
 
 
+class DomainModelBuilder:
+    """Adapt imported visualization data to the source-neutral domain model."""
+
+    def __init__(self, adapter: VisualizationDomainModelAdapter | None = None) -> None:
+        self.adapter = adapter or VisualizationDomainModelAdapter()
+
+    def build(self, payload: Mapping[str, Any]) -> VisualizationDomainModel:
+        return self.adapter.from_payload(
+            payload,
+            source_type=str(payload.get("source_type") or "las"),
+            source_id=str(payload.get("source_id") or payload.get("las_id") or ""),
+        )
+
+
 class SceneContextBuilder:
     """Normalize raw payload metadata before scene construction."""
 
-    def build(self, payload: Mapping[str, Any]) -> VisualizationSceneContext:
-        prepared = dict(payload)
+    def build(self, domain_model: VisualizationDomainModel) -> VisualizationSceneContext:
+        prepared = domain_model.to_engine_payload()
+        payload = prepared
         tracks = _list(payload.get("tracks"))
         curves = _list(payload.get("curves"))
         overlays = _list(payload.get("overlays"))
@@ -130,23 +151,27 @@ class SceneValidator:
 class VisualizationScenePipeline:
     """Run the renderer-neutral visualization scene pipeline."""
 
-    STAGES = ("context", "scene", "validation")
+    STAGES = ("domain_model", "context", "scene", "validation")
 
     def __init__(
         self,
+        domain_model_builder: DomainModelBuilder | None = None,
         context_builder: SceneContextBuilder | None = None,
         scene_builder: SceneBuilder | None = None,
         validator: SceneValidator | None = None,
     ) -> None:
+        self.domain_model_builder = domain_model_builder or DomainModelBuilder()
         self.context_builder = context_builder or SceneContextBuilder()
         self.scene_builder = scene_builder or SceneBuilder()
         self.validator = validator or SceneValidator()
 
     def run(self, payload: Mapping[str, Any]) -> VisualizationScenePipelineResult:
-        context = self.context_builder.build(payload)
+        domain_model = self.domain_model_builder.build(payload)
+        context = self.context_builder.build(domain_model)
         scene = self.scene_builder.build(context)
         validation = self.validator.validate(context, scene)
         return VisualizationScenePipelineResult(
+            domain_model=domain_model,
             context=context,
             scene=scene,
             validation=validation,
