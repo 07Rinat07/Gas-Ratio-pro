@@ -77,6 +77,27 @@ class HitTestResult:
     inside: bool = False
     payload: dict[str, Any] = field(default_factory=dict)
 
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "HitTestResult":
+        return cls(
+            primitive_id=str(value.get("primitive_id") or ""),
+            primitive_kind=str(value.get("primitive_kind") or ""),
+            track_id=str(value.get("track_id") or ""),
+            source_layer_id=str(value.get("source_layer_id") or ""),
+            data_kind=str(value.get("data_kind") or ""),
+            distance=float(value.get("distance") or 0.0),
+            hit_x=float(value.get("hit_x") or 0.0),
+            hit_y=float(value.get("hit_y") or 0.0),
+            query_x=float(value.get("query_x") or 0.0),
+            query_y=float(value.get("query_y") or 0.0),
+            z_index=int(value.get("z_index") or 0),
+            segment_index=_optional_int(value.get("segment_index")),
+            point_index=_optional_int(value.get("point_index")),
+            segment_ratio=(None if value.get("segment_ratio") is None else float(value["segment_ratio"])),
+            inside=bool(value.get("inside", False)),
+            payload=dict(value.get("payload") or {}),
+        )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "primitive_id": self.primitive_id,
@@ -343,3 +364,12 @@ def _interaction_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         for key, value in payload.items()
         if key in allowed and key not in excluded and isinstance(value, (str, int, float, bool, type(None)))
     }
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None

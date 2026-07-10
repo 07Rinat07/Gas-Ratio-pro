@@ -56,6 +56,23 @@ class CursorReadout:
     hits: tuple[HitTestResult, ...] = field(default_factory=tuple)
     diagnostics: tuple[str, ...] = field(default_factory=tuple)
 
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "CursorReadout":
+        raw_hits = value.get("hits") or ()
+        return cls(
+            screen_x=float(value.get("screen_x") or 0.0),
+            screen_y=float(value.get("screen_y") or 0.0),
+            depth=float(value.get("depth") or 0.0),
+            depth_unit=str(value.get("depth_unit") or ""),
+            track_id=str(value.get("track_id") or ""),
+            hits=tuple(
+                HitTestResult.from_dict(item)
+                for item in raw_hits
+                if isinstance(item, Mapping)
+            ),
+            diagnostics=tuple(str(item) for item in (value.get("diagnostics") or ())),
+        )
+
     @property
     def nearest(self) -> HitTestResult | None:
         return self.hits[0] if self.hits else None

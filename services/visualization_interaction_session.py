@@ -25,6 +25,20 @@ class InteractionSessionState:
     cursor: CursorReadout | None = None
     revision: int = 0
 
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "InteractionSessionState":
+        raw_viewport = value.get("viewport")
+        raw_selection = value.get("selection")
+        if not isinstance(raw_viewport, Mapping) or not isinstance(raw_selection, Mapping):
+            raise ValueError("interaction session state requires viewport and selection")
+        raw_cursor = value.get("cursor")
+        return cls(
+            viewport=InteractiveViewport.from_dict(raw_viewport),
+            selection=SelectionState.from_dict(raw_selection),
+            cursor=(CursorReadout.from_dict(raw_cursor) if isinstance(raw_cursor, Mapping) else None),
+            revision=max(0, int(value.get("revision") or 0)),
+        )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "schema": "visualization.interactive.session-state",
@@ -53,6 +67,25 @@ class VisualizationInteractionSession:
         self._cursor_engine = cursor_engine or VisualizationCursorEngine()
         self._cursor: CursorReadout | None = None
         self._revision = 0
+
+    @classmethod
+    def from_state(
+        cls,
+        state: InteractionSessionState | Mapping[str, Any],
+        *,
+        history_limit: int = 100,
+        cursor_engine: VisualizationCursorEngine | None = None,
+    ) -> "VisualizationInteractionSession":
+        resolved = state if isinstance(state, InteractionSessionState) else InteractionSessionState.from_dict(state)
+        session = cls(
+            resolved.viewport,
+            initial_selection=resolved.selection,
+            history_limit=history_limit,
+            cursor_engine=cursor_engine,
+        )
+        session._cursor = resolved.cursor
+        session._revision = resolved.revision
+        return session
 
     @property
     def state(self) -> InteractionSessionState:
