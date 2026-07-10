@@ -16,6 +16,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from services.visualization_axis_grid import VisualizationAxisGridEngine
+
 
 @dataclass(frozen=True, slots=True)
 class RenderClipRegion:
@@ -98,11 +100,17 @@ class VisualizationRenderModel:
 
 
 class VisualizationRenderModelBuilder:
-    """Build deterministic structural drawing primitives from scene/layout."""
+    """Build deterministic renderer primitives from scene/layout contracts."""
+
+    def __init__(self, axis_grid_engine: VisualizationAxisGridEngine | None = None) -> None:
+        self.axis_grid_engine = axis_grid_engine or VisualizationAxisGridEngine()
 
     CANVAS_Z = 0
     TRACK_BACKGROUND_Z = 10
+    MINOR_GRID_Z = 14
+    MAJOR_GRID_Z = 16
     TRACK_BORDER_Z = 20
+    AXIS_TEXT_Z = 35
     TRACK_TITLE_Z = 40
     DIAGNOSTIC_Z = 1000
 
@@ -110,6 +118,7 @@ class VisualizationRenderModelBuilder:
         self,
         scene: Mapping[str, Any],
         layout: Mapping[str, Any],
+        axis_grid: Mapping[str, Any] | None = None,
     ) -> VisualizationRenderModel:
         width = int(_positive_float(layout.get("width"), 360))
         height = int(_positive_float(layout.get("height"), 180))
@@ -214,8 +223,18 @@ class VisualizationRenderModelBuilder:
                     ]
                 )
 
-        if source_layers:
-            diagnostics.append(f"render_model_pending_source_layers:{len(source_layers)}")
+        axis_grid_model = (
+            self.axis_grid_engine.build(scene, layout)
+            if axis_grid is None
+            else None
+        )
+        axis_grid_payload = axis_grid_model.to_dict() if axis_grid_model is not None else dict(axis_grid or {})
+        diagnostics.extend(str(item) for item in _sequence(axis_grid_payload.get("issues")) if str(item))
+        primitives.extend(self._axis_grid_primitives(axis_grid_payload, layout_tracks))
+
+        pending_layers = [layer for layer in source_layers if str(layer.get("kind") or "") in {"curve", "interval_overlay"}]
+        if pending_layers:
+            diagnostics.append(f"render_model_pending_source_layers:{len(pending_layers)}")
         if scene_tracks and len(layout_tracks) != len(scene_tracks):
             diagnostics.append(
                 f"render_model_track_count_mismatch:{len(scene_tracks)}:{len(layout_tracks)}"
@@ -240,9 +259,73 @@ class VisualizationRenderModelBuilder:
                 "clip_region_count": len(ordered_clips),
                 "raw_dataframe_included": False,
                 "ui_objects_included": False,
-                "foundation_scope": "canvas_track_structure",
+                "foundation_scope": "canvas_track_axis_grid",
+                "axis_count": len(_mapping_list(axis_grid_payload.get("axes"))),
+                "grid_line_count": len(_mapping_list(axis_grid_payload.get("grid_lines"))),
+                "axis_grid_ok": bool(axis_grid_payload.get("ok", False)),
             },
         )
+
+    def _axis_grid_primitives(
+        self,
+        axis_grid: Mapping[str, Any],
+        layout_tracks: list[dict[str, Any]],
+    ) -> list[RenderPrimitive]:
+        primitives: list[RenderPrimitive] = []
+        layout_by_id = {str(item.get("id") or ""): item for item in layout_tracks}
+        for line in _mapping_list(axis_grid.get("grid_lines")):
+            track_id = str(line.get("track_id") or "")
+            orientation = str(line.get("orientation") or "")
+            major = bool(line.get("major"))
+            position = _float(line.get("position"))
+            start = _float(line.get("start"))
+            stop = _float(line.get("stop"))
+            if orientation == "horizontal":
+                x1, y1, x2, y2 = start, position, stop, position
+            else:
+                x1, y1, x2, y2 = position, start, position, stop
+            primitives.append(
+                RenderPrimitive(
+                    id=str(line.get("id") or "grid"),
+                    kind="line",
+                    z_index=self.MAJOR_GRID_Z if major else self.MINOR_GRID_Z,
+                    track_id=track_id,
+                    clip_id=f"clip.{track_id}.plot" if track_id else "",
+                    payload={
+                        "x1": x1, "y1": y1, "x2": x2, "y2": y2,
+                        "stroke": "#cfd8dc" if major else "#eceff1",
+                        "stroke_width": 0.8 if major else 0.45,
+                        "major": major,
+                    },
+                )
+            )
+        for axis in _mapping_list(axis_grid.get("axes")):
+            track_id = str(axis.get("track_id") or "")
+            kind = str(axis.get("kind") or "")
+            ticks = _mapping_list(axis.get("ticks"))
+            for index, tick in enumerate(ticks):
+                if not bool(tick.get("major")) or not str(tick.get("label") or ""):
+                    continue
+                position = _float(tick.get("position"))
+                if kind == "depth":
+                    for track_layout in layout_tracks[:1]:
+                        plot = _mapping(track_layout.get("plot_bounds"))
+                        primitives.append(RenderPrimitive(
+                            id=f"axis.depth.label.{index}", kind="text", z_index=self.AXIS_TEXT_Z,
+                            track_id=str(track_layout.get("id") or ""),
+                            payload={"x": _float(plot.get("x")) + 4.0, "y": position + 10.0,
+                                     "text": str(tick.get("label") or ""), "font_size": 8.0, "fill": "#607d8b"},
+                        ))
+                elif track_id in layout_by_id:
+                    axis_bounds = _mapping(layout_by_id[track_id].get("axis_bounds"))
+                    primitives.append(RenderPrimitive(
+                        id=f"{axis.get('id', 'axis')}.label.{index}", kind="text", z_index=self.AXIS_TEXT_Z,
+                        track_id=track_id,
+                        payload={"x": position, "y": _float(axis_bounds.get("y")) + 16.0,
+                                 "text": str(tick.get("label") or ""), "font_size": 8.0,
+                                 "text_anchor": "middle", "fill": "#455a64"},
+                    ))
+        return primitives
 
     def _empty_scene_primitives(self, *, width: int, height: int) -> list[RenderPrimitive]:
         card_width = float(max(260, min(width - 24, 420)))

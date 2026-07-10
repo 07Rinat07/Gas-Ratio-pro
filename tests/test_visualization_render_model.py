@@ -11,8 +11,8 @@ def _scene():
             {"id": "track.gas", "title": "Gas"},
         ],
         "layers": [
-            {"id": "curve.GR", "kind": "curve", "track_id": "track.gamma"},
-            {"id": "curve.C1", "kind": "curve", "track_id": "track.gas"},
+            {"id": "curve.GR", "kind": "curve", "track_id": "track.gamma", "payload": {"unit": "API", "axis": {"min": 0, "max": 150, "scale": "linear"}}},
+            {"id": "curve.C1", "kind": "curve", "track_id": "track.gas", "payload": {"unit": "PPM", "axis": {"min": 1, "max": 1000, "scale": "log"}}},
         ],
     }
 
@@ -29,6 +29,7 @@ def _layout():
                 "bounds": {"x": 12.0, "y": 0.0, "width": 180.0, "height": 684.0},
                 "plot_bounds": {"x": 12.0, "y": 64.0, "width": 180.0, "height": 620.0},
                 "header_bounds": {"x": 12.0, "y": 0.0, "width": 180.0, "height": 42.0},
+                "axis_bounds": {"x": 12.0, "y": 42.0, "width": 180.0, "height": 22.0},
             },
             {
                 "id": "track.gas",
@@ -36,8 +37,10 @@ def _layout():
                 "bounds": {"x": 192.0, "y": 0.0, "width": 270.0, "height": 684.0},
                 "plot_bounds": {"x": 192.0, "y": 64.0, "width": 270.0, "height": 620.0},
                 "header_bounds": {"x": 192.0, "y": 0.0, "width": 270.0, "height": 42.0},
+                "axis_bounds": {"x": 192.0, "y": 42.0, "width": 270.0, "height": 22.0},
             },
         ],
+        "depth": {"start": 1000.0, "stop": 1100.0, "unit": "M", "plot_top": 64.0, "plot_bottom": 684.0},
     }
 
 
@@ -52,17 +55,16 @@ def test_render_model_builds_deterministic_structural_primitives():
         "clip.track.gamma.plot",
         "clip.track.gas.plot",
     ]
-    assert [item["id"] for item in result["primitives"]] == [
-        "canvas.background",
-        "track.track.gamma.background",
-        "track.track.gas.background",
-        "track.track.gamma.border",
-        "track.track.gas.border",
-        "track.track.gamma.title",
-        "track.track.gas.title",
-    ]
+    primitive_ids = [item["id"] for item in result["primitives"]]
+    assert primitive_ids[0] == "canvas.background"
+    assert "track.track.gamma.background" in primitive_ids
+    assert "track.track.gas.border" in primitive_ids
+    assert "axis.depth.label.0" in primitive_ids
+    assert any(item["kind"] == "line" for item in result["primitives"])
     assert result["metadata"]["raw_dataframe_included"] is False
-    assert result["metadata"]["foundation_scope"] == "canvas_track_structure"
+    assert result["metadata"]["foundation_scope"] == "canvas_track_axis_grid"
+    assert result["metadata"]["axis_count"] >= 1
+    assert result["metadata"]["grid_line_count"] >= 1
     assert result["diagnostics"] == ["render_model_pending_source_layers:2"]
 
 

@@ -365,3 +365,16 @@ Completed:
 
 Next step:
 Implement Axis and Grid Model with major/minor ticks, depth labels, curve-axis metadata and print-safe line/text primitives.
+
+## v81 Visualization Axis and Grid Engine
+
+Completed:
+- Added renderer-neutral `VisualizationAxisGridModel`, `AxisModel`, `AxisTick` and `GridLine` contracts.
+- Added shared depth major/minor ticks and synchronized horizontal grid coordinates.
+- Added per-curve linear and logarithmic axes with prepared tick labels and vertical grid coordinates.
+- Added an explicit `axis_grid` stage to `VisualizationScenePipeline`.
+- Render Model now emits print-safe line and text primitives for prepared axes and grids.
+- Kept the current SVG scene renderer as a compatibility path while curve and overlay primitives are migrated.
+
+Next step:
+Implement Track and Curve primitives in Render Model, including polyline geometry, clipping, NaN gaps and interval overlay rectangles. Then migrate the SVG renderer to consume Render Model only.

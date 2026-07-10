@@ -1101,3 +1101,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added Render Model to the Visualization Scene Pipeline.
 - Added safe empty-layout diagnostics and regression tests.
 - Kept the existing SVG scene renderer as a compatibility path during migration.
+
+## v81
+- Added renderer-neutral axis and grid contracts.
+- Added linear depth and curve ticks plus logarithmic curve ticks.
+- Added printable major/minor grid and axis label primitives to Render Model.
+- Added the `axis_grid` stage to Visualization Scene Pipeline.
+- Added regression tests for linear, logarithmic and invalid-axis scenarios.

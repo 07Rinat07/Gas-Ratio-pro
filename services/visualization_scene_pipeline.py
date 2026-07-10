@@ -18,6 +18,10 @@ from services.visualization_domain_model import (
 )
 from services.visualization_engine_core import VisualizationEngineCore, VisualizationScene
 from services.visualization_layout_engine import VisualizationLayout, VisualizationLayoutEngine
+from services.visualization_axis_grid import (
+    VisualizationAxisGridEngine,
+    VisualizationAxisGridModel,
+)
 from services.visualization_render_model import (
     VisualizationRenderModel,
     VisualizationRenderModelBuilder,
@@ -59,6 +63,7 @@ class VisualizationScenePipelineResult:
     context: VisualizationSceneContext = field(default_factory=VisualizationSceneContext)
     scene: VisualizationScene = field(default_factory=VisualizationScene)
     layout: VisualizationLayout = field(default_factory=VisualizationLayout)
+    axis_grid: VisualizationAxisGridModel = field(default_factory=VisualizationAxisGridModel)
     render_model: VisualizationRenderModel = field(default_factory=VisualizationRenderModel)
     validation: dict[str, Any] = field(default_factory=dict)
     stages: tuple[str, ...] = field(default_factory=tuple)
@@ -75,6 +80,7 @@ class VisualizationScenePipelineResult:
             "context": self.context.to_dict(),
             "scene": self.scene.to_dict(),
             "layout": self.layout.to_dict(),
+            "axis_grid": self.axis_grid.to_dict(),
             "render_model": self.render_model.to_dict(),
             "validation": dict(self.validation),
             "stages": list(self.stages),
@@ -143,14 +149,29 @@ class LayoutBuilder:
         return self.engine.build(scene.to_dict())
 
 
+class AxisGridBuilder:
+    """Prepare depth and curve axes plus printable grid geometry."""
+
+    def __init__(self, engine: VisualizationAxisGridEngine | None = None) -> None:
+        self.engine = engine or VisualizationAxisGridEngine()
+
+    def build(self, scene: VisualizationScene, layout: VisualizationLayout) -> VisualizationAxisGridModel:
+        return self.engine.build(scene.to_dict(), layout.to_dict())
+
+
 class RenderModelBuilder:
     """Create renderer-neutral primitives from scene and layout contracts."""
 
     def __init__(self, builder: VisualizationRenderModelBuilder | None = None) -> None:
         self.builder = builder or VisualizationRenderModelBuilder()
 
-    def build(self, scene: VisualizationScene, layout: VisualizationLayout) -> VisualizationRenderModel:
-        return self.builder.build(scene.to_dict(), layout.to_dict())
+    def build(
+        self,
+        scene: VisualizationScene,
+        layout: VisualizationLayout,
+        axis_grid: VisualizationAxisGridModel,
+    ) -> VisualizationRenderModel:
+        return self.builder.build(scene.to_dict(), layout.to_dict(), axis_grid.to_dict())
 
 
 class SceneValidator:
@@ -182,7 +203,7 @@ class SceneValidator:
 class VisualizationScenePipeline:
     """Run the renderer-neutral visualization scene pipeline."""
 
-    STAGES = ("domain_model", "context", "scene", "layout", "render_model", "validation")
+    STAGES = ("domain_model", "context", "scene", "layout", "axis_grid", "render_model", "validation")
 
     def __init__(
         self,
@@ -190,6 +211,7 @@ class VisualizationScenePipeline:
         context_builder: SceneContextBuilder | None = None,
         scene_builder: SceneBuilder | None = None,
         layout_builder: LayoutBuilder | None = None,
+        axis_grid_builder: AxisGridBuilder | None = None,
         render_model_builder: RenderModelBuilder | None = None,
         validator: SceneValidator | None = None,
     ) -> None:
@@ -197,6 +219,7 @@ class VisualizationScenePipeline:
         self.context_builder = context_builder or SceneContextBuilder()
         self.scene_builder = scene_builder or SceneBuilder()
         self.layout_builder = layout_builder or LayoutBuilder()
+        self.axis_grid_builder = axis_grid_builder or AxisGridBuilder()
         self.render_model_builder = render_model_builder or RenderModelBuilder()
         self.validator = validator or SceneValidator()
 
@@ -205,8 +228,12 @@ class VisualizationScenePipeline:
         context = self.context_builder.build(domain_model)
         scene = self.scene_builder.build(context)
         layout = self.layout_builder.build(scene)
-        render_model = self.render_model_builder.build(scene, layout)
+        axis_grid = self.axis_grid_builder.build(scene, layout)
+        render_model = self.render_model_builder.build(scene, layout, axis_grid)
         validation = self.validator.validate(context, scene, layout)
+        validation["axis_grid_ok"] = axis_grid.ok
+        validation["axis_count"] = len(axis_grid.axes)
+        validation["grid_line_count"] = len(axis_grid.grid_lines)
         validation["render_model_ok"] = render_model.ok
         validation["render_primitive_count"] = len(render_model.primitives)
         return VisualizationScenePipelineResult(
@@ -214,6 +241,7 @@ class VisualizationScenePipeline:
             context=context,
             scene=scene,
             layout=layout,
+            axis_grid=axis_grid,
             render_model=render_model,
             validation=validation,
             stages=self.STAGES,

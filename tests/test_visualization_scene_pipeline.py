@@ -41,7 +41,7 @@ def test_visualization_scene_pipeline_returns_valid_renderer_neutral_result(tmp_
     result = VisualizationScenePipeline().run(_payload(tmp_path)).to_dict()
 
     assert result["schema"] == "visualization.scene.pipeline.result"
-    assert result["stages"] == ["domain_model", "context", "scene", "layout", "render_model", "validation"]
+    assert result["stages"] == ["domain_model", "context", "scene", "layout", "axis_grid", "render_model", "validation"]
     assert result["ok"] is True
     assert result["domain_model"]["schema"] == "visualization.domain.model"
     assert result["domain_model"]["source_type"] == "las"
