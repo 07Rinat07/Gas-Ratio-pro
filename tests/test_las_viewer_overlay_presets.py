@@ -173,3 +173,68 @@ def test_exchange_file_round_trip_preserves_unicode(tmp_path) -> None:
     assert result.imported == ("Полевой",)
     assert restored.get("Полевой").style.cursor_width == 2.2
     assert "Полевой" in path.read_text(encoding="utf-8")
+
+
+def test_exchange_inspection_reports_compatible_package() -> None:
+    repository = LasViewerOverlayPresetRepository()
+    repository.save(LasViewerOverlayPreset("Field", LasViewerInteractionOverlayStyle(cursor_width=2.0)))
+    exchange = LasViewerOverlayPresetExchange()
+    report = exchange.inspect_package(exchange.export_dict(repository))
+    assert report.compatible is True
+    assert report.version == "1.0"
+    assert report.preset_count == 1
+    assert report.preset_names == ("Field",)
+    assert report.warnings == ()
+
+
+def test_exchange_rejects_unsupported_version_before_import() -> None:
+    package = {
+        "schema": "las.viewer.interaction-overlay-preset-exchange",
+        "version": "2.0",
+        "presets": [],
+        "renderer_neutral": True,
+    }
+    with pytest.raises(ValueError, match="unsupported overlay preset exchange version"):
+        LasViewerOverlayPresetExchange().import_dict(LasViewerOverlayPresetRepository(), package)
+
+
+def test_exchange_accepts_legacy_package_without_renderer_flag_with_warning() -> None:
+    package = {
+        "schema": "las.viewer.interaction-overlay-preset-exchange",
+        "version": "1.0",
+        "presets": [],
+    }
+    report = LasViewerOverlayPresetExchange().inspect_package(package)
+    assert report.compatible is True
+    assert report.warnings == ("renderer_neutral flag is missing; legacy package accepted",)
+
+
+def test_exchange_rejects_non_renderer_neutral_package() -> None:
+    package = {
+        "schema": "las.viewer.interaction-overlay-preset-exchange",
+        "version": "1.0",
+        "presets": [],
+        "renderer_neutral": False,
+    }
+    with pytest.raises(ValueError, match="must be renderer neutral"):
+        LasViewerOverlayPresetExchange().inspect_package(package)
+
+
+def test_error_collision_policy_is_transactional() -> None:
+    exchange = LasViewerOverlayPresetExchange()
+    package = {
+        "schema": "las.viewer.interaction-overlay-preset-exchange",
+        "version": "1.0",
+        "renderer_neutral": True,
+        "presets": [
+            LasViewerOverlayPreset("New", LasViewerInteractionOverlayStyle(cursor_width=2.0)).to_dict(),
+            LasViewerOverlayPreset("Existing", LasViewerInteractionOverlayStyle(cursor_width=3.0)).to_dict(),
+        ],
+    }
+    target = LasViewerOverlayPresetRepository()
+    target.save(LasViewerOverlayPreset("Existing", LasViewerInteractionOverlayStyle(cursor_width=1.0)))
+    with pytest.raises(ValueError, match="already exists"):
+        exchange.import_dict(target, package, collision="error")
+    with pytest.raises(KeyError):
+        target.get("New")
+    assert target.get("Existing").style.cursor_width == 1.0

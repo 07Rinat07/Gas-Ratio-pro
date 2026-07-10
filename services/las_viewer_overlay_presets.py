@@ -190,6 +190,24 @@ _EXCHANGE_VERSION = "1.0"
 
 
 @dataclass(frozen=True, slots=True)
+class LasViewerOverlayPresetValidationResult:
+    compatible: bool
+    version: str
+    preset_count: int
+    preset_names: tuple[str, ...] = field(default_factory=tuple)
+    warnings: tuple[str, ...] = field(default_factory=tuple)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "compatible": self.compatible,
+            "version": self.version,
+            "preset_count": self.preset_count,
+            "preset_names": list(self.preset_names),
+            "warnings": list(self.warnings),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class LasViewerOverlayPresetImportResult:
     imported: tuple[str, ...] = field(default_factory=tuple)
     skipped: tuple[str, ...] = field(default_factory=tuple)
@@ -217,6 +235,49 @@ class LasViewerOverlayPresetExchange:
     """
 
     _POLICIES = frozenset({"skip", "replace", "error"})
+    _SUPPORTED_VERSIONS = frozenset({_EXCHANGE_VERSION})
+
+    def validate_package(
+        self, package: Mapping[str, Any]
+    ) -> tuple[LasViewerOverlayPresetValidationResult, tuple[LasViewerOverlayPreset, ...]]:
+        if str(package.get("schema") or "") != _EXCHANGE_SCHEMA:
+            raise ValueError("unsupported overlay preset exchange schema")
+        version = str(package.get("version") or "").strip()
+        if version not in self._SUPPORTED_VERSIONS:
+            raise ValueError(f"unsupported overlay preset exchange version: {version or '<missing>'}")
+        if package.get("renderer_neutral") is False:
+            raise ValueError("overlay preset exchange package must be renderer neutral")
+        raw = package.get("presets")
+        if not isinstance(raw, list):
+            raise ValueError("overlay preset exchange requires presets list")
+
+        presets: list[LasViewerOverlayPreset] = []
+        seen: set[str] = set()
+        for item in raw:
+            if not isinstance(item, Mapping):
+                raise ValueError("overlay preset exchange contains invalid preset")
+            preset = LasViewerOverlayPreset.from_dict({**item, "builtin": False})
+            key = preset.name.casefold()
+            if key in seen:
+                raise ValueError(f"duplicate overlay preset in exchange package: {preset.name}")
+            seen.add(key)
+            presets.append(preset)
+
+        warnings: list[str] = []
+        if "renderer_neutral" not in package:
+            warnings.append("renderer_neutral flag is missing; legacy package accepted")
+        result = LasViewerOverlayPresetValidationResult(
+            compatible=True,
+            version=version,
+            preset_count=len(presets),
+            preset_names=tuple(item.name for item in presets),
+            warnings=tuple(warnings),
+        )
+        return result, tuple(presets)
+
+    def inspect_package(self, package: Mapping[str, Any]) -> LasViewerOverlayPresetValidationResult:
+        result, _ = self.validate_package(package)
+        return result
 
     def export_dict(
         self,
@@ -253,25 +314,24 @@ class LasViewerOverlayPresetExchange:
         policy = str(collision or "").strip().lower()
         if policy not in self._POLICIES:
             raise ValueError(f"unsupported overlay preset collision policy: {collision}")
-        if str(package.get("schema") or "") != _EXCHANGE_SCHEMA:
-            raise ValueError("unsupported overlay preset exchange schema")
-        raw = package.get("presets")
-        if not isinstance(raw, list):
-            raise ValueError("overlay preset exchange requires presets list")
+        _, presets = self.validate_package(package)
+
+        # Preflight every collision before mutating the repository. This keeps
+        # imports transactional when the selected policy is ``error``.
+        if policy == "error":
+            for preset in presets:
+                try:
+                    current = repository.get(preset.name)
+                except KeyError:
+                    continue
+                if current.builtin:
+                    raise ValueError(f"builtin overlay preset cannot be replaced: {preset.name}")
+                raise ValueError(f"overlay preset already exists: {preset.name}")
 
         imported: list[str] = []
         skipped: list[str] = []
         replaced: list[str] = []
-        seen: set[str] = set()
-        for item in raw:
-            if not isinstance(item, Mapping):
-                raise ValueError("overlay preset exchange contains invalid preset")
-            preset = LasViewerOverlayPreset.from_dict({**item, "builtin": False})
-            key = preset.name.casefold()
-            if key in seen:
-                raise ValueError(f"duplicate overlay preset in exchange package: {preset.name}")
-            seen.add(key)
-
+        for preset in presets:
             try:
                 current = repository.get(preset.name)
             except KeyError:
