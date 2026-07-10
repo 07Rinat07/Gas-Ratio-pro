@@ -206,3 +206,136 @@ def _optional_int(value: Any) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+@dataclass(frozen=True, slots=True)
+class SelectionTransition:
+    """One committed selection transition for history and diagnostics."""
+
+    command: SelectionCommand
+    before: SelectionState
+    after: SelectionState
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "command": self.command.to_dict(),
+            "before": self.before.to_dict(),
+            "after": self.after.to_dict(),
+            "changed": self.before != self.after,
+        }
+
+
+class SelectionController:
+    """Stateful selection command executor with bounded undo/redo history."""
+
+    def __init__(
+        self,
+        initial_state: SelectionState | Mapping[str, Any] | None = None,
+        *,
+        history_limit: int = 100,
+        engine: VisualizationSelectionEngine | None = None,
+    ) -> None:
+        if int(history_limit) < 0:
+            raise ValueError("history_limit cannot be negative")
+        if initial_state is None:
+            resolved_initial = SelectionState()
+        elif isinstance(initial_state, SelectionState):
+            resolved_initial = initial_state
+        else:
+            resolved_initial = SelectionState.from_dict(initial_state)
+        if any(not item.valid for item in resolved_initial.items):
+            raise ValueError("initial selection state contains invalid items")
+
+        self._initial = resolved_initial
+        self._current = resolved_initial
+        self._history_limit = int(history_limit)
+        self._engine = engine if engine is not None else VisualizationSelectionEngine()
+        self._undo: list[SelectionTransition] = []
+        self._redo: list[SelectionTransition] = []
+
+    @property
+    def initial(self) -> SelectionState:
+        return self._initial
+
+    @property
+    def current(self) -> SelectionState:
+        return self._current
+
+    @property
+    def can_undo(self) -> bool:
+        return bool(self._undo)
+
+    @property
+    def can_redo(self) -> bool:
+        return bool(self._redo)
+
+    @property
+    def undo_depth(self) -> int:
+        return len(self._undo)
+
+    @property
+    def redo_depth(self) -> int:
+        return len(self._redo)
+
+    def execute(self, command: SelectionCommand | Mapping[str, Any]) -> SelectionState:
+        resolved_command = (
+            command if isinstance(command, SelectionCommand) else SelectionCommand.from_dict(command)
+        )
+        after = self._engine.apply(self._current, resolved_command)
+        if after == self._current:
+            return self._current
+
+        transition = SelectionTransition(
+            command=resolved_command,
+            before=self._current,
+            after=after,
+        )
+        self._current = after
+        self._redo.clear()
+        if self._history_limit > 0:
+            self._undo.append(transition)
+            overflow = len(self._undo) - self._history_limit
+            if overflow > 0:
+                del self._undo[:overflow]
+        return self._current
+
+    def undo(self) -> SelectionState:
+        if not self._undo:
+            return self._current
+        transition = self._undo.pop()
+        self._current = transition.before
+        self._redo.append(transition)
+        return self._current
+
+    def redo(self) -> SelectionState:
+        if not self._redo:
+            return self._current
+        transition = self._redo.pop()
+        self._current = transition.after
+        self._undo.append(transition)
+        return self._current
+
+    def reset(self, *, source: str = "") -> SelectionState:
+        command = SelectionCommand(
+            mode="replace",
+            items=self._initial.items,
+            source=source,
+        )
+        return self.execute(command)
+
+    def clear_history(self) -> None:
+        self._undo.clear()
+        self._redo.clear()
+
+    def snapshot(self) -> dict[str, Any]:
+        return {
+            "schema": "visualization.interactive.selection-controller",
+            "version": "1.0",
+            "initial": self._initial.to_dict(),
+            "current": self._current.to_dict(),
+            "history_limit": self._history_limit,
+            "undo_depth": self.undo_depth,
+            "redo_depth": self.redo_depth,
+            "can_undo": self.can_undo,
+            "can_redo": self.can_redo,
+            "renderer_neutral": True,
+        }
