@@ -95,6 +95,40 @@ class LasViewerRecentSessionPage:
 
 
 @dataclass(frozen=True, slots=True)
+class LasViewerRecentSessionGroup:
+    """Renderer-neutral group of recent LAS Viewer sessions."""
+
+    key: str
+    label: str
+    items: tuple[LasViewerRecentSession, ...]
+
+    @property
+    def count(self) -> int:
+        return len(self.items)
+
+    @property
+    def pinned_count(self) -> int:
+        return sum(1 for item in self.items if item.pinned)
+
+    @property
+    def active_count(self) -> int:
+        return sum(1 for item in self.items if item.active)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": "las.viewer.recent-session-group",
+            "version": "1.0",
+            "key": self.key,
+            "label": self.label,
+            "items": [item.to_dict() for item in self.items],
+            "count": self.count,
+            "pinned_count": self.pinned_count,
+            "active_count": self.active_count,
+            "renderer_neutral": True,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class LasViewerRecentSessionRemoval:
     removed: bool
     session_key: str = ""
@@ -279,6 +313,59 @@ class LasViewerRecentSessions:
             sort_by=normalized_sort_by,
             sort_order=normalized_sort_order,
             pinned_first=bool(pinned_first),
+        )
+
+
+    def group(
+        self,
+        *,
+        group_by: str = "project",
+        include_invalid: bool = False,
+        active_project_id: str = "",
+        active_las_id: str = "",
+        query: str = "",
+        project_id: str = "",
+        las_id: str = "",
+        pinned_only: bool = False,
+        active_only: bool = False,
+        sort_by: str = "modified",
+        sort_order: str = "desc",
+        pinned_first: bool = True,
+    ) -> tuple[LasViewerRecentSessionGroup, ...]:
+        """Group filtered recent sessions without changing item ordering."""
+        normalized_group_by = str(group_by or "project").strip().lower()
+        if normalized_group_by not in {"project", "las_id", "status"}:
+            raise ValueError("group_by must be one of: project, las_id, status")
+        items = self._filtered_sorted_items(
+            include_invalid=include_invalid,
+            active_project_id=active_project_id,
+            active_las_id=active_las_id,
+            query=query,
+            project_id=project_id,
+            las_id=las_id,
+            pinned_only=pinned_only,
+            active_only=active_only,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            pinned_first=pinned_first,
+        )
+        buckets: dict[str, list[LasViewerRecentSession]] = {}
+        labels: dict[str, str] = {}
+        for item in items:
+            if normalized_group_by == "project":
+                key = item.project_id or "unassigned"
+                label = item.project_id or "Unassigned"
+            elif normalized_group_by == "las_id":
+                key = item.las_id or "unknown"
+                label = item.las_id or "Unknown LAS"
+            else:
+                key = "active" if item.active else "pinned" if item.pinned else "recent"
+                label = key.capitalize()
+            buckets.setdefault(key, []).append(item)
+            labels[key] = label
+        return tuple(
+            LasViewerRecentSessionGroup(key=key, label=labels[key], items=tuple(group_items))
+            for key, group_items in buckets.items()
         )
 
     def pin(self, session_key: str, *, pinned: bool = True) -> LasViewerRecentSessionPinResult:

@@ -452,3 +452,64 @@ def test_recent_sessions_pagination_rejects_invalid_parameters(tmp_path):
             assert "page" in str(exc)
         else:
             raise AssertionError("ValueError expected")
+
+
+def test_recent_sessions_groups_by_project_preserving_item_order(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("b.las", project_id="north"))
+    repository.save(_session("a.las", project_id="south"))
+    repository.save(_session("c.las", project_id="north"))
+
+    groups = LasViewerRecentSessions(repository).group(
+        group_by="project", sort_by="filename", sort_order="asc"
+    )
+
+    assert [group.key for group in groups] == ["south", "north"]
+    assert [item.las_id for item in groups[1].items] == ["b.las", "c.las"]
+
+
+def test_recent_sessions_groups_by_status(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("active.las", project_id="p"))
+    repository.save(_session("pinned.las", project_id="p"))
+    service = LasViewerRecentSessions(repository)
+    pinned = next(item for item in service.list(limit=10) if item.las_id == "pinned.las")
+    service.pin(pinned.session_key)
+
+    groups = service.group(group_by="status", active_project_id="p", active_las_id="active.las")
+
+    assert {group.key for group in groups} == {"active", "pinned"}
+
+
+def test_recent_session_group_contract_is_renderer_neutral(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las", project_id="north"))
+
+    payload = LasViewerRecentSessions(repository).group()[0].to_dict()
+
+    assert payload["schema"] == "las.viewer.recent-session-group"
+    assert payload["version"] == "1.0"
+    assert payload["count"] == 1
+    assert payload["renderer_neutral"] is True
+
+
+def test_recent_sessions_group_applies_filters(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las", project_id="north"))
+    repository.save(_session("b.las", project_id="south"))
+
+    groups = LasViewerRecentSessions(repository).group(project_id="north")
+
+    assert len(groups) == 1
+    assert groups[0].key == "north"
+
+
+def test_recent_sessions_group_rejects_invalid_mode(tmp_path):
+    service = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path))
+
+    try:
+        service.group(group_by="unsupported")
+    except ValueError as exc:
+        assert "group_by" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")
