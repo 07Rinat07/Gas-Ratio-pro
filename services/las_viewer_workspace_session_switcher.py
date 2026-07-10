@@ -88,6 +88,17 @@ class LasViewerWorkspaceSessionSwitcher:
         recovery = self.repository.recover_latest(project_id=project_id, las_id=las_id)
         return self._activate_recovery(recovery, autosave_previous=autosave_previous)
 
+
+    def recover_entry_and_activate(
+        self,
+        filename: str,
+        *,
+        autosave_previous: bool = True,
+    ) -> LasViewerSessionSwitchResult:
+        """Recover a selected recent-session entry and activate it safely."""
+        recovery = self.repository.recover_entry(filename)
+        return self._activate_recovery(recovery, autosave_previous=autosave_previous)
+
     def open_or_recover(
         self,
         factory: Callable[[], LasViewerSession],

@@ -81,6 +81,33 @@ class LasViewerWorkspaceAutosaveRepository:
             reason="missing_compatible_autosave" if inspected else "missing_autosave",
         )
 
+
+    def recover_entry(self, filename: str) -> LasViewerAutosaveRepositoryRecovery:
+        """Recover one repository entry by its safe repository filename."""
+        name = Path(str(filename or "")).name
+        if name != str(filename or "") or not name.startswith(self.PREFIX) or not name.endswith(self.SUFFIX):
+            return LasViewerAutosaveRepositoryRecovery(recovered=False, reason="invalid_repository_filename")
+        candidates = {candidate for candidate, _modified in self._candidate_files()}
+        if name not in candidates:
+            return LasViewerAutosaveRepositoryRecovery(recovered=False, reason="missing_autosave")
+        result = LasViewerWorkspaceAutosaveStore(self.directory, filename=name).recover()
+        if not result.recovered or result.state is None:
+            return LasViewerAutosaveRepositoryRecovery(
+                recovered=False,
+                path=result.path,
+                used_backup=result.used_backup,
+                inspected=1,
+                skipped_invalid=1,
+                reason=result.reason or "invalid_autosave",
+            )
+        return LasViewerAutosaveRepositoryRecovery(
+            recovered=True,
+            state=result.state,
+            path=result.path,
+            used_backup=result.used_backup,
+            inspected=1,
+        )
+
     def recover_latest_session(self, *, project_id: str = "", las_id: str = "") -> LasViewerSession | None:
         result = self.recover_latest(project_id=project_id, las_id=las_id)
         return LasViewerSession.from_state(result.state) if result.recovered and result.state is not None else None
