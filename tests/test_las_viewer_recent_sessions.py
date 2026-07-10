@@ -1128,3 +1128,72 @@ def test_recent_session_bookmark_backup_rejects_unexpected_members(tmp_path):
         assert "contents" in str(exc)
     else:
         raise AssertionError("ValueError expected")
+
+
+def test_removed_bookmark_moves_to_recoverable_trash(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("trash-bookmark.las"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+    service.set_bookmark(item.session_key, label="Recoverable", folder="Primary", position=3)
+
+    result = service.remove_bookmark(item.session_key)
+    trash = service.bookmark_trash()
+
+    assert result.changed is True
+    assert service.bookmarks() == ()
+    assert len(trash) == 1
+    assert trash[0].session_key == item.session_key
+    assert (trash[0].label, trash[0].folder, trash[0].position) == ("Recoverable", "Primary", 3)
+    assert trash[0].to_dict()["renderer_neutral"] is True
+
+
+def test_bookmark_can_be_restored_from_trash(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("restore-trash.las"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+    service.set_bookmark(item.session_key, label="Restore", folder="Pinned", position=2)
+    service.remove_bookmark(item.session_key)
+
+    result = LasViewerRecentSessions(repository).restore_bookmark(item.session_key)
+    bookmarks = service.bookmarks()
+
+    assert result.changed is True
+    assert result.reason == "restored"
+    assert len(bookmarks) == 1
+    assert (bookmarks[0].label, bookmarks[0].folder, bookmarks[0].position) == ("Restore", "Pinned", 2)
+    assert service.bookmark_trash() == ()
+
+
+def test_bookmark_restore_fails_when_recent_session_no_longer_exists(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("missing-session.las"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+    service.set_bookmark(item.session_key, label="Missing")
+    service.remove_bookmark(item.session_key)
+    repository.remove_entry(item.filename)
+
+    result = service.restore_bookmark(item.session_key)
+
+    assert result.changed is False
+    assert result.reason == "missing_recent_session"
+    assert len(service.bookmark_trash()) == 1
+
+
+def test_bookmark_trash_supports_single_and_full_purge(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("first-trash.las"))
+    repository.save(_session("second-trash.las"))
+    service = LasViewerRecentSessions(repository)
+    items = service.list(limit=10)
+    for item in items:
+        service.set_bookmark(item.session_key, label=item.filename)
+        service.remove_bookmark(item.session_key)
+
+    first_key = service.bookmark_trash()[0].session_key
+    assert service.purge_bookmark_trash(first_key) == 1
+    assert len(service.bookmark_trash()) == 1
+    assert service.purge_bookmark_trash() == 1
+    assert service.bookmark_trash() == ()

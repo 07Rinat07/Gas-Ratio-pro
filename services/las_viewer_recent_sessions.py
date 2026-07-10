@@ -328,6 +328,29 @@ class LasViewerRecentSessionBookmark:
 
 
 @dataclass(frozen=True, slots=True)
+class LasViewerRecentSessionBookmarkTrashItem:
+    """Recoverable bookmark removed from the active bookmark collection."""
+
+    session_key: str
+    label: str
+    folder: str = ""
+    position: int = 0
+    deletion_order: int = 0
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": "las.viewer.recent-session-bookmark-trash-item",
+            "version": "1.0",
+            "session_key": self.session_key,
+            "label": self.label,
+            "folder": self.folder,
+            "position": self.position,
+            "deletion_order": self.deletion_order,
+            "renderer_neutral": True,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class LasViewerRecentSessionBookmarkExchangeResult:
     imported: int = 0
     skipped: int = 0
@@ -1234,6 +1257,14 @@ class LasViewerRecentSessions:
         removed = bookmarks.pop(key, None)
         if removed is None:
             return LasViewerRecentSessionBookmarkResult(False, session_key=key, reason="missing_bookmark")
+        trash = self._load_bookmark_trash()
+        next_order = max((int(value.get("deletion_order", 0)) for value in trash.values()), default=0) + 1
+        trash[key] = {
+            "label": str(removed.get("label", "")),
+            "folder": str(removed.get("folder", "")),
+            "position": int(removed.get("position", 0)),
+            "deletion_order": next_order,
+        }
         label = str(removed.get("label", ""))
         self._save_preferences(
             pinned_keys=self._load_pinned_keys(),
@@ -1241,8 +1272,79 @@ class LasViewerRecentSessions:
             navigation_state=self.navigation_state(),
             navigation_history=self.navigation_history(),
             bookmarks=bookmarks,
+            bookmark_trash=trash,
         )
         return LasViewerRecentSessionBookmarkResult(True, key, label, "removed")
+
+    def bookmark_trash(self) -> tuple[LasViewerRecentSessionBookmarkTrashItem, ...]:
+        """Return recoverable removed bookmarks, newest deletion first."""
+        raw = self._load_bookmark_trash()
+        items = [
+            LasViewerRecentSessionBookmarkTrashItem(
+                session_key=key,
+                label=str(value.get("label", "")),
+                folder=str(value.get("folder", "")),
+                position=int(value.get("position", 0)),
+                deletion_order=int(value.get("deletion_order", 0)),
+            )
+            for key, value in raw.items()
+        ]
+        items.sort(key=lambda item: (-item.deletion_order, item.label.casefold(), item.session_key))
+        return tuple(items)
+
+    def restore_bookmark(self, session_key: str) -> LasViewerRecentSessionBookmarkResult:
+        """Restore a removed bookmark when its recent LAS session still exists."""
+        key = str(session_key or "").strip()
+        if not key:
+            return LasViewerRecentSessionBookmarkResult(False, reason="missing_session_key")
+        trash = self._load_bookmark_trash()
+        removed = trash.get(key)
+        if removed is None:
+            return LasViewerRecentSessionBookmarkResult(False, session_key=key, reason="missing_trash_item")
+        known = {item.session_key for item in self.list(limit=max(1, len(self.repository.entries()) or 1), include_invalid=True)}
+        if key not in known:
+            return LasViewerRecentSessionBookmarkResult(False, session_key=key, reason="missing_recent_session")
+        bookmarks = self._load_bookmarks()
+        if key in bookmarks:
+            return LasViewerRecentSessionBookmarkResult(False, session_key=key, label=str(bookmarks[key].get("label", "")), reason="already_bookmarked")
+        bookmarks[key] = {
+            "label": str(removed.get("label", "")),
+            "folder": str(removed.get("folder", "")),
+            "position": int(removed.get("position", len(bookmarks))),
+        }
+        trash.pop(key, None)
+        self._save_preferences(
+            pinned_keys=self._load_pinned_keys(),
+            collapsed_groups=self._load_collapsed_groups(),
+            navigation_state=self.navigation_state(),
+            navigation_history=self.navigation_history(),
+            bookmarks=bookmarks,
+            bookmark_trash=trash,
+        )
+        return LasViewerRecentSessionBookmarkResult(True, key, str(removed.get("label", "")), "restored")
+
+    def purge_bookmark_trash(self, session_key: str | None = None) -> int:
+        """Permanently remove one trash item or clear the entire bookmark trash."""
+        trash = self._load_bookmark_trash()
+        if session_key is None:
+            removed_count = len(trash)
+            updated: dict[str, dict[str, object]] = {}
+        else:
+            key = str(session_key or "").strip()
+            if not key or key not in trash:
+                return 0
+            updated = dict(trash)
+            updated.pop(key, None)
+            removed_count = 1
+        if removed_count:
+            self._save_preferences(
+                pinned_keys=self._load_pinned_keys(),
+                collapsed_groups=self._load_collapsed_groups(),
+                navigation_state=self.navigation_state(),
+                navigation_history=self.navigation_history(),
+                bookmark_trash=updated,
+            )
+        return removed_count
 
     def focus_bookmark(
         self,
@@ -1538,6 +1640,32 @@ class LasViewerRecentSessions:
             }
         return result
 
+    def _load_bookmark_trash(self) -> dict[str, dict[str, object]]:
+        payload = self._load_preferences()
+        raw = payload.get("bookmark_trash", {})
+        if not isinstance(raw, dict):
+            return {}
+        result: dict[str, dict[str, object]] = {}
+        for index, (key, value) in enumerate(raw.items()):
+            normalized_key = str(key).strip()
+            if not normalized_key or not isinstance(value, dict):
+                continue
+            label = str(value.get("label", "")).strip()
+            if not label:
+                continue
+            try:
+                position = max(0, int(value.get("position", 0)))
+                deletion_order = max(0, int(value.get("deletion_order", index + 1)))
+            except (TypeError, ValueError):
+                continue
+            result[normalized_key] = {
+                "label": label,
+                "folder": str(value.get("folder", "") or "").strip(),
+                "position": position,
+                "deletion_order": deletion_order,
+            }
+        return result
+
     def _load_collapsed_groups(self) -> set[str]:
         payload = self._load_preferences()
         raw = payload.get("collapsed_groups", [])
@@ -1561,16 +1689,18 @@ class LasViewerRecentSessions:
         navigation_state: LasViewerRecentSessionNavigationState | None = None,
         navigation_history: LasViewerRecentSessionNavigationHistory | None = None,
         bookmarks: dict[str, dict[str, object]] | None = None,
+        bookmark_trash: dict[str, dict[str, object]] | None = None,
     ) -> None:
         self.repository.directory.mkdir(parents=True, exist_ok=True)
         payload = {
             "schema": "las.viewer.recent-session-preferences",
-            "version": "1.5",
+            "version": "1.6",
             "pinned_session_keys": sorted(pinned_keys),
             "collapsed_groups": sorted(collapsed_groups),
             "navigation_state": (navigation_state or self.navigation_state()).to_dict(),
             "navigation_history": (navigation_history or self.navigation_history()).to_dict(),
             "bookmarks": dict(sorted((bookmarks if bookmarks is not None else self._load_bookmarks()).items())),
+            "bookmark_trash": dict(sorted((bookmark_trash if bookmark_trash is not None else self._load_bookmark_trash()).items())),
             "renderer_neutral": True,
         }
         with NamedTemporaryFile(
