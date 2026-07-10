@@ -305,6 +305,42 @@ class LasViewerRecentSessionPinResult:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class LasViewerRecentSessionBookmark:
+    """Named renderer-neutral shortcut to a recent LAS session."""
+
+    session_key: str
+    label: str
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": "las.viewer.recent-session-bookmark",
+            "version": "1.0",
+            "session_key": self.session_key,
+            "label": self.label,
+            "renderer_neutral": True,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class LasViewerRecentSessionBookmarkResult:
+    changed: bool
+    session_key: str = ""
+    label: str = ""
+    reason: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": "las.viewer.recent-session-bookmark-result",
+            "version": "1.0",
+            "changed": self.changed,
+            "session_key": self.session_key,
+            "label": self.label,
+            "reason": self.reason,
+            "renderer_neutral": True,
+        }
+
+
 class LasViewerRecentSessions:
     """Build and persist a deterministic recent-session list."""
 
@@ -839,6 +875,89 @@ class LasViewerRecentSessions:
         )
 
 
+
+    def bookmarks(self) -> tuple[LasViewerRecentSessionBookmark, ...]:
+        """Return persistent named shortcuts for existing recent sessions."""
+        known = {item.session_key for item in self.list(limit=max(1, len(self.repository.entries()) or 1), include_invalid=True)}
+        raw = self._load_bookmarks()
+        return tuple(
+            LasViewerRecentSessionBookmark(session_key=key, label=raw[key])
+            for key in sorted(raw, key=lambda item: (raw[item].casefold(), item))
+            if key in known
+        )
+
+    def set_bookmark(
+        self,
+        session_key: str,
+        *,
+        label: str = "",
+    ) -> LasViewerRecentSessionBookmarkResult:
+        """Create or rename a persistent shortcut to a recent LAS session."""
+        key = str(session_key or "").strip()
+        if not key:
+            return LasViewerRecentSessionBookmarkResult(False, reason="missing_session_key")
+        items = self.list(limit=max(1, len(self.repository.entries()) or 1), include_invalid=True)
+        item = next((value for value in items if value.session_key == key), None)
+        if item is None:
+            return LasViewerRecentSessionBookmarkResult(False, session_key=key, reason="missing_recent_session")
+        normalized_label = str(label or "").strip() or item.las_id or item.filename
+        bookmarks = self._load_bookmarks()
+        changed = bookmarks.get(key) != normalized_label
+        bookmarks[key] = normalized_label
+        if changed:
+            self._save_preferences(
+                pinned_keys=self._load_pinned_keys(),
+                collapsed_groups=self._load_collapsed_groups(),
+                navigation_state=self.navigation_state(),
+                navigation_history=self.navigation_history(),
+                bookmarks=bookmarks,
+            )
+        return LasViewerRecentSessionBookmarkResult(
+            changed=changed,
+            session_key=key,
+            label=normalized_label,
+            reason="updated" if changed else "unchanged",
+        )
+
+    def remove_bookmark(self, session_key: str) -> LasViewerRecentSessionBookmarkResult:
+        key = str(session_key or "").strip()
+        if not key:
+            return LasViewerRecentSessionBookmarkResult(False, reason="missing_session_key")
+        bookmarks = self._load_bookmarks()
+        label = bookmarks.pop(key, "")
+        if not label:
+            return LasViewerRecentSessionBookmarkResult(False, session_key=key, reason="missing_bookmark")
+        self._save_preferences(
+            pinned_keys=self._load_pinned_keys(),
+            collapsed_groups=self._load_collapsed_groups(),
+            navigation_state=self.navigation_state(),
+            navigation_history=self.navigation_history(),
+            bookmarks=bookmarks,
+        )
+        return LasViewerRecentSessionBookmarkResult(True, key, label, "removed")
+
+    def focus_bookmark(
+        self,
+        session_key: str,
+        *,
+        group_by: str = "project",
+        page_size: int = 10,
+    ) -> LasViewerRecentSessionNavigationTarget:
+        """Resolve and persist navigation to a bookmarked recent session."""
+        if str(session_key or "").strip() not in self._load_bookmarks():
+            return LasViewerRecentSessionNavigationTarget(
+                found=False,
+                session_key=str(session_key or "").strip(),
+                group_by=str(group_by or "project").strip().lower(),
+                reason="missing_bookmark",
+            )
+        return self.locate_session(
+            session_key,
+            group_by=group_by,
+            page_size=page_size,
+            persist=True,
+        )
+
     def pin(self, session_key: str, *, pinned: bool = True) -> LasViewerRecentSessionPinResult:
         key = str(session_key or "").strip()
         if not key:
@@ -879,9 +998,16 @@ class LasViewerRecentSessions:
             result = self.repository.remove_entry(item.filename)
             if result.removed:
                 keys = self._load_pinned_keys()
-                if key in keys:
-                    keys.remove(key)
-                    self._save_pinned_keys(keys)
+                bookmarks = self._load_bookmarks()
+                keys.discard(key)
+                bookmarks.pop(key, None)
+                self._save_preferences(
+                    pinned_keys=keys,
+                    collapsed_groups=self._load_collapsed_groups(),
+                    navigation_state=self.navigation_state(),
+                    navigation_history=self.navigation_history(),
+                    bookmarks=bookmarks,
+                )
             return self._removal_from_repository(key, result)
         return LasViewerRecentSessionRemoval(
             removed=False,
@@ -1072,6 +1198,18 @@ class LasViewerRecentSessions:
             return set()
         return {str(value).strip() for value in raw if str(value).strip()}
 
+
+    def _load_bookmarks(self) -> dict[str, str]:
+        payload = self._load_preferences()
+        raw = payload.get("bookmarks", {})
+        if not isinstance(raw, dict):
+            return {}
+        return {
+            str(key).strip(): str(value).strip()
+            for key, value in raw.items()
+            if str(key).strip() and str(value).strip()
+        }
+
     def _load_collapsed_groups(self) -> set[str]:
         payload = self._load_preferences()
         raw = payload.get("collapsed_groups", [])
@@ -1094,15 +1232,17 @@ class LasViewerRecentSessions:
         collapsed_groups: set[str],
         navigation_state: LasViewerRecentSessionNavigationState | None = None,
         navigation_history: LasViewerRecentSessionNavigationHistory | None = None,
+        bookmarks: dict[str, str] | None = None,
     ) -> None:
         self.repository.directory.mkdir(parents=True, exist_ok=True)
         payload = {
             "schema": "las.viewer.recent-session-preferences",
-            "version": "1.3",
+            "version": "1.4",
             "pinned_session_keys": sorted(pinned_keys),
             "collapsed_groups": sorted(collapsed_groups),
             "navigation_state": (navigation_state or self.navigation_state()).to_dict(),
             "navigation_history": (navigation_history or self.navigation_history()).to_dict(),
+            "bookmarks": dict(sorted((bookmarks if bookmarks is not None else self._load_bookmarks()).items())),
             "renderer_neutral": True,
         }
         with NamedTemporaryFile(

@@ -799,3 +799,67 @@ def test_recent_session_navigation_history_is_persistent(tmp_path):
     assert restored.current is not None
     assert restored.current.selected_group_key == "b"
     assert restored.to_dict()["renderer_neutral"] is True
+
+
+def test_recent_session_bookmark_is_persistent_and_renderer_neutral(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("bookmark.las"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+
+    result = service.set_bookmark(item.session_key, label="Primary log")
+    restored = LasViewerRecentSessions(repository).bookmarks()
+
+    assert result.changed is True
+    assert restored[0].label == "Primary log"
+    assert restored[0].to_dict()["renderer_neutral"] is True
+
+
+def test_recent_session_bookmark_uses_las_id_as_default_label(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("default-label.las"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+
+    result = service.set_bookmark(item.session_key)
+
+    assert result.label == "default-label.las"
+
+
+def test_recent_session_bookmark_can_be_removed(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("remove-bookmark.las"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+    service.set_bookmark(item.session_key, label="Temporary")
+
+    result = service.remove_bookmark(item.session_key)
+
+    assert result.changed is True
+    assert service.bookmarks() == ()
+
+
+def test_recent_session_focus_bookmark_persists_navigation(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("focus-bookmark.las", project_id="north"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+    service.set_bookmark(item.session_key, label="North")
+
+    target = service.focus_bookmark(item.session_key, group_by="project", page_size=1)
+
+    assert target.found is True
+    assert service.navigation_state().selected_session_key == item.session_key
+
+
+def test_removing_recent_session_cleans_bookmark_metadata(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("clean-bookmark.las"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+    service.set_bookmark(item.session_key, label="Clean")
+
+    service.remove(item.session_key)
+    repository.save(_session("clean-bookmark.las"))
+
+    assert service.bookmarks() == ()
