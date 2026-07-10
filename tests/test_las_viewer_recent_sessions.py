@@ -513,3 +513,74 @@ def test_recent_sessions_group_rejects_invalid_mode(tmp_path):
         assert "group_by" in str(exc)
     else:
         raise AssertionError("ValueError expected")
+
+
+def test_recent_session_group_pagination_slices_groups_after_grouping(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las", project_id="alpha"))
+    repository.save(_session("b.las", project_id="beta"))
+    repository.save(_session("c.las", project_id="gamma"))
+    service = LasViewerRecentSessions(repository)
+
+    page = service.paginate_groups(
+        group_by="project",
+        page=2,
+        page_size=2,
+        sort_by="filename",
+        sort_order="asc",
+    )
+
+    assert [group.key for group in page.groups] == ["gamma"]
+    assert page.total_group_count == 3
+    assert page.total_item_count == 3
+    assert page.page_count == 2
+    assert page.has_previous is True
+    assert page.has_next is False
+    assert page.start_index == 3
+    assert page.end_index == 3
+
+
+def test_recent_session_group_pagination_preserves_group_items(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las", project_id="north"))
+    repository.save(_session("b.las", project_id="north"))
+    repository.save(_session("c.las", project_id="south"))
+
+    page = LasViewerRecentSessions(repository).paginate_groups(
+        group_by="project",
+        page=1,
+        page_size=1,
+        sort_by="filename",
+        sort_order="asc",
+    )
+
+    assert len(page.groups) == 1
+    assert page.groups[0].key == "north"
+    assert [item.las_id for item in page.groups[0].items] == ["a.las", "b.las"]
+    assert page.total_item_count == 3
+
+
+def test_recent_session_group_page_contract_is_renderer_neutral(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las", project_id="north"))
+
+    payload = LasViewerRecentSessions(repository).paginate_groups().to_dict()
+
+    assert payload["schema"] == "las.viewer.recent-session-group-page"
+    assert payload["version"] == "1.0"
+    assert payload["renderer_neutral"] is True
+    assert payload["total_group_count"] == 1
+    assert payload["total_item_count"] == 1
+    assert payload["groups"][0]["key"] == "north"
+
+
+def test_recent_session_group_pagination_rejects_invalid_parameters(tmp_path):
+    service = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path))
+
+    for kwargs in ({"page": 0}, {"page_size": 0}):
+        try:
+            service.paginate_groups(**kwargs)
+        except ValueError as exc:
+            assert "page" in str(exc)
+        else:
+            raise AssertionError("ValueError expected")

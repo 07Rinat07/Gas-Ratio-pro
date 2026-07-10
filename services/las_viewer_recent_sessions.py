@@ -129,6 +129,55 @@ class LasViewerRecentSessionGroup:
 
 
 @dataclass(frozen=True, slots=True)
+class LasViewerRecentSessionGroupPage:
+    """A deterministic page of recent-session groups for Workbench navigation."""
+
+    groups: tuple[LasViewerRecentSessionGroup, ...]
+    page: int
+    page_size: int
+    total_group_count: int
+    total_item_count: int
+    page_count: int
+
+    @property
+    def has_previous(self) -> bool:
+        return self.page > 1 and self.page_count > 0
+
+    @property
+    def has_next(self) -> bool:
+        return self.page < self.page_count
+
+    @property
+    def start_index(self) -> int:
+        if not self.groups:
+            return 0
+        return (self.page - 1) * self.page_size + 1
+
+    @property
+    def end_index(self) -> int:
+        if not self.groups:
+            return 0
+        return self.start_index + len(self.groups) - 1
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": "las.viewer.recent-session-group-page",
+            "version": "1.0",
+            "groups": [group.to_dict() for group in self.groups],
+            "page": self.page,
+            "page_size": self.page_size,
+            "total_group_count": self.total_group_count,
+            "total_item_count": self.total_item_count,
+            "page_count": self.page_count,
+            "has_previous": self.has_previous,
+            "has_next": self.has_next,
+            "start_index": self.start_index,
+            "end_index": self.end_index,
+            "renderer_neutral": True,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class LasViewerRecentSessionRemoval:
     removed: bool
     session_key: str = ""
@@ -366,6 +415,60 @@ class LasViewerRecentSessions:
         return tuple(
             LasViewerRecentSessionGroup(key=key, label=labels[key], items=tuple(group_items))
             for key, group_items in buckets.items()
+        )
+
+
+    def paginate_groups(
+        self,
+        *,
+        group_by: str = "project",
+        page: int = 1,
+        page_size: int = 10,
+        include_invalid: bool = False,
+        active_project_id: str = "",
+        active_las_id: str = "",
+        query: str = "",
+        project_id: str = "",
+        las_id: str = "",
+        pinned_only: bool = False,
+        active_only: bool = False,
+        sort_by: str = "modified",
+        sort_order: str = "desc",
+        pinned_first: bool = True,
+    ) -> LasViewerRecentSessionGroupPage:
+        """Paginate grouped recent sessions after filtering and sorting items."""
+        normalized_page = int(page)
+        normalized_page_size = int(page_size)
+        if normalized_page < 1:
+            raise ValueError("page must be >= 1")
+        if normalized_page_size < 1:
+            raise ValueError("page_size must be >= 1")
+
+        groups = self.group(
+            group_by=group_by,
+            include_invalid=include_invalid,
+            active_project_id=active_project_id,
+            active_las_id=active_las_id,
+            query=query,
+            project_id=project_id,
+            las_id=las_id,
+            pinned_only=pinned_only,
+            active_only=active_only,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            pinned_first=pinned_first,
+        )
+        total_group_count = len(groups)
+        total_item_count = sum(group.count for group in groups)
+        page_count = (total_group_count + normalized_page_size - 1) // normalized_page_size
+        start = (normalized_page - 1) * normalized_page_size
+        return LasViewerRecentSessionGroupPage(
+            groups=tuple(groups[start : start + normalized_page_size]),
+            page=normalized_page,
+            page_size=normalized_page_size,
+            total_group_count=total_group_count,
+            total_item_count=total_item_count,
+            page_count=page_count,
         )
 
     def pin(self, session_key: str, *, pinned: bool = True) -> LasViewerRecentSessionPinResult:
