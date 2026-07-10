@@ -1068,3 +1068,63 @@ def test_recent_session_bookmark_import_accepts_legacy_contract(tmp_path):
     assert result.imported == 1
     bookmark = service.bookmarks()[0]
     assert (bookmark.label, bookmark.folder, bookmark.position) == ("Legacy", "Migrated", 2)
+
+
+def test_recent_session_bookmarks_backup_and_restore(tmp_path):
+    source_repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source")
+    source_repository.save(_session("backup.las", project_id="field-a"))
+    source = LasViewerRecentSessions(source_repository)
+    source_item = source.list()[0]
+    source.set_bookmark(source_item.session_key, label="Backup", folder="Primary", position=2)
+    backup_path = tmp_path / "bookmarks-backup.zip"
+
+    manifest = source.backup_bookmarks(backup_path)
+
+    target_repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "target")
+    target_repository.save(_session("backup.las", project_id="field-a"))
+    target = LasViewerRecentSessions(target_repository)
+    result = target.restore_bookmark_backup(backup_path)
+
+    assert manifest["schema"] == "las.viewer.recent-session-bookmark-backup"
+    assert result.imported == 1
+    assert target.bookmarks()[0].label == "Backup"
+
+
+def test_recent_session_bookmark_backup_rejects_checksum_mismatch(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("tampered.las"))
+    service = LasViewerRecentSessions(repository)
+    service.set_bookmark(service.list()[0].session_key, label="Tampered")
+    backup_path = tmp_path / "tampered.zip"
+    service.backup_bookmarks(backup_path)
+
+    from zipfile import ZIP_DEFLATED, ZipFile
+    with ZipFile(backup_path, "r") as archive:
+        manifest = archive.read("manifest.json")
+    with ZipFile(backup_path, "w", compression=ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", manifest)
+        archive.writestr("bookmarks.json", b'{}')
+
+    try:
+        service.restore_bookmark_backup(backup_path)
+    except ValueError as exc:
+        assert "checksum" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")
+
+
+def test_recent_session_bookmark_backup_rejects_unexpected_members(tmp_path):
+    from zipfile import ZipFile
+    backup_path = tmp_path / "unsafe.zip"
+    with ZipFile(backup_path, "w") as archive:
+        archive.writestr("manifest.json", "{}")
+        archive.writestr("bookmarks.json", "{}")
+        archive.writestr("../outside.txt", "unsafe")
+
+    service = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "repo"))
+    try:
+        service.restore_bookmark_backup(backup_path)
+    except ValueError as exc:
+        assert "contents" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")

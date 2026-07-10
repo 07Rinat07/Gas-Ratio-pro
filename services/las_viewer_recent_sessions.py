@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile
 
 from services.las_viewer_workspace_autosave_repository import (
     LasViewerAutosaveRepositoryEntry,
@@ -970,6 +971,75 @@ class LasViewerRecentSessions:
                 temporary = Path(handle.name)
             os.replace(temporary, destination)
         return payload
+
+    def backup_bookmarks(self, path: str | Path) -> dict[str, object]:
+        """Create a portable ZIP backup with an integrity manifest."""
+        destination = Path(path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        payload = self.export_bookmarks()
+        bookmark_bytes = json.dumps(
+            payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        digest = sha256(bookmark_bytes).hexdigest()
+        manifest = {
+            "schema": "las.viewer.recent-session-bookmark-backup",
+            "version": "1.0",
+            "payload": "bookmarks.json",
+            "sha256": digest,
+            "renderer_neutral": True,
+        }
+        with NamedTemporaryFile(
+            dir=destination.parent,
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+        try:
+            with ZipFile(temporary, "w", compression=ZIP_DEFLATED) as archive:
+                archive.writestr(
+                    "manifest.json",
+                    json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+                )
+                archive.writestr("bookmarks.json", bookmark_bytes)
+            os.replace(temporary, destination)
+        finally:
+            if temporary.exists():
+                temporary.unlink()
+        return manifest
+
+    def restore_bookmark_backup(
+        self,
+        path: str | Path,
+        *,
+        conflict: str = "skip",
+    ) -> LasViewerRecentSessionBookmarkExchangeResult:
+        """Validate and restore bookmarks from a trusted backup archive."""
+        source = Path(path)
+        try:
+            with ZipFile(source, "r") as archive:
+                names = set(archive.namelist())
+                if names != {"manifest.json", "bookmarks.json"}:
+                    raise ValueError("invalid bookmark backup contents")
+                manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
+                if manifest.get("schema") != "las.viewer.recent-session-bookmark-backup":
+                    raise ValueError("unsupported bookmark backup schema")
+                if str(manifest.get("version", "")) != "1.0":
+                    raise ValueError("unsupported bookmark backup version")
+                if manifest.get("renderer_neutral") is not True:
+                    raise ValueError("incompatible bookmark backup contract")
+                bookmark_bytes = archive.read("bookmarks.json")
+        except (BadZipFile, KeyError, OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("invalid bookmark backup archive") from exc
+        expected = str(manifest.get("sha256", "")).strip().lower()
+        actual = sha256(bookmark_bytes).hexdigest()
+        if not expected or expected != actual:
+            raise ValueError("bookmark backup checksum mismatch")
+        try:
+            payload = json.loads(bookmark_bytes.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("invalid bookmark backup payload") from exc
+        return self.import_bookmarks(payload, conflict=conflict)
 
     @staticmethod
     def migrate_bookmark_exchange(payload: dict[str, object]) -> dict[str, object]:
