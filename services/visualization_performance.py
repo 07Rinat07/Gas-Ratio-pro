@@ -73,6 +73,10 @@ class VisualizationRenderModelCache:
         while len(self._items) > self.capacity:
             self._items.popitem(last=False)
 
+    def invalidate(self, key: str) -> bool:
+        """Remove one cached render model without clearing unrelated entries."""
+        return self._items.pop(key, None) is not None
+
     def clear(self) -> None:
         self._items.clear()
 
@@ -101,6 +105,14 @@ class VisualizationPerformanceEngine:
 
     def store(self, key: str, render_model: Mapping[str, Any]) -> None:
         self.cache.put(key, render_model)
+
+    def invalidate(self, key: str) -> bool:
+        """Invalidate exactly one geometry contract."""
+        return self.cache.invalidate(key)
+
+    def invalidate_contracts(self, *contracts: Mapping[str, Any]) -> bool:
+        """Invalidate the cache entry produced by the supplied contracts."""
+        return self.invalidate(self.cache_key(*contracts))
 
     def profile(
         self,

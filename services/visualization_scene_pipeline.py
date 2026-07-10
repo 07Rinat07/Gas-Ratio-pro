@@ -241,6 +241,7 @@ class RenderModelBuilder:
         track_model: VisualizationTrackCollection,
         label_legend: VisualizationLabelLegendModel,
         print_layout: VisualizationPrintLayout,
+        performance_options: Mapping[str, Any] | None = None,
     ) -> VisualizationRenderModel:
         return self.builder.build(
             scene.to_dict(),
@@ -249,6 +250,7 @@ class RenderModelBuilder:
             track_model.to_dict(),
             label_legend.to_dict(),
             print_layout.to_dict(),
+            performance_options,
         )
 
 
@@ -320,6 +322,11 @@ class VisualizationScenePipeline:
         print_options = payload.get("print_options") if isinstance(payload.get("print_options"), Mapping) else None
         print_layout = self.print_layout_builder.build(layout, label_legend, print_options)
         cache_enabled = bool(payload.get("performance_cache", True))
+        performance_options = (
+            dict(payload.get("performance_options"))
+            if isinstance(payload.get("performance_options"), Mapping)
+            else {}
+        )
         cache_key = self.performance_engine.cache_key(
             scene.to_dict(),
             layout.to_dict(),
@@ -327,11 +334,20 @@ class VisualizationScenePipeline:
             track_model.to_dict(),
             label_legend.to_dict(),
             print_layout.to_dict(),
+            performance_options,
         )
         cached_render_model = self.performance_engine.lookup(cache_key) if cache_enabled else None
         cache_hit = cached_render_model is not None
         if cached_render_model is None:
-            render_model = self.render_model_builder.build(scene, layout, axis_grid, track_model, label_legend, print_layout)
+            render_model = self.render_model_builder.build(
+                scene,
+                layout,
+                axis_grid,
+                track_model,
+                label_legend,
+                print_layout,
+                performance_options,
+            )
             if cache_enabled:
                 self.performance_engine.store(cache_key, render_model.to_dict())
         else:

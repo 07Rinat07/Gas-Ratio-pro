@@ -77,3 +77,36 @@ def test_curve_quality_clips_points_outside_depth_viewport():
 
     assert len(result.segments) == 1
     assert result.metadata["clipped_point_count"] == 2
+
+
+def test_curve_quality_adaptively_downsamples_dense_viewport_and_preserves_endpoints():
+    engine = VisualizationCurveQualityEngine()
+    points = [
+        {"depth": 1000.0 + index * 0.01, "value": float((index % 40) - 20)}
+        for index in range(2000)
+    ]
+
+    result = engine.build(
+        layer_id="curve.dense",
+        points=points,
+        axis_min=-25.0,
+        axis_max=25.0,
+        scale="linear",
+        depth_start=1000.0,
+        depth_stop=1019.99,
+        plot_x=0.0,
+        plot_y=0.0,
+        plot_width=200.0,
+        plot_height=120.0,
+        max_points_per_pixel=1.0,
+        minimum_render_points=32,
+    )
+
+    assert result.ok is True
+    assert result.metadata["sampling_strategy"] == "viewport_extrema"
+    assert result.metadata["point_budget"] == 120
+    assert result.metadata["render_point_count"] <= 120
+    assert result.metadata["downsampled_point_count"] > 0
+    segment = result.segments[0]
+    assert segment.points[0]["y"] == 0.0
+    assert segment.points[-1]["y"] == 120.0

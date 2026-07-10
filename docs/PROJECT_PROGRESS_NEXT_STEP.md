@@ -493,3 +493,22 @@ Domain Model -> Scene -> Layout -> Axis/Grid -> Track Model -> Label/Legend -> P
 
 Next step:
 Add viewport-aware adaptive downsampling and incremental invalidation for large LAS datasets.
+
+## Visualization v92 Adaptive Downsampling
+
+Completed:
+- Added viewport-aware point budgets derived from plot height.
+- Added extrema-preserving reduction for dense continuous LAS curve segments.
+- Added configurable `max_points_per_pixel` and `minimum_render_points` pipeline options.
+- Included performance options in deterministic Render Model cache keys.
+- Added targeted cache invalidation without clearing unrelated geometry.
+- Added machine-readable source, render and removed-point metadata.
+
+Current pipeline:
+
+```text
+Domain Model -> Scene -> Layout -> Axis/Grid -> Track Model -> Label/Legend -> Print Layout -> Adaptive Sampling -> Performance Cache -> Render Model -> Renderer
+```
+
+Next step:
+Add viewport-window contracts and incremental geometry updates so depth zoom/pan invalidates only affected tracks and curve layers.

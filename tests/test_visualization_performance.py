@@ -80,3 +80,41 @@ def test_cache_key_changes_when_geometry_input_changes() -> None:
 
     assert first != second
     assert len(first) == 64
+
+
+def test_performance_options_change_cache_key_and_sampling_density() -> None:
+    payload = _payload()
+    payload["curves"][0]["points"] = [
+        {"depth": 1000.0 + index * 0.001, "value": float(index % 150)}
+        for index in range(2001)
+    ]
+    payload["depth_range"] = {"start": 1000.0, "stop": 1002.0, "step": 0.001}
+    pipeline = VisualizationScenePipeline()
+
+    compact = dict(payload)
+    compact["performance_options"] = {
+        "max_points_per_pixel": 0.5,
+        "minimum_render_points": 16,
+    }
+    detailed = dict(payload)
+    detailed["performance_options"] = {
+        "max_points_per_pixel": 2.0,
+        "minimum_render_points": 16,
+    }
+
+    compact_result = pipeline.run(compact).to_dict()
+    detailed_result = pipeline.run(detailed).to_dict()
+
+    assert compact_result["performance"]["cache_key"] != detailed_result["performance"]["cache_key"]
+    assert compact_result["performance"]["render_point_count"] < detailed_result["performance"]["render_point_count"]
+
+
+def test_cache_supports_targeted_invalidation() -> None:
+    engine = VisualizationPerformanceEngine(VisualizationRenderModelCache(capacity=2))
+    key = engine.cache_key({"scene": 1})
+    engine.store(key, {"schema": "visualization.render.model"})
+
+    assert engine.lookup(key) is not None
+    assert engine.invalidate(key) is True
+    assert engine.lookup(key) is None
+    assert engine.invalidate(key) is False

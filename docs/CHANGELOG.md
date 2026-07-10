@@ -1182,3 +1182,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added a bounded LRU Render Model cache and typed cache restoration.
 - Added performance metadata to the scene pipeline and validation output.
 - Added tests for cache hits, cache bypass, LRU eviction and cache-key invalidation.
+
+## v92 Visualization Adaptive Downsampling
+
+- Added viewport-aware extrema-preserving reduction for dense LAS curves.
+- Added configurable sampling density and minimum point budgets.
+- Added sampling options to deterministic Render Model cache keys.
+- Added targeted Render Model cache invalidation.
+- Added regression tests for dense curves, cache-key changes and exact invalidation.

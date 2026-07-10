@@ -67,6 +67,8 @@ class VisualizationCurveQualityEngine:
         plot_width: float,
         plot_height: float,
         depth_gap_factor: float = 6.0,
+        max_points_per_pixel: float = 1.5,
+        minimum_render_points: int = 64,
     ) -> CurveQualityResult:
         issues: list[str] = []
         if depth_stop <= depth_start or axis_max <= axis_min or plot_width <= 0 or plot_height <= 0:
@@ -114,15 +116,24 @@ class VisualizationCurveQualityEngine:
             current.append({"x": x, "y": y, "depth": depth, "value": value})
         flush()
 
-        segments = tuple(
-            CurveSegment(
-                id=f"{layer_id}.segment.{index}",
-                points=tuple({"x": point["x"], "y": point["y"]} for point in segment),
-                source_point_count=len(segment),
-                clipped_point_count=0,
-            )
-            for index, segment in enumerate(raw_segments)
+        point_budget = max(
+            2,
+            int(max(float(minimum_render_points), plot_height * max(float(max_points_per_pixel), 0.1))),
         )
+        sampled_segments: list[CurveSegment] = []
+        downsampled_point_count = 0
+        for index, segment in enumerate(raw_segments):
+            sampled = _downsample_extrema(segment, point_budget)
+            downsampled_point_count += max(0, len(segment) - len(sampled))
+            sampled_segments.append(
+                CurveSegment(
+                    id=f"{layer_id}.segment.{index}",
+                    points=tuple({"x": point["x"], "y": point["y"]} for point in sampled),
+                    source_point_count=len(segment),
+                    clipped_point_count=0,
+                )
+            )
+        segments = tuple(sampled_segments)
         if not segments:
             issues.append(f"curve_quality_error:no_renderable_segments:{layer_id}")
         if invalid_point_count:
@@ -142,6 +153,11 @@ class VisualizationCurveQualityEngine:
                 "typical_depth_spacing": typical_spacing,
                 "maximum_continuous_depth_gap": max_gap if isfinite(max_gap) else None,
                 "scale": scale,
+                "sampling_strategy": "viewport_extrema",
+                "point_budget": point_budget,
+                "downsampled_point_count": downsampled_point_count,
+                "render_point_count": sum(len(segment.points) for segment in segments),
+                "max_points_per_pixel": float(max_points_per_pixel),
             },
         )
 
@@ -165,3 +181,33 @@ def _normalize(value: float, minimum: float, maximum: float, scale: str) -> floa
     else:
         normalized = (value - minimum) / (maximum - minimum)
     return min(1.0, max(0.0, normalized))
+
+
+def _downsample_extrema(points: Sequence[Mapping[str, float]], budget: int) -> list[dict[str, float]]:
+    """Reduce a monotonic-depth segment while preserving local extrema and endpoints."""
+    prepared = [dict(point) for point in points]
+    if len(prepared) <= budget or budget < 4:
+        return prepared
+
+    interior = prepared[1:-1]
+    bucket_count = max(1, (budget - 2) // 2)
+    bucket_size = max(1, (len(interior) + bucket_count - 1) // bucket_count)
+    selected: list[dict[str, float]] = [prepared[0]]
+    for start in range(0, len(interior), bucket_size):
+        bucket = interior[start:start + bucket_size]
+        if not bucket:
+            continue
+        low = min(bucket, key=lambda point: (point["x"], point["y"]))
+        high = max(bucket, key=lambda point: (point["x"], -point["y"]))
+        ordered = sorted((low, high), key=lambda point: point["y"])
+        for point in ordered:
+            if point != selected[-1]:
+                selected.append(point)
+    if prepared[-1] != selected[-1]:
+        selected.append(prepared[-1])
+    if len(selected) > budget:
+        stride = (len(selected) - 1) / (budget - 1)
+        selected = [selected[round(index * stride)] for index in range(budget)]
+        selected[0] = prepared[0]
+        selected[-1] = prepared[-1]
+    return selected

@@ -173,6 +173,7 @@ class VisualizationRenderModelBuilder:
         track_model: Mapping[str, Any] | None = None,
         label_legend: Mapping[str, Any] | None = None,
         print_layout: Mapping[str, Any] | None = None,
+        performance_options: Mapping[str, Any] | None = None,
     ) -> VisualizationRenderModel:
         width = int(_positive_float(layout.get("width"), 360))
         height = int(_positive_float(layout.get("height"), 180))
@@ -277,8 +278,12 @@ class VisualizationRenderModelBuilder:
         axis_grid_payload = axis_grid_model.to_dict() if axis_grid_model is not None else dict(axis_grid or {})
         diagnostics.extend(str(item) for item in _sequence(axis_grid_payload.get("issues")) if str(item))
         primitives.extend(self._axis_grid_primitives(axis_grid_payload, layout_tracks))
+        performance_options_payload = dict(performance_options or {})
         layer_primitives, layer_diagnostics = self._source_layer_primitives(
-            source_layers, layout_tracks, _mapping(layout.get("depth"))
+            source_layers,
+            layout_tracks,
+            _mapping(layout.get("depth")),
+            performance_options_payload,
         )
         primitives.extend(layer_primitives)
         diagnostics.extend(layer_diagnostics)
@@ -332,6 +337,7 @@ class VisualizationRenderModelBuilder:
                 "print_layout_ok": bool(print_layout_payload.get("ok", False)) if print_layout_payload else False,
                 "print_page_count": len(_mapping_list(print_layout_payload.get("pages"))) if print_layout_payload else 0,
                 "print_layout": print_layout_payload,
+                "performance_options": performance_options_payload,
             },
         )
 
@@ -369,6 +375,7 @@ class VisualizationRenderModelBuilder:
         layers: list[dict[str, Any]],
         layout_tracks: list[dict[str, Any]],
         depth: Mapping[str, Any],
+        performance_options: Mapping[str, Any] | None = None,
     ) -> tuple[list[RenderPrimitive], list[str]]:
         primitives: list[RenderPrimitive] = []
         diagnostics: list[str] = []
@@ -442,6 +449,7 @@ class VisualizationRenderModelBuilder:
                     diagnostics.append(f"render_model_invalid_curve_axis:{layer_id}")
                     continue
                 scale = str(axis.get("scale") or "linear").lower()
+                sampling_options = dict(performance_options or {})
                 quality = self.curve_quality_engine.build(
                     layer_id=layer_id,
                     points=points,
@@ -454,6 +462,8 @@ class VisualizationRenderModelBuilder:
                     plot_y=_float(plot.get("y")),
                     plot_width=_non_negative_float(plot.get("width")),
                     plot_height=_non_negative_float(plot.get("height")),
+                    max_points_per_pixel=_positive_float(sampling_options.get("max_points_per_pixel"), 1.5),
+                    minimum_render_points=int(_positive_float(sampling_options.get("minimum_render_points"), 64.0)),
                 )
                 diagnostics.extend(quality.issues)
                 style = _mapping(payload.get("style"))
