@@ -1162,3 +1162,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - SVG renderer now applies Print Layout page geometry and content transforms.
 - SVG results now expose primitive and clip counts for automated contract validation.
 - Added parity regression tests for Render Model counts and print-layout application.
+
+## v89 Visualization Geometry Signature
+
+- Added a canonical SHA-256 geometry signature for printable Render Model primitives, clip regions and first-page print transform.
+- SVG and PDF renderer results now publish the same geometry signature when they consume the same pipeline result.
+- Renderer parity validation now detects missing or mismatched geometry signatures in addition to primitive and clip counts.
+- Added regression tests for cross-renderer signature equality and tamper detection.

@@ -16,6 +16,8 @@ import os
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from services.visualization_renderer_parity import visualization_geometry_signature
+
 
 @dataclass(frozen=True, slots=True)
 class PdfRenderModelResult:
@@ -32,6 +34,7 @@ class PdfRenderModelResult:
     page_count: int = 0
     width_pt: float = 0.0
     height_pt: float = 0.0
+    geometry_signature: str = ""
     export_ready: bool = False
     pdf_bytes: bytes = b""
     font_name: str = ""
@@ -51,6 +54,7 @@ class PdfRenderModelResult:
             "page_count": self.page_count,
             "width_pt": self.width_pt,
             "height_pt": self.height_pt,
+            "geometry_signature": self.geometry_signature,
             "export_ready": self.export_ready,
             "byte_size": len(self.pdf_bytes),
             "sha256": sha256(self.pdf_bytes).hexdigest() if self.pdf_bytes else "",
@@ -108,6 +112,7 @@ class VisualizationPdfRenderModelRenderer:
             issues.append(f"pdf_renderer_error:{type(exc).__name__}")
 
         export_ready = bool(pdf_bytes.startswith(b"%PDF-") and primitives and not any(i.startswith("pdf_renderer_error:") for i in issues))
+        geometry_signature = visualization_geometry_signature(source) if source_schema == "visualization.scene.pipeline.result" else ""
         return PdfRenderModelResult(
             source_schema=source_schema,
             primitive_count=len(primitives),
@@ -117,6 +122,7 @@ class VisualizationPdfRenderModelRenderer:
             page_count=1 if pdf_bytes else 0,
             width_pt=width_pt,
             height_pt=height_pt,
+            geometry_signature=geometry_signature,
             export_ready=export_ready,
             pdf_bytes=pdf_bytes,
             font_name=font_name,

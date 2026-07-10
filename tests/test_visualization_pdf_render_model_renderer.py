@@ -55,6 +55,7 @@ def test_pdf_renderer_consumes_render_model_and_applies_print_layout():
     assert metadata["page_count"] == 1
     assert metadata["byte_size"] > 500
     assert len(metadata["sha256"]) == 64
+    assert len(metadata["geometry_signature"]) == 64
     assert metadata["primitive_count"] == len(
         [item for item in pipeline["render_model"]["primitives"] if item["visible"] and item["printable"]]
     )

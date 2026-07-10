@@ -460,3 +460,14 @@ Domain Model -> Scene -> Layout -> Axis/Grid -> Track Model -> Label/Legend -> P
 
 Next step:
 Add cross-renderer geometry signatures and bundle integration for the generated visualization PDF asset without recalculating Scene or Layout.
+
+## V89 Visualization Geometry Signature
+
+Completed:
+- Added a stable SHA-256 signature for renderer-neutral primitives, clip regions and print geometry.
+- SVG and PDF renderer metadata now expose the same geometry signature for the same pipeline result.
+- Renderer parity validation now detects geometry drift even when primitive counts still match.
+- Added tests for signature equality, mismatch detection and PDF metadata.
+
+Next step:
+Export the visualization PDF generated from the existing Render Model as a shared bundle asset and record its geometry signature in the visualization asset index. Do not rebuild Scene or Layout in report exporters.

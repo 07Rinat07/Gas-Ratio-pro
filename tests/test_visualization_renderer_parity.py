@@ -43,6 +43,9 @@ def test_svg_renderer_applies_print_layout_and_matches_render_model_counts():
     )
     assert rendered["clip_count"] == len(pipeline["render_model"]["clip_regions"])
     assert 'transform="translate(' in rendered["svg"]
+    assert rendered["geometry_signature"]
+    assert report["geometry_signature_match"] is True
+    assert report["expected_geometry_signature"] == rendered["geometry_signature"]
     assert report["ok"] is True
     assert report["issues"] == []
 
@@ -56,3 +59,26 @@ def test_renderer_parity_reports_modified_artifact_counts():
 
     assert report["ok"] is False
     assert any(item.startswith("renderer_parity_primitive_count_mismatch") for item in report["issues"])
+
+
+def test_svg_and_pdf_renderers_publish_the_same_geometry_signature():
+    from services.visualization_pdf_render_model_renderer import VisualizationPdfRenderModelRenderer
+
+    pipeline = VisualizationScenePipeline().run(_payload()).to_dict()
+    svg = VisualizationSvgSceneRenderer().render(pipeline).to_dict()
+    pdf = VisualizationPdfRenderModelRenderer().render(pipeline).to_dict()
+
+    assert svg["geometry_signature"]
+    assert svg["geometry_signature"] == pdf["geometry_signature"]
+
+
+def test_renderer_parity_reports_geometry_signature_mismatch():
+    pipeline = VisualizationScenePipeline().run(_payload()).to_dict()
+    rendered = VisualizationSvgSceneRenderer().render(pipeline).to_dict()
+    rendered["geometry_signature"] = "0" * 64
+
+    report = VisualizationRendererParityValidator().validate(pipeline, rendered).to_dict()
+
+    assert report["ok"] is False
+    assert report["geometry_signature_match"] is False
+    assert "renderer_parity_geometry_signature_mismatch" in report["issues"]

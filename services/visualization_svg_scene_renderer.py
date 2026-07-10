@@ -14,6 +14,8 @@ from html import escape
 import math
 from typing import Any, Mapping, Sequence
 
+from services.visualization_renderer_parity import visualization_geometry_signature
+
 
 @dataclass(frozen=True, slots=True)
 class SvgSceneRenderResult:
@@ -33,6 +35,7 @@ class SvgSceneRenderResult:
     clip_count: int = 0
     print_layout_applied: bool = False
     page_size: str = ""
+    geometry_signature: str = ""
     export_ready: bool = False
     issues: tuple[str, ...] = field(default_factory=tuple)
     svg: str = ""
@@ -54,6 +57,7 @@ class SvgSceneRenderResult:
             "clip_count": self.clip_count,
             "print_layout_applied": self.print_layout_applied,
             "page_size": self.page_size,
+            "geometry_signature": self.geometry_signature,
             "export_ready": self.export_ready,
             "contains_raw_dataframe": False,
             "issues": list(self.issues),
@@ -150,6 +154,7 @@ class VisualizationSvgSceneRenderer:
         curve_count = sum(1 for layer in layers if str(layer.get("kind")) == "curve")
         overlay_count = sum(1 for layer in layers if str(layer.get("kind")) == "interval_overlay")
         export_ready = bool(tracks and curve_count and depth_start is not None and depth_stop is not None and depth_stop > depth_start)
+        geometry_signature = visualization_geometry_signature(source) if source_schema == "visualization.scene.pipeline.result" else ""
         return SvgSceneRenderResult(
             source_schema=source_schema,
             width=width,
@@ -162,6 +167,7 @@ class VisualizationSvgSceneRenderer:
             clip_count=clip_count,
             print_layout_applied=print_layout_applied,
             page_size=page_size,
+            geometry_signature=geometry_signature,
             export_ready=export_ready,
             issues=tuple(dict.fromkeys(issues)),
             svg=svg,
