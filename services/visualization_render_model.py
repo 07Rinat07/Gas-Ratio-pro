@@ -134,6 +134,7 @@ class VisualizationRenderModelBuilder:
         axis_grid: Mapping[str, Any] | None = None,
         track_model: Mapping[str, Any] | None = None,
         label_legend: Mapping[str, Any] | None = None,
+        print_layout: Mapping[str, Any] | None = None,
     ) -> VisualizationRenderModel:
         width = int(_positive_float(layout.get("width"), 360))
         height = int(_positive_float(layout.get("height"), 180))
@@ -243,6 +244,7 @@ class VisualizationRenderModelBuilder:
         )
         primitives.extend(layer_primitives)
         diagnostics.extend(layer_diagnostics)
+        print_layout_payload = dict(print_layout or {})
         label_legend_payload = (
             self.label_legend_engine.build(scene, layout, track_model_payload).to_dict()
             if label_legend is None
@@ -289,6 +291,9 @@ class VisualizationRenderModelBuilder:
                 "legend_item_count": len(_mapping_list(label_legend_payload.get("legend_items"))),
                 "label_legend_ok": bool(label_legend_payload.get("ok", False)),
                 "legend_items": _mapping_list(label_legend_payload.get("legend_items")),
+                "print_layout_ok": bool(print_layout_payload.get("ok", False)) if print_layout_payload else False,
+                "print_page_count": len(_mapping_list(print_layout_payload.get("pages"))) if print_layout_payload else 0,
+                "print_layout": print_layout_payload,
             },
         )
 

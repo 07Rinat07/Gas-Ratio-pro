@@ -34,6 +34,10 @@ from services.visualization_render_model import (
     VisualizationRenderModel,
     VisualizationRenderModelBuilder,
 )
+from services.visualization_print_layout import (
+    VisualizationPrintLayout,
+    VisualizationPrintLayoutEngine,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +78,7 @@ class VisualizationScenePipelineResult:
     axis_grid: VisualizationAxisGridModel = field(default_factory=VisualizationAxisGridModel)
     track_model: VisualizationTrackCollection = field(default_factory=VisualizationTrackCollection)
     label_legend: VisualizationLabelLegendModel = field(default_factory=VisualizationLabelLegendModel)
+    print_layout: VisualizationPrintLayout = field(default_factory=VisualizationPrintLayout)
     render_model: VisualizationRenderModel = field(default_factory=VisualizationRenderModel)
     validation: dict[str, Any] = field(default_factory=dict)
     stages: tuple[str, ...] = field(default_factory=tuple)
@@ -93,6 +98,7 @@ class VisualizationScenePipelineResult:
             "axis_grid": self.axis_grid.to_dict(),
             "track_model": self.track_model.to_dict(),
             "label_legend": self.label_legend.to_dict(),
+            "print_layout": self.print_layout.to_dict(),
             "render_model": self.render_model.to_dict(),
             "validation": dict(self.validation),
             "stages": list(self.stages),
@@ -200,6 +206,21 @@ class LabelLegendBuilder:
         return self.engine.build(scene.to_dict(), layout.to_dict(), track_model.to_dict())
 
 
+class PrintLayoutBuilder:
+    """Prepare physical page geometry for export renderers."""
+
+    def __init__(self, engine: VisualizationPrintLayoutEngine | None = None) -> None:
+        self.engine = engine or VisualizationPrintLayoutEngine()
+
+    def build(
+        self,
+        layout: VisualizationLayout,
+        label_legend: VisualizationLabelLegendModel,
+        options: Mapping[str, Any] | None = None,
+    ) -> VisualizationPrintLayout:
+        return self.engine.build(layout.to_dict(), label_legend.to_dict(), options)
+
+
 class RenderModelBuilder:
     """Create renderer-neutral primitives from scene and layout contracts."""
 
@@ -213,6 +234,7 @@ class RenderModelBuilder:
         axis_grid: VisualizationAxisGridModel,
         track_model: VisualizationTrackCollection,
         label_legend: VisualizationLabelLegendModel,
+        print_layout: VisualizationPrintLayout,
     ) -> VisualizationRenderModel:
         return self.builder.build(
             scene.to_dict(),
@@ -220,6 +242,7 @@ class RenderModelBuilder:
             axis_grid.to_dict(),
             track_model.to_dict(),
             label_legend.to_dict(),
+            print_layout.to_dict(),
         )
 
 
@@ -252,7 +275,7 @@ class SceneValidator:
 class VisualizationScenePipeline:
     """Run the renderer-neutral visualization scene pipeline."""
 
-    STAGES = ("domain_model", "context", "scene", "layout", "axis_grid", "track_model", "label_legend", "render_model", "validation")
+    STAGES = ("domain_model", "context", "scene", "layout", "axis_grid", "track_model", "label_legend", "print_layout", "render_model", "validation")
 
     def __init__(
         self,
@@ -263,6 +286,7 @@ class VisualizationScenePipeline:
         axis_grid_builder: AxisGridBuilder | None = None,
         track_model_builder: TrackModelBuilder | None = None,
         label_legend_builder: LabelLegendBuilder | None = None,
+        print_layout_builder: PrintLayoutBuilder | None = None,
         render_model_builder: RenderModelBuilder | None = None,
         validator: SceneValidator | None = None,
     ) -> None:
@@ -273,6 +297,7 @@ class VisualizationScenePipeline:
         self.axis_grid_builder = axis_grid_builder or AxisGridBuilder()
         self.track_model_builder = track_model_builder or TrackModelBuilder()
         self.label_legend_builder = label_legend_builder or LabelLegendBuilder()
+        self.print_layout_builder = print_layout_builder or PrintLayoutBuilder()
         self.render_model_builder = render_model_builder or RenderModelBuilder()
         self.validator = validator or SceneValidator()
 
@@ -284,7 +309,9 @@ class VisualizationScenePipeline:
         axis_grid = self.axis_grid_builder.build(scene, layout)
         track_model = self.track_model_builder.build(scene, layout)
         label_legend = self.label_legend_builder.build(scene, layout, track_model)
-        render_model = self.render_model_builder.build(scene, layout, axis_grid, track_model, label_legend)
+        print_options = payload.get("print_options") if isinstance(payload.get("print_options"), Mapping) else None
+        print_layout = self.print_layout_builder.build(layout, label_legend, print_options)
+        render_model = self.render_model_builder.build(scene, layout, axis_grid, track_model, label_legend, print_layout)
         validation = self.validator.validate(context, scene, layout)
         validation["axis_grid_ok"] = axis_grid.ok
         validation["axis_count"] = len(axis_grid.axes)
@@ -292,6 +319,8 @@ class VisualizationScenePipeline:
         validation["track_model_ok"] = track_model.ok
         validation["visible_track_count"] = len(track_model.visible_tracks)
         validation["label_legend_ok"] = label_legend.ok
+        validation["print_layout_ok"] = print_layout.ok
+        validation["print_page_count"] = len(print_layout.pages)
         validation["label_count"] = len(label_legend.labels)
         validation["legend_item_count"] = len(label_legend.legend_items)
         validation["render_model_ok"] = render_model.ok
@@ -304,6 +333,7 @@ class VisualizationScenePipeline:
             axis_grid=axis_grid,
             track_model=track_model,
             label_legend=label_legend,
+            print_layout=print_layout,
             render_model=render_model,
             validation=validation,
             stages=self.STAGES,

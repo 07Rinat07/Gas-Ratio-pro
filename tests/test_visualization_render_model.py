@@ -70,6 +70,7 @@ def test_render_model_builds_deterministic_structural_primitives():
     assert result["metadata"]["grid_line_count"] >= 1
     assert result["metadata"]["label_count"] >= 4
     assert result["metadata"]["legend_item_count"] == 3
+    assert result["metadata"]["print_page_count"] == 0
     assert result["diagnostics"] == []
     assert any(item["kind"] == "polyline" and item["clip_id"] == "clip.track.gamma.plot" for item in result["primitives"])
     assert any(item["id"] == "overlay.interval.gas" for item in result["primitives"])

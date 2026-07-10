@@ -1139,3 +1139,12 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added the `label_legend` stage to Visualization Scene Pipeline.
 - Connected prepared labels to Render Model text primitives.
 - Added regression tests and kept export release QA green.
+## v86
+- Added renderer-neutral Visualization Print Layout Engine contracts.
+- Added A4, A3, A2 and A1 page sizes with portrait and landscape orientation.
+- Added millimetre margins, fit-page, fit-width and actual-size scale modes.
+- Added printable, content and legend regions in physical point geometry.
+- Added the `print_layout` stage to Visualization Scene Pipeline.
+- Connected print-layout metadata to Visualization Render Model.
+- Added regression tests and kept release export QA green.
+

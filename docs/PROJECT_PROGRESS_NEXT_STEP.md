@@ -1,3 +1,9 @@
+## Current increment: Print Layout Engine v86
+
+Completed: renderer-neutral A4/A3/A2/A1 page geometry, portrait/landscape orientation, margins, fit modes, centered content placement and reserved legend regions.
+
+Next: renderer parity for the prepared print contract, followed by multi-page pagination and large-LAS performance work.
+
 ## Current increment: Curve Quality Engine v84
 
 Completed: gap-aware curve segmentation, logarithmic invalid-value handling and depth viewport clipping before renderer.
