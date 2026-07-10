@@ -327,6 +327,25 @@ class LasViewerRecentSessionBookmark:
 
 
 @dataclass(frozen=True, slots=True)
+class LasViewerRecentSessionBookmarkExchangeResult:
+    imported: int = 0
+    skipped: int = 0
+    conflicts: int = 0
+    missing_sessions: int = 0
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": "las.viewer.recent-session-bookmark-exchange-result",
+            "version": "1.0",
+            "imported": self.imported,
+            "skipped": self.skipped,
+            "conflicts": self.conflicts,
+            "missing_sessions": self.missing_sessions,
+            "renderer_neutral": True,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class LasViewerRecentSessionBookmarkResult:
     changed: bool
     session_key: str = ""
@@ -920,6 +939,109 @@ class LasViewerRecentSessions:
     def bookmark_folders(self) -> tuple[str, ...]:
         """Return normalized non-empty bookmark folders in deterministic order."""
         return tuple(sorted({item.folder for item in self.bookmarks() if item.folder}, key=str.casefold))
+
+    def export_bookmarks(self, path: str | Path | None = None) -> dict[str, object]:
+        """Export portable bookmark metadata, optionally using an atomic JSON write."""
+        recent = {item.session_key: item for item in self.list(limit=max(1, len(self.repository.entries()) or 1), include_invalid=True)}
+        payload = {
+            "schema": "las.viewer.recent-session-bookmark-exchange",
+            "version": "1.0",
+            "bookmarks": [
+                {
+                    **bookmark.to_dict(),
+                    "project_id": recent.get(bookmark.session_key).project_id if recent.get(bookmark.session_key) else "",
+                    "las_id": recent.get(bookmark.session_key).las_id if recent.get(bookmark.session_key) else "",
+                    "filename": recent.get(bookmark.session_key).filename if recent.get(bookmark.session_key) else "",
+                }
+                for bookmark in self.bookmarks()
+            ],
+            "renderer_neutral": True,
+        }
+        if path is not None:
+            destination = Path(path)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=destination.parent,
+                prefix=f".{destination.name}.", suffix=".tmp", delete=False,
+            ) as handle:
+                json.dump(payload, handle, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+                handle.flush()
+                os.fsync(handle.fileno())
+                temporary = Path(handle.name)
+            os.replace(temporary, destination)
+        return payload
+
+    def import_bookmarks(
+        self,
+        source: dict[str, object] | str | Path,
+        *,
+        conflict: str = "skip",
+    ) -> LasViewerRecentSessionBookmarkExchangeResult:
+        """Import portable bookmarks and resolve sessions by key or LAS identity."""
+        policy = str(conflict or "skip").strip().lower()
+        if policy not in {"skip", "overwrite", "error"}:
+            raise ValueError("conflict must be one of: skip, overwrite, error")
+        if isinstance(source, (str, Path)):
+            payload = json.loads(Path(source).read_text(encoding="utf-8"))
+        else:
+            payload = source
+        if not isinstance(payload, dict) or payload.get("schema") != "las.viewer.recent-session-bookmark-exchange":
+            raise ValueError("unsupported bookmark exchange schema")
+        if payload.get("version") != "1.0" or payload.get("renderer_neutral") is not True:
+            raise ValueError("incompatible bookmark exchange contract")
+        records = payload.get("bookmarks", [])
+        if not isinstance(records, list):
+            raise ValueError("bookmarks must be a list")
+
+        recent_items = self.list(limit=max(1, len(self.repository.entries()) or 1), include_invalid=True)
+        by_key = {item.session_key: item for item in recent_items}
+        by_identity = {(item.project_id, item.las_id): item for item in recent_items}
+        by_filename = {item.filename: item for item in recent_items}
+        current = self._load_bookmarks()
+        updated = dict(current)
+        imported = skipped = conflicts = missing = 0
+
+        for index, record in enumerate(records):
+            if not isinstance(record, dict):
+                skipped += 1
+                continue
+            key = str(record.get("session_key", "")).strip()
+            item = by_key.get(key)
+            if item is None:
+                identity = (str(record.get("project_id", "")).strip(), str(record.get("las_id", "")).strip())
+                item = by_identity.get(identity) if any(identity) else None
+            if item is None:
+                item = by_filename.get(str(record.get("filename", "")).strip())
+            if item is None:
+                missing += 1
+                continue
+            key = item.session_key
+            exists = key in updated
+            if exists and policy == "error":
+                raise ValueError(f"bookmark conflict: {key}")
+            if exists and policy == "skip":
+                conflicts += 1
+                skipped += 1
+                continue
+            label = str(record.get("label", "")).strip() or item.las_id or item.filename
+            folder = str(record.get("folder", "") or "").strip()
+            try:
+                position = max(0, int(record.get("position", index)))
+            except (TypeError, ValueError):
+                position = index
+            updated[key] = {"label": label, "folder": folder, "position": position}
+            imported += 1
+            conflicts += int(exists)
+
+        if updated != current:
+            self._save_preferences(
+                pinned_keys=self._load_pinned_keys(),
+                collapsed_groups=self._load_collapsed_groups(),
+                navigation_state=self.navigation_state(),
+                navigation_history=self.navigation_history(),
+                bookmarks=updated,
+            )
+        return LasViewerRecentSessionBookmarkExchangeResult(imported, skipped, conflicts, missing)
 
     def set_bookmark(
         self,

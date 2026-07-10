@@ -929,3 +929,78 @@ def test_recent_session_bookmarks_reject_invalid_sort_options(tmp_path):
             assert "sort" in str(exc)
         else:
             raise AssertionError("ValueError expected")
+
+
+def test_recent_session_bookmarks_export_and_import_between_workspaces(tmp_path):
+    source_repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source")
+    source_repository.save(_session("portable.las", project_id="field-a"))
+    source = LasViewerRecentSessions(source_repository)
+    source_item = source.list()[0]
+    source.set_bookmark(source_item.session_key, label="Portable", folder="Favorites", position=3)
+    export_path = tmp_path / "bookmarks.json"
+
+    payload = source.export_bookmarks(export_path)
+
+    target_repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "target")
+    target_repository.save(_session("portable.las", project_id="field-a"))
+    target = LasViewerRecentSessions(target_repository)
+    result = target.import_bookmarks(export_path)
+    imported = target.bookmarks()[0]
+
+    assert payload["schema"] == "las.viewer.recent-session-bookmark-exchange"
+    assert result.imported == 1
+    assert imported.label == "Portable"
+    assert imported.folder == "Favorites"
+    assert imported.position == 3
+
+
+def test_recent_session_bookmark_import_supports_conflict_policies(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("conflict.las"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+    service.set_bookmark(item.session_key, label="Existing")
+    payload = service.export_bookmarks()
+    payload["bookmarks"][0]["label"] = "Imported"
+
+    skipped = service.import_bookmarks(payload, conflict="skip")
+    overwritten = service.import_bookmarks(payload, conflict="overwrite")
+
+    assert skipped.conflicts == 1
+    assert skipped.skipped == 1
+    assert overwritten.imported == 1
+    assert service.bookmarks()[0].label == "Imported"
+
+
+def test_recent_session_bookmark_import_is_transactional_on_conflict_error(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("transaction.las"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+    service.set_bookmark(item.session_key, label="Original")
+    payload = service.export_bookmarks()
+    payload["bookmarks"][0]["label"] = "Replacement"
+
+    try:
+        service.import_bookmarks(payload, conflict="error")
+    except ValueError as exc:
+        assert "conflict" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")
+
+    assert service.bookmarks()[0].label == "Original"
+
+
+def test_recent_session_bookmark_import_reports_missing_sessions(tmp_path):
+    service = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path))
+    payload = {
+        "schema": "las.viewer.recent-session-bookmark-exchange",
+        "version": "1.0",
+        "renderer_neutral": True,
+        "bookmarks": [{"session_key": "missing", "label": "Missing"}],
+    }
+
+    result = service.import_bookmarks(payload)
+
+    assert result.missing_sessions == 1
+    assert service.bookmarks() == ()
