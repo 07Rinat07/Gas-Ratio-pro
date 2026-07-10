@@ -12,6 +12,7 @@ from math import hypot, isfinite
 from typing import Any, Iterable, Mapping, Sequence
 
 from services.visualization_render_model import RenderPrimitive, VisualizationRenderModel
+from services.visualization_spatial_index import VisualizationSpatialIndex
 
 
 _SUPPORTED_KINDS = frozenset({"polyline", "rectangle", "line", "text"})
@@ -136,6 +137,7 @@ class VisualizationHitTestingEngine:
         self,
         model: VisualizationRenderModel | Mapping[str, Any],
         query: HitTestQuery,
+        spatial_index: VisualizationSpatialIndex | None = None,
     ) -> HitTestResponse:
         if not query.valid:
             raise ValueError("hit-test query is invalid")
@@ -151,7 +153,16 @@ class VisualizationHitTestingEngine:
         inspected = 0
         candidates = 0
 
-        for primitive in render_model.primitives:
+        if spatial_index is not None:
+            if not spatial_index.compatible_with(render_model):
+                raise ValueError("spatial index is not compatible with render model")
+            primitive_indexes = spatial_index.query_point(query.x, query.y, query.tolerance)
+            diagnostics.append("hit_test_spatial_index_used")
+        else:
+            primitive_indexes = range(len(render_model.primitives))
+
+        for primitive_index in primitive_indexes:
+            primitive = render_model.primitives[primitive_index]
             inspected += 1
             if not query.include_hidden and not primitive.visible:
                 continue
