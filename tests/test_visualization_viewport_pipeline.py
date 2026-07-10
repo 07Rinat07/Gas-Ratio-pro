@@ -257,3 +257,63 @@ def test_viewport_cache_exposes_metrics() -> None:
     assert stats["hits"] == 1
     assert stats["misses"] == 1
     assert stats["invalidations"] == 0
+
+
+def test_prefetch_populates_neighboring_viewports_without_rendering() -> None:
+    pipeline = VisualizationViewportPipeline()
+    payload = _payload()
+    payload["viewport_prefetch"] = True
+
+    result = pipeline.run(payload, _viewport(1003.0, 1007.0))
+
+    stats = result.payload["viewport_pipeline"]["cache_stats"]
+    assert stats["prefetches"] == 2
+    assert stats["entries"] == 3
+    assert len(result.payload["viewport_pipeline"]["prefetch_keys"]) == 2
+
+
+def test_prefetched_neighbor_becomes_payload_cache_hit() -> None:
+    pipeline = VisualizationViewportPipeline()
+    current = _viewport(1003.0, 1007.0)
+    payload = _payload()
+    payload["viewport_prefetch"] = True
+    pipeline.run(payload, current)
+
+    neighbor = current.pan_domain(current.domain_span * 0.75)
+    result = pipeline.run(payload, neighbor)
+
+    assert result.profile.cache_hit is True
+
+
+def test_prefetch_can_be_disabled() -> None:
+    payload = _payload()
+    payload["viewport_prefetch"] = False
+    pipeline = VisualizationViewportPipeline()
+
+    result = pipeline.run(payload, _viewport())
+
+    stats = result.payload["viewport_pipeline"]["cache_stats"]
+    assert stats["prefetches"] == 0
+    assert stats["entries"] == 1
+    assert result.payload["viewport_pipeline"]["prefetch_keys"] == []
+
+
+def test_prefetch_respects_domain_limits_and_skips_duplicate_viewport() -> None:
+    pipeline = VisualizationViewportPipeline()
+    viewport = _viewport(1000.0, 1004.0)
+    payload = _payload()
+    payload["viewport_prefetch"] = True
+
+    result = pipeline.run(payload, viewport)
+
+    stats = result.payload["viewport_pipeline"]["cache_stats"]
+    assert stats["prefetch_skips"] >= 1
+
+
+def test_prefetch_rejects_invalid_distance_ratio() -> None:
+    payload = _payload()
+    payload["viewport_prefetch"] = {"distance_ratio": 0}
+
+    import pytest
+    with pytest.raises(ValueError, match="distance_ratio"):
+        VisualizationViewportPipeline().run(payload, _viewport())

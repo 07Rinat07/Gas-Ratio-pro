@@ -107,6 +107,11 @@ class VisualizationViewportPayloadCache:
         self.misses = 0
         self.evictions = 0
         self.invalidations = 0
+        self.prefetches = 0
+        self.prefetch_skips = 0
+
+    def contains(self, key: str) -> bool:
+        return key in self._items
 
     def get(self, key: str) -> tuple[dict[str, Any], ViewportPipelineProfile] | None:
         item = self._items.get(key)
@@ -179,6 +184,8 @@ class VisualizationViewportPayloadCache:
             "misses": self.misses,
             "evictions": self.evictions,
             "invalidations": self.invalidations,
+            "prefetches": self.prefetches,
+            "prefetch_skips": self.prefetch_skips,
         }
 
     def __len__(self) -> int:
@@ -238,12 +245,17 @@ class VisualizationViewportPipeline:
                 cache_entries=len(self.payload_cache),
             )
 
+        prefetch_keys: list[str] = []
+        if cache_enabled:
+            prefetch_keys = self.prefetch_neighbors(payload, resolved)
+
         prepared["viewport_pipeline"] = {
             "cache_key": cache_key,
             "cache_hit": profile.cache_hit,
             "cache_enabled": cache_enabled,
             "source_fingerprint": source_fingerprint,
             "render_fingerprint": render_fingerprint,
+            "prefetch_keys": prefetch_keys,
             "cache_stats": self.payload_cache.stats(),
         }
         result = self.pipeline.run(prepared)
@@ -312,6 +324,61 @@ class VisualizationViewportPipeline:
             else self.render_fingerprint(payload_or_fingerprint)
         )
         return self.payload_cache.invalidate_render_config(fingerprint)
+
+    def prefetch_neighbors(
+        self,
+        payload: Mapping[str, Any],
+        viewport: InteractiveViewport,
+    ) -> list[str]:
+        """Prepare adjacent viewport payloads without building render models.
+
+        Prefetch is intentionally limited to the payload cache. Exact scene and
+        render-model generation still occurs on demand, preserving predictable
+        memory use while avoiding repeated LAS clipping during pan operations.
+        """
+        config = payload.get("viewport_prefetch", False)
+        if config is False:
+            return []
+        options = dict(config) if isinstance(config, Mapping) else {}
+        enabled = bool(options.get("enabled", True))
+        if not enabled:
+            return []
+
+        distance_ratio = _optional_finite(options.get("distance_ratio", 0.75))
+        if distance_ratio is None or distance_ratio <= 0:
+            raise ValueError("viewport_prefetch.distance_ratio must be positive")
+        directions_value = options.get("directions", ("previous", "next"))
+        directions = tuple(str(item) for item in directions_value) if isinstance(
+            directions_value, (list, tuple)
+        ) else ("previous", "next")
+
+        source_fingerprint = self.source_fingerprint(payload)
+        render_fingerprint = self.render_fingerprint(payload)
+        stored: list[str] = []
+        deltas = {"previous": -viewport.domain_span * distance_ratio,
+                  "next": viewport.domain_span * distance_ratio}
+        for direction in directions:
+            if direction not in deltas:
+                continue
+            neighbor = viewport.pan_domain(deltas[direction])
+            if neighbor == viewport:
+                self.payload_cache.prefetch_skips += 1
+                continue
+            key = self.cache_key(payload, neighbor)
+            if self.payload_cache.contains(key):
+                self.payload_cache.prefetch_skips += 1
+                continue
+            prepared, profile = self.prepare_payload(payload, neighbor)
+            self.payload_cache.put(
+                key,
+                prepared,
+                profile,
+                source_fingerprint=source_fingerprint,
+                render_fingerprint=render_fingerprint,
+            )
+            self.payload_cache.prefetches += 1
+            stored.append(key)
+        return stored
 
     def prepare_payload(
         self,
