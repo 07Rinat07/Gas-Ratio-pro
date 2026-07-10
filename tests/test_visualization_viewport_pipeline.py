@@ -612,3 +612,73 @@ def test_pipeline_exposes_stabilized_prefetch_telemetry() -> None:
     assert queue["distance_holds"] == 1
     assert queue["telemetry_updates"] == 0
     assert queue["smoothed_prefetch_hit_rate_ppm"] == 0
+
+
+def test_adaptive_prefetch_distance_respects_adjustment_cooldown() -> None:
+    from services.visualization_viewport_pipeline import VisualizationViewportPrefetchScheduler
+
+    scheduler = VisualizationViewportPrefetchScheduler()
+    first = scheduler.adaptive_distance_ratio(
+        {"prefetch_hits": 8, "prefetch_wasted": 2},
+        adjustment_cooldown_windows=1,
+    )
+    held = scheduler.adaptive_distance_ratio(
+        {"prefetch_hits": 16, "prefetch_wasted": 4},
+        adjustment_cooldown_windows=1,
+    )
+    third = scheduler.adaptive_distance_ratio(
+        {"prefetch_hits": 24, "prefetch_wasted": 6},
+        adjustment_cooldown_windows=1,
+    )
+
+    assert first == 0.9375
+    assert held == first
+    assert third > held
+    assert scheduler.stats()["cooldown_holds"] == 1
+
+
+def test_adaptive_prefetch_distance_requires_reverse_confirmation() -> None:
+    from services.visualization_viewport_pipeline import VisualizationViewportPrefetchScheduler
+
+    scheduler = VisualizationViewportPrefetchScheduler()
+    expanded = scheduler.adaptive_distance_ratio(
+        {"prefetch_hits": 8, "prefetch_wasted": 0},
+        smoothing=1.0,
+        adjustment_cooldown_windows=0,
+        reversal_confirmation_windows=2,
+    )
+    held = scheduler.adaptive_distance_ratio(
+        {"prefetch_hits": 8, "prefetch_wasted": 8},
+        smoothing=1.0,
+        adjustment_cooldown_windows=0,
+        reversal_confirmation_windows=2,
+    )
+    shrunk = scheduler.adaptive_distance_ratio(
+        {"prefetch_hits": 8, "prefetch_wasted": 16},
+        smoothing=1.0,
+        adjustment_cooldown_windows=0,
+        reversal_confirmation_windows=2,
+    )
+
+    assert held == expanded
+    assert shrunk < held
+    assert scheduler.stats()["reversal_holds"] == 1
+    assert scheduler.stats()["last_distance_direction"] == "shrink"
+
+
+def test_pipeline_exposes_prefetch_anti_oscillation_metrics() -> None:
+    pipeline = VisualizationViewportPipeline()
+    payload = _payload()
+    payload["viewport_prefetch"] = {
+        "adaptive_distance": True,
+        "process_limit": 1,
+        "adjustment_cooldown_windows": 2,
+        "reversal_confirmation_windows": 3,
+    }
+
+    result = pipeline.run(payload, _viewport(1003.0, 1007.0))
+    queue = result.payload["viewport_pipeline"]["prefetch_queue"]
+
+    assert queue["cooldown_holds"] == 0
+    assert queue["reversal_holds"] == 0
+    assert queue["last_distance_direction"] == ""

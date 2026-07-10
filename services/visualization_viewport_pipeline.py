@@ -249,6 +249,12 @@ class VisualizationViewportPrefetchScheduler:
         self._telemetry_initialized = False
         self._observed_prefetch_hits = 0
         self._observed_prefetch_wasted = 0
+        self._telemetry_windows_since_adjustment = 0
+        self._last_distance_direction = ""
+        self._pending_reverse_direction = ""
+        self._pending_reverse_windows = 0
+        self.cooldown_holds = 0
+        self.reversal_holds = 0
 
     def begin_navigation(self) -> int:
         self.cancelled += len(self._pending)
@@ -352,6 +358,8 @@ class VisualizationViewportPrefetchScheduler:
         smoothing: float = 0.35,
         shrink_threshold: float = 0.20,
         expand_threshold: float = 0.60,
+        adjustment_cooldown_windows: int = 1,
+        reversal_confirmation_windows: int = 2,
     ) -> float:
         """Tune prefetch distance from stable telemetry windows.
 
@@ -367,12 +375,18 @@ class VisualizationViewportPrefetchScheduler:
         shrink = float(shrink_threshold)
         expand = float(expand_threshold)
         sample_floor = int(minimum_samples)
+        cooldown_windows = int(adjustment_cooldown_windows)
+        reverse_windows = int(reversal_confirmation_windows)
         if not all(isfinite(value) for value in (base, lower, upper, alpha, shrink, expand)):
             raise ValueError("prefetch distance settings must be finite")
         if lower <= 0 or upper < lower or base <= 0:
             raise ValueError("invalid prefetch distance ratio bounds")
         if sample_floor < 1:
             raise ValueError("minimum_samples must be positive")
+        if cooldown_windows < 0:
+            raise ValueError("adjustment_cooldown_windows must not be negative")
+        if reverse_windows < 1:
+            raise ValueError("reversal_confirmation_windows must be positive")
         if not 0.0 < alpha <= 1.0:
             raise ValueError("smoothing must be in the range (0, 1]")
         if not 0.0 <= shrink < expand <= 1.0:
@@ -405,12 +419,44 @@ class VisualizationViewportPrefetchScheduler:
                 self.smoothed_prefetch_hit_rate = observed_rate
                 self._telemetry_initialized = True
             self.telemetry_updates += 1
+            self._telemetry_windows_since_adjustment += 1
+            direction = ""
             if self.smoothed_prefetch_hit_rate >= expand:
-                ratio = min(upper, ratio * 1.25)
+                direction = "expand"
             elif self.smoothed_prefetch_hit_rate <= shrink:
-                ratio = max(lower, ratio * 0.75)
-            else:
+                direction = "shrink"
+
+            if not direction:
+                self._pending_reverse_direction = ""
+                self._pending_reverse_windows = 0
                 self.distance_holds += 1
+            elif (
+                self.last_distance_ratio > 0.0
+                and self._telemetry_windows_since_adjustment <= cooldown_windows
+            ):
+                self.cooldown_holds += 1
+                self.distance_holds += 1
+            elif self._last_distance_direction and direction != self._last_distance_direction:
+                if self._pending_reverse_direction == direction:
+                    self._pending_reverse_windows += 1
+                else:
+                    self._pending_reverse_direction = direction
+                    self._pending_reverse_windows = 1
+                if self._pending_reverse_windows < reverse_windows:
+                    self.reversal_holds += 1
+                    self.distance_holds += 1
+                else:
+                    ratio = min(upper, ratio * 1.25) if direction == "expand" else max(lower, ratio * 0.75)
+                    self._last_distance_direction = direction
+                    self._pending_reverse_direction = ""
+                    self._pending_reverse_windows = 0
+                    self._telemetry_windows_since_adjustment = 0
+            else:
+                ratio = min(upper, ratio * 1.25) if direction == "expand" else max(lower, ratio * 0.75)
+                self._last_distance_direction = direction
+                self._pending_reverse_direction = ""
+                self._pending_reverse_windows = 0
+                self._telemetry_windows_since_adjustment = 0
         else:
             self.distance_holds += 1
 
@@ -434,6 +480,9 @@ class VisualizationViewportPrefetchScheduler:
             "distance_adjustments": self.distance_adjustments,
             "distance_holds": self.distance_holds,
             "telemetry_updates": self.telemetry_updates,
+            "cooldown_holds": self.cooldown_holds,
+            "reversal_holds": self.reversal_holds,
+            "last_distance_direction": self._last_distance_direction,
             "smoothed_prefetch_hit_rate_ppm": int(
                 1_000_000 * self.smoothed_prefetch_hit_rate
             ),
@@ -616,6 +665,8 @@ class VisualizationViewportPipeline:
                 smoothing=float(options.get("telemetry_smoothing", 0.35)),
                 shrink_threshold=float(options.get("shrink_hit_rate", 0.20)),
                 expand_threshold=float(options.get("expand_hit_rate", 0.60)),
+                adjustment_cooldown_windows=int(options.get("adjustment_cooldown_windows", 1)),
+                reversal_confirmation_windows=int(options.get("reversal_confirmation_windows", 2)),
             )
 
         process_limit_value = options.get("process_limit")
