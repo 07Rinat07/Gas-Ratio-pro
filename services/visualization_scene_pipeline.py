@@ -22,6 +22,10 @@ from services.visualization_axis_grid import (
     VisualizationAxisGridEngine,
     VisualizationAxisGridModel,
 )
+from services.visualization_track_engine import (
+    VisualizationTrackCollection,
+    VisualizationTrackEngine,
+)
 from services.visualization_render_model import (
     VisualizationRenderModel,
     VisualizationRenderModelBuilder,
@@ -64,6 +68,7 @@ class VisualizationScenePipelineResult:
     scene: VisualizationScene = field(default_factory=VisualizationScene)
     layout: VisualizationLayout = field(default_factory=VisualizationLayout)
     axis_grid: VisualizationAxisGridModel = field(default_factory=VisualizationAxisGridModel)
+    track_model: VisualizationTrackCollection = field(default_factory=VisualizationTrackCollection)
     render_model: VisualizationRenderModel = field(default_factory=VisualizationRenderModel)
     validation: dict[str, Any] = field(default_factory=dict)
     stages: tuple[str, ...] = field(default_factory=tuple)
@@ -81,6 +86,7 @@ class VisualizationScenePipelineResult:
             "scene": self.scene.to_dict(),
             "layout": self.layout.to_dict(),
             "axis_grid": self.axis_grid.to_dict(),
+            "track_model": self.track_model.to_dict(),
             "render_model": self.render_model.to_dict(),
             "validation": dict(self.validation),
             "stages": list(self.stages),
@@ -159,6 +165,20 @@ class AxisGridBuilder:
         return self.engine.build(scene.to_dict(), layout.to_dict())
 
 
+class TrackModelBuilder:
+    """Resolve ordered visible tracks and shared viewport state."""
+
+    def __init__(self, engine: VisualizationTrackEngine | None = None) -> None:
+        self.engine = engine or VisualizationTrackEngine()
+
+    def build(
+        self,
+        scene: VisualizationScene,
+        layout: VisualizationLayout,
+    ) -> VisualizationTrackCollection:
+        return self.engine.build(scene.to_dict(), layout.to_dict())
+
+
 class RenderModelBuilder:
     """Create renderer-neutral primitives from scene and layout contracts."""
 
@@ -170,8 +190,14 @@ class RenderModelBuilder:
         scene: VisualizationScene,
         layout: VisualizationLayout,
         axis_grid: VisualizationAxisGridModel,
+        track_model: VisualizationTrackCollection,
     ) -> VisualizationRenderModel:
-        return self.builder.build(scene.to_dict(), layout.to_dict(), axis_grid.to_dict())
+        return self.builder.build(
+            scene.to_dict(),
+            layout.to_dict(),
+            axis_grid.to_dict(),
+            track_model.to_dict(),
+        )
 
 
 class SceneValidator:
@@ -203,7 +229,7 @@ class SceneValidator:
 class VisualizationScenePipeline:
     """Run the renderer-neutral visualization scene pipeline."""
 
-    STAGES = ("domain_model", "context", "scene", "layout", "axis_grid", "render_model", "validation")
+    STAGES = ("domain_model", "context", "scene", "layout", "axis_grid", "track_model", "render_model", "validation")
 
     def __init__(
         self,
@@ -212,6 +238,7 @@ class VisualizationScenePipeline:
         scene_builder: SceneBuilder | None = None,
         layout_builder: LayoutBuilder | None = None,
         axis_grid_builder: AxisGridBuilder | None = None,
+        track_model_builder: TrackModelBuilder | None = None,
         render_model_builder: RenderModelBuilder | None = None,
         validator: SceneValidator | None = None,
     ) -> None:
@@ -220,6 +247,7 @@ class VisualizationScenePipeline:
         self.scene_builder = scene_builder or SceneBuilder()
         self.layout_builder = layout_builder or LayoutBuilder()
         self.axis_grid_builder = axis_grid_builder or AxisGridBuilder()
+        self.track_model_builder = track_model_builder or TrackModelBuilder()
         self.render_model_builder = render_model_builder or RenderModelBuilder()
         self.validator = validator or SceneValidator()
 
@@ -229,11 +257,14 @@ class VisualizationScenePipeline:
         scene = self.scene_builder.build(context)
         layout = self.layout_builder.build(scene)
         axis_grid = self.axis_grid_builder.build(scene, layout)
-        render_model = self.render_model_builder.build(scene, layout, axis_grid)
+        track_model = self.track_model_builder.build(scene, layout)
+        render_model = self.render_model_builder.build(scene, layout, axis_grid, track_model)
         validation = self.validator.validate(context, scene, layout)
         validation["axis_grid_ok"] = axis_grid.ok
         validation["axis_count"] = len(axis_grid.axes)
         validation["grid_line_count"] = len(axis_grid.grid_lines)
+        validation["track_model_ok"] = track_model.ok
+        validation["visible_track_count"] = len(track_model.visible_tracks)
         validation["render_model_ok"] = render_model.ok
         validation["render_primitive_count"] = len(render_model.primitives)
         return VisualizationScenePipelineResult(
@@ -242,6 +273,7 @@ class VisualizationScenePipeline:
             scene=scene,
             layout=layout,
             axis_grid=axis_grid,
+            track_model=track_model,
             render_model=render_model,
             validation=validation,
             stages=self.STAGES,

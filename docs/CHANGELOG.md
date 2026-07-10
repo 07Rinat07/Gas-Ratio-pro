@@ -1108,3 +1108,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added printable major/minor grid and axis label primitives to Render Model.
 - Added the `axis_grid` stage to Visualization Scene Pipeline.
 - Added regression tests for linear, logarithmic and invalid-axis scenarios.
+
+## v82
+- Added renderer-neutral Visualization Track Engine contracts.
+- Added ordered track models with visibility, printable, pinned and grouping state.
+- Added track/header/axis/plot region contracts and shared depth viewports.
+- Added the `track_model` stage to Visualization Scene Pipeline.
+- Connected Render Model metadata and visible-track filtering to Track Model.
+- Added regression tests for ordering, visibility fallback and empty contracts.

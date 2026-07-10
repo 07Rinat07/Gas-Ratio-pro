@@ -119,11 +119,15 @@ class VisualizationRenderModelBuilder:
         scene: Mapping[str, Any],
         layout: Mapping[str, Any],
         axis_grid: Mapping[str, Any] | None = None,
+        track_model: Mapping[str, Any] | None = None,
     ) -> VisualizationRenderModel:
         width = int(_positive_float(layout.get("width"), 360))
         height = int(_positive_float(layout.get("height"), 180))
         scene_tracks = _mapping_list(scene.get("tracks"))
         layout_tracks = _mapping_list(layout.get("tracks"))
+        track_model_payload = dict(track_model or {})
+        managed_tracks = _mapping_list(track_model_payload.get("tracks"))
+        managed_by_id = {str(item.get("id") or ""): item for item in managed_tracks}
         source_layers = _mapping_list(scene.get("layers"))
         diagnostics: list[str] = []
         clips: list[RenderClipRegion] = []
@@ -156,6 +160,9 @@ class VisualizationRenderModelBuilder:
             for index, track_layout in enumerate(layout_tracks):
                 track_id = str(track_layout.get("id") or f"track.{index}")
                 scene_track = _mapping(scene_by_id.get(track_id))
+                managed_track = _mapping(managed_by_id.get(track_id))
+                if managed_tracks and not bool(managed_track.get("visible", False)):
+                    continue
                 bounds = _mapping(track_layout.get("bounds"))
                 plot_bounds = _mapping(track_layout.get("plot_bounds"))
                 header_bounds = _mapping(track_layout.get("header_bounds"))
@@ -170,7 +177,7 @@ class VisualizationRenderModelBuilder:
                     )
                 )
                 style = _mapping(scene_track.get("style"))
-                title = str(track_layout.get("title") or scene_track.get("title") or track_id)
+                title = str(managed_track.get("title") or track_layout.get("title") or scene_track.get("title") or track_id)
                 x = _float(bounds.get("x"))
                 y = _float(bounds.get("y"))
                 track_width = _non_negative_float(bounds.get("width"))
@@ -235,6 +242,8 @@ class VisualizationRenderModelBuilder:
         pending_layers = [layer for layer in source_layers if str(layer.get("kind") or "") in {"curve", "interval_overlay"}]
         if pending_layers:
             diagnostics.append(f"render_model_pending_source_layers:{len(pending_layers)}")
+        if track_model_payload:
+            diagnostics.extend(str(item) for item in _sequence(track_model_payload.get("issues")) if str(item))
         if scene_tracks and len(layout_tracks) != len(scene_tracks):
             diagnostics.append(
                 f"render_model_track_count_mismatch:{len(scene_tracks)}:{len(layout_tracks)}"
@@ -259,10 +268,13 @@ class VisualizationRenderModelBuilder:
                 "clip_region_count": len(ordered_clips),
                 "raw_dataframe_included": False,
                 "ui_objects_included": False,
-                "foundation_scope": "canvas_track_axis_grid",
+                "foundation_scope": "canvas_track_axis_grid_track_engine",
                 "axis_count": len(_mapping_list(axis_grid_payload.get("axes"))),
                 "grid_line_count": len(_mapping_list(axis_grid_payload.get("grid_lines"))),
                 "axis_grid_ok": bool(axis_grid_payload.get("ok", False)),
+                "track_model_ok": bool(track_model_payload.get("ok", False)) if track_model_payload else False,
+                "visible_track_count": len(_sequence(track_model_payload.get("visible_track_ids"))) if track_model_payload else len(layout_tracks),
+                "active_track_id": str(track_model_payload.get("active_track_id") or ""),
             },
         )
 

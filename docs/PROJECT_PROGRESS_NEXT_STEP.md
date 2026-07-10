@@ -378,3 +378,23 @@ Completed:
 
 Next step:
 Implement Track and Curve primitives in Render Model, including polyline geometry, clipping, NaN gaps and interval overlay rectangles. Then migrate the SVG renderer to consume Render Model only.
+
+## V82 Visualization Track Engine
+
+Completed:
+- Added `services/visualization_track_engine.py`.
+- Added stable ordered track collection and per-track region contracts.
+- Added renderer-neutral visibility, printable, pinned, group and active-track state.
+- Added shared depth viewport metadata for every visible track.
+- Added `track_model` between Axis/Grid and Render Model in the scene pipeline.
+- Render Model now consumes Track Model visibility and exposes track-engine metadata.
+
+Current pipeline:
+
+```text
+Domain Model -> Scene -> Layout -> Axis/Grid -> Track Model -> Render Model -> Renderer
+```
+
+Next step:
+Move curve polylines and interval overlay rectangles into Render Model primitives.
+After that, the SVG renderer can be migrated to consume Render Model only.
