@@ -118,3 +118,45 @@ def test_cache_supports_targeted_invalidation() -> None:
     assert engine.invalidate(key) is True
     assert engine.lookup(key) is None
     assert engine.invalidate(key) is False
+
+
+def test_render_model_cache_enforces_serialized_byte_budget() -> None:
+    cache = VisualizationRenderModelCache(capacity=10, max_bytes=80)
+
+    assert cache.put("a", {"payload": "x" * 30}) is True
+    assert cache.put("b", {"payload": "y" * 30}) is True
+
+    stats = cache.stats()
+    assert stats["bytes"] <= stats["max_bytes"]
+    assert stats["evictions"] >= 1
+    assert len(cache) == 1
+
+
+def test_render_model_cache_rejects_single_oversized_entry() -> None:
+    cache = VisualizationRenderModelCache(capacity=4, max_bytes=32)
+
+    assert cache.put("too-large", {"payload": "x" * 100}) is False
+    assert cache.get("too-large") is None
+    assert cache.stats()["rejections"] == 1
+    assert cache.current_bytes == 0
+
+
+def test_performance_profile_exposes_cache_observability_metrics() -> None:
+    cache = VisualizationRenderModelCache(capacity=2, max_bytes=2048)
+    engine = VisualizationPerformanceEngine(cache)
+    key = engine.cache_key({"scene": 1})
+    assert engine.lookup(key) is None
+    assert engine.store(key, {"primitives": []}) is True
+    assert engine.lookup(key) is not None
+
+    profile = engine.profile(
+        key=key,
+        cache_hit=True,
+        scene={"layers": []},
+        render_model={"primitives": []},
+    ).to_dict()
+
+    assert profile["cache_hits"] == 1
+    assert profile["cache_misses"] == 1
+    assert profile["cache_bytes"] > 0
+    assert profile["cache_max_bytes"] == 2048
