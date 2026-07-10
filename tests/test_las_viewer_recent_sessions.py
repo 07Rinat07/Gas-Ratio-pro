@@ -863,3 +863,69 @@ def test_removing_recent_session_cleans_bookmark_metadata(tmp_path):
     repository.save(_session("clean-bookmark.las"))
 
     assert service.bookmarks() == ()
+
+
+def test_recent_session_bookmarks_support_folders(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("gamma.las"))
+    repository.save(_session("density.las"))
+    service = LasViewerRecentSessions(repository)
+    items = {item.las_id: item for item in service.list(limit=10)}
+
+    service.set_bookmark(items["gamma.las"].session_key, label="Gamma", folder="Primary")
+    service.set_bookmark(items["density.las"].session_key, label="Density", folder="Secondary")
+
+    assert [item.label for item in service.bookmarks(folder="Primary")] == ["Gamma"]
+    assert service.bookmark_folders() == ("Primary", "Secondary")
+
+
+def test_recent_session_bookmarks_sort_by_manual_position(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las"))
+    repository.save(_session("b.las"))
+    service = LasViewerRecentSessions(repository)
+    items = {item.las_id: item for item in service.list(limit=10)}
+
+    service.set_bookmark(items["a.las"].session_key, label="A", position=20)
+    service.set_bookmark(items["b.las"].session_key, label="B", position=10)
+
+    assert [item.label for item in service.bookmarks()] == ["B", "A"]
+
+
+def test_recent_session_bookmarks_sort_by_label_descending(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("alpha.las"))
+    repository.save(_session("zeta.las"))
+    service = LasViewerRecentSessions(repository)
+    items = {item.las_id: item for item in service.list(limit=10)}
+
+    service.set_bookmark(items["alpha.las"].session_key, label="Alpha")
+    service.set_bookmark(items["zeta.las"].session_key, label="Zeta")
+
+    assert [item.label for item in service.bookmarks(sort_by="label", sort_order="desc")] == ["Zeta", "Alpha"]
+
+
+def test_recent_session_bookmark_folder_and_position_are_persistent(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("persist-folder.las"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+    service.set_bookmark(item.session_key, label="Persistent", folder="Field A", position=7)
+
+    restored = LasViewerRecentSessions(repository).bookmarks()[0]
+
+    assert restored.folder == "Field A"
+    assert restored.position == 7
+    assert restored.to_dict()["version"] == "1.1"
+
+
+def test_recent_session_bookmarks_reject_invalid_sort_options(tmp_path):
+    service = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path))
+
+    for kwargs in ({"sort_by": "unknown"}, {"sort_order": "sideways"}):
+        try:
+            service.bookmarks(**kwargs)
+        except ValueError as exc:
+            assert "sort" in str(exc)
+        else:
+            raise AssertionError("ValueError expected")

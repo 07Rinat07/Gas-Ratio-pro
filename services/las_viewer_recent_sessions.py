@@ -311,13 +311,17 @@ class LasViewerRecentSessionBookmark:
 
     session_key: str
     label: str
+    folder: str = ""
+    position: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return {
             "schema": "las.viewer.recent-session-bookmark",
-            "version": "1.0",
+            "version": "1.1",
             "session_key": self.session_key,
             "label": self.label,
+            "folder": self.folder,
+            "position": self.position,
             "renderer_neutral": True,
         }
 
@@ -876,21 +880,54 @@ class LasViewerRecentSessions:
 
 
 
-    def bookmarks(self) -> tuple[LasViewerRecentSessionBookmark, ...]:
-        """Return persistent named shortcuts for existing recent sessions."""
+    def bookmarks(
+        self,
+        *,
+        folder: str | None = None,
+        sort_by: str = "position",
+        sort_order: str = "asc",
+    ) -> tuple[LasViewerRecentSessionBookmark, ...]:
+        """Return persistent shortcuts, optionally filtered by folder and sorted."""
+        normalized_sort = str(sort_by or "position").strip().lower()
+        normalized_order = str(sort_order or "asc").strip().lower()
+        if normalized_sort not in {"position", "label", "folder"}:
+            raise ValueError("sort_by must be one of: position, label, folder")
+        if normalized_order not in {"asc", "desc"}:
+            raise ValueError("sort_order must be either asc or desc")
         known = {item.session_key for item in self.list(limit=max(1, len(self.repository.entries()) or 1), include_invalid=True)}
         raw = self._load_bookmarks()
-        return tuple(
-            LasViewerRecentSessionBookmark(session_key=key, label=raw[key])
-            for key in sorted(raw, key=lambda item: (raw[item].casefold(), item))
+        items = [
+            LasViewerRecentSessionBookmark(
+                session_key=key,
+                label=str(value.get("label", "")),
+                folder=str(value.get("folder", "")),
+                position=int(value.get("position", 0)),
+            )
+            for key, value in raw.items()
             if key in known
-        )
+        ]
+        if folder is not None:
+            normalized_folder = str(folder or "").strip()
+            items = [item for item in items if item.folder == normalized_folder]
+        key_functions = {
+            "position": lambda item: (item.position, item.label.casefold(), item.session_key),
+            "label": lambda item: (item.label.casefold(), item.folder.casefold(), item.session_key),
+            "folder": lambda item: (item.folder.casefold(), item.position, item.label.casefold(), item.session_key),
+        }
+        items.sort(key=key_functions[normalized_sort], reverse=normalized_order == "desc")
+        return tuple(items)
+
+    def bookmark_folders(self) -> tuple[str, ...]:
+        """Return normalized non-empty bookmark folders in deterministic order."""
+        return tuple(sorted({item.folder for item in self.bookmarks() if item.folder}, key=str.casefold))
 
     def set_bookmark(
         self,
         session_key: str,
         *,
         label: str = "",
+        folder: str = "",
+        position: int | None = None,
     ) -> LasViewerRecentSessionBookmarkResult:
         """Create or rename a persistent shortcut to a recent LAS session."""
         key = str(session_key or "").strip()
@@ -902,8 +939,21 @@ class LasViewerRecentSessions:
             return LasViewerRecentSessionBookmarkResult(False, session_key=key, reason="missing_recent_session")
         normalized_label = str(label or "").strip() or item.las_id or item.filename
         bookmarks = self._load_bookmarks()
-        changed = bookmarks.get(key) != normalized_label
-        bookmarks[key] = normalized_label
+        previous = bookmarks.get(key, {})
+        normalized_folder = str(folder or "").strip()
+        if position is None:
+            normalized_position = int(previous.get("position", len(bookmarks)))
+        else:
+            normalized_position = int(position)
+            if normalized_position < 0:
+                raise ValueError("position must be >= 0")
+        updated = {
+            "label": normalized_label,
+            "folder": normalized_folder,
+            "position": normalized_position,
+        }
+        changed = previous != updated
+        bookmarks[key] = updated
         if changed:
             self._save_preferences(
                 pinned_keys=self._load_pinned_keys(),
@@ -924,9 +974,10 @@ class LasViewerRecentSessions:
         if not key:
             return LasViewerRecentSessionBookmarkResult(False, reason="missing_session_key")
         bookmarks = self._load_bookmarks()
-        label = bookmarks.pop(key, "")
-        if not label:
+        removed = bookmarks.pop(key, None)
+        if removed is None:
             return LasViewerRecentSessionBookmarkResult(False, session_key=key, reason="missing_bookmark")
+        label = str(removed.get("label", ""))
         self._save_preferences(
             pinned_keys=self._load_pinned_keys(),
             collapsed_groups=self._load_collapsed_groups(),
@@ -1199,16 +1250,36 @@ class LasViewerRecentSessions:
         return {str(value).strip() for value in raw if str(value).strip()}
 
 
-    def _load_bookmarks(self) -> dict[str, str]:
+    def _load_bookmarks(self) -> dict[str, dict[str, object]]:
         payload = self._load_preferences()
         raw = payload.get("bookmarks", {})
         if not isinstance(raw, dict):
             return {}
-        return {
-            str(key).strip(): str(value).strip()
-            for key, value in raw.items()
-            if str(key).strip() and str(value).strip()
-        }
+        result: dict[str, dict[str, object]] = {}
+        for index, (key, value) in enumerate(raw.items()):
+            normalized_key = str(key).strip()
+            if not normalized_key:
+                continue
+            if isinstance(value, str):
+                label = value.strip()
+                if label:
+                    result[normalized_key] = {"label": label, "folder": "", "position": index}
+                continue
+            if not isinstance(value, dict):
+                continue
+            label = str(value.get("label", "")).strip()
+            if not label:
+                continue
+            try:
+                position = max(0, int(value.get("position", index)))
+            except (TypeError, ValueError):
+                position = index
+            result[normalized_key] = {
+                "label": label,
+                "folder": str(value.get("folder", "") or "").strip(),
+                "position": position,
+            }
+        return result
 
     def _load_collapsed_groups(self) -> set[str]:
         payload = self._load_preferences()
@@ -1232,12 +1303,12 @@ class LasViewerRecentSessions:
         collapsed_groups: set[str],
         navigation_state: LasViewerRecentSessionNavigationState | None = None,
         navigation_history: LasViewerRecentSessionNavigationHistory | None = None,
-        bookmarks: dict[str, str] | None = None,
+        bookmarks: dict[str, dict[str, object]] | None = None,
     ) -> None:
         self.repository.directory.mkdir(parents=True, exist_ok=True)
         payload = {
             "schema": "las.viewer.recent-session-preferences",
-            "version": "1.4",
+            "version": "1.5",
             "pinned_session_keys": sorted(pinned_keys),
             "collapsed_groups": sorted(collapsed_groups),
             "navigation_state": (navigation_state or self.navigation_state()).to_dict(),
