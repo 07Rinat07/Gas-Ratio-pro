@@ -1421,3 +1421,87 @@ def test_export_bookmark_trash_journal_writes_portable_json(tmp_path, monkeypatc
     assert loaded["schema"] == "las.viewer.recent-session-bookmark-trash-journal-export"
     assert loaded["events"][0]["session_key"] == key
     assert len(loaded["sha256"]) == 64
+
+
+def test_import_bookmark_trash_journal_restores_valid_export(tmp_path, monkeypatch):
+    source_repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source")
+    source_repository.save(_session("restore-audit.las"))
+    source = LasViewerRecentSessions(source_repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key, label="Restore")
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 987654)
+    source.remove_bookmark(key)
+    export_path = tmp_path / "audit.json"
+    source.export_bookmark_trash_journal(export_path)
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target"))
+    result = target.import_bookmark_trash_journal(export_path)
+
+    assert result["imported"] == 1
+    assert target.bookmark_trash_journal()[0].session_key == key
+
+
+def test_import_bookmark_trash_journal_rejects_tampered_export(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source")
+    repository.save(_session("tampered-audit.las"))
+    service = LasViewerRecentSessions(repository)
+    key = service.list()[0].session_key
+    service.set_bookmark(key, label="Original")
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 123)
+    service.remove_bookmark(key)
+    export_path = tmp_path / "audit.json"
+    service.export_bookmark_trash_journal(export_path)
+    payload = json.loads(export_path.read_text(encoding="utf-8"))
+    payload["events"][0]["label"] = "Changed"
+    export_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target"))
+    try:
+        target.import_bookmark_trash_journal(export_path)
+    except ValueError as exc:
+        assert "integrity" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")
+
+
+def test_import_bookmark_trash_journal_append_is_idempotent(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source")
+    repository.save(_session("duplicate-audit.las"))
+    source = LasViewerRecentSessions(repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 456)
+    source.remove_bookmark(key)
+    export_path = tmp_path / "audit.json"
+    source.export_bookmark_trash_journal(export_path)
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target"))
+    assert target.import_bookmark_trash_journal(export_path)["imported"] == 1
+    second = target.import_bookmark_trash_journal(export_path)
+    assert second["imported"] == 0
+    assert second["skipped"] == 1
+
+
+def test_import_bookmark_trash_journal_replace_discards_existing_events(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source")
+    repository.save(_session("replacement-audit.las"))
+    source = LasViewerRecentSessions(repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 789)
+    source.remove_bookmark(key)
+    export_path = tmp_path / "audit.json"
+    source.export_bookmark_trash_journal(export_path)
+
+    target_repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "target")
+    target_repository.save(_session("old-audit.las"))
+    target = LasViewerRecentSessions(target_repository)
+    old_key = target.list()[0].session_key
+    target.set_bookmark(old_key)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 790)
+    target.remove_bookmark(old_key)
+
+    target.import_bookmark_trash_journal(export_path, mode="replace")
+    events = target.bookmark_trash_journal()
+    assert len(events) == 1
+    assert events[0].session_key == key
