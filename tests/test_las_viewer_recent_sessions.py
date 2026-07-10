@@ -1553,3 +1553,101 @@ def test_merge_bookmark_trash_journals_is_transactional_on_invalid_source(tmp_pa
         raise AssertionError("ValueError expected")
 
     assert target.bookmark_trash_journal() == ()
+
+
+def test_signed_bookmark_trash_journal_import_verifies_trusted_origin(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source")
+    repository.save(_session("signed-audit.las"))
+    source = LasViewerRecentSessions(repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 900)
+    source.remove_bookmark(key)
+    export_path = tmp_path / "signed.json"
+    payload = source.export_bookmark_trash_journal(
+        export_path,
+        signer_id="workspace-a",
+        signing_key="secret-key",
+    )
+
+    assert payload["signature"]["algorithm"] == "hmac-sha256"
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target"))
+    result = target.import_bookmark_trash_journal(
+        export_path,
+        trusted_signers={"workspace-a": "secret-key"},
+        require_signature=True,
+    )
+    assert result["imported"] == 1
+
+
+def test_signed_bookmark_trash_journal_rejects_untrusted_or_wrong_key(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source")
+    repository.save(_session("signed-invalid.las"))
+    source = LasViewerRecentSessions(repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 901)
+    source.remove_bookmark(key)
+    export_path = tmp_path / "signed.json"
+    source.export_bookmark_trash_journal(export_path, signer_id="workspace-a", signing_key="correct")
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target"))
+    for trusted in ({}, {"workspace-a": "wrong"}):
+        try:
+            target.import_bookmark_trash_journal(
+                export_path,
+                trusted_signers=trusted,
+                require_signature=True,
+            )
+        except ValueError as exc:
+            assert "signer" in str(exc) or "signature" in str(exc)
+        else:
+            raise AssertionError("ValueError expected")
+
+
+def test_require_signature_rejects_legacy_unsigned_journal(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source")
+    repository.save(_session("unsigned-audit.las"))
+    source = LasViewerRecentSessions(repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 902)
+    source.remove_bookmark(key)
+    export_path = tmp_path / "unsigned.json"
+    source.export_bookmark_trash_journal(export_path)
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target"))
+    try:
+        target.import_bookmark_trash_journal(export_path, require_signature=True)
+    except ValueError as exc:
+        assert "required" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")
+
+
+def test_signed_journal_merge_is_transactional_on_signature_failure(tmp_path, monkeypatch):
+    paths = []
+    for index, signer in enumerate(("workspace-a", "workspace-b")):
+        repository = LasViewerWorkspaceAutosaveRepository(tmp_path / f"source-{index}")
+        repository.save(_session(f"signed-merge-{index}.las"))
+        source = LasViewerRecentSessions(repository)
+        key = source.list()[0].session_key
+        source.set_bookmark(key)
+        monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda value=910 + index: value)
+        source.remove_bookmark(key)
+        path = tmp_path / f"signed-{index}.json"
+        source.export_bookmark_trash_journal(path, signer_id=signer, signing_key=f"key-{index}")
+        paths.append(path)
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target"))
+    try:
+        target.merge_bookmark_trash_journals(
+            tuple(paths),
+            trusted_signers={"workspace-a": "key-0", "workspace-b": "wrong"},
+            require_signatures=True,
+        )
+    except ValueError as exc:
+        assert "signature" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")
+    assert target.bookmark_trash_journal() == ()
