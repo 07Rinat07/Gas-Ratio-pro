@@ -190,3 +190,70 @@ def test_viewport_cache_returns_isolated_payload_copy() -> None:
 
     assert second.profile.cache_hit is True
     assert len(second.payload["curves"][0]["points"]) == 4
+
+
+def test_source_change_creates_new_cache_entry() -> None:
+    pipeline = VisualizationViewportPipeline()
+    source = _payload()
+
+    first = pipeline.run(source, _viewport())
+    changed = _payload()
+    changed["curves"][0]["points"][2]["value"] = 41.0
+    second = pipeline.run(changed, _viewport())
+
+    assert first.profile.cache_key != second.profile.cache_key
+    assert second.profile.cache_hit is False
+    assert second.payload["viewport_pipeline"]["source_fingerprint"] != first.payload["viewport_pipeline"]["source_fingerprint"]
+
+
+def test_render_configuration_change_creates_new_cache_entry() -> None:
+    pipeline = VisualizationViewportPipeline()
+    first = pipeline.run(_payload(), _viewport())
+    changed = _payload()
+    changed["tracks"][0]["style"]["stroke"] = "#000000"
+
+    second = pipeline.run(changed, _viewport())
+
+    assert first.profile.cache_key != second.profile.cache_key
+    assert second.profile.cache_hit is False
+    assert second.payload["viewport_pipeline"]["render_fingerprint"] != first.payload["viewport_pipeline"]["render_fingerprint"]
+
+
+def test_invalidate_source_removes_only_matching_entries() -> None:
+    pipeline = VisualizationViewportPipeline()
+    source_a = _payload()
+    source_b = _payload()
+    source_b["las_id"] = "well-2"
+
+    pipeline.run(source_a, _viewport())
+    pipeline.run(source_b, _viewport())
+
+    assert pipeline.invalidate_source(source_a) == 1
+    assert pipeline.run(source_a, _viewport()).profile.cache_hit is False
+    assert pipeline.run(source_b, _viewport()).profile.cache_hit is True
+
+
+def test_invalidate_render_config_removes_matching_presets() -> None:
+    pipeline = VisualizationViewportPipeline()
+    source_a = _payload()
+    source_b = _payload()
+    source_b["las_id"] = "well-2"
+
+    pipeline.run(source_a, _viewport())
+    pipeline.run(source_b, _viewport())
+
+    assert pipeline.invalidate_render_config(source_a) == 2
+    assert pipeline.run(source_a, _viewport()).profile.cache_hit is False
+    assert pipeline.run(source_b, _viewport()).profile.cache_hit is False
+
+
+def test_viewport_cache_exposes_metrics() -> None:
+    pipeline = VisualizationViewportPipeline()
+    pipeline.run(_payload(), _viewport())
+    second = pipeline.run(_payload(), _viewport())
+
+    stats = second.payload["viewport_pipeline"]["cache_stats"]
+    assert stats["entries"] == 1
+    assert stats["hits"] == 1
+    assert stats["misses"] == 1
+    assert stats["invalidations"] == 0

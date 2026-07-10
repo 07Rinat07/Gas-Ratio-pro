@@ -92,28 +92,94 @@ class ViewportPipelineResult:
 
 
 class VisualizationViewportPayloadCache:
-    """Small LRU cache for prepared viewport payloads and profiles."""
+    """Small LRU cache for prepared viewport payloads and profiles.
+
+    Entries carry source and render fingerprints so callers can invalidate only
+    stale geometry while preserving unrelated wells and visualization presets.
+    """
 
     def __init__(self, capacity: int = 16) -> None:
         self.capacity = max(1, int(capacity))
-        self._items: OrderedDict[str, tuple[dict[str, Any], ViewportPipelineProfile]] = OrderedDict()
+        self._items: OrderedDict[
+            str, tuple[dict[str, Any], ViewportPipelineProfile, str, str]
+        ] = OrderedDict()
+        self.hits = 0
+        self.misses = 0
+        self.evictions = 0
+        self.invalidations = 0
 
     def get(self, key: str) -> tuple[dict[str, Any], ViewportPipelineProfile] | None:
         item = self._items.get(key)
         if item is None:
+            self.misses += 1
             return None
+        self.hits += 1
         self._items.move_to_end(key)
-        payload, profile = item
+        payload, profile, _source_fingerprint, _render_fingerprint = item
         return _deep_copy(payload), profile
 
-    def put(self, key: str, payload: Mapping[str, Any], profile: ViewportPipelineProfile) -> None:
-        self._items[key] = (_deep_copy(payload), profile)
+    def put(
+        self,
+        key: str,
+        payload: Mapping[str, Any],
+        profile: ViewportPipelineProfile,
+        *,
+        source_fingerprint: str = "",
+        render_fingerprint: str = "",
+    ) -> None:
+        self._items[key] = (
+            _deep_copy(payload),
+            profile,
+            str(source_fingerprint),
+            str(render_fingerprint),
+        )
         self._items.move_to_end(key)
         while len(self._items) > self.capacity:
             self._items.popitem(last=False)
+            self.evictions += 1
+
+    def invalidate(self, key: str) -> bool:
+        if self._items.pop(key, None) is None:
+            return False
+        self.invalidations += 1
+        return True
+
+    def invalidate_source(self, fingerprint: str) -> int:
+        return self._invalidate_matching(source_fingerprint=str(fingerprint))
+
+    def invalidate_render_config(self, fingerprint: str) -> int:
+        return self._invalidate_matching(render_fingerprint=str(fingerprint))
+
+    def _invalidate_matching(
+        self,
+        *,
+        source_fingerprint: str | None = None,
+        render_fingerprint: str | None = None,
+    ) -> int:
+        keys = [
+            key
+            for key, (_payload, _profile, source, render) in self._items.items()
+            if (source_fingerprint is None or source == source_fingerprint)
+            and (render_fingerprint is None or render == render_fingerprint)
+        ]
+        for key in keys:
+            self._items.pop(key, None)
+        self.invalidations += len(keys)
+        return len(keys)
 
     def clear(self) -> None:
+        self.invalidations += len(self._items)
         self._items.clear()
+
+    def stats(self) -> dict[str, int]:
+        return {
+            "entries": len(self._items),
+            "capacity": self.capacity,
+            "hits": self.hits,
+            "misses": self.misses,
+            "evictions": self.evictions,
+            "invalidations": self.invalidations,
+        }
 
     def __len__(self) -> int:
         return len(self._items)
@@ -141,12 +207,20 @@ class VisualizationViewportPipeline:
             else InteractiveViewport.from_dict(viewport)
         )
         cache_enabled = bool(payload.get("viewport_cache", True))
+        source_fingerprint = self.source_fingerprint(payload)
+        render_fingerprint = self.render_fingerprint(payload)
         cache_key = self.cache_key(payload, resolved)
         cached = self.payload_cache.get(cache_key) if cache_enabled else None
         if cached is None:
             prepared, profile = self.prepare_payload(payload, resolved)
             if cache_enabled:
-                self.payload_cache.put(cache_key, prepared, profile)
+                self.payload_cache.put(
+                    cache_key,
+                    prepared,
+                    profile,
+                    source_fingerprint=source_fingerprint,
+                    render_fingerprint=render_fingerprint,
+                )
             profile = replace(
                 profile,
                 cache_key=cache_key,
@@ -168,6 +242,9 @@ class VisualizationViewportPipeline:
             "cache_key": cache_key,
             "cache_hit": profile.cache_hit,
             "cache_enabled": cache_enabled,
+            "source_fingerprint": source_fingerprint,
+            "render_fingerprint": render_fingerprint,
+            "cache_stats": self.payload_cache.stats(),
         }
         result = self.pipeline.run(prepared)
         result.validation["viewport_cache_key"] = cache_key
@@ -191,6 +268,50 @@ class VisualizationViewportPipeline:
             default=str,
         ).encode("utf-8")
         return sha256(canonical).hexdigest()
+
+
+    @staticmethod
+    def source_fingerprint(payload: Mapping[str, Any]) -> str:
+        """Fingerprint source identity and data that can change visible samples."""
+        source_contract = {
+            "project_id": payload.get("project_id"),
+            "las_id": payload.get("las_id"),
+            "depth_curve": payload.get("depth_curve"),
+            "depth_unit": payload.get("depth_unit"),
+            "depth_range": payload.get("depth_range"),
+            "curves": payload.get("curves"),
+            "overlays": payload.get("overlays"),
+        }
+        return _contract_hash(source_contract)
+
+    @staticmethod
+    def render_fingerprint(payload: Mapping[str, Any]) -> str:
+        """Fingerprint rendering configuration independently from LAS samples."""
+        render_contract = {
+            "tracks": payload.get("tracks"),
+            "layout": payload.get("layout"),
+            "axis_grid": payload.get("axis_grid"),
+            "legend": payload.get("legend"),
+            "print_layout": payload.get("print_layout"),
+            "render_options": payload.get("render_options"),
+        }
+        return _contract_hash(render_contract)
+
+    def invalidate_source(self, payload_or_fingerprint: Mapping[str, Any] | str) -> int:
+        fingerprint = (
+            payload_or_fingerprint
+            if isinstance(payload_or_fingerprint, str)
+            else self.source_fingerprint(payload_or_fingerprint)
+        )
+        return self.payload_cache.invalidate_source(fingerprint)
+
+    def invalidate_render_config(self, payload_or_fingerprint: Mapping[str, Any] | str) -> int:
+        fingerprint = (
+            payload_or_fingerprint
+            if isinstance(payload_or_fingerprint, str)
+            else self.render_fingerprint(payload_or_fingerprint)
+        )
+        return self.payload_cache.invalidate_render_config(fingerprint)
 
     def prepare_payload(
         self,
@@ -345,6 +466,17 @@ def _optional_finite(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return resolved if isfinite(resolved) else None
+
+
+def _contract_hash(value: Mapping[str, Any]) -> str:
+    canonical = json.dumps(
+        dict(value),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    ).encode("utf-8")
+    return sha256(canonical).hexdigest()
 
 
 def _deep_copy(value: Any) -> Any:
