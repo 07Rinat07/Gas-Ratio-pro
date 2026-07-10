@@ -36,6 +36,7 @@ SESSION_SELECTED_INTERVALS_KEY = "workspace_session_selected_intervals"
 SESSION_ACTIVE_REPORT_KEY = "workspace_session_active_report"
 SESSION_ACTIVE_PLOT_KEY = "workspace_session_active_plot"
 SESSION_ACTIVE_OVERLAY_PRESET_KEY = "workspace_session_active_overlay_preset"
+SESSION_LAS_VIEWER_STATE_KEY = "workspace_session_las_viewer_state"
 SESSION_USER_PROFILE_KEY = "workspace_session_user_profile"
 SESSION_RECENT_EXPORTS_KEY = "workspace_session_recent_exports"
 SESSION_WINDOW_LAYOUT_KEY = "workspace_session_window_layout"
@@ -110,6 +111,7 @@ class WorkspaceSession:
     active_report: str = ""
     active_plot: str = ""
     active_overlay_preset: str = "Default"
+    las_viewer_state: dict[str, Any] = field(default_factory=dict)
     user_profile: str = "engineering"
     recent_exports: tuple[str, ...] = ()
     window_layout: dict[str, Any] = field(default_factory=dict)
@@ -143,6 +145,7 @@ class WorkspaceSession:
             active_report=str(state.get(SESSION_ACTIVE_REPORT_KEY, "") or ""),
             active_plot=str(state.get(SESSION_ACTIVE_PLOT_KEY, "") or ""),
             active_overlay_preset=str(state.get(SESSION_ACTIVE_OVERLAY_PRESET_KEY, "Default") or "Default"),
+            las_viewer_state=_dict_copy(state.get(SESSION_LAS_VIEWER_STATE_KEY, {})),
             user_profile=str(state.get(SESSION_USER_PROFILE_KEY, "engineering") or "engineering"),
             recent_exports=_string_tuple(state.get(SESSION_RECENT_EXPORTS_KEY, ())),
             window_layout=_dict_copy(state.get(SESSION_WINDOW_LAYOUT_KEY, {})),
@@ -170,6 +173,7 @@ class WorkspaceSession:
             active_report=str(data.get("active_report", "") or ""),
             active_plot=str(data.get("active_plot", "") or ""),
             active_overlay_preset=str(data.get("active_overlay_preset", "Default") or "Default"),
+            las_viewer_state=_dict_copy(data.get("las_viewer_state", {})),
             user_profile=str(data.get("user_profile", "engineering") or "engineering"),
             recent_exports=_string_tuple(data.get("recent_exports", ())),
             window_layout=_dict_copy(data.get("window_layout", {})),
@@ -200,6 +204,7 @@ class WorkspaceSession:
             "active_report": self.active_report,
             "active_plot": self.active_plot,
             "active_overlay_preset": self.active_overlay_preset,
+            "las_viewer_state": dict(self.las_viewer_state),
             "user_profile": self.user_profile,
             "recent_exports": list(self.recent_exports),
             "window_layout": dict(self.window_layout),
@@ -304,6 +309,7 @@ class WorkspaceSessionManager:
             SESSION_ACTIVE_REPORT_KEY: session.active_report,
             SESSION_ACTIVE_PLOT_KEY: session.active_plot,
             SESSION_ACTIVE_OVERLAY_PRESET_KEY: session.active_overlay_preset,
+            SESSION_LAS_VIEWER_STATE_KEY: dict(session.las_viewer_state),
             SESSION_USER_PROFILE_KEY: session.user_profile,
             SESSION_RECENT_EXPORTS_KEY: list(session.recent_exports),
             SESSION_WINDOW_LAYOUT_KEY: dict(session.window_layout),
@@ -335,6 +341,7 @@ class WorkspaceSessionManager:
                 "workbench_active_dock_pane": session.workbench_active_dock_pane,
                 "workbench_active_tool": session.workbench_active_tool,
                 "active_overlay_preset": session.active_overlay_preset,
+                "has_las_viewer_state": bool(session.las_viewer_state),
                 "workbench_open_tools": list(session.workbench_open_tools),
             },
         )
@@ -371,6 +378,7 @@ def workspace_session_keys() -> tuple[str, ...]:
         SESSION_ACTIVE_REPORT_KEY,
         SESSION_ACTIVE_PLOT_KEY,
         SESSION_ACTIVE_OVERLAY_PRESET_KEY,
+        SESSION_LAS_VIEWER_STATE_KEY,
         SESSION_USER_PROFILE_KEY,
         SESSION_RECENT_EXPORTS_KEY,
         SESSION_WINDOW_LAYOUT_KEY,

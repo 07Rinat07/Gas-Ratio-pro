@@ -168,7 +168,13 @@ class LasViewerSession:
             },
             "tracks": [{"id": item} for item in resolved.available_tracks],
             "curves": [
-                {"mnemonic": item, "track_id": resolved.active_track_id if item == resolved.active_curve_id else ""}
+                {
+                    "mnemonic": item,
+                    "track_id": next(
+                        (track.track_id for track in (resolved.layout.tracks if resolved.layout is not None else ()) if item in track.curve_order),
+                        resolved.active_track_id if item == resolved.active_curve_id else "",
+                    ),
+                }
                 for item in resolved.available_curves
             ],
             "visible_tracks": list(resolved.visible_tracks),
