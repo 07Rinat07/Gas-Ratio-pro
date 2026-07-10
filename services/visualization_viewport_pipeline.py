@@ -198,6 +198,8 @@ class ViewportPrefetchTask:
     key: str
     viewport: InteractiveViewport
     direction: str
+    priority: int = 1
+    distance: float = 0.0
 
 
 class VisualizationViewportPrefetchScheduler:
@@ -218,6 +220,9 @@ class VisualizationViewportPrefetchScheduler:
         self.completed = 0
         self.cancelled = 0
         self.deduplicated = 0
+        self.priority_pops = 0
+        self.budget_adjustments = 0
+        self.last_process_budget = 0
 
     def begin_navigation(self) -> int:
         self.cancelled += len(self._pending)
@@ -235,21 +240,79 @@ class VisualizationViewportPrefetchScheduler:
         self._pending[task.key] = task
         self.scheduled += 1
         while len(self._pending) > self.max_pending:
-            self._pending.popitem(last=False)
+            # Drop the least useful task.  On equal priority/distance the
+            # oldest entry is removed so recent navigation intent wins.
+            worst_key = max(
+                self._pending,
+                key=lambda key: (
+                    self._pending[key].priority,
+                    self._pending[key].distance,
+                    -list(self._pending).index(key),
+                ),
+            )
+            self._pending.pop(worst_key, None)
             self.cancelled += 1
         return True
 
     def pop_next(self) -> ViewportPrefetchTask | None:
         while self._pending:
-            _key, task = self._pending.popitem(last=False)
+            keys = list(self._pending)
+            best_key = min(
+                keys,
+                key=lambda key: (
+                    self._pending[key].priority,
+                    self._pending[key].distance,
+                    keys.index(key),
+                ),
+            )
+            task = self._pending.pop(best_key)
             if task.generation != self.generation:
                 self.cancelled += 1
                 continue
+            if task.priority == 0:
+                self.priority_pops += 1
             return task
         return None
 
     def mark_completed(self) -> None:
         self.completed += 1
+
+    def adaptive_process_limit(
+        self,
+        cache_stats: Mapping[str, int],
+        *,
+        base_limit: int = 2,
+    ) -> int:
+        """Choose a small speculative-work budget from current pressure metrics.
+
+        The policy intentionally stays conservative: heavy queue churn or a full
+        cache reduces speculative work, while a stable queue with useful cache
+        hits allows up to ``base_limit`` tasks.
+        """
+        if int(base_limit) < 0:
+            raise ValueError("base_limit must not be negative")
+        limit = int(base_limit)
+        capacity = max(1, int(cache_stats.get("capacity", 1)))
+        entries = max(0, int(cache_stats.get("entries", 0)))
+        hits = max(0, int(cache_stats.get("hits", 0)))
+        misses = max(0, int(cache_stats.get("misses", 0)))
+        requests = hits + misses
+        pressure = entries / capacity
+        churn = self.cancelled / max(1, self.scheduled)
+
+        if limit == 0 or pressure >= 1.0:
+            chosen = 0
+        elif churn >= 0.75 and self.scheduled >= 4:
+            chosen = min(limit, 1)
+        elif requests >= 4 and hits / requests >= 0.5:
+            chosen = min(limit, 2)
+        else:
+            chosen = min(limit, 1)
+
+        if chosen != self.last_process_budget:
+            self.budget_adjustments += 1
+        self.last_process_budget = chosen
+        return chosen
 
     def stats(self) -> dict[str, int]:
         return {
@@ -260,6 +323,9 @@ class VisualizationViewportPrefetchScheduler:
             "completed": self.completed,
             "cancelled": self.cancelled,
             "deduplicated": self.deduplicated,
+            "priority_pops": self.priority_pops,
+            "budget_adjustments": self.budget_adjustments,
+            "last_process_budget": self.last_process_budget,
         }
 
     def __len__(self) -> int:
@@ -282,6 +348,7 @@ class VisualizationViewportPipeline:
             if prefetch_scheduler is not None
             else VisualizationViewportPrefetchScheduler()
         )
+        self._last_viewport_center: float | None = None
 
     def run(
         self,
@@ -432,6 +499,16 @@ class VisualizationViewportPipeline:
         if process_limit is not None and process_limit < 0:
             raise ValueError("viewport_prefetch.process_limit must not be negative")
 
+        adaptive_budget = bool(options.get("adaptive_budget", False))
+        if adaptive_budget and process_limit is None:
+            base_limit = int(options.get("max_process_limit", 2))
+            if base_limit < 0:
+                raise ValueError("viewport_prefetch.max_process_limit must not be negative")
+            process_limit = self.prefetch_scheduler.adaptive_process_limit(
+                self.payload_cache.stats(),
+                base_limit=base_limit,
+            )
+
         directions_value = options.get("directions", ("previous", "next"))
         directions = tuple(str(item) for item in directions_value) if isinstance(
             directions_value, (list, tuple)
@@ -440,6 +517,14 @@ class VisualizationViewportPipeline:
         generation = self.prefetch_scheduler.begin_navigation()
         source_fingerprint = self.source_fingerprint(payload)
         render_fingerprint = self.render_fingerprint(payload)
+        current_center = (viewport.domain_start + viewport.domain_stop) / 2.0
+        preferred_direction: str | None = None
+        if self._last_viewport_center is not None:
+            if current_center > self._last_viewport_center:
+                preferred_direction = "next"
+            elif current_center < self._last_viewport_center:
+                preferred_direction = "previous"
+        self._last_viewport_center = current_center
         deltas = {
             "previous": -viewport.domain_span * distance_ratio,
             "next": viewport.domain_span * distance_ratio,
@@ -461,6 +546,8 @@ class VisualizationViewportPipeline:
                     key=key,
                     viewport=neighbor,
                     direction=direction,
+                    priority=0 if direction == preferred_direction else 1,
+                    distance=abs((neighbor.domain_start + neighbor.domain_stop) / 2.0 - current_center),
                 )
             )
 

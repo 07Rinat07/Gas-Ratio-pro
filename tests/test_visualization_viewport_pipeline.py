@@ -380,3 +380,108 @@ def test_prefetch_rejects_negative_process_limit() -> None:
 
     with pytest.raises(ValueError, match="process_limit"):
         VisualizationViewportPipeline().run(payload, _viewport())
+
+
+def test_prefetch_scheduler_prioritizes_navigation_direction() -> None:
+    from services.visualization_viewport_pipeline import (
+        ViewportPrefetchTask,
+        VisualizationViewportPrefetchScheduler,
+    )
+
+    scheduler = VisualizationViewportPrefetchScheduler(max_pending=4)
+    generation = scheduler.begin_navigation()
+    scheduler.schedule(
+        ViewportPrefetchTask(generation, "previous", _viewport(), "previous", priority=1, distance=3.0)
+    )
+    scheduler.schedule(
+        ViewportPrefetchTask(generation, "next", _viewport(), "next", priority=0, distance=3.0)
+    )
+
+    assert scheduler.pop_next().key == "next"
+    assert scheduler.stats()["priority_pops"] == 1
+
+
+def test_prefetch_scheduler_prioritizes_nearest_task_with_equal_priority() -> None:
+    from services.visualization_viewport_pipeline import (
+        ViewportPrefetchTask,
+        VisualizationViewportPrefetchScheduler,
+    )
+
+    scheduler = VisualizationViewportPrefetchScheduler(max_pending=4)
+    generation = scheduler.begin_navigation()
+    scheduler.schedule(
+        ViewportPrefetchTask(generation, "far", _viewport(), "next", priority=0, distance=8.0)
+    )
+    scheduler.schedule(
+        ViewportPrefetchTask(generation, "near", _viewport(), "next", priority=0, distance=2.0)
+    )
+
+    assert scheduler.pop_next().key == "near"
+
+
+def test_pipeline_prefetch_follows_recent_pan_direction() -> None:
+    pipeline = VisualizationViewportPipeline()
+    payload = _payload()
+    payload["viewport_prefetch"] = {"process_limit": 1}
+
+    pipeline.run(payload, _viewport(1002.0, 1006.0))
+    result = pipeline.run(payload, _viewport(1003.0, 1007.0))
+
+    queue = result.payload["viewport_pipeline"]["prefetch_queue"]
+    assert queue["priority_pops"] >= 1
+    assert len(result.payload["viewport_pipeline"]["prefetch_keys"]) == 1
+
+
+def test_prefetch_adaptive_budget_reduces_work_under_queue_churn() -> None:
+    from services.visualization_viewport_pipeline import VisualizationViewportPrefetchScheduler
+
+    scheduler = VisualizationViewportPrefetchScheduler(max_pending=4)
+    scheduler.scheduled = 8
+    scheduler.cancelled = 7
+
+    limit = scheduler.adaptive_process_limit(
+        {"entries": 1, "capacity": 16, "hits": 1, "misses": 5},
+        base_limit=3,
+    )
+
+    assert limit == 1
+    assert scheduler.stats()["last_process_budget"] == 1
+
+
+def test_prefetch_adaptive_budget_stops_when_cache_is_full() -> None:
+    from services.visualization_viewport_pipeline import VisualizationViewportPrefetchScheduler
+
+    scheduler = VisualizationViewportPrefetchScheduler()
+
+    assert scheduler.adaptive_process_limit(
+        {"entries": 16, "capacity": 16, "hits": 10, "misses": 2},
+        base_limit=3,
+    ) == 0
+
+
+def test_pipeline_uses_adaptive_prefetch_budget() -> None:
+    pipeline = VisualizationViewportPipeline()
+    payload = _payload()
+    payload["viewport_prefetch"] = {
+        "adaptive_budget": True,
+        "max_process_limit": 2,
+    }
+
+    result = pipeline.run(payload, _viewport(1003.0, 1007.0))
+
+    queue = result.payload["viewport_pipeline"]["prefetch_queue"]
+    assert queue["last_process_budget"] == 1
+    assert len(result.payload["viewport_pipeline"]["prefetch_keys"]) == 1
+
+
+def test_prefetch_rejects_negative_adaptive_budget_limit() -> None:
+    import pytest
+
+    payload = _payload()
+    payload["viewport_prefetch"] = {
+        "adaptive_budget": True,
+        "max_process_limit": -1,
+    }
+
+    with pytest.raises(ValueError, match="max_process_limit"):
+        VisualizationViewportPipeline().run(payload, _viewport())
