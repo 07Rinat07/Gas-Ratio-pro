@@ -101,7 +101,7 @@ class VisualizationViewportPayloadCache:
     def __init__(self, capacity: int = 16) -> None:
         self.capacity = max(1, int(capacity))
         self._items: OrderedDict[
-            str, tuple[dict[str, Any], ViewportPipelineProfile, str, str]
+            str, tuple[dict[str, Any], ViewportPipelineProfile, str, str, bool]
         ] = OrderedDict()
         self.hits = 0
         self.misses = 0
@@ -109,6 +109,8 @@ class VisualizationViewportPayloadCache:
         self.invalidations = 0
         self.prefetches = 0
         self.prefetch_skips = 0
+        self.prefetch_hits = 0
+        self.prefetch_wasted = 0
 
     def contains(self, key: str) -> bool:
         return key in self._items
@@ -120,7 +122,10 @@ class VisualizationViewportPayloadCache:
             return None
         self.hits += 1
         self._items.move_to_end(key)
-        payload, profile, _source_fingerprint, _render_fingerprint = item
+        payload, profile, source_fingerprint, render_fingerprint, prefetched = item
+        if prefetched:
+            self.prefetch_hits += 1
+            self._items[key] = (payload, profile, source_fingerprint, render_fingerprint, False)
         return _deep_copy(payload), profile
 
     def put(
@@ -131,21 +136,28 @@ class VisualizationViewportPayloadCache:
         *,
         source_fingerprint: str = "",
         render_fingerprint: str = "",
+        prefetched: bool = False,
     ) -> None:
         self._items[key] = (
             _deep_copy(payload),
             profile,
             str(source_fingerprint),
             str(render_fingerprint),
+            bool(prefetched),
         )
         self._items.move_to_end(key)
         while len(self._items) > self.capacity:
-            self._items.popitem(last=False)
+            _key, evicted = self._items.popitem(last=False)
+            if evicted[4]:
+                self.prefetch_wasted += 1
             self.evictions += 1
 
     def invalidate(self, key: str) -> bool:
-        if self._items.pop(key, None) is None:
+        item = self._items.pop(key, None)
+        if item is None:
             return False
+        if item[4]:
+            self.prefetch_wasted += 1
         self.invalidations += 1
         return True
 
@@ -163,16 +175,19 @@ class VisualizationViewportPayloadCache:
     ) -> int:
         keys = [
             key
-            for key, (_payload, _profile, source, render) in self._items.items()
+            for key, (_payload, _profile, source, render, _prefetched) in self._items.items()
             if (source_fingerprint is None or source == source_fingerprint)
             and (render_fingerprint is None or render == render_fingerprint)
         ]
         for key in keys:
-            self._items.pop(key, None)
+            item = self._items.pop(key, None)
+            if item is not None and item[4]:
+                self.prefetch_wasted += 1
         self.invalidations += len(keys)
         return len(keys)
 
     def clear(self) -> None:
+        self.prefetch_wasted += sum(1 for item in self._items.values() if item[4])
         self.invalidations += len(self._items)
         self._items.clear()
 
@@ -186,6 +201,9 @@ class VisualizationViewportPayloadCache:
             "invalidations": self.invalidations,
             "prefetches": self.prefetches,
             "prefetch_skips": self.prefetch_skips,
+            "prefetch_hits": self.prefetch_hits,
+            "prefetch_wasted": self.prefetch_wasted,
+            "prefetch_hit_rate_ppm": int(1_000_000 * self.prefetch_hits / max(1, self.prefetch_hits + self.prefetch_wasted)),
         }
 
     def __len__(self) -> int:
@@ -223,6 +241,8 @@ class VisualizationViewportPrefetchScheduler:
         self.priority_pops = 0
         self.budget_adjustments = 0
         self.last_process_budget = 0
+        self.distance_adjustments = 0
+        self.last_distance_ratio = 0.0
 
     def begin_navigation(self) -> int:
         self.cancelled += len(self._pending)
@@ -314,7 +334,39 @@ class VisualizationViewportPrefetchScheduler:
         self.last_process_budget = chosen
         return chosen
 
-    def stats(self) -> dict[str, int]:
+
+    def adaptive_distance_ratio(
+        self,
+        cache_stats: Mapping[str, int],
+        *,
+        base_ratio: float = 0.75,
+        minimum: float = 0.25,
+        maximum: float = 1.25,
+    ) -> float:
+        """Tune neighbor distance from observed speculative-cache usefulness."""
+        base = float(base_ratio)
+        lower = float(minimum)
+        upper = float(maximum)
+        if not (isfinite(base) and isfinite(lower) and isfinite(upper)):
+            raise ValueError("prefetch distance ratios must be finite")
+        if lower <= 0 or upper < lower or base <= 0:
+            raise ValueError("invalid prefetch distance ratio bounds")
+        hits = max(0, int(cache_stats.get("prefetch_hits", 0)))
+        wasted = max(0, int(cache_stats.get("prefetch_wasted", 0)))
+        samples = hits + wasted
+        ratio = min(upper, max(lower, base))
+        if samples >= 4:
+            hit_rate = hits / samples
+            if hit_rate >= 0.6:
+                ratio = min(upper, ratio * 1.25)
+            elif hit_rate <= 0.2:
+                ratio = max(lower, ratio * 0.75)
+        if ratio != self.last_distance_ratio:
+            self.distance_adjustments += 1
+        self.last_distance_ratio = ratio
+        return ratio
+
+    def stats(self) -> dict[str, Any]:
         return {
             "generation": self.generation,
             "pending": len(self._pending),
@@ -326,6 +378,8 @@ class VisualizationViewportPrefetchScheduler:
             "priority_pops": self.priority_pops,
             "budget_adjustments": self.budget_adjustments,
             "last_process_budget": self.last_process_budget,
+            "distance_adjustments": self.distance_adjustments,
+            "last_distance_ratio": self.last_distance_ratio,
         }
 
     def __len__(self) -> int:
@@ -494,6 +548,14 @@ class VisualizationViewportPipeline:
         distance_ratio = _optional_finite(options.get("distance_ratio", 0.75))
         if distance_ratio is None or distance_ratio <= 0:
             raise ValueError("viewport_prefetch.distance_ratio must be positive")
+        if bool(options.get("adaptive_distance", False)):
+            distance_ratio = self.prefetch_scheduler.adaptive_distance_ratio(
+                self.payload_cache.stats(),
+                base_ratio=distance_ratio,
+                minimum=float(options.get("min_distance_ratio", 0.25)),
+                maximum=float(options.get("max_distance_ratio", 1.25)),
+            )
+
         process_limit_value = options.get("process_limit")
         process_limit = None if process_limit_value is None else int(process_limit_value)
         if process_limit is not None and process_limit < 0:
@@ -567,6 +629,7 @@ class VisualizationViewportPipeline:
                 profile,
                 source_fingerprint=source_fingerprint,
                 render_fingerprint=render_fingerprint,
+                prefetched=True,
             )
             self.prefetch_scheduler.mark_completed()
             self.payload_cache.prefetches += 1

@@ -485,3 +485,74 @@ def test_prefetch_rejects_negative_adaptive_budget_limit() -> None:
 
     with pytest.raises(ValueError, match="max_process_limit"):
         VisualizationViewportPipeline().run(payload, _viewport())
+
+
+def test_prefetch_cache_tracks_useful_hit_once() -> None:
+    pipeline = VisualizationViewportPipeline()
+    payload = _payload()
+    payload["viewport_prefetch"] = True
+    current = _viewport(1003.0, 1007.0)
+    pipeline.run(payload, current)
+
+    neighbor = current.pan_domain(current.domain_span * 0.75)
+    first = pipeline.run(payload, neighbor)
+    second = pipeline.run(payload, neighbor)
+
+    assert first.profile.cache_hit is True
+    assert second.profile.cache_hit is True
+    stats = second.payload["viewport_pipeline"]["cache_stats"]
+    assert stats["prefetch_hits"] == 1
+    assert stats["prefetch_hit_rate_ppm"] == 1_000_000
+
+
+def test_prefetch_cache_tracks_unused_eviction() -> None:
+    from services.visualization_viewport_pipeline import VisualizationViewportPayloadCache
+
+    cache = VisualizationViewportPayloadCache(capacity=1)
+    prepared, profile = VisualizationViewportPipeline().prepare_payload(_payload(), _viewport())
+    cache.put("prefetched", prepared, profile, prefetched=True)
+    cache.put("regular", prepared, profile)
+
+    stats = cache.stats()
+    assert stats["prefetch_wasted"] == 1
+    assert stats["prefetch_hit_rate_ppm"] == 0
+
+
+def test_adaptive_prefetch_distance_expands_when_hits_are_useful() -> None:
+    from services.visualization_viewport_pipeline import VisualizationViewportPrefetchScheduler
+
+    scheduler = VisualizationViewportPrefetchScheduler()
+    ratio = scheduler.adaptive_distance_ratio(
+        {"prefetch_hits": 8, "prefetch_wasted": 2},
+        base_ratio=0.75,
+    )
+
+    assert ratio == 0.9375
+    assert scheduler.stats()["last_distance_ratio"] == 0.9375
+
+
+def test_adaptive_prefetch_distance_shrinks_when_work_is_wasted() -> None:
+    from services.visualization_viewport_pipeline import VisualizationViewportPrefetchScheduler
+
+    scheduler = VisualizationViewportPrefetchScheduler()
+    ratio = scheduler.adaptive_distance_ratio(
+        {"prefetch_hits": 1, "prefetch_wasted": 9},
+        base_ratio=0.75,
+    )
+
+    assert ratio == 0.5625
+
+
+def test_pipeline_exposes_adaptive_prefetch_distance() -> None:
+    pipeline = VisualizationViewportPipeline()
+    payload = _payload()
+    payload["viewport_prefetch"] = {
+        "adaptive_distance": True,
+        "process_limit": 1,
+    }
+
+    result = pipeline.run(payload, _viewport(1003.0, 1007.0))
+
+    queue = result.payload["viewport_pipeline"]["prefetch_queue"]
+    assert queue["last_distance_ratio"] == 0.75
+    assert queue["distance_adjustments"] == 1
