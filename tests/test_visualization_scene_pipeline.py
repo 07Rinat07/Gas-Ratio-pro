@@ -41,7 +41,7 @@ def test_visualization_scene_pipeline_returns_valid_renderer_neutral_result(tmp_
     result = VisualizationScenePipeline().run(_payload(tmp_path)).to_dict()
 
     assert result["schema"] == "visualization.scene.pipeline.result"
-    assert result["stages"] == ["domain_model", "context", "scene", "layout", "axis_grid", "track_model", "label_legend", "print_layout", "render_model", "validation"]
+    assert result["stages"] == ["domain_model", "context", "scene", "layout", "axis_grid", "track_model", "label_legend", "print_layout", "performance", "render_model", "validation"]
     assert result["ok"] is True
     assert result["domain_model"]["schema"] == "visualization.domain.model"
     assert result["domain_model"]["source_type"] == "las"
@@ -59,6 +59,8 @@ def test_visualization_scene_pipeline_returns_valid_renderer_neutral_result(tmp_
     assert result["print_layout"]["schema"] == "visualization.print.layout"
     assert result["print_layout"]["ok"] is True
     assert result["validation"]["print_layout_ok"] is True
+    assert result["performance"]["schema"] == "visualization.performance.profile"
+    assert len(result["performance"]["cache_key"]) == 64
     assert result["render_model"]["schema"] == "visualization.render.model"
     assert result["render_model"]["metadata"]["raw_dataframe_included"] is False
     assert result["validation"]["render_model_ok"] is True

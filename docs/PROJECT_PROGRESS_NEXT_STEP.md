@@ -475,3 +475,21 @@ Export the visualization PDF generated from the existing Render Model as a share
 ## Visualization v90
 
 Visualization Asset Registry completed. Next priority: performance layer with deterministic cache keys based on geometry signature and viewport parameters.
+
+## Visualization v91 Performance Engine
+
+Completed:
+- Added deterministic render-model cache keys derived from renderer-neutral geometry contracts.
+- Added a bounded in-memory LRU cache for reusable Render Models.
+- Added the explicit `performance` stage to Visualization Scene Pipeline.
+- Added machine-readable cache hit, cache capacity and point-count metadata.
+- Added an opt-out flag for diagnostic runs.
+
+Current pipeline:
+
+```text
+Domain Model -> Scene -> Layout -> Axis/Grid -> Track Model -> Label/Legend -> Print Layout -> Performance -> Render Model -> Renderer
+```
+
+Next step:
+Add viewport-aware adaptive downsampling and incremental invalidation for large LAS datasets.

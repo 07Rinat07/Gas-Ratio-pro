@@ -38,6 +38,10 @@ from services.visualization_print_layout import (
     VisualizationPrintLayout,
     VisualizationPrintLayoutEngine,
 )
+from services.visualization_performance import (
+    VisualizationPerformanceEngine,
+    VisualizationPerformanceProfile,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +84,7 @@ class VisualizationScenePipelineResult:
     label_legend: VisualizationLabelLegendModel = field(default_factory=VisualizationLabelLegendModel)
     print_layout: VisualizationPrintLayout = field(default_factory=VisualizationPrintLayout)
     render_model: VisualizationRenderModel = field(default_factory=VisualizationRenderModel)
+    performance: VisualizationPerformanceProfile = field(default_factory=VisualizationPerformanceProfile)
     validation: dict[str, Any] = field(default_factory=dict)
     stages: tuple[str, ...] = field(default_factory=tuple)
 
@@ -100,6 +105,7 @@ class VisualizationScenePipelineResult:
             "label_legend": self.label_legend.to_dict(),
             "print_layout": self.print_layout.to_dict(),
             "render_model": self.render_model.to_dict(),
+            "performance": self.performance.to_dict(),
             "validation": dict(self.validation),
             "stages": list(self.stages),
             "ok": self.ok,
@@ -275,7 +281,7 @@ class SceneValidator:
 class VisualizationScenePipeline:
     """Run the renderer-neutral visualization scene pipeline."""
 
-    STAGES = ("domain_model", "context", "scene", "layout", "axis_grid", "track_model", "label_legend", "print_layout", "render_model", "validation")
+    STAGES = ("domain_model", "context", "scene", "layout", "axis_grid", "track_model", "label_legend", "print_layout", "performance", "render_model", "validation")
 
     def __init__(
         self,
@@ -288,6 +294,7 @@ class VisualizationScenePipeline:
         label_legend_builder: LabelLegendBuilder | None = None,
         print_layout_builder: PrintLayoutBuilder | None = None,
         render_model_builder: RenderModelBuilder | None = None,
+        performance_engine: VisualizationPerformanceEngine | None = None,
         validator: SceneValidator | None = None,
     ) -> None:
         self.domain_model_builder = domain_model_builder or DomainModelBuilder()
@@ -299,6 +306,7 @@ class VisualizationScenePipeline:
         self.label_legend_builder = label_legend_builder or LabelLegendBuilder()
         self.print_layout_builder = print_layout_builder or PrintLayoutBuilder()
         self.render_model_builder = render_model_builder or RenderModelBuilder()
+        self.performance_engine = performance_engine or VisualizationPerformanceEngine()
         self.validator = validator or SceneValidator()
 
     def run(self, payload: Mapping[str, Any]) -> VisualizationScenePipelineResult:
@@ -311,7 +319,30 @@ class VisualizationScenePipeline:
         label_legend = self.label_legend_builder.build(scene, layout, track_model)
         print_options = payload.get("print_options") if isinstance(payload.get("print_options"), Mapping) else None
         print_layout = self.print_layout_builder.build(layout, label_legend, print_options)
-        render_model = self.render_model_builder.build(scene, layout, axis_grid, track_model, label_legend, print_layout)
+        cache_enabled = bool(payload.get("performance_cache", True))
+        cache_key = self.performance_engine.cache_key(
+            scene.to_dict(),
+            layout.to_dict(),
+            axis_grid.to_dict(),
+            track_model.to_dict(),
+            label_legend.to_dict(),
+            print_layout.to_dict(),
+        )
+        cached_render_model = self.performance_engine.lookup(cache_key) if cache_enabled else None
+        cache_hit = cached_render_model is not None
+        if cached_render_model is None:
+            render_model = self.render_model_builder.build(scene, layout, axis_grid, track_model, label_legend, print_layout)
+            if cache_enabled:
+                self.performance_engine.store(cache_key, render_model.to_dict())
+        else:
+            render_model = VisualizationRenderModel.from_dict(cached_render_model)
+        performance = self.performance_engine.profile(
+            key=cache_key,
+            cache_hit=cache_hit,
+            scene=scene.to_dict(),
+            render_model=render_model.to_dict(),
+            enabled=cache_enabled,
+        )
         validation = self.validator.validate(context, scene, layout)
         validation["axis_grid_ok"] = axis_grid.ok
         validation["axis_count"] = len(axis_grid.axes)
@@ -325,6 +356,9 @@ class VisualizationScenePipeline:
         validation["legend_item_count"] = len(label_legend.legend_items)
         validation["render_model_ok"] = render_model.ok
         validation["render_primitive_count"] = len(render_model.primitives)
+        validation["performance_ok"] = performance.ok
+        validation["render_model_cache_hit"] = performance.cache_hit
+        validation["render_model_cache_key"] = performance.cache_key
         return VisualizationScenePipelineResult(
             domain_model=domain_model,
             context=context,
@@ -335,6 +369,7 @@ class VisualizationScenePipeline:
             label_legend=label_legend,
             print_layout=print_layout,
             render_model=render_model,
+            performance=performance,
             validation=validation,
             stages=self.STAGES,
         )

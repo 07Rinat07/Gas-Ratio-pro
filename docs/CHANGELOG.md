@@ -1175,3 +1175,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added shared geometry signature and SHA-256 metadata for every visualization asset.
 - Added tests proving that bundle creation does not require rebuilding Scene or Layout.
 
+
+## v91 Visualization Performance Engine
+
+- Added deterministic cache keys for renderer-neutral visualization contracts.
+- Added a bounded LRU Render Model cache and typed cache restoration.
+- Added performance metadata to the scene pipeline and validation output.
+- Added tests for cache hits, cache bypass, LRU eviction and cache-key invalidation.

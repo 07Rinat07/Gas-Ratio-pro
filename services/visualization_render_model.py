@@ -100,6 +100,44 @@ class VisualizationRenderModel:
             "renderer_neutral": True,
         }
 
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "VisualizationRenderModel":
+        """Restore a render model from its serializable cache contract."""
+
+        clip_regions = tuple(
+            RenderClipRegion(
+                id=str(item.get("id") or ""),
+                x=float(item.get("x") or 0.0),
+                y=float(item.get("y") or 0.0),
+                width=float(item.get("width") or 0.0),
+                height=float(item.get("height") or 0.0),
+            )
+            for item in _mapping_list(value.get("clip_regions"))
+        )
+        primitives = tuple(
+            RenderPrimitive(
+                id=str(item.get("id") or ""),
+                kind=str(item.get("kind") or ""),
+                z_index=int(item.get("z_index") or 0),
+                payload=_mapping(item.get("payload")),
+                track_id=str(item.get("track_id") or ""),
+                clip_id=str(item.get("clip_id") or ""),
+                visible=bool(item.get("visible", True)),
+                printable=bool(item.get("printable", True)),
+            )
+            for item in _mapping_list(value.get("primitives"))
+        )
+        return cls(
+            schema=str(value.get("schema") or "visualization.render.model"),
+            version=str(value.get("version") or "1.0"),
+            width=int(value.get("width") or 0),
+            height=int(value.get("height") or 0),
+            clip_regions=clip_regions,
+            primitives=primitives,
+            diagnostics=tuple(str(item) for item in value.get("diagnostics", []) if item),
+            metadata=_mapping(value.get("metadata")),
+        )
+
 
 class VisualizationRenderModelBuilder:
     """Build deterministic renderer primitives from scene/layout contracts."""
