@@ -181,6 +181,27 @@ class LasViewerRecentSessionGroupPage:
 
 
 @dataclass(frozen=True, slots=True)
+class LasViewerRecentSessionNavigationState:
+    """Persistent Workbench navigation position for grouped recent sessions."""
+
+    group_by: str = "project"
+    selected_group_key: str = ""
+    selected_session_key: str = ""
+    page: int = 1
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": "las.viewer.recent-session-navigation-state",
+            "version": "1.0",
+            "group_by": self.group_by,
+            "selected_group_key": self.selected_group_key,
+            "selected_session_key": self.selected_session_key,
+            "page": self.page,
+            "renderer_neutral": True,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class LasViewerRecentSessionRemoval:
     removed: bool
     session_key: str = ""
@@ -507,6 +528,7 @@ class LasViewerRecentSessions:
             self._save_preferences(
                 pinned_keys=self._load_pinned_keys(),
                 collapsed_groups=collapsed_groups,
+                navigation_state=self.navigation_state(),
             )
         return changed
 
@@ -523,6 +545,55 @@ class LasViewerRecentSessions:
         new_state = token not in collapsed_groups
         self.set_group_collapsed(normalized_group_by, normalized_key, collapsed=new_state)
         return new_state
+
+    def navigation_state(self) -> LasViewerRecentSessionNavigationState:
+        """Load the last persisted grouped-list navigation position."""
+        payload = self._load_preferences()
+        raw = payload.get("navigation_state", {})
+        if not isinstance(raw, dict):
+            raw = {}
+        group_by = str(raw.get("group_by", "project") or "project").strip().lower()
+        if group_by not in {"project", "las_id", "status"}:
+            group_by = "project"
+        try:
+            page = max(1, int(raw.get("page", 1)))
+        except (TypeError, ValueError):
+            page = 1
+        return LasViewerRecentSessionNavigationState(
+            group_by=group_by,
+            selected_group_key=str(raw.get("selected_group_key", "") or "").strip(),
+            selected_session_key=str(raw.get("selected_session_key", "") or "").strip(),
+            page=page,
+        )
+
+    def set_navigation_state(
+        self,
+        *,
+        group_by: str,
+        selected_group_key: str = "",
+        selected_session_key: str = "",
+        page: int = 1,
+    ) -> LasViewerRecentSessionNavigationState:
+        """Persist the current Workbench group, selection, and page."""
+        normalized_group_by = str(group_by or "project").strip().lower()
+        if normalized_group_by not in {"project", "las_id", "status"}:
+            raise ValueError("group_by must be one of: project, las_id, status")
+        normalized_page = int(page)
+        if normalized_page < 1:
+            raise ValueError("page must be >= 1")
+        state = LasViewerRecentSessionNavigationState(
+            group_by=normalized_group_by,
+            selected_group_key=str(selected_group_key or "").strip(),
+            selected_session_key=str(selected_session_key or "").strip(),
+            page=normalized_page,
+        )
+        self._save_preferences(
+            pinned_keys=self._load_pinned_keys(),
+            collapsed_groups=self._load_collapsed_groups(),
+            navigation_state=state,
+        )
+        return state
+
 
     def pin(self, session_key: str, *, pinned: bool = True) -> LasViewerRecentSessionPinResult:
         key = str(session_key or "").strip()
@@ -768,6 +839,7 @@ class LasViewerRecentSessions:
         self._save_preferences(
             pinned_keys=keys,
             collapsed_groups=self._load_collapsed_groups(),
+            navigation_state=self.navigation_state(),
         )
 
     def _save_preferences(
@@ -775,13 +847,15 @@ class LasViewerRecentSessions:
         *,
         pinned_keys: set[str],
         collapsed_groups: set[str],
+        navigation_state: LasViewerRecentSessionNavigationState | None = None,
     ) -> None:
         self.repository.directory.mkdir(parents=True, exist_ok=True)
         payload = {
             "schema": "las.viewer.recent-session-preferences",
-            "version": "1.1",
+            "version": "1.2",
             "pinned_session_keys": sorted(pinned_keys),
             "collapsed_groups": sorted(collapsed_groups),
+            "navigation_state": (navigation_state or self.navigation_state()).to_dict(),
             "renderer_neutral": True,
         }
         with NamedTemporaryFile(

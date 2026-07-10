@@ -641,3 +641,54 @@ def test_recent_session_group_preferences_preserve_pinned_sessions(tmp_path):
 
     assert service.list()[0].pinned is True
     assert service.group(group_by="project")[0].collapsed is True
+
+
+def test_recent_session_navigation_state_is_persistent(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las", project_id="project-a"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+
+    saved = service.set_navigation_state(
+        group_by="project",
+        selected_group_key="project-a",
+        selected_session_key=item.session_key,
+        page=3,
+    )
+    restored = LasViewerRecentSessions(repository).navigation_state()
+
+    assert restored == saved
+    assert restored.to_dict()["renderer_neutral"] is True
+
+
+def test_recent_session_navigation_state_survives_pin_and_collapse_updates(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las", project_id="project-a"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+    service.set_navigation_state(
+        group_by="project",
+        selected_group_key="project-a",
+        selected_session_key=item.session_key,
+        page=2,
+    )
+
+    service.pin(item.session_key)
+    service.set_group_collapsed("project", "project-a")
+
+    state = service.navigation_state()
+    assert state.selected_group_key == "project-a"
+    assert state.selected_session_key == item.session_key
+    assert state.page == 2
+
+
+def test_recent_session_navigation_state_rejects_invalid_parameters(tmp_path):
+    service = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path))
+
+    for kwargs in ({"group_by": "bad"}, {"group_by": "project", "page": 0}):
+        try:
+            service.set_navigation_state(**kwargs)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("ValueError expected")
