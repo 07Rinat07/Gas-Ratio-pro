@@ -751,3 +751,51 @@ def test_recent_session_locate_validates_group_and_page_size(tmp_path):
             pass
         else:
             raise AssertionError("ValueError expected")
+
+
+def test_recent_session_navigation_history_supports_back_and_forward(tmp_path):
+    service = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path))
+    first = service.set_navigation_state(group_by="project", selected_group_key="a", page=1)
+    second = service.set_navigation_state(group_by="project", selected_group_key="b", page=2)
+
+    assert service.navigation_history().can_go_back is True
+    assert service.navigate_back() == first
+    assert service.navigation_state() == first
+    assert service.navigate_forward() == second
+    assert service.navigation_state() == second
+
+
+def test_recent_session_navigation_history_discards_forward_branch(tmp_path):
+    service = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path))
+    service.set_navigation_state(group_by="project", selected_group_key="a", page=1)
+    service.set_navigation_state(group_by="project", selected_group_key="b", page=2)
+    service.navigate_back()
+
+    third = service.set_navigation_state(group_by="las_id", selected_group_key="c", page=3)
+    history = service.navigation_history()
+
+    assert history.current == third
+    assert history.can_go_forward is False
+    assert [entry.selected_group_key for entry in history.entries] == ["a", "c"]
+
+
+def test_recent_session_navigation_history_ignores_duplicate_state(tmp_path):
+    service = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path))
+    service.set_navigation_state(group_by="project", selected_group_key="a", page=1)
+    service.set_navigation_state(group_by="project", selected_group_key="a", page=1)
+
+    assert len(service.navigation_history().entries) == 1
+
+
+def test_recent_session_navigation_history_is_persistent(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    service = LasViewerRecentSessions(repository)
+    service.set_navigation_state(group_by="project", selected_group_key="a", page=1)
+    service.set_navigation_state(group_by="las_id", selected_group_key="b", page=2)
+
+    restored = LasViewerRecentSessions(repository).navigation_history()
+
+    assert restored.index == 1
+    assert restored.current is not None
+    assert restored.current.selected_group_key == "b"
+    assert restored.to_dict()["renderer_neutral"] is True

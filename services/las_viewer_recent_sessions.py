@@ -202,6 +202,41 @@ class LasViewerRecentSessionNavigationState:
 
 
 @dataclass(frozen=True, slots=True)
+class LasViewerRecentSessionNavigationHistory:
+    """Persistent back/forward history for recent-session navigation."""
+
+    entries: tuple[LasViewerRecentSessionNavigationState, ...] = ()
+    index: int = -1
+    limit: int = 50
+
+    @property
+    def can_go_back(self) -> bool:
+        return self.index > 0
+
+    @property
+    def can_go_forward(self) -> bool:
+        return 0 <= self.index < len(self.entries) - 1
+
+    @property
+    def current(self) -> LasViewerRecentSessionNavigationState | None:
+        if 0 <= self.index < len(self.entries):
+            return self.entries[self.index]
+        return None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": "las.viewer.recent-session-navigation-history",
+            "version": "1.0",
+            "entries": [entry.to_dict() for entry in self.entries],
+            "index": self.index,
+            "limit": self.limit,
+            "can_go_back": self.can_go_back,
+            "can_go_forward": self.can_go_forward,
+            "renderer_neutral": True,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class LasViewerRecentSessionNavigationTarget:
     """Resolved grouped-list position for a recent LAS session."""
 
@@ -558,6 +593,7 @@ class LasViewerRecentSessions:
                 pinned_keys=self._load_pinned_keys(),
                 collapsed_groups=collapsed_groups,
                 navigation_state=self.navigation_state(),
+                navigation_history=self.navigation_history(),
             )
         return changed
 
@@ -602,6 +638,7 @@ class LasViewerRecentSessions:
         selected_group_key: str = "",
         selected_session_key: str = "",
         page: int = 1,
+        record_history: bool = True,
     ) -> LasViewerRecentSessionNavigationState:
         """Persist the current Workbench group, selection, and page."""
         normalized_group_by = str(group_by or "project").strip().lower()
@@ -616,12 +653,90 @@ class LasViewerRecentSessions:
             selected_session_key=str(selected_session_key or "").strip(),
             page=normalized_page,
         )
+        history = self.navigation_history()
+        if record_history:
+            history = self._append_navigation_history(history, state)
         self._save_preferences(
             pinned_keys=self._load_pinned_keys(),
             collapsed_groups=self._load_collapsed_groups(),
             navigation_state=state,
+            navigation_history=history,
         )
         return state
+
+    def navigation_history(self) -> LasViewerRecentSessionNavigationHistory:
+        payload = self._load_preferences()
+        raw = payload.get("navigation_history", {})
+        if not isinstance(raw, dict):
+            raw = {}
+        try:
+            limit = min(200, max(1, int(raw.get("limit", 50))))
+        except (TypeError, ValueError):
+            limit = 50
+        entries: list[LasViewerRecentSessionNavigationState] = []
+        for item in raw.get("entries", []) if isinstance(raw.get("entries", []), list) else []:
+            if not isinstance(item, dict):
+                continue
+            group_by = str(item.get("group_by", "project") or "project").strip().lower()
+            if group_by not in {"project", "las_id", "status"}:
+                continue
+            try:
+                page = max(1, int(item.get("page", 1)))
+            except (TypeError, ValueError):
+                page = 1
+            entries.append(LasViewerRecentSessionNavigationState(
+                group_by=group_by,
+                selected_group_key=str(item.get("selected_group_key", "") or "").strip(),
+                selected_session_key=str(item.get("selected_session_key", "") or "").strip(),
+                page=page,
+            ))
+        entries = entries[-limit:]
+        try:
+            index = int(raw.get("index", len(entries) - 1))
+        except (TypeError, ValueError):
+            index = len(entries) - 1
+        index = min(max(index, -1), len(entries) - 1)
+        return LasViewerRecentSessionNavigationHistory(tuple(entries), index, limit)
+
+    def navigate_back(self) -> LasViewerRecentSessionNavigationState | None:
+        history = self.navigation_history()
+        if not history.can_go_back:
+            return None
+        updated = LasViewerRecentSessionNavigationHistory(history.entries, history.index - 1, history.limit)
+        state = updated.current
+        self._save_preferences(
+            pinned_keys=self._load_pinned_keys(),
+            collapsed_groups=self._load_collapsed_groups(),
+            navigation_state=state,
+            navigation_history=updated,
+        )
+        return state
+
+    def navigate_forward(self) -> LasViewerRecentSessionNavigationState | None:
+        history = self.navigation_history()
+        if not history.can_go_forward:
+            return None
+        updated = LasViewerRecentSessionNavigationHistory(history.entries, history.index + 1, history.limit)
+        state = updated.current
+        self._save_preferences(
+            pinned_keys=self._load_pinned_keys(),
+            collapsed_groups=self._load_collapsed_groups(),
+            navigation_state=state,
+            navigation_history=updated,
+        )
+        return state
+
+    @staticmethod
+    def _append_navigation_history(
+        history: LasViewerRecentSessionNavigationHistory,
+        state: LasViewerRecentSessionNavigationState,
+    ) -> LasViewerRecentSessionNavigationHistory:
+        if history.current == state:
+            return history
+        entries = list(history.entries[: history.index + 1])
+        entries.append(state)
+        entries = entries[-history.limit :]
+        return LasViewerRecentSessionNavigationHistory(tuple(entries), len(entries) - 1, history.limit)
 
 
     def locate_session(
@@ -969,6 +1084,7 @@ class LasViewerRecentSessions:
             pinned_keys=keys,
             collapsed_groups=self._load_collapsed_groups(),
             navigation_state=self.navigation_state(),
+            navigation_history=self.navigation_history(),
         )
 
     def _save_preferences(
@@ -977,14 +1093,16 @@ class LasViewerRecentSessions:
         pinned_keys: set[str],
         collapsed_groups: set[str],
         navigation_state: LasViewerRecentSessionNavigationState | None = None,
+        navigation_history: LasViewerRecentSessionNavigationHistory | None = None,
     ) -> None:
         self.repository.directory.mkdir(parents=True, exist_ok=True)
         payload = {
             "schema": "las.viewer.recent-session-preferences",
-            "version": "1.2",
+            "version": "1.3",
             "pinned_session_keys": sorted(pinned_keys),
             "collapsed_groups": sorted(collapsed_groups),
             "navigation_state": (navigation_state or self.navigation_state()).to_dict(),
+            "navigation_history": (navigation_history or self.navigation_history()).to_dict(),
             "renderer_neutral": True,
         }
         with NamedTemporaryFile(
