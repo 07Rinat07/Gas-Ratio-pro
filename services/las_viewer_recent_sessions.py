@@ -353,6 +353,27 @@ class LasViewerRecentSessionBookmarkTrashItem:
         }
 
 
+
+
+@dataclass(frozen=True, slots=True)
+class LasViewerRecentSessionBookmarkTrashRetention:
+    """Persistent automatic cleanup policy for recoverable bookmarks."""
+
+    enabled: bool = False
+    retention_days: float = 30.0
+    last_cleanup_ns: int = 0
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": "las.viewer.recent-session-bookmark-trash-retention",
+            "version": "1.0",
+            "enabled": self.enabled,
+            "retention_days": self.retention_days,
+            "last_cleanup_ns": self.last_cleanup_ns,
+            "renderer_neutral": True,
+        }
+
+
 @dataclass(frozen=True, slots=True)
 class LasViewerRecentSessionBookmarkExchangeResult:
     imported: int = 0
@@ -1328,6 +1349,95 @@ class LasViewerRecentSessions:
         )
         return LasViewerRecentSessionBookmarkResult(True, key, str(removed.get("label", "")), "restored")
 
+
+    def bookmark_trash_retention(self) -> LasViewerRecentSessionBookmarkTrashRetention:
+        """Load the persisted automatic trash cleanup policy."""
+        payload = self._load_preferences()
+        raw = payload.get("bookmark_trash_retention", {})
+        if not isinstance(raw, dict):
+            raw = {}
+        try:
+            retention_days = float(raw.get("retention_days", 30.0))
+        except (TypeError, ValueError):
+            retention_days = 30.0
+        if retention_days < 0 or retention_days != retention_days or retention_days == float("inf"):
+            retention_days = 30.0
+        try:
+            last_cleanup_ns = max(0, int(raw.get("last_cleanup_ns", 0)))
+        except (TypeError, ValueError):
+            last_cleanup_ns = 0
+        return LasViewerRecentSessionBookmarkTrashRetention(
+            enabled=bool(raw.get("enabled", False)),
+            retention_days=retention_days,
+            last_cleanup_ns=last_cleanup_ns,
+        )
+
+    def configure_bookmark_trash_retention(
+        self,
+        retention_days: float | None,
+    ) -> LasViewerRecentSessionBookmarkTrashRetention:
+        """Enable automatic cleanup, or disable it when ``retention_days`` is None."""
+        if retention_days is None:
+            current = self.bookmark_trash_retention()
+            policy = LasViewerRecentSessionBookmarkTrashRetention(
+                enabled=False,
+                retention_days=current.retention_days,
+                last_cleanup_ns=current.last_cleanup_ns,
+            )
+        else:
+            try:
+                days = float(retention_days)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("retention_days must be a finite non-negative number") from exc
+            if days < 0 or days != days or days == float("inf"):
+                raise ValueError("retention_days must be a finite non-negative number")
+            current = self.bookmark_trash_retention()
+            policy = LasViewerRecentSessionBookmarkTrashRetention(
+                enabled=True,
+                retention_days=days,
+                last_cleanup_ns=current.last_cleanup_ns,
+            )
+        self._save_preferences(
+            pinned_keys=self._load_pinned_keys(),
+            collapsed_groups=self._load_collapsed_groups(),
+            navigation_state=self.navigation_state(),
+            navigation_history=self.navigation_history(),
+            bookmark_trash_retention=policy,
+        )
+        return policy
+
+    def synchronize_bookmark_trash(self, *, now_ns: int | None = None) -> int:
+        """Apply the persisted retention policy after startup or repository refresh."""
+        policy = self.bookmark_trash_retention()
+        if not policy.enabled:
+            return 0
+        current_ns = time.time_ns() if now_ns is None else int(now_ns)
+        if current_ns < 0:
+            raise ValueError("now_ns must be non-negative")
+        cutoff_ns = current_ns - int(policy.retention_days * 86_400_000_000_000)
+        trash = self._load_bookmark_trash()
+        updated = {
+            key: value
+            for key, value in trash.items()
+            if int(value.get("deleted_at_ns", 0)) <= 0
+            or int(value.get("deleted_at_ns", 0)) > cutoff_ns
+        }
+        removed_count = len(trash) - len(updated)
+        next_policy = LasViewerRecentSessionBookmarkTrashRetention(
+            enabled=True,
+            retention_days=policy.retention_days,
+            last_cleanup_ns=current_ns,
+        )
+        self._save_preferences(
+            pinned_keys=self._load_pinned_keys(),
+            collapsed_groups=self._load_collapsed_groups(),
+            navigation_state=self.navigation_state(),
+            navigation_history=self.navigation_history(),
+            bookmark_trash=updated,
+            bookmark_trash_retention=next_policy,
+        )
+        return removed_count
+
     def purge_expired_bookmark_trash(
         self,
         retention_days: float,
@@ -1736,17 +1846,19 @@ class LasViewerRecentSessions:
         navigation_history: LasViewerRecentSessionNavigationHistory | None = None,
         bookmarks: dict[str, dict[str, object]] | None = None,
         bookmark_trash: dict[str, dict[str, object]] | None = None,
+        bookmark_trash_retention: LasViewerRecentSessionBookmarkTrashRetention | None = None,
     ) -> None:
         self.repository.directory.mkdir(parents=True, exist_ok=True)
         payload = {
             "schema": "las.viewer.recent-session-preferences",
-            "version": "1.7",
+            "version": "1.8",
             "pinned_session_keys": sorted(pinned_keys),
             "collapsed_groups": sorted(collapsed_groups),
             "navigation_state": (navigation_state or self.navigation_state()).to_dict(),
             "navigation_history": (navigation_history or self.navigation_history()).to_dict(),
             "bookmarks": dict(sorted((bookmarks if bookmarks is not None else self._load_bookmarks()).items())),
             "bookmark_trash": dict(sorted((bookmark_trash if bookmark_trash is not None else self._load_bookmark_trash()).items())),
+            "bookmark_trash_retention": (bookmark_trash_retention or self.bookmark_trash_retention()).to_dict(),
             "renderer_neutral": True,
         }
         with NamedTemporaryFile(

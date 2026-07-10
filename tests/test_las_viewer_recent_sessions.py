@@ -1267,3 +1267,58 @@ def test_expired_bookmark_purge_validates_retention(tmp_path):
             pass
         else:
             raise AssertionError("ValueError expected")
+
+
+def test_bookmark_trash_retention_policy_persists_across_restart(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    service = LasViewerRecentSessions(repository)
+
+    policy = service.configure_bookmark_trash_retention(14)
+    restored = LasViewerRecentSessions(repository).bookmark_trash_retention()
+
+    assert policy.enabled is True
+    assert restored.enabled is True
+    assert restored.retention_days == 14
+    assert restored.last_cleanup_ns == 0
+    assert restored.to_dict()["renderer_neutral"] is True
+
+
+def test_bookmark_trash_synchronization_uses_persisted_policy(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("expired-restart-trash.las"))
+    repository.save(_session("fresh-restart-trash.las"))
+    service = LasViewerRecentSessions(repository)
+    items = {item.las_id: item for item in service.list(limit=10)}
+    service.set_bookmark(items["expired-restart-trash.las"].session_key, label="Expired")
+    service.set_bookmark(items["fresh-restart-trash.las"].session_key, label="Fresh")
+
+    import services.las_viewer_recent_sessions as module
+    original = module.time.time_ns
+    try:
+        module.time.time_ns = lambda: 1_000_000_000_000_000
+        service.remove_bookmark(items["expired-restart-trash.las"].session_key)
+        module.time.time_ns = lambda: 1_000_000_000_000_000 + 9 * 86_400_000_000_000
+        service.remove_bookmark(items["fresh-restart-trash.las"].session_key)
+    finally:
+        module.time.time_ns = original
+
+    service.configure_bookmark_trash_retention(7)
+    restarted = LasViewerRecentSessions(repository)
+    now_ns = 1_000_000_000_000_000 + 10 * 86_400_000_000_000
+
+    assert restarted.synchronize_bookmark_trash(now_ns=now_ns) == 1
+    assert [item.label for item in restarted.bookmark_trash()] == ["Fresh"]
+    assert restarted.bookmark_trash_retention().last_cleanup_ns == now_ns
+
+
+def test_disabled_bookmark_trash_retention_does_not_purge(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("disabled-retention.las"))
+    service = LasViewerRecentSessions(repository)
+    item = service.list()[0]
+    service.set_bookmark(item.session_key, label="Keep")
+    service.remove_bookmark(item.session_key)
+    service.configure_bookmark_trash_retention(None)
+
+    assert LasViewerRecentSessions(repository).synchronize_bookmark_trash(now_ns=10**18) == 0
+    assert len(service.bookmark_trash()) == 1
