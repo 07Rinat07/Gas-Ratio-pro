@@ -202,6 +202,35 @@ class LasViewerRecentSessionNavigationState:
 
 
 @dataclass(frozen=True, slots=True)
+class LasViewerRecentSessionNavigationTarget:
+    """Resolved grouped-list position for a recent LAS session."""
+
+    found: bool
+    session_key: str = ""
+    group_by: str = "project"
+    group_key: str = ""
+    page: int = 1
+    group_index: int = -1
+    item_index: int = -1
+    reason: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": "las.viewer.recent-session-navigation-target",
+            "version": "1.0",
+            "found": self.found,
+            "session_key": self.session_key,
+            "group_by": self.group_by,
+            "group_key": self.group_key,
+            "page": self.page,
+            "group_index": self.group_index,
+            "item_index": self.item_index,
+            "reason": self.reason,
+            "renderer_neutral": True,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class LasViewerRecentSessionRemoval:
     removed: bool
     session_key: str = ""
@@ -593,6 +622,106 @@ class LasViewerRecentSessions:
             navigation_state=state,
         )
         return state
+
+
+    def locate_session(
+        self,
+        session_key: str,
+        *,
+        group_by: str = "project",
+        page_size: int = 10,
+        include_invalid: bool = False,
+        active_project_id: str = "",
+        active_las_id: str = "",
+        query: str = "",
+        project_id: str = "",
+        las_id: str = "",
+        pinned_only: bool = False,
+        active_only: bool = False,
+        sort_by: str = "modified",
+        sort_order: str = "desc",
+        pinned_first: bool = True,
+        persist: bool = False,
+    ) -> LasViewerRecentSessionNavigationTarget:
+        """Resolve a session to its grouped page and optional persisted selection."""
+        key = str(session_key or "").strip()
+        normalized_group_by = str(group_by or "project").strip().lower()
+        normalized_page_size = int(page_size)
+        if normalized_group_by not in {"project", "las_id", "status"}:
+            raise ValueError("group_by must be one of: project, las_id, status")
+        if normalized_page_size < 1:
+            raise ValueError("page_size must be >= 1")
+        if not key:
+            return LasViewerRecentSessionNavigationTarget(
+                found=False, group_by=normalized_group_by, reason="missing_session_key"
+            )
+
+        groups = self.group(
+            group_by=normalized_group_by,
+            include_invalid=include_invalid,
+            active_project_id=active_project_id,
+            active_las_id=active_las_id,
+            query=query,
+            project_id=project_id,
+            las_id=las_id,
+            pinned_only=pinned_only,
+            active_only=active_only,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            pinned_first=pinned_first,
+        )
+        for group_index, group in enumerate(groups):
+            for item_index, item in enumerate(group.items):
+                if item.session_key != key:
+                    continue
+                page = group_index // normalized_page_size + 1
+                target = LasViewerRecentSessionNavigationTarget(
+                    found=True,
+                    session_key=key,
+                    group_by=normalized_group_by,
+                    group_key=group.key,
+                    page=page,
+                    group_index=group_index,
+                    item_index=item_index,
+                    reason="resolved",
+                )
+                if persist:
+                    self.set_navigation_state(
+                        group_by=normalized_group_by,
+                        selected_group_key=group.key,
+                        selected_session_key=key,
+                        page=page,
+                    )
+                return target
+        return LasViewerRecentSessionNavigationTarget(
+            found=False,
+            session_key=key,
+            group_by=normalized_group_by,
+            reason="missing_recent_session",
+        )
+
+    def focus_latest(
+        self,
+        *,
+        group_by: str = "project",
+        page_size: int = 10,
+        project_id: str = "",
+        las_id: str = "",
+    ) -> LasViewerRecentSessionNavigationTarget:
+        """Persist navigation to the newest valid session matching optional identifiers."""
+        item = self.latest(project_id=project_id, las_id=las_id)
+        if item is None:
+            return LasViewerRecentSessionNavigationTarget(
+                found=False,
+                group_by=str(group_by or "project").strip().lower(),
+                reason="missing_recent_session",
+            )
+        return self.locate_session(
+            item.session_key,
+            group_by=group_by,
+            page_size=page_size,
+            persist=True,
+        )
 
 
     def pin(self, session_key: str, *, pinned: bool = True) -> LasViewerRecentSessionPinResult:

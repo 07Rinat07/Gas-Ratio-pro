@@ -692,3 +692,62 @@ def test_recent_session_navigation_state_rejects_invalid_parameters(tmp_path):
             pass
         else:
             raise AssertionError("ValueError expected")
+
+
+def test_recent_session_locate_resolves_group_page_and_item_position(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las", project_id="project-a"))
+    repository.save(_session("b.las", project_id="project-b"))
+    repository.save(_session("c.las", project_id="project-c"))
+    service = LasViewerRecentSessions(repository)
+    target_item = next(item for item in service.list(limit=10) if item.project_id == "project-a")
+
+    target = service.locate_session(
+        target_item.session_key,
+        group_by="project",
+        page_size=2,
+        persist=True,
+    )
+
+    assert target.found is True
+    assert target.group_key == "project-a"
+    assert target.page >= 1
+    assert target.item_index == 0
+    assert service.navigation_state().selected_session_key == target_item.session_key
+    assert target.to_dict()["renderer_neutral"] is True
+
+
+def test_recent_session_locate_reports_missing_session(tmp_path):
+    service = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path))
+
+    target = service.locate_session("missing", group_by="project", page_size=2)
+
+    assert target.found is False
+    assert target.reason == "missing_recent_session"
+
+
+def test_recent_session_focus_latest_persists_navigation(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("a.las", project_id="project-a"))
+    repository.save(_session("b.las", project_id="project-b"))
+    service = LasViewerRecentSessions(repository)
+
+    target = service.focus_latest(group_by="project", page_size=1)
+    state = service.navigation_state()
+
+    assert target.found is True
+    assert state.selected_session_key == target.session_key
+    assert state.selected_group_key == target.group_key
+    assert state.page == target.page
+
+
+def test_recent_session_locate_validates_group_and_page_size(tmp_path):
+    service = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path))
+
+    for kwargs in ({"group_by": "bad"}, {"page_size": 0}):
+        try:
+            service.locate_session("session", **kwargs)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("ValueError expected")
