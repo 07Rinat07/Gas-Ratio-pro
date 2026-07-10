@@ -397,3 +397,23 @@ Domain Model -> Scene -> Layout -> Axis/Grid -> Track Model -> Render Model -> R
 Next step:
 Move curve polylines and interval overlay rectangles into Render Model primitives.
 After that, the SVG renderer can be migrated to consume Render Model only.
+
+## v85 Visualization Label and Legend Engine
+
+Completed:
+- Added renderer-neutral `VisualizationLabelLegendModel`, `VisualizationLabel` and `VisualizationLegendItem` contracts.
+- Added `VisualizationLabelLegendEngine` for track titles, curve labels, units and interval legend metadata.
+- Added deterministic truncation, per-track curve-label limits and basic collision spacing before renderer execution.
+- Added an explicit `label_legend` stage to `VisualizationScenePipeline`.
+- Render Model now consumes prepared labels and exposes legend metadata without reading LAS payloads in renderer code.
+- Removed duplicate structural track-title generation from Render Model; labels now have one source of truth.
+- Added regression tests for curve, track and interval labels, legend metadata and label overflow handling.
+
+Current pipeline:
+
+```text
+Domain Model -> Scene -> Layout -> Axis/Grid -> Track Model -> Label/Legend -> Render Model -> Renderer
+```
+
+Next step:
+Implement Print Layout Engine with page formats, margins, printable regions and dedicated legend placement primitives.

@@ -1130,3 +1130,12 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Updated the SVG renderer to serialize `VisualizationRenderModel` primitives for pipeline inputs.
 - Kept direct Scene rendering only as a temporary compatibility fallback.
 - Added regression coverage for curve, overlay and Render Model SVG output.
+
+## v85
+- Added renderer-neutral Label and Legend Engine contracts.
+- Added prepared track titles and curve labels with engineering units.
+- Added curve and interval legend metadata with deterministic ordering.
+- Added label overflow limits, truncation and basic collision spacing.
+- Added the `label_legend` stage to Visualization Scene Pipeline.
+- Connected prepared labels to Render Model text primitives.
+- Added regression tests and kept export release QA green.

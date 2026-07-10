@@ -41,7 +41,7 @@ def test_visualization_scene_pipeline_returns_valid_renderer_neutral_result(tmp_
     result = VisualizationScenePipeline().run(_payload(tmp_path)).to_dict()
 
     assert result["schema"] == "visualization.scene.pipeline.result"
-    assert result["stages"] == ["domain_model", "context", "scene", "layout", "axis_grid", "track_model", "render_model", "validation"]
+    assert result["stages"] == ["domain_model", "context", "scene", "layout", "axis_grid", "track_model", "label_legend", "render_model", "validation"]
     assert result["ok"] is True
     assert result["domain_model"]["schema"] == "visualization.domain.model"
     assert result["domain_model"]["source_type"] == "las"
@@ -54,6 +54,8 @@ def test_visualization_scene_pipeline_returns_valid_renderer_neutral_result(tmp_
     assert result["validation"]["renderer_neutral"] is True
     assert result["track_model"]["schema"] == "visualization.track.collection"
     assert result["track_model"]["ok"] is True
+    assert result["label_legend"]["schema"] == "visualization.label.legend.model"
+    assert result["label_legend"]["metadata"]["legend_item_count"] >= 1
     assert result["render_model"]["schema"] == "visualization.render.model"
     assert result["render_model"]["metadata"]["raw_dataframe_included"] is False
     assert result["validation"]["render_model_ok"] is True

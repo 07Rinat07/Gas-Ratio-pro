@@ -18,6 +18,7 @@ from typing import Any, Mapping, Sequence
 
 from services.visualization_axis_grid import VisualizationAxisGridEngine
 from services.visualization_curve_quality import VisualizationCurveQualityEngine
+from services.visualization_label_legend import VisualizationLabelLegendEngine
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,9 +108,11 @@ class VisualizationRenderModelBuilder:
         self,
         axis_grid_engine: VisualizationAxisGridEngine | None = None,
         curve_quality_engine: VisualizationCurveQualityEngine | None = None,
+        label_legend_engine: VisualizationLabelLegendEngine | None = None,
     ) -> None:
         self.axis_grid_engine = axis_grid_engine or VisualizationAxisGridEngine()
         self.curve_quality_engine = curve_quality_engine or VisualizationCurveQualityEngine()
+        self.label_legend_engine = label_legend_engine or VisualizationLabelLegendEngine()
 
     CANVAS_Z = 0
     TRACK_BACKGROUND_Z = 10
@@ -121,6 +124,7 @@ class VisualizationRenderModelBuilder:
     OVERLAY_LABEL_Z = 32
     AXIS_TEXT_Z = 35
     TRACK_TITLE_Z = 40
+    LABEL_Z = 42
     DIAGNOSTIC_Z = 1000
 
     def build(
@@ -129,6 +133,7 @@ class VisualizationRenderModelBuilder:
         layout: Mapping[str, Any],
         axis_grid: Mapping[str, Any] | None = None,
         track_model: Mapping[str, Any] | None = None,
+        label_legend: Mapping[str, Any] | None = None,
     ) -> VisualizationRenderModel:
         width = int(_positive_float(layout.get("width"), 360))
         height = int(_positive_float(layout.get("height"), 180))
@@ -222,20 +227,6 @@ class VisualizationRenderModelBuilder:
                                 "stroke_width": 1.0,
                             },
                         ),
-                        RenderPrimitive(
-                            id=f"track.{track_id}.title",
-                            kind="text",
-                            z_index=self.TRACK_TITLE_Z,
-                            track_id=track_id,
-                            payload={
-                                "x": _float(header_bounds.get("x")) + 8.0,
-                                "y": _float(header_bounds.get("y")) + 26.0,
-                                "text": title,
-                                "font_size": 12.0,
-                                "font_weight": 600,
-                                "fill": "#263238",
-                            },
-                        ),
                     ]
                 )
 
@@ -252,6 +243,13 @@ class VisualizationRenderModelBuilder:
         )
         primitives.extend(layer_primitives)
         diagnostics.extend(layer_diagnostics)
+        label_legend_payload = (
+            self.label_legend_engine.build(scene, layout, track_model_payload).to_dict()
+            if label_legend is None
+            else dict(label_legend)
+        )
+        diagnostics.extend(str(item) for item in _sequence(label_legend_payload.get("issues")) if str(item))
+        primitives.extend(self._label_primitives(label_legend_payload))
         if track_model_payload:
             diagnostics.extend(str(item) for item in _sequence(track_model_payload.get("issues")) if str(item))
         if scene_tracks and len(layout_tracks) != len(scene_tracks):
@@ -278,7 +276,7 @@ class VisualizationRenderModelBuilder:
                 "clip_region_count": len(ordered_clips),
                 "raw_dataframe_included": False,
                 "ui_objects_included": False,
-                "foundation_scope": "canvas_track_axis_grid_curve_quality_overlay",
+                "foundation_scope": "canvas_track_axis_grid_curve_quality_overlay_label_legend",
                 "curve_primitive_count": len([item for item in ordered_primitives if item.kind == "polyline"]),
                 "overlay_primitive_count": len([item for item in ordered_primitives if item.id.startswith("overlay.") and item.kind == "rectangle"]),
                 "axis_count": len(_mapping_list(axis_grid_payload.get("axes"))),
@@ -287,9 +285,41 @@ class VisualizationRenderModelBuilder:
                 "track_model_ok": bool(track_model_payload.get("ok", False)) if track_model_payload else False,
                 "visible_track_count": len(_sequence(track_model_payload.get("visible_track_ids"))) if track_model_payload else len(layout_tracks),
                 "active_track_id": str(track_model_payload.get("active_track_id") or ""),
+                "label_count": len(_mapping_list(label_legend_payload.get("labels"))),
+                "legend_item_count": len(_mapping_list(label_legend_payload.get("legend_items"))),
+                "label_legend_ok": bool(label_legend_payload.get("ok", False)),
+                "legend_items": _mapping_list(label_legend_payload.get("legend_items")),
             },
         )
 
+
+
+    def _label_primitives(self, label_legend: Mapping[str, Any]) -> list[RenderPrimitive]:
+        primitives: list[RenderPrimitive] = []
+        for label in _mapping_list(label_legend.get("labels")):
+            if not bool(label.get("visible", True)):
+                continue
+            kind = str(label.get("kind") or "label")
+            primitives.append(
+                RenderPrimitive(
+                    id=str(label.get("id") or "label"),
+                    kind="text",
+                    z_index=self.LABEL_Z,
+                    track_id=str(label.get("track_id") or ""),
+                    payload={
+                        "x": _float(label.get("x")),
+                        "y": _float(label.get("y")),
+                        "text": str(label.get("text") or ""),
+                        "font_size": _positive_float(label.get("font_size"), 9.0),
+                        "font_weight": int(_positive_float(label.get("font_weight"), 400)),
+                        "fill": str(label.get("fill") or "#37474f"),
+                        "text_anchor": str(label.get("text_anchor") or "start"),
+                        "rotation": _float(label.get("rotation")),
+                        "data_kind": kind,
+                    },
+                )
+            )
+        return primitives
 
     def _source_layer_primitives(
         self,
