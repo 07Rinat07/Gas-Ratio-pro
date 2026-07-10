@@ -352,3 +352,16 @@ Target pipeline:
 Next step:
 Implement the first Render Model contracts and builder while keeping the existing SVG scene renderer compatible during migration.
 
+
+## v80 Visualization Render Model Foundation
+
+Completed:
+- Added renderer-neutral `VisualizationRenderModel`, `RenderPrimitive` and `RenderClipRegion` contracts.
+- Added deterministic `VisualizationRenderModelBuilder` between Layout and renderer backends.
+- Scene Pipeline now runs `domain_model → context → scene → layout → render_model → validation`.
+- Added canvas, track background, border, title and plot clipping primitives.
+- Empty layouts now produce safe diagnostic primitives instead of renderer failures.
+- Existing SVG scene renderer remains the compatibility path until curve, overlay, axis and grid primitives are complete.
+
+Next step:
+Implement Axis and Grid Model with major/minor ticks, depth labels, curve-axis metadata and print-safe line/text primitives.

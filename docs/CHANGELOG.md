@@ -1094,3 +1094,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Inserted the domain-model stage into the Visualization Scene Pipeline.
 - Added roadmap and architecture documentation for the domain-first Layout Engine sequence.
 - Added regression tests for normalized tracks, curves, intervals and raw-data safety.
+
+## v80
+- Added the renderer-neutral Visualization Render Model foundation.
+- Added deterministic drawing primitive and clipping contracts.
+- Added Render Model to the Visualization Scene Pipeline.
+- Added safe empty-layout diagnostics and regression tests.
+- Kept the existing SVG scene renderer as a compatibility path during migration.

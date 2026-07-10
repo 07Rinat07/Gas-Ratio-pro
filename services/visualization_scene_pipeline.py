@@ -18,6 +18,10 @@ from services.visualization_domain_model import (
 )
 from services.visualization_engine_core import VisualizationEngineCore, VisualizationScene
 from services.visualization_layout_engine import VisualizationLayout, VisualizationLayoutEngine
+from services.visualization_render_model import (
+    VisualizationRenderModel,
+    VisualizationRenderModelBuilder,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +59,7 @@ class VisualizationScenePipelineResult:
     context: VisualizationSceneContext = field(default_factory=VisualizationSceneContext)
     scene: VisualizationScene = field(default_factory=VisualizationScene)
     layout: VisualizationLayout = field(default_factory=VisualizationLayout)
+    render_model: VisualizationRenderModel = field(default_factory=VisualizationRenderModel)
     validation: dict[str, Any] = field(default_factory=dict)
     stages: tuple[str, ...] = field(default_factory=tuple)
 
@@ -70,6 +75,7 @@ class VisualizationScenePipelineResult:
             "context": self.context.to_dict(),
             "scene": self.scene.to_dict(),
             "layout": self.layout.to_dict(),
+            "render_model": self.render_model.to_dict(),
             "validation": dict(self.validation),
             "stages": list(self.stages),
             "ok": self.ok,
@@ -137,6 +143,16 @@ class LayoutBuilder:
         return self.engine.build(scene.to_dict())
 
 
+class RenderModelBuilder:
+    """Create renderer-neutral primitives from scene and layout contracts."""
+
+    def __init__(self, builder: VisualizationRenderModelBuilder | None = None) -> None:
+        self.builder = builder or VisualizationRenderModelBuilder()
+
+    def build(self, scene: VisualizationScene, layout: VisualizationLayout) -> VisualizationRenderModel:
+        return self.builder.build(scene.to_dict(), layout.to_dict())
+
+
 class SceneValidator:
     """Validate the scene contract without renderer-specific checks."""
 
@@ -166,7 +182,7 @@ class SceneValidator:
 class VisualizationScenePipeline:
     """Run the renderer-neutral visualization scene pipeline."""
 
-    STAGES = ("domain_model", "context", "scene", "layout", "validation")
+    STAGES = ("domain_model", "context", "scene", "layout", "render_model", "validation")
 
     def __init__(
         self,
@@ -174,12 +190,14 @@ class VisualizationScenePipeline:
         context_builder: SceneContextBuilder | None = None,
         scene_builder: SceneBuilder | None = None,
         layout_builder: LayoutBuilder | None = None,
+        render_model_builder: RenderModelBuilder | None = None,
         validator: SceneValidator | None = None,
     ) -> None:
         self.domain_model_builder = domain_model_builder or DomainModelBuilder()
         self.context_builder = context_builder or SceneContextBuilder()
         self.scene_builder = scene_builder or SceneBuilder()
         self.layout_builder = layout_builder or LayoutBuilder()
+        self.render_model_builder = render_model_builder or RenderModelBuilder()
         self.validator = validator or SceneValidator()
 
     def run(self, payload: Mapping[str, Any]) -> VisualizationScenePipelineResult:
@@ -187,12 +205,16 @@ class VisualizationScenePipeline:
         context = self.context_builder.build(domain_model)
         scene = self.scene_builder.build(context)
         layout = self.layout_builder.build(scene)
+        render_model = self.render_model_builder.build(scene, layout)
         validation = self.validator.validate(context, scene, layout)
+        validation["render_model_ok"] = render_model.ok
+        validation["render_primitive_count"] = len(render_model.primitives)
         return VisualizationScenePipelineResult(
             domain_model=domain_model,
             context=context,
             scene=scene,
             layout=layout,
+            render_model=render_model,
             validation=validation,
             stages=self.STAGES,
         )
