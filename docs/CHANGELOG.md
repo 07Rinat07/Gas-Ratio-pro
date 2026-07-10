@@ -1,3 +1,11 @@
+
+## v78 Visualization Layout Engine
+
+- Added renderer-neutral visualization layout contract.
+- Added deterministic track, header, axis and plot geometry.
+- Added shared depth coordinate mapping.
+- Integrated layout stage into scene pipeline and SVG renderer.
+- Added layout validation and regression tests.
 # Changelog
 
 ## Visualization Asset Index v71

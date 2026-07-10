@@ -59,12 +59,13 @@ class VisualizationSvgSceneRenderer:
     DEFAULT_TRACK_WIDTH = 180
     MIN_TRACK_WIDTH = 120
     HEADER_HEIGHT = 42
+    AXIS_HEIGHT = 22
     FOOTER_HEIGHT = 24
     PLOT_HEIGHT = 620
     SIDE_PADDING = 12
 
     def render(self, source: Mapping[str, Any]) -> SvgSceneRenderResult:
-        scene, source_schema, upstream_issues = self._extract_scene(source)
+        scene, layout, source_schema, upstream_issues = self._extract_scene(source)
         tracks = _mapping_list(scene.get("tracks"))
         layers = _mapping_list(scene.get("layers"))
         depth_sync = _mapping(scene.get("depth_sync"))
@@ -80,12 +81,20 @@ class VisualizationSvgSceneRenderer:
         if depth_start is None or depth_stop is None or depth_stop <= depth_start:
             issues.append("svg_renderer_invalid_depth_domain")
 
-        track_widths = [
-            max(self.MIN_TRACK_WIDTH, int(self.DEFAULT_TRACK_WIDTH * max(_positive_float(track.get("width"), 1.0), 0.5)))
-            for track in tracks
-        ]
-        width = max(360, sum(track_widths) + self.SIDE_PADDING * 2)
-        height = self.HEADER_HEIGHT + self.PLOT_HEIGHT + self.FOOTER_HEIGHT
+        layout_tracks = _mapping_list(layout.get("tracks"))
+        layout_by_track = {str(item.get("id") or ""): item for item in layout_tracks}
+        width = int(_positive_float(layout.get("width"), 0))
+        height = int(_positive_float(layout.get("height"), 0))
+        if not width or not height or len(layout_tracks) != len(tracks):
+            issues.append("svg_renderer_missing_layout_contract")
+            track_widths = [
+                max(self.MIN_TRACK_WIDTH, int(self.DEFAULT_TRACK_WIDTH * max(_positive_float(track.get("width"), 1.0), 0.5)))
+                for track in tracks
+            ]
+            width = max(360, sum(track_widths) + self.SIDE_PADDING * 2)
+            height = self.HEADER_HEIGHT + self.AXIS_HEIGHT + self.PLOT_HEIGHT + self.FOOTER_HEIGHT
+        else:
+            track_widths = [int(_mapping(layout_by_track.get(str(track.get("id") or ""))).get("plot_bounds", {}).get("width") or self.DEFAULT_TRACK_WIDTH) for track in tracks]
 
         layer_by_track: dict[str, list[dict[str, Any]]] = {}
         for layer in layers:
@@ -102,6 +111,7 @@ class VisualizationSvgSceneRenderer:
             depth_start=depth_start,
             depth_stop=depth_stop,
             track_widths=track_widths,
+            layout_by_track=layout_by_track,
             width=width,
             height=height,
             issues=issues,
@@ -122,17 +132,17 @@ class VisualizationSvgSceneRenderer:
             svg=svg,
         )
 
-    def _extract_scene(self, source: Mapping[str, Any]) -> tuple[dict[str, Any], str, list[str]]:
+    def _extract_scene(self, source: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any], str, list[str]]:
         source_schema = str(source.get("schema") or "")
         issues: list[str] = []
         if source_schema == "visualization.scene.pipeline.result":
             validation = _mapping(source.get("validation"))
             issues.extend(str(item) for item in _sequence(validation.get("issues")) if str(item))
-            return _mapping(source.get("scene")), source_schema, issues
+            return _mapping(source.get("scene")), _mapping(source.get("layout")), source_schema, issues
         if source_schema == "visualization.engine.scene":
-            return dict(source), source_schema, issues
+            return dict(source), {}, source_schema, issues
         issues.append("svg_renderer_unsupported_source_schema")
-        return _mapping(source.get("scene")), source_schema, issues
+        return _mapping(source.get("scene")), _mapping(source.get("layout")), source_schema, issues
 
     def _render_svg(
         self,
@@ -143,6 +153,7 @@ class VisualizationSvgSceneRenderer:
         depth_start: float | None,
         depth_stop: float | None,
         track_widths: list[int],
+        layout_by_track: dict[str, dict[str, Any]],
         width: int,
         height: int,
         issues: list[str],
@@ -163,28 +174,30 @@ class VisualizationSvgSceneRenderer:
             )
             return "".join(parts)
 
-        plot_top = self.HEADER_HEIGHT
-        plot_bottom = plot_top + self.PLOT_HEIGHT
-        x = self.SIDE_PADDING
         depth_span = (depth_stop - depth_start) if depth_start is not None and depth_stop is not None else None
         for index, (track, track_width) in enumerate(zip(tracks, track_widths)):
             track_id = str(track.get("id") or f"track.{index}")
+            track_layout = _mapping(layout_by_track.get(track_id))
+            plot_bounds = _mapping(track_layout.get("plot_bounds"))
+            header_bounds = _mapping(track_layout.get("header_bounds"))
+            x = int(_positive_float(plot_bounds.get("x"), self.SIDE_PADDING + sum(track_widths[:index])))
+            plot_top = int(_positive_float(plot_bounds.get("y"), self.HEADER_HEIGHT + self.AXIS_HEIGHT))
+            plot_height = int(_positive_float(plot_bounds.get("height"), self.PLOT_HEIGHT))
+            track_width = int(_positive_float(plot_bounds.get("width"), track_width))
             title = escape(str(track.get("title") or track_id))
             style = _mapping(track.get("style"))
             fill = _safe_color(style.get("fill"), "#ffffff")
             parts.append(f'<g data-track="{escape(track_id, quote=True)}">')
-            parts.append(f'<rect x="{x}" y="{plot_top}" width="{track_width}" height="{self.PLOT_HEIGHT}" fill="{fill}" stroke="#b0bec5"/>')
-            parts.append(f'<text x="{x + 8}" y="26" font-size="12" font-weight="600" fill="#263238">{title}</text>')
-            self._append_depth_grid(parts, x=x, width=track_width, plot_top=plot_top, depth_start=depth_start, depth_stop=depth_stop)
+            parts.append(f'<rect x="{x}" y="{plot_top}" width="{track_width}" height="{plot_height}" fill="{fill}" stroke="#b0bec5"/>')
+            parts.append(f'<text x="{x + 8}" y="{int(_positive_float(header_bounds.get("y"), 0)) + 26}" font-size="12" font-weight="600" fill="#263238">{title}</text>')
+            self._append_depth_grid(parts, x=x, width=track_width, plot_top=plot_top, plot_height=plot_height, depth_start=depth_start, depth_stop=depth_stop)
             for layer in layer_by_track.get(track_id, []):
                 kind = str(layer.get("kind") or "")
                 if kind == "interval_overlay":
-                    self._append_overlay(parts, layer, x=x, width=track_width, plot_top=plot_top, depth_start=depth_start, depth_span=depth_span)
+                    self._append_overlay(parts, layer, x=x, width=track_width, plot_top=plot_top, plot_height=plot_height, depth_start=depth_start, depth_span=depth_span)
                 elif kind == "curve":
-                    self._append_curve(parts, layer, x=x, width=track_width, plot_top=plot_top, depth_start=depth_start, depth_span=depth_span, issues=issues)
+                    self._append_curve(parts, layer, x=x, width=track_width, plot_top=plot_top, plot_height=plot_height, depth_start=depth_start, depth_span=depth_span, issues=issues)
             parts.append("</g>")
-            x += track_width
-
         unit = escape(str(depth_sync.get("unit") or ""))
         domain_label = "Depth"
         if depth_start is not None and depth_stop is not None:
@@ -200,11 +213,12 @@ class VisualizationSvgSceneRenderer:
         x: int,
         width: int,
         plot_top: int,
+        plot_height: int,
         depth_start: float | None,
         depth_stop: float | None,
     ) -> None:
         for tick in range(6):
-            y = plot_top + (self.PLOT_HEIGHT * tick / 5)
+            y = plot_top + (plot_height * tick / 5)
             parts.append(f'<line x1="{x}" y1="{y:.2f}" x2="{x + width}" y2="{y:.2f}" stroke="#dfe5ea" stroke-width="0.7"/>')
             if depth_start is not None and depth_stop is not None:
                 value = depth_start + (depth_stop - depth_start) * tick / 5
@@ -218,6 +232,7 @@ class VisualizationSvgSceneRenderer:
         x: int,
         width: int,
         plot_top: int,
+        plot_height: int,
         depth_start: float | None,
         depth_span: float | None,
     ) -> None:
@@ -228,10 +243,10 @@ class VisualizationSvgSceneRenderer:
         base = _finite_float(payload.get("base"))
         if top is None or base is None:
             return
-        y1 = plot_top + ((top - depth_start) / depth_span) * self.PLOT_HEIGHT
-        y2 = plot_top + ((base - depth_start) / depth_span) * self.PLOT_HEIGHT
+        y1 = plot_top + ((top - depth_start) / depth_span) * plot_height
+        y2 = plot_top + ((base - depth_start) / depth_span) * plot_height
         y = max(plot_top, min(y1, y2))
-        bottom = min(plot_top + self.PLOT_HEIGHT, max(y1, y2))
+        bottom = min(plot_top + plot_height, max(y1, y2))
         if bottom <= y:
             return
         style = _mapping(payload.get("style"))
@@ -253,6 +268,7 @@ class VisualizationSvgSceneRenderer:
         x: int,
         width: int,
         plot_top: int,
+        plot_height: int,
         depth_start: float | None,
         depth_span: float | None,
         issues: list[str],
@@ -290,8 +306,8 @@ class VisualizationSvgSceneRenderer:
             if normalized is None:
                 continue
             px = x + 8 + normalized * max(width - 16, 1)
-            py = plot_top + ((depth - depth_start) / depth_span) * self.PLOT_HEIGHT
-            if plot_top - 1 <= py <= plot_top + self.PLOT_HEIGHT + 1:
+            py = plot_top + ((depth - depth_start) / depth_span) * plot_height
+            if plot_top - 1 <= py <= plot_top + plot_height + 1:
                 polyline.append(f"{px:.2f},{py:.2f}")
         if len(polyline) < 2:
             issues.append(f'svg_renderer_curve_has_insufficient_points:{layer.get("id", "")}'.rstrip(":"))

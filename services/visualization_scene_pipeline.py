@@ -17,6 +17,7 @@ from services.visualization_domain_model import (
     VisualizationDomainModelAdapter,
 )
 from services.visualization_engine_core import VisualizationEngineCore, VisualizationScene
+from services.visualization_layout_engine import VisualizationLayout, VisualizationLayoutEngine
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +54,7 @@ class VisualizationScenePipelineResult:
     domain_model: VisualizationDomainModel = field(default_factory=VisualizationDomainModel)
     context: VisualizationSceneContext = field(default_factory=VisualizationSceneContext)
     scene: VisualizationScene = field(default_factory=VisualizationScene)
+    layout: VisualizationLayout = field(default_factory=VisualizationLayout)
     validation: dict[str, Any] = field(default_factory=dict)
     stages: tuple[str, ...] = field(default_factory=tuple)
 
@@ -67,6 +69,7 @@ class VisualizationScenePipelineResult:
             "domain_model": self.domain_model.to_dict(),
             "context": self.context.to_dict(),
             "scene": self.scene.to_dict(),
+            "layout": self.layout.to_dict(),
             "validation": dict(self.validation),
             "stages": list(self.stages),
             "ok": self.ok,
@@ -124,10 +127,20 @@ class SceneBuilder:
         return self.engine.build_scene(context.payload)
 
 
+class LayoutBuilder:
+    """Calculate renderer-neutral geometry after scene construction."""
+
+    def __init__(self, engine: VisualizationLayoutEngine | None = None) -> None:
+        self.engine = engine or VisualizationLayoutEngine()
+
+    def build(self, scene: VisualizationScene) -> VisualizationLayout:
+        return self.engine.build(scene.to_dict())
+
+
 class SceneValidator:
     """Validate the scene contract without renderer-specific checks."""
 
-    def validate(self, context: VisualizationSceneContext, scene: VisualizationScene) -> dict[str, Any]:
+    def validate(self, context: VisualizationSceneContext, scene: VisualizationScene, layout: VisualizationLayout) -> dict[str, Any]:
         scene_dict = scene.to_dict()
         tracks = _list(scene_dict.get("tracks"))
         layers = _list(scene_dict.get("layers"))
@@ -136,6 +149,7 @@ class SceneValidator:
             issues.append("scene_has_no_tracks")
         if not layers:
             issues.append("scene_has_no_layers")
+        issues.extend(layout.issues)
         known_track_ids = {str(track.get("id")) for track in tracks}
         orphan_layers = [layer.get("id") for layer in layers if str(layer.get("track_id")) not in known_track_ids]
         return {
@@ -145,35 +159,40 @@ class SceneValidator:
             "layer_count": len(layers),
             "orphan_layer_ids": orphan_layers,
             "renderer_neutral": True,
+            "layout_ok": layout.ok,
         }
 
 
 class VisualizationScenePipeline:
     """Run the renderer-neutral visualization scene pipeline."""
 
-    STAGES = ("domain_model", "context", "scene", "validation")
+    STAGES = ("domain_model", "context", "scene", "layout", "validation")
 
     def __init__(
         self,
         domain_model_builder: DomainModelBuilder | None = None,
         context_builder: SceneContextBuilder | None = None,
         scene_builder: SceneBuilder | None = None,
+        layout_builder: LayoutBuilder | None = None,
         validator: SceneValidator | None = None,
     ) -> None:
         self.domain_model_builder = domain_model_builder or DomainModelBuilder()
         self.context_builder = context_builder or SceneContextBuilder()
         self.scene_builder = scene_builder or SceneBuilder()
+        self.layout_builder = layout_builder or LayoutBuilder()
         self.validator = validator or SceneValidator()
 
     def run(self, payload: Mapping[str, Any]) -> VisualizationScenePipelineResult:
         domain_model = self.domain_model_builder.build(payload)
         context = self.context_builder.build(domain_model)
         scene = self.scene_builder.build(context)
-        validation = self.validator.validate(context, scene)
+        layout = self.layout_builder.build(scene)
+        validation = self.validator.validate(context, scene, layout)
         return VisualizationScenePipelineResult(
             domain_model=domain_model,
             context=context,
             scene=scene,
+            layout=layout,
             validation=validation,
             stages=self.STAGES,
         )
