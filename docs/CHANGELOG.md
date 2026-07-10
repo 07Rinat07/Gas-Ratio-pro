@@ -1,4 +1,11 @@
 
+## v79 Visualization Render Model Roadmap
+
+- Added the renderer-neutral Render Model as a required architectural layer between Layout and renderers.
+- Defined responsibility boundaries for Domain Model, Scene, Layout, Render Model and concrete renderers.
+- Reordered the Visualization Engine roadmap so Axis, Grid, Track, Curve, Label and Legend work is built on stable drawing primitives.
+- Kept the current SVG scene renderer as a compatibility path until migration to Render Model is complete.
+
 ## v78 Visualization Layout Engine
 
 - Added renderer-neutral visualization layout contract.

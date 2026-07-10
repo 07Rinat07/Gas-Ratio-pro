@@ -5,10 +5,19 @@ Visualization Layout Engine v78 is implemented. The scene pipeline now produces
 a renderer-neutral layout with deterministic track geometry and shared depth mapping.
 The SVG renderer consumes this layout instead of owning primary geometry calculations.
 
+## Approved architecture update
+
+A renderer-neutral Render Model is now mandatory between Layout and concrete renderers.
+Layout remains responsible only for geometry. Render Model converts scene and layout data
+into backend-independent drawing primitives. SVG, PDF, Canvas, Streamlit and future
+renderers must consume these primitives instead of interpreting engineering objects.
+
 ## Next implementation step
 
-Implement Axis and Grid Model for major/minor depth ticks, curve scale labels,
-logarithmic axis metadata and print-safe grid styling.
+Implement the Visualization Render Model foundation: primitive contracts, stable ordering,
+clipping metadata and a builder that transforms Scene plus Layout into renderer-neutral
+polylines, rectangles, lines and text commands. Axis and Grid Model will follow on top of
+this contract.
 # Project Progress and Next Step
 
 ## Completed architecture milestones
@@ -321,3 +330,25 @@ Completed:
 
 Next step:
 Implement the renderer-neutral Layout Engine. It should calculate track geometry, synchronized depth coordinates and axis regions from `VisualizationScene`, while SVG remains a drawing-only adapter.
+
+## v79 Visualization Render Model Roadmap Update
+
+Approved:
+- Added a mandatory renderer-neutral Render Model layer after Layout Engine.
+- Layout owns geometry only; it must not emit SVG, PDF or UI-specific structures.
+- Render Model owns ordered drawing primitives, clipping references, style references and render diagnostics.
+- Concrete renderers consume Render Model only and must not inspect Domain Model or Scene directly.
+- Updated implementation order:
+  1. Render Model foundation.
+  2. Axis and Grid Model.
+  3. Track and Curve primitives.
+  4. Label and Legend primitives.
+  5. Print Layout and renderer parity.
+  6. Large LAS performance optimization.
+
+Target pipeline:
+`Source Adapter → Domain Model → Scene → Layout → Render Model → Renderer`
+
+Next step:
+Implement the first Render Model contracts and builder while keeping the existing SVG scene renderer compatible during migration.
+
