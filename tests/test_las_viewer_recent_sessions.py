@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from services.las_viewer_recent_sessions import LasViewerRecentSessions
 from services.las_viewer_session import LasViewerSession
 from services.las_viewer_workspace_autosave_repository import LasViewerWorkspaceAutosaveRepository
@@ -1369,3 +1371,53 @@ def test_bookmark_trash_journal_validates_limit(tmp_path):
         assert "limit" in str(exc)
     else:
         raise AssertionError("ValueError expected")
+
+
+def test_bookmark_trash_journal_query_filters_events(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("query-audit.las"))
+    service = LasViewerRecentSessions(repository)
+    key = service.list()[0].session_key
+    service.set_bookmark(key, label="Query Label")
+
+    import itertools
+    times = itertools.count(100, 100)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: next(times))
+    service.remove_bookmark(key)
+    service.restore_bookmark(key)
+
+    removed = service.query_bookmark_trash_journal(action="removed")
+    assert len(removed) == 1
+    assert removed[0].label == "Query Label"
+    assert service.query_bookmark_trash_journal(query="query label")[0].session_key == key
+    assert service.query_bookmark_trash_journal(occurred_from_ns=150)[0].action == "restored"
+
+
+def test_bookmark_trash_journal_query_validates_filters(tmp_path):
+    service = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path))
+    for kwargs in ({"action": "unknown"}, {"occurred_from_ns": 20, "occurred_to_ns": 10}):
+        try:
+            service.query_bookmark_trash_journal(**kwargs)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("ValueError expected")
+
+
+def test_export_bookmark_trash_journal_writes_portable_json(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path)
+    repository.save(_session("export-audit.las"))
+    service = LasViewerRecentSessions(repository)
+    key = service.list()[0].session_key
+    service.set_bookmark(key, label="Export")
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 123456)
+    service.remove_bookmark(key)
+
+    destination = tmp_path / "exports" / "bookmark-trash-audit.json"
+    payload = service.export_bookmark_trash_journal(destination, action="removed")
+    loaded = json.loads(destination.read_text(encoding="utf-8"))
+
+    assert payload["event_count"] == 1
+    assert loaded["schema"] == "las.viewer.recent-session-bookmark-trash-journal-export"
+    assert loaded["events"][0]["session_key"] == key
+    assert len(loaded["sha256"]) == 64

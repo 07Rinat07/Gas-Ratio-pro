@@ -1385,6 +1385,73 @@ class LasViewerRecentSessions:
         events.sort(key=lambda item: (-item.occurred_at_ns, item.action, item.session_key))
         return tuple(events[: int(limit)])
 
+    def query_bookmark_trash_journal(
+        self,
+        *,
+        action: str = "",
+        session_key: str = "",
+        query: str = "",
+        occurred_from_ns: int = 0,
+        occurred_to_ns: int | None = None,
+        limit: int = 100,
+    ) -> tuple[LasViewerRecentSessionBookmarkTrashEvent, ...]:
+        """Filter bookmark trash audit events for diagnostics and Workbench views."""
+        if int(limit) < 1:
+            raise ValueError("limit must be >= 1")
+        normalized_action = str(action or "").strip()
+        if normalized_action and normalized_action not in {"removed", "restored", "purged", "expired"}:
+            raise ValueError("unsupported bookmark trash journal action")
+        normalized_key = str(session_key or "").strip()
+        normalized_query = str(query or "").strip().casefold()
+        start_ns = max(0, int(occurred_from_ns))
+        stop_ns = None if occurred_to_ns is None else max(0, int(occurred_to_ns))
+        if stop_ns is not None and stop_ns < start_ns:
+            raise ValueError("occurred_to_ns must be >= occurred_from_ns")
+
+        result: list[LasViewerRecentSessionBookmarkTrashEvent] = []
+        for event in self.bookmark_trash_journal(limit=200):
+            if normalized_action and event.action != normalized_action:
+                continue
+            if normalized_key and event.session_key != normalized_key:
+                continue
+            if event.occurred_at_ns < start_ns:
+                continue
+            if stop_ns is not None and event.occurred_at_ns > stop_ns:
+                continue
+            if normalized_query:
+                searchable = " ".join((event.action, event.session_key, event.label, event.reason)).casefold()
+                if normalized_query not in searchable:
+                    continue
+            result.append(event)
+        return tuple(result[: int(limit)])
+
+    def export_bookmark_trash_journal(
+        self,
+        path: str | Path,
+        **filters: object,
+    ) -> dict[str, object]:
+        """Atomically export a filtered bookmark trash audit journal as portable JSON."""
+        destination = Path(path)
+        events = self.query_bookmark_trash_journal(**filters)
+        payload: dict[str, object] = {
+            "schema": "las.viewer.recent-session-bookmark-trash-journal-export",
+            "version": "1.0",
+            "exported_at_ns": time.time_ns(),
+            "event_count": len(events),
+            "events": [event.to_dict() for event in events],
+            "renderer_neutral": True,
+        }
+        encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        payload["sha256"] = sha256(encoded).hexdigest()
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with NamedTemporaryFile("w", encoding="utf-8", dir=destination.parent, delete=False) as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
+            handle.flush()
+            os.fsync(handle.fileno())
+            temporary = Path(handle.name)
+        os.replace(temporary, destination)
+        return payload
+
     def clear_bookmark_trash_journal(self) -> int:
         """Clear persisted trash audit events without changing trash contents."""
         removed = len(self._load_bookmark_trash_journal())
