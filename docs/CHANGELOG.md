@@ -1,3 +1,12 @@
+# v197 — Workbench Production Completion
+
+- Fixed production crash caused by reading removed `CommandExecutionResult.success`; startup now uses `executed`.
+- Replaced cross-call HTML shell composition with native Streamlit columns and containers.
+- Made command ribbon, Project Explorer, central workspace, Properties and Status Bar render as real production regions.
+- Added command-backed collapse/restore controls in native dock regions.
+- Added runtime-oriented production smoke tests for layout and rerun behavior.
+- Completed Stage 4 and activated Stage 5 Petrophysical Engine.
+
 # Changelog
 
 ## v194 — Unified roadmap correction for Workbench UI Completion

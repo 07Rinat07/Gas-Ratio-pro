@@ -167,6 +167,180 @@ def _html(text: Any) -> str:
     return html.escape(str(text if text is not None else ""))
 
 
+
+def _dispatch_action(
+    contract: WorkbenchRendererContract,
+    registry: WorkbenchCommandRegistry,
+    action: dict[str, Any],
+) -> CommandExecutionResult:
+    controller = WorkbenchController(
+        registry.state,
+        renderer=contract.renderer,
+        version=contract.version,
+        command_registry=registry,
+    )
+    return controller.dispatch_renderer_action(
+        str(action.get("id", "")), dict(action.get("payload", {}) or {})
+    ).command_result
+
+
+def _render_native_streamlit_layout(
+    contract: WorkbenchRendererContract,
+    registry: WorkbenchCommandRegistry,
+    st_module: Any,
+    payload: dict[str, Any],
+    layout: dict[str, Any],
+) -> tuple[CommandExecutionResult, ...]:
+    """Render the production Workbench with native Streamlit containers.
+
+    Raw HTML cannot span multiple ``st.markdown`` calls because each call is
+    mounted in an independent DOM block.  The production renderer therefore
+    uses Streamlit columns/containers for the five-region shell and keeps HTML
+    only for presentation inside an individual region.
+    """
+
+    executed: list[CommandExecutionResult] = []
+    active_workspace = payload.get("interaction", {}).get("active_workspace") or "dashboard"
+    st_module.markdown(
+        "<div class='workbench-titlebar'><h1>Gas Ratio Pro — Modern Workbench</h1>"
+        f"<span>Workspace: <b>{_html(active_workspace)}</b></span></div>",
+        unsafe_allow_html=True,
+    )
+
+    # Real command ribbon. Each group gets its own column and actions remain
+    # command-backed. Empty groups are still visible as stable Workbench tabs.
+    toolbar_groups = list(layout.get("toolbar", ()))
+    if toolbar_groups:
+        toolbar_columns = st_module.columns(len(toolbar_groups), gap="small")
+        for group, column in zip(toolbar_groups, toolbar_columns):
+            with column:
+                st_module.markdown(
+                    f"<div class='workbench-toolbar-group-title'>{_html(group.get('title', ''))}</div>",
+                    unsafe_allow_html=True,
+                )
+                for action in group.get("actions", ()):
+                    if not action.get("id"):
+                        continue
+                    ui_id = str(action.get("ui_id") or action.get("id"))
+                    key = "workbench_toolbar_" + ui_id.replace(".", "_")
+                    label = str(action.get("title") or action.get("label") or action.get("id"))
+                    if st_module.button(
+                        label,
+                        key=key,
+                        disabled=not bool(action.get("enabled", True)),
+                        width="stretch",
+                    ):
+                        executed.append(_dispatch_action(contract, registry, dict(action)))
+
+    dock_panes = {str(item.get("id")): dict(item) for item in payload.get("dock_panes", ())}
+    explorer = dock_panes.get("dock.project_explorer", {})
+    properties_pane = dock_panes.get("dock.properties", {})
+    explorer_open = bool(explorer.get("opened", True)) and not bool(explorer.get("collapsed", False))
+    properties_open = bool(properties_pane.get("opened", True)) and not bool(properties_pane.get("collapsed", False))
+
+    widths = [1.15 if explorer_open else 0.16, 4.7, 1.35 if properties_open else 0.16]
+    left, center, right = st_module.columns(widths, gap="small")
+
+    with left:
+        if explorer_open:
+            st_module.markdown("### Project Explorer")
+            for item in layout.get("project_tree", ()):
+                indent = "&nbsp;" * (4 * int(item.get("level", 0)))
+                count = f" <small>({int(item.get('count', 0))})</small>" if item.get("count") not in (None, "") else ""
+                active = " **●**" if item.get("active") else ""
+                st_module.markdown(
+                    f"<div class='workbench-tree-item'>{indent}{_html(item.get('title', ''))}{count}{active}</div>",
+                    unsafe_allow_html=True,
+                )
+            collapse = {
+                "id": "action.collapse_dock_pane",
+                "payload": {"pane_id": "dock.project_explorer"},
+            }
+            if st_module.button("Свернуть", key="workbench_native_collapse_explorer", width="stretch"):
+                executed.append(_dispatch_action(contract, registry, collapse))
+        else:
+            restore = {
+                "id": "action.restore_dock_pane",
+                "payload": {"pane_id": "dock.project_explorer"},
+            }
+            if st_module.button("▶", key="workbench_native_restore_explorer", help="Restore Project Explorer"):
+                executed.append(_dispatch_action(contract, registry, restore))
+
+    workspace = dict(layout.get("workspace", {}) or {})
+    with center:
+        st_module.markdown(f"### {_html(workspace.get('title', 'Workspace'))}")
+        cards = workspace.get("content", {}).get("summary_cards", ())
+        if cards:
+            card_columns = st_module.columns(min(len(cards), 4), gap="small")
+            for card, column in zip(cards, card_columns):
+                with column:
+                    st_module.markdown(
+                        "<div class='workbench-las-card'>"
+                        f"<small>{_html(card.get('title', ''))}</small><br><b>{_html(card.get('value', ''))}</b>"
+                        "</div>", unsafe_allow_html=True,
+                    )
+        runtime = dict(workspace.get("runtime", {}) or {})
+        visualization = dict(runtime.get("visualization", {}) or {})
+        if runtime.get("embedded"):
+            depth = dict(visualization.get("depth_range", {}) or {})
+            st_module.markdown(
+                "<div class='workbench-viewport-summary'>"
+                f"Depth viewport: <b>{_html(depth.get('start', '—'))} – {_html(depth.get('stop', '—'))} "
+                f"{_html(visualization.get('depth_unit', ''))}</b></div>",
+                unsafe_allow_html=True,
+            )
+            tracks = list(visualization.get("tracks", ()) or ())
+            curves = list(visualization.get("curves", ()) or ())
+            if tracks:
+                track_columns = st_module.columns(min(len(tracks), 6), gap="small")
+                for track, column in zip(tracks, track_columns):
+                    with column:
+                        track_id = str(track.get("id") or track.get("track_id") or "track")
+                        track_curves = [c for c in curves if str(c.get("track_id", "")) == track_id]
+                        labels = ", ".join(str(c.get("mnemonic") or c.get("title") or c.get("id") or "") for c in track_curves[:8]) or "No visible curves"
+                        st_module.markdown(
+                            "<article class='workbench-las-track'>"
+                            f"<h4>{_html(track.get('title') or track_id)}</h4><small>{_html(labels)}</small>"
+                            "</article>", unsafe_allow_html=True,
+                        )
+            else:
+                st_module.info("LAS is open, but no visible tracks are available.")
+        else:
+            st_module.markdown(
+                "<div class='workbench-workspace-empty'>"
+                f"<h3>{_html(workspace.get('title', 'Workspace'))}</h3>"
+                f"<p>{_html(workspace.get('empty_state', 'Select a module or open a project to begin.'))}</p>"
+                "</div>", unsafe_allow_html=True,
+            )
+
+    with right:
+        if properties_open:
+            st_module.markdown("### Properties")
+            props_html = "".join(
+                "<div class='workbench-property'>"
+                f"<span>{_html(item.get('label', ''))}</span><b>{_html(item.get('value', ''))}</b></div>"
+                for item in layout.get("properties", ())
+            )
+            st_module.markdown(props_html or "<small>No selection</small>", unsafe_allow_html=True)
+            collapse = {"id": "action.collapse_dock_pane", "payload": {"pane_id": "dock.properties"}}
+            if st_module.button("Свернуть", key="workbench_native_collapse_properties", width="stretch"):
+                executed.append(_dispatch_action(contract, registry, collapse))
+        else:
+            restore = {"id": "action.restore_dock_pane", "payload": {"pane_id": "dock.properties"}}
+            if st_module.button("◀", key="workbench_native_restore_properties", help="Restore Properties"):
+                executed.append(_dispatch_action(contract, registry, restore))
+
+    status_html = "".join(
+        f"<span><strong>{_html(item.get('label', ''))}:</strong> {_html(item.get('value', ''))}</span>"
+        for item in layout.get("status_items", ())
+    )
+    st_module.markdown(
+        f"<footer class='workbench-statusbar' aria-label='Status bar'>{status_html}</footer>",
+        unsafe_allow_html=True,
+    )
+    return tuple(executed)
+
+
 def render_streamlit_workbench_contract(
     contract: WorkbenchRendererContract,
     registry: WorkbenchCommandRegistry,
@@ -180,6 +354,8 @@ def render_streamlit_workbench_contract(
     layout = build_workbench_ui_layout(payload).to_dict()
 
     st_module.markdown(build_workbench_responsive_css(), unsafe_allow_html=True)
+    if callable(getattr(st_module, "columns", None)):
+        return _render_native_streamlit_layout(contract, registry, st_module, payload, layout)
     title = "Modern Workbench"
     active_workspace = payload.get("interaction", {}).get("active_workspace") or "dashboard"
     st_module.markdown(

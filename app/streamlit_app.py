@@ -10907,7 +10907,7 @@ def _run_modern_workbench() -> None:
     logger = configure_logging()
     logger.info("modern_workbench_started")
     results = render_streamlit_workbench(_application_state_controller().state, st)
-    if any(result.success for result in results):
+    if any(result.executed for result in results):
         st.rerun()
 
 

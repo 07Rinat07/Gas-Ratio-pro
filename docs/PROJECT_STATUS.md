@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v196  
-Current stage: Workbench UI Completion  
-Last fully verified runtime baseline: v193 — Modern Workbench is the default production Streamlit entry point. Implementation baseline v196 completes the interactive application-level providers and command-backed panes inside the five-region engineering layout. The confirmed plan inserts the confirmed Workbench UI Completion stage before Petrophysical Engine so the shell is completed as an engineering workspace before additional domain modules are integrated.
+Baseline: v197  
+Current stage: Petrophysical Engine  
+Last fully verified runtime baseline: v197 — Modern Workbench is the default production Streamlit entry point and now renders with native Streamlit containers as a real five-region engineering workspace. The production command-result contract, toolbar actions, Project Explorer, workspace host, Properties and Status Bar are verified by runtime-oriented smoke tests.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -40,21 +40,21 @@ Modern Workbench:
 
 ## 2. Что не считается завершённым
 
-- Toolbar actions, project-tree hydration, selection-driven Properties, embedded LAS visualization and supported dock resizing are implemented.
-- Final real desktop/mobile responsive, keyboard and production workflow smoke verification remains before Stage 4 can close.
-- Petrophysical Engine work is intentionally deferred until Workbench UI Completion passes its Definition of Done.
+- Workbench UI Completion is complete.
+- Petrophysical Engine formula/unit/provenance work remains active.
+- Modeling Engine remains deferred until Petrophysical Engine Definition of Done.
 
 ## 3. Следующий разрешённый инкремент
 
-**Final Stage 4 responsive/accessibility and production workflow verification.**
+**Petrophysical Engine contract audit and enforcement.**
 
 Состав:
 
-1. verify the interactive five-region layout on supported phone/tablet/laptop/wide profiles;
-2. verify keyboard focus order for toolbar, project tree, workspace actions and dock lifecycle;
-3. production smoke for project entry, LAS activation, navigation, dock collapse/restore/resize and export action exposure;
-4. fix only confirmed presentation/integration defects;
-5. full Workbench/LAS Viewer regression and preflight.
+1. audit existing VSH, PHIE and Archie formula implementations against registered sources;
+2. define explicit input/output unit contracts and canonical units;
+3. add calculation provenance and quality flags;
+4. block incompatible or dimensionally invalid inputs before output curves are written;
+5. integrate through existing application services without domain calculations in UI;
+6. targeted regression, full preflight and status update.
 
-Stage 4 remains active until these final verification items pass.
-Stage 5 Petrophysical Engine and Stage 6 Modeling Engine remain outside the next increment.
+Stage 6 Modeling Engine remains outside the next increment.

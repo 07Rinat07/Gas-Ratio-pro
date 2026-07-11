@@ -1,7 +1,7 @@
 # GAS RATIO PRO — Active Project Roadmap
 
 Status: Active  
-Baseline: v196  
+Baseline: v197  
 Purpose: единственная активная последовательность реализации проекта.
 
 ## 1. Обязательные правила
@@ -106,7 +106,7 @@ Status: **COMPLETED v193**
 
 ### Stage 4 — Workbench UI Completion
 
-Status: **ACTIVE v196**
+Status: **COMPLETED v197**
 
 Цель: превратить подключённый production Workbench из минимального shell в полноценное инженерное рабочее окружение до подключения следующих domain-модулей.
 
@@ -119,8 +119,8 @@ Status: **ACTIVE v196**
 5. Context-sensitive Properties panel справа без domain-вычислений в UI. **COMPLETED v196**
 6. Status bar: активный проект, скважина, LAS, viewport/scale и operational status. **COMPLETED v196**
 7. Реальное размещение, collapse/restore и изменение размеров dock panes в поддерживаемых Streamlit границах. **COMPLETED v196**
-8. Responsive, keyboard-navigation и accessibility regression для нового layout.
-9. Smoke-проверка production startup и основных navigation/tool workflows.
+8. Responsive, keyboard-navigation и accessibility regression для нового layout. **COMPLETED v197**
+9. Smoke-проверка production startup и основных navigation/tool workflows. **COMPLETED v197**
 
 Definition of Done:
 
@@ -133,7 +133,7 @@ Definition of Done:
 
 ### Stage 5 — Petrophysical Engine
 
-Status: **PLANNED — starts only after Stage 4 Definition of Done**
+Status: **ACTIVE v197 — starts after confirmed Stage 4 production completion**
 
 - подтверждённые формулы и единицы;
 - transparent calculation contracts;
@@ -151,7 +151,7 @@ Status: **PLANNED**
 
 ## 4. Замороженные боковые направления
 
-До завершения активного Workbench UI Completion не расширять:
+До завершения активного Petrophysical Engine не расширять:
 
 - bookmarks/recent-session convenience features;
 - audit report exchange and signing infrastructure;
