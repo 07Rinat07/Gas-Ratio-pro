@@ -1,5 +1,12 @@
 # Changelog
 
+## v177
+
+- Generated approved SVG/PDF reference artifacts for linear, Unicode and overlay multi-track scenes.
+- Added SHA-256 manifest validation and renderer-neutral structural regression signatures.
+- Added regeneration tests for geometry, primitive counts, clipping, page dimensions and Unicode labels.
+- Updated the active roadmap and project status without creating additional planning documents.
+
 ## v176
 
 - Added severity-aware renderer-neutral validation findings.

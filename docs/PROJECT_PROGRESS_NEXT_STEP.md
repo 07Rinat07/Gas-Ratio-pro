@@ -3,7 +3,7 @@
 Актуальный статус проекта ведётся в [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
 Текущий этап: **Visualization Engine completion**.  
-Следующий шаг: **reference artifact visual regression and layout defect correction**.
+Следующий шаг: **final large-LAS performance regression for Visualization Engine**.
 
 Исторический progress log перенесён в:
 

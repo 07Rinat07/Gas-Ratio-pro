@@ -1,7 +1,7 @@
 # GAS RATIO PRO — Active Project Roadmap
 
 Status: Active  
-Baseline: v176  
+Baseline: v177  
 Purpose: единственная активная последовательность реализации проекта.
 
 ## 1. Обязательные правила
@@ -47,7 +47,7 @@ Status: **ACTIVE**
 
 1. Точечное исправление дефектов, обнаруживаемых Render Validation Pipeline.
 2. Расширенная проверка коллизий легенд, осей и track headers.
-3. Визуальная проверка эталонных multi-track сцен и фиксация ожидаемых артефактов.
+3. Визуальная проверка эталонных multi-track сцен и фиксация ожидаемых артефактов. **COMPLETED v177**
 4. Проверка Unicode и читаемости печати на эталонных экспортных файлах.
 5. Финальный performance/large-LAS regression.
 

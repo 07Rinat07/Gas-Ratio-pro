@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v176  
+Baseline: v177  
 Current stage: Visualization Engine completion  
-Last verified result: 1738 tests passed, preflight OK.
+Last verified result: 1742 tests passed, preflight OK.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -15,7 +15,8 @@ Visualization Engine:
 - viewport, pan/zoom, hit testing, cursor и selection;
 - render/export QA и Render Validation Pipeline;
 - strict export enforcement: SVG/PDF export блокируется при fatal/error geometry findings;
-- три эталонные multi-track сцены для linear, Unicode и overlay regression.
+- три эталонные multi-track сцены для linear, Unicode и overlay regression;
+- утверждённые SVG/PDF reference artifacts с SHA-256 manifest и structural regression checks.
 
 LAS Viewer foundation:
 
@@ -26,21 +27,21 @@ LAS Viewer foundation:
 
 ## 2. Что не считается завершённым
 
-- Visualization Engine ещё не закрыт визуальными эталонами и реальными multi-track export cases.
-- Export blocking реализован; остаётся визуальная проверка эталонных артефактов и точечное исправление обнаруженных layout/print дефектов.
+- Reference artifacts сформированы и автоматически проверяются; ручная визуальная приёмка и large-LAS performance regression ещё не закрыты.
+- Export blocking и structural regression реализованы; остаются точечные исправления только по подтверждённым визуальным дефектам.
 - LAS Viewer foundation существует, но полный пользовательский open → view → interact → export workflow ещё не подтверждён как законченный продукт.
 - Modern Workbench и новая главная страница не начинаются до завершения LAS Viewer.
 
 ## 3. Следующий разрешённый инкремент
 
-**Reference artifact visual regression and layout defect correction.**
+**Final large-LAS performance regression for Visualization Engine.**
 
 Состав:
 
-1. сформировать эталонные SVG/PDF артефакты из утверждённых multi-track fixtures;
-2. проверить clipping, Unicode, track headers, axis labels и legend placement;
-3. исправлять только подтверждённые визуальные дефекты;
-4. добавить автоматические structural/hash checks для эталонных артефактов;
+1. прогнать утверждённые большие LAS fixtures через полный pipeline;
+2. измерить bounded memory, downsampling и cache behaviour;
+3. проверить SVG/PDF export после downsampling;
+4. исправлять только подтверждённые performance/blocking defects;
 5. обновить changelog и статус.
 
 Никакие audit/bookmark/licensing функции в следующий инкремент не входят.
