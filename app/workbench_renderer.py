@@ -109,7 +109,7 @@ div[data-testid="stButton"] > button:focus-visible { outline:3px solid rgba(77,1
 .workbench-tree-item { padding:.43rem .5rem; border-radius:5px; margin:.08rem 0; display:flex; align-items:center; justify-content:space-between; font-size:.84rem; color:#dce6f3; }
 .workbench-tree-item:hover { background:#18283c; }
 .workbench-tree-item small { color:var(--wb-muted); }
-.workbench-workspace-shell { min-height:calc(100vh - 255px); border:1px solid var(--wb-line); border-radius:6px; background:radial-gradient(circle at 50% 20%,#142238 0,#0d141f 42%,#0b1018 100%); overflow:hidden; }
+.workbench-workspace-shell { border:1px solid var(--wb-line); border-radius:6px; background:radial-gradient(circle at 50% 20%,#142238 0,#0d141f 42%,#0b1018 100%); overflow:hidden; }
 .workbench-workspace-empty { min-height:calc(100vh - 315px); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:2.5rem; color:var(--wb-muted); }
 .workbench-workspace-empty h2 { color:#f0f5fb; font-size:1.65rem; margin:.35rem 0; }
 .workbench-workspace-context { display:flex; align-items:center; gap:.45rem; padding:.45rem .65rem; border-bottom:1px solid var(--wb-line); color:var(--wb-muted); font-size:.78rem; }
@@ -127,10 +127,10 @@ div[data-testid="stButton"] > button:focus-visible { outline:3px solid rgba(77,1
 .workbench-status-ready { margin-left:auto; color:var(--wb-success); font-weight:700; }
 @media (min-width: 600px) { .workbench-ribbon { padding-left:.65rem; padding-right:.65rem; } }
 @media (min-width: 1024px) { .workbench-titlebar { min-height:52px; } .workbench-main { grid-template-columns:minmax(14rem, 18rem) minmax(0, 1fr) minmax(16rem, 20rem); } }
-@media (min-width: 1600px) { .workbench-workspace-shell { min-height:calc(100vh - 245px); } }
+@media (min-width: 1600px) { .workbench-workspace-empty { min-height:calc(100vh - 315px); } }
 @media (max-width:1200px) { .workbench-quick-actions { grid-template-columns:1fr; } .workbench-titlebar h1{font-size:1.1rem;} }
 @media (max-width: 1023px) { .workbench-main { grid-template-columns:1fr; } }
-@media (max-width:900px) { .workbench-main { grid-template-columns:1fr; } .workbench-titlebar { align-items:flex-start; gap:.5rem; } .workbench-build{display:none;} .workbench-workspace-shell{min-height:32rem;} }
+@media (max-width:900px) { .workbench-main { grid-template-columns:1fr; } .workbench-titlebar { align-items:flex-start; gap:.5rem; } .workbench-build{display:none;} .workbench-workspace-empty{min-height:28rem;} }
 </style>
 """.strip()
 
@@ -338,7 +338,11 @@ def _render_native_streamlit_layout(
     workspace = dict(layout.get("workspace", {}) or {})
     with center:
         st_module.markdown(f"<div class='workbench-pane-title'><span>{_html(workspace.get('title', 'Workspace'))}</span><span>×</span></div>", unsafe_allow_html=True)
-        st_module.markdown("<div class='workbench-workspace-shell'>", unsafe_allow_html=True)
+        st_module.markdown(
+            "<div class='workbench-workspace-context'>Workspace host: "
+            f"<b>{_html(payload.get('interaction', {}).get('active_navigation_id', '') or 'dashboard')}</b></div>",
+            unsafe_allow_html=True,
+        )
         runtime = dict(workspace.get("runtime", {}) or {})
         visualization = dict(runtime.get("visualization", {}) or {})
         active_navigation_id = str(payload.get("interaction", {}).get("active_navigation_id", "") or "")
@@ -447,7 +451,6 @@ def _render_native_streamlit_layout(
                             )
                         )
             st_module.markdown("</div>", unsafe_allow_html=True)
-        st_module.markdown("</div>", unsafe_allow_html=True)
 
     with right:
         if properties_open:

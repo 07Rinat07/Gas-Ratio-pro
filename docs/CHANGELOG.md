@@ -1,3 +1,10 @@
+## v206 Functional visibility repair
+
+- Removed the empty fixed-height HTML workspace shell that pushed native Streamlit workflow widgets below the visible central workspace.
+- Production LAS, Interpretation, Reports, Exports and Documentation renderers now appear directly in the central Workbench column.
+- Added regression tests for workspace visibility and existing production renderer bindings.
+- Updated the existing roadmap and status documents only; no new planning files were created.
+
 ## v203 — Workbench module integration audit and runtime diagnostics
 
 - Added centralized command and workspace-renderer exception capture.

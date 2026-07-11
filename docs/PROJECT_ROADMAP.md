@@ -1,7 +1,7 @@
 # GAS RATIO PRO — Active Project Roadmap
 
 Status: Active  
-Baseline: v205  
+Baseline: v206  
 Purpose: единственная активная последовательность реализации проекта.
 
 ## 1. Обязательные правила
@@ -106,7 +106,7 @@ Status: **COMPLETED v193**
 
 ### Stage 4 — Workbench UI Completion
 
-Status: **IN PROGRESS v205 — module render audit and supported Streamlit HTML path**
+Status: **IN PROGRESS v206 — functional visibility repair in the central workspace host**
 
 Цель: превратить подключённый production Workbench из минимального shell в полноценное инженерное рабочее окружение до подключения следующих domain-модулей.
 
@@ -139,7 +139,9 @@ Status: **IN PROGRESS v205 — module render audit and supported Streamlit HTML 
 25. Arrow-safe UI tables: normalize mixed presentation columns before Streamlit serialization. **COMPLETED v204**
 26. Streamlit API compatibility: replace deprecated raw HTML component usage and capture Streamlit/PyArrow warnings in the single rotating application log. **COMPLETED v205**
 27. Module Render Audit: log route resolution, provider, renderer, start/completed/failed phase, duration and expected visible controls for every Workbench route. **COMPLETED v205**
-28. Live module acceptance using render-audit evidence and visible controls for LAS, Interpretation, Reports, Exports and Documentation. **ACTIVE AFTER v205 OWNER TEST**
+28. Live module acceptance using render-audit evidence and visible controls for LAS, Interpretation, Reports, Exports and Documentation. **FAILED AFTER v205 OWNER TEST — renderers completed but controls were pushed below an empty fixed-height shell**
+29. Functional visibility repair: remove the empty fixed-height HTML workspace shell so native Streamlit controls render immediately inside the central column. **COMPLETED v206**
+30. Repeat live acceptance for LAS upload/editor/viewer, Interpretation, Reports, Exports and Documentation. **ACTIVE AFTER v206 OWNER TEST**
 
 Definition of Done:
 
