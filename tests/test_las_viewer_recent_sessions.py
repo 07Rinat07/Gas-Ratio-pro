@@ -1769,3 +1769,102 @@ def test_rotated_keyring_requires_key_id_for_new_keyring_format(tmp_path, monkey
         assert "key_id" in str(exc)
     else:
         raise AssertionError("ValueError expected")
+
+
+def test_signed_journal_accepts_key_validity_policy(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source-policy")
+    repository.save(_session("policy-valid.las"))
+    source = LasViewerRecentSessions(repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 1_500)
+    source.remove_bookmark(key)
+    export_path = tmp_path / "policy-valid.json"
+    source.export_bookmark_trash_journal(
+        export_path,
+        signer_id="workspace-a",
+        signing_key="secret",
+        key_id="key-1",
+    )
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target-policy"))
+    result = target.import_bookmark_trash_journal(
+        export_path,
+        trusted_signers={
+            "workspace-a": {
+                "key-1": {
+                    "key": "secret",
+                    "not_before_ns": 1_000,
+                    "expires_at_ns": 2_000,
+                }
+            }
+        },
+        require_signature=True,
+    )
+    assert result["imported"] == 1
+
+
+def test_signed_journal_rejects_key_outside_validity_window(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source-expired")
+    repository.save(_session("policy-expired.las"))
+    source = LasViewerRecentSessions(repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 3_000)
+    source.remove_bookmark(key)
+    export_path = tmp_path / "policy-expired.json"
+    source.export_bookmark_trash_journal(
+        export_path,
+        signer_id="workspace-a",
+        signing_key="secret",
+        key_id="key-1",
+    )
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target-expired"))
+    try:
+        target.import_bookmark_trash_journal(
+            export_path,
+            trusted_signers={
+                "workspace-a": {
+                    "key-1": {
+                        "key": "secret",
+                        "not_before_ns": 1_000,
+                        "expires_at_ns": 2_000,
+                    }
+                }
+            },
+            require_signature=True,
+        )
+    except ValueError as exc:
+        assert "expired" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")
+
+
+def test_signed_journal_rejects_disabled_key_policy(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source-disabled")
+    repository.save(_session("policy-disabled.las"))
+    source = LasViewerRecentSessions(repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 4_000)
+    source.remove_bookmark(key)
+    export_path = tmp_path / "policy-disabled.json"
+    source.export_bookmark_trash_journal(
+        export_path,
+        signer_id="workspace-a",
+        signing_key="secret",
+        key_id="key-1",
+    )
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target-disabled"))
+    try:
+        target.import_bookmark_trash_journal(
+            export_path,
+            trusted_signers={"workspace-a": {"key-1": {"key": "secret", "disabled": True}}},
+            require_signature=True,
+        )
+    except ValueError as exc:
+        assert "disabled" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")

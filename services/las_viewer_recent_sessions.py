@@ -1515,14 +1515,38 @@ class LasViewerRecentSessions:
             if key_id and key_id in (revoked_key_ids or set()):
                 raise ValueError("revoked bookmark trash journal signing key")
             signer_keys = trusted[signer]
-            if isinstance(signer_keys, dict):
+            key_policy: object
+            if isinstance(signer_keys, dict) and "key" not in signer_keys:
                 if not key_id:
                     raise ValueError("bookmark trash journal key_id is required for rotated keyrings")
                 if key_id not in signer_keys:
                     raise ValueError("untrusted bookmark trash journal signing key")
-                key = signer_keys[key_id]
+                key_policy = signer_keys[key_id]
             else:
-                key = signer_keys
+                key_policy = signer_keys
+
+            if isinstance(key_policy, dict):
+                if bool(key_policy.get("disabled", False)):
+                    raise ValueError("disabled bookmark trash journal signing key")
+                if "key" not in key_policy:
+                    raise ValueError("trusted bookmark trash journal key policy requires key")
+                key = key_policy["key"]
+                try:
+                    not_before_ns = max(0, int(key_policy.get("not_before_ns", 0)))
+                    expires_at_raw = key_policy.get("expires_at_ns")
+                    expires_at_ns = None if expires_at_raw is None else max(0, int(expires_at_raw))
+                    exported_at_ns = max(0, int(payload.get("exported_at_ns", 0)))
+                except (TypeError, ValueError) as exc:
+                    raise ValueError("invalid bookmark trash journal key validity policy") from exc
+                if expires_at_ns is not None and expires_at_ns < not_before_ns:
+                    raise ValueError("invalid bookmark trash journal key validity window")
+                if exported_at_ns < not_before_ns:
+                    raise ValueError("bookmark trash journal signing key was not active")
+                if expires_at_ns is not None and exported_at_ns > expires_at_ns:
+                    raise ValueError("expired bookmark trash journal signing key")
+            else:
+                key = key_policy
+
             key_bytes = key.encode("utf-8") if isinstance(key, str) else bytes(key)
             if not key_bytes:
                 raise ValueError("trusted bookmark trash journal signing key must not be empty")
