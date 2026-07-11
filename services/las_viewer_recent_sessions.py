@@ -1432,6 +1432,7 @@ class LasViewerRecentSessions:
         *,
         signer_id: str = "",
         signing_key: str | bytes | None = None,
+        key_id: str = "",
         **filters: object,
     ) -> dict[str, object]:
         """Atomically export a filtered bookmark trash audit journal as portable JSON."""
@@ -1454,9 +1455,11 @@ class LasViewerRecentSessions:
             key_bytes = signing_key.encode("utf-8") if isinstance(signing_key, str) else bytes(signing_key)
             if not key_bytes:
                 raise ValueError("signing_key must not be empty")
+            normalized_key_id = str(key_id or "").strip()
             payload["signature"] = {
                 "algorithm": "hmac-sha256",
                 "signer_id": normalized_signer,
+                "key_id": normalized_key_id,
                 "value": hmac.new(key_bytes, encoded, sha256).hexdigest(),
             }
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -1472,8 +1475,9 @@ class LasViewerRecentSessions:
     def _read_bookmark_trash_journal_export(
         path: str | Path,
         *,
-        trusted_signers: dict[str, str | bytes] | None = None,
+        trusted_signers: dict[str, object] | None = None,
         require_signature: bool = False,
+        revoked_key_ids: set[str] | frozenset[str] | None = None,
     ) -> list[LasViewerRecentSessionBookmarkTrashEvent]:
         """Validate and decode one portable bookmark trash journal export."""
         source = Path(path)
@@ -1503,12 +1507,25 @@ class LasViewerRecentSessions:
             if not isinstance(signature, dict) or signature.get("algorithm") != "hmac-sha256":
                 raise ValueError("unsupported bookmark trash journal signature")
             signer = str(signature.get("signer_id", "")).strip()
+            key_id = str(signature.get("key_id", "")).strip()
             provided = str(signature.get("value", "")).strip().lower()
             trusted = trusted_signers or {}
             if signer not in trusted:
                 raise ValueError("untrusted bookmark trash journal signer")
-            key = trusted[signer]
+            if key_id and key_id in (revoked_key_ids or set()):
+                raise ValueError("revoked bookmark trash journal signing key")
+            signer_keys = trusted[signer]
+            if isinstance(signer_keys, dict):
+                if not key_id:
+                    raise ValueError("bookmark trash journal key_id is required for rotated keyrings")
+                if key_id not in signer_keys:
+                    raise ValueError("untrusted bookmark trash journal signing key")
+                key = signer_keys[key_id]
+            else:
+                key = signer_keys
             key_bytes = key.encode("utf-8") if isinstance(key, str) else bytes(key)
+            if not key_bytes:
+                raise ValueError("trusted bookmark trash journal signing key must not be empty")
             expected = hmac.new(key_bytes, encoded, sha256).hexdigest()
             if len(provided) != 64 or not hmac.compare_digest(provided, expected):
                 raise ValueError("bookmark trash journal signature verification failed")
@@ -1542,12 +1559,18 @@ class LasViewerRecentSessions:
         self,
         paths: list[str | Path] | tuple[str | Path, ...],
         *,
-        trusted_signers: dict[str, str | bytes] | None = None,
+        trusted_signers: dict[str, object] | None = None,
         require_signatures: bool = False,
+        revoked_key_ids: set[str] | frozenset[str] | None = None,
     ) -> dict[str, object]:
         """Transactionally merge validated exports in deterministic event order."""
         sources = tuple(paths)
-        decoded = [self._read_bookmark_trash_journal_export(path, trusted_signers=trusted_signers, require_signature=require_signatures) for path in sources]
+        decoded = [self._read_bookmark_trash_journal_export(
+            path,
+            trusted_signers=trusted_signers,
+            require_signature=require_signatures,
+            revoked_key_ids=revoked_key_ids,
+        ) for path in sources]
         existing = self._load_bookmark_trash_journal()
         seen = {(e.action, e.session_key, e.label, e.occurred_at_ns, e.reason) for e in existing}
         added = 0
@@ -1584,15 +1607,21 @@ class LasViewerRecentSessions:
         path: str | Path,
         *,
         mode: str = "append",
-        trusted_signers: dict[str, str | bytes] | None = None,
+        trusted_signers: dict[str, object] | None = None,
         require_signature: bool = False,
+        revoked_key_ids: set[str] | frozenset[str] | None = None,
     ) -> dict[str, object]:
         """Restore an exported audit journal after validating schema and SHA-256 integrity."""
         normalized_mode = str(mode or "append").strip().lower()
         if normalized_mode not in {"append", "replace"}:
             raise ValueError("mode must be one of: append, replace")
 
-        imported = self._read_bookmark_trash_journal_export(path, trusted_signers=trusted_signers, require_signature=require_signature)
+        imported = self._read_bookmark_trash_journal_export(
+            path,
+            trusted_signers=trusted_signers,
+            require_signature=require_signature,
+            revoked_key_ids=revoked_key_ids,
+        )
 
         existing = [] if normalized_mode == "replace" else self._load_bookmark_trash_journal()
         seen = {(event.action, event.session_key, event.label, event.occurred_at_ns, event.reason) for event in existing}

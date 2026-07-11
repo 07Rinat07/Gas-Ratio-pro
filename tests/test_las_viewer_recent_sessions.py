@@ -1651,3 +1651,121 @@ def test_signed_journal_merge_is_transactional_on_signature_failure(tmp_path, mo
     else:
         raise AssertionError("ValueError expected")
     assert target.bookmark_trash_journal() == ()
+
+
+def test_signed_journal_supports_rotated_keyring(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source")
+    repository.save(_session("rotated-key.las"))
+    source = LasViewerRecentSessions(repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 920)
+    source.remove_bookmark(key)
+    export_path = tmp_path / "rotated.json"
+    payload = source.export_bookmark_trash_journal(
+        export_path,
+        signer_id="workspace-a",
+        signing_key="new-secret",
+        key_id="key-2026-07",
+    )
+
+    assert payload["signature"]["key_id"] == "key-2026-07"
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target"))
+    result = target.import_bookmark_trash_journal(
+        export_path,
+        trusted_signers={
+            "workspace-a": {
+                "key-2026-01": "old-secret",
+                "key-2026-07": "new-secret",
+            }
+        },
+        require_signature=True,
+    )
+    assert result["imported"] == 1
+
+
+def test_rotated_keyring_rejects_unknown_key_id(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source")
+    repository.save(_session("unknown-key.las"))
+    source = LasViewerRecentSessions(repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 921)
+    source.remove_bookmark(key)
+    export_path = tmp_path / "unknown.json"
+    source.export_bookmark_trash_journal(
+        export_path,
+        signer_id="workspace-a",
+        signing_key="secret",
+        key_id="unknown",
+    )
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target"))
+    try:
+        target.import_bookmark_trash_journal(
+            export_path,
+            trusted_signers={"workspace-a": {"active": "secret"}},
+            require_signature=True,
+        )
+    except ValueError as exc:
+        assert "signing key" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")
+
+
+def test_rotated_keyring_rejects_revoked_key(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source")
+    repository.save(_session("revoked-key.las"))
+    source = LasViewerRecentSessions(repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 922)
+    source.remove_bookmark(key)
+    export_path = tmp_path / "revoked.json"
+    source.export_bookmark_trash_journal(
+        export_path,
+        signer_id="workspace-a",
+        signing_key="old-secret",
+        key_id="old-key",
+    )
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target"))
+    try:
+        target.import_bookmark_trash_journal(
+            export_path,
+            trusted_signers={"workspace-a": {"old-key": "old-secret"}},
+            revoked_key_ids={"old-key"},
+            require_signature=True,
+        )
+    except ValueError as exc:
+        assert "revoked" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")
+
+
+def test_rotated_keyring_requires_key_id_for_new_keyring_format(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source")
+    repository.save(_session("missing-key-id.las"))
+    source = LasViewerRecentSessions(repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 923)
+    source.remove_bookmark(key)
+    export_path = tmp_path / "missing-key-id.json"
+    source.export_bookmark_trash_journal(
+        export_path,
+        signer_id="workspace-a",
+        signing_key="secret",
+    )
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target"))
+    try:
+        target.import_bookmark_trash_journal(
+            export_path,
+            trusted_signers={"workspace-a": {"active": "secret"}},
+            require_signature=True,
+        )
+    except ValueError as exc:
+        assert "key_id" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")
