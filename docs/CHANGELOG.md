@@ -1277,3 +1277,13 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Ensured viewport changes clear stale cursor state while preserving logical selection.
 - Added compact serializable interaction snapshots without retaining raw DataFrames.
 - Added unit and regression coverage for shared viewport, cursor, selection and renderer-neutral contracts.
+
+
+## v185 LAS Viewer current-view export
+
+- Added a renderer-neutral LAS Viewer export service for the already computed current viewport.
+- Reused the existing Visualization Engine pipeline without rebuilding layout in UI code.
+- Exported matching SVG and PDF artifacts with one canonical geometry signature.
+- Applied strict Render Validation blocking before artifact creation.
+- Added cross-renderer Export QA and compact artifact metadata without raw DataFrames.
+- Added unit, integration and invalid-layout regression coverage.

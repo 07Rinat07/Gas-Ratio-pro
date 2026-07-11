@@ -1,7 +1,7 @@
 # GAS RATIO PRO — Active Project Roadmap
 
 Status: Active  
-Baseline: v184  
+Baseline: v185  
 Purpose: единственная активная последовательность реализации проекта.
 
 ## 1. Обязательные правила
@@ -72,7 +72,7 @@ Status: **ACTIVE**
 3. Общие depth viewport, cursor и selection. **COMPLETED v182**
 4. Track configuration: порядок, ширина, шкала, видимость. **COMPLETED v183**
 5. Zoom, pan, fit, reset и стабильная работа на больших LAS. **COMPLETED v184**
-6. Экспорт текущего вида в SVG/PDF через Visualization Engine.
+6. Экспорт текущего вида в SVG/PDF через Visualization Engine. **COMPLETED v185**
 7. Ошибки, пустые кривые, null intervals и invalid units.
 
 Definition of Done:

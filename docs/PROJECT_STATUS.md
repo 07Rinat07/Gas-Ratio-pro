@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v184  
+Baseline: v185  
 Current stage: LAS Viewer completion  
-Last fully verified baseline: v184 — LAS Viewer zoom, pan, fit and reset are integrated through one renderer-neutral navigation controller with large-LAS viewport filtering and cache compatibility; preflight OK. Visualization Engine Stage 1 is complete.
+Last fully verified baseline: v185 — current LAS Viewer viewport exports to SVG/PDF through the existing Visualization Engine pipeline with strict validation blocking and geometry parity; preflight OK. Visualization Engine Stage 1 is complete.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -33,16 +33,17 @@ LAS Viewer foundation:
 
 ## 3. Следующий разрешённый инкремент
 
-**Export the current LAS Viewer view to SVG/PDF through Visualization Engine.**
+**Handle LAS Viewer errors, empty curves, null intervals and invalid units.**
 
 Состав:
 
-1. использовать текущий shared viewport и общий Render Model;
-2. экспортировать именно текущий вид без повторного вычисления layout в UI;
-3. сохранить SVG/PDF geometry parity и validation blocking;
-4. покрыть unit, integration, export и regression tests.
+1. нормализовать и классифицировать viewer-level ошибки входных curves;
+2. исключать пустые и полностью null curves без нарушения track layout;
+3. корректно обрабатывать null intervals и частично отсутствующие значения;
+4. валидировать и диагностировать invalid/unsupported units;
+5. покрыть unit, integration, export и regression tests.
 
-Zoom, pan, fit и reset подтверждены: один application controller использует существующие viewport commands, сохраняет общую глубинную область для всех tracks, ограничивает pan LAS-диапазоном и возвращает compact performance profile. Large-LAS regression подтверждает viewport filtering, bounded cache reuse и отсутствие raw dataframe в session state.
+Экспорт текущего вида подтверждён: application service использует уже вычисленный current viewport pipeline, не пересчитывает layout в UI, делегирует strict validation SVG/PDF renderers и подтверждает общий geometry signature через Export QA.
 
 Stage 3 Workbench в следующий инкремент не входит.
 
