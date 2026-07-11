@@ -6,9 +6,9 @@ from core.build_info import BUILD_VERSION, runtime_build_info
 def test_runtime_build_identity_points_to_current_project() -> None:
     info = runtime_build_info()
     root = Path(info.project_root)
-    assert BUILD_VERSION == "v200"
-    assert info.version == "v200"
-    assert info.channel == "workbench-ux-interaction-fix"
+    assert BUILD_VERSION == "v201"
+    assert info.version == "v201"
+    assert info.channel == "workbench-live-interaction-completion"
     assert root.is_dir()
     assert Path(info.entry_point) == root / "app" / "streamlit_app.py"
 

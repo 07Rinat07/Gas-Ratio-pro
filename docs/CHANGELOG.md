@@ -1,3 +1,10 @@
+## v201 — Workbench live interaction completion
+
+- Replaced decorative empty-workspace cards with command-backed quick actions.
+- Added visible active-workspace context and route-specific empty-state content.
+- Verified quick-action transitions through the existing Command Framework.
+- Kept Stage 4 open pending live visual acceptance.
+
 
 ## v200 — Workbench UX interaction stabilization
 

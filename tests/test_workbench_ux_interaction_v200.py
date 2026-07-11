@@ -36,9 +36,9 @@ class FakeStreamlit:
         self.markdown_calls.append(str(body))
 
 
-def test_v200_build_identity():
-    assert BUILD_VERSION == "v200"
-    assert BUILD_CHANNEL == "workbench-ux-interaction-fix"
+def test_current_build_identity_keeps_v200_interaction_contract():
+    assert BUILD_VERSION == "v201"
+    assert BUILD_CHANNEL == "workbench-live-interaction-completion"
 
 
 def test_titlebar_is_pushed_below_streamlit_system_header():

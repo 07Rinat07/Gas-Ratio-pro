@@ -109,6 +109,9 @@ div[data-testid="stButton"] > button:focus-visible { outline:3px solid rgba(77,1
 .workbench-workspace-shell { min-height:calc(100vh - 255px); border:1px solid var(--wb-line); border-radius:6px; background:radial-gradient(circle at 50% 20%,#142238 0,#0d141f 42%,#0b1018 100%); overflow:hidden; }
 .workbench-workspace-empty { min-height:calc(100vh - 315px); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:2.5rem; color:var(--wb-muted); }
 .workbench-workspace-empty h2 { color:#f0f5fb; font-size:1.65rem; margin:.35rem 0; }
+.workbench-workspace-context { display:flex; align-items:center; gap:.45rem; padding:.45rem .65rem; border-bottom:1px solid var(--wb-line); color:var(--wb-muted); font-size:.78rem; }
+.workbench-workspace-context b { color:#dce8f8; }
+.workbench-empty-actions { width:min(44rem,100%); margin-top:.85rem; }
 .workbench-workspace-empty .hero-icon { font-size:2.5rem; color:var(--wb-accent); }
 .workbench-quick-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.65rem; margin-top:1.25rem; width:min(42rem,100%); }
 .workbench-quick-card { border:1px solid var(--wb-line); background:rgba(20,31,47,.82); border-radius:7px; padding:.9rem; color:#dce7f4; }
@@ -363,15 +366,45 @@ def _render_native_streamlit_layout(
             else:
                 st_module.info("LAS is open, but no visible tracks are available.")
         else:
+            workspace_id = str(workspace.get("active_workspace") or active_workspace or "dashboard")
+            empty_title = str(workspace.get("title") or "Modern Workbench")
+            empty_text = str(workspace.get("empty_state") or "Select a module or open a project to begin.")
+            st_module.markdown(
+                "<div class='workbench-workspace-context'>Active workspace: "
+                f"<b>{_html(workspace_id)}</b></div>",
+                unsafe_allow_html=True,
+            )
             st_module.markdown(
                 "<div class='workbench-workspace-empty'><div class='hero-icon'>⌁</div>"
-                "<h2>Modern Workbench</h2><p>Open a project or import a LAS file to begin interpretation.</p>"
+                f"<h2>{_html(empty_title)}</h2><p>{_html(empty_text)}</p>"
                 "<div class='workbench-quick-actions'>"
-                "<div class='workbench-quick-card'><b>Open Project</b><br><small>Continue an existing workspace</small></div>"
-                "<div class='workbench-quick-card'><b>Import LAS</b><br><small>Add well-log data</small></div>"
-                "<div class='workbench-quick-card'><b>LAS Viewer</b><br><small>Inspect tracks and curves</small></div>"
+                "<div class='workbench-quick-card'><b>LAS Workspace</b><br><small>Inspect tracks and curves</small></div>"
+                "<div class='workbench-quick-card'><b>Interpretation</b><br><small>Open interpretation tools</small></div>"
+                "<div class='workbench-quick-card'><b>Reports</b><br><small>Review engineering reports</small></div>"
                 "</div></div>", unsafe_allow_html=True,
             )
+            quick_actions = (
+                ("Open LAS Workspace", "nav.las_workspace"),
+                ("Open Interpretation", "nav.interpretation"),
+                ("Open Reports", "nav.reports"),
+            )
+            st_module.markdown("<div class='workbench-empty-actions'>", unsafe_allow_html=True)
+            quick_columns = st_module.columns(3, gap="small")
+            for (label, navigation_id), column in zip(quick_actions, quick_columns):
+                with column:
+                    if st_module.button(
+                        label,
+                        key=f"workbench_quick_{navigation_id.replace('.', '_')}",
+                        width="stretch",
+                        disabled=navigation_id == active_navigation_id,
+                        type="primary" if navigation_id == active_navigation_id else "secondary",
+                    ):
+                        executed.append(
+                            dispatch_workbench_renderer_action(
+                                contract, registry, "action.select_navigation", {"navigation_id": navigation_id}
+                            )
+                        )
+            st_module.markdown("</div>", unsafe_allow_html=True)
         st_module.markdown("</div>", unsafe_allow_html=True)
 
     with right:

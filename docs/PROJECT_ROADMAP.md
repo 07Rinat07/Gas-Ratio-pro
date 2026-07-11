@@ -1,7 +1,7 @@
 # GAS RATIO PRO — Active Project Roadmap
 
 Status: Active  
-Baseline: v200  
+Baseline: v201  
 Purpose: единственная активная последовательность реализации проекта.
 
 ## 1. Обязательные правила
@@ -106,7 +106,7 @@ Status: **COMPLETED v193**
 
 ### Stage 4 — Workbench UI Completion
 
-Status: **IN PROGRESS v200 — Workbench UX interaction stabilization**
+Status: **IN PROGRESS v201 — live interaction completion**
 
 Цель: превратить подключённый production Workbench из минимального shell в полноценное инженерное рабочее окружение до подключения следующих domain-модулей.
 
@@ -125,8 +125,9 @@ Status: **IN PROGRESS v200 — Workbench UX interaction stabilization**
 11. Launcher port ownership and stale-process protection. **COMPLETED v198**
 12. Live acceptance on the owner environment with confirmed five-region layout. **COMPLETED v198**
 13. Professional UX redesign: readable ribbon, balanced panels, dominant workspace, compact dock controls and visual hierarchy. **IMPLEMENTED v199; LIVE FIXES v200**
-14. Production interaction acceptance: unobscured title bar, visible active navigation, deterministic command feedback, and state-aware dock commands. **IN PROGRESS v200**
-14. Live visual acceptance of the redesigned Workbench. **REQUIRED BEFORE CLOSURE**
+14. Production interaction acceptance: unobscured title bar, visible active navigation, deterministic command feedback, and state-aware dock commands. **COMPLETED v200**
+15. Command-backed quick actions and visible workspace-context transitions in the empty production workspace. **COMPLETED v201**
+16. Live visual acceptance of the redesigned Workbench. **REQUIRED BEFORE CLOSURE**
 
 Definition of Done:
 
