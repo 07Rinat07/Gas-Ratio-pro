@@ -2290,3 +2290,103 @@ def test_signature_verification_comparison_export_validates_counts(tmp_path):
         assert "count mismatch" in str(exc)
     else:
         raise AssertionError("ValueError expected")
+
+
+def test_signature_verification_comparison_export_reader_returns_validated_payload(tmp_path):
+    recent = LasViewerRecentSessions(
+        LasViewerWorkspaceAutosaveRepository(tmp_path / "comparison-reader")
+    )
+    report = tmp_path / "report.json"
+    recent.export_audit_journal_signature_report(report)
+    exported = tmp_path / "comparison.json"
+    recent.export_audit_journal_signature_report_comparison(report, report, exported)
+
+    comparison = recent.read_audit_journal_signature_report_comparison_export(exported)
+
+    assert comparison["schema"] == "las.viewer.audit-journal-signature-report-comparison"
+    assert comparison["changed"] is False
+
+
+def test_signature_verification_comparison_merge_is_deterministic(tmp_path):
+    baseline_recent = LasViewerRecentSessions(
+        LasViewerWorkspaceAutosaveRepository(tmp_path / "merge-baseline")
+    )
+    baseline = tmp_path / "baseline.json"
+    baseline_recent.export_audit_journal_signature_report(baseline)
+
+    candidate_recent = LasViewerRecentSessions(
+        LasViewerWorkspaceAutosaveRepository(tmp_path / "merge-candidate")
+    )
+    source = tmp_path / "source.json"
+    source.write_text("{}", encoding="utf-8")
+    candidate_recent.verify_bookmark_trash_journal_export(source, operation="verify")
+    candidate = tmp_path / "candidate.json"
+    candidate_recent.export_audit_journal_signature_report(candidate)
+
+    first = tmp_path / "first-comparison.json"
+    second = tmp_path / "second-comparison.json"
+    candidate_recent.export_audit_journal_signature_report_comparison(
+        baseline, candidate, first
+    )
+    candidate_recent.export_audit_journal_signature_report_comparison(
+        baseline, candidate, second
+    )
+
+    merged = candidate_recent.merge_audit_journal_signature_report_comparison_exports(
+        [second, first]
+    )
+
+    assert merged["source_count"] == 2
+    assert merged["added_count"] == 1
+    assert merged["removed_count"] == 0
+    assert merged["conflict_count"] == 0
+
+
+def test_signature_verification_comparison_merge_reports_conflicts(tmp_path):
+    left_recent = LasViewerRecentSessions(
+        LasViewerWorkspaceAutosaveRepository(tmp_path / "merge-left")
+    )
+    source = tmp_path / "conflict-source.json"
+    source.write_text("{}", encoding="utf-8")
+    left_recent.verify_bookmark_trash_journal_export(source, operation="verify")
+    with_event = tmp_path / "with-event.json"
+    left_recent.export_audit_journal_signature_report(with_event)
+
+    empty_recent = LasViewerRecentSessions(
+        LasViewerWorkspaceAutosaveRepository(tmp_path / "merge-empty")
+    )
+    empty = tmp_path / "empty.json"
+    empty_recent.export_audit_journal_signature_report(empty)
+
+    added = tmp_path / "added.json"
+    removed = tmp_path / "removed.json"
+    left_recent.export_audit_journal_signature_report_comparison(empty, with_event, added)
+    left_recent.export_audit_journal_signature_report_comparison(with_event, empty, removed)
+
+    merged = left_recent.merge_audit_journal_signature_report_comparison_exports(
+        [added, removed]
+    )
+
+    assert merged["changed"] is False
+    assert merged["added_count"] == 0
+    assert merged["removed_count"] == 0
+    assert merged["conflict_count"] == 1
+
+
+def test_signature_verification_comparison_merge_is_transactional(tmp_path):
+    recent = LasViewerRecentSessions(
+        LasViewerWorkspaceAutosaveRepository(tmp_path / "merge-transactional")
+    )
+    report = tmp_path / "valid-report.json"
+    recent.export_audit_journal_signature_report(report)
+    valid = tmp_path / "valid-comparison.json"
+    recent.export_audit_journal_signature_report_comparison(report, report, valid)
+    invalid = tmp_path / "invalid-comparison.json"
+    invalid.write_text("{}", encoding="utf-8")
+
+    try:
+        recent.merge_audit_journal_signature_report_comparison_exports([valid, invalid])
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("ValueError expected")

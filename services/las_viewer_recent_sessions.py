@@ -2091,6 +2091,84 @@ class LasViewerRecentSessions:
             "valid": True,
         }
 
+    @classmethod
+    def read_audit_journal_signature_report_comparison_export(
+        cls, path: str | Path
+    ) -> dict[str, object]:
+        """Read a fully validated comparison export without mutating repository state."""
+        cls.verify_audit_journal_signature_report_comparison_export(path)
+        try:
+            payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError("invalid signature verification comparison export") from exc
+        comparison = payload.get("comparison")
+        if not isinstance(comparison, dict):
+            raise ValueError("invalid signature verification comparison payload")
+        return comparison
+
+    @classmethod
+    def merge_audit_journal_signature_report_comparison_exports(
+        cls, paths: list[str | Path] | tuple[str | Path, ...]
+    ) -> dict[str, object]:
+        """Validate and deterministically merge comparison exports.
+
+        An event appearing in both added and removed sets is reported as a conflict and
+        excluded from the net change. All inputs are validated before aggregation.
+        """
+        sources = tuple(paths)
+        comparisons = [
+            cls.read_audit_journal_signature_report_comparison_export(path)
+            for path in sources
+        ]
+
+        def event_identity(value: dict[str, object]) -> tuple[object, ...]:
+            return (
+                str(value.get("source", "")),
+                str(value.get("operation", "")),
+                bool(value.get("accepted", False)),
+                str(value.get("signer_id", "")),
+                str(value.get("key_id", "")),
+                str(value.get("reason", "")),
+                int(value.get("occurred_at_ns", 0)),
+            )
+
+        added_map: dict[tuple[object, ...], dict[str, object]] = {}
+        removed_map: dict[tuple[object, ...], dict[str, object]] = {}
+        for comparison in comparisons:
+            added = comparison.get("added", [])
+            removed = comparison.get("removed", [])
+            if not isinstance(added, list) or not isinstance(removed, list):
+                raise ValueError("invalid signature verification comparison payload")
+            for value in added:
+                if not isinstance(value, dict):
+                    raise ValueError("invalid signature verification comparison event")
+                added_map[event_identity(value)] = dict(value)
+            for value in removed:
+                if not isinstance(value, dict):
+                    raise ValueError("invalid signature verification comparison event")
+                removed_map[event_identity(value)] = dict(value)
+
+        conflicts = sorted(set(added_map) & set(removed_map))
+        net_added_keys = sorted(set(added_map) - set(conflicts))
+        net_removed_keys = sorted(set(removed_map) - set(conflicts))
+        net_added = [added_map[key] for key in net_added_keys]
+        net_removed = [removed_map[key] for key in net_removed_keys]
+        conflict_events = [added_map[key] for key in conflicts]
+
+        return {
+            "schema": "las.viewer.audit-journal-signature-report-comparison-merge",
+            "version": "1.0",
+            "source_count": len(sources),
+            "changed": bool(net_added or net_removed),
+            "added_count": len(net_added),
+            "removed_count": len(net_removed),
+            "conflict_count": len(conflict_events),
+            "added": net_added,
+            "removed": net_removed,
+            "conflicts": conflict_events,
+            "renderer_neutral": True,
+        }
+
 
     def import_audit_journal_signature_reports(
         self, paths: list[str | Path] | tuple[str | Path, ...]
