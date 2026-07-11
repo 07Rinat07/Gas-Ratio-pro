@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 
 from services.las_viewer_recent_sessions import LasViewerRecentSessions
 from services.las_viewer_session import LasViewerSession
@@ -2217,5 +2218,75 @@ def test_signature_verification_report_comparison_validates_both_inputs(tmp_path
         recent.compare_audit_journal_signature_report_exports(valid, invalid)
     except ValueError:
         pass
+    else:
+        raise AssertionError("ValueError expected")
+
+
+def test_signature_verification_comparison_export_and_verify(tmp_path):
+    recent = LasViewerRecentSessions(
+        LasViewerWorkspaceAutosaveRepository(tmp_path / "comparison-export")
+    )
+    source = tmp_path / "source.json"
+    source.write_text("{}", encoding="utf-8")
+    recent.verify_bookmark_trash_journal_export(source)
+    baseline = tmp_path / "baseline.json"
+    candidate = tmp_path / "candidate.json"
+    recent.export_audit_journal_signature_report(baseline)
+    recent.verify_bookmark_trash_journal_export(source, operation="import")
+    recent.export_audit_journal_signature_report(candidate)
+    exported = tmp_path / "comparison.json"
+
+    payload = recent.export_audit_journal_signature_report_comparison(
+        baseline, candidate, exported
+    )
+    verified = recent.verify_audit_journal_signature_report_comparison_export(exported)
+
+    assert payload["schema"] == "las.viewer.audit-journal-signature-report-comparison-export"
+    assert verified["valid"] is True
+    assert verified["changed"] is True
+    assert verified["added_count"] == 1
+    assert verified["removed_count"] == 0
+
+
+def test_signature_verification_comparison_export_detects_tampering(tmp_path):
+    recent = LasViewerRecentSessions(
+        LasViewerWorkspaceAutosaveRepository(tmp_path / "comparison-tamper")
+    )
+    report = tmp_path / "report.json"
+    recent.export_audit_journal_signature_report(report)
+    exported = tmp_path / "comparison.json"
+    recent.export_audit_journal_signature_report_comparison(report, report, exported)
+    payload = json.loads(exported.read_text(encoding="utf-8"))
+    payload["comparison"]["changed"] = True
+    exported.write_text(json.dumps(payload), encoding="utf-8")
+
+    try:
+        recent.verify_audit_journal_signature_report_comparison_export(exported)
+    except ValueError as exc:
+        assert "integrity" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")
+
+
+def test_signature_verification_comparison_export_validates_counts(tmp_path):
+    recent = LasViewerRecentSessions(
+        LasViewerWorkspaceAutosaveRepository(tmp_path / "comparison-counts")
+    )
+    report = tmp_path / "report.json"
+    recent.export_audit_journal_signature_report(report)
+    exported = tmp_path / "comparison.json"
+    payload = recent.export_audit_journal_signature_report_comparison(report, report, exported)
+    payload["comparison"]["added_count"] = 1
+    unsigned = dict(payload)
+    unsigned.pop("sha256")
+    payload["sha256"] = sha256(
+        json.dumps(unsigned, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    exported.write_text(json.dumps(payload), encoding="utf-8")
+
+    try:
+        recent.verify_audit_journal_signature_report_comparison_export(exported)
+    except ValueError as exc:
+        assert "count mismatch" in str(exc)
     else:
         raise AssertionError("ValueError expected")

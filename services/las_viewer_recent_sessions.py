@@ -2001,6 +2001,97 @@ class LasViewerRecentSessions:
             "renderer_neutral": True,
         }
 
+    @classmethod
+    def export_audit_journal_signature_report_comparison(
+        cls,
+        baseline_path: str | Path,
+        candidate_path: str | Path,
+        destination_path: str | Path,
+    ) -> dict[str, object]:
+        """Atomically export a validated comparison report with SHA-256 integrity."""
+        comparison = cls.compare_audit_journal_signature_report_exports(
+            baseline_path, candidate_path
+        )
+        destination = Path(destination_path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        unsigned = {
+            "schema": "las.viewer.audit-journal-signature-report-comparison-export",
+            "version": "1.0",
+            "exported_at_ns": time.time_ns(),
+            "comparison": comparison,
+            "renderer_neutral": True,
+        }
+        encoded = json.dumps(
+            unsigned, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        payload = dict(unsigned)
+        payload["sha256"] = sha256(encoded).hexdigest()
+        text = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+
+        temporary: Path | None = None
+        try:
+            with NamedTemporaryFile(
+                "w", encoding="utf-8", dir=destination.parent, delete=False
+            ) as handle:
+                handle.write(text)
+                handle.flush()
+                os.fsync(handle.fileno())
+                temporary = Path(handle.name)
+            os.replace(temporary, destination)
+        finally:
+            if temporary is not None and temporary.exists():
+                temporary.unlink(missing_ok=True)
+        return payload
+
+    @staticmethod
+    def verify_audit_journal_signature_report_comparison_export(
+        path: str | Path,
+    ) -> dict[str, object]:
+        """Validate a comparison export structure and SHA-256 digest."""
+        source = Path(path)
+        try:
+            payload = json.loads(source.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError("invalid signature verification comparison export") from exc
+        if not isinstance(payload, dict):
+            raise ValueError("invalid signature verification comparison export")
+        if payload.get("schema") != "las.viewer.audit-journal-signature-report-comparison-export":
+            raise ValueError("invalid signature verification comparison export schema")
+        if payload.get("version") != "1.0":
+            raise ValueError("unsupported signature verification comparison export version")
+        comparison = payload.get("comparison")
+        if not isinstance(comparison, dict):
+            raise ValueError("invalid signature verification comparison payload")
+        if comparison.get("schema") != "las.viewer.audit-journal-signature-report-comparison":
+            raise ValueError("invalid signature verification comparison payload")
+        expected = str(payload.get("sha256", "")).lower()
+        unsigned = dict(payload)
+        unsigned.pop("sha256", None)
+        encoded = json.dumps(
+            unsigned, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        digest = sha256(encoded).hexdigest()
+        if len(expected) != 64 or not hmac.compare_digest(expected, digest):
+            raise ValueError("signature verification comparison integrity check failed")
+        added = comparison.get("added")
+        removed = comparison.get("removed")
+        if not isinstance(added, list) or not isinstance(removed, list):
+            raise ValueError("invalid signature verification comparison payload")
+        if int(comparison.get("added_count", -1)) != len(added):
+            raise ValueError("signature verification comparison added count mismatch")
+        if int(comparison.get("removed_count", -1)) != len(removed):
+            raise ValueError("signature verification comparison removed count mismatch")
+        return {
+            "schema": payload["schema"],
+            "version": payload["version"],
+            "sha256": digest,
+            "changed": bool(comparison.get("changed", False)),
+            "added_count": len(added),
+            "removed_count": len(removed),
+            "valid": True,
+        }
+
+
     def import_audit_journal_signature_reports(
         self, paths: list[str | Path] | tuple[str | Path, ...]
     ) -> dict[str, object]:
