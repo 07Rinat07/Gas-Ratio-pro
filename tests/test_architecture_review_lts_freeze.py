@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ARCH_REVIEW_DOC = ROOT / "docs" / "09_Architecture" / "ARCHITECTURE_REVIEW_AND_CORE_LTS_FREEZE.md"
-PROGRESS_DOC = ROOT / "docs" / "PROJECT_PROGRESS_NEXT_STEP.md"
+PROGRESS_DOC = ROOT / "docs" / "archive" / "legacy_plans" / "PROJECT_PROGRESS_NEXT_STEP_legacy.md"
 
 
 def test_architecture_review_document_exists_with_required_gates():

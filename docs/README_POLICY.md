@@ -27,7 +27,8 @@ README.md must not be used as a development diary.
 ## Where to place development details
 
 - Version history: `docs/CHANGELOG.md`.
-- Roadmap and priorities: `docs/project_plan.md` or dedicated roadmap documents.
-- Current development progress: `PROJECT_PROGRESS_NEXT_STEP.md`.
+- Roadmap and priorities: `docs/PROJECT_ROADMAP.md`.
+- Current development status: `docs/PROJECT_STATUS.md`.
+- Version history: `docs/CHANGELOG.md`.
 - Architecture decisions: dedicated ADR or architecture documents.
 - Formula and source policy: scientific and formula documentation.

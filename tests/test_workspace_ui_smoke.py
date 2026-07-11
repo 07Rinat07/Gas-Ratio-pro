@@ -7,7 +7,7 @@ from projects.repository import create_project
 from projects.workspace_controller import WorkspaceController
 
 SOURCE = Path("app/streamlit_app.py").read_text(encoding="utf-8")
-PLAN = Path("docs/PROJECT_PROGRESS_NEXT_STEP.md").read_text(encoding="utf-8")
+PLAN = Path("docs/archive/legacy_plans/PROJECT_PROGRESS_NEXT_STEP_legacy.md").read_text(encoding="utf-8")
 
 
 def test_project_workspace_panel_exposes_create_open_close_delete_controls():

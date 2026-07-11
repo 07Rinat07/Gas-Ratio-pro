@@ -2,7 +2,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "app" / "streamlit_app.py").read_text(encoding="utf-8")
-PLAN = (ROOT / "docs" / "project_plan.md").read_text(encoding="utf-8")
+PLAN = (ROOT / "docs" / "archive" / "legacy_plans" / "project_plan_v5_legacy.md").read_text(encoding="utf-8")
 GUIDE = (ROOT / "docs" / "user_guide.md").read_text(encoding="utf-8")
 EULA = (ROOT / "docs" / "eula.md").read_text(encoding="utf-8")
 

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 SOURCE = Path("app/streamlit_app.py").read_text(encoding="utf-8")
-PLAN = Path("docs/PROJECT_PROGRESS_NEXT_STEP.md").read_text(encoding="utf-8")
+PLAN = Path("docs/archive/legacy_plans/PROJECT_PROGRESS_NEXT_STEP_legacy.md").read_text(encoding="utf-8")
 
 
 def test_workspace_dashboard_cards_helpers_are_present():

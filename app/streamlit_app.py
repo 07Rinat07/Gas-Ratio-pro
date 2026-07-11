@@ -788,6 +788,9 @@ START_ACTIONS: tuple[dict[str, str], ...] = (
 )
 
 DOCUMENTATION_TAB_DOCS: tuple[tuple[str, str], ...] = (
+    ("Карта документации", "docs/README.md"),
+    ("Активный roadmap", "docs/PROJECT_ROADMAP.md"),
+    ("Текущий статус", "docs/PROJECT_STATUS.md"),
     ("Быстрый старт", "docs/setup.md"),
     ("Руководство пользователя", "docs/user_guide.md"),
     ("Формат входных данных", "docs/data_format.md"),

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 SOURCE = Path("app/streamlit_app.py").read_text(encoding="utf-8")
-PLAN = Path("docs/project_plan.md").read_text(encoding="utf-8")
+PLAN = Path("docs/archive/legacy_plans/project_plan_v5_legacy.md").read_text(encoding="utf-8")
 
 
 def test_project_workspace_branch_marker_and_layout_are_present():

@@ -1190,3 +1190,13 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added sampling options to deterministic Render Model cache keys.
 - Added targeted Render Model cache invalidation.
 - Added regression tests for dense curves, cache-key changes and exact invalidation.
+
+## v175 Documentation consolidation
+
+- Added a single active roadmap in `docs/PROJECT_ROADMAP.md`.
+- Added factual current status and next permitted increment in `docs/PROJECT_STATUS.md`.
+- Added `docs/README.md` as the documentation entry point and precedence map.
+- Archived version-specific implementation notes under `docs/archive/releases/`.
+- Archived replaced project plans and progress logs under `docs/archive/legacy_plans/`.
+- Converted legacy `project_plan.md` and `PROJECT_PROGRESS_NEXT_STEP.md` into compatibility entry points.
+- Defined a policy that future version notes belong in `CHANGELOG.md` unless they describe a stable public contract.

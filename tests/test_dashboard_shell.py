@@ -272,7 +272,7 @@ def test_documentation_center_v2_has_quick_links_toc_faq_and_shortcuts() -> None
 
 
 def test_documentation_center_v2_is_documented_in_project_plan() -> None:
-    plan = Path(app.ROOT_DIR / "docs" / "project_plan.md").read_text(encoding="utf-8")
+    plan = Path(app.ROOT_DIR / "docs" / "archive" / "legacy_plans" / "project_plan_v5_legacy.md").read_text(encoding="utf-8")
     guide = Path(app.ROOT_DIR / "docs" / "user_guide.md").read_text(encoding="utf-8")
 
     assert "Documentation Center v2" in plan
@@ -310,7 +310,7 @@ def test_dashboard_quick_action_registry_targets_real_tabs() -> None:
 
 
 def test_quick_actions_wiring_is_documented() -> None:
-    plan = Path(app.ROOT_DIR / "docs" / "project_plan.md").read_text(encoding="utf-8")
+    plan = Path(app.ROOT_DIR / "docs" / "archive" / "legacy_plans" / "project_plan_v5_legacy.md").read_text(encoding="utf-8")
     guide = Path(app.ROOT_DIR / "docs" / "user_guide.md").read_text(encoding="utf-8")
 
     assert "Quick Actions Wiring" in plan
@@ -361,7 +361,7 @@ def test_command_palette_recent_and_favorite_resolution() -> None:
 
 
 def test_command_palette_search_stage_documented() -> None:
-    project_plan = Path("docs/project_plan.md").read_text(encoding="utf-8")
+    project_plan = Path("docs/archive/legacy_plans/project_plan_v5_legacy.md").read_text(encoding="utf-8")
     user_guide = Path("docs/user_guide.md").read_text(encoding="utf-8")
 
     assert "UI Modernization Track → Command Palette Search" in project_plan
@@ -421,7 +421,7 @@ def test_background_manager_final_pass_css_disables_background_for_engineering_s
 
 
 def test_background_manager_final_pass_is_documented() -> None:
-    plan = Path(app.ROOT_DIR / "docs" / "project_plan.md").read_text(encoding="utf-8")
+    plan = Path(app.ROOT_DIR / "docs" / "archive" / "legacy_plans" / "project_plan_v5_legacy.md").read_text(encoding="utf-8")
     guide = Path(app.ROOT_DIR / "docs" / "user_guide.md").read_text(encoding="utf-8")
 
     assert "Background Manager Final Pass" in plan
@@ -461,7 +461,7 @@ def test_shared_glass_ui_system_css_has_transparency_border_shadow_blur_and_cont
 
 
 def test_shared_glass_ui_system_is_documented() -> None:
-    plan = Path(app.ROOT_DIR / "docs" / "project_plan.md").read_text(encoding="utf-8")
+    plan = Path(app.ROOT_DIR / "docs" / "archive" / "legacy_plans" / "project_plan_v5_legacy.md").read_text(encoding="utf-8")
     guide = Path(app.ROOT_DIR / "docs" / "user_guide.md").read_text(encoding="utf-8")
 
     assert "Glass UI System" in plan
@@ -549,7 +549,7 @@ def test_branding_assets_render_navbar_license_about_splash_and_export_watermark
 
 
 def test_branding_assets_stage_is_documented() -> None:
-    plan = Path(app.ROOT_DIR / "docs" / "project_plan.md").read_text(encoding="utf-8")
+    plan = Path(app.ROOT_DIR / "docs" / "archive" / "legacy_plans" / "project_plan_v5_legacy.md").read_text(encoding="utf-8")
     guide = Path(app.ROOT_DIR / "docs" / "user_guide.md").read_text(encoding="utf-8")
 
     assert "Branding Assets" in plan
