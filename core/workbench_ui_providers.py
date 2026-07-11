@@ -77,25 +77,54 @@ class WorkbenchUIProviderService:
             if curve_id:
                 tree.append({"id": f"tree.curve.{curve_id}", "title": str(curve.get("title") or curve.get("mnemonic") or curve_id), "kind": "curve", "level": 2, "count": 0, "selectable": True, "target": "curve", "object_id": curve_id, "metadata": {"unit": curve.get("unit", ""), "track_id": curve.get("track_id", "")}})
         tree.extend((
+            {"id": "tree.correlation", "title": "Correlation", "kind": "collection", "level": 1, "count": 0, "selectable": True},
             {"id": "tree.calculations", "title": "Calculations", "kind": "collection", "level": 1, "count": 0, "selectable": False},
             {"id": "tree.reports", "title": "Reports", "kind": "collection", "level": 1, "count": 1 if context.active_report else 0, "selectable": False},
             {"id": "tree.exports", "title": "Exports", "kind": "collection", "level": 1, "count": len(tuple(self.state.get("recent_exports", ()) or ())), "selectable": False},
         ))
 
-        properties: list[dict[str, Any]] = [
-            {"label": "Selection", "value": _text(selected.get("target"), "None")},
-            {"label": "Object", "value": _text(selected.get("object_id"))},
-        ]
-        for key, value in sorted(dict(selected.get("metadata", {}) or {}).items()):
-            if isinstance(value, (str, int, float, bool)) or value is None:
-                properties.append({"label": str(key).replace("_", " ").title(), "value": _text(value)})
-        if not selected.get("object_id"):
+        target = str(selected.get("target") or "").strip()
+        object_id = str(selected.get("object_id") or "").strip()
+        metadata = dict(selected.get("metadata", {}) or {})
+        properties: list[dict[str, Any]] = []
+        if object_id:
+            target_titles = {
+                "project": "Project",
+                "well": "Well",
+                "las": "LAS file",
+                "curve": "Curve",
+                "calculation": "Calculation",
+                "report": "Report",
+                "document": "Document",
+                "collection": "Collection",
+            }
             properties.extend((
-                {"label": "Project", "value": _text(project_id)},
-                {"label": "Well", "value": _text(well_id)},
-                {"label": "LAS", "value": _text(las_id)},
-                {"label": "Module", "value": _text(tool.get("title"), "Dashboard")},
+                {"label": "Selected", "value": target_titles.get(target, target.replace("_", " ").title() or "Object")},
+                {"label": "Object", "value": object_id},
             ))
+            preferred_order = (
+                "title", "path", "kind", "count", "unit", "track_id", "depth_start",
+                "depth_stop", "step", "curve_count", "status", "modified_at", "size",
+                "format", "language", "description", "navigation_id",
+            )
+            emitted: set[str] = set()
+            for key in preferred_order:
+                if key in metadata and isinstance(metadata[key], (str, int, float, bool)) or (key in metadata and metadata[key] is None):
+                    properties.append({"label": key.replace("_", " ").title(), "value": _text(metadata[key])})
+                    emitted.add(key)
+            for key, value in sorted(metadata.items()):
+                if key not in emitted and (isinstance(value, (str, int, float, bool)) or value is None):
+                    properties.append({"label": str(key).replace("_", " ").title(), "value": _text(value)})
+        else:
+            properties.extend((
+                {"label": "Nothing selected", "value": "Choose a project, well, LAS, curve, calculation, report or document."},
+                {"label": "Active project", "value": _text(project_id)},
+                {"label": "Active module", "value": _text(tool.get("title"), "Dashboard")},
+            ))
+            if well_id:
+                properties.append({"label": "Active well", "value": _text(well_id)})
+            if las_id:
+                properties.append({"label": "Active LAS", "value": _text(las_id)})
 
         viewport = dict(viewer_state.get("viewport", {}) or {})
         viewport_start = _finite_number(viewport.get("start"))

@@ -37,7 +37,7 @@ class FakeStreamlit:
 
 
 def test_current_build_identity_keeps_v200_interaction_contract():
-    assert BUILD_VERSION == "v208"
+    assert BUILD_VERSION == "v209"
     assert BUILD_CHANNEL == "workbench-functional-ui"
 
 

@@ -183,15 +183,10 @@ def build_engineering_document(
     tables = select_document_tables(model, include_technical_appendix=include_technical)
 
     sections: list[DocumentSection] = []
-    if tables:
-        sections.append(
-            DocumentSection(
-                title="Инженерные разделы отчета" if not include_technical else "Разделы экспертного отчета",
-                blocks=tables,
-                page_break_before=False,
-            )
-        )
 
+    # Put the engineering visualization immediately after the executive
+    # metadata.  Previously dozens of table pages pushed the well-log plot to
+    # the end of the PDF, making the report look like a raw table dump.
     if include_figures:
         plot_blocks = tuple(
             DocumentPlot(title="Профессиональный планшет интерпретации", figure=figure)
@@ -207,9 +202,18 @@ def build_engineering_document(
                 DocumentSection(
                     title="Профессиональный планшет интерпретации",
                     blocks=combined_blocks,
-                    page_break_before=True,
+                    page_break_before=False,
                 )
             )
+
+    if tables:
+        sections.append(
+            DocumentSection(
+                title="Инженерные разделы отчета" if not include_technical else "Разделы экспертного отчета",
+                blocks=tables,
+                page_break_before=bool(sections),
+            )
+        )
 
     if not include_technical:
         sections.append(

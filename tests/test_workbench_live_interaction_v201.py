@@ -32,7 +32,7 @@ class FakeStreamlit:
 
 
 def test_v201_build_identity():
-    assert BUILD_VERSION == "v208"
+    assert BUILD_VERSION == "v209"
     assert BUILD_CHANNEL == "workbench-functional-ui"
 
 

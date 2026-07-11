@@ -85,6 +85,7 @@ def build_workbench_ui_layout(payload: Mapping[str, Any]) -> WorkbenchUILayoutCo
         {"id": "tree.wells", "title": "Wells", "kind": "collection", "level": 1, "count": 1 if well_id else 0},
         {"id": "tree.las", "title": "LAS", "kind": "collection", "level": 1, "count": 1 if las_id else 0},
         {"id": "tree.curves", "title": "Curves", "kind": "collection", "level": 1, "count": 0},
+        {"id": "tree.correlation", "title": "Correlation", "kind": "collection", "level": 1, "count": 0},
         {"id": "tree.calculations", "title": "Calculations", "kind": "collection", "level": 1, "count": 0},
         {"id": "tree.reports", "title": "Reports", "kind": "collection", "level": 1, "count": 1 if status.get("active_report") else 0},
         {"id": "tree.exports", "title": "Exports", "kind": "collection", "level": 1, "count": int(status.get("recent_exports_count", 0) or 0)},

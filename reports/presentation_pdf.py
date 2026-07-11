@@ -16,6 +16,7 @@ try:
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.platypus import (
+        Image,
         PageBreak,
         Paragraph,
         SimpleDocTemplate,
@@ -31,7 +32,7 @@ except ModuleNotFoundError:  # pragma: no cover - depends on user environment
     ParagraphStyle = getSampleStyleSheet = None
     mm = 1
     pdfmetrics = TTFont = None
-    PageBreak = Paragraph = SimpleDocTemplate = Spacer = Table = TableStyle = None
+    Image = PageBreak = Paragraph = SimpleDocTemplate = Spacer = Table = TableStyle = None
     REPORTLAB_AVAILABLE = False
 
 from reports.document_model import (
@@ -330,17 +331,42 @@ def _document_notice(block: DocumentNotice, styles: dict[str, ParagraphStyle]) -
 
 
 def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> list[object]:
-    # Plot image rendering is intentionally deferred to the next renderer
-    # increment. The document still preserves plot placement and title so PDF,
-    # HTML and future DOCX keep the same section order.
-    return [
-        _paragraph(block.title or "Профессиональный планшет интерпретации", styles["h2"]),
-        _paragraph(
-            "Планшет включен в EngineeringDocument. Растровая/SVG-вставка будет подключена отдельным renderer backend.",
-            styles["small"],
-        ),
-        Spacer(1, 8),
-    ]
+    """Render a Plotly-compatible engineering figure into the PDF.
+
+    Kaleido is used when available.  Failure is isolated to this block so the
+    rest of the report remains downloadable, but the user receives an explicit
+    dependency message instead of a silent placeholder.
+    """
+
+    title = block.title or "Профессиональный планшет интерпретации"
+    items: list[object] = [_paragraph(title, styles["h2"])]
+    figure = block.figure
+    try:
+        if hasattr(figure, "to_image"):
+            png = figure.to_image(format="png", width=1500, height=2100, scale=1)
+        elif hasattr(figure, "write_image"):
+            buffer = BytesIO()
+            figure.write_image(buffer, format="png", width=1500, height=2100)
+            png = buffer.getvalue()
+        else:
+            raise TypeError("Figure backend does not support raster export")
+        image = Image(BytesIO(png))
+        max_width = 185 * mm
+        max_height = 245 * mm
+        ratio = min(max_width / image.imageWidth, max_height / image.imageHeight)
+        image.drawWidth = image.imageWidth * ratio
+        image.drawHeight = image.imageHeight * ratio
+        items.extend([image, Spacer(1, 8)])
+    except Exception as exc:
+        items.extend([
+            _paragraph(
+                "График не встроен в PDF: установите совместимую версию kaleido "
+                f"для статического экспорта Plotly ({type(exc).__name__}).",
+                styles["small"],
+            ),
+            Spacer(1, 8),
+        ])
+    return items
 
 
 def _document_visualization_preview(block: DocumentVisualizationPreview, styles: dict[str, ParagraphStyle]) -> list[object]:

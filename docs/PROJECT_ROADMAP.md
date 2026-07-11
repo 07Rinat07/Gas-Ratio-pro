@@ -197,3 +197,18 @@ Roadmap изменяется только когда:
 3. текущий этап завершён по Definition of Done.
 
 Любое изменение отражается в `PROJECT_ROADMAP.md` и `PROJECT_STATUS.md`; история фиксируется в `CHANGELOG.md`. Новые plan/status файлы не создаются.
+
+## Stage 4 corrective increment — v209
+
+- [x] Expose a dedicated `nav.correlation` route in the top menu, LAS workflows and Project Explorer.
+- [x] Reuse the existing multi-well LAS correlation renderer and export controls.
+- [x] Move the engineering well-log figure before long report tables.
+- [x] Limit the engineering profile to the 15 strongest non-zero-thickness intervals.
+- [x] Move full interval reasoning to the expert appendix.
+- [x] Add static Plotly-to-PDF rendering with a controlled Kaleido fallback.
+- [x] Connect Project Explorer object clicks to Workbench Selection Service.
+- [x] Render contextual Properties for project, well, LAS, curve and collection selections.
+- [x] Replace technical empty Properties rows with an actionable empty state.
+- [x] Prevent Developer Diagnostics from rendering inside a collapsed narrow dock rail.
+- [x] Preserve Properties collapse/restore state through the existing Dock Manager.
+- [ ] Live acceptance: load two wells, render correlation, export correlation, generate PDF with embedded plot.

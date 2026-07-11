@@ -23,7 +23,7 @@ def test_ui_layout_contract_fills_all_engineering_regions():
     }
     assert layout["workspace"]["id"] == "workspace.host"
     assert [node["title"] for node in layout["project_tree"]][1:] == [
-        "Wells", "LAS", "Curves", "Calculations", "Reports", "Exports"
+        "Wells", "LAS", "Curves", "Correlation", "Calculations", "Reports", "Exports"
     ]
     assert {item["title"] for item in layout["toolbar"]} >= {"File", "Project", "Data", "Las", "Interpretation", "Report", "Settings"}
 

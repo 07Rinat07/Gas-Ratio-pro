@@ -1,3 +1,16 @@
+## v209
+
+- Added dedicated Correlation navigation and Project Explorer route.
+- Connected the existing multi-well LAS correlation workflow directly to Modern Workbench.
+- Moved report figures before tabular sections.
+- Reduced engineering report interval cards to the 15 strongest non-zero-thickness intervals.
+- Moved full reasoning tables to the expert appendix.
+- Added Plotly raster embedding for PDF reports with explicit Kaleido fallback.
+- Connected Project Explorer selections to the central Workbench Selection Service.
+- Replaced technical `None`/dash-only Properties output with contextual object metadata and a useful empty state.
+- Fixed collapsed Properties rail so Developer Diagnostics no longer renders as vertical clipped text.
+- Preserved collapse/restore state across reruns through the existing Dock Manager.
+
 ## v208
 
 - Activated File and Project menus with project/session workflows.

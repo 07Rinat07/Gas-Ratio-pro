@@ -136,6 +136,8 @@ div[data-testid="stButton"] > button:focus-visible { outline:3px solid rgba(77,1
 .workbench-las-track { min-height:18rem; border:1px solid var(--wb-line); border-radius:6px; background:linear-gradient(180deg,#17253a,#0d141e); padding:.65rem; }
 .workbench-property { display:grid; grid-template-columns:minmax(5rem,.8fr) minmax(0,1.2fr); gap:.5rem; padding:.48rem 0; border-bottom:1px solid #202c3e; font-size:.82rem; }
 .workbench-property span:first-child { color:var(--wb-muted); }
+.workbench-properties-empty { padding:.8rem; border:1px dashed var(--wb-line); border-radius:6px; color:var(--wb-muted); line-height:1.45; }
+.workbench-properties-empty b { color:var(--wb-text); }
 .workbench-statusbar { display:flex; align-items:center; flex-wrap:wrap; gap:.45rem 1rem; min-height:30px; padding:.28rem .65rem; margin-top:.45rem; border:1px solid var(--wb-line); border-radius:5px; background:#101824; font-size:.72rem; }
 .workbench-statusbar strong { color:#8da0b9; font-weight:500; }
 .workbench-status-ready { margin-left:auto; color:var(--wb-success); font-weight:700; }
@@ -258,6 +260,7 @@ def _render_native_streamlit_layout(
         ("Project", "menu.project"),
         ("Data", "nav.data"),
         ("LAS", "nav.las_workspace"),
+        ("Correlation", "nav.correlation"),
         ("Interpretation", "nav.interpretation"),
         ("Reports", "nav.reports"),
         ("Export", "nav.exports"),
@@ -398,7 +401,7 @@ def _render_native_streamlit_layout(
     properties_pane = dock_panes.get("dock.properties", {})
     explorer_open = bool(explorer.get("opened", True)) and not bool(explorer.get("collapsed", False))
     properties_open = bool(properties_pane.get("opened", True)) and not bool(properties_pane.get("collapsed", False))
-    widths = [1.15 if explorer_open else 0.09, 4.9, 1.35 if properties_open else 0.09]
+    widths = [1.15 if explorer_open else 0.10, 4.9, 1.35 if properties_open else 0.10]
     left, center, right = st_module.columns(widths, gap="small")
 
     kind_icons = {"project":"▣", "collection":"▸", "well":"◉", "las":"▤", "curve":"⌁"}
@@ -410,6 +413,7 @@ def _render_native_streamlit_layout(
                 "tree.wells": "nav.data",
                 "tree.las": "nav.las_workspace",
                 "tree.curves": "nav.las_workspace",
+                "tree.correlation": "nav.correlation",
                 "tree.calculations": "nav.data",
                 "tree.reports": "nav.reports",
                 "tree.exports": "nav.exports",
@@ -423,19 +427,38 @@ def _render_native_streamlit_layout(
                 if count not in (None, ""):
                     label += f" ({int(count)})"
                 navigation_id = tree_route_map.get(item_id)
+                selectable = bool(item.get("selectable", False))
+                target = str(item.get("target") or ("collection" if navigation_id else "")).strip()
+                object_id = str(item.get("object_id") or item_id).strip()
+                metadata = dict(item.get("metadata", {}) or {})
+                metadata.setdefault("title", str(item.get("title") or ""))
+                metadata.setdefault("kind", str(item.get("kind") or ""))
+                if count not in (None, ""):
+                    metadata.setdefault("count", int(count))
                 if navigation_id:
+                    metadata.setdefault("navigation_id", navigation_id)
+                if navigation_id or selectable:
                     if st_module.button(
                         label,
                         key=f"workbench_tree_{item_id.replace('.', '_')}",
                         width="stretch",
-                        disabled=navigation_id == active_navigation_id,
                         type="primary" if navigation_id == active_navigation_id else "secondary",
+                        help="Select object and open its workspace" if navigation_id else "Select object",
                     ):
-                        executed.append(
-                            dispatch_workbench_renderer_action(
-                                contract, registry, "action.select_navigation", {"navigation_id": navigation_id}
-                            )
+                        controller = WorkbenchController(
+                            registry.state,
+                            renderer=contract.renderer,
+                            version=contract.version,
+                            command_registry=registry,
                         )
+                        if target and object_id:
+                            controller.select_object(target, object_id, metadata)
+                        if navigation_id and navigation_id != active_navigation_id:
+                            executed.append(
+                                dispatch_workbench_renderer_action(
+                                    contract, registry, "action.select_navigation", {"navigation_id": navigation_id}
+                                )
+                            )
                 else:
                     st_module.markdown(f"<div class='workbench-tree-item'>{_html(label)}</div>", unsafe_allow_html=True)
             collapse = {"id":"action.collapse_dock_pane", "payload":{"pane_id":"dock.project_explorer"}}
@@ -571,7 +594,10 @@ def _render_native_streamlit_layout(
                 f"<span>{_html(item.get('label',''))}</span><b>{_html(item.get('value',''))}</b></div>"
                 for item in layout.get("properties", ())
             )
-            st_module.markdown(props_html or "<small>No selection</small>", unsafe_allow_html=True)
+            st_module.markdown(
+                props_html or "<div class='workbench-properties-empty'><b>Nothing selected</b><br><small>Choose an object in Project Explorer or the active workspace.</small></div>",
+                unsafe_allow_html=True,
+            )
             collapse = {"id":"action.collapse_dock_pane", "payload":{"pane_id":"dock.properties"}}
             if st_module.button("›", key="workbench_native_collapse_properties", help="Collapse Properties"):
                 executed.append(_dispatch_action(contract, registry, collapse))
@@ -580,7 +606,7 @@ def _render_native_streamlit_layout(
             if st_module.button("‹", key="workbench_native_restore_properties", help="Restore Properties"):
                 executed.append(_dispatch_action(contract, registry, restore))
 
-        if diagnostics_enabled() and hasattr(st_module, "expander"):
+        if properties_open and diagnostics_enabled() and hasattr(st_module, "expander"):
             snapshot = diagnostics_snapshot(registry.state)
             with st_module.expander("Developer Diagnostics", expanded=False):
                 binding = snapshot.get("binding", {})

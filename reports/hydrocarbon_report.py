@@ -235,10 +235,25 @@ def build_hydrocarbon_report_payload(
     interpretation_table = build_hydrocarbon_interpretation_table(result.intervals)
     diagnostics_table = build_hydrocarbon_diagnostics_table(result)
     interval_cards = build_interval_report_cards(result.intervals)
+    # Engineering profile stays concise: exclude zero-thickness point anomalies
+    # from the primary table and rank only the strongest intervals.  The full
+    # card set and detailed reasoning remain available in the expert appendix.
+    def _card_number(text: object) -> float:
+        import re
+        match = re.search(r"[-+]?\d+(?:[.,]\d+)?", str(text or ""))
+        return float(match.group(0).replace(",", ".")) if match else 0.0
+
+    compact_cards = tuple(
+        sorted(
+            (card for card in interval_cards if _card_number(card.thickness) > 0.0),
+            key=lambda card: _card_number(card.confidence),
+            reverse=True,
+        )[:15]
+    )
     executive_summary_report_table = executive_summary_table(executive_summary)
     main_intervals_report_table = main_intervals_table(executive_summary)
     executive_recommendations_report_table = executive_recommendations_table(executive_summary)
-    interval_cards_report_table = interval_cards_overview_table(interval_cards)
+    interval_cards_report_table = interval_cards_overview_table(compact_cards)
     interval_card_reasoning_report_table = interval_cards_reasoning_table(interval_cards)
 
     engineering_tables = (
@@ -246,9 +261,9 @@ def build_hydrocarbon_report_payload(
         main_intervals_report_table,
         executive_recommendations_report_table,
         interval_cards_report_table,
-        interval_card_reasoning_report_table,
     )
     technical_tables = (
+        interval_card_reasoning_report_table,
         summary_table,
         marker_table,
         barrier_table,

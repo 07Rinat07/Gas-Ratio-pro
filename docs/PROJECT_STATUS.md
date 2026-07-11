@@ -1,6 +1,6 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v208
+Baseline: v209
 Current stage: Stage 4 — Workbench UI Completion / module integration audit
 Runtime acceptance: **FAILED for v202; navigation works, but core LAS/report/documentation workflows are not yet proven visible and usable**
 
@@ -8,7 +8,7 @@ Runtime acceptance: **FAILED for v202; navigation works, but core LAS/report/doc
 
 Modern Workbench shell, navigation, command dispatch and dock layout work. Live owner testing proved that `Command executed` is not sufficient acceptance: LAS upload/editor/viewer, graphs, reports, printing and Documentation were not observable as usable workflows in the central workspace. Browser DevTools also reported form/accessibility findings, but no JavaScript exception explaining the empty modules.
 
-## 2. Активный инкремент v208
+## 2. Активный инкремент v209
 
 **Functional navigation and calculation/report workflow restoration**:
 
@@ -54,3 +54,11 @@ Active governance remains limited to `PROJECT_ROADMAP.md`, `PROJECT_STATUS.md`, 
 - The shared application logo is displayed once in the Workbench title bar at a compact standard size.
 - The duplicate Documentation hero logo overlay was removed.
 - Stage 4 remains IN PROGRESS pending live acceptance of File/Project and remaining functional tabs.
+
+## v209 — Correlation and printable report repair
+
+Status: IN PROGRESS pending live acceptance.
+
+Implemented: dedicated correlation route, active Project Explorer entry, compact engineering report composition, figures before tables, top-15 non-zero intervals, expert-only detailed reasoning, and PDF plot embedding with Kaleido fallback.
+
+Properties/Dock correction is also implemented: Project Explorer selections now populate contextual Properties, the empty state is user-facing instead of technical `None`/`—`, and Developer Diagnostics is hidden while the right dock is collapsed so the narrow rail no longer contains clipped vertical text.
