@@ -15,6 +15,7 @@ import math
 from typing import Any, Mapping, Sequence
 
 from services.visualization_renderer_parity import visualization_geometry_signature
+from services.visualization_render_validation import validate_export_source
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +86,27 @@ class VisualizationSvgSceneRenderer:
         print_layout = _mapping(source.get("print_layout")) if source_schema == "visualization.scene.pipeline.result" else {}
 
         issues = list(upstream_issues)
+        if source_schema == "visualization.scene.pipeline.result":
+            validation_report = validate_export_source(source)
+            if not validation_report.export_allowed:
+                issues.append("svg_renderer_blocked_by_render_validation")
+                issues.extend(f"svg_renderer_validation:{item.code}" for item in validation_report.findings if item.blocking)
+                return SvgSceneRenderResult(
+                    source_schema=source_schema,
+                    width=int(_positive_float(render_model.get("width"), 0)),
+                    height=int(_positive_float(render_model.get("height"), 0)),
+                    track_count=len(tracks),
+                    layer_count=len(layers),
+                    curve_count=sum(1 for layer in layers if str(layer.get("kind")) == "curve"),
+                    overlay_count=sum(1 for layer in layers if str(layer.get("kind")) == "interval_overlay"),
+                    primitive_count=len([item for item in _mapping_list(render_model.get("primitives")) if bool(item.get("visible", True)) and bool(item.get("printable", True))]),
+                    clip_count=len(_mapping_list(render_model.get("clip_regions"))),
+                    page_size=str(print_layout.get("page_size") or ""),
+                    geometry_signature=visualization_geometry_signature(source),
+                    export_ready=False,
+                    issues=tuple(dict.fromkeys(issues)),
+                    svg="",
+                )
         if not tracks:
             issues.append("svg_renderer_scene_has_no_tracks")
         if not layers:

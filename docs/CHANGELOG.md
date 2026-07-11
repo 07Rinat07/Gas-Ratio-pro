@@ -1,3 +1,12 @@
+# Changelog
+
+## v176
+
+- Added severity-aware renderer-neutral validation findings.
+- Blocked SVG and PDF export when strict render validation finds fatal or error-level geometry defects.
+- Added three reference multi-track LAS fixtures covering linear curves, Unicode labels and interval overlays.
+- Added renderer parity and export-enforcement regression tests.
+
 ## v88 Visualization PDF Render Model Renderer
 
 - Added a ReportLab PDF adapter that consumes the shared Visualization Render Model.
@@ -26,8 +35,6 @@
 - Added shared depth coordinate mapping.
 - Integrated layout stage into scene pipeline and SVG renderer.
 - Added layout validation and regression tests.
-# Changelog
-
 ## Visualization Asset Index v71
 
 - Added a machine-readable visualization asset index for bundle exports.

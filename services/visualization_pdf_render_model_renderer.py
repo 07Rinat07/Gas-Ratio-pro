@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from services.visualization_renderer_parity import visualization_geometry_signature
+from services.visualization_render_validation import validate_export_source
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +76,28 @@ class VisualizationPdfRenderModelRenderer:
 
         render_model = _mapping(source.get("render_model"))
         print_layout = _mapping(source.get("print_layout"))
+        if source_schema == "visualization.scene.pipeline.result":
+            validation_report = validate_export_source(source)
+            if not validation_report.export_allowed:
+                issues.append("pdf_renderer_blocked_by_render_validation")
+                issues.extend(f"pdf_renderer_validation:{item.code}" for item in validation_report.findings if item.blocking)
+                page = _first_mapping(print_layout.get("pages"))
+                page_bounds = _mapping(page.get("page_bounds"))
+                return PdfRenderModelResult(
+                    source_schema=source_schema,
+                    primitive_count=len([item for item in _mapping_list(render_model.get("primitives")) if _enabled(item)]),
+                    clip_count=len(_mapping_list(render_model.get("clip_regions"))),
+                    print_layout_applied=bool(print_layout.get("ok")) and bool(page_bounds),
+                    page_size=str(print_layout.get("page_size") or ""),
+                    page_count=0,
+                    width_pt=_positive_float(page_bounds.get("width"), _positive_float(render_model.get("width"), 0.0)),
+                    height_pt=_positive_float(page_bounds.get("height"), _positive_float(render_model.get("height"), 0.0)),
+                    geometry_signature=visualization_geometry_signature(source),
+                    export_ready=False,
+                    pdf_bytes=b"",
+                    font_name="",
+                    issues=tuple(dict.fromkeys(issues)),
+                )
         if str(render_model.get("schema") or "") != "visualization.render.model":
             issues.append("pdf_renderer_render_model_missing")
         primitives = [item for item in _mapping_list(render_model.get("primitives")) if _enabled(item)]

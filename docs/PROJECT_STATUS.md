@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v174  
+Baseline: v176  
 Current stage: Visualization Engine completion  
-Last verified result: 1729 tests passed, preflight OK.
+Last verified result: 1738 tests passed, preflight OK.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -13,7 +13,9 @@ Visualization Engine:
 - SVG/PDF renderers и geometry signature parity;
 - adaptive downsampling, cache и memory budget;
 - viewport, pan/zoom, hit testing, cursor и selection;
-- render/export QA и Render Validation Pipeline.
+- render/export QA и Render Validation Pipeline;
+- strict export enforcement: SVG/PDF export блокируется при fatal/error geometry findings;
+- три эталонные multi-track сцены для linear, Unicode и overlay regression.
 
 LAS Viewer foundation:
 
@@ -25,21 +27,21 @@ LAS Viewer foundation:
 ## 2. Что не считается завершённым
 
 - Visualization Engine ещё не закрыт визуальными эталонами и реальными multi-track export cases.
-- Render Validation Pipeline пока в основном обнаруживает дефекты; следующий шаг — применять результаты для блокировки некорректного export и точечного исправления layout.
+- Export blocking реализован; остаётся визуальная проверка эталонных артефактов и точечное исправление обнаруженных layout/print дефектов.
 - LAS Viewer foundation существует, но полный пользовательский open → view → interact → export workflow ещё не подтверждён как законченный продукт.
 - Modern Workbench и новая главная страница не начинаются до завершения LAS Viewer.
 
 ## 3. Следующий разрешённый инкремент
 
-**Visualization validation enforcement and reference scenes.**
+**Reference artifact visual regression and layout defect correction.**
 
 Состав:
 
-1. добавить severity/policy для validation findings;
-2. запрещать SVG/PDF export при fatal layout errors;
-3. подготовить несколько эталонных multi-track LAS Render Model fixtures;
-4. проверить bounds, clipping, labels, legend и renderer parity;
-5. добавить regression tests и обновить changelog.
+1. сформировать эталонные SVG/PDF артефакты из утверждённых multi-track fixtures;
+2. проверить clipping, Unicode, track headers, axis labels и legend placement;
+3. исправлять только подтверждённые визуальные дефекты;
+4. добавить автоматические structural/hash checks для эталонных артефактов;
+5. обновить changelog и статус.
 
 Никакие audit/bookmark/licensing функции в следующий инкремент не входят.
 

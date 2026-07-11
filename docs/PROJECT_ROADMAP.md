@@ -1,7 +1,7 @@
 # GAS RATIO PRO — Active Project Roadmap
 
 Status: Active  
-Baseline: v174  
+Baseline: v176  
 Purpose: единственная активная последовательность реализации проекта.
 
 ## 1. Обязательные правила
@@ -45,13 +45,11 @@ Status: **ACTIVE**
 
 Оставшиеся обязательные задачи:
 
-1. Исправление дефектов, обнаруживаемых Render Validation Pipeline.
-2. Контроль коллизий подписей, легенд, осей и track headers.
-3. Проверка clipping и выхода примитивов за printable/content regions.
-4. Набор эталонных LAS-сцен для визуальной регрессии.
-5. Проверка renderer parity SVG/PDF на реальных много-трековых сценах.
-6. Проверка Unicode и читаемости печати.
-7. Финальный performance/large-LAS regression.
+1. Точечное исправление дефектов, обнаруживаемых Render Validation Pipeline.
+2. Расширенная проверка коллизий легенд, осей и track headers.
+3. Визуальная проверка эталонных multi-track сцен и фиксация ожидаемых артефактов.
+4. Проверка Unicode и читаемости печати на эталонных экспортных файлах.
+5. Финальный performance/large-LAS regression.
 
 Definition of Done:
 

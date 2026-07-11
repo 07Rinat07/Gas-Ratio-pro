@@ -13,6 +13,42 @@ import math
 from typing import Any, Mapping, Sequence
 
 
+
+
+@dataclass(frozen=True, slots=True)
+class VisualizationValidationFinding:
+    code: str
+    severity: str
+    blocking: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "code": self.code,
+            "severity": self.severity,
+            "blocking": self.blocking,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class VisualizationValidationPolicy:
+    name: str = "strict-export"
+    blocking_severities: tuple[str, ...] = ("fatal", "error")
+
+    def classify(self, code: str) -> VisualizationValidationFinding:
+        severity = _severity_for_issue(code)
+        return VisualizationValidationFinding(
+            code=code,
+            severity=severity,
+            blocking=severity in self.blocking_severities,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "blocking_severities": list(self.blocking_severities),
+        }
+
+
 @dataclass(frozen=True, slots=True)
 class VisualizationRenderValidationReport:
     schema: str = "visualization.render-validation.report"
@@ -27,6 +63,12 @@ class VisualizationRenderValidationReport:
     checked_clip_count: int = 0
     checked_label_count: int = 0
     issues: tuple[str, ...] = field(default_factory=tuple)
+    findings: tuple[VisualizationValidationFinding, ...] = field(default_factory=tuple)
+    fatal_count: int = 0
+    error_count: int = 0
+    warning_count: int = 0
+    export_allowed: bool = False
+    policy_name: str = "strict-export"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -42,6 +84,12 @@ class VisualizationRenderValidationReport:
             "checked_clip_count": self.checked_clip_count,
             "checked_label_count": self.checked_label_count,
             "issues": list(self.issues),
+            "findings": [item.to_dict() for item in self.findings],
+            "fatal_count": self.fatal_count,
+            "error_count": self.error_count,
+            "warning_count": self.warning_count,
+            "export_allowed": self.export_allowed,
+            "policy_name": self.policy_name,
             "renderer_neutral": True,
         }
 
@@ -51,7 +99,12 @@ class VisualizationRenderValidationPipeline:
 
     TOLERANCE = 1e-6
 
-    def validate(self, pipeline: Mapping[str, Any]) -> VisualizationRenderValidationReport:
+    def validate(
+        self,
+        pipeline: Mapping[str, Any],
+        policy: VisualizationValidationPolicy | None = None,
+    ) -> VisualizationRenderValidationReport:
+        policy = policy or VisualizationValidationPolicy()
         render_model = _mapping(pipeline.get("render_model"))
         print_layout = _mapping(pipeline.get("print_layout"))
         width = _positive(render_model.get("width"))
@@ -126,6 +179,11 @@ class VisualizationRenderValidationPipeline:
         issues.extend(page_issues)
 
         unique_issues = tuple(dict.fromkeys(issues))
+        findings = tuple(policy.classify(code) for code in unique_issues)
+        fatal_count = sum(item.severity == "fatal" for item in findings)
+        error_count = sum(item.severity == "error" for item in findings)
+        warning_count = sum(item.severity == "warning" for item in findings)
+        export_allowed = not any(item.blocking for item in findings)
         return VisualizationRenderValidationReport(
             ok=not unique_issues,
             canvas_ok=canvas_ok,
@@ -137,6 +195,12 @@ class VisualizationRenderValidationPipeline:
             checked_clip_count=len(clips),
             checked_label_count=len(labels),
             issues=unique_issues,
+            findings=findings,
+            fatal_count=fatal_count,
+            error_count=error_count,
+            warning_count=warning_count,
+            export_allowed=export_allowed,
+            policy_name=policy.name,
         )
 
     def _validate_print_layout(self, print_layout: Mapping[str, Any], width: float, height: float) -> list[str]:
@@ -258,3 +322,42 @@ def _overlap_area(left: tuple[float, float, float, float], right: tuple[float, f
 
 def _close(left: float, right: float, tolerance: float = 1e-6) -> bool:
     return abs(left - right) <= tolerance
+
+
+def _severity_for_issue(code: str) -> str:
+    fatal_prefixes = (
+        "render_validation_render_model_missing",
+        "render_validation_canvas_invalid",
+        "render_validation_print_layout_missing",
+        "render_validation_print_pages_missing",
+        "render_validation_print_page_geometry_invalid",
+        "render_validation_printable_outside_page",
+        "render_validation_content_outside_printable",
+        "render_validation_source_canvas_mismatch",
+    )
+    if code.startswith(fatal_prefixes):
+        return "fatal"
+    warning_prefixes = (
+        "render_validation_label_overlap",
+    )
+    if code.startswith(warning_prefixes):
+        return "error"
+    return "error"
+
+
+def validate_export_source(
+    source: Mapping[str, Any],
+    policy: VisualizationValidationPolicy | None = None,
+) -> VisualizationRenderValidationReport:
+    """Validate a pipeline immediately before concrete SVG/PDF export."""
+
+    if str(source.get("schema") or "") != "visualization.scene.pipeline.result":
+        return VisualizationRenderValidationReport(
+            ok=False,
+            issues=("render_validation_render_model_missing",),
+            findings=(VisualizationValidationFinding("render_validation_render_model_missing", "fatal", True),),
+            fatal_count=1,
+            export_allowed=False,
+            policy_name=(policy or VisualizationValidationPolicy()).name,
+        )
+    return VisualizationRenderValidationPipeline().validate(source, policy=policy)

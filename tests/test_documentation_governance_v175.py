@@ -25,7 +25,7 @@ def test_roadmap_declares_single_active_sequence() -> None:
     assert "Stage 2 — LAS Viewer completion" in roadmap
     assert "Stage 3 — Modern Workbench and new main page" in roadmap
     assert "Current stage: Visualization Engine completion" in status
-    assert "Visualization validation enforcement and reference scenes" in status
+    assert "Reference artifact visual regression and layout defect correction" in status
 
 
 def test_version_notes_are_archived_outside_docs_root() -> None:

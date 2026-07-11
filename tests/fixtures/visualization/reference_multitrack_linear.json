@@ -1,0 +1,163 @@
+{
+  "source_type": "las",
+  "source_id": "reference-multitrack-linear",
+  "depth_curve": "DEPT",
+  "depth_unit": "m",
+  "depth_range": {
+    "start": 1000.0,
+    "stop": 1004.0,
+    "step": 1.0
+  },
+  "tracks": [
+    {
+      "id": "track.gamma",
+      "title": "Gamma Ray",
+      "width": 1.0
+    },
+    {
+      "id": "track.gas",
+      "title": "Gas Ratios",
+      "width": 1.35
+    },
+    {
+      "id": "track.res",
+      "title": "Resistivity",
+      "width": 1.0
+    }
+  ],
+  "curves": [
+    {
+      "id": "curve.GR",
+      "track_id": "track.gamma",
+      "mnemonic": "GR",
+      "unit": "API",
+      "scale_type": "linear",
+      "range": {
+        "min": 0,
+        "max": 150
+      },
+      "points": [
+        {
+          "depth": 1000,
+          "value": 42
+        },
+        {
+          "depth": 1001,
+          "value": 55
+        },
+        {
+          "depth": 1002,
+          "value": 70
+        },
+        {
+          "depth": 1003,
+          "value": 66
+        },
+        {
+          "depth": 1004,
+          "value": 81
+        }
+      ]
+    },
+    {
+      "id": "curve.C1",
+      "track_id": "track.gas",
+      "mnemonic": "C1",
+      "unit": "ppm",
+      "scale_type": "linear",
+      "range": {
+        "min": 0,
+        "max": 10000
+      },
+      "points": [
+        {
+          "depth": 1000,
+          "value": 1200
+        },
+        {
+          "depth": 1001,
+          "value": 2200
+        },
+        {
+          "depth": 1002,
+          "value": 4800
+        },
+        {
+          "depth": 1003,
+          "value": 7200
+        },
+        {
+          "depth": 1004,
+          "value": 5400
+        }
+      ]
+    },
+    {
+      "id": "curve.C2",
+      "track_id": "track.gas",
+      "mnemonic": "C2",
+      "unit": "ppm",
+      "scale_type": "linear",
+      "range": {
+        "min": 0,
+        "max": 5000
+      },
+      "points": [
+        {
+          "depth": 1000,
+          "value": 500
+        },
+        {
+          "depth": 1001,
+          "value": 900
+        },
+        {
+          "depth": 1002,
+          "value": 1800
+        },
+        {
+          "depth": 1003,
+          "value": 2600
+        },
+        {
+          "depth": 1004,
+          "value": 2100
+        }
+      ]
+    },
+    {
+      "id": "curve.RT",
+      "track_id": "track.res",
+      "mnemonic": "RT",
+      "unit": "ohm.m",
+      "scale_type": "log",
+      "range": {
+        "min": 0.2,
+        "max": 200
+      },
+      "points": [
+        {
+          "depth": 1000,
+          "value": 1.2
+        },
+        {
+          "depth": 1001,
+          "value": 3.4
+        },
+        {
+          "depth": 1002,
+          "value": 18
+        },
+        {
+          "depth": 1003,
+          "value": 52
+        },
+        {
+          "depth": 1004,
+          "value": 24
+        }
+      ]
+    }
+  ],
+  "overlays": []
+}

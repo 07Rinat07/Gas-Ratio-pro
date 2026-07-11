@@ -3,7 +3,7 @@
 Актуальный статус проекта ведётся в [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
 Текущий этап: **Visualization Engine completion**.  
-Следующий шаг: **validation enforcement and reference multi-track scenes**.
+Следующий шаг: **reference artifact visual regression and layout defect correction**.
 
 Исторический progress log перенесён в:
 
