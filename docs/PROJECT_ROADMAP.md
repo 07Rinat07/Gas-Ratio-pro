@@ -1,7 +1,7 @@
 # GAS RATIO PRO — Active Project Roadmap
 
 Status: Active  
-Baseline: v193  
+Baseline: v194  
 Purpose: единственная активная последовательность реализации проекта.
 
 ## 1. Обязательные правила
@@ -104,16 +104,43 @@ Status: **COMPLETED v193**
 - создавать второй параллельный UI workflow;
 - переносить вычисления в UI.
 
-### Stage 4 — Petrophysical Engine
+### Stage 4 — Workbench UI Completion
 
-Status: **ACTIVE — resumes after corrective Workbench integration v193**
+Status: **ACTIVE v194**
+
+Цель: превратить подключённый production Workbench из минимального shell в полноценное инженерное рабочее окружение до подключения следующих domain-модулей.
+
+Обязательные задачи:
+
+1. Полноэкранный application layout без неиспользуемой центральной области.
+2. Верхний command toolbar/ribbon, использующий существующий Command Framework.
+3. Центральный workspace-host для LAS Viewer и последующих инженерных модулей.
+4. Project Explorer слева с сериализуемым project-tree contract.
+5. Context-sensitive Properties panel справа без domain-вычислений в UI.
+6. Status bar: активный проект, скважина, LAS, viewport/scale и operational status.
+7. Реальное размещение и изменение размеров dock panes в поддерживаемых Streamlit границах.
+8. Responsive, keyboard-navigation и accessibility regression для нового layout.
+9. Smoke-проверка production startup и основных navigation/tool workflows.
+
+Definition of Done:
+
+- после запуска пользователь получает заполненное инженерное рабочее пространство, а не список shell-кнопок;
+- центральный workspace занимает доступную площадь и отображает активный модуль;
+- Project Explorer, Properties, Toolbar и Status Bar используют только application/render contracts;
+- LAS Viewer открывается внутри workspace-host;
+- UI не содержит repository/file operations, инженерные вычисления или raw DataFrame;
+- responsive/accessibility, Workbench regression и preflight проходят.
+
+### Stage 5 — Petrophysical Engine
+
+Status: **PLANNED — starts only after Stage 4 Definition of Done**
 
 - подтверждённые формулы и единицы;
 - transparent calculation contracts;
 - petrophysical curves and quality flags;
 - integration with LAS Viewer and reports.
 
-### Stage 5 — Modeling Engine
+### Stage 6 — Modeling Engine
 
 Status: **PLANNED**
 
@@ -124,7 +151,7 @@ Status: **PLANNED**
 
 ## 4. Замороженные боковые направления
 
-До завершения Stage 3 не расширять:
+До завершения активного Workbench UI Completion не расширять:
 
 - bookmarks/recent-session convenience features;
 - audit report exchange and signing infrastructure;

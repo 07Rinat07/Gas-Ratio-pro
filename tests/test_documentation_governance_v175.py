@@ -25,8 +25,10 @@ def test_roadmap_declares_single_active_sequence() -> None:
     assert "Stage 2 — LAS Viewer completion" in roadmap
     assert "Stage 3 — Modern Workbench and new main page" in roadmap
     assert "Status: **COMPLETED v193**" in roadmap
-    assert "Current stage: Petrophysical Engine" in status
-    assert "Establish confirmed petrophysical formulas, units and transparent calculation contracts" in status
+    assert "### Stage 4 — Workbench UI Completion" in roadmap
+    assert "Status: **ACTIVE v194**" in roadmap
+    assert "Current stage: Workbench UI Completion" in status
+    assert "Complete the production Workbench engineering layout" in status
 
 
 def test_version_notes_are_archived_outside_docs_root() -> None:

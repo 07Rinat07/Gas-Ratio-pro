@@ -1,5 +1,14 @@
 # Changelog
 
+## v194 — Unified roadmap correction for Workbench UI Completion
+
+- Updated the single active roadmap after reviewing the real production Workbench screen.
+- Inserted Workbench UI Completion as the active stage before Petrophysical Engine.
+- Defined the required full-screen workspace host, command toolbar, Project Explorer, contextual Properties panel and operational Status Bar.
+- Added a concrete Definition of Done preventing the minimal shell from being treated as a completed engineering UI.
+- Deferred Petrophysical Engine to Stage 5 and Modeling Engine to Stage 6 without removing either scope.
+- Kept the existing shell architecture, Command Framework, Event Bus, Dock Manager and production entry-point decisions unchanged.
+
 ## v193 — Modern Workbench production entry correction
 
 - Made Modern Workbench the default Streamlit application entry point.

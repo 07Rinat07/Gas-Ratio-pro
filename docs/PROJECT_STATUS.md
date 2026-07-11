@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v193  
-Current stage: Petrophysical Engine (next after completed Workbench production-entry correction)  
-Last fully verified baseline: v193 — Modern Workbench is the default production Streamlit entry point; the previous UI is retained only behind the explicit `GAS_RATIO_PRO_LEGACY_UI` process environment flag; session state cannot activate legacy mode; Workbench renderer, command dispatch and responsive/accessibility contracts remain active; preflight OK.
+Baseline: v194  
+Current stage: Workbench UI Completion  
+Last fully verified runtime baseline: v193 — Modern Workbench is the default production Streamlit entry point. Planning baseline v194 inserts the confirmed Workbench UI Completion stage before Petrophysical Engine so the shell is completed as an engineering workspace before additional domain modules are integrated.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -40,20 +40,24 @@ Modern Workbench:
 
 ## 2. Что не считается завершённым
 
-- Petrophysical Engine formulas, units and calculation contracts remain the next Stage 4 increment after the completed v193 Workbench production-entry correction.
+- The production Workbench currently renders a minimal shell rather than a complete engineering workspace.
+- Project Explorer, workspace host, contextual Properties panel, command toolbar and operational status bar are not yet integrated into the real screen layout.
+- Petrophysical Engine work is intentionally deferred until Workbench UI Completion passes its Definition of Done.
 
 ## 3. Следующий разрешённый инкремент
 
-**Establish confirmed petrophysical formulas, units and transparent calculation contracts.**
+**Complete the production Workbench engineering layout.**
 
 Состав:
 
-1. audit existing formula sources and implementation coverage;
-2. define explicit input/output unit contracts;
-3. expose calculation provenance and quality flags;
-4. reject unsupported or dimensionally invalid inputs before calculation;
-5. unit, integration and regression tests.
+1. implement the full-screen Workbench layout and central workspace host;
+2. connect command toolbar/ribbon to existing renderer actions and Command Framework;
+3. render Project Explorer and context-sensitive Properties as docked application views;
+4. add operational Status Bar from serializable Workbench context;
+5. place LAS Viewer inside the workspace host without moving calculations into UI;
+6. preserve responsive, keyboard and accessibility contracts;
+7. unit, integration, smoke, regression and preflight tests.
 
-Modern Workbench Stage 3 окончательно завершён в v193 после подключения production entry point.
-
-Stage 5 Modeling Engine в следующий инкремент не входит.
+Stage 3 remains completed: shell architecture and production entry are confirmed.
+Stage 4 Workbench UI Completion is now active because the real production screen exposed an incomplete presentation layer.
+Stage 5 Petrophysical Engine and Stage 6 Modeling Engine are outside the next increment.

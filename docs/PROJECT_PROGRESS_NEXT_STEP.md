@@ -2,8 +2,8 @@
 
 Актуальный статус проекта ведётся в [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
-Текущий этап: **Petrophysical Engine**.  
-Следующий шаг: **confirmed petrophysical formulas, units and transparent calculation contracts**.
+Текущий этап: **Workbench UI Completion**.  
+Следующий шаг: **full production Workbench engineering layout with workspace host, Project Explorer, Properties, command toolbar and Status Bar**.
 
 Исторический progress log перенесён в:
 
