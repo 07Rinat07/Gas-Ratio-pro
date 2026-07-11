@@ -128,3 +128,42 @@ def test_applied_mapping_rejects_malformed_state():
 
     assert applied_mapping_from_state({}) is None
     assert applied_mapping_from_state({"engineering_applied_mapping": {"mapping": []}}) is None
+
+
+def test_applied_presentation_round_trip_and_revision_guard():
+    from core.presentation_runtime import (
+        AppliedPresentationState,
+        applied_presentation_from_state,
+        persist_applied_presentation,
+        presentation_matches_source,
+    )
+
+    state: dict[str, object] = {}
+    snapshot = AppliedPresentationState(
+        source_signature="dataset-abc",
+        calculation_revision=4,
+        settings={"selected_tracks": ["C1-C5", "Планшет"], "height": 760},
+    )
+    persist_applied_presentation(state, snapshot)
+
+    restored = applied_presentation_from_state(state)
+    assert restored == snapshot
+    assert presentation_matches_source(restored, "dataset-abc", 4) is True
+    assert presentation_matches_source(restored, "dataset-other", 4) is False
+    assert presentation_matches_source(restored, "dataset-abc", 5) is False
+
+
+def test_applied_presentation_rejects_malformed_state():
+    from core.presentation_runtime import applied_presentation_from_state
+
+    assert applied_presentation_from_state({}) is None
+    assert applied_presentation_from_state({"engineering_applied_presentation": {"settings": []}}) is None
+    assert applied_presentation_from_state(
+        {
+            "engineering_applied_presentation": {
+                "source_signature": "abc",
+                "calculation_revision": -1,
+                "settings": {},
+            }
+        }
+    ) is None

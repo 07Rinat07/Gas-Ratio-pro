@@ -1,3 +1,12 @@
+## v214 — Explicit presentation and tablet build
+
+- Separated mutable graph and tablet controls from the applied presentation snapshot.
+- Added explicit `Построить графики и планшет` action.
+- Bound applied presentation settings to the exact calculated DataFrame signature and calculation revision.
+- Prevented depth-range, height, color, fill, marker and zone edits from rebuilding Plotly figures before explicit apply.
+- Reused cached figures only for the applied immutable settings snapshot.
+- Added persistence and revision-guard tests for applied presentation state.
+
 ## v214 — Explicit mapping and interpretation actions
 
 - Separated mutable mapping widgets from the committed mapping snapshot.

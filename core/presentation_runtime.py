@@ -308,3 +308,69 @@ def mapping_matches_source(applied: AppliedMappingState | None, source_signature
     """Return True only when the applied mapping belongs to current prepared data."""
 
     return applied is not None and applied.source_signature == source_signature
+
+
+APPLIED_PRESENTATION_STATE_KEY = "engineering_applied_presentation"
+
+
+@dataclass(frozen=True, slots=True)
+class AppliedPresentationState:
+    """Immutable presentation snapshot separated from mutable UI widgets."""
+
+    source_signature: str
+    calculation_revision: int
+    settings: Mapping[str, object]
+
+
+def persist_applied_presentation(
+    state: MutableMapping[str, object],
+    applied: AppliedPresentationState,
+) -> None:
+    """Persist a JSON-safe presentation snapshot in session state."""
+
+    state[APPLIED_PRESENTATION_STATE_KEY] = {
+        "source_signature": str(applied.source_signature),
+        "calculation_revision": int(applied.calculation_revision),
+        "settings": dict(applied.settings),
+    }
+
+
+def applied_presentation_from_state(
+    state: MutableMapping[str, object],
+) -> AppliedPresentationState | None:
+    """Restore an applied presentation snapshot and reject malformed state."""
+
+    raw = state.get(APPLIED_PRESENTATION_STATE_KEY)
+    if not isinstance(raw, Mapping):
+        return None
+    settings = raw.get("settings")
+    if not isinstance(settings, Mapping):
+        return None
+    source_signature = str(raw.get("source_signature", "")).strip()
+    if not source_signature:
+        return None
+    try:
+        calculation_revision = int(raw.get("calculation_revision", -1))
+    except (TypeError, ValueError):
+        return None
+    if calculation_revision < 0:
+        return None
+    return AppliedPresentationState(
+        source_signature=source_signature,
+        calculation_revision=calculation_revision,
+        settings=dict(settings),
+    )
+
+
+def presentation_matches_source(
+    applied: AppliedPresentationState | None,
+    source_signature: str,
+    calculation_revision: int,
+) -> bool:
+    """Return True only for the exact calculated dataset revision."""
+
+    return (
+        applied is not None
+        and applied.source_signature == source_signature
+        and applied.calculation_revision == int(calculation_revision)
+    )

@@ -79,12 +79,16 @@ from core.application_state import ApplicationStateController
 from core.models import CalculationConfig, STANDARD_FIELDS
 from core.presentation_runtime import (
     AppliedMappingState,
+    AppliedPresentationState,
     applied_mapping_from_state,
+    applied_presentation_from_state,
     dataframe_signature,
     load_las_sheets_cached,
     mapping_matches_source,
     persist_applied_mapping,
+    persist_applied_presentation,
     persist_revisions,
+    presentation_matches_source,
     revision_controller_from_state,
 )
 from importers.csv_importer import load_csv_sheets
@@ -363,6 +367,8 @@ validate_project_uuid_registry = project_index.validate_project_uuid_registry
 validate_project_file_index = project_index.validate_project_file_index
 DEFAULT_INTERPRETATION_TRACKS = project_graph_settings.DEFAULT_INTERPRETATION_TRACKS
 InterpretationGraphSettings = project_graph_settings.InterpretationGraphSettings
+interpretation_graph_settings_to_dict = project_graph_settings.settings_to_dict
+interpretation_graph_settings_from_dict = project_graph_settings.settings_from_dict
 load_project_interpretation_graph_settings = project_graph_settings.load_project_interpretation_graph_settings
 save_project_interpretation_graph_settings = project_graph_settings.save_project_interpretation_graph_settings
 export_project_las_files_zip = project_las_files.export_project_las_files_zip
@@ -7820,26 +7826,93 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     )
     _render_interpretation_graph_settings_saver(active_project, current_settings, logger)
 
-    # Plotly construction is one of the most expensive parts of the Streamlit
-    # rerun. Keep the latest immutable figure set in session state and reuse it
-    # while the source dataframe and graph settings are unchanged.
+    calculated_signature = dataframe_signature(calculated_df)
+    revision_snapshot = revision_controller_from_state(st.session_state).snapshot
+    build_clicked = st.button(
+        "Построить графики и планшет",
+        type="primary",
+        width="stretch",
+        key="apply_interpretation_presentation",
+        help="Фиксирует текущие настройки. Последующие изменения виджетов не перестраивают графики до следующего применения.",
+    )
+    if build_clicked:
+        persist_applied_presentation(
+            st.session_state,
+            AppliedPresentationState(
+                source_signature=calculated_signature,
+                calculation_revision=revision_snapshot.calculation,
+                settings=interpretation_graph_settings_to_dict(current_settings),
+            ),
+        )
+        revisions = revision_controller_from_state(st.session_state)
+        persist_revisions(st.session_state, revisions.bump_presentation())
+        st.session_state.pop("interpretation_figure_cache", None)
+        logger.info(
+            "interpretation_presentation_committed signature=%s calculation_revision=%d tracks=%s",
+            safe_log_value(calculated_signature[:12]),
+            revision_snapshot.calculation,
+            safe_log_value(",".join(current_settings.selected_tracks)),
+        )
+        st.success("Настройки применены. Графики и планшет построены по зафиксированному снимку.")
+
+    applied_presentation = applied_presentation_from_state(st.session_state)
+    applied_matches = presentation_matches_source(
+        applied_presentation,
+        calculated_signature,
+        revision_snapshot.calculation,
+    )
+    if not applied_matches:
+        st.info(
+            "Настройте параметры и нажмите `Построить графики и планшет`. "
+            "Черновые изменения не запускают дорогостоящий рендер."
+        )
+        return
+
+    render_settings = interpretation_graph_settings_from_dict(dict(applied_presentation.settings))
+    selected_tracks = tuple(render_settings.selected_tracks)
+    height = int(render_settings.height)
+    gas_x_range = render_settings.gas_x_range
+    ratio_x_range = render_settings.ratio_x_range
+    pixler_x_range = render_settings.pixler_x_range
+    tablet_columns = tuple(render_settings.tablet_tracks)
+    tablet_x_ranges = dict(render_settings.tablet_x_ranges)
+    tablet_colors = dict(render_settings.tablet_colors)
+    tablet_fill_modes = dict(render_settings.tablet_fill_modes)
+    tablet_markers = tuple(
+        InterpretationMarker(
+            label=str(marker.get("label") or chr(ord("a") + index)),
+            depth=float(marker.get("depth", 0.0)),
+            note=str(marker.get("note") or ""),
+        )
+        for index, marker in enumerate(render_settings.tablet_markers)
+    )
+    tablet_zones = tuple(
+        InterpretationZone(
+            label=str(zone.get("label") or f"Zone {index + 1}"),
+            top_depth=float(zone.get("top_depth", 0.0)),
+            bottom_depth=float(zone.get("bottom_depth", 0.0)),
+            color=str(zone.get("color") or "#ffd966"),
+            note=str(zone.get("note") or ""),
+        )
+        for index, zone in enumerate(render_settings.tablet_zones)
+    )
+    tablet_fill = bool(render_settings.tablet_fill)
+    if render_settings.depth_range is None:
+        filtered_df = calculated_df.copy()
+        depth_range = None
+    else:
+        depth_range = render_settings.depth_range
+        filtered_df = _filter_by_depth_range(calculated_df, depth_range[0], depth_range[1])
+    if filtered_df.empty:
+        st.error("В примененном диапазоне глубин нет строк. Измените настройки и повторно постройте графики.")
+        return
+
+    # Plotly construction is expensive. The cache key now depends only on the
+    # applied presentation snapshot, never on mutable widget drafts.
     figure_cache_key = (
-        id(calculated_df),
-        tuple(filtered_df.shape),
-        tuple(str(column) for column in filtered_df.columns),
-        depth_range,
-        int(height),
-        tuple(selected_tracks),
-        gas_x_range,
-        ratio_x_range,
-        pixler_x_range,
-        tuple(tablet_columns),
-        tuple(sorted((str(key), tuple(value)) for key, value in tablet_x_ranges.items())),
-        tuple(sorted((str(key), str(value)) for key, value in tablet_colors.items())),
-        tuple(sorted((str(key), str(value)) for key, value in tablet_fill_modes.items())),
-        tuple((marker.label, float(marker.depth), marker.note) for marker in tablet_markers),
-        tuple((zone.label, float(zone.top_depth), float(zone.bottom_depth), zone.color, zone.note) for zone in tablet_zones),
-        bool(tablet_fill),
+        calculated_signature,
+        int(applied_presentation.calculation_revision),
+        tuple(sorted((str(key), repr(value)) for key, value in applied_presentation.settings.items())),
     )
     cached_figure_set = st.session_state.get("interpretation_figure_cache")
     if isinstance(cached_figure_set, dict) and cached_figure_set.get("key") == figure_cache_key:

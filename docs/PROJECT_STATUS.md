@@ -62,13 +62,16 @@ Implemented in the current increment:
 - separated draft mapping widgets from the applied mapping snapshot;
 - added explicit `Применить mapping` and `Запустить интерпретацию` actions;
 - prevented draft widget changes from triggering calculations or replacing committed results;
-- tied an applied mapping to the exact prepared-data signature and invalidated it when source content changes.
+- tied an applied mapping to the exact prepared-data signature and invalidated it when source content changes;
+- separated draft graph/tablet widgets from the applied presentation snapshot;
+- added explicit `Построить графики и планшет` action;
+- bound the applied presentation to the exact calculated-data signature and calculation revision;
+- prevented color, scale, marker and zone edits from rebuilding Plotly figures before explicit apply.
 
 Remaining v214 scope:
 
-- connect explicit apply actions to presentation settings;
 - remove all widget default/session-state conflicts;
-- batch mapping/tablet/export controls through explicit apply actions;
+- complete remaining explicit apply coverage for export controls and secondary presentation workspaces;
 - stop unrelated reruns from rebuilding figures or exports;
 - replace floating/blank Streamlit activity artifact with inline status;
 - extend characterization and performance tests.
