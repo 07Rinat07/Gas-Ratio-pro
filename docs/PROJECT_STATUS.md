@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v183  
+Baseline: v184  
 Current stage: LAS Viewer completion  
-Last fully verified baseline: v183 — LAS Viewer track order, width, linear/log scale and visibility are integrated through one renderer-neutral configuration controller; preflight OK. Visualization Engine Stage 1 is complete.
+Last fully verified baseline: v184 — LAS Viewer zoom, pan, fit and reset are integrated through one renderer-neutral navigation controller with large-LAS viewport filtering and cache compatibility; preflight OK. Visualization Engine Stage 1 is complete.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -33,19 +33,18 @@ LAS Viewer foundation:
 
 ## 3. Следующий разрешённый инкремент
 
-**Implement LAS Viewer zoom, pan, fit and reset with stable large-LAS behavior.**
+**Export the current LAS Viewer view to SVG/PDF through Visualization Engine.**
 
 Состав:
 
-1. использовать существующий shared viewport и command controller;
-2. добавить renderer-neutral zoom, pan, fit и reset application workflow;
-3. не дублировать вычисления viewport в UI;
-4. подтвердить cache/downsampling compatibility на больших LAS;
-5. покрыть unit, integration, performance и regression tests.
+1. использовать текущий shared viewport и общий Render Model;
+2. экспортировать именно текущий вид без повторного вычисления layout в UI;
+3. сохранить SVG/PDF geometry parity и validation blocking;
+4. покрыть unit, integration, export и regression tests.
 
-Track configuration подтверждён: один controller синхронизирует session/layout visibility, порядок и ширину tracks, а linear/log scale с диапазоном сохраняется в сериализуемом state и применяется к track/curve render contract.
+Zoom, pan, fit и reset подтверждены: один application controller использует существующие viewport commands, сохраняет общую глубинную область для всех tracks, ограничивает pan LAS-диапазоном и возвращает compact performance profile. Large-LAS regression подтверждает viewport filtering, bounded cache reuse и отсутствие raw dataframe в session state.
 
-Export и Stage 3 Workbench в следующий инкремент не входят.
+Stage 3 Workbench в следующий инкремент не входит.
 
 ## 4. Критерий перехода к LAS Viewer
 

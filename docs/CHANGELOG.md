@@ -1,5 +1,13 @@
 # Changelog
 
+## v184
+
+- Added renderer-neutral LAS Viewer navigation controller for zoom, pan, fit and reset.
+- Reused the existing shared viewport command/session contracts without UI-side depth calculations.
+- Added compact navigation performance telemetry for source/visible points and bounded cache reuse.
+- Added large-LAS regression coverage confirming viewport filtering and dataframe-free viewer state.
+- Advanced the active roadmap to current-view SVG/PDF export.
+
 ## v183
 
 - Added unified renderer-neutral LAS Viewer track configuration controller.
