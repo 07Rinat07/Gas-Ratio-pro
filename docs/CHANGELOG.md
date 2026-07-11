@@ -1,3 +1,9 @@
+## v208
+
+- Activated File and Project menus with project/session workflows.
+- Added compact shared logo to the Workbench title bar.
+- Removed duplicate Documentation logo overlay.
+
 ## v207 Functional navigation and report workflow restoration
 
 - Restored Data Workspace as a first-class Modern Workbench route.

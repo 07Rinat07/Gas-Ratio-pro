@@ -9,6 +9,9 @@ workspace data directly, perform exports or persist domain objects.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+import base64
+import mimetypes
 from typing import Any, MutableMapping, Protocol
 
 from core.command_framework import CommandExecutionResult, WorkbenchCommandRegistry
@@ -27,6 +30,16 @@ from core.workbench_shell import (
 WORKBENCH_RENDERER_NAME = "streamlit-modern"
 WORKBENCH_RENDERER_CONTRACT_VERSION = "workbench-renderer-contract"
 WORKBENCH_LAST_UI_ACTION_KEY = "workbench_last_ui_action"
+WORKBENCH_MENU_PANEL_KEY = "workbench_menu_panel"
+
+
+def _branding_logo_data_uri() -> str:
+    """Return the shared application logo as a data URI for the title bar."""
+    path = Path(__file__).resolve().parents[1] / "assets" / "branding" / "gas_ratio_pro_logo.png"
+    if not path.exists():
+        return ""
+    mime = mimetypes.guess_type(path.name)[0] or "image/png"
+    return f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode('ascii')}"
 
 
 class StreamlitLike(Protocol):
@@ -90,6 +103,7 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] { backgro
 [data-testid="stToolbar"] { top:.15rem; }
 .workbench-titlebar { position:relative; z-index:2; display:flex; align-items:center; justify-content:space-between; min-height:48px; padding:.25rem .55rem; border-bottom:1px solid var(--wb-line); background:linear-gradient(180deg,#121c2a,#0e151f); }
 .workbench-brand { display:flex; gap:.65rem; align-items:center; }
+.workbench-logo-image { width:38px; height:38px; object-fit:contain; flex:0 0 auto; }
 .workbench-logo { width:28px; height:28px; display:grid; place-items:center; border-radius:7px; color:white; background:linear-gradient(135deg,#2f78ff,#18b7d8); font-size:1.05rem; box-shadow:0 0 18px rgba(63,140,255,.25); }
 .workbench-titlebar h1 { font-size:1.28rem; line-height:1.2; margin:0; letter-spacing:.01em; }
 .workbench-subtitle { color:var(--wb-muted); font-size:.75rem; }
@@ -225,9 +239,14 @@ def _render_native_streamlit_layout(
     executed: list[CommandExecutionResult] = []
     active_workspace = payload.get("interaction", {}).get("active_workspace") or "dashboard"
     build = runtime_build_info()
+    logo_uri = _branding_logo_data_uri()
+    logo_html = (
+        f"<img class='workbench-logo-image' src='{logo_uri}' alt='Gas Ratio Pro logo'>"
+        if logo_uri else "<div class='workbench-logo'>⌁</div>"
+    )
     st_module.markdown(
         "<header class='workbench-titlebar'>"
-        "<div class='workbench-brand'><div class='workbench-logo'>⌁</div><div>"
+        f"<div class='workbench-brand'>{logo_html}<div>"
         "<h1>Gas Ratio Pro — Modern Workbench</h1>"
         "<div class='workbench-subtitle'>Well-log analysis and interpretation workspace</div>"
         "</div></div>"
@@ -235,8 +254,8 @@ def _render_native_streamlit_layout(
         "</header>", unsafe_allow_html=True,
     )
     menu_items = (
-        ("File", "nav.dashboard"),
-        ("Project", "nav.dashboard"),
+        ("File", "menu.file"),
+        ("Project", "menu.project"),
         ("Data", "nav.data"),
         ("LAS", "nav.las_workspace"),
         ("Interpretation", "nav.interpretation"),
@@ -249,21 +268,67 @@ def _render_native_streamlit_layout(
     menu_columns = st_module.columns(len(menu_items), gap="small")
     for (title, navigation_id), column in zip(menu_items, menu_columns):
         with column:
-            active = navigation_id == active_navigation_id and title not in {"File", "Project", "Settings"}
+            is_panel = navigation_id.startswith("menu.")
+            active = (navigation_id == active_navigation_id) if not is_panel else (registry.state.get(WORKBENCH_MENU_PANEL_KEY) == navigation_id)
             if st_module.button(
                 title,
                 key=f"workbench_menu_{title.lower()}",
                 width="stretch",
-                disabled=active,
+                disabled=False,
                 type="primary" if active else "secondary",
                 help=f"Open {title}",
             ):
-                executed.append(
-                    dispatch_workbench_renderer_action(
-                        contract, registry, "action.select_navigation", {"navigation_id": navigation_id}
+                if is_panel:
+                    registry.state[WORKBENCH_MENU_PANEL_KEY] = "" if active else navigation_id
+                else:
+                    registry.state[WORKBENCH_MENU_PANEL_KEY] = ""
+                    executed.append(
+                        dispatch_workbench_renderer_action(
+                            contract, registry, "action.select_navigation", {"navigation_id": navigation_id}
+                        )
                     )
-                )
 
+    panel_id = str(registry.state.get(WORKBENCH_MENU_PANEL_KEY, "") or "")
+    if panel_id == "menu.file":
+        st_module.markdown("### File")
+        file_cols = st_module.columns(3, gap="small")
+        with file_cols[0]:
+            if st_module.button("Open Project", key="workbench_file_open_project", width="stretch"):
+                registry.state[WORKBENCH_MENU_PANEL_KEY] = "menu.project"
+        with file_cols[1]:
+            if st_module.button("Restore Recent Session", key="workbench_file_restore_session", width="stretch"):
+                try:
+                    from core.workbench_entry_points import WorkbenchEntryPointService
+                    service = WorkbenchEntryPointService(registry.state)
+                    result = service.restore_recent_session()
+                    registry.state[WORKBENCH_LAST_UI_ACTION_KEY] = {"action_id":"restore_recent_session","title":"Restore Recent Session","executed":True,"message":result.kind}
+                except Exception as exc:
+                    incident = record_runtime_exception(registry.state, exc, boundary="file_menu", operation="restore_recent_session")
+                    st_module.error(f"Unable to restore session. Error ID: {incident['correlation_id']}")
+        with file_cols[2]:
+            if st_module.button("Close Menu", key="workbench_file_close", width="stretch"):
+                registry.state[WORKBENCH_MENU_PANEL_KEY] = ""
+    elif panel_id == "menu.project":
+        st_module.markdown("### Project")
+        try:
+            from core.workbench_entry_points import WorkbenchEntryPointService
+            service = WorkbenchEntryPointService(registry.state)
+            entries = service.project_entries()
+            if entries:
+                for entry in entries:
+                    cols = st_module.columns([4,1], gap="small")
+                    with cols[0]:
+                        st_module.caption(f"{entry['project_name']} · {entry['project_id']}")
+                    with cols[1]:
+                        if st_module.button("Open", key=f"workbench_project_open_{entry['project_id']}", width="stretch", disabled=not entry['available']):
+                            result = service.open_project(entry['project_id'])
+                            registry.state[WORKBENCH_LAST_UI_ACTION_KEY] = {"action_id":"open_project","title":"Open Project","executed":True,"message":result.project_id}
+                            registry.state[WORKBENCH_MENU_PANEL_KEY] = ""
+            else:
+                st_module.info("No recent projects. Use Data or LAS Workspace to create project content.")
+        except Exception as exc:
+            incident = record_runtime_exception(registry.state, exc, boundary="project_menu", operation="list_projects")
+            st_module.error(f"Unable to load projects. Error ID: {incident['correlation_id']}")
 
     # Show only commands that are meaningful in the current presentation state.
     # Active navigation is highlighted, redundant tool activation is hidden, and

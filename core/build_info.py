@@ -11,8 +11,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-BUILD_VERSION = "v207"
-BUILD_CHANNEL = "workbench-render-audit"
+BUILD_VERSION = "v208"
+BUILD_CHANNEL = "workbench-functional-ui"
 
 
 @dataclass(frozen=True, slots=True)

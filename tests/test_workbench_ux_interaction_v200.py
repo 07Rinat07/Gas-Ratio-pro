@@ -37,8 +37,8 @@ class FakeStreamlit:
 
 
 def test_current_build_identity_keeps_v200_interaction_contract():
-    assert BUILD_VERSION == "v207"
-    assert BUILD_CHANNEL == "workbench-render-audit"
+    assert BUILD_VERSION == "v208"
+    assert BUILD_CHANNEL == "workbench-functional-ui"
 
 
 def test_titlebar_is_pushed_below_streamlit_system_header():

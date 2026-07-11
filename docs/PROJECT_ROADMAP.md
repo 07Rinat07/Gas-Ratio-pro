@@ -1,7 +1,7 @@
 # GAS RATIO PRO — Active Project Roadmap
 
 Status: Active  
-Baseline: v207  
+Baseline: v208  
 Purpose: единственная активная последовательность реализации проекта.
 
 ## 1. Обязательные правила
@@ -106,7 +106,7 @@ Status: **COMPLETED v193**
 
 ### Stage 4 — Workbench UI Completion
 
-Status: **IN PROGRESS v207 — functional navigation and calculation/report workflow restoration**
+Status: **IN PROGRESS v208 — functional menu, branding and remaining workflow acceptance**
 
 Цель: превратить подключённый production Workbench из минимального shell в полноценное инженерное рабочее окружение до подключения следующих domain-модулей.
 
@@ -144,6 +144,7 @@ Status: **IN PROGRESS v207 — functional navigation and calculation/report work
 30. Repeat live acceptance for LAS upload/editor/viewer, Interpretation, Reports, Exports and Documentation. **FAILED AFTER v206 OWNER TEST — dead menu/tree controls and missing Data Workspace blocked calculations**
 31. Restore Data Workspace as a first-class Workbench route and replace decorative top-menu/Project Explorer entries with command-backed buttons. **COMPLETED v207**
 32. Restore the end-to-end flow Data input → calculation → Interpretation → Reports, with an actionable Reports prerequisite state. **COMPLETED v207; LIVE ACCEPTANCE REQUIRED**
+33. Replace silent File/Project labels with real project/session controls and move the single compact brand logo to the Workbench title bar; remove the duplicate Documentation logo overlay. **COMPLETED v208; LIVE ACCEPTANCE REQUIRED**
 
 Definition of Done:
 

@@ -23,7 +23,7 @@ def test_roadmap_and_status_reopen_stage_four_until_live_acceptance() -> None:
     status = (DOCS / "PROJECT_STATUS.md").read_text(encoding="utf-8")
     assert "единственная активная последовательность" in roadmap
     assert "Stage 4 — Workbench UI Completion" in roadmap
-    assert "IN PROGRESS v207" in roadmap
+    assert "IN PROGRESS v208" in roadmap
     assert "Live acceptance" in roadmap
     assert "Petrophysical Engine" in roadmap
     assert "BLOCKED" in roadmap

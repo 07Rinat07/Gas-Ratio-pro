@@ -5916,12 +5916,7 @@ def _documentation_table_of_contents() -> tuple[dict[str, str], ...]:
 
 def _render_documentation_tab() -> None:
     hero_uri = _documentation_hero_data_uri() or _dashboard_background_data_uri()
-    logo_uri = _branding_logo_data_uri()
-    logo_html = (
-        f'<div class="docs-hero-brand-badge"><img src="{logo_uri}" alt="Gas Ratio Pro logo"></div>'
-        if logo_uri
-        else ""
-    )
+    logo_html = ""
     image_html = (
         f'<img class="docs-hero-image" src="{hero_uri}" alt="Gas Ratio Pro documentation banner">'
         if hero_uri
@@ -5931,7 +5926,6 @@ def _render_documentation_tab() -> None:
         <div class="docs-hero">
           <section class="docs-hero-banner">
             {image_html}
-            {logo_html}
             <div class="docs-hero-content">
               <div class="docs-hero-kicker">Gas Ratio Pro Documentation Center v2</div>
               <h1 class="docs-hero-title">Инструкции и документация</h1>
@@ -8168,7 +8162,6 @@ def _render_sidebar_brand(project: ProjectRecord) -> None:
         f"""
         <div class='sidebar-brand-card'>
           <div class='sidebar-brand-row'>
-            {logo_html}
             <div>
               <div class='sidebar-brand-title'>Gas Ratio <span>Pro</span></div>
               <span class='sidebar-brand-subtitle'>Project control center</span>
