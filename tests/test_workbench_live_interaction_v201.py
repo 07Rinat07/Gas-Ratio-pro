@@ -32,8 +32,8 @@ class FakeStreamlit:
 
 
 def test_v201_build_identity():
-    assert BUILD_VERSION == "v201"
-    assert BUILD_CHANNEL == "workbench-live-interaction-completion"
+    assert BUILD_VERSION == "v202"
+    assert BUILD_CHANNEL == "workbench-functional-integration"
 
 
 def test_empty_workspace_exposes_command_backed_quick_actions():

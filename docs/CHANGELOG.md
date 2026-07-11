@@ -1,3 +1,11 @@
+## v202 — Workbench functional integration
+
+- Embedded existing LAS import/analysis, LAS editor and LAS correlation workflows in Modern Workbench.
+- Routed interpretation graphs and printable reports through the central workspace.
+- Connected project export archive and Documentation Center.
+- Added Documentation to the single navigation/tool route table.
+- Added functional integration regression tests without creating new planning documents.
+
 ## v201 — Workbench live interaction completion
 
 - Replaced decorative empty-workspace cards with command-backed quick actions.

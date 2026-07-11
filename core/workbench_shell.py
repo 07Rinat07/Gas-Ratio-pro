@@ -679,6 +679,7 @@ DEFAULT_WORKBENCH_NAVIGATION: tuple[WorkbenchNavigationItem, ...] = (
     WorkbenchNavigationItem("nav.interpretation", "Interpretation", "interpretation", "analysis", "ratio", order=30),
     WorkbenchNavigationItem("nav.reports", "Reports", "reports", "output", "report", order=40),
     WorkbenchNavigationItem("nav.exports", "Exports", "exports", "output", "export", order=50),
+    WorkbenchNavigationItem("nav.documentation", "Documentation", "documentation", "help", "book", order=60),
 )
 
 DEFAULT_WORKBENCH_DOCK_PANES: tuple[WorkbenchDockPane, ...] = (

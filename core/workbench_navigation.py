@@ -62,6 +62,7 @@ DEFAULT_WORKBENCH_MODULE_ROUTES: tuple[WorkbenchModuleRoute, ...] = (
     WorkbenchModuleRoute("nav.interpretation", "interpretation", "tool.gas_ratio_analysis"),
     WorkbenchModuleRoute("nav.reports", "reports", "tool.report_preview"),
     WorkbenchModuleRoute("nav.exports", "exports", "tool.export"),
+    WorkbenchModuleRoute("nav.documentation", "documentation", "tool.documentation"),
 )
 
 

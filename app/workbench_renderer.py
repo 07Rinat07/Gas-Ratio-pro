@@ -338,7 +338,18 @@ def _render_native_streamlit_layout(
         st_module.markdown("<div class='workbench-workspace-shell'>", unsafe_allow_html=True)
         runtime = dict(workspace.get("runtime", {}) or {})
         visualization = dict(runtime.get("visualization", {}) or {})
-        if runtime.get("embedded"):
+        active_navigation_id = str(payload.get("interaction", {}).get("active_navigation_id", "") or "")
+        real_streamlit = str(getattr(st_module, "__name__", "")) == "streamlit"
+        module_rendered = False
+        if real_streamlit:
+            try:
+                from app.streamlit_app import render_modern_workbench_workspace
+                module_rendered = bool(render_modern_workbench_workspace(active_navigation_id))
+            except Exception as exc:
+                st_module.error(f"Не удалось открыть рабочий модуль: {exc}")
+        if module_rendered:
+            pass
+        elif runtime.get("embedded"):
             cards = list(workspace.get("content", {}).get("summary_cards", ()) or ())
             if cards:
                 card_columns = st_module.columns(min(len(cards), 4), gap="small")

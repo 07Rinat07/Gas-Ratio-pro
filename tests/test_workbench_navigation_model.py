@@ -14,6 +14,7 @@ def test_single_navigation_model_maps_every_shell_section_to_one_tool():
         "nav.interpretation",
         "nav.reports",
         "nav.exports",
+        "nav.documentation",
     ]
     assert router.by_navigation("nav.las_workspace").tool_id == "tool.las_viewer"
     assert router.by_navigation("nav.las_workspace").primary is True
@@ -52,6 +53,7 @@ def test_each_navigation_section_focuses_its_registered_module():
         "nav.interpretation": "tool.gas_ratio_analysis",
         "nav.reports": "tool.report_preview",
         "nav.exports": "tool.export",
+        "nav.documentation": "tool.documentation",
     }
 
     for navigation_id, tool_id in expected.items():

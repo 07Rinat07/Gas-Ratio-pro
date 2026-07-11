@@ -1,26 +1,27 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v201
-Current stage: Stage 4 — Workbench UI Completion / live interaction acceptance
-Runtime acceptance: **five-region layout confirmed; v201 adds command-backed workspace transitions**
+Baseline: v202
+Current stage: Stage 4 — Workbench UI Completion / functional integration acceptance
+Runtime acceptance: **Workbench shell and interactions confirmed; existing production workflows are now embedded**
 
 ## 1. Подтвержденное состояние
 
-Живой запуск подтвердил новый production Workbench. v200 устранил перекрытие заголовка, добавил активное состояние навигации, command feedback и state-aware dock controls.
+Production Workbench запускается из актуальной папки, отображает пять основных областей и выполняет command-backed navigation. Реальная проверка выявила, что часть существующих LAS, графических, отчетных и документационных экранов оставалась вне нового центрального workspace.
 
-## 2. Активный инкремент v201
+## 2. Активный инкремент v202
 
-**Workbench live interaction completion** без новых domain-функций:
+**Workbench Functional Integration** без дублирования существующей функциональности:
 
-- реальные quick actions в пустом workspace вместо декоративных карточек;
-- переходы LAS Workspace, Interpretation и Reports через Command Framework;
-- явное отображение active workspace и workspace-specific title/empty state;
-- regression, compileall и preflight;
-- повторная живая приемка перед закрытием Stage 4.
+- `LAS Workspace` содержит существующие режимы загрузки/анализа, LAS-редактора и LAS-корреляции;
+- `Interpretation` открывает существующие интерпретационные графики;
+- `Reports` использует существующий графический и печатный report workflow;
+- `Exports` открывает существующий архив экспортов проекта;
+- `Documentation` зарегистрирован в единой navigation/tool модели и открывает Documentation Center;
+- UI остается orchestration layer: LAS parsing, calculations, reports and storage are not duplicated in renderer code.
 
 ## 3. Единственный следующий разрешенный шаг
 
-Проверить v201 на живом экране: quick actions и toolbar должны менять центральный workspace, dock controls — сворачивать и восстанавливать панели, traceback отсутствуют. Stage 5 — Petrophysical Engine остается заблокированным до подтверждения.
+Провести живую функциональную приемку v202: загрузить тестовый LAS, открыть режим LAS-редактора, проверить графики, сформировать/скачать печатный отчет, открыть архив экспортов и Documentation Center. Stage 5 — Petrophysical Engine остается заблокированным до этой приемки.
 
 ## 4. Управляющая документация
 

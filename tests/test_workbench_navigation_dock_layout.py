@@ -16,6 +16,7 @@ def test_workbench_shell_contains_default_navigation_and_dock_layout():
         "nav.interpretation",
         "nav.reports",
         "nav.exports",
+        "nav.documentation",
     )
     assert model.dock_layout.pane_ids()
 

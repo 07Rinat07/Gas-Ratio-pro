@@ -10829,6 +10829,84 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
     logger.info("las_correlation_rendered wells=%d", len(selected_wells))
 
 
+WORKBENCH_LAS_MODE_KEY = "workbench_las_mode"
+WORKBENCH_LAS_MODES: tuple[str, ...] = (
+    "Загрузка и анализ",
+    "LAS-редактор",
+    "LAS-корреляция",
+)
+
+
+def _active_project_for_workbench(logger) -> ProjectRecord:
+    """Resolve the active project without rendering the legacy project selector.
+
+    Modern Workbench owns the surrounding layout, while existing domain screens
+    remain responsible only for their established workflows.  This helper keeps
+    project resolution in the application layer and prevents a second navigation
+    shell from appearing inside the central workspace.
+    """
+
+    projects = _load_project_records_for_ui(logger)
+    projects_by_id = {project.id: project for project in projects}
+    state = _application_state_controller()
+    state.consume_pending_project_activation()
+    project_id = state.context().project_id
+    if project_id not in projects_by_id:
+        project_id = DEFAULT_PROJECT_ID if DEFAULT_PROJECT_ID in projects_by_id else projects[0].id
+        state.ensure_project(project_id)
+    project = projects_by_id[project_id]
+    try:
+        _project_manager_service().touch_recent(project)
+    except Exception:
+        logger.exception("workbench_recent_project_touch_failed project_id=%s", safe_log_value(project.id))
+    return project
+
+
+def _render_workbench_las_workspace(logger, active_project: ProjectRecord) -> None:
+    """Render the existing LAS workflows inside the Modern Workbench host."""
+
+    st.markdown("### LAS Workspace")
+    st.caption("Загрузка, анализ, создание, редактирование и корреляция LAS через существующие рабочие модули проекта.")
+    mode = st.radio(
+        "LAS workflow",
+        options=WORKBENCH_LAS_MODES,
+        horizontal=True,
+        key=WORKBENCH_LAS_MODE_KEY,
+    )
+    if mode == "LAS-редактор":
+        _render_las_editor(logger, active_project)
+    elif mode == "LAS-корреляция":
+        _render_las_correlation_tab(logger, active_project)
+    else:
+        _render_workspace(logger, active_project)
+
+
+def render_modern_workbench_workspace(navigation_id: str) -> bool:
+    """Render an existing production workflow in the Workbench center region.
+
+    Returns ``True`` when the route is handled.  The function deliberately
+    reuses established screens instead of duplicating LAS, plotting, reporting
+    or documentation logic in the new renderer.
+    """
+
+    clean_id = str(navigation_id or "").strip()
+    logger = configure_logging()
+    active_project = _active_project_for_workbench(logger)
+    routes = {
+        "nav.dashboard": lambda: _render_start_tab(active_project),
+        "nav.las_workspace": lambda: _render_workbench_las_workspace(logger, active_project),
+        "nav.interpretation": lambda: _render_interpretation_graphs_tab(logger, active_project),
+        "nav.reports": lambda: _render_interpretation_graphs_tab(logger, active_project),
+        "nav.exports": lambda: _render_project_exports_panel(active_project, logger),
+        "nav.documentation": _render_documentation_tab,
+    }
+    renderer = routes.get(clean_id)
+    if renderer is None:
+        return False
+    renderer()
+    return True
+
+
 def _run_legacy_ui() -> None:
     """Run the pre-Workbench Streamlit interface.
 

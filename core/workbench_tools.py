@@ -103,6 +103,7 @@ DEFAULT_WORKBENCH_TOOLS: tuple[WorkbenchToolDescriptor, ...] = (
     WorkbenchToolDescriptor("tool.report_preview", "Report Preview", "reporting", "report", ("report",), order=50, factory="report_preview"),
     WorkbenchToolDescriptor("tool.export", "Export", "reporting", "export", ("report", "workspace"), order=60, factory="export"),
     WorkbenchToolDescriptor("tool.settings", "Settings", "system", "settings", ("workspace",), order=70, factory="settings"),
+    WorkbenchToolDescriptor("tool.documentation", "Documentation", "help", "book", ("workspace",), order=80, factory="documentation"),
 )
 
 

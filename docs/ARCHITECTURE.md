@@ -55,3 +55,7 @@ Launcher не запускает новый сервер поверх занят
 3. проверка пяти областей Workbench;
 4. выполнение command-backed действий без traceback;
 5. подтверждение LAS Viewer внутри Workspace Host.
+
+## Workbench functional integration boundary (v202)
+
+The Modern Workbench owns navigation, layout and command dispatch. Existing production Streamlit workflows remain the implementation of LAS import/analysis, LAS editing, LAS correlation, interpretation plots, printable reports, project exports and documentation. They are embedded through `render_modern_workbench_workspace()` and are not reimplemented in the renderer. This preserves one domain implementation while retiring the parallel legacy navigation shell.
