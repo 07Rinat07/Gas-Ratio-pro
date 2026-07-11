@@ -76,40 +76,53 @@ def build_streamlit_workbench_adapter(state: MutableMapping[str, Any]) -> Stream
 
 
 def build_workbench_responsive_css() -> str:
-    """Return production Workbench layout CSS."""
+    """Return the professional Workbench visual system for Streamlit."""
     return """
 <style>
-.block-container { max-width: 100% !important; padding: .65rem .9rem 0 !important; }
-.workbench-contract-shell { height: calc(100vh - 1rem); max-width: 100%; overflow: hidden; overflow-x: hidden; display:flex; flex-direction:column; gap:.55rem; color:#e8edf5; }
-.workbench-titlebar { display:flex; align-items:center; justify-content:space-between; min-height:42px; padding:0 .35rem; }
-.workbench-titlebar h1 { font-size:1.25rem; margin:0; }
-.workbench-toolbar { display:flex; flex-wrap:wrap; gap:.4rem; padding:.45rem; border:1px solid #273246; border-radius:.65rem; background:#111722; }
-.workbench-toolbar-item { padding:.4rem .7rem; border-radius:.45rem; background:#182235; border:1px solid #30405a; font-size:.82rem; }
-.workbench-toolbar-actions { display:flex; flex-wrap:wrap; gap:.35rem; margin:.2rem 0 .45rem; }
-.workbench-las-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(9rem,1fr)); gap:.5rem; margin-bottom:.65rem; }
-.workbench-las-card { border:1px solid #30405a; background:#141c29; border-radius:.45rem; padding:.55rem .65rem; }
-.workbench-las-tracks { display:grid; grid-template-columns:repeat(auto-fit,minmax(11rem,1fr)); gap:.5rem; }
-.workbench-las-track { min-height:12rem; border:1px solid #30405a; border-radius:.5rem; background:linear-gradient(180deg,#172132,#0f141e); padding:.55rem; }
-.workbench-las-track h4 { margin:.05rem 0 .45rem; font-size:.85rem; }
-.workbench-las-track small { color:#8fa0b8; display:block; }
-.workbench-main { display:grid; grid-template-columns:1fr; gap:.6rem; flex:1; min-height:0; }
-.workbench-pane { min-width:0; min-height:0; overflow:auto; border:1px solid #273246; border-radius:.65rem; background:#0f141e; }
-.workbench-pane-header { position:sticky; top:0; z-index:2; padding:.65rem .75rem; font-weight:700; background:#151d2a; border-bottom:1px solid #273246; }
-.workbench-pane-body { padding:.65rem .75rem; }
-.workbench-tree-item { padding:.38rem .45rem; border-radius:.35rem; margin:.12rem 0; display:flex; justify-content:space-between; }
-.workbench-tree-item:hover { background:#182235; }
-.workbench-workspace { min-height:420px; display:flex; flex-direction:column; }
-.workbench-workspace-empty { margin:auto; max-width:34rem; text-align:center; color:#9eabc0; padding:2rem; }
-.workbench-property { display:grid; grid-template-columns:minmax(5rem,.8fr) minmax(0,1.2fr); gap:.5rem; padding:.38rem 0; border-bottom:1px solid #202a3b; font-size:.85rem; }
-.workbench-property span:first-child { color:#8fa0b8; }
-.workbench-statusbar { display:flex; flex-wrap:wrap; gap:.5rem 1.1rem; padding:.4rem .7rem; border:1px solid #273246; border-radius:.5rem; background:#111722; font-size:.76rem; }
-.workbench-statusbar strong { color:#8fa0b8; font-weight:500; }
-.workbench-contract-shell button { min-height: 44px; white-space:normal; }
-.workbench-focus-target:focus-visible { outline:3px solid #4d9fff; outline-offset:2px; }
-@media (max-width: 1023px) { .workbench-contract-shell { height:auto; overflow:visible; } .workbench-main { grid-template-columns:1fr; } .workbench-pane { overflow:visible; } }
-@media (min-width: 600px) { .workbench-toolbar { gap:.5rem; } }
-@media (min-width: 1024px) { .workbench-main { grid-template-columns:minmax(14rem, 18rem) minmax(0, 1fr) minmax(16rem, 20rem); } }
-@media (min-width: 1600px) { .workbench-main { grid-template-columns:minmax(16rem,18rem) minmax(0,1fr) minmax(18rem,21rem); } }
+:root { --wb-bg:#0b1018; --wb-surface:#111925; --wb-surface-2:#162131; --wb-line:#2b3a50; --wb-text:#edf3fb; --wb-muted:#91a2b8; --wb-accent:#3f8cff; --wb-success:#38c77a; }
+html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] { background:var(--wb-bg) !important; color:var(--wb-text); overflow-x: hidden; }
+.block-container { max-width:100% !important; padding:.35rem .55rem .2rem !important; }
+[data-testid="stHeader"] { height:2.2rem; background:rgba(11,16,24,.92); }
+[data-testid="stToolbar"] { top:.15rem; }
+.workbench-titlebar { display:flex; align-items:center; justify-content:space-between; min-height:48px; padding:.25rem .55rem; border-bottom:1px solid var(--wb-line); background:linear-gradient(180deg,#121c2a,#0e151f); }
+.workbench-brand { display:flex; gap:.65rem; align-items:center; }
+.workbench-logo { width:28px; height:28px; display:grid; place-items:center; border-radius:7px; color:white; background:linear-gradient(135deg,#2f78ff,#18b7d8); font-size:1.05rem; box-shadow:0 0 18px rgba(63,140,255,.25); }
+.workbench-titlebar h1 { font-size:1.28rem; line-height:1.2; margin:0; letter-spacing:.01em; }
+.workbench-subtitle { color:var(--wb-muted); font-size:.75rem; }
+.workbench-build { color:var(--wb-muted); font-size:.72rem; text-align:right; }
+.workbench-menu { display:flex; align-items:center; gap:.15rem; min-height:38px; padding:0 .4rem; border-bottom:1px solid var(--wb-line); background:#0f1722; overflow-x:auto; }
+.workbench-menu-item { padding:.55rem .82rem; border-bottom:2px solid transparent; color:#c9d5e5; font-weight:600; font-size:.82rem; white-space:nowrap; }
+.workbench-menu-item.active { color:white; border-bottom-color:var(--wb-accent); background:rgba(63,140,255,.08); }
+.workbench-ribbon { padding:.45rem .5rem .5rem; border-bottom:1px solid var(--wb-line); background:linear-gradient(180deg,#121b28,#0e151f); }
+.workbench-ribbon-label { color:var(--wb-muted); text-transform:uppercase; letter-spacing:.08em; font-size:.64rem; margin:.1rem 0 .25rem; }
+.workbench-runtime-source { display:none; }
+[data-testid="stHorizontalBlock"] { gap:.55rem; }
+div[data-testid="stButton"] > button { min-height: 44px; border-radius:6px; border:1px solid #344760; background:linear-gradient(180deg,#1b2a3d,#142031); color:#f1f6fd; font-size:.82rem; font-weight:600; padding:.45rem .65rem; box-shadow:none; }
+div[data-testid="stButton"] > button:hover { border-color:#4e8be8; background:linear-gradient(180deg,#233752,#182943); color:white; }
+div[data-testid="stButton"] > button:focus-visible { outline:3px solid rgba(77,159,255,.75); outline-offset:2px; }
+.workbench-pane-title { display:flex; align-items:center; justify-content:space-between; min-height:36px; padding:.45rem .65rem; margin-bottom:.4rem; border-bottom:1px solid var(--wb-line); background:#131d2a; font-weight:700; font-size:.9rem; }
+.workbench-tree-item { padding:.43rem .5rem; border-radius:5px; margin:.08rem 0; display:flex; align-items:center; justify-content:space-between; font-size:.84rem; color:#dce6f3; }
+.workbench-tree-item:hover { background:#18283c; }
+.workbench-tree-item small { color:var(--wb-muted); }
+.workbench-workspace-shell { min-height:calc(100vh - 255px); border:1px solid var(--wb-line); border-radius:6px; background:radial-gradient(circle at 50% 20%,#142238 0,#0d141f 42%,#0b1018 100%); overflow:hidden; }
+.workbench-workspace-empty { min-height:calc(100vh - 315px); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:2.5rem; color:var(--wb-muted); }
+.workbench-workspace-empty h2 { color:#f0f5fb; font-size:1.65rem; margin:.35rem 0; }
+.workbench-workspace-empty .hero-icon { font-size:2.5rem; color:var(--wb-accent); }
+.workbench-quick-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.65rem; margin-top:1.25rem; width:min(42rem,100%); }
+.workbench-quick-card { border:1px solid var(--wb-line); background:rgba(20,31,47,.82); border-radius:7px; padding:.9rem; color:#dce7f4; }
+.workbench-las-card { border:1px solid var(--wb-line); background:#141f2e; border-radius:6px; padding:.65rem .75rem; }
+.workbench-las-track { min-height:18rem; border:1px solid var(--wb-line); border-radius:6px; background:linear-gradient(180deg,#17253a,#0d141e); padding:.65rem; }
+.workbench-property { display:grid; grid-template-columns:minmax(5rem,.8fr) minmax(0,1.2fr); gap:.5rem; padding:.48rem 0; border-bottom:1px solid #202c3e; font-size:.82rem; }
+.workbench-property span:first-child { color:var(--wb-muted); }
+.workbench-statusbar { display:flex; align-items:center; flex-wrap:wrap; gap:.45rem 1rem; min-height:30px; padding:.28rem .65rem; margin-top:.45rem; border:1px solid var(--wb-line); border-radius:5px; background:#101824; font-size:.72rem; }
+.workbench-statusbar strong { color:#8da0b9; font-weight:500; }
+.workbench-status-ready { margin-left:auto; color:var(--wb-success); font-weight:700; }
+@media (min-width: 600px) { .workbench-ribbon { padding-left:.65rem; padding-right:.65rem; } }
+@media (min-width: 1024px) { .workbench-titlebar { min-height:52px; } .workbench-main { grid-template-columns:minmax(14rem, 18rem) minmax(0, 1fr) minmax(16rem, 20rem); } }
+@media (min-width: 1600px) { .workbench-workspace-shell { min-height:calc(100vh - 245px); } }
+@media (max-width:1200px) { .workbench-quick-actions { grid-template-columns:1fr; } .workbench-titlebar h1{font-size:1.1rem;} }
+@media (max-width: 1023px) { .workbench-main { grid-template-columns:1fr; } }
+@media (max-width:900px) { .workbench-main { grid-template-columns:1fr; } .workbench-titlebar { align-items:flex-start; gap:.5rem; } .workbench-build{display:none;} .workbench-workspace-shell{min-height:32rem;} }
 </style>
 """.strip()
 
@@ -192,108 +205,102 @@ def _render_native_streamlit_layout(
     payload: dict[str, Any],
     layout: dict[str, Any],
 ) -> tuple[CommandExecutionResult, ...]:
-    """Render the production Workbench with native Streamlit containers.
-
-    Raw HTML cannot span multiple ``st.markdown`` calls because each call is
-    mounted in an independent DOM block.  The production renderer therefore
-    uses Streamlit columns/containers for the five-region shell and keeps HTML
-    only for presentation inside an individual region.
-    """
+    """Render the professional five-region Workbench with native Streamlit containers."""
 
     executed: list[CommandExecutionResult] = []
     active_workspace = payload.get("interaction", {}).get("active_workspace") or "dashboard"
     build = runtime_build_info()
     st_module.markdown(
-        "<div class='workbench-titlebar'><h1>Gas Ratio Pro — Modern Workbench</h1>"
-        f"<span>Workspace: <b>{_html(active_workspace)}</b> · "
-        f"Build: <b>{_html(build.version)}</b></span></div>",
-        unsafe_allow_html=True,
+        "<header class='workbench-titlebar'>"
+        "<div class='workbench-brand'><div class='workbench-logo'>⌁</div><div>"
+        "<h1>Gas Ratio Pro — Modern Workbench</h1>"
+        "<div class='workbench-subtitle'>Well-log analysis and interpretation workspace</div>"
+        "</div></div>"
+        f"<div class='workbench-build'>Build <b>{_html(build.version)}</b><br>Workspace: <b>{_html(active_workspace)}</b></div>"
+        "</header>", unsafe_allow_html=True,
     )
     st_module.markdown(
-        f"<div class='workbench-runtime-source'>Runtime source: {_html(build.project_root)}</div>",
-        unsafe_allow_html=True,
+        "<nav class='workbench-menu' aria-label='Main menu'>"
+        + "".join(
+            f"<span class='workbench-menu-item{' active' if i == 0 else ''}'>{_html(title)}</span>"
+            for i, title in enumerate(("File", "Project", "Data", "LAS", "Interpretation", "Reports", "Export", "Settings", "Help"))
+        )
+        + "</nav>", unsafe_allow_html=True,
     )
 
-    # Real command ribbon. Each group gets its own column and actions remain
-    # command-backed. Empty groups are still visible as stable Workbench tabs.
-    toolbar_groups = list(layout.get("toolbar", ()))
-    if toolbar_groups:
-        toolbar_columns = st_module.columns(len(toolbar_groups), gap="small")
-        for group, column in zip(toolbar_groups, toolbar_columns):
-            with column:
-                st_module.markdown(
-                    f"<div class='workbench-toolbar-group-title'>{_html(group.get('title', ''))}</div>",
-                    unsafe_allow_html=True,
-                )
-                for action in group.get("actions", ()):
-                    if not action.get("id"):
-                        continue
-                    ui_id = str(action.get("ui_id") or action.get("id"))
-                    key = "workbench_toolbar_" + ui_id.replace(".", "_")
-                    label = str(action.get("title") or action.get("label") or action.get("id"))
-                    if st_module.button(
-                        label,
-                        key=key,
-                        disabled=not bool(action.get("enabled", True)),
-                        width="stretch",
-                    ):
-                        executed.append(_dispatch_action(contract, registry, dict(action)))
+    # Show only groups containing usable actions. The previous renderer created
+    # seven equal-width columns even for empty groups, which caused tiny text,
+    # clipped labels and large unused gaps.
+    groups = [dict(group) for group in layout.get("toolbar", ()) if group.get("actions")]
+    if groups:
+        st_module.markdown("<div class='workbench-ribbon'><div class='workbench-ribbon-label'>Commands</div></div>", unsafe_allow_html=True)
+        for group in groups:
+            actions = [dict(a) for a in group.get("actions", ()) if a.get("id")]
+            if not actions:
+                continue
+            st_module.markdown(
+                f"<div class='workbench-ribbon-label'>{_html(group.get('title', 'Commands'))}</div>",
+                unsafe_allow_html=True,
+            )
+            for offset in range(0, len(actions), 6):
+                row = actions[offset:offset + 6]
+                columns = st_module.columns(len(row), gap="small")
+                for action, column in zip(row, columns):
+                    with column:
+                        ui_id = str(action.get("ui_id") or action.get("id"))
+                        key = "workbench_toolbar_" + ui_id.replace(".", "_")
+                        label = str(action.get("title") or action.get("label") or action.get("id"))
+                        if st_module.button(label, key=key, disabled=not bool(action.get("enabled", True)), width="stretch"):
+                            executed.append(_dispatch_action(contract, registry, action))
 
     dock_panes = {str(item.get("id")): dict(item) for item in payload.get("dock_panes", ())}
     explorer = dock_panes.get("dock.project_explorer", {})
     properties_pane = dock_panes.get("dock.properties", {})
     explorer_open = bool(explorer.get("opened", True)) and not bool(explorer.get("collapsed", False))
     properties_open = bool(properties_pane.get("opened", True)) and not bool(properties_pane.get("collapsed", False))
-
-    widths = [1.15 if explorer_open else 0.16, 4.7, 1.35 if properties_open else 0.16]
+    widths = [1.15 if explorer_open else 0.09, 4.9, 1.35 if properties_open else 0.09]
     left, center, right = st_module.columns(widths, gap="small")
 
+    kind_icons = {"project":"▣", "collection":"▸", "well":"◉", "las":"▤", "curve":"⌁"}
     with left:
         if explorer_open:
-            st_module.markdown("### Project Explorer")
+            st_module.markdown("<div class='workbench-pane-title'><span>Project Explorer</span><span>⌕</span></div>", unsafe_allow_html=True)
             for item in layout.get("project_tree", ()):
                 indent = "&nbsp;" * (4 * int(item.get("level", 0)))
-                count = f" <small>({int(item.get('count', 0))})</small>" if item.get("count") not in (None, "") else ""
-                active = " **●**" if item.get("active") else ""
+                icon = kind_icons.get(str(item.get("kind", "")), "•")
+                count = f"<small>{int(item.get('count', 0))}</small>" if item.get("count") not in (None, "") else ""
                 st_module.markdown(
-                    f"<div class='workbench-tree-item'>{indent}{_html(item.get('title', ''))}{count}{active}</div>",
+                    f"<div class='workbench-tree-item'><span>{indent}{icon}&nbsp; {_html(item.get('title', ''))}</span>{count}</div>",
                     unsafe_allow_html=True,
                 )
-            collapse = {
-                "id": "action.collapse_dock_pane",
-                "payload": {"pane_id": "dock.project_explorer"},
-            }
-            if st_module.button("Свернуть", key="workbench_native_collapse_explorer", width="stretch"):
+            collapse = {"id":"action.collapse_dock_pane", "payload":{"pane_id":"dock.project_explorer"}}
+            if st_module.button("‹", key="workbench_native_collapse_explorer", help="Collapse Project Explorer"):
                 executed.append(_dispatch_action(contract, registry, collapse))
         else:
-            restore = {
-                "id": "action.restore_dock_pane",
-                "payload": {"pane_id": "dock.project_explorer"},
-            }
-            if st_module.button("▶", key="workbench_native_restore_explorer", help="Restore Project Explorer"):
+            restore = {"id":"action.restore_dock_pane", "payload":{"pane_id":"dock.project_explorer"}}
+            if st_module.button("›", key="workbench_native_restore_explorer", help="Restore Project Explorer"):
                 executed.append(_dispatch_action(contract, registry, restore))
 
     workspace = dict(layout.get("workspace", {}) or {})
     with center:
-        st_module.markdown(f"### {_html(workspace.get('title', 'Workspace'))}")
-        cards = workspace.get("content", {}).get("summary_cards", ())
-        if cards:
-            card_columns = st_module.columns(min(len(cards), 4), gap="small")
-            for card, column in zip(cards, card_columns):
-                with column:
-                    st_module.markdown(
-                        "<div class='workbench-las-card'>"
-                        f"<small>{_html(card.get('title', ''))}</small><br><b>{_html(card.get('value', ''))}</b>"
-                        "</div>", unsafe_allow_html=True,
-                    )
+        st_module.markdown(f"<div class='workbench-pane-title'><span>{_html(workspace.get('title', 'Workspace'))}</span><span>×</span></div>", unsafe_allow_html=True)
+        st_module.markdown("<div class='workbench-workspace-shell'>", unsafe_allow_html=True)
         runtime = dict(workspace.get("runtime", {}) or {})
         visualization = dict(runtime.get("visualization", {}) or {})
         if runtime.get("embedded"):
+            cards = list(workspace.get("content", {}).get("summary_cards", ()) or ())
+            if cards:
+                card_columns = st_module.columns(min(len(cards), 4), gap="small")
+                for card, column in zip(cards, card_columns):
+                    with column:
+                        st_module.markdown(
+                            "<div class='workbench-las-card'>"
+                            f"<small>{_html(card.get('title', ''))}</small><br><b>{_html(card.get('value', ''))}</b></div>",
+                            unsafe_allow_html=True,
+                        )
             depth = dict(visualization.get("depth_range", {}) or {})
             st_module.markdown(
-                "<div class='workbench-viewport-summary'>"
-                f"Depth viewport: <b>{_html(depth.get('start', '—'))} – {_html(depth.get('stop', '—'))} "
-                f"{_html(visualization.get('depth_unit', ''))}</b></div>",
+                f"<div style='padding:.55rem .7rem;color:#9fb0c6'>Depth viewport: <b>{_html(depth.get('start','—'))} – {_html(depth.get('stop','—'))} {_html(visualization.get('depth_unit',''))}</b></div>",
                 unsafe_allow_html=True,
             )
             tracks = list(visualization.get("tracks", ()) or ())
@@ -303,50 +310,43 @@ def _render_native_streamlit_layout(
                 for track, column in zip(tracks, track_columns):
                     with column:
                         track_id = str(track.get("id") or track.get("track_id") or "track")
-                        track_curves = [c for c in curves if str(c.get("track_id", "")) == track_id]
-                        labels = ", ".join(str(c.get("mnemonic") or c.get("title") or c.get("id") or "") for c in track_curves[:8]) or "No visible curves"
-                        st_module.markdown(
-                            "<article class='workbench-las-track'>"
-                            f"<h4>{_html(track.get('title') or track_id)}</h4><small>{_html(labels)}</small>"
-                            "</article>", unsafe_allow_html=True,
-                        )
+                        labels = ", ".join(str(c.get("mnemonic") or c.get("title") or c.get("id") or "") for c in curves if str(c.get("track_id", "")) == track_id) or "No visible curves"
+                        st_module.markdown(f"<article class='workbench-las-track'><h4>{_html(track.get('title') or track_id)}</h4><small>{_html(labels)}</small></article>", unsafe_allow_html=True)
             else:
                 st_module.info("LAS is open, but no visible tracks are available.")
         else:
             st_module.markdown(
-                "<div class='workbench-workspace-empty'>"
-                f"<h3>{_html(workspace.get('title', 'Workspace'))}</h3>"
-                f"<p>{_html(workspace.get('empty_state', 'Select a module or open a project to begin.'))}</p>"
-                "</div>", unsafe_allow_html=True,
+                "<div class='workbench-workspace-empty'><div class='hero-icon'>⌁</div>"
+                "<h2>Modern Workbench</h2><p>Open a project or import a LAS file to begin interpretation.</p>"
+                "<div class='workbench-quick-actions'>"
+                "<div class='workbench-quick-card'><b>Open Project</b><br><small>Continue an existing workspace</small></div>"
+                "<div class='workbench-quick-card'><b>Import LAS</b><br><small>Add well-log data</small></div>"
+                "<div class='workbench-quick-card'><b>LAS Viewer</b><br><small>Inspect tracks and curves</small></div>"
+                "</div></div>", unsafe_allow_html=True,
             )
+        st_module.markdown("</div>", unsafe_allow_html=True)
 
     with right:
         if properties_open:
-            st_module.markdown("### Properties")
+            st_module.markdown("<div class='workbench-pane-title'><span>Properties</span><span>⌘</span></div>", unsafe_allow_html=True)
             props_html = "".join(
                 "<div class='workbench-property'>"
-                f"<span>{_html(item.get('label', ''))}</span><b>{_html(item.get('value', ''))}</b></div>"
+                f"<span>{_html(item.get('label',''))}</span><b>{_html(item.get('value',''))}</b></div>"
                 for item in layout.get("properties", ())
             )
             st_module.markdown(props_html or "<small>No selection</small>", unsafe_allow_html=True)
-            collapse = {"id": "action.collapse_dock_pane", "payload": {"pane_id": "dock.properties"}}
-            if st_module.button("Свернуть", key="workbench_native_collapse_properties", width="stretch"):
+            collapse = {"id":"action.collapse_dock_pane", "payload":{"pane_id":"dock.properties"}}
+            if st_module.button("›", key="workbench_native_collapse_properties", help="Collapse Properties"):
                 executed.append(_dispatch_action(contract, registry, collapse))
         else:
-            restore = {"id": "action.restore_dock_pane", "payload": {"pane_id": "dock.properties"}}
-            if st_module.button("◀", key="workbench_native_restore_properties", help="Restore Properties"):
+            restore = {"id":"action.restore_dock_pane", "payload":{"pane_id":"dock.properties"}}
+            if st_module.button("‹", key="workbench_native_restore_properties", help="Restore Properties"):
                 executed.append(_dispatch_action(contract, registry, restore))
 
-    status_html = "".join(
-        f"<span><strong>{_html(item.get('label', ''))}:</strong> {_html(item.get('value', ''))}</span>"
-        for item in layout.get("status_items", ())
-    )
-    st_module.markdown(
-        f"<footer class='workbench-statusbar' aria-label='Status bar'>{status_html}</footer>",
-        unsafe_allow_html=True,
-    )
+    status_items = list(layout.get("status_items", ()))
+    status_html = "".join(f"<span><strong>{_html(i.get('label',''))}:</strong> {_html(i.get('value',''))}</span>" for i in status_items)
+    st_module.markdown(f"<footer class='workbench-statusbar' aria-label='Status bar'>{status_html}<span class='workbench-status-ready'>● Ready</span></footer>", unsafe_allow_html=True)
     return tuple(executed)
-
 
 def render_streamlit_workbench_contract(
     contract: WorkbenchRendererContract,

@@ -1,35 +1,32 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v198  
-Current stage: Stage 4 — Workbench UI Completion / Technical Audit & Stabilization  
-Runtime acceptance: **NOT YET CONFIRMED on owner environment**
+Baseline: v199
+Current stage: Stage 4 — Workbench UI Completion / UX Redesign
+Runtime acceptance: **v198 shell confirmed; professional UX acceptance pending**
 
-## 1. Подтверждённая причина ревизии
+## 1. Подтвержденное состояние
 
-Свежий пользовательский скриншот показывал минимальный линейный shell (`Modern Workbench`, navigation buttons, `Dock panels`) вместо пятизонного интерфейса из исходного кода v197. Строки этого shell отсутствуют в актуальном renderer. Это указывает на старый Streamlit-процесс или запуск из старой распакованной папки, а не на корректно загруженный build v197.
+Перезапуск Streamlit подтвердил, что production entry point и пятизонный Workbench подключены корректно. Архитектурный разрыв устранен. Реальный интерфейс v198, однако, остается техническим: слишком мелкая типографика, неравномерная ribbon-компоновка, слабая визуальная иерархия, избыточные текстовые dock-команды и недостаточно доминирующий workspace.
 
-## 2. Что исправлено в v198
+## 2. Активный инкремент v199
 
-- добавлена неизменяемая runtime build identity (`v198`, channel, абсолютный project root, entry point);
-- build и runtime source path отображаются в реальном Workbench;
-- `run_app.ps1` проверяет владельца порта до запуска;
-- занятый старым процессом проекта порт не используется молча;
-- `-ForceRestart` разрешён только для процесса текущего project root;
-- legacy UI environment flag очищается launcher-ом;
-- активная документация сведена к четырём управляющим файлам;
-- дублирующие progress/versioned roadmap документы перенесены в архив;
-- Stage 4 повторно открыт до живого подтверждения интерфейса.
+**Workbench UX Redesign** без новых domain-функций:
 
-## 3. Единственный следующий разрешённый шаг
+- профессиональная title/menu/ribbon композиция;
+- вывод только непустых групп команд;
+- крупные читаемые элементы управления;
+- Project Explorer в виде визуального дерева;
+- центральный workspace как доминирующая область;
+- компактные dock controls;
+- структурированная Properties panel;
+- компактный Status Bar;
+- сохранение Command Framework, Event Bus и application/render contracts;
+- обязательная живая визуальная приемка до закрытия Stage 4.
 
-**Live Workbench acceptance из архива v198.**
+## 3. Единственный следующий разрешенный шаг
 
-1. распаковать v198 в отдельную новую папку;
-2. запустить `./run_app.ps1 -ForceRestart`;
-3. убедиться, что сверху виден `Build: v198`;
-4. сверить `Runtime source` с новой папкой;
-5. подтвердить Toolbar, Project Explorer, Workspace Host, Properties и Status Bar;
-6. проверить navigation/collapse/restore и отсутствие traceback;
-7. только после этого закрыть Stage 4 и активировать Petrophysical Engine.
+Завершить v199, запустить новый build из отдельной папки, проверить реальный экран и исправить только подтвержденные UX/production дефекты. Stage 5 Petrophysical Engine остается заблокированным до живой приемки Stage 4.
 
-Modeling Engine остаётся заблокированным до завершения Petrophysical Engine.
+## 4. Управляющая документация
+
+Активными остаются только `PROJECT_ROADMAP.md`, `PROJECT_STATUS.md`, `ARCHITECTURE.md` и `DOCUMENTATION_INDEX.md`. Новые plan/status файлы не создаются.

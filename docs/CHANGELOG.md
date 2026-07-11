@@ -1,4 +1,14 @@
-# Changelog
+# GAS RATIO PRO — Changelog
+
+## v199 — Workbench UX redesign
+
+- Redesigned the production Workbench title bar, menu and command ribbon.
+- Removed empty ribbon groups and reduced label clipping.
+- Increased typography and control sizes for desktop readability.
+- Made the central workspace the dominant visual region.
+- Added structured Project Explorer, Properties and compact status presentation.
+- Replaced technical collapse/restore labels with compact dock controls.
+- Preserved command-backed UI actions and renderer-neutral contracts.
 
 ## v198 — Technical audit, runtime identity and documentation consolidation
 

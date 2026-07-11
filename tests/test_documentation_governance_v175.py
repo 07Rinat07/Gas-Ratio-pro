@@ -23,12 +23,12 @@ def test_roadmap_and_status_reopen_stage_four_until_live_acceptance() -> None:
     status = (DOCS / "PROJECT_STATUS.md").read_text(encoding="utf-8")
     assert "единственная активная последовательность" in roadmap
     assert "Stage 4 — Workbench UI Completion" in roadmap
-    assert "IN PROGRESS v198" in roadmap
+    assert "IN PROGRESS v199" in roadmap
     assert "Live acceptance" in roadmap
     assert "Petrophysical Engine" in roadmap
     assert "BLOCKED" in roadmap
-    assert "Runtime acceptance: **NOT YET CONFIRMED" in status
-    assert "Live Workbench acceptance" in status
+    assert "Runtime acceptance: **v198 shell confirmed" in status
+    assert "Workbench UX Redesign" in status
 
 
 def test_versioned_roadmaps_and_progress_documents_are_archived() -> None:
