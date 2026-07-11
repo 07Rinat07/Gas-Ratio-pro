@@ -1,6 +1,16 @@
+
+## v210 — Export responsiveness and rerun optimization
+
+- Professional report profile/format controls are batched in a Streamlit form.
+- PDF/DOCX/HTML/bundle generation runs only after explicit confirmation, not on every widget rerun.
+- The generated artifact is retained in session state and the download button always reflects its real format.
+- Export start/completion/failure events now include format, duration and byte size in `logs/app.log`.
+- Interpretation Plotly figures reuse the latest session cache while data and graph settings remain unchanged.
+- Stage 4 remains open pending live acceptance of all export formats and responsiveness.
+
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v209
+Baseline: v210
 Current stage: Stage 4 — Workbench UI Completion / module integration audit
 Runtime acceptance: **FAILED for v202; navigation works, but core LAS/report/documentation workflows are not yet proven visible and usable**
 
@@ -8,7 +18,7 @@ Runtime acceptance: **FAILED for v202; navigation works, but core LAS/report/doc
 
 Modern Workbench shell, navigation, command dispatch and dock layout work. Live owner testing proved that `Command executed` is not sufficient acceptance: LAS upload/editor/viewer, graphs, reports, printing and Documentation were not observable as usable workflows in the central workspace. Browser DevTools also reported form/accessibility findings, but no JavaScript exception explaining the empty modules.
 
-## 2. Активный инкремент v209
+## 2. Активный инкремент v210
 
 **Functional navigation and calculation/report workflow restoration**:
 

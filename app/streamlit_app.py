@@ -55,6 +55,9 @@ except ModuleNotFoundError:  # pragma: no cover - lightweight fallback for non-U
         def container(self, *args, **kwargs):
             return _StreamlitNoopContext()
 
+        def form(self, *args, **kwargs):
+            return _StreamlitNoopContext()
+
     st = _StreamlitStub()
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -7678,34 +7681,67 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     )
     _render_interpretation_graph_settings_saver(active_project, current_settings, logger)
 
-    figures = []
-    tablet_figure = None
-    if "Интерпретация" in selected_tracks:
-        figures.append(build_depth_interpretation_track(filtered_df, depth_range=depth_range, height=height))
-    if "C1-C5" in selected_tracks:
-        figures.append(build_depth_gas_tracks(filtered_df, depth_range=depth_range, x_range=gas_x_range, height=height))
-    if "Wh/Bh/Ch" in selected_tracks:
-        figures.append(build_depth_ratio_tracks(filtered_df, depth_range=depth_range, x_range=ratio_x_range, height=height))
-    if "Pixler ratios" in selected_tracks:
-        figures.append(build_depth_pixler_tracks(filtered_df, depth_range=depth_range, x_range=pixler_x_range, height=height))
-    if TABLET_TRACK_OPTION in selected_tracks and tablet_columns:
-        tablet_tracks = normalize_track_configs(
-            tablet_columns,
-            x_ranges=tablet_x_ranges,
-            units=tablet_units_from_dataframe(filtered_df),
-            colors=tablet_colors,
-            fill=tablet_fill,
-            fill_modes=tablet_fill_modes,
-        )
-        tablet_figure = build_well_log_tablet(
-            filtered_df,
-            tablet_tracks,
-            depth_range=depth_range,
-            markers=tablet_markers,
-            zones=tablet_zones,
-            height=max(int(height), 760),
-        )
-        figures.append(tablet_figure)
+    # Plotly construction is one of the most expensive parts of the Streamlit
+    # rerun. Keep the latest immutable figure set in session state and reuse it
+    # while the source dataframe and graph settings are unchanged.
+    figure_cache_key = (
+        id(calculated_df),
+        tuple(filtered_df.shape),
+        tuple(str(column) for column in filtered_df.columns),
+        depth_range,
+        int(height),
+        tuple(selected_tracks),
+        gas_x_range,
+        ratio_x_range,
+        pixler_x_range,
+        tuple(tablet_columns),
+        tuple(sorted((str(key), tuple(value)) for key, value in tablet_x_ranges.items())),
+        tuple(sorted((str(key), str(value)) for key, value in tablet_colors.items())),
+        tuple(sorted((str(key), str(value)) for key, value in tablet_fill_modes.items())),
+        tuple((marker.label, float(marker.depth), marker.note) for marker in tablet_markers),
+        tuple((zone.label, float(zone.top_depth), float(zone.bottom_depth), zone.color, zone.note) for zone in tablet_zones),
+        bool(tablet_fill),
+    )
+    cached_figure_set = st.session_state.get("interpretation_figure_cache")
+    if isinstance(cached_figure_set, dict) and cached_figure_set.get("key") == figure_cache_key:
+        figures = list(cached_figure_set.get("figures", ()))
+        tablet_figure = cached_figure_set.get("tablet_figure")
+        logger.info("interpretation_figure_cache_hit rows=%d figure_count=%d", len(filtered_df), len(figures))
+    else:
+        figures = []
+        tablet_figure = None
+        if "Интерпретация" in selected_tracks:
+            figures.append(build_depth_interpretation_track(filtered_df, depth_range=depth_range, height=height))
+        if "C1-C5" in selected_tracks:
+            figures.append(build_depth_gas_tracks(filtered_df, depth_range=depth_range, x_range=gas_x_range, height=height))
+        if "Wh/Bh/Ch" in selected_tracks:
+            figures.append(build_depth_ratio_tracks(filtered_df, depth_range=depth_range, x_range=ratio_x_range, height=height))
+        if "Pixler ratios" in selected_tracks:
+            figures.append(build_depth_pixler_tracks(filtered_df, depth_range=depth_range, x_range=pixler_x_range, height=height))
+        if TABLET_TRACK_OPTION in selected_tracks and tablet_columns:
+            tablet_tracks = normalize_track_configs(
+                tablet_columns,
+                x_ranges=tablet_x_ranges,
+                units=tablet_units_from_dataframe(filtered_df),
+                colors=tablet_colors,
+                fill=tablet_fill,
+                fill_modes=tablet_fill_modes,
+            )
+            tablet_figure = build_well_log_tablet(
+                filtered_df,
+                tablet_tracks,
+                depth_range=depth_range,
+                markers=tablet_markers,
+                zones=tablet_zones,
+                height=max(int(height), 760),
+            )
+            figures.append(tablet_figure)
+        st.session_state["interpretation_figure_cache"] = {
+            "key": figure_cache_key,
+            "figures": tuple(figures),
+            "tablet_figure": tablet_figure,
+        }
+        logger.info("interpretation_figure_cache_miss rows=%d figure_count=%d", len(filtered_df), len(figures))
 
     if not figures:
         st.warning("Выберите хотя бы один график.")
@@ -7786,47 +7822,120 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         with st.expander("Профессиональный экспорт отчета", expanded=False):
             profile_options = report_profile_options()
             format_options = export_format_options()
-            selected_profile_label = st.selectbox(
-                "Профиль отчета",
-                options=[option.label for option in profile_options],
-                index=0,
-                key=f"presentation_report_profile_{active_project.id}",
-                help="Инженерный профиль скрывает техническую диагностику; экспертный добавляет приложения и таблицы проверки.",
-            )
-            selected_format_label = st.selectbox(
-                "Формат экспорта",
-                options=[option.label for option in format_options],
-                index=0,
-                key=f"presentation_export_format_{active_project.id}",
-            )
+            export_cache_key = f"presentation_export_artifact_{active_project.id}"
+            export_error_key = f"presentation_export_error_{active_project.id}"
+
+            # Streamlit normally reruns the complete report on every selectbox
+            # change. A form batches profile/format changes and starts the costly
+            # renderer only after explicit confirmation.
+            with st.form(key=f"presentation_export_form_{active_project.id}", clear_on_submit=False):
+                selected_profile_label = st.selectbox(
+                    "Профиль отчета",
+                    options=[option.label for option in profile_options],
+                    index=0,
+                    key=f"presentation_report_profile_{active_project.id}",
+                    help="Инженерный профиль скрывает техническую диагностику; экспертный добавляет приложения и таблицы проверки.",
+                )
+                selected_format_label = st.selectbox(
+                    "Формат экспорта",
+                    options=[option.label for option in format_options],
+                    index=0,
+                    key=f"presentation_export_format_{active_project.id}",
+                )
+                prepare_export = st.form_submit_button(
+                    "Подготовить выбранный формат",
+                    width="stretch",
+                    type="primary",
+                )
+
             selected_profile = next(option for option in profile_options if option.label == selected_profile_label)
             selected_format = next(option for option in format_options if option.label == selected_format_label)
-            presentation_state = build_presentation_export_ui_state(
-                profile=selected_profile.id,
-                export_format=selected_format.id,
-                output_dir=ROOT_DIR / "artifacts" / "presentation_exports",
-                base_name_parts=(active_project.name, str(source_label), "professional_report"),
-                include_figures=True,
-            )
-            presentation_payload = build_hydrocarbon_report_payload(
-                filtered_df,
-                source_label=str(source_label),
-                project_label=f"{active_project.name} ({active_project.id})",
-                depth_label=_range_label(depth_range, unit="м"),
-                report_profile=presentation_state.profile,
-                include_plot=True,
-            )
-            if presentation_payload.presentation_model is not None:
-                export_artifact = build_ui_export_artifact(presentation_payload.presentation_model, presentation_state)
-                st.download_button(
-                    f"Скачать {selected_format.label}",
-                    data=export_artifact.content,
-                    file_name=export_artifact.file_name,
-                    mime=export_artifact.mime_type,
-                    width="stretch",
-                    key=f"presentation_download_{active_project.id}_{selected_format.id}",
+
+            if prepare_export:
+                generation_started = perf_counter()
+                logger.info(
+                    "presentation_export_started project_id=%s profile=%s format=%s rows=%d",
+                    safe_log_value(active_project.id),
+                    safe_log_value(selected_profile.id),
+                    safe_log_value(selected_format.id),
+                    len(filtered_df),
                 )
-                st.caption("Экспорт формируется из единого PresentationModel: экран, HTML, PDF и DOCX не дублируют инженерскую логику.")
+                try:
+                    with st.spinner(f"Формируется {selected_format.label}. Пожалуйста, подождите..."):
+                        presentation_state = build_presentation_export_ui_state(
+                            profile=selected_profile.id,
+                            export_format=selected_format.id,
+                            output_dir=ROOT_DIR / "artifacts" / "presentation_exports",
+                            base_name_parts=(active_project.name, str(source_label), "professional_report"),
+                            include_figures=True,
+                        )
+                        presentation_payload = build_hydrocarbon_report_payload(
+                            filtered_df,
+                            source_label=str(source_label),
+                            project_label=f"{active_project.name} ({active_project.id})",
+                            depth_label=_range_label(depth_range, unit="м"),
+                            report_profile=presentation_state.profile,
+                            include_plot=True,
+                        )
+                        if presentation_payload.presentation_model is None:
+                            raise RuntimeError("PresentationModel не был сформирован.")
+                        export_artifact = build_ui_export_artifact(
+                            presentation_payload.presentation_model,
+                            presentation_state,
+                        )
+                    st.session_state[export_cache_key] = {
+                        "content": export_artifact.content,
+                        "file_name": export_artifact.file_name,
+                        "mime_type": export_artifact.mime_type,
+                        "format_id": selected_format.id,
+                        "format_label": selected_format.label,
+                        "profile_id": selected_profile.id,
+                    }
+                    st.session_state.pop(export_error_key, None)
+                    logger.info(
+                        "presentation_export_completed project_id=%s profile=%s format=%s bytes=%d duration_ms=%.2f",
+                        safe_log_value(active_project.id),
+                        safe_log_value(selected_profile.id),
+                        safe_log_value(selected_format.id),
+                        len(export_artifact.content),
+                        (perf_counter() - generation_started) * 1000.0,
+                    )
+                except Exception as exc:
+                    error_id = f"export-{random.getrandbits(40):010x}"
+                    st.session_state[export_error_key] = {"id": error_id, "message": str(exc)}
+                    logger.exception(
+                        "presentation_export_failed error_id=%s project_id=%s profile=%s format=%s duration_ms=%.2f",
+                        error_id,
+                        safe_log_value(active_project.id),
+                        safe_log_value(selected_profile.id),
+                        safe_log_value(selected_format.id),
+                        (perf_counter() - generation_started) * 1000.0,
+                    )
+
+            cached_export = st.session_state.get(export_cache_key)
+            if isinstance(cached_export, dict):
+                st.download_button(
+                    f"Скачать {cached_export.get('format_label', 'отчет')}",
+                    data=cached_export.get("content", b""),
+                    file_name=str(cached_export.get("file_name", "professional_report.bin")),
+                    mime=str(cached_export.get("mime_type", "application/octet-stream")),
+                    width="stretch",
+                    key=f"presentation_download_{active_project.id}_{cached_export.get('format_id', 'cached')}",
+                )
+                st.caption(
+                    f"Подготовлен формат: {cached_export.get('format_label', '—')}. "
+                    "Для другого формата выберите его выше и нажмите «Подготовить выбранный формат»."
+                )
+            else:
+                st.info("Выберите профиль и формат, затем нажмите «Подготовить выбранный формат».")
+
+            cached_error = st.session_state.get(export_error_key)
+            if isinstance(cached_error, dict):
+                st.error(
+                    f"Не удалось сформировать экспорт. Код ошибки: {cached_error.get('id', '—')}. "
+                    "Подробности записаны в logs/app.log."
+                )
+            st.caption("Экспорт формируется из единого PresentationModel: экран, HTML, PDF и DOCX не дублируют инженерскую логику.")
         if html_save_col.button("Сохранить отчет в проект", width="stretch", key=f"save_interpretation_html_export_{active_project.id}"):
             _save_project_export_with_feedback(
                 project=active_project,

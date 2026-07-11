@@ -212,3 +212,14 @@ Roadmap изменяется только когда:
 - [x] Prevent Developer Diagnostics from rendering inside a collapsed narrow dock rail.
 - [x] Preserve Properties collapse/restore state through the existing Dock Manager.
 - [ ] Live acceptance: load two wells, render correlation, export correlation, generate PDF with embedded plot.
+
+
+## Stage 4 corrective increment — v210
+
+- [x] Stop implicit professional report generation on every Streamlit rerun.
+- [x] Batch profile/format controls behind an explicit prepare action.
+- [x] Keep prepared export bytes in the existing session state.
+- [x] Make the download label, MIME type and filename match the prepared format.
+- [x] Add timing/error logging for presentation export.
+- [x] Reuse unchanged interpretation figure sets across reruns.
+- [ ] Complete live acceptance for HTML, PDF, DOCX and bundle downloads on Windows.

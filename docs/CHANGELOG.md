@@ -1,3 +1,11 @@
+## v210
+
+- Fixed professional export controls so selecting DOCX/HTML/PDF no longer leaves a stale `Скачать PDF` button.
+- Added an explicit `Подготовить выбранный формат` action; expensive export generation no longer runs during every Streamlit rerun.
+- Cached the prepared download artifact in session state and added visible generation progress.
+- Added structured export duration and failure logging to the existing `logs/app.log`.
+- Added one-entry session caching for unchanged interpretation Plotly figures to reduce repeated 15-25 second rebuilds.
+
 ## v209
 
 - Added dedicated Correlation navigation and Project Explorer route.
