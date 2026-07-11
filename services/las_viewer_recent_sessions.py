@@ -381,6 +381,35 @@ class LasViewerRecentSessionBookmarkTrashEvent:
         }
 
 
+
+
+@dataclass(frozen=True, slots=True)
+class LasViewerAuditJournalSignatureEvent:
+    """Persistent audit record for signed journal verification attempts."""
+
+    source: str
+    operation: str
+    accepted: bool
+    signer_id: str = ""
+    key_id: str = ""
+    reason: str = ""
+    occurred_at_ns: int = 0
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema": "las.viewer.audit-journal-signature-event",
+            "version": "1.0",
+            "source": self.source,
+            "operation": self.operation,
+            "accepted": self.accepted,
+            "signer_id": self.signer_id,
+            "key_id": self.key_id,
+            "reason": self.reason,
+            "occurred_at_ns": self.occurred_at_ns,
+            "renderer_neutral": True,
+        }
+
+
 @dataclass(frozen=True, slots=True)
 class LasViewerRecentSessionBookmarkTrashRetention:
     """Persistent automatic cleanup policy for recoverable bookmarks."""
@@ -1589,11 +1618,12 @@ class LasViewerRecentSessions:
     ) -> dict[str, object]:
         """Transactionally merge validated exports in deterministic event order."""
         sources = tuple(paths)
-        decoded = [self._read_bookmark_trash_journal_export(
+        decoded = [self._read_bookmark_trash_journal_export_with_audit(
             path,
             trusted_signers=trusted_signers,
             require_signature=require_signatures,
             revoked_key_ids=revoked_key_ids,
+            operation="merge",
         ) for path in sources]
         existing = self._load_bookmark_trash_journal()
         seen = {(e.action, e.session_key, e.label, e.occurred_at_ns, e.reason) for e in existing}
@@ -1626,6 +1656,111 @@ class LasViewerRecentSessions:
             "renderer_neutral": True,
         }
 
+    def audit_journal_signature_events(
+        self, *, limit: int = 100, accepted: bool | None = None
+    ) -> tuple[LasViewerAuditJournalSignatureEvent, ...]:
+        """Return newest signature verification audit records first."""
+        if int(limit) < 1:
+            raise ValueError("limit must be >= 1")
+        events = self._load_audit_journal_signature_events()
+        if accepted is not None:
+            events = [event for event in events if event.accepted is bool(accepted)]
+        events.sort(key=lambda event: (-event.occurred_at_ns, event.operation, event.source))
+        return tuple(events[: int(limit)])
+
+    def verify_bookmark_trash_journal_export(
+        self,
+        path: str | Path,
+        *,
+        trusted_signers: dict[str, object] | None = None,
+        require_signature: bool = False,
+        revoked_key_ids: set[str] | frozenset[str] | None = None,
+        operation: str = "verify",
+    ) -> dict[str, object]:
+        """Verify one journal export and persist a structured audit result."""
+        source = Path(path)
+        signer_id = ""
+        key_id = ""
+        try:
+            raw = json.loads(source.read_text(encoding="utf-8"))
+            if isinstance(raw, dict) and isinstance(raw.get("signature"), dict):
+                signature = raw["signature"]
+                signer_id = str(signature.get("signer_id", "")).strip()
+                key_id = str(signature.get("key_id", "")).strip()
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            pass
+
+        accepted = False
+        reason = ""
+        event_count = 0
+        try:
+            events = self._read_bookmark_trash_journal_export(
+                source,
+                trusted_signers=trusted_signers,
+                require_signature=require_signature,
+                revoked_key_ids=revoked_key_ids,
+            )
+            accepted = True
+            event_count = len(events)
+        except ValueError as exc:
+            reason = str(exc)
+
+        audit = LasViewerAuditJournalSignatureEvent(
+            source=source.name,
+            operation=str(operation or "verify").strip() or "verify",
+            accepted=accepted,
+            signer_id=signer_id,
+            key_id=key_id,
+            reason=reason,
+            occurred_at_ns=time.time_ns(),
+        )
+        records = self._load_audit_journal_signature_events()
+        records.append(audit)
+        self._save_preferences(
+            pinned_keys=self._load_pinned_keys(),
+            collapsed_groups=self._load_collapsed_groups(),
+            navigation_state=self.navigation_state(),
+            navigation_history=self.navigation_history(),
+            audit_journal_signature_events=records[-200:],
+        )
+        return {
+            "schema": "las.viewer.audit-journal-signature-verification",
+            "version": "1.0",
+            "accepted": accepted,
+            "source": source.name,
+            "operation": audit.operation,
+            "signer_id": signer_id,
+            "key_id": key_id,
+            "event_count": event_count,
+            "reason": reason,
+            "renderer_neutral": True,
+        }
+
+    def _read_bookmark_trash_journal_export_with_audit(
+        self,
+        path: str | Path,
+        *,
+        trusted_signers: dict[str, object] | None,
+        require_signature: bool,
+        revoked_key_ids: set[str] | frozenset[str] | None,
+        operation: str,
+    ) -> list[LasViewerRecentSessionBookmarkTrashEvent]:
+        result = self.verify_bookmark_trash_journal_export(
+            path,
+            trusted_signers=trusted_signers,
+            require_signature=require_signature,
+            revoked_key_ids=revoked_key_ids,
+            operation=operation,
+        )
+        if not result["accepted"]:
+            raise ValueError(str(result["reason"]))
+        return self._read_bookmark_trash_journal_export(
+            path,
+            trusted_signers=trusted_signers,
+            require_signature=require_signature,
+            revoked_key_ids=revoked_key_ids,
+        )
+
     def import_bookmark_trash_journal(
         self,
         path: str | Path,
@@ -1640,11 +1775,12 @@ class LasViewerRecentSessions:
         if normalized_mode not in {"append", "replace"}:
             raise ValueError("mode must be one of: append, replace")
 
-        imported = self._read_bookmark_trash_journal_export(
+        imported = self._read_bookmark_trash_journal_export_with_audit(
             path,
             trusted_signers=trusted_signers,
             require_signature=require_signature,
             revoked_key_ids=revoked_key_ids,
+            operation="import",
         )
 
         existing = [] if normalized_mode == "replace" else self._load_bookmark_trash_journal()
@@ -2203,6 +2339,30 @@ class LasViewerRecentSessions:
         ))
         return events[-200:]
 
+    def _load_audit_journal_signature_events(self) -> list[LasViewerAuditJournalSignatureEvent]:
+        payload = self._load_preferences()
+        raw = payload.get("audit_journal_signature_events", [])
+        if not isinstance(raw, list):
+            return []
+        result: list[LasViewerAuditJournalSignatureEvent] = []
+        for value in raw:
+            if not isinstance(value, dict):
+                continue
+            try:
+                occurred_at_ns = max(0, int(value.get("occurred_at_ns", 0)))
+            except (TypeError, ValueError):
+                continue
+            result.append(LasViewerAuditJournalSignatureEvent(
+                source=str(value.get("source", "")),
+                operation=str(value.get("operation", "verify")),
+                accepted=bool(value.get("accepted", False)),
+                signer_id=str(value.get("signer_id", "")),
+                key_id=str(value.get("key_id", "")),
+                reason=str(value.get("reason", "")),
+                occurred_at_ns=occurred_at_ns,
+            ))
+        return result
+
     def _load_collapsed_groups(self) -> set[str]:
         payload = self._load_preferences()
         raw = payload.get("collapsed_groups", [])
@@ -2229,11 +2389,12 @@ class LasViewerRecentSessions:
         bookmark_trash: dict[str, dict[str, object]] | None = None,
         bookmark_trash_retention: LasViewerRecentSessionBookmarkTrashRetention | None = None,
         bookmark_trash_journal: list[LasViewerRecentSessionBookmarkTrashEvent] | None = None,
+        audit_journal_signature_events: list[LasViewerAuditJournalSignatureEvent] | None = None,
     ) -> None:
         self.repository.directory.mkdir(parents=True, exist_ok=True)
         payload = {
             "schema": "las.viewer.recent-session-preferences",
-            "version": "1.9",
+            "version": "2.0",
             "pinned_session_keys": sorted(pinned_keys),
             "collapsed_groups": sorted(collapsed_groups),
             "navigation_state": (navigation_state or self.navigation_state()).to_dict(),
@@ -2242,6 +2403,7 @@ class LasViewerRecentSessions:
             "bookmark_trash": dict(sorted((bookmark_trash if bookmark_trash is not None else self._load_bookmark_trash()).items())),
             "bookmark_trash_retention": (bookmark_trash_retention or self.bookmark_trash_retention()).to_dict(),
             "bookmark_trash_journal": [event.to_dict() for event in (bookmark_trash_journal if bookmark_trash_journal is not None else self._load_bookmark_trash_journal())],
+            "audit_journal_signature_events": [event.to_dict() for event in (audit_journal_signature_events if audit_journal_signature_events is not None else self._load_audit_journal_signature_events())],
             "renderer_neutral": True,
         }
         with NamedTemporaryFile(

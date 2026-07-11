@@ -1868,3 +1868,101 @@ def test_signed_journal_rejects_disabled_key_policy(tmp_path, monkeypatch):
         assert "disabled" in str(exc)
     else:
         raise AssertionError("ValueError expected")
+
+
+def test_signature_verification_audit_records_success(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source-audit-success")
+    repository.save(_session("audit-success.las"))
+    source = LasViewerRecentSessions(repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 4_000)
+    source.remove_bookmark(key)
+    export_path = tmp_path / "audit-success.json"
+    source.export_bookmark_trash_journal(
+        export_path, signer_id="workspace-a", signing_key="secret", key_id="key-1"
+    )
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target-audit-success"))
+    result = target.verify_bookmark_trash_journal_export(
+        export_path,
+        trusted_signers={"workspace-a": {"key-1": "secret"}},
+        require_signature=True,
+    )
+
+    assert result["accepted"] is True
+    assert result["event_count"] == 1
+    events = target.audit_journal_signature_events()
+    assert len(events) == 1
+    assert events[0].accepted is True
+    assert events[0].signer_id == "workspace-a"
+    assert events[0].key_id == "key-1"
+
+
+def test_signature_verification_audit_records_failure_reason(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source-audit-failure")
+    repository.save(_session("audit-failure.las"))
+    source = LasViewerRecentSessions(repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 4_100)
+    source.remove_bookmark(key)
+    export_path = tmp_path / "audit-failure.json"
+    source.export_bookmark_trash_journal(
+        export_path, signer_id="workspace-a", signing_key="secret", key_id="key-1"
+    )
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target-audit-failure"))
+    result = target.verify_bookmark_trash_journal_export(
+        export_path,
+        trusted_signers={"workspace-a": {"key-1": "wrong"}},
+        require_signature=True,
+    )
+
+    assert result["accepted"] is False
+    assert "signature" in result["reason"]
+    rejected = target.audit_journal_signature_events(accepted=False)
+    assert len(rejected) == 1
+    assert rejected[0].reason == result["reason"]
+
+
+def test_import_automatically_records_signature_audit(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "source-import-audit")
+    repository.save(_session("import-audit.las"))
+    source = LasViewerRecentSessions(repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key)
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 4_200)
+    source.remove_bookmark(key)
+    export_path = tmp_path / "import-audit.json"
+    source.export_bookmark_trash_journal(
+        export_path, signer_id="workspace-a", signing_key="secret", key_id="key-1"
+    )
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target-import-audit"))
+    target.import_bookmark_trash_journal(
+        export_path,
+        trusted_signers={"workspace-a": {"key-1": "secret"}},
+        require_signature=True,
+    )
+    events = target.audit_journal_signature_events()
+    assert len(events) == 1
+    assert events[0].operation == "import"
+    assert events[0].accepted is True
+
+
+def test_signature_audit_history_is_persisted(tmp_path, monkeypatch):
+    target_repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "target-persist-audit")
+    target = LasViewerRecentSessions(target_repository)
+    invalid_path = tmp_path / "invalid-audit.json"
+    invalid_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 4_300)
+
+    result = target.verify_bookmark_trash_journal_export(invalid_path)
+    assert result["accepted"] is False
+
+    restored = LasViewerRecentSessions(target_repository)
+    events = restored.audit_journal_signature_events()
+    assert len(events) == 1
+    assert events[0].source == "invalid-audit.json"
+    assert events[0].occurred_at_ns == 4_300
