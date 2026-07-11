@@ -7,7 +7,7 @@ serializable state.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping
 
 
@@ -21,6 +21,24 @@ def _clean_ids(values: Iterable[Any]) -> tuple[str, ...]:
             result.append(item)
     return tuple(result)
 
+
+
+def _scale(value: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    source = dict(value or {})
+    scale_type = str(source.get("scale_type") or source.get("scale") or "linear").strip().lower()
+    if scale_type not in {"linear", "log"}:
+        raise ValueError("track scale_type must be linear or log")
+    minimum = source.get("minimum", source.get("min_value"))
+    maximum = source.get("maximum", source.get("max_value"))
+    if minimum is not None:
+        minimum = float(minimum)
+    if maximum is not None:
+        maximum = float(maximum)
+    if minimum is not None and maximum is not None and maximum <= minimum:
+        raise ValueError("track scale maximum must be greater than minimum")
+    if scale_type == "log" and minimum is not None and minimum <= 0:
+        raise ValueError("log scale minimum must be positive")
+    return {"scale_type": scale_type, "minimum": minimum, "maximum": maximum}
 
 def _positive_width(value: Any, fallback: float = 1.0) -> float:
     try:
@@ -39,6 +57,7 @@ class LasViewerTrackLayout:
     visible: bool = True
     curve_order: tuple[str, ...] = ()
     visible_curves: tuple[str, ...] = ()
+    scale: dict[str, Any] = field(default_factory=_scale)
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "LasViewerTrackLayout":
@@ -53,6 +72,7 @@ class LasViewerTrackLayout:
             visible=bool(value.get("visible", True)),
             curve_order=curve_order,
             visible_curves=tuple(item for item in requested_visible if item in curve_order),
+            scale=_scale(value.get("scale") if isinstance(value.get("scale"), Mapping) else value.get("axis") if isinstance(value.get("axis"), Mapping) else None),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -62,6 +82,7 @@ class LasViewerTrackLayout:
             "visible": self.visible,
             "curve_order": list(self.curve_order),
             "visible_curves": list(self.visible_curves),
+            "scale": dict(self.scale),
         }
 
 
@@ -144,6 +165,7 @@ class LasViewerLayoutController:
                     visible=(track_id in requested_visible) if use_requested else bool(track.get("visible", True)),
                     curve_order=order,
                     visible_curves=order,
+                    scale=_scale(track.get("scale") if isinstance(track.get("scale"), Mapping) else track.get("axis") if isinstance(track.get("axis"), Mapping) else None),
                 )
             )
         return cls(LasViewerLayoutState(tuple(items)))
@@ -155,14 +177,31 @@ class LasViewerLayoutController:
     def set_track_visible(self, track_id: str, visible: bool) -> LasViewerLayoutState:
         index = self._track_index(track_id)
         item = self._tracks[index]
-        updated = LasViewerTrackLayout(item.track_id, item.width, bool(visible), item.curve_order, item.visible_curves)
+        updated = LasViewerTrackLayout(item.track_id, item.width, bool(visible), item.curve_order, item.visible_curves, item.scale)
         self._replace(index, updated)
         return self.state
 
     def set_track_width(self, track_id: str, width: float) -> LasViewerLayoutState:
         index = self._track_index(track_id)
         item = self._tracks[index]
-        updated = LasViewerTrackLayout(item.track_id, _positive_width(width), item.visible, item.curve_order, item.visible_curves)
+        updated = LasViewerTrackLayout(item.track_id, _positive_width(width), item.visible, item.curve_order, item.visible_curves, item.scale)
+        self._replace(index, updated)
+        return self.state
+
+    def set_track_scale(
+        self,
+        track_id: str,
+        *,
+        scale_type: str = "linear",
+        minimum: float | None = None,
+        maximum: float | None = None,
+    ) -> LasViewerLayoutState:
+        index = self._track_index(track_id)
+        item = self._tracks[index]
+        updated = LasViewerTrackLayout(
+            item.track_id, item.width, item.visible, item.curve_order, item.visible_curves,
+            _scale({"scale_type": scale_type, "minimum": minimum, "maximum": maximum}),
+        )
         self._replace(index, updated)
         return self.state
 
@@ -188,7 +227,7 @@ class LasViewerLayoutController:
             elif not visible and curve in values:
                 values.remove(curve)
             ordered = tuple(candidate for candidate in item.curve_order if candidate in values)
-            updated = LasViewerTrackLayout(item.track_id, item.width, item.visible, item.curve_order, ordered)
+            updated = LasViewerTrackLayout(item.track_id, item.width, item.visible, item.curve_order, ordered, item.scale)
             self._replace(index, updated)
             return self.state
         raise ValueError(f"unknown LAS curve: {curve}")
@@ -206,7 +245,7 @@ class LasViewerLayoutController:
             order.pop(source)
             order.insert(target, curve)
             visible = tuple(candidate for candidate in order if candidate in item.visible_curves)
-            self._tracks[index] = LasViewerTrackLayout(item.track_id, item.width, item.visible, tuple(order), visible)
+            self._tracks[index] = LasViewerTrackLayout(item.track_id, item.width, item.visible, tuple(order), visible, item.scale)
             self._revision += 1
             return self.state
         raise ValueError(f"unknown LAS curve: {curve}")

@@ -1,5 +1,15 @@
 # Changelog
 
+## v183
+
+- Added unified renderer-neutral LAS Viewer track configuration controller.
+- Synchronized track visibility between viewer session and layout state.
+- Added deterministic track ordering and width configuration through existing layout contracts.
+- Added validated linear/log track scale with optional minimum and maximum bounds.
+- Applied configured scale to both track and curve axis render contracts.
+- Preserved configuration through viewer state serialization without raw DataFrame storage.
+- Added unit, integration and regression coverage.
+
 ## v179
 
 - Completed full-suite confirmation for the v178 large-LAS visualization regression.

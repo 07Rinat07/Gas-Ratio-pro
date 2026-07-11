@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v182  
+Baseline: v183  
 Current stage: LAS Viewer completion  
-Last fully verified baseline: v182 — shared depth viewport, cursor and selection are integrated across all visible LAS Viewer tracks; preflight OK. Visualization Engine Stage 1 is complete.
+Last fully verified baseline: v183 — LAS Viewer track order, width, linear/log scale and visibility are integrated through one renderer-neutral configuration controller; preflight OK. Visualization Engine Stage 1 is complete.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -33,19 +33,19 @@ LAS Viewer foundation:
 
 ## 3. Следующий разрешённый инкремент
 
-**Implement LAS Viewer track configuration: order, width, scale and visibility.**
+**Implement LAS Viewer zoom, pan, fit and reset with stable large-LAS behavior.**
 
 Состав:
 
-1. использовать текущий multi-track viewer contract;
-2. управлять порядком и шириной tracks через существующий layout controller;
-3. добавить renderer-neutral scale configuration для curves/tracks;
-4. синхронизировать visibility с viewer session без UI business logic;
-5. покрыть unit, integration и regression tests.
+1. использовать существующий shared viewport и command controller;
+2. добавить renderer-neutral zoom, pan, fit и reset application workflow;
+3. не дублировать вычисления viewport в UI;
+4. подтвердить cache/downsampling compatibility на больших LAS;
+5. покрыть unit, integration, performance и regression tests.
 
-Shared interaction подтверждён: один `LasViewerSession` управляет depth viewport, cursor и selection для всех видимых tracks; overlays добавляются в единый Render Model как non-printable primitives.
+Track configuration подтверждён: один controller синхронизирует session/layout visibility, порядок и ширину tracks, а linear/log scale с диапазоном сохраняется в сериализуемом state и применяется к track/curve render contract.
 
-Никакие zoom/pan convenience controls, export, audit/bookmark/licensing функции в следующий инкремент не входят.
+Export и Stage 3 Workbench в следующий инкремент не входят.
 
 ## 4. Критерий перехода к LAS Viewer
 

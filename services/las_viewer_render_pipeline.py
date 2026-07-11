@@ -152,6 +152,9 @@ class LasViewerRenderPipeline:
             track = dict(source_track)
             if layout_track is not None:
                 track["width"] = layout_track.width
+                track_axis = dict(track.get("axis") or {})
+                track_axis.update({key: value for key, value in layout_track.scale.items() if value is not None})
+                track["axis"] = track_axis
             track["visible"] = True
             track["order"] = len(rendered_tracks)
             rendered_tracks.append(track)
@@ -172,6 +175,10 @@ class LasViewerRenderPipeline:
                     diagnostics.append(f"las_viewer_render_missing_curve:{curve_id}")
                     continue
                 curve = dict(source_curve)
+                if layout_track is not None:
+                    curve_axis = dict(curve.get("axis") or {})
+                    curve_axis.update({key: value for key, value in layout_track.scale.items() if value is not None})
+                    curve["axis"] = curve_axis
                 curve["visible"] = True
                 curve["order"] = len(rendered_curves)
                 rendered_curves.append(curve)
