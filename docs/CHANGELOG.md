@@ -1355,3 +1355,14 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Routed project opening and restored sessions through the existing navigation model and tool activation flow.
 - Restored lightweight session state without retaining raw DataFrames in presentation state.
 - Added renderer-safe entry descriptors and unit/integration regression coverage.
+
+## v192 Modern Workbench responsive and accessibility audit
+
+- Added renderer-neutral responsive profiles for phone, tablet, laptop and wide viewports.
+- Declared no-horizontal-scroll behavior and a 44 px minimum interactive target.
+- Added deterministic keyboard focus order, keyboard semantics and accessible landmarks.
+- Added labels, roles and action descriptions to the Workbench renderer accessibility contract.
+- Added WCAG 2.2 AA contrast/readability checks for active presentation tokens.
+- Added responsive Streamlit adapter CSS with overflow and focus-visible guards.
+- Preserved a serializable presentation-only boundary without DataFrames or runtime service objects.
+- Completed Modern Workbench Stage 3 and activated Petrophysical Engine Stage 4.

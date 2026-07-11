@@ -2,8 +2,8 @@
 
 Актуальный статус проекта ведётся в [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
-Текущий этап: **Modern Workbench and new main page**.  
-Следующий шаг: **full responsive and accessibility audit for Modern Workbench**.
+Текущий этап: **Petrophysical Engine**.  
+Следующий шаг: **confirmed petrophysical formulas, units and transparent calculation contracts**.
 
 Исторический progress log перенесён в:
 

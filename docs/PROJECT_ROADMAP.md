@@ -1,7 +1,7 @@
 # GAS RATIO PRO — Active Project Roadmap
 
 Status: Active  
-Baseline: v191  
+Baseline: v192  
 Purpose: единственная активная последовательность реализации проекта.
 
 ## 1. Обязательные правила
@@ -84,7 +84,7 @@ Definition of Done:
 
 ### Stage 3 — Modern Workbench and new main page
 
-Status: **ACTIVE**
+Status: **COMPLETED v192**
 
 Цель: один раз выполнить полноценный редизайн после стабилизации графического ядра.
 
@@ -95,7 +95,7 @@ Status: **ACTIVE**
 3. Command Framework и Event Bus integration. **COMPLETED v189**
 4. LAS Viewer как основной рабочий модуль. **COMPLETED v190**
 5. Project/recent-session entry points без дублирования навигации. **COMPLETED v191**
-6. Полный responsive и accessibility audit.
+6. Полный responsive и accessibility audit. **COMPLETED v192**
 
 Запрещено до Stage 3:
 
@@ -105,7 +105,7 @@ Status: **ACTIVE**
 
 ### Stage 4 — Petrophysical Engine
 
-Status: **PLANNED**
+Status: **ACTIVE**
 
 - подтверждённые формулы и единицы;
 - transparent calculation contracts;

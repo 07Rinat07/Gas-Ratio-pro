@@ -13,6 +13,7 @@ from typing import Any, Iterable, MutableMapping
 from core.application_state import ApplicationContext, ApplicationStateController
 from core.command_framework import WorkbenchCommand, WorkbenchCommandRegistry, default_workbench_commands
 from core.event_bus import ApplicationEventBus
+from core.workbench_accessibility import WorkbenchAccessibilityAudit, build_workbench_accessibility_audit
 from core.workbench_tools import (
     WORKBENCH_ACTIVATE_TOOL_COMMAND_ID,
     WorkbenchToolDescriptor,
@@ -552,6 +553,7 @@ class WorkbenchRendererContract:
     renderer: str
     shell: WorkbenchShellModel
     actions: tuple[WorkbenchRendererAction, ...]
+    accessibility: WorkbenchAccessibilityAudit
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -569,6 +571,11 @@ class WorkbenchRendererContract:
             "active_tool_id": self.shell.active_tool_id,
             "open_tool_ids": list(self.shell.open_tool_ids),
             "actions": [action.to_dict() for action in self.actions],
+            "responsive": {
+                "profiles": [profile.to_dict() for profile in self.accessibility.responsive_profiles],
+                "horizontal_scroll_allowed": False,
+            },
+            "accessibility": self.accessibility.to_dict(),
         }
 
     def action_ids(self) -> tuple[str, ...]:
@@ -613,11 +620,19 @@ def build_workbench_renderer_contract(
             metadata={"active_tool_id": shell.active_tool_id},
         ),
     )
+    accessibility = build_workbench_accessibility_audit(
+        navigation=shell.navigation,
+        dock_panes=shell.dock_layout.panes,
+        actions=actions,
+        active_navigation_id=shell.interaction.active_navigation_id,
+        active_dock_pane_id=shell.interaction.active_dock_pane_id,
+    )
     return WorkbenchRendererContract(
         version=str(version or "workbench-renderer-contract").strip() or "workbench-renderer-contract",
         renderer=str(renderer or "streamlit").strip() or "streamlit",
         shell=shell,
         actions=actions,
+        accessibility=accessibility,
     )
 
 

@@ -71,6 +71,32 @@ def build_streamlit_workbench_adapter(state: MutableMapping[str, Any]) -> Stream
     )
 
 
+
+
+def build_workbench_responsive_css() -> str:
+    """Return the audited responsive shell CSS used by the Streamlit adapter."""
+
+    return """
+<style>
+.workbench-contract-shell { max-width: 100%; overflow-x: hidden; }
+.workbench-contract-shell button { min-height: 44px; white-space: normal; }
+.workbench-contract-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; }
+.workbench-focus-target:focus-visible { outline: 3px solid #0B63CE; outline-offset: 2px; }
+@media (min-width: 600px) { .workbench-contract-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (min-width: 1024px) { .workbench-contract-grid { grid-template-columns: minmax(14rem, .6fr) minmax(0, 1.4fr); } }
+@media (min-width: 1600px) { .workbench-contract-grid { grid-template-columns: minmax(16rem, .55fr) minmax(0, 1.45fr) minmax(18rem, .65fr); } }
+</style>
+""".strip()
+
+
+def _accessibility_by_target(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        str(item.get("target", "")): item
+        for item in payload.get("accessibility", {}).get("elements", [])
+        if item.get("target")
+    }
+
+
 def _contract_action_map(contract: WorkbenchRendererContract) -> dict[str, dict[str, Any]]:
     return {action["id"]: action for action in contract.to_dict()["actions"] if action.get("enabled", True)}
 
@@ -127,7 +153,10 @@ def render_streamlit_workbench_contract(
 
     payload = contract.to_dict()
     executed: list[CommandExecutionResult] = []
+    accessibility = _accessibility_by_target(payload)
 
+    st_module.markdown(build_workbench_responsive_css(), unsafe_allow_html=True)
+    st_module.markdown("<main class='workbench-contract-shell' aria-label='Modern Workbench'>", unsafe_allow_html=True)
     st_module.markdown("### Modern Workbench")
     status = payload.get("status", {})
     active_workspace = payload.get("interaction", {}).get("active_workspace") or "dashboard"
@@ -138,7 +167,12 @@ def render_streamlit_workbench_contract(
     active_navigation_id = payload.get("interaction", {}).get("active_navigation_id", "")
     for item in payload.get("navigation", []):
         label_prefix = "● " if item.get("id") == active_navigation_id else "○ "
-        if st_module.button(label_prefix + str(item.get("title", item.get("id", ""))), key=_navigation_button_key(item.get("id", ""))):
+        item_accessibility = accessibility.get(str(item.get("id", "")), {})
+        if st_module.button(
+            label_prefix + str(item.get("title", item.get("id", ""))),
+            key=_navigation_button_key(item.get("id", "")),
+            help=item_accessibility.get("description", ""),
+        ):
             executed.append(
                 dispatch_workbench_renderer_action(
                     contract,
@@ -156,7 +190,12 @@ def render_streamlit_workbench_contract(
         panel_id = str(pane_id).replace("dock.", "")
         title = panel_titles.get(panel_id, pane_id)
         label_prefix = "● " if pane_id == active_pane_id else "○ "
-        if st_module.button(label_prefix + str(title), key=_dock_button_key(pane_id)):
+        pane_accessibility = accessibility.get(str(pane_id), {})
+        if st_module.button(
+            label_prefix + str(title),
+            key=_dock_button_key(pane_id),
+            help=pane_accessibility.get("description", ""),
+        ):
             executed.append(
                 dispatch_workbench_renderer_action(
                     contract,
@@ -166,6 +205,7 @@ def render_streamlit_workbench_contract(
                 )
             )
 
+    st_module.markdown("</main>", unsafe_allow_html=True)
     return tuple(executed)
 
 

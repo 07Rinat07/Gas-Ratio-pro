@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v191  
-Current stage: Modern Workbench and new main page  
-Last fully verified baseline: v191 — project and recent-session entry points use command-backed application services, existing Workbench navigation routes and lightweight session restoration without direct repository/file operations in UI; preflight OK.
+Baseline: v192  
+Current stage: Petrophysical Engine  
+Last fully verified baseline: v192 — Modern Workbench responsive and accessibility audit completed with renderer-neutral viewport profiles, deterministic keyboard focus order, accessible labels/roles/descriptions, WCAG 2.2 AA contrast checks and responsive Streamlit adapter guards; preflight OK.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -13,44 +13,45 @@ Visualization Engine:
 - SVG/PDF renderers и geometry signature parity;
 - adaptive downsampling, cache и memory budget;
 - viewport, pan/zoom, hit testing, cursor и selection;
-- render/export QA и Render Validation Pipeline;
-- strict export enforcement: SVG/PDF export блокируется при fatal/error geometry findings;
-- три эталонные multi-track сцены для linear, Unicode и overlay regression;
-- утверждённые SVG/PDF reference artifacts с SHA-256 manifest и structural regression checks.
+- render/export QA и strict Render Validation Pipeline.
 
-LAS Viewer foundation:
+LAS Viewer:
 
-- viewer session и track layout;
-- viewport-aware render pipeline;
-- synchronized cursor/selection overlays;
-- workspace persistence/autosave foundations.
+- real LAS-open workflow и multi-track construction;
+- shared viewport, cursor and selection;
+- track configuration and stable large-LAS navigation;
+- current-view SVG/PDF export;
+- curve/null/unit validation.
+
+Modern Workbench:
+
+- shell, navigation model and Dock Manager;
+- atomic Command Framework/Event Bus dispatch;
+- LAS Viewer primary-module lifecycle;
+- project and recent-session entry points;
+- four responsive viewport profiles: phone, tablet, laptop and wide;
+- horizontal overflow guard and 44 px minimum interactive target;
+- deterministic unique focus order and keyboard interaction semantics;
+- accessible labels, roles, descriptions and landmarks in renderer contracts;
+- WCAG 2.2 AA contrast/readability checks for active presentation tokens;
+- presentation contracts remain serializable and contain no raw DataFrame or runtime service objects.
 
 ## 2. Что не считается завершённым
 
-- Responsive и accessibility audit ещё не выполнены.
+- Petrophysical Engine formulas, units and calculation contracts are not yet implemented as the active Stage 4 increment.
 
 ## 3. Следующий разрешённый инкремент
 
-**Perform the full responsive and accessibility audit for Modern Workbench.**
+**Establish confirmed petrophysical formulas, units and transparent calculation contracts.**
 
 Состав:
 
-1. responsive shell/layout behavior for supported viewport classes;
-2. keyboard navigation and focus order;
-3. accessible labels, roles and action descriptions in renderer contracts;
-4. contrast/readability audit for the active Workbench presentation;
+1. audit existing formula sources and implementation coverage;
+2. define explicit input/output unit contracts;
+3. expose calculation provenance and quality flags;
+4. reject unsupported or dimensionally invalid inputs before calculation;
 5. unit, integration and regression tests.
 
-Project/recent-session entry points завершены в v191.
+Modern Workbench Stage 3 завершён в v192.
 
-Stage 4 Petrophysical Engine в следующий инкремент не входит.
-
-## 4. Критерий перехода к LAS Viewer
-
-Переход разрешён, когда:
-
-- reference scenes проходят validation без fatal findings;
-- SVG/PDF parity подтверждён;
-- Unicode и печатные размеры проверены;
-- large-LAS performance regression проходит;
-- full tests и preflight зелёные.
+Stage 5 Modeling Engine в следующий инкремент не входит.
