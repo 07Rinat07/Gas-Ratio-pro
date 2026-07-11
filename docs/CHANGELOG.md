@@ -1467,3 +1467,12 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added supported dock pane resizing with validation, command dispatch and Event Bus notification.
 - Preserved responsive/accessibility contracts and presentation-only Streamlit boundaries.
 - Added unit, integration and regression coverage for the interactive Workbench panes.
+
+
+## v204 Runtime rendering repair
+
+- Normalized mixed object columns before Streamlit/Arrow presentation serialization.
+- Made project calculation comparison values consistently textual for UI and export parity.
+- Replaced the deprecated raw HTML component path with `st.html` where supported.
+- Routed Streamlit, PyArrow and Python warnings into the existing rotating `logs/app.log`.
+- Added regression coverage for Arrow-safe tables and runtime log capture.

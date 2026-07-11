@@ -1,6 +1,6 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v203
+Baseline: v204
 Current stage: Stage 4 — Workbench UI Completion / module integration audit
 Runtime acceptance: **FAILED for v202; navigation works, but core LAS/report/documentation workflows are not yet proven visible and usable**
 
@@ -8,11 +8,14 @@ Runtime acceptance: **FAILED for v202; navigation works, but core LAS/report/doc
 
 Modern Workbench shell, navigation, command dispatch and dock layout work. Live owner testing proved that `Command executed` is not sufficient acceptance: LAS upload/editor/viewer, graphs, reports, printing and Documentation were not observable as usable workflows in the central workspace. Browser DevTools also reported form/accessibility findings, but no JavaScript exception explaining the empty modules.
 
-## 2. Активный инкремент v203
+## 2. Активный инкремент v204
 
-**Workbench Module Integration Audit and Runtime Diagnostics**:
+**Runtime Error Capture and Workspace Rendering Repair**:
 
-- every route is audited through `command → state → renderer → provider → visible workflow → result`;
+- mixed-type UI tables are normalized before Arrow serialization;
+- deprecated raw HTML component rendering is replaced by the supported Streamlit HTML path;
+- Streamlit, PyArrow and Python warnings are routed into the existing rotating `logs/app.log`;
+- every route remains audited through `command → state → renderer → provider → visible workflow → result`;
 - command handler exceptions are converted to failed command results instead of uncaught page crashes;
 - every captured exception receives a correlation ID;
 - full tracebacks are written to rotating `logs/app.log`;
@@ -23,7 +26,7 @@ Modern Workbench shell, navigation, command dispatch and dock layout work. Live 
 
 ## 3. Единственный следующий разрешенный шаг
 
-Run v203 with diagnostics, reproduce LAS/Interpretation/Reports/Exports/Documentation actions, collect correlation IDs and binding snapshots, then fix the first broken route end-to-end. A route is complete only when the real controls and output are visible and usable.
+Run v204 with diagnostics and repeat LAS/Interpretation/Reports/Exports/Documentation acceptance. Confirm that Arrow serialization warnings and deprecated HTML warnings no longer appear, then fix the first route whose real controls or output remain unavailable.
 
 Launch diagnostics mode:
 

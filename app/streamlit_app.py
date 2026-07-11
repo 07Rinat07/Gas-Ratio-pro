@@ -5855,7 +5855,10 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
       </body>
     </html>
     """).strip()
-    components.html(workspace_component_html, height=760, scrolling=False)
+    if callable(getattr(st, "html", None)):
+        st.html(workspace_component_html)
+    else:  # compatibility with older Streamlit only
+        components.html(workspace_component_html, height=760, scrolling=False)
 
 def _render_start_tab(active_project: ProjectRecord) -> None:
     projects = list_projects(LAS_CORRELATION_PROJECTS_ROOT)
@@ -10982,7 +10985,8 @@ def _run_modern_workbench() -> None:
     from app.workbench_renderer import render_streamlit_workbench
 
     st.set_page_config(page_title="Gas Ratio Pro", page_icon=_app_icon_data_uri() or None, layout="wide")
-    logger = configure_logging()
+    from core.streamlit_runtime_compat import configure_streamlit_runtime_log_capture
+    logger = configure_streamlit_runtime_log_capture()
     logger.info("modern_workbench_started")
     results = render_streamlit_workbench(_application_state_controller().state, st)
     if any(result.executed for result in results):
