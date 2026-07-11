@@ -3,7 +3,7 @@
 Актуальный статус проекта ведётся в [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
 Текущий этап: **Modern Workbench and new main page**.  
-Следующий шаг: **project and recent-session entry points through the existing Workbench navigation model**.
+Следующий шаг: **full responsive and accessibility audit for Modern Workbench**.
 
 Исторический progress log перенесён в:
 

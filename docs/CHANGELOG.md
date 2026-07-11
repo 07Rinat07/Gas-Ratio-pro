@@ -1346,3 +1346,12 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Reused existing LAS visualization, interaction, navigation and export services without UI-side parsing or calculations.
 - Persisted only compact serializable viewer state and export metadata; raw DataFrames and artifact bytes are not stored in UI state.
 - Added integration and regression coverage for lifecycle, navigation and current-view export.
+
+
+## v191 Workbench project and recent-session entry points
+
+- Added command-backed project and recent-session entry contracts for the existing Workbench shell.
+- Kept project repository, recent-history and session-file access inside application command handlers.
+- Routed project opening and restored sessions through the existing navigation model and tool activation flow.
+- Restored lightweight session state without retaining raw DataFrames in presentation state.
+- Added renderer-safe entry descriptors and unit/integration regression coverage.
