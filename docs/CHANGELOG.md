@@ -1,3 +1,22 @@
+## v214 — Explicit mapping and interpretation actions
+
+- Separated mutable mapping widgets from the committed mapping snapshot.
+- Added explicit `Применить mapping` and `Запустить интерпретацию` actions.
+- Bound committed mapping state to the exact prepared DataFrame signature.
+- Prevented unrelated Streamlit reruns and draft widget edits from executing gas-ratio calculations.
+- Preserved the last committed interpretation result while an invalid draft is being corrected.
+- Added regression tests for applied-mapping persistence and source-signature guards.
+
+## v214 — Presentation refactor foundation implementation
+
+- Added independent monotonic revisions for data, calculation, presentation and export invalidation boundaries.
+- Added a thread-safe SHA-256 LAS content cache that reloads only when file bytes change.
+- Returned defensive DataFrame copies from the cache to prevent mutation leakage between reruns.
+- Connected cached LAS parsing to the shared upload path and logged parse duration plus cache-hit state.
+- Added immutable renderer-neutral `WellLogRenderModel` and `ReportDocumentModel` contracts.
+- Invalidated the interpretation figure cache only when a new calculation dataset is stored.
+- Added focused v214 tests for revision propagation, serializable session state, cache behavior, signatures and contracts.
+
 ## v214 — Presentation refactor plan approved
 
 - Reopened the remaining Stage 4 work as a controlled Engineering Presentation Refactor after v213 live acceptance.

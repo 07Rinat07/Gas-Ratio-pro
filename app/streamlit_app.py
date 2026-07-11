@@ -77,6 +77,16 @@ from core.logging_config import configure_logging, safe_log_value
 from core.workbench_runtime_diagnostics import record_render_audit
 from core.application_state import ApplicationStateController
 from core.models import CalculationConfig, STANDARD_FIELDS
+from core.presentation_runtime import (
+    AppliedMappingState,
+    applied_mapping_from_state,
+    dataframe_signature,
+    load_las_sheets_cached,
+    mapping_matches_source,
+    persist_applied_mapping,
+    persist_revisions,
+    revision_controller_from_state,
+)
 from importers.csv_importer import load_csv_sheets
 from importers.excel_importer import load_excel_sheets
 from importers.header_detector import detect_header_row, prepare_dataframe_with_header
@@ -2414,7 +2424,14 @@ def _load_raw_sheets(uploaded_file) -> dict[str, pd.DataFrame]:
     if suffix in {".xlsx", ".xlsm"}:
         return load_excel_sheets(uploaded_file)
     if suffix == ".las":
-        return load_las_sheets(uploaded_file)
+        sheets, signature, timing = load_las_sheets_cached(uploaded_file, load_las_sheets)
+        configure_logging().info(
+            "las_parse_completed signature=%s cache_hit=%s duration_ms=%.2f",
+            signature[:12],
+            timing.cache_hit,
+            timing.duration_ms,
+        )
+        return sheets
     raise ValueError(f"Формат {suffix} не поддерживается.")
 
 
@@ -2467,6 +2484,10 @@ def _store_interpretation_dataset(calculated_df: pd.DataFrame, source_label: str
             INTERPRETATION_SESSION_SOURCE_KEY: str(source_label),
         }
     )
+    revisions = revision_controller_from_state(st.session_state)
+    snapshot = revisions.bump_calculation()
+    persist_revisions(st.session_state, snapshot)
+    st.session_state.pop("interpretation_figure_cache", None)
 
 
 def _plotly_figures_to_html(
@@ -7043,10 +7064,65 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
     manual_mapping = _build_mapping_controls(prepared_df, mapping_result.mapping)
     mapping_messages = mapping_warning_messages(manual_mapping, prepared_df.columns)
     _render_mapping_diagnostics(manual_mapping, prepared_df.columns, mapping_messages)
+    _render_formula_reference()
+    ch_mode = st.radio(
+        "Режим Ch",
+        options=["A", "reserved"],
+        format_func=lambda value: "A: (C3 + ΣC4 + ΣC5) / (ΣC4 + ΣC5)" if value == "A" else "B: reserved, отключено",
+        horizontal=True,
+        key="mapping_draft_ch_mode",
+    )
 
+    prepared_signature = dataframe_signature(prepared_df)
     missing_components = _missing_required_gas_mapping_fields(manual_mapping)
     depth_mapped = bool(manual_mapping.get("depth") or (manual_mapping.get("depth_from") and manual_mapping.get("depth_to")))
-    if not depth_mapped or missing_components:
+    mapping_valid = depth_mapped and not missing_components
+
+    action_left, action_right = st.columns(2)
+    apply_mapping_clicked = action_left.button(
+        "Применить mapping",
+        type="primary",
+        width="stretch",
+        disabled=not mapping_valid,
+        key="apply_mapping_explicit",
+        help="Фиксирует проверенное сопоставление. Изменение виджетов после этого не запускает расчет автоматически.",
+    )
+    if apply_mapping_clicked:
+        applied_snapshot = AppliedMappingState(
+            source_signature=prepared_signature,
+            sheet_name=str(sheet_name),
+            header_row=int(header_row),
+            mapping=dict(manual_mapping),
+            ch_mode=str(ch_mode),
+        )
+        persist_applied_mapping(st.session_state, applied_snapshot)
+        revisions = revision_controller_from_state(st.session_state)
+        persist_revisions(st.session_state, revisions.bump_data())
+        _clear_invalid_interpretation_state("Ожидается запуск интерпретации для нового mapping.")
+        logger.info(
+            "manual_mapping_committed sheet=%s signature=%s mapped=%s",
+            safe_log_value(sheet_name),
+            safe_log_value(prepared_signature[:12]),
+            safe_log_value(",".join(sorted(manual_mapping.keys()))),
+        )
+        st.success("Mapping применен. Теперь запустите интерпретацию отдельной кнопкой.")
+
+    applied_mapping = applied_mapping_from_state(st.session_state)
+    applied_for_current_source = mapping_matches_source(applied_mapping, prepared_signature)
+    if applied_for_current_source:
+        st.caption("Примененный mapping соответствует текущему набору данных.")
+    else:
+        st.info("Сначала примените mapping. Черновые изменения виджетов не изменяют текущие расчетные результаты.")
+
+    run_interpretation_clicked = action_right.button(
+        "Запустить интерпретацию",
+        width="stretch",
+        disabled=not applied_for_current_source,
+        key="run_interpretation_explicit",
+        help="Выполняет mapping и расчеты только по последнему примененному снимку настроек.",
+    )
+
+    if not mapping_valid:
         missing_labels = ", ".join(field.upper() for field in missing_components)
         reason_parts = []
         if not depth_mapped:
@@ -7054,40 +7130,35 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         if missing_components:
             reason_parts.append(f"не сопоставлены обязательные газовые компоненты: {missing_labels}")
         invalid_reason = "; ".join(reason_parts)
-        _clear_invalid_interpretation_state(invalid_reason)
+        # Legacy safety invariant: calculation_blocked_invalid_mapping previously
+        # called _clear_invalid_interpretation_state and displayed
+        # "Предыдущие графики и отчеты очищены". In the explicit-apply workflow,
+        # invalid draft widgets cannot replace the already applied mapping, so the
+        # committed result remains safe while the Run button stays disabled.
         logger.warning(
-            "calculation_blocked_invalid_mapping depth_mapped=%s missing=%s",
+            "mapping_draft_invalid depth_mapped=%s missing=%s",
             depth_mapped,
             safe_log_value(",".join(missing_components)),
         )
-        st.error(
-            "Расчет остановлен: "
-            + invalid_reason
-            + ". Предыдущие графики и отчеты очищены, чтобы не показывать результаты другого файла."
-        )
-        st.info(
-            "Выберите правильную строку заголовков и вручную сопоставьте колонки. "
-            "Нулевые C-компоненты больше не подставляются как допустимый расчетный набор."
-        )
+        st.error("Mapping не может быть применен: " + invalid_reason + ".")
+
+    existing_df = st.session_state.get(INTERPRETATION_SESSION_DATA_KEY)
+    if not run_interpretation_clicked:
+        if isinstance(existing_df, pd.DataFrame) and not existing_df.empty:
+            st.info("Показаны последние примененные результаты. Для пересчета нажмите «Запустить интерпретацию».")
         return
 
-    prepared = apply_mapping(prepared_df, manual_mapping)
+    assert applied_mapping is not None
+    prepared = apply_mapping(prepared_df, dict(applied_mapping.mapping))
     logger.info(
         "manual_mapping_applied mapped=%s warning_count=%d",
-        safe_log_value(",".join(sorted(manual_mapping.keys()))),
+        safe_log_value(",".join(sorted(applied_mapping.mapping.keys()))),
         len(prepared.warnings),
     )
-    _render_formula_reference()
-    ch_mode = st.radio(
-        "Режим Ch",
-        options=["A", "reserved"],
-        format_func=lambda value: "A: (C3 + ΣC4 + ΣC5) / (ΣC4 + ΣC5)" if value == "A" else "B: reserved, отключено",
-        horizontal=True,
-    )
-
-    calculation = calculate_gas_ratios(prepared.data, CalculationConfig(ch_mode=ch_mode))
+    calculation = calculate_gas_ratios(prepared.data, CalculationConfig(ch_mode=applied_mapping.ch_mode))
     calculated_df = add_interpretation(calculation.data)
     _store_interpretation_dataset(calculated_df, str(sheet_name))
+    ch_mode = applied_mapping.ch_mode
     logger.info(
         "calculation_completed rows=%d ch_mode=%s warning_count=%d",
         len(calculated_df),

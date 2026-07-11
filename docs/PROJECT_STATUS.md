@@ -49,18 +49,29 @@ No petrophysics, geomodeling, 3D or new domain modules are authorized before Sta
 
 ## 4. Next authorized increment
 
-**v214 — Presentation Refactor Foundation**
+**v214 — Presentation Refactor Foundation (implementation started)**
 
-Required scope:
+Implemented in the current increment:
 
-- introduce data/calculation/presentation revision boundaries;
-- cache parsed LAS by content signature;
+- added independent data/calculation/presentation/export revision controller;
+- added SHA-256 content cache for parsed LAS with defensive DataFrame copies;
+- connected cached LAS loading to the shared upload path;
+- added initial immutable `WellLogRenderModel` and `ReportDocumentModel` contracts;
+- added parse timing and cache-hit logging;
+- added focused characterization, cache, revision and contract tests.
+- separated draft mapping widgets from the applied mapping snapshot;
+- added explicit `Применить mapping` and `Запустить интерпретацию` actions;
+- prevented draft widget changes from triggering calculations or replacing committed results;
+- tied an applied mapping to the exact prepared-data signature and invalidated it when source content changes.
+
+Remaining v214 scope:
+
+- connect explicit apply actions to presentation settings;
 - remove all widget default/session-state conflicts;
 - batch mapping/tablet/export controls through explicit apply actions;
 - stop unrelated reruns from rebuilding figures or exports;
 - replace floating/blank Streamlit activity artifact with inline status;
-- add initial `WellLogRenderModel` and `ReportDocumentModel` contracts;
-- add characterization and performance tests.
+- extend characterization and performance tests.
 
 v214 does not claim visual completion. It creates the safe boundary required to replace renderers without breaking calculation behavior.
 

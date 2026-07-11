@@ -283,6 +283,8 @@ CalculationResult
 
 Следующий разрешенный инкремент: **v214 — Presentation Refactor Foundation**.
 
+Текущий прогресс: explicit mapping apply и explicit interpretation run реализованы; tablet presentation apply остается следующим подэтапом.
+
 Состав:
 
 1. revision-based state model;
