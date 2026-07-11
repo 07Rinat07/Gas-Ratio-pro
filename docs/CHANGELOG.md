@@ -1,5 +1,14 @@
 # Changelog
 
+## v179
+
+- Completed full-suite confirmation for the v178 large-LAS visualization regression.
+- Updated the documentation-governance assertion to track the active PROJECT_STATUS increment instead of the superseded v178 wording.
+- Verified all 1743 tests in four independent segments to avoid the environment execution ceiling.
+- Closed Visualization Engine Stage 1 and activated LAS Viewer Stage 2.
+- Set the next permitted increment to the real LAS-open workflow through the existing importer.
+- Preflight: OK.
+
 ## v178
 
 - Added deterministic large-LAS regression coverage for 150,000 source curve points.

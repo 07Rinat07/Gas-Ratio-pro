@@ -1,7 +1,7 @@
 # GAS RATIO PRO — Active Project Roadmap
 
 Status: Active  
-Baseline: v178  
+Baseline: v179  
 Purpose: единственная активная последовательность реализации проекта.
 
 ## 1. Обязательные правила
@@ -39,7 +39,7 @@ LAS → Core → Interpretation → Presentation → UI / Reports
 
 ### Stage 1 — Visualization Engine completion
 
-Status: **ACTIVE**
+Status: **COMPLETED v179**
 
 Цель: завершить графическое ядро и доказать одинаковую, печатно пригодную геометрию SVG/PDF.
 
@@ -49,7 +49,7 @@ Status: **ACTIVE**
 2. Расширенная проверка коллизий легенд, осей и track headers.
 3. Визуальная проверка эталонных multi-track сцен и фиксация ожидаемых артефактов. **COMPLETED v177**
 4. Проверка Unicode и читаемости печати на эталонных экспортных файлах.
-5. Финальный performance/large-LAS regression. **IMPLEMENTED v178; full-suite confirmation pending**
+5. Финальный performance/large-LAS regression. **COMPLETED v179 — 1743 tests passed; preflight OK**
 
 Definition of Done:
 
@@ -61,7 +61,7 @@ Definition of Done:
 
 ### Stage 2 — LAS Viewer completion
 
-Status: **BLOCKED BY STAGE 1**
+Status: **ACTIVE**
 
 Цель: собрать уже реализованные viewport, cursor, selection, layout и render pipeline в законченный инженерный viewer.
 

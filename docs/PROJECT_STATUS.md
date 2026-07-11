@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v178  
-Current stage: Visualization Engine completion  
-Last fully verified baseline: 1742 tests passed (v177). v178 targeted regression: 20 tests passed; preflight OK. Full-suite execution reached 75% without failures but was stopped by the execution time limit.
+Baseline: v179  
+Current stage: LAS Viewer completion  
+Last fully verified baseline: 1743 tests passed (v179); preflight OK. Visualization Engine Stage 1 is complete.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -27,21 +27,21 @@ LAS Viewer foundation:
 
 ## 2. Что не считается завершённым
 
-- Reference artifacts сформированы и автоматически проверяются; large-LAS regression реализован и проходит targeted suite, но полный test suite v178 требует завершённого запуска без лимита среды.
 - Export blocking и structural regression реализованы; остаются точечные исправления только по подтверждённым визуальным дефектам.
 - LAS Viewer foundation существует, но полный пользовательский open → view → interact → export workflow ещё не подтверждён как законченный продукт.
 - Modern Workbench и новая главная страница не начинаются до завершения LAS Viewer.
 
 ## 3. Следующий разрешённый инкремент
 
-**Complete full-suite confirmation for the v178 large-LAS regression increment.**
+**Implement the real LAS-open workflow through the existing importer.**
 
 Состав:
 
-1. повторно запустить полный pytest suite в среде без 10-minute execution limit;
-2. подтвердить отсутствие regression failures после исправлений depth-grid и performance metrics;
-3. при зелёном suite закрыть Stage 1 и разрешить LAS Viewer open workflow;
-4. не добавлять новую функциональность до подтверждения полного suite.
+1. использовать существующий LAS importer без дублирования parsing-логики;
+2. связать open workflow с существующими viewer session и track-layout contracts;
+3. корректно обрабатывать invalid LAS, пустые curves и отсутствующий depth channel;
+4. не переносить raw dataframe в UI session state;
+5. покрыть workflow unit, integration и regression tests.
 
 Никакие audit/bookmark/licensing функции в следующий инкремент не входят.
 
