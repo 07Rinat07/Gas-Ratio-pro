@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v186  
+Baseline: v187  
 Current stage: Modern Workbench and new main page  
-Last fully verified baseline: v186 — LAS Viewer now handles malformed curves, empty/all-null curves, partial null intervals and unsupported units through one renderer-neutral validation contract; Stage 2 Definition of Done is complete; preflight OK.
+Last fully verified baseline: v187 — Modern Workbench shell now uses one application-level navigation model; every section activates one registered tool through the command framework, and LAS Workspace is connected to the existing LAS Viewer service payload without UI business logic; preflight OK.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -27,23 +27,23 @@ LAS Viewer foundation:
 
 ## 2. Что не считается завершённым
 
-- Modern Workbench и новая главная страница ещё не собраны как единый shell.
-- Существующие workbench-компоненты должны быть сведены в один navigation model без параллельного UI workflow.
-- LAS Viewer завершён как инженерное ядро и должен подключаться к Workbench без переноса бизнес-логики в UI.
+- Dock Manager и полноценное управление панелями ещё не завершены.
+- Command Framework и Event Bus требуют финальной интеграции на уровне Workbench shell.
+- Responsive и accessibility audit ещё не выполнены.
 
 ## 3. Следующий разрешённый инкремент
 
-**Build the Modern Workbench shell and navigation model.**
+**Build the Dock Manager and tool panels.**
 
 Состав:
 
-1. собрать единый application-level Workbench shell;
-2. определить единый navigation model для основных рабочих модулей;
-3. подключить LAS Viewer как основной модуль через существующие service contracts;
-4. исключить прямую бизнес-логику и файловые операции из UI;
-5. покрыть unit, integration и regression tests.
+1. единый application-level Dock Manager;
+2. открытие, закрытие, сворачивание и фокус панелей через command layer;
+3. сохранение dock layout как presentation state;
+4. подключение зарегистрированных Workbench tools к dock panes без бизнес-логики в UI;
+5. unit, integration и regression tests.
 
-Track configuration, interaction, export и curve validation LAS Viewer завершены в Stage 2.
+Workbench shell и единый navigation model завершены в v187.
 
 Stage 4 Petrophysical Engine в следующий инкремент не входит.
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## v187
+
+- Added one deterministic application-level Workbench navigation router.
+- Synchronized navigation selection with registered Workbench tool activation through the command framework.
+- Connected LAS Workspace to the existing LAS Viewer service/view-model contract.
+- Added renderer payload sections for module routes and the active module.
+- Kept UI payloads free of DataFrame, storage and service objects.
+- Added unit and integration coverage for all navigation-to-module routes.
+
 ## v184
 
 - Added renderer-neutral LAS Viewer navigation controller for zoom, pan, fit and reset.

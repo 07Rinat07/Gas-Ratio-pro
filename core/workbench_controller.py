@@ -13,6 +13,7 @@ from typing import Any, MutableMapping
 from core.command_framework import CommandExecutionResult, WorkbenchCommandRegistry
 from core.workbench_context import WorkbenchSelection, WorkbenchSelectionService, WorkspaceContext
 from core.workbench_lifecycle import WorkbenchLifecycleManager, WorkbenchLifecycleResult
+from core.workbench_navigation import WorkbenchNavigationRouter
 from core.workbench_tools import (
     WORKBENCH_ACTIVATE_TOOL_COMMAND_ID,
     WorkbenchToolDescriptor,
@@ -44,6 +45,8 @@ class WorkbenchControllerResult:
     contract: WorkbenchRendererContract
     workspace_context: WorkspaceContext | None = None
     tool_views: dict[str, Any] | None = None
+    module_routes: list[dict[str, Any]] | None = None
+    active_module: dict[str, Any] | None = None
 
     def view_model(self) -> dict[str, Any]:
         """Return the renderer-facing payload after the interaction."""
@@ -53,6 +56,10 @@ class WorkbenchControllerResult:
             payload["workspace_context"] = self.workspace_context.to_dict()
         if self.tool_views is not None:
             payload["tool_views"] = dict(self.tool_views)
+        if self.module_routes is not None:
+            payload["module_routes"] = list(self.module_routes)
+        if self.active_module is not None:
+            payload["active_module"] = dict(self.active_module)
         return payload
 
 
@@ -76,6 +83,7 @@ class WorkbenchController:
         self.renderer = str(renderer or "streamlit-modern").strip() or "streamlit-modern"
         self.version = str(version or "workbench-renderer-contract").strip() or "workbench-renderer-contract"
         self.builder = WorkbenchShellBuilder(state, command_registry=command_registry)
+        self.navigation_router = WorkbenchNavigationRouter()
 
     @property
     def command_registry(self) -> WorkbenchCommandRegistry:
@@ -104,21 +112,41 @@ class WorkbenchController:
         payload = self.contract().to_dict()
         context = self.context()
         payload["workspace_context"] = context.to_dict()
-        payload["tool_views"] = WorkbenchToolViewService(self.state).payload(context)
+        tool_views = WorkbenchToolViewService(self.state).payload(context)
+        payload["tool_views"] = tool_views
+        payload["module_routes"] = self.navigation_router.payload()
+        payload["active_module"] = self._active_module_payload(payload, tool_views)
         return payload
 
+
+    def _active_module_payload(self, payload: dict[str, Any], tool_views: dict[str, Any]) -> dict[str, Any]:
+        """Return the selected module contract without exposing service objects."""
+
+        navigation_id = str(payload.get("interaction", {}).get("active_navigation_id", "") or "")
+        route = self.navigation_router.by_navigation(navigation_id)
+        items = tuple(tool_views.get("items", ()) or ())
+        tool_view = next((item for item in items if item.get("id") == route.tool_id), {})
+        return {
+            "route": route.to_dict(),
+            "tool": dict(tool_view),
+        }
 
     def _result(self, command_result: CommandExecutionResult) -> WorkbenchControllerResult:
         """Build a controller result with a fresh shell, contract and tool views."""
 
         shell = self.shell()
         context = WorkspaceContext.from_state(self.state, shell)
+        contract = build_workbench_renderer_contract(shell, renderer=self.renderer, version=self.version)
+        tool_views = WorkbenchToolViewService(self.state).payload(context)
+        contract_payload = contract.to_dict()
         return WorkbenchControllerResult(
             command_result,
             shell,
-            build_workbench_renderer_contract(shell, renderer=self.renderer, version=self.version),
+            contract,
             context,
-            WorkbenchToolViewService(self.state).payload(context),
+            tool_views,
+            self.navigation_router.payload(),
+            self._active_module_payload(contract_payload, tool_views),
         )
 
     def _navigation_ids(self) -> set[str]:
@@ -136,9 +164,16 @@ class WorkbenchController:
         clean_id = str(navigation_id or "").strip()
         if clean_id not in self._navigation_ids():
             raise KeyError(f"Unknown or unavailable Workbench navigation item: {clean_id}")
+        route = self.navigation_router.by_navigation(clean_id)
         result = self.command_registry.execute(
             WORKBENCH_SELECT_NAVIGATION_COMMAND_ID,
             {"navigation_id": clean_id},
+        )
+        # Navigation owns module focus.  Tool activation remains command-backed;
+        # no renderer or UI adapter writes Workbench state directly.
+        self.command_registry.execute(
+            WORKBENCH_ACTIVATE_TOOL_COMMAND_ID,
+            {"tool_id": route.tool_id, "metadata": {"navigation_id": clean_id}},
         )
         return self._result(result)
 

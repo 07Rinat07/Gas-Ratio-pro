@@ -1,7 +1,7 @@
 # GAS RATIO PRO — Active Project Roadmap
 
 Status: Active  
-Baseline: v186  
+Baseline: v187  
 Purpose: единственная активная последовательность реализации проекта.
 
 ## 1. Обязательные правила
@@ -90,7 +90,7 @@ Status: **ACTIVE**
 
 Обязательные задачи:
 
-1. Workbench shell и navigation model.
+1. Workbench shell и navigation model. **COMPLETED v187**
 2. Dock Manager и панели инструментов.
 3. Command Framework и Event Bus integration.
 4. LAS Viewer как основной рабочий модуль.
