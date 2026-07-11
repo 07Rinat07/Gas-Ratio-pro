@@ -24,8 +24,8 @@ def test_roadmap_declares_single_active_sequence() -> None:
     assert "Stage 1 — Visualization Engine completion" in roadmap
     assert "Stage 2 — LAS Viewer completion" in roadmap
     assert "Stage 3 — Modern Workbench and new main page" in roadmap
-    assert "Current stage: LAS Viewer completion" in status
-    assert "Handle LAS Viewer errors, empty curves, null intervals and invalid units" in status
+    assert "Current stage: Modern Workbench and new main page" in status
+    assert "Build the Modern Workbench shell and navigation model" in status
 
 
 def test_version_notes_are_archived_outside_docs_root() -> None:

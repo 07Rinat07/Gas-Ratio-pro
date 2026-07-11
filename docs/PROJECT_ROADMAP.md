@@ -1,7 +1,7 @@
 # GAS RATIO PRO — Active Project Roadmap
 
 Status: Active  
-Baseline: v185  
+Baseline: v186  
 Purpose: единственная активная последовательность реализации проекта.
 
 ## 1. Обязательные правила
@@ -61,7 +61,7 @@ Definition of Done:
 
 ### Stage 2 — LAS Viewer completion
 
-Status: **ACTIVE**
+Status: **COMPLETED v186**
 
 Цель: собрать уже реализованные viewport, cursor, selection, layout и render pipeline в законченный инженерный viewer.
 
@@ -73,7 +73,7 @@ Status: **ACTIVE**
 4. Track configuration: порядок, ширина, шкала, видимость. **COMPLETED v183**
 5. Zoom, pan, fit, reset и стабильная работа на больших LAS. **COMPLETED v184**
 6. Экспорт текущего вида в SVG/PDF через Visualization Engine. **COMPLETED v185**
-7. Ошибки, пустые кривые, null intervals и invalid units.
+7. Ошибки, пустые кривые, null intervals и invalid units. **COMPLETED v186**
 
 Definition of Done:
 
@@ -84,7 +84,7 @@ Definition of Done:
 
 ### Stage 3 — Modern Workbench and new main page
 
-Status: **BLOCKED BY STAGE 2**
+Status: **ACTIVE**
 
 Цель: один раз выполнить полноценный редизайн после стабилизации графического ядра.
 

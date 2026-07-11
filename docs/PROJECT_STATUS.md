@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v185  
-Current stage: LAS Viewer completion  
-Last fully verified baseline: v185 — current LAS Viewer viewport exports to SVG/PDF through the existing Visualization Engine pipeline with strict validation blocking and geometry parity; preflight OK. Visualization Engine Stage 1 is complete.
+Baseline: v186  
+Current stage: Modern Workbench and new main page  
+Last fully verified baseline: v186 — LAS Viewer now handles malformed curves, empty/all-null curves, partial null intervals and unsupported units through one renderer-neutral validation contract; Stage 2 Definition of Done is complete; preflight OK.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -27,25 +27,25 @@ LAS Viewer foundation:
 
 ## 2. Что не считается завершённым
 
-- Export blocking и structural regression реализованы; остаются точечные исправления только по подтверждённым визуальным дефектам.
-- LAS Viewer foundation существует, но полный пользовательский open → view → interact → export workflow ещё не подтверждён как законченный продукт.
-- Modern Workbench и новая главная страница не начинаются до завершения LAS Viewer.
+- Modern Workbench и новая главная страница ещё не собраны как единый shell.
+- Существующие workbench-компоненты должны быть сведены в один navigation model без параллельного UI workflow.
+- LAS Viewer завершён как инженерное ядро и должен подключаться к Workbench без переноса бизнес-логики в UI.
 
 ## 3. Следующий разрешённый инкремент
 
-**Handle LAS Viewer errors, empty curves, null intervals and invalid units.**
+**Build the Modern Workbench shell and navigation model.**
 
 Состав:
 
-1. нормализовать и классифицировать viewer-level ошибки входных curves;
-2. исключать пустые и полностью null curves без нарушения track layout;
-3. корректно обрабатывать null intervals и частично отсутствующие значения;
-4. валидировать и диагностировать invalid/unsupported units;
-5. покрыть unit, integration, export и regression tests.
+1. собрать единый application-level Workbench shell;
+2. определить единый navigation model для основных рабочих модулей;
+3. подключить LAS Viewer как основной модуль через существующие service contracts;
+4. исключить прямую бизнес-логику и файловые операции из UI;
+5. покрыть unit, integration и regression tests.
 
-Экспорт текущего вида подтверждён: application service использует уже вычисленный current viewport pipeline, не пересчитывает layout в UI, делегирует strict validation SVG/PDF renderers и подтверждает общий geometry signature через Export QA.
+Track configuration, interaction, export и curve validation LAS Viewer завершены в Stage 2.
 
-Stage 3 Workbench в следующий инкремент не входит.
+Stage 4 Petrophysical Engine в следующий инкремент не входит.
 
 ## 4. Критерий перехода к LAS Viewer
 

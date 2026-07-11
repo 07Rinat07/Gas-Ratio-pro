@@ -1287,3 +1287,14 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Applied strict Render Validation blocking before artifact creation.
 - Added cross-renderer Export QA and compact artifact metadata without raw DataFrames.
 - Added unit, integration and invalid-layout regression coverage.
+
+
+## v186 LAS Viewer curve validation and error handling
+
+- Added one renderer-neutral curve validation contract before LAS Viewer layout/render construction.
+- Classified missing identifiers, invalid depth samples, empty curves, all-null curves, partial null values and unsupported units.
+- Excluded non-renderable curves without leaving empty tracks or corrupting track widths/order.
+- Preserved recoverable curves, recorded contiguous null intervals and exposed compact per-curve quality metadata.
+- Normalized supported units and downgraded unsupported units to `unknown` with explicit diagnostics instead of crashing the viewer.
+- Preserved export/render compatibility and guaranteed that validation state contains no raw DataFrame.
+- Completed LAS Viewer Stage 2 and activated Modern Workbench Stage 3.

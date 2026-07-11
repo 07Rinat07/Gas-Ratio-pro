@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from math import isfinite
 from typing import Any, Mapping
 
+from services.las_viewer_curve_validation import LasViewerCurveValidator
 from services.las_viewer_render_pipeline import LasViewerRenderPipeline
 from services.las_viewer_session import LasViewerSession
 
@@ -75,8 +76,13 @@ class LasViewerMultiTrackResult:
 class LasViewerMultiTrackBuilder:
     """Normalize imported LAS curves and build the first complete viewer render."""
 
-    def __init__(self, render_pipeline: LasViewerRenderPipeline | None = None) -> None:
+    def __init__(
+        self,
+        render_pipeline: LasViewerRenderPipeline | None = None,
+        curve_validator: LasViewerCurveValidator | None = None,
+    ) -> None:
         self.render_pipeline = render_pipeline or LasViewerRenderPipeline()
+        self.curve_validator = curve_validator or LasViewerCurveValidator()
 
     def build(self, payload: Mapping[str, Any]) -> LasViewerMultiTrackResult:
         las_id = str(payload.get("las_id") or "").strip()
@@ -85,21 +91,11 @@ class LasViewerMultiTrackBuilder:
 
         source_tracks = [dict(item) for item in payload.get("tracks") or () if isinstance(item, Mapping)]
         source_curves = [dict(item) for item in payload.get("curves") or () if isinstance(item, Mapping)]
-        excluded: list[str] = []
-        curves: list[dict[str, Any]] = []
-        for curve in source_curves:
-            mnemonic = _curve_id(curve)
-            if not mnemonic:
-                excluded.append("<unnamed>")
-                continue
-            points = _renderable_points(curve)
-            if not points:
-                excluded.append(mnemonic)
-                continue
-            curve["mnemonic"] = mnemonic
+        validation = self.curve_validator.validate(source_curves)
+        excluded = list(validation.excluded_curves)
+        curves = [dict(item) for item in validation.curves]
+        for curve in curves:
             curve["track_id"] = _track_id(curve)
-            curve["points"] = points
-            curves.append(curve)
 
         if not curves:
             raise ValueError("LAS payload does not contain renderable curves")
@@ -141,6 +137,11 @@ class LasViewerMultiTrackBuilder:
         if excluded and "empty_curves_excluded" not in flags:
             flags.append("empty_curves_excluded")
         prepared["quality_flags"] = flags
+        prepared["las_viewer_curve_validation"] = validation.to_dict()
+        prepared["null_intervals"] = {
+            key: [dict(item) for item in value]
+            for key, value in validation.null_intervals.items()
+        }
         prepared["las_viewer_multitrack"] = {
             "track_count": len(tracks),
             "curve_count": len(curves),
@@ -150,7 +151,7 @@ class LasViewerMultiTrackBuilder:
 
         session = LasViewerSession(prepared)
         render = self.render_pipeline.run(prepared, session)
-        diagnostics = tuple(render.profile.diagnostics)
+        diagnostics = tuple(item.code for item in validation.diagnostics) + tuple(render.profile.diagnostics)
         return LasViewerMultiTrackResult(
             payload=prepared,
             viewer_state=session.state.to_dict(),
