@@ -1,3 +1,12 @@
+## v214 — Presentation refactor plan approved
+
+- Reopened the remaining Stage 4 work as a controlled Engineering Presentation Refactor after v213 live acceptance.
+- Added a mandatory sequence for state/performance, Well Log Renderer, Pixler/Ternary, Correlation, Reports v4 and interval consolidation.
+- Defined revision-based data/calculation/presentation boundaries and prohibited unrelated reruns from reading LAS or rebuilding figures.
+- Defined independent PDF, DOCX and HTML renderers backed by shared typed presentation models.
+- Kept Stage 5 blocked until live visual, document and performance acceptance passes.
+- Updated only the existing roadmap, status and changelog; no new planning files were created.
+
 ## v211
 
 - Блокирован расчет при неполном mapping обязательных газовых компонентов C1-C5.

@@ -1,79 +1,87 @@
-
-## v211 — Mapping safety and stale-result protection
-
-- Professional report profile/format controls are batched in a Streamlit form.
-- PDF/DOCX/HTML/bundle generation runs only after explicit confirmation, not on every widget rerun.
-- The generated artifact is retained in session state and the download button always reflects its real format.
-- Export start/completion/failure events now include format, duration and byte size in `logs/app.log`.
-- Interpretation Plotly figures reuse the latest session cache while data and graph settings remain unchanged.
-- Stage 4 remains open pending live acceptance of all export formats and responsiveness.
-
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v211
-Current stage: Stage 4 — Workbench UI Completion / module integration audit
-Runtime acceptance: **FAILED for v202; navigation works, but core LAS/report/documentation workflows are not yet proven visible and usable**
+Baseline: v213
+Current stage: **Stage 4R — Engineering Presentation Refactor**
+Decision: **controlled refactor approved after live acceptance failure**
+Stage 5: **BLOCKED**
 
-## 1. Подтвержденное состояние
+## 1. Confirmed production state
 
-Modern Workbench shell, navigation, command dispatch and dock layout work. Live owner testing proved that `Command executed` is not sufficient acceptance: LAS upload/editor/viewer, graphs, reports, printing and Documentation were not observable as usable workflows in the central workspace. Browser DevTools also reported form/accessibility findings, but no JavaScript exception explaining the empty modules.
+Рабочими и сохраняемыми считаются:
 
-## 2. Активный инкремент v211
+- LAS parsing, header detection and manual mapping;
+- calculation engine and hydrocarbon interval engine;
+- Modern Workbench shell, command dispatch, docks and route framework;
+- project/session infrastructure and runtime diagnostics;
+- correlation route registration in v213.
 
-**Functional navigation and calculation/report workflow restoration**:
+Не прошли пользовательскую приемку:
 
-- `Data Workspace` восстановлен как отдельный маршрут Modern Workbench и открывает существующий экран `Работа с данными`;
-- верхнее меню больше не является декоративным HTML: каждый пункт выполняет command-backed navigation;
-- Project Explorer больше не является статическим списком: корень и коллекции открывают соответствующие реальные маршруты;
-- `Interpretation` продолжает использовать рассчитанные данные из Data Workspace;
-- `Reports` использует существующий report/export workflow и при отсутствии расчета показывает явную кнопку перехода в Data Workspace;
-- Stage 5 — Petrophysical Engine остается заблокирован до живой приемки полного сценария.
-- Предыдущий Functional visibility repair сохранен как завершенная техническая предпосылка v206; текущий фокус — функциональная навигация и сквозной расчет/report workflow.
+- профессиональный well-log планшет;
+- Pixler and ternary presentation;
+- multi-well correlation layout;
+- PDF/DOCX/HTML report quality;
+- runtime responsiveness and Streamlit rerun behavior.
 
-## 3. Единственный следующий разрешенный шаг
+## 2. Evidence from v213 live test
 
-Run v207 with diagnostics and repeat LAS/Interpretation/Reports/Exports/Documentation acceptance. Confirm that real controls appear immediately inside the central workspace without scrolling past an empty viewport-height panel.
+- `interpretation_tablet_marker_count` still has a widget default/session-state conflict.
+- Interpretation rebuilds five figures repeatedly; cached rerender remains approximately 7–13 seconds.
+- Export plus rerender takes approximately 16–17 seconds.
+- LAS is reread and recalculated during mapping-related reruns.
+- Printed tablet still uses excessive empty depth space and weak track readability.
+- DOCX/PDF tables remain too wide and produce narrow or vertically broken text.
+- Expert report still exposes excessive detail and zero-thickness interval rows.
+- Correlation route now opens, but correlation presentation is not yet production-ready.
 
-Launch diagnostics mode:
+## 3. Active plan
 
-```powershell
-.\run_app.ps1 -ForceRestart -Diagnostics
-```
+The single active roadmap now contains **Stage 4R — Engineering Presentation Refactor** with this mandatory order:
 
-## 4. Production acceptance gates
+1. R1 — state and performance foundation;
+2. R2 — professional Well Log Renderer;
+3. R3 — Pixler and ternary models;
+4. R4 — Correlation Workspace;
+5. R5 — Reports v4;
+6. R6 — interval consolidation and live acceptance.
 
-For every Workbench route:
+No petrophysics, geomodeling, 3D or new domain modules are authorized before Stage 4R Definition of Done.
 
-1. command executes without traceback;
-2. active route changes;
-3. correct renderer and provider are resolved;
-4. `module_loaded = YES`;
-5. real controls are visible;
-6. test input can be submitted;
-7. expected visual/download result appears;
-8. errors show a correlation ID and are readable in `logs/app.log`.
+## 4. Next authorized increment
 
-## 5. Управляющая документация
+**v214 — Presentation Refactor Foundation**
 
-Active governance remains limited to `PROJECT_ROADMAP.md`, `PROJECT_STATUS.md`, `ARCHITECTURE.md` and `DOCUMENTATION_INDEX.md`. No new plan/status files are created.
+Required scope:
 
+- introduce data/calculation/presentation revision boundaries;
+- cache parsed LAS by content signature;
+- remove all widget default/session-state conflicts;
+- batch mapping/tablet/export controls through explicit apply actions;
+- stop unrelated reruns from rebuilding figures or exports;
+- replace floating/blank Streamlit activity artifact with inline status;
+- add initial `WellLogRenderModel` and `ReportDocumentModel` contracts;
+- add characterization and performance tests.
 
-## v208 — Functional menu and branding correction
+v214 does not claim visual completion. It creates the safe boundary required to replace renderers without breaking calculation behavior.
 
-- File and Project are no longer silent decorative menu labels; they open command-backed project/session controls.
-- The shared application logo is displayed once in the Workbench title bar at a compact standard size.
-- The duplicate Documentation hero logo overlay was removed.
-- Stage 4 remains IN PROGRESS pending live acceptance of File/Project and remaining functional tabs.
+## 5. Acceptance gates for v214
 
-## v209 — Correlation and printable report repair
+- no Streamlit widget state warnings in diagnostics log;
+- selecting report format does not read LAS, calculate, or build figures;
+- switching routes does not read LAS again;
+- unchanged Interpretation uses cached presentation artifacts;
+- no unexplained blank floating square during normal navigation;
+- logs contain separate parse/calculation/model/render/export timings;
+- existing calculation regression remains green.
 
-Status: IN PROGRESS pending live acceptance.
+## 6. Governance
 
-Implemented: dedicated correlation route, active Project Explorer entry, compact engineering report composition, figures before tables, top-15 non-zero intervals, expert-only detailed reasoning, and PDF plot embedding with Kaleido fallback.
+Active governance remains limited to:
 
-Properties/Dock correction is also implemented: Project Explorer selections now populate contextual Properties, the empty state is user-facing instead of technical `None`/`—`, and Developer Diagnostics is hidden while the right dock is collapsed so the narrow rail no longer contains clipped vertical text.
+- `PROJECT_ROADMAP.md`;
+- `PROJECT_STATUS.md`;
+- `ARCHITECTURE.md`;
+- `DOCUMENTATION_INDEX.md`;
+- `CHANGELOG.md` for history only.
 
-## v212 status
-Report printing and rerun stability are under active acceptance. The implementation now provides compact printable tables, active-depth graph cropping, bounded interval overlays, DOCX plot embedding, and a single source of truth for the tablet-column widget. Stage 4 remains open until live PDF/DOCX/HTML and browser-print acceptance is completed.
-
-Current build: v213. Correlation route and report readability repairs implemented; live acceptance remains required.
+No new roadmap, sprint-status or progress files are created.
