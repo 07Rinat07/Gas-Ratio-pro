@@ -26,9 +26,9 @@ def test_roadmap_declares_single_active_sequence() -> None:
     assert "Stage 3 — Modern Workbench and new main page" in roadmap
     assert "Status: **COMPLETED v193**" in roadmap
     assert "### Stage 4 — Workbench UI Completion" in roadmap
-    assert "Status: **ACTIVE v194**" in roadmap
+    assert "Status: **ACTIVE v195**" in roadmap
     assert "Current stage: Workbench UI Completion" in status
-    assert "Complete the production Workbench engineering layout" in status
+    assert "Complete interactive Workbench panes inside the v195 production layout" in status
 
 
 def test_version_notes_are_archived_outside_docs_root() -> None:

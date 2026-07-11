@@ -1383,3 +1383,13 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added responsive Streamlit adapter CSS with overflow and focus-visible guards.
 - Preserved a serializable presentation-only boundary without DataFrames or runtime service objects.
 - Completed Modern Workbench Stage 3 and activated Petrophysical Engine Stage 4.
+
+
+## v195 Workbench production engineering layout
+
+- Replaced the linear shell-button presentation with a full-screen five-region engineering layout.
+- Added a renderer-neutral `WorkbenchUILayoutContract` for toolbar, project tree, workspace host, Properties and Status Bar.
+- Added desktop three-column and responsive single-column layouts without horizontal overflow.
+- Connected the active module view model to the central workspace host without moving domain calculations or repository access into Streamlit.
+- Preserved command-backed navigation and dock focus controls.
+- Added production renderer, serialization, responsive and smoke regression coverage.

@@ -3,7 +3,7 @@
 Актуальный статус проекта ведётся в [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
 Текущий этап: **Workbench UI Completion**.  
-Следующий шаг: **full production Workbench engineering layout with workspace host, Project Explorer, Properties, command toolbar and Status Bar**.
+Следующий шаг: **interactive completion of toolbar commands, project-tree hydration, contextual Properties, embedded LAS Viewer and supported dock sizing inside the v195 layout**.
 
 Исторический progress log перенесён в:
 

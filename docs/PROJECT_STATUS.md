@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v194  
+Baseline: v195  
 Current stage: Workbench UI Completion  
-Last fully verified runtime baseline: v193 — Modern Workbench is the default production Streamlit entry point. Planning baseline v194 inserts the confirmed Workbench UI Completion stage before Petrophysical Engine so the shell is completed as an engineering workspace before additional domain modules are integrated.
+Last fully verified runtime baseline: v193 — Modern Workbench is the default production Streamlit entry point. Implementation baseline v195 establishes the full-screen five-region engineering layout. The confirmed plan inserts the confirmed Workbench UI Completion stage before Petrophysical Engine so the shell is completed as an engineering workspace before additional domain modules are integrated.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -40,23 +40,23 @@ Modern Workbench:
 
 ## 2. Что не считается завершённым
 
-- The production Workbench currently renders a minimal shell rather than a complete engineering workspace.
-- Project Explorer, workspace host, contextual Properties panel, command toolbar and operational status bar are not yet integrated into the real screen layout.
+- The five-region production layout is now integrated, but toolbar commands, project-tree hydration, contextual selection properties and the embedded LAS visualization still require full interactive completion.
+- Dock resizing must be completed within supported Streamlit boundaries and verified on real desktop/mobile runs.
 - Petrophysical Engine work is intentionally deferred until Workbench UI Completion passes its Definition of Done.
 
 ## 3. Следующий разрешённый инкремент
 
-**Complete the production Workbench engineering layout.**
+**Complete interactive Workbench panes inside the v195 production layout.**
 
 Состав:
 
-1. implement the full-screen Workbench layout and central workspace host;
-2. connect command toolbar/ribbon to existing renderer actions and Command Framework;
-3. render Project Explorer and context-sensitive Properties as docked application views;
-4. add operational Status Bar from serializable Workbench context;
-5. place LAS Viewer inside the workspace host without moving calculations into UI;
+1. connect toolbar groups to existing renderer actions and Command Framework;
+2. hydrate Project Explorer from an application-level serializable project-tree provider;
+3. bind Properties to the existing Workbench selection/context contracts;
+4. embed the existing LAS Viewer render payload in the central workspace host;
+5. finish supported dock sizing/collapse behavior and operational viewport/scale status;
 6. preserve responsive, keyboard and accessibility contracts;
-7. unit, integration, smoke, regression and preflight tests.
+7. unit, integration, production smoke, regression and preflight tests.
 
 Stage 3 remains completed: shell architecture and production entry are confirmed.
 Stage 4 Workbench UI Completion is now active because the real production screen exposed an incomplete presentation layer.
