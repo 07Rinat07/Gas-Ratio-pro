@@ -1,6 +1,6 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v204
+Baseline: v205
 Current stage: Stage 4 — Workbench UI Completion / module integration audit
 Runtime acceptance: **FAILED for v202; navigation works, but core LAS/report/documentation workflows are not yet proven visible and usable**
 
@@ -8,25 +8,23 @@ Runtime acceptance: **FAILED for v202; navigation works, but core LAS/report/doc
 
 Modern Workbench shell, navigation, command dispatch and dock layout work. Live owner testing proved that `Command executed` is not sufficient acceptance: LAS upload/editor/viewer, graphs, reports, printing and Documentation were not observable as usable workflows in the central workspace. Browser DevTools also reported form/accessibility findings, but no JavaScript exception explaining the empty modules.
 
-## 2. Активный инкремент v204
+## 2. Активный инкремент v205
 
-**Runtime Error Capture and Workspace Rendering Repair**:
+**Module Render Audit and Streamlit Compatibility Completion**:
 
-- mixed-type UI tables are normalized before Arrow serialization;
-- deprecated raw HTML component rendering is replaced by the supported Streamlit HTML path;
-- Streamlit, PyArrow and Python warnings are routed into the existing rotating `logs/app.log`;
-- every route remains audited through `command → state → renderer → provider → visible workflow → result`;
-- command handler exceptions are converted to failed command results instead of uncaught page crashes;
-- every captured exception receives a correlation ID;
-- full tracebacks are written to rotating `logs/app.log`;
-- compact incident metadata is retained in application state without traceback or runtime objects;
-- active route/renderer/provider/module-loaded binding is recorded;
-- optional Developer Diagnostics panel is enabled only with `-Diagnostics`;
-- Stage 5 Petrophysical Engine остается заблокирован до завершения Stage 4.
+- all direct and fallback uses of `streamlit.components.v1.html` are removed;
+- dashboard HTML uses `st.html`, with `st.markdown(..., unsafe_allow_html=True)` only as a non-component compatibility fallback;
+- every Workbench route writes `start`, `completed` or `failed` render-audit events to the existing `logs/app.log`;
+- audit events include route, renderer, provider, expected controls and duration;
+- Developer Diagnostics shows render phase, success, duration and expected controls;
+- `module_loaded` now depends on both route handling and successful render audit;
+- Stage 5 remains blocked until owner acceptance proves visible and usable controls.
 
+
+Petrophysical Engine остается заблокирован до завершения живой production-приёмки Stage 4.
 ## 3. Единственный следующий разрешенный шаг
 
-Run v204 with diagnostics and repeat LAS/Interpretation/Reports/Exports/Documentation acceptance. Confirm that Arrow serialization warnings and deprecated HTML warnings no longer appear, then fix the first route whose real controls or output remain unavailable.
+Run v205 with diagnostics and repeat LAS/Interpretation/Reports/Exports/Documentation acceptance. Use the new `workbench_render_audit` lines to identify the first route that resolves but still lacks visible controls or output.
 
 Launch diagnostics mode:
 

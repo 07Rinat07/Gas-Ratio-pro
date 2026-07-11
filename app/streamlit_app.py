@@ -9,6 +9,7 @@ import os
 import random
 import sys
 from datetime import datetime
+from time import perf_counter
 from io import BytesIO
 from pathlib import Path
 from textwrap import dedent
@@ -17,7 +18,6 @@ import pandas as pd
 
 try:
     import streamlit as st
-    import streamlit.components.v1 as components
 except ModuleNotFoundError:  # pragma: no cover - lightweight fallback for non-UI test environments
     class _StreamlitSessionState(dict):
         def __getattr__(self, name: str):
@@ -55,12 +55,7 @@ except ModuleNotFoundError:  # pragma: no cover - lightweight fallback for non-U
         def container(self, *args, **kwargs):
             return _StreamlitNoopContext()
 
-    class _ComponentsStub:
-        def html(self, *_args, **_kwargs):
-            return None
-
     st = _StreamlitStub()
-    components = _ComponentsStub()
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
@@ -76,6 +71,7 @@ from core.diagnostics import (
 )
 from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summarize_interpretation
 from core.logging_config import configure_logging, safe_log_value
+from core.workbench_runtime_diagnostics import record_render_audit
 from core.application_state import ApplicationStateController
 from core.models import CalculationConfig, STANDARD_FIELDS
 from importers.csv_importer import load_csv_sheets
@@ -5855,10 +5851,14 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
       </body>
     </html>
     """).strip()
-    if callable(getattr(st, "html", None)):
-        st.html(workspace_component_html)
-    else:  # compatibility with older Streamlit only
-        components.html(workspace_component_html, height=760, scrolling=False)
+    # Render dashboard markup through Streamlit's supported HTML element.
+    # Never fall back to st.components.v1.html: that API is deprecated and
+    # emits runtime warnings on current Streamlit releases.
+    html_renderer = getattr(st, "html", None)
+    if callable(html_renderer):
+        html_renderer(workspace_component_html)
+    else:  # lightweight/test compatibility; no iframe/component boundary
+        st.markdown(workspace_component_html, unsafe_allow_html=True)
 
 def _render_start_tab(active_project: ProjectRecord) -> None:
     projects = list_projects(LAS_CORRELATION_PROJECTS_ROOT)
@@ -10884,29 +10884,69 @@ def _render_workbench_las_workspace(logger, active_project: ProjectRecord) -> No
         _render_workspace(logger, active_project)
 
 
-def render_modern_workbench_workspace(navigation_id: str) -> bool:
-    """Render an existing production workflow in the Workbench center region.
+WORKBENCH_ROUTE_EXPECTED_CONTROLS: dict[str, tuple[str, ...]] = {
+    "nav.dashboard": ("global-search", "recent-projects", "recent-las"),
+    "nav.las_workspace": ("las-workflow-selector", "file-uploader", "las-editor"),
+    "nav.interpretation": ("data-source", "plot-controls", "plot-output"),
+    "nav.reports": ("report-preview", "download-report", "print-export"),
+    "nav.exports": ("export-list", "download-export"),
+    "nav.documentation": ("documentation-navigation", "documentation-content"),
+}
 
-    Returns ``True`` when the route is handled.  The function deliberately
-    reuses established screens instead of duplicating LAS, plotting, reporting
-    or documentation logic in the new renderer.
+
+def render_modern_workbench_workspace(navigation_id: str) -> bool:
+    """Render an existing production workflow and audit the full UI boundary.
+
+    A route is considered handled only when its production renderer returns
+    without an exception.  Start/success/failure records are written to the
+    existing application log so an operator can distinguish command execution
+    from actual renderer/provider/view completion.
     """
 
     clean_id = str(navigation_id or "").strip()
     logger = configure_logging()
-    active_project = _active_project_for_workbench(logger)
+    state = _application_state_controller().state
     routes = {
-        "nav.dashboard": lambda: _render_start_tab(active_project),
-        "nav.las_workspace": lambda: _render_workbench_las_workspace(logger, active_project),
-        "nav.interpretation": lambda: _render_interpretation_graphs_tab(logger, active_project),
-        "nav.reports": lambda: _render_interpretation_graphs_tab(logger, active_project),
-        "nav.exports": lambda: _render_project_exports_panel(active_project, logger),
-        "nav.documentation": _render_documentation_tab,
+        "nav.dashboard": ("dashboard", lambda project: _render_start_tab(project)),
+        "nav.las_workspace": ("las-workflows", lambda project: _render_workbench_las_workspace(logger, project)),
+        "nav.interpretation": ("interpretation-graphs", lambda project: _render_interpretation_graphs_tab(logger, project)),
+        "nav.reports": ("report-workflow", lambda project: _render_interpretation_graphs_tab(logger, project)),
+        "nav.exports": ("project-exports", lambda project: _render_project_exports_panel(project, logger)),
+        "nav.documentation": ("documentation-center", lambda _project: _render_documentation_tab()),
     }
-    renderer = routes.get(clean_id)
-    if renderer is None:
+    route = routes.get(clean_id)
+    if route is None:
+        record_render_audit(
+            state, route_id=clean_id, renderer="unresolved", provider="none",
+            phase="resolve", success=False, details={"reason": "unknown-route"},
+        )
         return False
-    renderer()
+
+    provider, renderer = route
+    expected = WORKBENCH_ROUTE_EXPECTED_CONTROLS.get(clean_id, ())
+    started = perf_counter()
+    record_render_audit(
+        state, route_id=clean_id, renderer=getattr(renderer, "__name__", "route-renderer"),
+        provider=provider, phase="start", success=True, expected_controls=expected,
+    )
+    try:
+        active_project = _active_project_for_workbench(logger)
+        renderer(active_project)
+    except Exception as exc:
+        duration_ms = (perf_counter() - started) * 1000.0
+        record_render_audit(
+            state, route_id=clean_id, renderer=getattr(renderer, "__name__", "route-renderer"),
+            provider=provider, phase="failed", success=False, duration_ms=duration_ms,
+            expected_controls=expected, details={"exception": type(exc).__name__, "message": str(exc)},
+        )
+        raise
+
+    duration_ms = (perf_counter() - started) * 1000.0
+    record_render_audit(
+        state, route_id=clean_id, renderer=getattr(renderer, "__name__", "route-renderer"),
+        provider=provider, phase="completed", success=True, duration_ms=duration_ms,
+        expected_controls=expected, details={"project_id": active_project.id},
+    )
     return True
 
 

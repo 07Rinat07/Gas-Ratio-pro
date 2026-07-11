@@ -1476,3 +1476,12 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Replaced the deprecated raw HTML component path with `st.html` where supported.
 - Routed Streamlit, PyArrow and Python warnings into the existing rotating `logs/app.log`.
 - Added regression coverage for Arrow-safe tables and runtime log capture.
+
+
+## v205 Module render audit and Streamlit compatibility
+
+- Removed all direct and fallback `streamlit.components.v1.html` usage.
+- Added route-level renderer/provider/view audit events with start/completed/failed phases.
+- Added duration and expected-control metadata to Developer Diagnostics.
+- Made Workbench binding status depend on successful render completion.
+- Updated the existing roadmap and status documents without creating new planning files.

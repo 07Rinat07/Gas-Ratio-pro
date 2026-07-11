@@ -348,12 +348,18 @@ def _render_native_streamlit_layout(
             try:
                 from app.streamlit_app import render_modern_workbench_workspace
                 module_rendered = bool(render_modern_workbench_workspace(active_navigation_id))
+                render_audit = diagnostics_snapshot(registry.state).get("render_audit", {})
                 record_binding_state(
                     registry.state, route_id=active_navigation_id,
-                    renderer="render_modern_workbench_workspace",
-                    provider="existing-production-workflow",
-                    module_loaded=module_rendered,
+                    renderer=str(render_audit.get("renderer") or "render_modern_workbench_workspace"),
+                    provider=str(render_audit.get("provider") or "existing-production-workflow"),
+                    module_loaded=module_rendered and bool(render_audit.get("success", True)),
                     project_id=str(payload.get("interaction", {}).get("active_project_id", "") or ""),
+                    details={
+                        "phase": render_audit.get("phase", ""),
+                        "duration_ms": render_audit.get("duration_ms"),
+                        "expected_controls": render_audit.get("expected_controls", ()),
+                    },
                 )
             except Exception as exc:
                 incident = record_runtime_exception(
@@ -464,12 +470,22 @@ def _render_native_streamlit_layout(
             snapshot = diagnostics_snapshot(registry.state)
             with st_module.expander("Developer Diagnostics", expanded=False):
                 binding = snapshot.get("binding", {})
+                render_audit = snapshot.get("render_audit", {})
                 st_module.caption(
                     "Route: " + str(binding.get("route_id") or "—")
                     + " | Renderer: " + str(binding.get("renderer") or "—")
                     + " | Provider: " + str(binding.get("provider") or "—")
                     + " | Loaded: " + ("YES" if binding.get("module_loaded") else "NO")
                 )
+                if render_audit:
+                    st_module.caption(
+                        "Render phase: " + str(render_audit.get("phase") or "—")
+                        + " | Success: " + ("YES" if render_audit.get("success") else "NO")
+                        + " | Duration: " + str(render_audit.get("duration_ms") or "—") + " ms"
+                    )
+                    controls = tuple(render_audit.get("expected_controls", ()) or ())
+                    if controls:
+                        st_module.caption("Expected controls: " + ", ".join(map(str, controls)))
                 incidents = list(snapshot.get("incidents", ()))
                 if incidents:
                     latest = incidents[-1]

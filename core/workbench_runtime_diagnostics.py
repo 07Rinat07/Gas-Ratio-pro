@@ -15,6 +15,7 @@ from core.logging_config import configure_logging, safe_log_value
 
 DIAGNOSTIC_INCIDENTS_KEY = "workbench.runtime_diagnostics.incidents"
 DIAGNOSTIC_BINDING_KEY = "workbench.runtime_diagnostics.binding"
+DIAGNOSTIC_RENDER_AUDIT_KEY = "workbench.runtime_diagnostics.render_audit"
 DIAGNOSTIC_MAX_INCIDENTS = 40
 DIAGNOSTICS_ENV_VAR = "GAS_RATIO_PRO_DIAGNOSTICS"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
@@ -58,6 +59,51 @@ def record_binding_state(
     return record
 
 
+
+def record_render_audit(
+    state: MutableMapping[str, Any],
+    *,
+    route_id: str,
+    renderer: str,
+    provider: str,
+    phase: str,
+    success: bool,
+    duration_ms: float | None = None,
+    expected_controls: tuple[str, ...] | list[str] = (),
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Record one compact renderer/provider/view audit entry.
+
+    The record is intentionally serializable and contains no Streamlit runtime
+    objects.  It is written both to application state and the single rotating
+    ``logs/app.log`` file.
+    """
+    record = {
+        "timestamp": _now_iso(),
+        "route_id": str(route_id or ""),
+        "renderer": str(renderer or ""),
+        "provider": str(provider or ""),
+        "phase": str(phase or ""),
+        "success": bool(success),
+        "duration_ms": None if duration_ms is None else round(float(duration_ms), 2),
+        "expected_controls": tuple(str(item) for item in expected_controls),
+        "details": {str(k): safe_log_value(v, 240) for k, v in dict(details or {}).items()},
+    }
+    state[DIAGNOSTIC_RENDER_AUDIT_KEY] = record
+    logger = configure_logging()
+    logger.info(
+        "workbench_render_audit route=%s renderer=%s provider=%s phase=%s success=%s duration_ms=%s expected_controls=%s details=%s",
+        safe_log_value(record["route_id"]),
+        safe_log_value(record["renderer"]),
+        safe_log_value(record["provider"]),
+        safe_log_value(record["phase"]),
+        record["success"],
+        record["duration_ms"],
+        record["expected_controls"],
+        record["details"],
+    )
+    return record
+
 def record_runtime_exception(
     state: MutableMapping[str, Any],
     exc: BaseException,
@@ -96,5 +142,6 @@ def record_runtime_exception(
 def diagnostics_snapshot(state: MutableMapping[str, Any]) -> dict[str, Any]:
     return {
         "binding": dict(state.get(DIAGNOSTIC_BINDING_KEY, {}) or {}),
+        "render_audit": dict(state.get(DIAGNOSTIC_RENDER_AUDIT_KEY, {}) or {}),
         "incidents": tuple(dict(item) for item in state.get(DIAGNOSTIC_INCIDENTS_KEY, ()) if isinstance(item, dict)),
     }
