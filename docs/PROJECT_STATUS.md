@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v187  
+Baseline: v188  
 Current stage: Modern Workbench and new main page  
-Last fully verified baseline: v187 — Modern Workbench shell now uses one application-level navigation model; every section activates one registered tool through the command framework, and LAS Workspace is connected to the existing LAS Viewer service payload without UI business logic; preflight OK.
+Last fully verified baseline: v188 — application-level Dock Manager controls pane open/close/collapse/restore/focus through the command framework and Event Bus; registered Workbench tools are connected to serializable dock panes; preflight OK.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -27,23 +27,22 @@ LAS Viewer foundation:
 
 ## 2. Что не считается завершённым
 
-- Dock Manager и полноценное управление панелями ещё не завершены.
 - Command Framework и Event Bus требуют финальной интеграции на уровне Workbench shell.
 - Responsive и accessibility audit ещё не выполнены.
 
 ## 3. Следующий разрешённый инкремент
 
-**Build the Dock Manager and tool panels.**
+**Complete Command Framework and Event Bus integration for the Workbench shell.**
 
 Состав:
 
-1. единый application-level Dock Manager;
-2. открытие, закрытие, сворачивание и фокус панелей через command layer;
-3. сохранение dock layout как presentation state;
-4. подключение зарегистрированных Workbench tools к dock panes без бизнес-логики в UI;
+1. единый command dispatch для navigation, tools и dock lifecycle;
+2. нормализованные события Workbench shell без прямых UI state mutations;
+3. согласованное обновление active module, tool pane и dock focus;
+4. renderer-facing event/command contract без бизнес-логики;
 5. unit, integration и regression tests.
 
-Workbench shell и единый navigation model завершены в v187.
+Dock Manager и tool panels завершены в v188.
 
 Stage 4 Petrophysical Engine в следующий инкремент не входит.
 

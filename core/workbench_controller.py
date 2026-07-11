@@ -28,6 +28,10 @@ from core.workbench_tool_actions import (
 )
 from core.workbench_shell import (
     WORKBENCH_ACTIVATE_DOCK_PANE_COMMAND_ID,
+    WORKBENCH_OPEN_DOCK_PANE_COMMAND_ID,
+    WORKBENCH_CLOSE_DOCK_PANE_COMMAND_ID,
+    WORKBENCH_COLLAPSE_DOCK_PANE_COMMAND_ID,
+    WORKBENCH_RESTORE_DOCK_PANE_COMMAND_ID,
     WORKBENCH_SELECT_NAVIGATION_COMMAND_ID,
     WorkbenchRendererContract,
     WorkbenchShellBuilder,
@@ -153,7 +157,7 @@ class WorkbenchController:
         return {item.id for item in self.shell().navigation if item.visible and item.enabled}
 
     def _dock_pane_ids(self) -> set[str]:
-        return {pane.id for pane in self.shell().dock_layout.panes if not pane.collapsed}
+        return {pane.id for pane in self.shell().dock_layout.panes if pane.opened and not pane.collapsed}
 
     def _tool_ids(self) -> set[str]:
         return {tool.id for tool in self.shell().tools if tool.visible and tool.enabled}
@@ -175,6 +179,9 @@ class WorkbenchController:
             WORKBENCH_ACTIVATE_TOOL_COMMAND_ID,
             {"tool_id": route.tool_id, "metadata": {"navigation_id": clean_id}},
         )
+        tool_pane_id = f"dock.{route.tool_id}"
+        if tool_pane_id in {pane.id for pane in self.shell().dock_layout.panes}:
+            self.command_registry.execute(WORKBENCH_OPEN_DOCK_PANE_COMMAND_ID, {"pane_id": tool_pane_id})
         return self._result(result)
 
     def activate_dock_pane(self, pane_id: str) -> WorkbenchControllerResult:
@@ -189,6 +196,24 @@ class WorkbenchController:
         )
         return self._result(result)
 
+    def _dispatch_dock_command(self, command_id: str, pane_id: str) -> WorkbenchControllerResult:
+        clean_id = str(pane_id or "").strip()
+        all_ids = {pane.id for pane in self.shell().dock_layout.panes}
+        if clean_id not in all_ids:
+            raise KeyError(f"Unknown Workbench dock pane: {clean_id}")
+        return self._result(self.command_registry.execute(command_id, {"pane_id": clean_id}))
+
+    def open_dock_pane(self, pane_id: str) -> WorkbenchControllerResult:
+        return self._dispatch_dock_command(WORKBENCH_OPEN_DOCK_PANE_COMMAND_ID, pane_id)
+
+    def close_dock_pane(self, pane_id: str) -> WorkbenchControllerResult:
+        return self._dispatch_dock_command(WORKBENCH_CLOSE_DOCK_PANE_COMMAND_ID, pane_id)
+
+    def collapse_dock_pane(self, pane_id: str) -> WorkbenchControllerResult:
+        return self._dispatch_dock_command(WORKBENCH_COLLAPSE_DOCK_PANE_COMMAND_ID, pane_id)
+
+    def restore_dock_pane(self, pane_id: str) -> WorkbenchControllerResult:
+        return self._dispatch_dock_command(WORKBENCH_RESTORE_DOCK_PANE_COMMAND_ID, pane_id)
 
     def tool_manager(self) -> WorkbenchToolManager:
         """Return the Workbench tool manager bound to this controller state."""
@@ -205,6 +230,9 @@ class WorkbenchController:
             WORKBENCH_ACTIVATE_TOOL_COMMAND_ID,
             {"tool_id": clean_id, "metadata": dict(metadata or {})},
         )
+        tool_pane_id = f"dock.{clean_id}"
+        if tool_pane_id in {pane.id for pane in self.shell().dock_layout.panes}:
+            self.command_registry.execute(WORKBENCH_OPEN_DOCK_PANE_COMMAND_ID, {"pane_id": tool_pane_id})
         return self._result(result)
 
     def list_tools(self) -> tuple[WorkbenchToolDescriptor, ...]:
@@ -251,6 +279,14 @@ class WorkbenchController:
             return self.select_navigation(str(clean_payload.get("navigation_id") or clean_payload.get("id") or ""))
         if clean_action_id == "action.activate_dock_pane":
             return self.activate_dock_pane(str(clean_payload.get("pane_id") or clean_payload.get("id") or ""))
+        if clean_action_id == "action.open_dock_pane":
+            return self.open_dock_pane(str(clean_payload.get("pane_id") or clean_payload.get("id") or ""))
+        if clean_action_id == "action.close_dock_pane":
+            return self.close_dock_pane(str(clean_payload.get("pane_id") or clean_payload.get("id") or ""))
+        if clean_action_id == "action.collapse_dock_pane":
+            return self.collapse_dock_pane(str(clean_payload.get("pane_id") or clean_payload.get("id") or ""))
+        if clean_action_id == "action.restore_dock_pane":
+            return self.restore_dock_pane(str(clean_payload.get("pane_id") or clean_payload.get("id") or ""))
         if clean_action_id == "action.activate_tool":
             return self.activate_tool(str(clean_payload.get("tool_id") or clean_payload.get("id") or ""), metadata=dict(clean_payload.get("metadata", {}) or {}))
         if clean_action_id == "action.open_las":

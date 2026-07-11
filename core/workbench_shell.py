@@ -32,6 +32,10 @@ WORKBENCH_ACTIVE_NAVIGATION_KEY = "workbench_active_navigation"
 WORKBENCH_ACTIVE_DOCK_PANE_KEY = "workbench_active_dock_pane"
 WORKBENCH_SELECT_NAVIGATION_COMMAND_ID = "workbench.navigation.select"
 WORKBENCH_ACTIVATE_DOCK_PANE_COMMAND_ID = "workbench.dock.activate"
+WORKBENCH_OPEN_DOCK_PANE_COMMAND_ID = "workbench.dock.open"
+WORKBENCH_CLOSE_DOCK_PANE_COMMAND_ID = "workbench.dock.close"
+WORKBENCH_COLLAPSE_DOCK_PANE_COMMAND_ID = "workbench.dock.collapse"
+WORKBENCH_RESTORE_DOCK_PANE_COMMAND_ID = "workbench.dock.restore"
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,6 +127,7 @@ class WorkbenchDockPane:
     order: int = 0
     size: int | None = None
     collapsed: bool = False
+    opened: bool = True
     floating: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -142,6 +147,7 @@ class WorkbenchDockPane:
             order=int(self.order or 0),
             size=self.size if self.size is None else int(self.size),
             collapsed=bool(self.collapsed),
+            opened=bool(self.opened),
             floating=bool(self.floating),
             metadata=dict(self.metadata or {}),
         )
@@ -156,6 +162,7 @@ class WorkbenchDockPane:
             "order": pane.order,
             "size": pane.size,
             "collapsed": pane.collapsed,
+            "opened": pane.opened,
             "floating": pane.floating,
             "metadata": dict(pane.metadata),
         }
@@ -169,7 +176,7 @@ class WorkbenchDockLayout:
 
     def region(self, name: str) -> tuple[WorkbenchDockPane, ...]:
         clean_name = str(name or "").strip()
-        return tuple(pane for pane in self.panes if pane.region == clean_name and not pane.collapsed)
+        return tuple(pane for pane in self.panes if pane.region == clean_name and pane.opened and not pane.collapsed)
 
     def pane_ids(self) -> tuple[str, ...]:
         return tuple(pane.id for pane in self.panes)
@@ -179,12 +186,80 @@ class WorkbenchDockLayout:
         return {
             "panes": [pane.to_dict() for pane in panes],
             "regions": {
-                region: [pane.id for pane in panes if pane.region == region and not pane.collapsed]
+                region: [pane.id for pane in panes if pane.region == region and pane.opened and not pane.collapsed]
                 for region in sorted({pane.region for pane in panes})
             },
         }
 
 
+
+
+class WorkbenchDockManager:
+    """Application-level manager for dock presentation state."""
+
+    def __init__(self, state: MutableMapping[str, Any]) -> None:
+        self.state = state
+        self.event_bus = ApplicationEventBus(state)
+
+    def layout(self) -> WorkbenchDockLayout:
+        return _build_dock_layout(self.state, DEFAULT_WORKBENCH_DOCK_PANES)
+
+    def _persist(self, panes: Iterable[WorkbenchDockPane]) -> WorkbenchDockLayout:
+        layout = WorkbenchDockLayout(tuple(pane.normalized() for pane in panes))
+        self.state[WORKBENCH_DOCK_LAYOUT_KEY] = [pane.to_dict() for pane in layout.panes]
+        return layout
+
+    def _update(self, pane_id: str, **changes: Any) -> WorkbenchDockPane:
+        clean_id = str(pane_id or "").strip()
+        panes = list(self.layout().panes)
+        for index, pane in enumerate(panes):
+            if pane.id == clean_id:
+                data = pane.to_dict()
+                data.update(changes)
+                updated = WorkbenchDockPane(**data).normalized()
+                panes[index] = updated
+                self._persist(panes)
+                return updated
+        raise KeyError(f"Unknown Workbench dock pane: {clean_id}")
+
+    def focus(self, pane_id: str) -> WorkbenchDockPane:
+        pane = self._update(pane_id, opened=True, collapsed=False)
+        self.state[WORKBENCH_ACTIVE_DOCK_PANE_KEY] = pane.id
+        self.event_bus.publish("workbench.dock.focused", {"pane_id": pane.id}, source="WorkbenchDockManager")
+        return pane
+
+    def open(self, pane_id: str) -> WorkbenchDockPane:
+        pane = self._update(pane_id, opened=True, collapsed=False)
+        self.state[WORKBENCH_ACTIVE_DOCK_PANE_KEY] = pane.id
+        self.event_bus.publish("workbench.dock.opened", {"pane_id": pane.id}, source="WorkbenchDockManager")
+        return pane
+
+    def close(self, pane_id: str) -> WorkbenchDockPane:
+        pane = self._update(pane_id, opened=False, collapsed=False)
+        if self.state.get(WORKBENCH_ACTIVE_DOCK_PANE_KEY) == pane.id:
+            self.state.pop(WORKBENCH_ACTIVE_DOCK_PANE_KEY, None)
+        self.event_bus.publish("workbench.dock.closed", {"pane_id": pane.id}, source="WorkbenchDockManager")
+        return pane
+
+    def collapse(self, pane_id: str) -> WorkbenchDockPane:
+        pane = self._update(pane_id, opened=True, collapsed=True)
+        if self.state.get(WORKBENCH_ACTIVE_DOCK_PANE_KEY) == pane.id:
+            self.state.pop(WORKBENCH_ACTIVE_DOCK_PANE_KEY, None)
+        self.event_bus.publish("workbench.dock.collapsed", {"pane_id": pane.id}, source="WorkbenchDockManager")
+        return pane
+
+    def restore(self, pane_id: str) -> WorkbenchDockPane:
+        return self.open(pane_id)
+
+    def ensure_tool_panes(self, tools: Iterable[WorkbenchToolDescriptor], open_tool_ids: Iterable[str]) -> WorkbenchDockLayout:
+        panes = list(self.layout().panes)
+        by_id = {pane.id: pane for pane in panes}
+        open_ids = set(open_tool_ids)
+        for tool in tools:
+            pane_id = f"dock.{tool.id}"
+            if pane_id not in by_id:
+                panes.append(WorkbenchDockPane(pane_id, tool.id, "center", tool.title, order=100 + tool.order, opened=False, metadata={"tool_id": tool.id}))
+        return self._persist(panes)
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,7 +293,7 @@ def _choose_active_navigation_id(state: MutableMapping[str, Any], navigation: It
 
 
 def _choose_active_dock_pane_id(state: MutableMapping[str, Any], dock_layout: WorkbenchDockLayout) -> str:
-    visible_panes = tuple(pane for pane in dock_layout.panes if not pane.collapsed)
+    visible_panes = tuple(pane for pane in dock_layout.panes if pane.opened and not pane.collapsed)
     requested = str(state.get(WORKBENCH_ACTIVE_DOCK_PANE_KEY, "") or "").strip()
     if requested and any(pane.id == requested for pane in visible_panes):
         return requested
@@ -288,7 +363,7 @@ def register_workbench_interaction_commands(
 
     def _activate_dock_pane(payload: dict[str, Any]) -> dict[str, str]:
         pane_id = str(payload.get("pane_id") or payload.get("id") or "").strip()
-        activate_workbench_dock_pane(state, pane_id)
+        WorkbenchDockManager(state).focus(pane_id)
         ApplicationEventBus(state).publish(
             "workbench.active_panel.changed",
             {"active_dock_pane_id": state[WORKBENCH_ACTIVE_DOCK_PANE_KEY]},
@@ -297,6 +372,13 @@ def register_workbench_interaction_commands(
         return {
             "active_dock_pane_id": state[WORKBENCH_ACTIVE_DOCK_PANE_KEY],
         }
+
+    dock_manager = WorkbenchDockManager(state)
+
+    def _dock_action(action: str, payload: dict[str, Any]) -> dict[str, Any]:
+        pane_id = str(payload.get("pane_id") or payload.get("id") or "").strip()
+        pane = getattr(dock_manager, action)(pane_id)
+        return pane.to_dict()
 
     command_registry.register(
         WorkbenchCommand(
@@ -320,6 +402,17 @@ def register_workbench_interaction_commands(
         _activate_dock_pane,
         replace=True,
     )
+    for command_id, title, action in (
+        (WORKBENCH_OPEN_DOCK_PANE_COMMAND_ID, "Открыть панель Workbench", "open"),
+        (WORKBENCH_CLOSE_DOCK_PANE_COMMAND_ID, "Закрыть панель Workbench", "close"),
+        (WORKBENCH_COLLAPSE_DOCK_PANE_COMMAND_ID, "Свернуть панель Workbench", "collapse"),
+        (WORKBENCH_RESTORE_DOCK_PANE_COMMAND_ID, "Восстановить панель Workbench", "restore"),
+    ):
+        command_registry.register(
+            WorkbenchCommand(command_id, title, "workbench", title + " через command layer.", payload={}),
+            lambda payload, action=action: _dock_action(action, payload),
+            replace=True,
+        )
     return command_registry
 
 
@@ -468,6 +561,7 @@ class WorkbenchRendererContract:
             "status": self.shell.status.to_dict(),
             "navigation": [item.to_dict() for item in self.shell.navigation if item.visible],
             "dock_regions": self.shell.dock_layout.to_dict()["regions"],
+            "dock_panes": self.shell.dock_layout.to_dict()["panes"],
             "panels": [panel.to_dict() for panel in self.shell.panels if panel.visible],
             "commands": [command.to_dict() for command in self.shell.commands if command.visible],
             "interaction": self.shell.interaction.to_dict(),
@@ -506,6 +600,10 @@ def build_workbench_renderer_contract(
             payload_schema={"pane_id": "string"},
             metadata={"active_dock_pane_id": shell.interaction.active_dock_pane_id},
         ),
+        WorkbenchRendererAction("action.open_dock_pane", WORKBENCH_OPEN_DOCK_PANE_COMMAND_ID, "Открыть панель", "dock", payload_schema={"pane_id": "string"}),
+        WorkbenchRendererAction("action.close_dock_pane", WORKBENCH_CLOSE_DOCK_PANE_COMMAND_ID, "Закрыть панель", "dock", payload_schema={"pane_id": "string"}),
+        WorkbenchRendererAction("action.collapse_dock_pane", WORKBENCH_COLLAPSE_DOCK_PANE_COMMAND_ID, "Свернуть панель", "dock", payload_schema={"pane_id": "string"}),
+        WorkbenchRendererAction("action.restore_dock_pane", WORKBENCH_RESTORE_DOCK_PANE_COMMAND_ID, "Восстановить панель", "dock", payload_schema={"pane_id": "string"}),
         WorkbenchRendererAction(
             "action.activate_tool",
             WORKBENCH_ACTIVATE_TOOL_COMMAND_ID,
@@ -590,6 +688,11 @@ class WorkbenchShellBuilder:
         panel_list = tuple(sorted(tuple(panels or DEFAULT_WORKBENCH_PANELS), key=lambda item: (item.order, item.id)))
         navigation_items = tuple(sorted((item.normalized() for item in (navigation or _build_navigation(self.state, DEFAULT_WORKBENCH_NAVIGATION))), key=lambda item: (item.order, item.group, item.id)))
         dock_layout = _build_dock_layout(self.state, dock_panes or DEFAULT_WORKBENCH_DOCK_PANES)
+        tool_manager = WorkbenchToolManager(self.state)
+        tool_summary = tool_manager.summary()
+        tools = tuple(WorkbenchToolDescriptor.from_dict(item) for item in tool_summary["tools"])
+        if dock_panes is None and not self.state.get(WORKBENCH_DOCK_LAYOUT_KEY):
+            dock_layout = WorkbenchDockManager(self.state).ensure_tool_panes(tools, tool_summary["open_tool_ids"])
         interaction = _build_interaction_state(self.state, navigation_items, dock_layout)
         status = WorkbenchStatus(
             project_id=context.project_id,
@@ -601,9 +704,6 @@ class WorkbenchShellBuilder:
             recent_exports_count=len(tuple(self.state.get(SESSION_RECENT_EXPORTS_KEY, ()) or ())),
         )
         layout = dict(self.state.get(SESSION_WINDOW_LAYOUT_KEY, {}) or {})
-        tool_manager = WorkbenchToolManager(self.state)
-        tool_summary = tool_manager.summary()
-        tools = tuple(WorkbenchToolDescriptor.from_dict(item) for item in tool_summary["tools"])
         return WorkbenchShellModel(
             context=context,
             panels=panel_list,

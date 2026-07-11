@@ -1,5 +1,15 @@
 # Changelog
 
+## v188
+
+- Added an application-level Dock Manager for pane open, close, collapse, restore and focus operations.
+- Routed all dock mutations through Workbench commands and normalized Event Bus events.
+- Persisted dock layout as presentation-only state with explicit opened/collapsed flags.
+- Connected registered Workbench tools to serializable dock panes.
+- Opened and focused a tool pane when its registered tool is activated.
+- Extended the renderer contract with dock pane state and command-backed lifecycle actions.
+- Added Dock Manager unit, controller integration and regression coverage.
+
 ## v187
 
 - Added one deterministic application-level Workbench navigation router.
@@ -109,6 +119,16 @@
 - Added regression tests for metadata service and Workbench LAS Viewer provider.
 
 # Changelog
+
+## v188
+
+- Added an application-level Dock Manager for pane open, close, collapse, restore and focus operations.
+- Routed all dock mutations through Workbench commands and normalized Event Bus events.
+- Persisted dock layout as presentation-only state with explicit opened/collapsed flags.
+- Connected registered Workbench tools to serializable dock panes.
+- Opened and focused a tool pane when its registered tool is activated.
+- Extended the renderer contract with dock pane state and command-backed lifecycle actions.
+- Added Dock Manager unit, controller integration and regression coverage.
 
 ## Visualization Bundle Assets v70
 
