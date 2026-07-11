@@ -18,4 +18,5 @@ def test_invalid_mapping_clears_stale_interpretation_state():
 def test_export_uses_inline_progress_not_floating_spinner():
     assert "with st.spinner(" not in SOURCE
     assert "export_progress = st.empty()" in SOURCE
-    assert "export_progress.info" in SOURCE
+    assert '_set_inline_operation_status(' in SOURCE
+    assert 'export_progress.info' not in SOURCE

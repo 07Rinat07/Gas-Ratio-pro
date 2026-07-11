@@ -1585,3 +1585,13 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Cropped printable tablets to interpreted depth envelope and reduced overlays.
 - Limited technical print tables to readable dimensions.
 - Defaulted interval selection to the first row with valid ratios.
+
+## v214 Inline engineering operation status
+
+- Added compact in-flow statuses for mapping, calculation, visualization rendering and report export.
+- Removed spinner/overlay activity behavior from the explicit engineering actions.
+- Added user-visible calculation/render durations and separate timing records in the application log.
+- Preserved explicit apply boundaries so status rendering does not trigger LAS parsing, calculation or Plotly construction.
+- Added regression coverage against spinner reintroduction and legacy export status placeholders.
+- Routed revision, applied mapping, presentation cache and export state through `ApplicationStateController`.
+- Restored compliance with the final direct-session-state architecture audit.

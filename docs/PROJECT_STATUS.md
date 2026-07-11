@@ -67,13 +67,19 @@ Implemented in the current increment:
 - added explicit `Построить графики и планшет` action;
 - bound the applied presentation to the exact calculated-data signature and calculation revision;
 - prevented color, scale, marker and zone edits from rebuilding Plotly figures before explicit apply.
+- added compact inline operation statuses for mapping, calculation, rendering and export;
+- removed spinner/overlay behavior from the engineering workflow;
+- added calculation and render duration logging plus user-visible completion timings;
+- added regression coverage preventing reintroduction of `st.spinner` and legacy export alert placeholders.
+- routed v214 runtime, cache and widget-state access through `ApplicationStateController`;
+- passed the final direct-session-state architecture audit for the Streamlit application.
 
 Remaining v214 scope:
 
 - remove all widget default/session-state conflicts;
 - complete remaining explicit apply coverage for export controls and secondary presentation workspaces;
 - stop unrelated reruns from rebuilding figures or exports;
-- replace floating/blank Streamlit activity artifact with inline status;
+- replace floating/blank Streamlit activity artifact with inline status; **completed for mapping, calculation, rendering and export**;
 - extend characterization and performance tests.
 
 v214 does not claim visual completion. It creates the safe boundary required to replace renderers without breaking calculation behavior.

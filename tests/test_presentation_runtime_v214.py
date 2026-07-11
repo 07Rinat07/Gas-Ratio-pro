@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from io import BytesIO
+from pathlib import Path
 
 import pandas as pd
 
@@ -167,3 +168,14 @@ def test_applied_presentation_rejects_malformed_state():
             }
         }
     ) is None
+
+
+def test_streamlit_operations_use_inline_status_without_spinner_overlay() -> None:
+    source = (Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py").read_text(encoding="utf-8")
+
+    assert "st.spinner(" not in source
+    assert "grp-inline-operation" in source
+    assert '_set_inline_operation_status(' in source
+    assert 'export_progress.info(' not in source
+    assert 'calculation_duration_ms' in source
+    assert 'render_duration_ms' in source

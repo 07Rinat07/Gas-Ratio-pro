@@ -2340,6 +2340,36 @@ def _apply_app_style(scale: str = "large", layout: str = "wide") -> None:
         }
         .docs-info-row b { color: #f8fafc; }
         .docs-info-row span { color: #cbd5e1; }
+        .grp-inline-operation {
+            display: grid;
+            grid-template-columns: auto auto minmax(0, 1fr);
+            align-items: center;
+            gap: 0.55rem;
+            min-height: 2.35rem;
+            margin: 0.45rem 0 0.7rem;
+            padding: 0.55rem 0.72rem;
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-left: 3px solid #f59e0b;
+            border-radius: 9px;
+            background: rgba(15, 23, 42, 0.42);
+            color: #cbd5e1;
+            line-height: 1.35;
+        }
+        .grp-inline-operation strong { color: #f8fafc; }
+        .grp-inline-operation__state {
+            border-radius: 999px;
+            padding: 0.14rem 0.48rem;
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .grp-inline-operation--success { border-left-color: #22c55e; }
+        .grp-inline-operation--success .grp-inline-operation__state { background: rgba(34, 197, 94, 0.14); color: #86efac; }
+        .grp-inline-operation--error { border-left-color: #ef4444; }
+        .grp-inline-operation--error .grp-inline-operation__state { background: rgba(239, 68, 68, 0.14); color: #fca5a5; }
         @media (max-width: 1100px) {
             .docs-v2-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
@@ -2490,10 +2520,10 @@ def _store_interpretation_dataset(calculated_df: pd.DataFrame, source_label: str
             INTERPRETATION_SESSION_SOURCE_KEY: str(source_label),
         }
     )
-    revisions = revision_controller_from_state(st.session_state)
+    revisions = revision_controller_from_state(_application_state_controller().state)
     snapshot = revisions.bump_calculation()
-    persist_revisions(st.session_state, snapshot)
-    st.session_state.pop("interpretation_figure_cache", None)
+    persist_revisions(_application_state_controller().state, snapshot)
+    _application_state_controller().state.pop("interpretation_figure_cache", None)
 
 
 def _plotly_figures_to_html(
@@ -4961,7 +4991,7 @@ def _workspace_controller() -> WorkspaceController:
     """Return the UI-facing workspace controller for the active Streamlit session.
 
     Workspace pages must use this controller instead of combining direct
-    ``st.session_state`` access with manager/service calls.  The controller owns
+    ``_application_state_controller().state`` access with manager/service calls.  The controller owns
     active workspace context while the manager/service/repository stack owns
     persistence.
     """
@@ -4977,7 +5007,7 @@ def _las_workspace_controller() -> LasWorkspaceController:
     """Return the LAS Workspace 3.0 controller bound to the current UI state.
 
     LAS Workspace UI entry points must use this facade instead of directly
-    creating generic workspaces or reading ``st.session_state``. The facade keeps
+    creating generic workspaces or reading ``_application_state_controller().state``. The facade keeps
     LAS-specific defaults in one place while delegating persistence and active
     workspace transitions to the generic WorkspaceController.
     """
@@ -7094,6 +7124,8 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         help="Фиксирует проверенное сопоставление. Изменение виджетов после этого не запускает расчет автоматически.",
     )
     if apply_mapping_clicked:
+        mapping_status = st.empty()
+        _set_inline_operation_status(mapping_status, "Подготовка данных", "Проверяется и фиксируется mapping.")
         applied_snapshot = AppliedMappingState(
             source_signature=prepared_signature,
             sheet_name=str(sheet_name),
@@ -7101,9 +7133,9 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
             mapping=dict(manual_mapping),
             ch_mode=str(ch_mode),
         )
-        persist_applied_mapping(st.session_state, applied_snapshot)
-        revisions = revision_controller_from_state(st.session_state)
-        persist_revisions(st.session_state, revisions.bump_data())
+        persist_applied_mapping(_application_state_controller().state, applied_snapshot)
+        revisions = revision_controller_from_state(_application_state_controller().state)
+        persist_revisions(_application_state_controller().state, revisions.bump_data())
         _clear_invalid_interpretation_state("Ожидается запуск интерпретации для нового mapping.")
         logger.info(
             "manual_mapping_committed sheet=%s signature=%s mapped=%s",
@@ -7111,9 +7143,14 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
             safe_log_value(prepared_signature[:12]),
             safe_log_value(",".join(sorted(manual_mapping.keys()))),
         )
-        st.success("Mapping применен. Теперь запустите интерпретацию отдельной кнопкой.")
+        _set_inline_operation_status(
+            mapping_status,
+            "Подготовка данных",
+            "Mapping применен. Можно запускать интерпретацию.",
+            state="success",
+        )
 
-    applied_mapping = applied_mapping_from_state(st.session_state)
+    applied_mapping = applied_mapping_from_state(_application_state_controller().state)
     applied_for_current_source = mapping_matches_source(applied_mapping, prepared_signature)
     if applied_for_current_source:
         st.caption("Примененный mapping соответствует текущему набору данных.")
@@ -7148,13 +7185,20 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         )
         st.error("Mapping не может быть применен: " + invalid_reason + ".")
 
-    existing_df = st.session_state.get(INTERPRETATION_SESSION_DATA_KEY)
+    existing_df = _application_state_controller().state.get(INTERPRETATION_SESSION_DATA_KEY)
     if not run_interpretation_clicked:
         if isinstance(existing_df, pd.DataFrame) and not existing_df.empty:
             st.info("Показаны последние примененные результаты. Для пересчета нажмите «Запустить интерпретацию».")
         return
 
     assert applied_mapping is not None
+    calculation_status = st.empty()
+    _set_inline_operation_status(
+        calculation_status,
+        "Расчёт",
+        "Применяется mapping и рассчитываются инженерные коэффициенты.",
+    )
+    calculation_started = perf_counter()
     prepared = apply_mapping(prepared_df, dict(applied_mapping.mapping))
     logger.info(
         "manual_mapping_applied mapped=%s warning_count=%d",
@@ -7165,11 +7209,19 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
     calculated_df = add_interpretation(calculation.data)
     _store_interpretation_dataset(calculated_df, str(sheet_name))
     ch_mode = applied_mapping.ch_mode
+    calculation_duration_ms = (perf_counter() - calculation_started) * 1000.0
     logger.info(
-        "calculation_completed rows=%d ch_mode=%s warning_count=%d",
+        "calculation_completed rows=%d ch_mode=%s warning_count=%d duration_ms=%.2f",
         len(calculated_df),
         safe_log_value(ch_mode),
         len(calculation.warnings),
+        calculation_duration_ms,
+    )
+    _set_inline_operation_status(
+        calculation_status,
+        "Расчёт",
+        f"Интерпретация рассчитана: {len(calculated_df)} строк, {calculation_duration_ms:.0f} мс.",
+        state="success",
     )
 
     nan_messages = ratio_nan_warning_messages(calculated_df, ch_mode=ch_mode)
@@ -7313,6 +7365,25 @@ def _set_interpretation_x_range_state(key_prefix: str, x_range: tuple[float, flo
             f"{key_prefix}_x_max": float(x_range[1]),
         })
     controller.update_values(values)
+
+
+def _set_inline_operation_status(slot, stage: str, message: str, *, state: str = "active") -> None:
+    """Render a compact in-flow operation status without Streamlit spinner overlays."""
+
+    if slot is None or not hasattr(slot, "markdown"):
+        return
+    normalized_state = state if state in {"active", "success", "error"} else "active"
+    labels = {"active": "Выполняется", "success": "Готово", "error": "Ошибка"}
+    slot.markdown(
+        f"""
+        <div class="grp-inline-operation grp-inline-operation--{normalized_state}" role="status" aria-live="polite">
+          <span class="grp-inline-operation__state">{html.escape(labels[normalized_state])}</span>
+          <strong>{html.escape(stage)}</strong>
+          <span>{html.escape(message)}</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def _safe_widget_key(value: object) -> str:
@@ -7570,13 +7641,13 @@ def _render_tablet_controls(
     # reruns and the floating/empty status box reported by users.
     initial_columns = list(_tablet_columns_default(filtered_df, valid_state))
     state_key = "interpretation_tablet_columns"
-    current_widget_value = st.session_state.get(state_key)
+    current_widget_value = _application_state_controller().state.get(state_key)
     if not isinstance(current_widget_value, (list, tuple)):
-        st.session_state[state_key] = initial_columns
+        _application_state_controller().state[state_key] = initial_columns
     else:
         validated_widget_value = [column for column in current_widget_value if column in available_columns]
         if validated_widget_value != list(current_widget_value):
-            st.session_state[state_key] = validated_widget_value or initial_columns
+            _application_state_controller().state[state_key] = validated_widget_value or initial_columns
 
     selected_columns = tuple(
         st.multiselect(
@@ -7827,7 +7898,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     _render_interpretation_graph_settings_saver(active_project, current_settings, logger)
 
     calculated_signature = dataframe_signature(calculated_df)
-    revision_snapshot = revision_controller_from_state(st.session_state).snapshot
+    revision_snapshot = revision_controller_from_state(_application_state_controller().state).snapshot
     build_clicked = st.button(
         "Построить графики и планшет",
         type="primary",
@@ -7836,26 +7907,37 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         help="Фиксирует текущие настройки. Последующие изменения виджетов не перестраивают графики до следующего применения.",
     )
     if build_clicked:
+        presentation_status = st.empty()
+        _set_inline_operation_status(
+            presentation_status,
+            "Визуализация",
+            "Проверяются и фиксируются настройки планшета.",
+        )
         persist_applied_presentation(
-            st.session_state,
+            _application_state_controller().state,
             AppliedPresentationState(
                 source_signature=calculated_signature,
                 calculation_revision=revision_snapshot.calculation,
                 settings=interpretation_graph_settings_to_dict(current_settings),
             ),
         )
-        revisions = revision_controller_from_state(st.session_state)
-        persist_revisions(st.session_state, revisions.bump_presentation())
-        st.session_state.pop("interpretation_figure_cache", None)
+        revisions = revision_controller_from_state(_application_state_controller().state)
+        persist_revisions(_application_state_controller().state, revisions.bump_presentation())
+        _application_state_controller().state.pop("interpretation_figure_cache", None)
         logger.info(
             "interpretation_presentation_committed signature=%s calculation_revision=%d tracks=%s",
             safe_log_value(calculated_signature[:12]),
             revision_snapshot.calculation,
             safe_log_value(",".join(current_settings.selected_tracks)),
         )
-        st.success("Настройки применены. Графики и планшет построены по зафиксированному снимку.")
+        _set_inline_operation_status(
+            presentation_status,
+            "Визуализация",
+            "Настройки применены. Выполняется построение по зафиксированному снимку.",
+            state="success",
+        )
 
-    applied_presentation = applied_presentation_from_state(st.session_state)
+    applied_presentation = applied_presentation_from_state(_application_state_controller().state)
     applied_matches = presentation_matches_source(
         applied_presentation,
         calculated_signature,
@@ -7914,12 +7996,19 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         int(applied_presentation.calculation_revision),
         tuple(sorted((str(key), repr(value)) for key, value in applied_presentation.settings.items())),
     )
-    cached_figure_set = st.session_state.get("interpretation_figure_cache")
+    cached_figure_set = _application_state_controller().state.get("interpretation_figure_cache")
     if isinstance(cached_figure_set, dict) and cached_figure_set.get("key") == figure_cache_key:
         figures = list(cached_figure_set.get("figures", ()))
         tablet_figure = cached_figure_set.get("tablet_figure")
         logger.info("interpretation_figure_cache_hit rows=%d figure_count=%d", len(filtered_df), len(figures))
     else:
+        render_status = st.empty()
+        _set_inline_operation_status(
+            render_status,
+            "Рендеринг",
+            "Строятся графики и профессиональный планшет.",
+        )
+        render_started = perf_counter()
         figures = []
         tablet_figure = None
         if "Интерпретация" in selected_tracks:
@@ -7948,12 +8037,24 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 height=max(int(height), 760),
             )
             figures.append(tablet_figure)
-        st.session_state["interpretation_figure_cache"] = {
+        _application_state_controller().state["interpretation_figure_cache"] = {
             "key": figure_cache_key,
             "figures": tuple(figures),
             "tablet_figure": tablet_figure,
         }
-        logger.info("interpretation_figure_cache_miss rows=%d figure_count=%d", len(filtered_df), len(figures))
+        render_duration_ms = (perf_counter() - render_started) * 1000.0
+        logger.info(
+            "interpretation_figure_cache_miss rows=%d figure_count=%d duration_ms=%.2f",
+            len(filtered_df),
+            len(figures),
+            render_duration_ms,
+        )
+        _set_inline_operation_status(
+            render_status,
+            "Рендеринг",
+            f"Построено графиков: {len(figures)}, {render_duration_ms:.0f} мс.",
+            state="success",
+        )
 
     if not figures:
         st.warning("Выберите хотя бы один график.")
@@ -8074,7 +8175,11 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 )
                 try:
                     export_progress = st.empty()
-                    export_progress.info(f"Формируется {selected_format.label}. Пожалуйста, подождите...")
+                    _set_inline_operation_status(
+                        export_progress,
+                        "Экспорт",
+                        f"Формируется {selected_format.label}.",
+                    )
                     presentation_state = build_presentation_export_ui_state(
                         profile=selected_profile.id,
                         export_format=selected_format.id,
@@ -8096,8 +8201,13 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                         presentation_payload.presentation_model,
                         presentation_state,
                     )
-                    export_progress.success(f"{selected_format.label} подготовлен.")
-                    st.session_state[export_cache_key] = {
+                    _set_inline_operation_status(
+                        export_progress,
+                        "Экспорт",
+                        f"{selected_format.label} подготовлен.",
+                        state="success",
+                    )
+                    _application_state_controller().state[export_cache_key] = {
                         "content": export_artifact.content,
                         "file_name": export_artifact.file_name,
                         "mime_type": export_artifact.mime_type,
@@ -8105,7 +8215,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                         "format_label": selected_format.label,
                         "profile_id": selected_profile.id,
                     }
-                    st.session_state.pop(export_error_key, None)
+                    _application_state_controller().state.pop(export_error_key, None)
                     logger.info(
                         "presentation_export_completed project_id=%s profile=%s format=%s bytes=%d duration_ms=%.2f",
                         safe_log_value(active_project.id),
@@ -8116,7 +8226,13 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                     )
                 except Exception as exc:
                     error_id = f"export-{random.getrandbits(40):010x}"
-                    st.session_state[export_error_key] = {"id": error_id, "message": str(exc)}
+                    _set_inline_operation_status(
+                        locals().get("export_progress"),
+                        "Экспорт",
+                        f"Не удалось подготовить отчет. Код: {error_id}.",
+                        state="error",
+                    )
+                    _application_state_controller().state[export_error_key] = {"id": error_id, "message": str(exc)}
                     logger.exception(
                         "presentation_export_failed error_id=%s project_id=%s profile=%s format=%s duration_ms=%.2f",
                         error_id,
@@ -8126,7 +8242,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                         (perf_counter() - generation_started) * 1000.0,
                     )
 
-            cached_export = st.session_state.get(export_cache_key)
+            cached_export = _application_state_controller().state.get(export_cache_key)
             if isinstance(cached_export, dict):
                 st.download_button(
                     f"Скачать {cached_export.get('format_label', 'отчет')}",
@@ -8143,7 +8259,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             else:
                 st.info("Выберите профиль и формат, затем нажмите «Подготовить выбранный формат».")
 
-            cached_error = st.session_state.get(export_error_key)
+            cached_error = _application_state_controller().state.get(export_error_key)
             if isinstance(cached_error, dict):
                 st.error(
                     f"Не удалось сформировать экспорт. Код ошибки: {cached_error.get('id', '—')}. "
