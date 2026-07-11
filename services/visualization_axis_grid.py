@@ -226,11 +226,12 @@ class VisualizationAxisGridEngine:
         ticks: list[AxisTick] = []
         value = first
         guard = 0
-        while value <= stop + minor_step * 0.25 and guard < 500:
-            ratio = (value - start) / (stop - start)
+        while value <= stop + 1e-9 and guard < 500:
+            bounded_value = min(max(value, start), stop)
+            ratio = (bounded_value - start) / (stop - start)
             position = top + ratio * (bottom - top)
-            major = _is_multiple(value, major_step)
-            ticks.append(AxisTick(value=value, position=position, label=_format_value(value) if major else "", major=major))
+            major = _is_multiple(bounded_value, major_step)
+            ticks.append(AxisTick(value=bounded_value, position=position, label=_format_value(bounded_value) if major else "", major=major))
             value += minor_step
             guard += 1
         return tuple(ticks)

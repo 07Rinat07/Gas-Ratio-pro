@@ -1,5 +1,14 @@
 # Changelog
 
+## v178
+
+- Added deterministic large-LAS regression coverage for 150,000 source curve points.
+- Verified adaptive downsampling, bounded render-model cache, repeat cache hits, peak-memory budget and SVG/PDF geometry parity.
+- Fixed VisualizationPerformanceProfile source-point accounting for points stored inside scene layer payloads.
+- Fixed fractional depth tick generation so grid primitives remain inside track clip regions.
+- Added `VisualizationLargeLasRegression` serializable report contract and regression test.
+- Targeted visualization regression: 20 tests passed. Preflight: OK. Full suite reached 75% without failures before the environment execution limit.
+
 ## v177
 
 - Generated approved SVG/PDF reference artifacts for linear, Unicode and overlay multi-track scenes.

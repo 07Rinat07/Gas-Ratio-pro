@@ -190,7 +190,8 @@ class VisualizationPerformanceEngine:
     ) -> VisualizationPerformanceProfile:
         source_points = 0
         for layer in _mapping_list(scene.get("layers")):
-            source_points += len(_mapping_list(layer.get("points")))
+            payload = layer.get("payload") if isinstance(layer.get("payload"), Mapping) else {}
+            source_points += len(_mapping_list(payload.get("points")))
 
         render_points = 0
         for primitive in _mapping_list(render_model.get("primitives")):

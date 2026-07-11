@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v177  
+Baseline: v178  
 Current stage: Visualization Engine completion  
-Last verified result: 1742 tests passed, preflight OK.
+Last fully verified baseline: 1742 tests passed (v177). v178 targeted regression: 20 tests passed; preflight OK. Full-suite execution reached 75% without failures but was stopped by the execution time limit.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -27,22 +27,21 @@ LAS Viewer foundation:
 
 ## 2. Что не считается завершённым
 
-- Reference artifacts сформированы и автоматически проверяются; ручная визуальная приёмка и large-LAS performance regression ещё не закрыты.
+- Reference artifacts сформированы и автоматически проверяются; large-LAS regression реализован и проходит targeted suite, но полный test suite v178 требует завершённого запуска без лимита среды.
 - Export blocking и structural regression реализованы; остаются точечные исправления только по подтверждённым визуальным дефектам.
 - LAS Viewer foundation существует, но полный пользовательский open → view → interact → export workflow ещё не подтверждён как законченный продукт.
 - Modern Workbench и новая главная страница не начинаются до завершения LAS Viewer.
 
 ## 3. Следующий разрешённый инкремент
 
-**Final large-LAS performance regression for Visualization Engine.**
+**Complete full-suite confirmation for the v178 large-LAS regression increment.**
 
 Состав:
 
-1. прогнать утверждённые большие LAS fixtures через полный pipeline;
-2. измерить bounded memory, downsampling и cache behaviour;
-3. проверить SVG/PDF export после downsampling;
-4. исправлять только подтверждённые performance/blocking defects;
-5. обновить changelog и статус.
+1. повторно запустить полный pytest suite в среде без 10-minute execution limit;
+2. подтвердить отсутствие regression failures после исправлений depth-grid и performance metrics;
+3. при зелёном suite закрыть Stage 1 и разрешить LAS Viewer open workflow;
+4. не добавлять новую функциональность до подтверждения полного suite.
 
 Никакие audit/bookmark/licensing функции в следующий инкремент не входят.
 
