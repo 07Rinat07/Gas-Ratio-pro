@@ -15,6 +15,9 @@ from core.command_framework import CommandExecutionResult, WorkbenchCommandRegis
 from core.build_info import runtime_build_info
 from core.workbench_controller import WorkbenchController, build_workbench_controller
 from core.workbench_ui_layout import build_workbench_ui_layout
+from core.workbench_runtime_diagnostics import (
+    diagnostics_enabled, diagnostics_snapshot, record_binding_state, record_runtime_exception,
+)
 from core.workbench_shell import (
     WorkbenchRendererContract,
     WorkbenchShellBuilder,
@@ -345,8 +348,30 @@ def _render_native_streamlit_layout(
             try:
                 from app.streamlit_app import render_modern_workbench_workspace
                 module_rendered = bool(render_modern_workbench_workspace(active_navigation_id))
+                record_binding_state(
+                    registry.state, route_id=active_navigation_id,
+                    renderer="render_modern_workbench_workspace",
+                    provider="existing-production-workflow",
+                    module_loaded=module_rendered,
+                    project_id=str(payload.get("interaction", {}).get("active_project_id", "") or ""),
+                )
             except Exception as exc:
-                st_module.error(f"Не удалось открыть рабочий модуль: {exc}")
+                incident = record_runtime_exception(
+                    registry.state, exc, boundary="workspace_renderer",
+                    operation=active_navigation_id or "unknown-route",
+                    context={"workspace": active_workspace},
+                )
+                record_binding_state(
+                    registry.state, route_id=active_navigation_id,
+                    renderer="render_modern_workbench_workspace",
+                    provider="existing-production-workflow",
+                    module_loaded=False,
+                    details={"correlation_id": incident["correlation_id"]},
+                )
+                st_module.error(
+                    "Не удалось открыть рабочий модуль. "
+                    f"Код ошибки: {incident['correlation_id']}. Подробности: logs/app.log"
+                )
         if module_rendered:
             pass
         elif runtime.get("embedded"):
@@ -434,6 +459,25 @@ def _render_native_streamlit_layout(
             restore = {"id":"action.restore_dock_pane", "payload":{"pane_id":"dock.properties"}}
             if st_module.button("‹", key="workbench_native_restore_properties", help="Restore Properties"):
                 executed.append(_dispatch_action(contract, registry, restore))
+
+        if diagnostics_enabled() and hasattr(st_module, "expander"):
+            snapshot = diagnostics_snapshot(registry.state)
+            with st_module.expander("Developer Diagnostics", expanded=False):
+                binding = snapshot.get("binding", {})
+                st_module.caption(
+                    "Route: " + str(binding.get("route_id") or "—")
+                    + " | Renderer: " + str(binding.get("renderer") or "—")
+                    + " | Provider: " + str(binding.get("provider") or "—")
+                    + " | Loaded: " + ("YES" if binding.get("module_loaded") else "NO")
+                )
+                incidents = list(snapshot.get("incidents", ()))
+                if incidents:
+                    latest = incidents[-1]
+                    st_module.error(
+                        f"{latest.get('correlation_id')}: {latest.get('exception_type')} — {latest.get('message')}"
+                    )
+                else:
+                    st_module.success("No captured runtime incidents.")
 
     status_items = list(layout.get("status_items", ()))
     status_html = "".join(f"<span><strong>{_html(i.get('label',''))}:</strong> {_html(i.get('value',''))}</span>" for i in status_items)

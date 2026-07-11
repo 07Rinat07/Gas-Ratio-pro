@@ -1,7 +1,7 @@
 # GAS RATIO PRO — Active Project Roadmap
 
 Status: Active  
-Baseline: v202  
+Baseline: v203  
 Purpose: единственная активная последовательность реализации проекта.
 
 ## 1. Обязательные правила
@@ -106,7 +106,7 @@ Status: **COMPLETED v193**
 
 ### Stage 4 — Workbench UI Completion
 
-Status: **IN PROGRESS v202 — functional integration of existing workflows**
+Status: **IN PROGRESS v203 — module binding audit and runtime diagnostics**
 
 Цель: превратить подключённый production Workbench из минимального shell в полноценное инженерное рабочее окружение до подключения следующих domain-модулей.
 
@@ -130,7 +130,12 @@ Status: **IN PROGRESS v202 — functional integration of existing workflows**
 16. Live visual acceptance of the redesigned Workbench. **COMPLETED v201**
 17. Existing LAS import/analysis, LAS editor and LAS correlation screens embedded in the central Workbench host. **COMPLETED v202**
 18. Existing interpretation graphs, printable reports, export archive and Documentation Center routed through the single Workbench navigation model. **COMPLETED v202**
-19. Live functional acceptance: upload a LAS, edit/create LAS, view graphs, generate/download a report and open documentation. **REQUIRED BEFORE CLOSURE**
+19. Live functional acceptance: upload a LAS, edit/create LAS, view graphs, generate/download a report and open documentation. **FAILED IN v202 — modules changed navigation state but real workflows were not observable**
+20. Workbench Module Integration Audit: for every route confirm command → state → renderer → provider → visible workflow → user result. **ACTIVE v203**
+21. Centralized runtime diagnostics: correlation ID, rotating log traceback, compact incident state, command failure events and module-binding snapshot. **IMPLEMENTED v203**
+22. Developer Diagnostics panel behind an explicit process flag; no diagnostics runtime objects in normal presentation state. **IMPLEMENTED v203**
+23. Production acceptance gates for each route: module loaded, controls visible, input accepted, output visible/downloadable, no traceback. **REQUIRED BEFORE CLOSURE**
+24. Browser form/accessibility findings: stable widget keys, labels and supported autocomplete semantics where Streamlit permits control. **PLANNED AFTER MODULE BINDING**
 
 Definition of Done:
 
@@ -139,7 +144,9 @@ Definition of Done:
 - Project Explorer, Properties, Toolbar и Status Bar используют только application/render contracts;
 - LAS Viewer открывается внутри workspace-host;
 - UI не содержит repository/file operations, инженерные вычисления или raw DataFrame;
-- responsive/accessibility, Workbench regression и preflight проходят.
+- responsive/accessibility, Workbench regression и preflight проходят;
+- каждая runtime-ошибка получает correlation ID и полный traceback в `logs/app.log`;
+- route считается интегрированным только когда отображается и выполняется реальный пользовательский workflow, а не только меняется navigation state.
 
 ### Stage 5 — Petrophysical Engine
 

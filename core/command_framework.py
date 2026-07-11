@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, MutableMapping
 
 from core.event_bus import ApplicationEvent, ApplicationEventBus
+from core.workbench_runtime_diagnostics import record_runtime_exception
 
 CommandHandler = Callable[[dict[str, Any]], Any]
 
@@ -126,7 +127,28 @@ class WorkbenchCommandRegistry:
         merged_payload = dict(command.payload)
         merged_payload.update(dict(payload or {}))
         handler = self._handlers.get(command.id)
-        handler_result = handler(merged_payload) if handler is not None else None
+        try:
+            handler_result = handler(merged_payload) if handler is not None else None
+        except Exception as exc:
+            incident = record_runtime_exception(
+                self.state,
+                exc,
+                boundary="command",
+                operation=command.id,
+                context={"payload_keys": tuple(sorted(merged_payload))},
+            )
+            event = ApplicationEventBus(self.state).publish(
+                "workbench.command_failed",
+                {"command_id": command.id, "correlation_id": incident["correlation_id"]},
+                source="WorkbenchCommandRegistry",
+            )
+            return CommandExecutionResult(
+                command.id,
+                executed=False,
+                message=f"{exc}. Error ID: {incident['correlation_id']}",
+                result=None,
+                event=event,
+            )
         event = ApplicationEventBus(self.state).publish(
             "workbench.command_executed",
             {"command_id": command.id, "payload": merged_payload},

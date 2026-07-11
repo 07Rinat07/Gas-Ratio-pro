@@ -1,3 +1,12 @@
+## v203 — Workbench module integration audit and runtime diagnostics
+
+- Added centralized command and workspace-renderer exception capture.
+- Added correlation IDs and rotating-log traceback references for user-visible failures.
+- Added compact serializable runtime incidents and module-binding snapshots.
+- Added optional Developer Diagnostics panel and `run_app.ps1 -Diagnostics`.
+- Updated the existing roadmap/status only; no new planning documents were created.
+- Stage 4 remains open until real LAS, graphs, reports, exports and documentation workflows pass live acceptance.
+
 ## v202 — Workbench functional integration
 
 - Embedded existing LAS import/analysis, LAS editor and LAS correlation workflows in Modern Workbench.

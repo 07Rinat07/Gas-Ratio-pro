@@ -1,6 +1,7 @@
 param(
     [int]$Port = 8501,
-    [switch]$ForceRestart
+    [switch]$ForceRestart,
+    [switch]$Diagnostics
 )
 
 Set-StrictMode -Version Latest
@@ -50,10 +51,11 @@ if ($null -ne $owner) {
     }
 }
 
-Write-Host "Starting Gas Ratio Pro v202" -ForegroundColor Green
+Write-Host "Starting Gas Ratio Pro v203" -ForegroundColor Green
 Write-Host "Source: $ProjectRoot" -ForegroundColor Cyan
 Write-Host "URL: http://localhost:$Port" -ForegroundColor Cyan
 
 $env:GAS_RATIO_PRO_LEGACY_UI = ""
+$env:GAS_RATIO_PRO_DIAGNOSTICS = if ($Diagnostics) { "1" } else { "" }
 & $Python -m streamlit run $EntryPoint --server.port $Port --server.headless true
 exit $LASTEXITCODE
