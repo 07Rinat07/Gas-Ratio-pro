@@ -9,7 +9,7 @@ from core.workbench_tools import WorkbenchToolRegistry
 
 
 def test_v202_build_identity() -> None:
-    assert BUILD_VERSION == "v206"
+    assert BUILD_VERSION == "v207"
 
 
 def test_existing_workflows_are_reused_by_modern_workbench(monkeypatch) -> None:
@@ -18,16 +18,19 @@ def test_existing_workflows_are_reused_by_modern_workbench(monkeypatch) -> None:
     monkeypatch.setattr(app, "configure_logging", lambda: object())
     monkeypatch.setattr(app, "_active_project_for_workbench", lambda logger: project)
     monkeypatch.setattr(app, "_render_start_tab", lambda active_project: calls.append("dashboard"))
+    monkeypatch.setattr(app, "_render_workspace", lambda logger, active_project: calls.append("data"))
     monkeypatch.setattr(app, "_render_workbench_las_workspace", lambda logger, active_project: calls.append("las"))
     monkeypatch.setattr(app, "_render_interpretation_graphs_tab", lambda logger, active_project: calls.append("graphs"))
+    monkeypatch.setattr(app, "_render_workbench_reports", lambda logger, active_project: calls.append("reports"))
     monkeypatch.setattr(app, "_render_project_exports_panel", lambda active_project, logger: calls.append("exports"))
     monkeypatch.setattr(app, "_render_documentation_tab", lambda: calls.append("docs"))
 
     expected = {
         "nav.dashboard": "dashboard",
+        "nav.data": "data",
         "nav.las_workspace": "las",
         "nav.interpretation": "graphs",
-        "nav.reports": "graphs",
+        "nav.reports": "reports",
         "nav.exports": "exports",
         "nav.documentation": "docs",
     }

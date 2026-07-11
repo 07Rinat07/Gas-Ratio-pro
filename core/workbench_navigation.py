@@ -52,6 +52,7 @@ class WorkbenchModuleRoute:
 
 DEFAULT_WORKBENCH_MODULE_ROUTES: tuple[WorkbenchModuleRoute, ...] = (
     WorkbenchModuleRoute("nav.dashboard", "dashboard", "tool.workspace_explorer"),
+    WorkbenchModuleRoute("nav.data", "data", "tool.workspace_explorer"),
     WorkbenchModuleRoute(
         "nav.las_workspace",
         "las_workspace",

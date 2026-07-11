@@ -10884,8 +10884,26 @@ def _render_workbench_las_workspace(logger, active_project: ProjectRecord) -> No
         _render_workspace(logger, active_project)
 
 
+def _render_workbench_reports(logger, active_project: ProjectRecord) -> None:
+    """Render the existing report workflow with an actionable data prerequisite."""
+
+    st.markdown("### Reports")
+    state_controller = _application_state_controller()
+    calculated_df = state_controller.get_value(INTERPRETATION_SESSION_DATA_KEY)
+    if calculated_df is None or calculated_df.empty:
+        st.warning("Для отчетов сначала нужны рассчитанные данные.")
+        st.caption("Откройте Data Workspace, загрузите исходные данные и выполните расчет. После этого здесь появятся предпросмотр, PDF/DOCX и печатный экспорт.")
+        if st.button("Открыть Data Workspace", key="reports_open_data_workspace", width="stretch", type="primary"):
+            from core.workbench_shell import WORKBENCH_ACTIVE_NAVIGATION_KEY
+            state_controller.set_value(WORKBENCH_ACTIVE_NAVIGATION_KEY, "nav.data")
+            _refresh_ui()
+        return
+    _render_interpretation_graphs_tab(logger, active_project)
+
+
 WORKBENCH_ROUTE_EXPECTED_CONTROLS: dict[str, tuple[str, ...]] = {
     "nav.dashboard": ("global-search", "recent-projects", "recent-las"),
+    "nav.data": ("data-source", "file-uploader", "calculation-controls"),
     "nav.las_workspace": ("las-workflow-selector", "file-uploader", "las-editor"),
     "nav.interpretation": ("data-source", "plot-controls", "plot-output"),
     "nav.reports": ("report-preview", "download-report", "print-export"),
@@ -10908,9 +10926,10 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
     state = _application_state_controller().state
     routes = {
         "nav.dashboard": ("dashboard", lambda project: _render_start_tab(project)),
+        "nav.data": ("data-workspace", lambda project: _render_workspace(logger, project)),
         "nav.las_workspace": ("las-workflows", lambda project: _render_workbench_las_workspace(logger, project)),
         "nav.interpretation": ("interpretation-graphs", lambda project: _render_interpretation_graphs_tab(logger, project)),
-        "nav.reports": ("report-workflow", lambda project: _render_interpretation_graphs_tab(logger, project)),
+        "nav.reports": ("report-workflow", lambda project: _render_workbench_reports(logger, project)),
         "nav.exports": ("project-exports", lambda project: _render_project_exports_panel(project, logger)),
         "nav.documentation": ("documentation-center", lambda _project: _render_documentation_tab()),
     }

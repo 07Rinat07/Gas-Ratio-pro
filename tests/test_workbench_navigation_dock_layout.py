@@ -12,6 +12,7 @@ def test_workbench_shell_contains_default_navigation_and_dock_layout():
 
     assert model.navigation_ids() == (
         "nav.dashboard",
+        "nav.data",
         "nav.las_workspace",
         "nav.interpretation",
         "nav.reports",

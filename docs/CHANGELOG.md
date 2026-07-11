@@ -1,3 +1,11 @@
+## v207 Functional navigation and report workflow restoration
+
+- Restored Data Workspace as a first-class Modern Workbench route.
+- Replaced decorative top-menu labels with command-backed buttons.
+- Replaced static Project Explorer rows with route-aware controls.
+- Added actionable Reports prerequisite flow back to Data Workspace.
+- Added acceptance tests for Data, menu, tree and report bindings.
+
 ## v206 Functional visibility repair
 
 - Removed the empty fixed-height HTML workspace shell that pushed native Streamlit workflow widgets below the visible central workspace.

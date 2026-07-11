@@ -10,6 +10,7 @@ def test_single_navigation_model_maps_every_shell_section_to_one_tool():
 
     assert [item["navigation_id"] for item in payload] == [
         "nav.dashboard",
+        "nav.data",
         "nav.las_workspace",
         "nav.interpretation",
         "nav.reports",

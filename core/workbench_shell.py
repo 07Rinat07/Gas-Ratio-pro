@@ -675,6 +675,7 @@ DEFAULT_WORKBENCH_PANELS: tuple[WorkbenchPanel, ...] = (
 
 DEFAULT_WORKBENCH_NAVIGATION: tuple[WorkbenchNavigationItem, ...] = (
     WorkbenchNavigationItem("nav.dashboard", "Dashboard", "dashboard", "main", "dashboard", order=10),
+    WorkbenchNavigationItem("nav.data", "Data Workspace", "data", "main", "database", order=15),
     WorkbenchNavigationItem("nav.las_workspace", "LAS Workspace", "las_workspace", "main", "well", order=20),
     WorkbenchNavigationItem("nav.interpretation", "Interpretation", "interpretation", "analysis", "ratio", order=30),
     WorkbenchNavigationItem("nav.reports", "Reports", "reports", "output", "report", order=40),

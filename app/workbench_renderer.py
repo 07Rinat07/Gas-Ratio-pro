@@ -234,19 +234,40 @@ def _render_native_streamlit_layout(
         f"<div class='workbench-build'>Build <b>{_html(build.version)}</b><br>Workspace: <b>{_html(active_workspace)}</b></div>"
         "</header>", unsafe_allow_html=True,
     )
-    st_module.markdown(
-        "<nav class='workbench-menu' aria-label='Main menu'>"
-        + "".join(
-            f"<span class='workbench-menu-item{' active' if i == 0 else ''}'>{_html(title)}</span>"
-            for i, title in enumerate(("File", "Project", "Data", "LAS", "Interpretation", "Reports", "Export", "Settings", "Help"))
-        )
-        + "</nav>", unsafe_allow_html=True,
+    menu_items = (
+        ("File", "nav.dashboard"),
+        ("Project", "nav.dashboard"),
+        ("Data", "nav.data"),
+        ("LAS", "nav.las_workspace"),
+        ("Interpretation", "nav.interpretation"),
+        ("Reports", "nav.reports"),
+        ("Export", "nav.exports"),
+        ("Settings", "nav.dashboard"),
+        ("Help", "nav.documentation"),
     )
+    active_navigation_id = str(payload.get("interaction", {}).get("active_navigation_id", "") or "")
+    menu_columns = st_module.columns(len(menu_items), gap="small")
+    for (title, navigation_id), column in zip(menu_items, menu_columns):
+        with column:
+            active = navigation_id == active_navigation_id and title not in {"File", "Project", "Settings"}
+            if st_module.button(
+                title,
+                key=f"workbench_menu_{title.lower()}",
+                width="stretch",
+                disabled=active,
+                type="primary" if active else "secondary",
+                help=f"Open {title}",
+            ):
+                executed.append(
+                    dispatch_workbench_renderer_action(
+                        contract, registry, "action.select_navigation", {"navigation_id": navigation_id}
+                    )
+                )
+
 
     # Show only commands that are meaningful in the current presentation state.
     # Active navigation is highlighted, redundant tool activation is hidden, and
     # mutually exclusive dock commands never appear together.
-    active_navigation_id = str(payload.get("interaction", {}).get("active_navigation_id", "") or "")
     dock_state = {str(item.get("id")): dict(item) for item in payload.get("dock_panes", ())}
 
     def _visible_action(action: dict[str, Any]) -> bool:
@@ -319,14 +340,39 @@ def _render_native_streamlit_layout(
     with left:
         if explorer_open:
             st_module.markdown("<div class='workbench-pane-title'><span>Project Explorer</span><span>⌕</span></div>", unsafe_allow_html=True)
+            tree_route_map = {
+                "tree.project": "nav.dashboard",
+                "tree.wells": "nav.data",
+                "tree.las": "nav.las_workspace",
+                "tree.curves": "nav.las_workspace",
+                "tree.calculations": "nav.data",
+                "tree.reports": "nav.reports",
+                "tree.exports": "nav.exports",
+            }
             for item in layout.get("project_tree", ()):
-                indent = "&nbsp;" * (4 * int(item.get("level", 0)))
+                item_id = str(item.get("id", ""))
+                level = int(item.get("level", 0))
                 icon = kind_icons.get(str(item.get("kind", "")), "•")
-                count = f"<small>{int(item.get('count', 0))}</small>" if item.get("count") not in (None, "") else ""
-                st_module.markdown(
-                    f"<div class='workbench-tree-item'><span>{indent}{icon}&nbsp; {_html(item.get('title', ''))}</span>{count}</div>",
-                    unsafe_allow_html=True,
-                )
+                count = item.get("count")
+                label = f"{'  ' * level}{icon} {item.get('title', '')}"
+                if count not in (None, ""):
+                    label += f" ({int(count)})"
+                navigation_id = tree_route_map.get(item_id)
+                if navigation_id:
+                    if st_module.button(
+                        label,
+                        key=f"workbench_tree_{item_id.replace('.', '_')}",
+                        width="stretch",
+                        disabled=navigation_id == active_navigation_id,
+                        type="primary" if navigation_id == active_navigation_id else "secondary",
+                    ):
+                        executed.append(
+                            dispatch_workbench_renderer_action(
+                                contract, registry, "action.select_navigation", {"navigation_id": navigation_id}
+                            )
+                        )
+                else:
+                    st_module.markdown(f"<div class='workbench-tree-item'>{_html(label)}</div>", unsafe_allow_html=True)
             collapse = {"id":"action.collapse_dock_pane", "payload":{"pane_id":"dock.project_explorer"}}
             if st_module.button("‹", key="workbench_native_collapse_explorer", help="Collapse Project Explorer"):
                 executed.append(_dispatch_action(contract, registry, collapse))
