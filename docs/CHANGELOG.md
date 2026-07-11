@@ -1251,3 +1251,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Preserved compact serializable state and guaranteed that raw DataFrames are not retained.
 - Added unit, integration and real-LAS regression coverage.
 
+## v182 LAS Viewer shared interaction
+
+- Added a renderer-neutral application controller for one shared depth viewport across all visible LAS Viewer tracks.
+- Integrated synchronized cursor overlays for every visible track region using the existing track synchronization engine.
+- Integrated one logical selection state and non-printable selection overlays through the existing selection synchronization engine.
+- Ensured viewport changes clear stale cursor state while preserving logical selection.
+- Added compact serializable interaction snapshots without retaining raw DataFrames.
+- Added unit and regression coverage for shared viewport, cursor, selection and renderer-neutral contracts.

@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v181  
+Baseline: v182  
 Current stage: LAS Viewer completion  
-Last fully verified baseline: v181 — LAS-open workflow and complete multi-track viewer are verified; preflight OK. Visualization Engine Stage 1 is complete.
+Last fully verified baseline: v182 — shared depth viewport, cursor and selection are integrated across all visible LAS Viewer tracks; preflight OK. Visualization Engine Stage 1 is complete.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -33,19 +33,19 @@ LAS Viewer foundation:
 
 ## 3. Следующий разрешённый инкремент
 
-**Integrate the shared depth viewport, cursor and selection across all LAS Viewer tracks.**
+**Implement LAS Viewer track configuration: order, width, scale and visibility.**
 
 Состав:
 
-1. использовать готовый multi-track viewer contract;
-2. синхронизировать единый depth viewport для всех видимых tracks;
-3. подключить общий cursor и selection без UI business logic;
-4. сохранить renderer-neutral interaction contracts;
+1. использовать текущий multi-track viewer contract;
+2. управлять порядком и шириной tracks через существующий layout controller;
+3. добавить renderer-neutral scale configuration для curves/tracks;
+4. синхронизировать visibility с viewer session без UI business logic;
 5. покрыть unit, integration и regression tests.
 
-Multi-track viewer подтверждён: imported payload → curve filtering → deterministic tracks → compact viewer state → Visualization Render Model. Пустые и полностью null curves исключаются до render pipeline.
+Shared interaction подтверждён: один `LasViewerSession` управляет depth viewport, cursor и selection для всех видимых tracks; overlays добавляются в единый Render Model как non-printable primitives.
 
-Никакие track configuration, export, audit/bookmark/licensing функции в следующий инкремент не входят.
+Никакие zoom/pan convenience controls, export, audit/bookmark/licensing функции в следующий инкремент не входят.
 
 ## 4. Критерий перехода к LAS Viewer
 
