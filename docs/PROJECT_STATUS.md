@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v189  
+Baseline: v190  
 Current stage: Modern Workbench and new main page  
-Last fully verified baseline: v189 — navigation, tool activation and dock lifecycle are coordinated by one atomic Workbench shell dispatcher; failed multi-command transitions roll back; renderers receive one normalized shell-state event; preflight OK.
+Last fully verified baseline: v190 — LAS Viewer is integrated as the primary Workbench module with synchronized LAS context, navigation route, active tool and dock focus; renderer-facing zoom/pan/fit/reset, cursor, selection and SVG/PDF export actions use application services; preflight OK.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -31,17 +31,17 @@ LAS Viewer foundation:
 
 ## 3. Следующий разрешённый инкремент
 
-**Complete LAS Viewer integration as the primary Workbench module.**
+**Implement project and recent-session entry points without duplicating Workbench navigation.**
 
 Состав:
 
-1. единый primary-module lifecycle для LAS Viewer внутри Workbench shell;
-2. подключение LAS-open, navigation, interaction и export actions через renderer-facing contracts;
-3. согласование active LAS context с active module и dock pane;
-4. отсутствие прямых файловых операций и инженерных вычислений в UI;
+1. единые project/recent-session entry contracts для существующего Workbench shell;
+2. открытие проекта и восстановление последней сессии через Command Framework;
+3. маршрутизация в существующие navigation routes без параллельного UI workflow;
+4. отсутствие прямых repository/file operations в UI;
 5. unit, integration и regression tests.
 
-Command Framework и Event Bus integration завершены в v189.
+LAS Viewer primary-module integration завершена в v190.
 
 Stage 4 Petrophysical Engine в следующий инкремент не входит.
 

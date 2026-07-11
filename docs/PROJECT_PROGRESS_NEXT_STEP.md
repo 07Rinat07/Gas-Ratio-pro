@@ -2,8 +2,8 @@
 
 Актуальный статус проекта ведётся в [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
-Текущий этап: **LAS Viewer completion**.  
-Следующий шаг: **complete multi-track viewer construction from imported LAS curves**.
+Текущий этап: **Modern Workbench and new main page**.  
+Следующий шаг: **project and recent-session entry points through the existing Workbench navigation model**.
 
 Исторический progress log перенесён в:
 

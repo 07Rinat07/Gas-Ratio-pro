@@ -27,6 +27,10 @@ from core.workbench_tool_actions import (
     WORKBENCH_REFRESH_REPORT_PREVIEW_COMMAND_ID,
     WORKBENCH_RUN_GAS_RATIO_ANALYSIS_COMMAND_ID,
 )
+from core.workbench_las_primary_module import (
+    LAS_PRIMARY_ACTIVATE, LAS_PRIMARY_ZOOM, LAS_PRIMARY_PAN, LAS_PRIMARY_FIT,
+    LAS_PRIMARY_RESET, LAS_PRIMARY_CURSOR, LAS_PRIMARY_SELECTION, LAS_PRIMARY_EXPORT,
+)
 from core.workbench_shell import (
     WORKBENCH_ACTIVATE_DOCK_PANE_COMMAND_ID,
     WORKBENCH_OPEN_DOCK_PANE_COMMAND_ID,
@@ -354,6 +358,19 @@ class WorkbenchController:
             return self._result(result)
         if clean_action_id == "action.export_report_bundle":
             result = self.command_registry.execute(WORKBENCH_EXPORT_REPORT_BUNDLE_COMMAND_ID, clean_payload)
+            return self._result(result)
+        las_actions = {
+            "action.las_primary_activate": LAS_PRIMARY_ACTIVATE,
+            "action.las_primary_zoom": LAS_PRIMARY_ZOOM,
+            "action.las_primary_pan": LAS_PRIMARY_PAN,
+            "action.las_primary_fit": LAS_PRIMARY_FIT,
+            "action.las_primary_reset": LAS_PRIMARY_RESET,
+            "action.las_primary_cursor": LAS_PRIMARY_CURSOR,
+            "action.las_primary_selection": LAS_PRIMARY_SELECTION,
+            "action.las_primary_export": LAS_PRIMARY_EXPORT,
+        }
+        if clean_action_id in las_actions:
+            result = self.command_registry.execute(las_actions[clean_action_id], clean_payload)
             return self._result(result)
         available = set(self.contract().action_ids())
         if clean_action_id not in available:

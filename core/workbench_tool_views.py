@@ -230,8 +230,19 @@ class LasViewerToolViewProvider:
                 "metadata_error": metadata_error,
             }
         )
+        from core.workbench_las_primary_module import WorkbenchLasPrimaryModuleService
+        primary_module = WorkbenchLasPrimaryModuleService(state).snapshot()
+        content["primary_module"] = primary_module
         actions = tuple(base.actions) + (
             _action("action.open_las", "Open selected LAS", {"las_id": las_id}, enabled=True),
+            _action("action.las_primary_activate", "Activate LAS Viewer workspace", {"project_id": context.application.project_id, "las_id": las_id}, enabled=bool(context.application.project_id)),
+            _action("action.las_primary_zoom", "Zoom", {"factor": 2.0}, enabled=primary_module.get("status") == "ready"),
+            _action("action.las_primary_pan", "Pan", {"delta": 10.0}, enabled=primary_module.get("status") == "ready"),
+            _action("action.las_primary_fit", "Fit", {}, enabled=primary_module.get("status") == "ready"),
+            _action("action.las_primary_reset", "Reset", {}, enabled=primary_module.get("status") == "ready"),
+            _action("action.las_primary_cursor", "Cursor", {"x": 0.0, "y": 0.0}, enabled=primary_module.get("status") == "ready"),
+            _action("action.las_primary_selection", "Selection", {}, enabled=primary_module.get("status") == "ready"),
+            _action("action.las_primary_export", "Export SVG/PDF", {}, enabled=primary_module.get("status") == "ready"),
         )
         metadata = dict(base.metadata)
         metadata.update({"primary_target": "las", "selected_las_id": las_id})

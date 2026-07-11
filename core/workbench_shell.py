@@ -677,6 +677,8 @@ class WorkbenchShellBuilder:
         register_workbench_tool_commands(self.state, self.command_registry)
         from core.workbench_tool_actions import register_workbench_tool_action_commands
         register_workbench_tool_action_commands(self.state, self.command_registry)
+        from core.workbench_las_primary_module import register_workbench_las_primary_commands
+        register_workbench_las_primary_commands(self.state, self.command_registry)
 
     def build(
         self,

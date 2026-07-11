@@ -1336,3 +1336,13 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Normalized supported units and downgraded unsupported units to `unknown` with explicit diagnostics instead of crashing the viewer.
 - Preserved export/render compatibility and guaranteed that validation state contains no raw DataFrame.
 - Completed LAS Viewer Stage 2 and activated Modern Workbench Stage 3.
+
+
+## v190 Workbench primary LAS Viewer module
+
+- Added one application-level lifecycle for LAS Viewer as the primary Workbench module.
+- Synchronized active project/LAS context, LAS Workspace navigation, active tool and dock focus.
+- Added renderer-facing activation, zoom, pan, fit, reset, cursor, selection and SVG/PDF export actions.
+- Reused existing LAS visualization, interaction, navigation and export services without UI-side parsing or calculations.
+- Persisted only compact serializable viewer state and export metadata; raw DataFrames and artifact bytes are not stored in UI state.
+- Added integration and regression coverage for lifecycle, navigation and current-view export.
