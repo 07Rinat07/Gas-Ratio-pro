@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import csv
+import io
 from hashlib import sha256
 import hmac
 import json
@@ -1723,6 +1725,154 @@ class LasViewerRecentSessions:
             "rejection_reasons": {key: rejection_reasons[key] for key in sorted(rejection_reasons)},
             "events": [event.to_dict() for event in events],
             "renderer_neutral": True,
+        }
+
+    def export_audit_journal_signature_report(
+        self,
+        path: str | Path,
+        *,
+        format: str | None = None,
+        limit: int = 200,
+        operation: str = "",
+        signer_id: str = "",
+    ) -> dict[str, object]:
+        """Atomically export a verification report as integrity-protected JSON or CSV."""
+        destination = Path(path)
+        export_format = str(format or destination.suffix.lstrip(".") or "json").strip().lower()
+        if export_format not in {"json", "csv"}:
+            raise ValueError("format must be json or csv")
+        report = self.audit_journal_signature_report(
+            limit=limit, operation=operation, signer_id=signer_id
+        )
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        exported_at_ns = time.time_ns()
+
+        if export_format == "json":
+            unsigned = {
+                "schema": "las.viewer.audit-journal-signature-report-export",
+                "version": "1.0",
+                "format": "json",
+                "exported_at_ns": exported_at_ns,
+                "report": report,
+                "renderer_neutral": True,
+            }
+            encoded = json.dumps(
+                unsigned, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            ).encode("utf-8")
+            payload = dict(unsigned)
+            payload["sha256"] = sha256(encoded).hexdigest()
+            text = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+        else:
+            buffer = io.StringIO(newline="")
+            writer = csv.DictWriter(
+                buffer,
+                fieldnames=(
+                    "occurred_at_ns", "operation", "source", "signer_id",
+                    "key_id", "accepted", "reason",
+                ),
+                lineterminator="\n",
+            )
+            writer.writeheader()
+            for event in report["events"]:
+                writer.writerow({
+                    "occurred_at_ns": event.get("occurred_at_ns", 0),
+                    "operation": event.get("operation", ""),
+                    "source": event.get("source", ""),
+                    "signer_id": event.get("signer_id", ""),
+                    "key_id": event.get("key_id", ""),
+                    "accepted": str(bool(event.get("accepted", False))).lower(),
+                    "reason": event.get("reason", ""),
+                })
+            body = buffer.getvalue()
+            digest = sha256(body.encode("utf-8")).hexdigest()
+            metadata = {
+                "schema": "las.viewer.audit-journal-signature-report-export",
+                "version": "1.0",
+                "format": "csv",
+                "exported_at_ns": exported_at_ns,
+                "event_count": len(report["events"]),
+                "sha256": digest,
+            }
+            text = "# " + json.dumps(metadata, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n" + body
+            payload = {**metadata, "report": report}
+
+        temporary: Path | None = None
+        try:
+            with NamedTemporaryFile(
+                "w", encoding="utf-8", dir=destination.parent, delete=False, newline=""
+            ) as handle:
+                handle.write(text)
+                handle.flush()
+                os.fsync(handle.fileno())
+                temporary = Path(handle.name)
+            os.replace(temporary, destination)
+        finally:
+            if temporary is not None and temporary.exists():
+                temporary.unlink(missing_ok=True)
+        return payload
+
+    @staticmethod
+    def verify_audit_journal_signature_report_export(path: str | Path) -> dict[str, object]:
+        """Verify report export structure and SHA-256 integrity without importing it."""
+        source = Path(path)
+        try:
+            text = source.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            raise ValueError("invalid signature verification report export") from exc
+
+        if text.startswith("# "):
+            first, separator, body = text.partition("\n")
+            if not separator:
+                raise ValueError("invalid signature verification CSV export")
+            try:
+                metadata = json.loads(first[2:])
+            except json.JSONDecodeError as exc:
+                raise ValueError("invalid signature verification CSV metadata") from exc
+            if not isinstance(metadata, dict) or metadata.get("format") != "csv":
+                raise ValueError("invalid signature verification CSV metadata")
+            digest = sha256(body.encode("utf-8")).hexdigest()
+            if not hmac.compare_digest(str(metadata.get("sha256", "")).lower(), digest):
+                raise ValueError("signature verification report integrity check failed")
+            rows = list(csv.DictReader(io.StringIO(body)))
+            if int(metadata.get("event_count", -1)) != len(rows):
+                raise ValueError("signature verification report event count mismatch")
+            return {
+                "schema": metadata.get("schema"),
+                "version": metadata.get("version"),
+                "format": "csv",
+                "event_count": len(rows),
+                "sha256": digest,
+                "valid": True,
+            }
+
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ValueError("invalid signature verification JSON export") from exc
+        if not isinstance(payload, dict) or payload.get("format") != "json":
+            raise ValueError("invalid signature verification JSON export")
+        expected = str(payload.get("sha256", "")).lower()
+        unsigned = dict(payload)
+        unsigned.pop("sha256", None)
+        encoded = json.dumps(
+            unsigned, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        digest = sha256(encoded).hexdigest()
+        if len(expected) != 64 or not hmac.compare_digest(expected, digest):
+            raise ValueError("signature verification report integrity check failed")
+        report = payload.get("report")
+        if not isinstance(report, dict) or report.get("schema") != "las.viewer.audit-journal-signature-report":
+            raise ValueError("invalid signature verification report payload")
+        events = report.get("events")
+        if not isinstance(events, list) or int(report.get("total", -1)) != len(events):
+            raise ValueError("signature verification report event count mismatch")
+        return {
+            "schema": payload.get("schema"),
+            "version": payload.get("version"),
+            "format": "json",
+            "event_count": len(events),
+            "sha256": digest,
+            "valid": True,
         }
 
     def verify_bookmark_trash_journal_export(

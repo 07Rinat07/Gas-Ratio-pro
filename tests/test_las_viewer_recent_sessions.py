@@ -2029,3 +2029,58 @@ def test_signature_verification_report_rejects_invalid_limit(tmp_path):
         assert "limit" in str(exc)
     else:
         raise AssertionError("ValueError expected")
+
+
+def test_signature_verification_report_exports_and_verifies_json(tmp_path):
+    recent = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "json-report"))
+    invalid = tmp_path / "invalid-json-report.json"
+    invalid.write_text("{}", encoding="utf-8")
+    recent.verify_bookmark_trash_journal_export(invalid)
+    destination = tmp_path / "verification-report.json"
+
+    payload = recent.export_audit_journal_signature_report(destination)
+    verified = recent.verify_audit_journal_signature_report_export(destination)
+
+    assert payload["format"] == "json"
+    assert verified["valid"] is True
+    assert verified["event_count"] == 1
+
+
+def test_signature_verification_report_exports_and_verifies_csv(tmp_path):
+    recent = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "csv-report"))
+    invalid = tmp_path / "invalid-csv-report.json"
+    invalid.write_text("{}", encoding="utf-8")
+    recent.verify_bookmark_trash_journal_export(invalid, operation="merge")
+    destination = tmp_path / "verification-report.csv"
+
+    payload = recent.export_audit_journal_signature_report(destination, format="csv")
+    verified = recent.verify_audit_journal_signature_report_export(destination)
+
+    assert payload["format"] == "csv"
+    assert verified["valid"] is True
+    assert verified["event_count"] == 1
+    assert "occurred_at_ns,operation,source" in destination.read_text(encoding="utf-8")
+
+
+def test_signature_verification_report_export_detects_tampering(tmp_path):
+    recent = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "tampered-report"))
+    destination = tmp_path / "verification-report.json"
+    recent.export_audit_journal_signature_report(destination)
+    destination.write_text(destination.read_text(encoding="utf-8").replace('"total": 0', '"total": 1'), encoding="utf-8")
+
+    try:
+        recent.verify_audit_journal_signature_report_export(destination)
+    except ValueError as exc:
+        assert "integrity" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")
+
+
+def test_signature_verification_report_export_rejects_unknown_format(tmp_path):
+    recent = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "bad-format"))
+    try:
+        recent.export_audit_journal_signature_report(tmp_path / "report.bin", format="xml")
+    except ValueError as exc:
+        assert "format" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")
