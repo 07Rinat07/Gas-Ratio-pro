@@ -1,7 +1,7 @@
 # GAS RATIO PRO — Active Project Roadmap
 
 Status: Active  
-Baseline: v179  
+Baseline: v181  
 Purpose: единственная активная последовательность реализации проекта.
 
 ## 1. Обязательные правила
@@ -68,7 +68,7 @@ Status: **ACTIVE**
 Обязательные задачи:
 
 1. Реальный LAS-open workflow через существующий импортёр. **COMPLETED v180**
-2. Полноценное построение multi-track viewer из LAS curves.
+2. Полноценное построение multi-track viewer из LAS curves. **COMPLETED v181**
 3. Общие depth viewport, cursor и selection.
 4. Track configuration: порядок, ширина, шкала, видимость.
 5. Zoom, pan, fit, reset и стабильная работа на больших LAS.

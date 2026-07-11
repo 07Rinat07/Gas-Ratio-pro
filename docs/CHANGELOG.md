@@ -1242,3 +1242,12 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Prevented raw DataFrame storage in UI/session contracts.
 - Added rollback and regression coverage for invalid LAS, missing depth channels and unsupported extensions.
 
+## v181 LAS Viewer multi-track construction
+
+- Added a renderer-neutral application service that builds a complete multi-track viewer from the LAS-open payload.
+- Excluded empty, fully null and non-finite curves before viewer session and render-model construction.
+- Rebuilt deterministic track membership and created missing track descriptors without UI logic.
+- Connected normalized tracks and curves to the existing `LasViewerSession` and `LasViewerRenderPipeline`.
+- Preserved compact serializable state and guaranteed that raw DataFrames are not retained.
+- Added unit, integration and real-LAS regression coverage.
+
