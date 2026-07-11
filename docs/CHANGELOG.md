@@ -1535,3 +1535,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added duration and expected-control metadata to Developer Diagnostics.
 - Made Workbench binding status depend on successful render completion.
 - Updated the existing roadmap and status documents without creating new planning files.
+
+## v212 — Printable reports and stable UI state
+- Fixed the keyed `interpretation_tablet_columns` widget state conflict that caused repeated reruns and the floating empty status box.
+- Removed raw diagnostic structures from printable PDF/DOCX/HTML tables and translated user-facing quality flags.
+- Added real Plotly image embedding to DOCX with a clear Kaleido fallback instead of the old `DocumentPlot renderer` placeholder.
+- Cropped printable well-log tablets to the active data interval, limited interval overlays, and improved typography and margins.
+- Corrected Russian collector wording in printable report cells and bounded technical appendices for readable reports.

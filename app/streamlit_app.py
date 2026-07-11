@@ -7480,12 +7480,24 @@ def _render_tablet_controls(
             "Mud gas preset использует только найденные в данных колонки; отсутствующие C-компоненты, ratios или ГИС-кривые не подставляются искусственно."
         )
 
+    # Streamlit must have exactly one source of truth for keyed widgets.
+    # Initialising Session State and also passing ``default=`` causes repeated
+    # reruns and the floating/empty status box reported by users.
+    initial_columns = list(_tablet_columns_default(filtered_df, valid_state))
+    state_key = "interpretation_tablet_columns"
+    current_widget_value = st.session_state.get(state_key)
+    if not isinstance(current_widget_value, (list, tuple)):
+        st.session_state[state_key] = initial_columns
+    else:
+        validated_widget_value = [column for column in current_widget_value if column in available_columns]
+        if validated_widget_value != list(current_widget_value):
+            st.session_state[state_key] = validated_widget_value or initial_columns
+
     selected_columns = tuple(
         st.multiselect(
             "Параметры планшета",
             options=available_columns,
-            default=list(_tablet_columns_default(filtered_df, valid_state)),
-            key="interpretation_tablet_columns",
+            key=state_key,
             help="Можно выбрать любые числовые LAS/Excel/CSV/расчетные колонки. Глубина всегда идет вниз по возрастанию.",
         )
     )

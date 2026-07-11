@@ -72,3 +72,6 @@ Status: IN PROGRESS pending live acceptance.
 Implemented: dedicated correlation route, active Project Explorer entry, compact engineering report composition, figures before tables, top-15 non-zero intervals, expert-only detailed reasoning, and PDF plot embedding with Kaleido fallback.
 
 Properties/Dock correction is also implemented: Project Explorer selections now populate contextual Properties, the empty state is user-facing instead of technical `None`/`—`, and Developer Diagnostics is hidden while the right dock is collapsed so the narrow rail no longer contains clipped vertical text.
+
+## v212 status
+Report printing and rerun stability are under active acceptance. The implementation now provides compact printable tables, active-depth graph cropping, bounded interval overlays, DOCX plot embedding, and a single source of truth for the tablet-column widget. Stage 4 remains open until live PDF/DOCX/HTML and browser-print acceptance is completed.

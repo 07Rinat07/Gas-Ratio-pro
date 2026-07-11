@@ -232,3 +232,11 @@ Roadmap изменяется только когда:
 - очистка устаревших графиков/отчетов при смене источника;
 - явный текстовый индикатор подготовки экспорта вместо пустого spinner;
 - acceptance: новый файл с неверным mapping не может показывать графики предыдущего расчета.
+
+### Stage 4 — v212 printable-report acceptance
+- [x] Remove widget/session-state conflict for tablet track selection.
+- [x] Remove raw Python diagnostic payloads from printable reports.
+- [x] Crop report tablets to active data and limit interval overlays.
+- [x] Embed plot images into DOCX instead of renderer placeholders.
+- [ ] Live acceptance: PDF, DOCX, HTML and browser printing on Windows.
+- [ ] Confirm no floating empty status box during navigation and export settings.

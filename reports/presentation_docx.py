@@ -197,16 +197,29 @@ def _add_visualization_preview_placeholder(doc: Document, block: DocumentVisuali
 
 
 def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
-    # Foundation renderer: plot binary rendering will be attached later through
-    # the same DocumentPlot block. We still preserve the plot position and title
-    # so DOCX/PDF/HTML composition remains identical.
+    """Embed the shared Plotly figure into DOCX; never expose renderer placeholders."""
     _add_paragraph(doc, block.title or "Планшет", style="Heading 2")
-    paragraph = doc.add_paragraph()
-    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = paragraph.add_run(
-        "Профессиональный планшет будет встроен здесь через общий DocumentPlot renderer."
-    )
-    run.italic = True
+    figure = block.figure
+    try:
+        if hasattr(figure, "to_image"):
+            png = figure.to_image(format="png", width=1500, height=1900, scale=1)
+        elif hasattr(figure, "write_image"):
+            buffer = BytesIO()
+            figure.write_image(buffer, format="png", width=1500, height=1900)
+            png = buffer.getvalue()
+        else:
+            raise TypeError("Figure backend does not support raster export")
+        paragraph = doc.add_paragraph()
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        paragraph.add_run().add_picture(BytesIO(png), width=Inches(6.35))
+    except Exception as exc:
+        paragraph = doc.add_paragraph()
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = paragraph.add_run(
+            "График не удалось встроить в DOCX. Проверьте установку совместимой версии Kaleido "
+            f"({type(exc).__name__})."
+        )
+        run.italic = True
     doc.add_paragraph()
 
 

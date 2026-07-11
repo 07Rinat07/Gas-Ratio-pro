@@ -51,6 +51,8 @@ class WellLogPlotConfig:
     height: int = 850
     title: str = "Professional well-log interpretation tablet"
     show_interval_track: bool = True
+    auto_crop_to_active_data: bool = True
+    max_interval_overlays: int = 20
 
 
 @dataclass(frozen=True)
@@ -172,6 +174,25 @@ def build_professional_well_log_plot(
         return WellLogPlotResult(fig, (), DownsampleSummary(0, 0, "empty"), len(intervals))
 
     plotted_columns = _available_track_columns(prepared, cfg.track_columns, cfg.depth_column)
+
+    # Printable mud-gas tablets should focus on the interval where curves carry
+    # information. Long leading zero/NaN sections otherwise consume most of the
+    # page and make the useful interval unreadable.
+    if cfg.auto_crop_to_active_data and plotted_columns:
+        numeric_tracks = prepared[list(plotted_columns)].apply(pd.to_numeric, errors="coerce")
+        active_mask = numeric_tracks.notna().any(axis=1) & numeric_tracks.abs().fillna(0).gt(1e-12).any(axis=1)
+        if active_mask.any():
+            active_depths = prepared.loc[active_mask, cfg.depth_column]
+            active_top = float(active_depths.min())
+            active_bottom = float(active_depths.max())
+            active_span = max(active_bottom - active_top, 1.0)
+            pad = active_span * 0.03
+            cropped = prepared.loc[
+                prepared[cfg.depth_column].between(active_top - pad, active_bottom + pad)
+            ].copy()
+            if len(cropped) >= 10:
+                prepared = cropped.reset_index(drop=True)
+
     sampled, summary = downsample_depth_frame(
         prepared,
         depth_column=cfg.depth_column,
@@ -241,7 +262,19 @@ def build_professional_well_log_plot(
 
     shapes: list[dict[str, object]] = []
     annotations = list(fig.layout.annotations or ())
-    for index, interval in enumerate(intervals, start=1):
+    visible_intervals = [
+        interval for interval in intervals
+        if max(float(interval.top), float(interval.base)) >= top_depth
+        and min(float(interval.top), float(interval.base)) <= bottom_depth
+        and abs(float(interval.base) - float(interval.top)) > 0
+    ]
+    visible_intervals = sorted(
+        visible_intervals,
+        key=lambda interval: (float(getattr(interval, "confidence_score", 0) or 0), abs(float(interval.base) - float(interval.top))),
+        reverse=True,
+    )[: max(1, int(cfg.max_interval_overlays))]
+    visible_intervals = sorted(visible_intervals, key=lambda interval: min(float(interval.top), float(interval.base)))
+    for index, interval in enumerate(visible_intervals, start=1):
         interval_top = min(float(interval.top), float(interval.base))
         interval_base = max(float(interval.top), float(interval.base))
         style = _interval_style(interval.fluid_type)
@@ -280,10 +313,11 @@ def build_professional_well_log_plot(
     fig.update_layout(
         title=cfg.title,
         height=cfg.height,
-        margin={"l": 70, "r": 40, "t": 90, "b": 45},
+        margin={"l": 64, "r": 28, "t": 76, "b": 42},
         template="plotly_white",
+        font={"family": "Arial, sans-serif", "size": 10, "color": "#172033"},
         shapes=shapes,
         annotations=annotations,
         showlegend=False,
     )
-    return WellLogPlotResult(fig, plotted_columns, summary, len(intervals))
+    return WellLogPlotResult(fig, plotted_columns, summary, len(visible_intervals))

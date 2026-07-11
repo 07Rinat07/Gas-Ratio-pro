@@ -131,7 +131,7 @@ class EngineeringDocument:
 
 def _technical_appendix_notice() -> DocumentNotice:
     return DocumentNotice(
-        title="Техническое приложение",
+        title="Техническое приложение: состав",
         text=(
             "Полные расчетные таблицы, диагностика, предупреждения качества данных и служебные сведения "
             "доступны в экспертном профиле отчета. Инженерный профиль намеренно показывает сначала выводы, "
@@ -139,6 +139,52 @@ def _technical_appendix_notice() -> DocumentNotice:
         ),
         role="technical-appendix-notice",
     )
+
+
+_USER_TEXT_REPLACEMENTS: tuple[tuple[str, str], ...] = (
+    ("contains_missing_ratio_values", "Имеются пропуски отдельных расчетных коэффициентов"),
+    ("Data confidence", "Достоверность данных"),
+    ("geological confidence", "Геологическая достоверность"),
+    ("decreasing", "снижающийся"),
+    ("increasing", "возрастающий"),
+    ("stable", "стабильный"),
+    ("above:", "выше: "),
+    ("below:", "ниже: "),
+    ("вероятному нефтяной коллектору", "вероятному нефтяному коллектору"),
+    ("вероятному газовый коллектору", "вероятному газовому коллектору"),
+    ("вероятному газоконденсатный коллектору", "вероятному газоконденсатному коллектору"),
+)
+
+
+def _clean_user_cell(value: object) -> str:
+    text = "" if value is None else str(value)
+    for source, target in _USER_TEXT_REPLACEMENTS:
+        text = text.replace(source, target)
+    return text
+
+
+def _printable_table(table: HtmlReportTable, *, technical: bool) -> DocumentTable:
+    # Raw dictionaries, evidence trees and rule traces belong in CSV/JSON, not
+    # in a printable engineering report. Keep a bounded, human-readable appendix.
+    headers = list(table.headers)
+    rows = list(table.rows)
+    blocked = {
+        "context", "evidence_tree", "explanation", "confidence_factors",
+        "applied_rule_ids", "rule_traces", "evidence_items",
+        "evidence_provenance", "structured_limitations",
+        "structured_recommendations",
+    }
+    keep_indexes = [i for i, header in enumerate(headers) if str(header) not in blocked]
+    if technical and len(keep_indexes) > 10:
+        keep_indexes = keep_indexes[:10]
+    if technical:
+        rows = rows[:40]
+    clean_headers = tuple(_clean_user_cell(headers[i]) for i in keep_indexes)
+    clean_rows = tuple(
+        tuple(_clean_user_cell(row[i]) if i < len(row) else "" for i in keep_indexes)
+        for row in rows
+    )
+    return DocumentTable(title=_clean_user_cell(table.title), headers=clean_headers, rows=clean_rows)
 
 
 def select_document_tables(
@@ -159,7 +205,11 @@ def select_document_tables(
         else bool(include_technical_appendix)
     )
     source_tables = model.expert_tables if include_technical else model.engineer_first_tables
-    return tuple(DocumentTable.from_html_report_table(table) for table in source_tables)
+    engineering_ids = {id(table) for table in model.engineer_first_tables}
+    return tuple(
+        _printable_table(table, technical=id(table) not in engineering_ids)
+        for table in source_tables
+    )
 
 
 def build_engineering_document(
@@ -200,7 +250,7 @@ def build_engineering_document(
         if combined_blocks:
             sections.append(
                 DocumentSection(
-                    title="Профессиональный планшет интерпретации",
+                    title="Графическая интерпретация",
                     blocks=combined_blocks,
                     page_break_before=False,
                 )
