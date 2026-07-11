@@ -75,3 +75,5 @@ Properties/Dock correction is also implemented: Project Explorer selections now 
 
 ## v212 status
 Report printing and rerun stability are under active acceptance. The implementation now provides compact printable tables, active-depth graph cropping, bounded interval overlays, DOCX plot embedding, and a single source of truth for the tablet-column widget. Stage 4 remains open until live PDF/DOCX/HTML and browser-print acceptance is completed.
+
+Current build: v213. Correlation route and report readability repairs implemented; live acceptance remains required.

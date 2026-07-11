@@ -7132,9 +7132,17 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         st.error("Не найдено ни одного интервала для выбора.")
         return
 
+    valid_ratio_mask = pd.Series(False, index=calculated_df.index)
+    required_ratio_columns = [column for column in ("wh", "bh", "ch", "c1_c2", "c2_sumc", "c3_sumc", "nc4_sumc") if column in calculated_df.columns]
+    if required_ratio_columns:
+        numeric_ratio_frame = calculated_df[required_ratio_columns].apply(pd.to_numeric, errors="coerce")
+        valid_ratio_mask = numeric_ratio_frame.notna().all(axis=1)
+    valid_indices = [int(index) for index in calculated_df.index[valid_ratio_mask] if not pd.isna(index)]
+    default_index = valid_indices[0] if valid_indices else interval_indices[0]
     selected_index = st.selectbox(
         "Выбор интервала",
         options=interval_indices,
+        index=interval_indices.index(default_index),
         format_func=lambda index: _interval_label(calculated_df, index),
     )
     if selected_index not in calculated_df.index:

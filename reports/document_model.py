@@ -175,10 +175,10 @@ def _printable_table(table: HtmlReportTable, *, technical: bool) -> DocumentTabl
         "structured_recommendations",
     }
     keep_indexes = [i for i, header in enumerate(headers) if str(header) not in blocked]
-    if technical and len(keep_indexes) > 10:
-        keep_indexes = keep_indexes[:10]
+    if technical and len(keep_indexes) > 6:
+        keep_indexes = keep_indexes[:6]
     if technical:
-        rows = rows[:40]
+        rows = rows[:20]
     clean_headers = tuple(_clean_user_cell(headers[i]) for i in keep_indexes)
     clean_rows = tuple(
         tuple(_clean_user_cell(row[i]) if i < len(row) else "" for i in keep_indexes)
@@ -250,7 +250,7 @@ def build_engineering_document(
         if combined_blocks:
             sections.append(
                 DocumentSection(
-                    title="Графическая интерпретация",
+                    title="",
                     blocks=combined_blocks,
                     page_break_before=False,
                 )

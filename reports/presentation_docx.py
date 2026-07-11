@@ -202,10 +202,10 @@ def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
     figure = block.figure
     try:
         if hasattr(figure, "to_image"):
-            png = figure.to_image(format="png", width=1500, height=1900, scale=1)
+            png = figure.to_image(format="png", width=1900, height=1200, scale=1)
         elif hasattr(figure, "write_image"):
             buffer = BytesIO()
-            figure.write_image(buffer, format="png", width=1500, height=1900)
+            figure.write_image(buffer, format="png", width=1900, height=1200)
             png = buffer.getvalue()
         else:
             raise TypeError("Figure backend does not support raster export")

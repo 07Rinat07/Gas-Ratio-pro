@@ -343,16 +343,16 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
     figure = block.figure
     try:
         if hasattr(figure, "to_image"):
-            png = figure.to_image(format="png", width=1500, height=2100, scale=1)
+            png = figure.to_image(format="png", width=1900, height=1200, scale=1)
         elif hasattr(figure, "write_image"):
             buffer = BytesIO()
-            figure.write_image(buffer, format="png", width=1500, height=2100)
+            figure.write_image(buffer, format="png", width=1900, height=1200)
             png = buffer.getvalue()
         else:
             raise TypeError("Figure backend does not support raster export")
         image = Image(BytesIO(png))
         max_width = 185 * mm
-        max_height = 245 * mm
+        max_height = 175 * mm
         ratio = min(max_width / image.imageWidth, max_height / image.imageHeight)
         image.drawWidth = image.imageWidth * ratio
         image.drawHeight = image.imageHeight * ratio

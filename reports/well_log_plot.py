@@ -52,7 +52,7 @@ class WellLogPlotConfig:
     title: str = "Professional well-log interpretation tablet"
     show_interval_track: bool = True
     auto_crop_to_active_data: bool = True
-    max_interval_overlays: int = 20
+    max_interval_overlays: int = 12
 
 
 @dataclass(frozen=True)
@@ -175,20 +175,31 @@ def build_professional_well_log_plot(
 
     plotted_columns = _available_track_columns(prepared, cfg.track_columns, cfg.depth_column)
 
-    # Printable mud-gas tablets should focus on the interval where curves carry
-    # information. Long leading zero/NaN sections otherwise consume most of the
-    # page and make the useful interval unreadable.
-    if cfg.auto_crop_to_active_data and plotted_columns:
-        numeric_tracks = prepared[list(plotted_columns)].apply(pd.to_numeric, errors="coerce")
-        active_mask = numeric_tracks.notna().any(axis=1) & numeric_tracks.abs().fillna(0).gt(1e-12).any(axis=1)
-        if active_mask.any():
-            active_depths = prepared.loc[active_mask, cfg.depth_column]
-            active_top = float(active_depths.min())
-            active_bottom = float(active_depths.max())
-            active_span = max(active_bottom - active_top, 1.0)
-            pad = active_span * 0.03
+    # Printable tablets should focus on the interpreted interval envelope first.
+    # Curve-only detection can be fooled by tiny non-zero noise near the top of a
+    # LAS file, leaving most of the page empty.  Positive-thickness interpreted
+    # intervals are the authoritative print range; active curves are the fallback.
+    if cfg.auto_crop_to_active_data:
+        positive_intervals = [
+            interval for interval in intervals
+            if abs(float(interval.base) - float(interval.top)) > 0
+        ]
+        crop_top = crop_bottom = None
+        if positive_intervals:
+            crop_top = min(min(float(i.top), float(i.base)) for i in positive_intervals)
+            crop_bottom = max(max(float(i.top), float(i.base)) for i in positive_intervals)
+        elif plotted_columns:
+            numeric_tracks = prepared[list(plotted_columns)].apply(pd.to_numeric, errors="coerce")
+            active_mask = numeric_tracks.notna().any(axis=1) & numeric_tracks.abs().fillna(0).gt(1e-12).any(axis=1)
+            if active_mask.any():
+                active_depths = prepared.loc[active_mask, cfg.depth_column]
+                crop_top = float(active_depths.min())
+                crop_bottom = float(active_depths.max())
+        if crop_top is not None and crop_bottom is not None:
+            active_span = max(crop_bottom - crop_top, 1.0)
+            pad = max(active_span * 0.025, 2.0)
             cropped = prepared.loc[
-                prepared[cfg.depth_column].between(active_top - pad, active_bottom + pad)
+                prepared[cfg.depth_column].between(crop_top - pad, crop_bottom + pad)
             ].copy()
             if len(cropped) >= 10:
                 prepared = cropped.reset_index(drop=True)

@@ -1542,3 +1542,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added real Plotly image embedding to DOCX with a clear Kaleido fallback instead of the old `DocumentPlot renderer` placeholder.
 - Cropped printable well-log tablets to the active data interval, limited interval overlays, and improved typography and margins.
 - Corrected Russian collector wording in printable report cells and bounded technical appendices for readable reports.
+
+## v213
+- Registered nav.correlation in shell and navigation router.
+- Cropped printable tablets to interpreted depth envelope and reduced overlays.
+- Limited technical print tables to readable dimensions.
+- Defaulted interval selection to the first row with valid ratios.

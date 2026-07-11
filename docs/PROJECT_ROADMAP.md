@@ -240,3 +240,5 @@ Roadmap изменяется только когда:
 - [x] Embed plot images into DOCX instead of renderer placeholders.
 - [ ] Live acceptance: PDF, DOCX, HTML and browser printing on Windows.
 - [ ] Confirm no floating empty status box during navigation and export settings.
+
+- v213: repair correlation route registration, printable plot depth crop, report table density, and valid interval defaults.

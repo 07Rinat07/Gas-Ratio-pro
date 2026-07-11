@@ -60,6 +60,7 @@ DEFAULT_WORKBENCH_MODULE_ROUTES: tuple[WorkbenchModuleRoute, ...] = (
         primary=True,
         metadata={"module": "las_viewer", "service_contract": "LasViewerToolViewProvider"},
     ),
+    WorkbenchModuleRoute("nav.correlation", "correlation", "tool.las_viewer"),
     WorkbenchModuleRoute("nav.interpretation", "interpretation", "tool.gas_ratio_analysis"),
     WorkbenchModuleRoute("nav.reports", "reports", "tool.report_preview"),
     WorkbenchModuleRoute("nav.exports", "exports", "tool.export"),
