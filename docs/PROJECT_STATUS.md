@@ -1,5 +1,5 @@
 
-## v210 — Export responsiveness and rerun optimization
+## v211 — Mapping safety and stale-result protection
 
 - Professional report profile/format controls are batched in a Streamlit form.
 - PDF/DOCX/HTML/bundle generation runs only after explicit confirmation, not on every widget rerun.
@@ -10,7 +10,7 @@
 
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v210
+Baseline: v211
 Current stage: Stage 4 — Workbench UI Completion / module integration audit
 Runtime acceptance: **FAILED for v202; navigation works, but core LAS/report/documentation workflows are not yet proven visible and usable**
 
@@ -18,7 +18,7 @@ Runtime acceptance: **FAILED for v202; navigation works, but core LAS/report/doc
 
 Modern Workbench shell, navigation, command dispatch and dock layout work. Live owner testing proved that `Command executed` is not sufficient acceptance: LAS upload/editor/viewer, graphs, reports, printing and Documentation were not observable as usable workflows in the central workspace. Browser DevTools also reported form/accessibility findings, but no JavaScript exception explaining the empty modules.
 
-## 2. Активный инкремент v210
+## 2. Активный инкремент v211
 
 **Functional navigation and calculation/report workflow restoration**:
 

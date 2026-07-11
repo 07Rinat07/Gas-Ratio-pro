@@ -4363,6 +4363,27 @@ def _render_saved_wells_panel(logger) -> None:
                 st.success("Версия загружена в текущую сессию. Откройте вкладку `Работа с данными`.")
 
 
+
+REQUIRED_GAS_MAPPING_FIELDS: tuple[str, ...] = ("c1", "c2", "c3", "ic4", "nc4", "ic5", "nc5")
+
+
+def _missing_required_gas_mapping_fields(mapping: dict[str, str]) -> tuple[str, ...]:
+    """Return required mud-gas fields that are not mapped to source columns."""
+    return tuple(field for field in REQUIRED_GAS_MAPPING_FIELDS if not str(mapping.get(field, "")).strip())
+
+
+def _clear_invalid_interpretation_state(reason: str) -> None:
+    """Prevent graphs/reports from reusing a calculation produced from another source."""
+    controller = _application_state_controller()
+    controller.update_values(
+        {
+            INTERPRETATION_SESSION_DATA_KEY: None,
+            INTERPRETATION_SESSION_SOURCE_KEY: "",
+            "interpretation_figure_cache": None,
+            "interpretation_invalid_reason": str(reason),
+        }
+    )
+
 def _build_mapping_controls(df: pd.DataFrame, detected_mapping: dict[str, str]) -> dict[str, str]:
     options = [""] + [str(column) for column in df.columns]
     mapping: dict[str, str] = {}
@@ -4390,7 +4411,7 @@ def _build_mapping_controls(df: pd.DataFrame, detected_mapping: dict[str, str]) 
 
     unused_standard_fields = set(STANDARD_FIELDS) - set(mapping)
     if unused_standard_fields:
-        st.caption("Поля без сопоставления будут пропущены; отсутствующие C1-C5 будут приняты как 0.")
+        st.caption("Поля без сопоставления будут пропущены. Расчет газовых коэффициентов будет заблокирован, пока не сопоставлены C1, C2, C3, iC4, nC4, iC5 и nC5.")
 
     return mapping
 
@@ -7023,6 +7044,33 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
     mapping_messages = mapping_warning_messages(manual_mapping, prepared_df.columns)
     _render_mapping_diagnostics(manual_mapping, prepared_df.columns, mapping_messages)
 
+    missing_components = _missing_required_gas_mapping_fields(manual_mapping)
+    depth_mapped = bool(manual_mapping.get("depth") or (manual_mapping.get("depth_from") and manual_mapping.get("depth_to")))
+    if not depth_mapped or missing_components:
+        missing_labels = ", ".join(field.upper() for field in missing_components)
+        reason_parts = []
+        if not depth_mapped:
+            reason_parts.append("не сопоставлена глубина")
+        if missing_components:
+            reason_parts.append(f"не сопоставлены обязательные газовые компоненты: {missing_labels}")
+        invalid_reason = "; ".join(reason_parts)
+        _clear_invalid_interpretation_state(invalid_reason)
+        logger.warning(
+            "calculation_blocked_invalid_mapping depth_mapped=%s missing=%s",
+            depth_mapped,
+            safe_log_value(",".join(missing_components)),
+        )
+        st.error(
+            "Расчет остановлен: "
+            + invalid_reason
+            + ". Предыдущие графики и отчеты очищены, чтобы не показывать результаты другого файла."
+        )
+        st.info(
+            "Выберите правильную строку заголовков и вручную сопоставьте колонки. "
+            "Нулевые C-компоненты больше не подставляются как допустимый расчетный набор."
+        )
+        return
+
     prepared = apply_mapping(prepared_df, manual_mapping)
     logger.info(
         "manual_mapping_applied mapped=%s warning_count=%d",
@@ -7861,28 +7909,30 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                     len(filtered_df),
                 )
                 try:
-                    with st.spinner(f"Формируется {selected_format.label}. Пожалуйста, подождите..."):
-                        presentation_state = build_presentation_export_ui_state(
-                            profile=selected_profile.id,
-                            export_format=selected_format.id,
-                            output_dir=ROOT_DIR / "artifacts" / "presentation_exports",
-                            base_name_parts=(active_project.name, str(source_label), "professional_report"),
-                            include_figures=True,
-                        )
-                        presentation_payload = build_hydrocarbon_report_payload(
-                            filtered_df,
-                            source_label=str(source_label),
-                            project_label=f"{active_project.name} ({active_project.id})",
-                            depth_label=_range_label(depth_range, unit="м"),
-                            report_profile=presentation_state.profile,
-                            include_plot=True,
-                        )
-                        if presentation_payload.presentation_model is None:
-                            raise RuntimeError("PresentationModel не был сформирован.")
-                        export_artifact = build_ui_export_artifact(
-                            presentation_payload.presentation_model,
-                            presentation_state,
-                        )
+                    export_progress = st.empty()
+                    export_progress.info(f"Формируется {selected_format.label}. Пожалуйста, подождите...")
+                    presentation_state = build_presentation_export_ui_state(
+                        profile=selected_profile.id,
+                        export_format=selected_format.id,
+                        output_dir=ROOT_DIR / "artifacts" / "presentation_exports",
+                        base_name_parts=(active_project.name, str(source_label), "professional_report"),
+                        include_figures=True,
+                    )
+                    presentation_payload = build_hydrocarbon_report_payload(
+                        filtered_df,
+                        source_label=str(source_label),
+                        project_label=f"{active_project.name} ({active_project.id})",
+                        depth_label=_range_label(depth_range, unit="м"),
+                        report_profile=presentation_state.profile,
+                        include_plot=True,
+                    )
+                    if presentation_payload.presentation_model is None:
+                        raise RuntimeError("PresentationModel не был сформирован.")
+                    export_artifact = build_ui_export_artifact(
+                        presentation_payload.presentation_model,
+                        presentation_state,
+                    )
+                    export_progress.success(f"{selected_format.label} подготовлен.")
                     st.session_state[export_cache_key] = {
                         "content": export_artifact.content,
                         "file_name": export_artifact.file_name,

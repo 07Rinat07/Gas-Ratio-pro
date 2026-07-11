@@ -223,3 +223,12 @@ Roadmap изменяется только когда:
 - [x] Add timing/error logging for presentation export.
 - [x] Reuse unchanged interpretation figure sets across reruns.
 - [ ] Complete live acceptance for HTML, PDF, DOCX and bundle downloads on Windows.
+
+
+## Stage 4 corrective increment — v211
+
+- строгая валидация mapping C1, C2, C3, iC4, nC4, iC5, nC5;
+- блокировка расчета при неполном mapping;
+- очистка устаревших графиков/отчетов при смене источника;
+- явный текстовый индикатор подготовки экспорта вместо пустого spinner;
+- acceptance: новый файл с неверным mapping не может показывать графики предыдущего расчета.
