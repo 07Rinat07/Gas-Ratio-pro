@@ -1668,6 +1668,63 @@ class LasViewerRecentSessions:
         events.sort(key=lambda event: (-event.occurred_at_ns, event.operation, event.source))
         return tuple(events[: int(limit)])
 
+    def audit_journal_signature_report(
+        self,
+        *,
+        limit: int = 200,
+        operation: str = "",
+        signer_id: str = "",
+    ) -> dict[str, object]:
+        """Return a renderer-neutral aggregate report for signature verification audit events."""
+        if int(limit) < 1:
+            raise ValueError("limit must be >= 1")
+        normalized_operation = str(operation or "").strip()
+        normalized_signer = str(signer_id or "").strip()
+        events = list(self.audit_journal_signature_events(limit=int(limit)))
+        if normalized_operation:
+            events = [event for event in events if event.operation == normalized_operation]
+        if normalized_signer:
+            events = [event for event in events if event.signer_id == normalized_signer]
+
+        accepted = sum(1 for event in events if event.accepted)
+        rejected = len(events) - accepted
+        by_operation: dict[str, dict[str, int]] = {}
+        by_signer: dict[str, dict[str, int]] = {}
+        rejection_reasons: dict[str, int] = {}
+
+        for event in events:
+            operation_key = event.operation or "unknown"
+            signer_key = event.signer_id or "unsigned"
+            operation_bucket = by_operation.setdefault(operation_key, {"accepted": 0, "rejected": 0})
+            signer_bucket = by_signer.setdefault(signer_key, {"accepted": 0, "rejected": 0})
+            outcome = "accepted" if event.accepted else "rejected"
+            operation_bucket[outcome] += 1
+            signer_bucket[outcome] += 1
+            if not event.accepted:
+                reason = event.reason or "unspecified"
+                rejection_reasons[reason] = rejection_reasons.get(reason, 0) + 1
+
+        total = len(events)
+        acceptance_rate = 0.0 if total == 0 else accepted / total
+        return {
+            "schema": "las.viewer.audit-journal-signature-report",
+            "version": "1.0",
+            "filters": {
+                "limit": int(limit),
+                "operation": normalized_operation,
+                "signer_id": normalized_signer,
+            },
+            "total": total,
+            "accepted": accepted,
+            "rejected": rejected,
+            "acceptance_rate": acceptance_rate,
+            "by_operation": {key: by_operation[key] for key in sorted(by_operation)},
+            "by_signer": {key: by_signer[key] for key in sorted(by_signer)},
+            "rejection_reasons": {key: rejection_reasons[key] for key in sorted(rejection_reasons)},
+            "events": [event.to_dict() for event in events],
+            "renderer_neutral": True,
+        }
+
     def verify_bookmark_trash_journal_export(
         self,
         path: str | Path,

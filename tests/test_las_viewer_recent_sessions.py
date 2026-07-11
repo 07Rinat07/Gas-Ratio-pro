@@ -1966,3 +1966,66 @@ def test_signature_audit_history_is_persisted(tmp_path, monkeypatch):
     assert len(events) == 1
     assert events[0].source == "invalid-audit.json"
     assert events[0].occurred_at_ns == 4_300
+
+
+def test_signature_verification_report_aggregates_results(tmp_path, monkeypatch):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "signature-report")
+    recent = LasViewerRecentSessions(repository)
+    invalid = tmp_path / "invalid-report.json"
+    invalid.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr("services.las_viewer_recent_sessions.time.time_ns", lambda: 5_000)
+    recent.verify_bookmark_trash_journal_export(invalid, operation="verify")
+
+    source_repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "signature-report-source")
+    source_repository.save(_session("signature-report.las"))
+    source = LasViewerRecentSessions(source_repository)
+    key = source.list()[0].session_key
+    source.set_bookmark(key)
+    source.remove_bookmark(key)
+    export_path = tmp_path / "signature-report.json"
+    source.export_bookmark_trash_journal(
+        export_path, signer_id="workspace-a", signing_key="secret", key_id="key-1"
+    )
+    recent.verify_bookmark_trash_journal_export(
+        export_path,
+        trusted_signers={"workspace-a": {"key-1": "secret"}},
+        require_signature=True,
+        operation="import",
+    )
+
+    report = recent.audit_journal_signature_report()
+    assert report["schema"] == "las.viewer.audit-journal-signature-report"
+    assert report["total"] == 2
+    assert report["accepted"] == 1
+    assert report["rejected"] == 1
+    assert report["acceptance_rate"] == 0.5
+    assert report["by_operation"]["import"]["accepted"] == 1
+    assert report["by_operation"]["verify"]["rejected"] == 1
+    assert report["by_signer"]["workspace-a"]["accepted"] == 1
+    assert report["by_signer"]["unsigned"]["rejected"] == 1
+    assert len(report["events"]) == 2
+
+
+def test_signature_verification_report_supports_filters(tmp_path):
+    repository = LasViewerWorkspaceAutosaveRepository(tmp_path / "signature-report-filter")
+    recent = LasViewerRecentSessions(repository)
+    invalid = tmp_path / "invalid-filter.json"
+    invalid.write_text("{}", encoding="utf-8")
+    recent.verify_bookmark_trash_journal_export(invalid, operation="verify")
+
+    report = recent.audit_journal_signature_report(operation="merge", signer_id="workspace-a")
+    assert report["total"] == 0
+    assert report["accepted"] == 0
+    assert report["rejected"] == 0
+    assert report["acceptance_rate"] == 0.0
+    assert report["events"] == []
+
+
+def test_signature_verification_report_rejects_invalid_limit(tmp_path):
+    recent = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "signature-report-limit"))
+    try:
+        recent.audit_journal_signature_report(limit=0)
+    except ValueError as exc:
+        assert "limit" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")
