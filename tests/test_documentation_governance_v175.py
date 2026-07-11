@@ -24,7 +24,7 @@ def test_roadmap_declares_single_active_sequence() -> None:
     assert "Stage 1 — Visualization Engine completion" in roadmap
     assert "Stage 2 — LAS Viewer completion" in roadmap
     assert "Stage 3 — Modern Workbench and new main page" in roadmap
-    assert "Status: **COMPLETED v192**" in roadmap
+    assert "Status: **COMPLETED v193**" in roadmap
     assert "Current stage: Petrophysical Engine" in status
     assert "Establish confirmed petrophysical formulas, units and transparent calculation contracts" in status
 

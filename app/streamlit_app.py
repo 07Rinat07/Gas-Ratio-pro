@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import html
 import importlib
+import os
 import random
 import sys
 from datetime import datetime
@@ -10828,8 +10829,14 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
     logger.info("las_correlation_rendered wells=%d", len(selected_wells))
 
 
-def main() -> None:
-    st.set_page_config(page_title="Gas Ratio Pro", page_icon=_app_icon_data_uri() or None, layout="wide")
+def _run_legacy_ui() -> None:
+    """Run the pre-Workbench Streamlit interface.
+
+    This path is retained only as an explicit operational fallback and must not
+    be selected from session state or normal UI controls.
+    """
+
+    st.set_page_config(page_title="Gas Ratio Pro — Legacy", page_icon=_app_icon_data_uri() or None, layout="wide")
     ui_scale = _select_ui_scale()
     ui_layout = _select_ui_layout()
     _apply_app_style(ui_scale, ui_layout)
@@ -10873,6 +10880,44 @@ def main() -> None:
         st.markdown('<div id="license-workspace"></div>', unsafe_allow_html=True)
         _render_application_licensing_page()
         _close_page_shell()
+
+
+LEGACY_UI_ENV_VAR = "GAS_RATIO_PRO_LEGACY_UI"
+_LEGACY_UI_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
+
+
+def legacy_ui_requested(environ: dict[str, str] | None = None) -> bool:
+    """Return whether the explicit process-level legacy fallback is enabled.
+
+    Session state is deliberately ignored.  Production startup therefore
+    cannot silently fall back to the retired main page because of stale browser
+    state.
+    """
+
+    source = os.environ if environ is None else environ
+    return str(source.get(LEGACY_UI_ENV_VAR, "")).strip().lower() in _LEGACY_UI_TRUE_VALUES
+
+
+def _run_modern_workbench() -> None:
+    """Render Modern Workbench as the production application entry point."""
+
+    from app.workbench_renderer import render_streamlit_workbench
+
+    st.set_page_config(page_title="Gas Ratio Pro", page_icon=_app_icon_data_uri() or None, layout="wide")
+    logger = configure_logging()
+    logger.info("modern_workbench_started")
+    results = render_streamlit_workbench(_application_state_controller().state, st)
+    if any(result.success for result in results):
+        st.rerun()
+
+
+def main() -> None:
+    """Start the production UI, using legacy only under an explicit env flag."""
+
+    if legacy_ui_requested():
+        _run_legacy_ui()
+        return
+    _run_modern_workbench()
 
 
 if __name__ == "__main__":

@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v192  
-Current stage: Petrophysical Engine  
-Last fully verified baseline: v192 — Modern Workbench responsive and accessibility audit completed with renderer-neutral viewport profiles, deterministic keyboard focus order, accessible labels/roles/descriptions, WCAG 2.2 AA contrast checks and responsive Streamlit adapter guards; preflight OK.
+Baseline: v193  
+Current stage: Petrophysical Engine (next after completed Workbench production-entry correction)  
+Last fully verified baseline: v193 — Modern Workbench is the default production Streamlit entry point; the previous UI is retained only behind the explicit `GAS_RATIO_PRO_LEGACY_UI` process environment flag; session state cannot activate legacy mode; Workbench renderer, command dispatch and responsive/accessibility contracts remain active; preflight OK.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -34,11 +34,13 @@ Modern Workbench:
 - deterministic unique focus order and keyboard interaction semantics;
 - accessible labels, roles, descriptions and landmarks in renderer contracts;
 - WCAG 2.2 AA contrast/readability checks for active presentation tokens;
-- presentation contracts remain serializable and contain no raw DataFrame or runtime service objects.
+- presentation contracts remain serializable and contain no raw DataFrame or runtime service objects;
+- Modern Workbench is now the real default application startup path;
+- legacy UI cannot be selected through stale browser/session state and requires an explicit operational environment flag.
 
 ## 2. Что не считается завершённым
 
-- Petrophysical Engine formulas, units and calculation contracts are not yet implemented as the active Stage 4 increment.
+- Petrophysical Engine formulas, units and calculation contracts remain the next Stage 4 increment after the completed v193 Workbench production-entry correction.
 
 ## 3. Следующий разрешённый инкремент
 
@@ -52,6 +54,6 @@ Modern Workbench:
 4. reject unsupported or dimensionally invalid inputs before calculation;
 5. unit, integration and regression tests.
 
-Modern Workbench Stage 3 завершён в v192.
+Modern Workbench Stage 3 окончательно завершён в v193 после подключения production entry point.
 
 Stage 5 Modeling Engine в следующий инкремент не входит.

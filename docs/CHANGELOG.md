@@ -1,5 +1,13 @@
 # Changelog
 
+## v193 — Modern Workbench production entry correction
+
+- Made Modern Workbench the default Streamlit application entry point.
+- Retained the previous main page only as an explicit `GAS_RATIO_PRO_LEGACY_UI` process-level fallback.
+- Prevented session state from enabling legacy mode.
+- Added startup regression tests for default, fallback and stale-session behavior.
+- Corrected Stage 3 completion status before resuming Petrophysical Engine work.
+
 ## v189
 
 - Added one atomic Workbench shell dispatcher for navigation, tool activation and dock lifecycle commands.
