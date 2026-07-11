@@ -1,0 +1,32 @@
+GAS RATIO PRO — ROADMAP v4.0 SUMMARY
+
+Проект переводится на этап Engineering Review & Project Redesign.
+
+Главные причины:
+- создание LAS есть в backend, но плохо видно в интерфейсе;
+- графики интерпретации слабые и неинформативные;
+- нет ручного масштаба X/Y/Depth;
+- нет нормального zoom/pan мышью;
+- нет удобной печати выбранных интервалов глубин;
+- не хватает маркеров газа, нефти, воды, конденсата, ВНК/ГНК/ГВК;
+- отчеты в HTML неудобны, нужны PDF, Excel, Word, PNG/SVG;
+- нет общего отчета по всей скважине;
+- треугольная диаграмма считается неисправной и требует переработки;
+- frontend требует полной переработки;
+- геомоделирование есть как backend, но не видно как рабочий инструмент.
+
+Новый порядок реализации:
+1. Application Shell Redesign.
+2. LAS Workspace Start Screen.
+3. LAS Creation Wizard UI.
+4. Plot Studio Manual Scale Controls.
+5. Plot Studio Mouse Zoom/Pan.
+6. Plot Markers and Fluid Contacts.
+7. Report Studio 2.0: PDF/DOCX/XLSX/PNG/SVG.
+8. Well Interpretation Report.
+9. Triangular Diagram Repair.
+10. Geological Modeling Workspace UI.
+11. Project Explorer and Data Browser.
+12. Job Manager.
+
+До выполнения этих пунктов новые большие backend-модули добавлять не рекомендуется.

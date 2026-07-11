@@ -79,7 +79,7 @@ All roadmap, architecture, UI/UX and implementation planning documents must be s
 
 The active development sequence is defined only by `docs/PROJECT_ROADMAP.md`.
 The factual current state and next permitted increment are defined by `docs/PROJECT_STATUS.md`.
-`docs/project_plan.md` and `docs/PROJECT_PROGRESS_NEXT_STEP.md` are compatibility entry points only.
+`docs/project_plan.md` and `docs/PROJECT_PROGRESS_NEXT_STEP.md` are archived legacy entry points and must not be recreated.
 
 Version-specific implementation notes must be recorded in `docs/CHANGELOG.md`. A new `*_VNNN.md` file is not created unless it documents a stable public contract that cannot be represented in an existing specification.
 

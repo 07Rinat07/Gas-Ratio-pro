@@ -88,11 +88,14 @@ def test_store_interpretation_dataset_uses_application_state_controller():
     assert "st.session_state[" not in body
 
 
-def test_streamlit_app_documentation_docs_include_project_plan():
+def test_streamlit_app_documentation_docs_include_canonical_governance():
     module = importlib.import_module("app.streamlit_app")
     doc_paths = {path for _title, path in module.DOCUMENTATION_TAB_DOCS}
 
-    assert "docs/project_plan.md" in doc_paths
+    assert "docs/DOCUMENTATION_INDEX.md" in doc_paths
+    assert "docs/PROJECT_ROADMAP.md" in doc_paths
+    assert "docs/PROJECT_STATUS.md" in doc_paths
+    assert "docs/ARCHITECTURE.md" in doc_paths
     assert "docs/user_guide.md" in doc_paths
     assert "docs/troubleshooting.md" in doc_paths
 

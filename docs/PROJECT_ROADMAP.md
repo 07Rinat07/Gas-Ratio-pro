@@ -1,7 +1,7 @@
 # GAS RATIO PRO — Active Project Roadmap
 
 Status: Active  
-Baseline: v197  
+Baseline: v198  
 Purpose: единственная активная последовательность реализации проекта.
 
 ## 1. Обязательные правила
@@ -106,7 +106,7 @@ Status: **COMPLETED v193**
 
 ### Stage 4 — Workbench UI Completion
 
-Status: **COMPLETED v197**
+Status: **IN PROGRESS v198 — reopened after failed live production acceptance**
 
 Цель: превратить подключённый production Workbench из минимального shell в полноценное инженерное рабочее окружение до подключения следующих domain-модулей.
 
@@ -120,7 +120,10 @@ Status: **COMPLETED v197**
 6. Status bar: активный проект, скважина, LAS, viewport/scale и operational status. **COMPLETED v196**
 7. Реальное размещение, collapse/restore и изменение размеров dock panes в поддерживаемых Streamlit границах. **COMPLETED v196**
 8. Responsive, keyboard-navigation и accessibility regression для нового layout. **COMPLETED v197**
-9. Smoke-проверка production startup и основных navigation/tool workflows. **COMPLETED v197**
+9. Smoke-проверка production startup и основных navigation/tool workflows. **AUTOMATED COMPLETE v197; LIVE ACCEPTANCE FAILED**
+10. Runtime build/source identity visible in UI. **COMPLETED v198**
+11. Launcher port ownership and stale-process protection. **COMPLETED v198**
+12. Live acceptance on the owner environment with confirmed five-region layout. **REQUIRED BEFORE CLOSURE**
 
 Definition of Done:
 
@@ -133,7 +136,7 @@ Definition of Done:
 
 ### Stage 5 — Petrophysical Engine
 
-Status: **ACTIVE v197 — starts after confirmed Stage 4 production completion**
+Status: **BLOCKED — starts only after confirmed Stage 4 live production acceptance**
 
 - подтверждённые формулы и единицы;
 - transparent calculation contracts;
@@ -151,7 +154,7 @@ Status: **PLANNED**
 
 ## 4. Замороженные боковые направления
 
-До завершения активного Petrophysical Engine не расширять:
+До подтверждённого завершения Stage 4 и последующего Petrophysical Engine не расширять:
 
 - bookmarks/recent-session convenience features;
 - audit report exchange and signing infrastructure;
@@ -170,4 +173,4 @@ Roadmap изменяется только когда:
 2. изменилось подтверждённое требование владельца проекта;
 3. текущий этап завершён по Definition of Done.
 
-Любое изменение должно быть отражено одновременно в `PROJECT_ROADMAP.md`, `PROJECT_STATUS.md` и `CHANGELOG.md`.
+Любое изменение отражается в `PROJECT_ROADMAP.md` и `PROJECT_STATUS.md`; история фиксируется в `CHANGELOG.md`. Новые plan/status файлы не создаются.

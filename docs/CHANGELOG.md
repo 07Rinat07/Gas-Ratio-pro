@@ -1,3 +1,15 @@
+# Changelog
+
+## v198 — Technical audit, runtime identity and documentation consolidation
+
+- Reopened Workbench UI Completion after live production acceptance failed.
+- Identified stale Streamlit process / wrong extracted source as the most likely mismatch: the shown shell strings do not exist in the current renderer.
+- Added visible build version and absolute runtime source path.
+- Added port ownership checks and safe `-ForceRestart` launcher behavior.
+- Consolidated active governance to ROADMAP, STATUS, ARCHITECTURE and DOCUMENTATION_INDEX.
+- Archived redundant progress and versioned roadmap files.
+- Added regression tests for build identity, launcher safety and documentation governance.
+
 # v197 — Workbench Production Completion
 
 - Fixed production crash caused by reading removed `CommandExecutionResult.success`; startup now uses `executed`.

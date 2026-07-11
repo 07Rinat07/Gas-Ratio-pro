@@ -15,7 +15,10 @@ def _copy_required_fixture_tree(tmp_path: Path) -> Path:
     for relative in (
         "app/streamlit_app.py",
         "config/palettes.json",
-        "docs/project_plan.md",
+        "docs/PROJECT_ROADMAP.md",
+        "docs/PROJECT_STATUS.md",
+        "docs/ARCHITECTURE.md",
+        "docs/DOCUMENTATION_INDEX.md",
         "docs/setup.md",
         "docs/user_guide.md",
         "docs/data_format.md",
@@ -59,14 +62,14 @@ def test_preflight_passes_for_rule_based_fixture(tmp_path):
 
 def test_preflight_reports_missing_required_project_file(tmp_path):
     root = _copy_required_fixture_tree(tmp_path)
-    (root / "docs" / "project_plan.md").unlink()
+    (root / "docs" / "PROJECT_ROADMAP.md").unlink()
 
     report = run_preflight(root)
     files_check = next(check for check in report.checks if check.name == "project_files")
 
     assert not report.ok
     assert files_check.status == "error"
-    assert "docs/project_plan.md" in files_check.message
+    assert "docs/PROJECT_ROADMAP.md" in files_check.message
 
 
 def test_preflight_reports_invalid_palette_config(tmp_path):

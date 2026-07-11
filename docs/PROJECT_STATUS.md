@@ -1,60 +1,35 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v197  
-Current stage: Petrophysical Engine  
-Last fully verified runtime baseline: v197 — Modern Workbench is the default production Streamlit entry point and now renders with native Streamlit containers as a real five-region engineering workspace. The production command-result contract, toolbar actions, Project Explorer, workspace host, Properties and Status Bar are verified by runtime-oriented smoke tests.
+Baseline: v198  
+Current stage: Stage 4 — Workbench UI Completion / Technical Audit & Stabilization  
+Runtime acceptance: **NOT YET CONFIRMED on owner environment**
 
-## 1. Что подтверждено кодом и тестами
+## 1. Подтверждённая причина ревизии
 
-Visualization Engine:
+Свежий пользовательский скриншот показывал минимальный линейный shell (`Modern Workbench`, navigation buttons, `Dock panels`) вместо пятизонного интерфейса из исходного кода v197. Строки этого shell отсутствуют в актуальном renderer. Это указывает на старый Streamlit-процесс или запуск из старой распакованной папки, а не на корректно загруженный build v197.
 
-- Domain Model, Scene, Layout и Render Model;
-- Axis/Grid, Track, Curve Quality, Label/Legend и Print Layout;
-- SVG/PDF renderers и geometry signature parity;
-- adaptive downsampling, cache и memory budget;
-- viewport, pan/zoom, hit testing, cursor и selection;
-- render/export QA и strict Render Validation Pipeline.
+## 2. Что исправлено в v198
 
-LAS Viewer:
+- добавлена неизменяемая runtime build identity (`v198`, channel, абсолютный project root, entry point);
+- build и runtime source path отображаются в реальном Workbench;
+- `run_app.ps1` проверяет владельца порта до запуска;
+- занятый старым процессом проекта порт не используется молча;
+- `-ForceRestart` разрешён только для процесса текущего project root;
+- legacy UI environment flag очищается launcher-ом;
+- активная документация сведена к четырём управляющим файлам;
+- дублирующие progress/versioned roadmap документы перенесены в архив;
+- Stage 4 повторно открыт до живого подтверждения интерфейса.
 
-- real LAS-open workflow и multi-track construction;
-- shared viewport, cursor and selection;
-- track configuration and stable large-LAS navigation;
-- current-view SVG/PDF export;
-- curve/null/unit validation.
+## 3. Единственный следующий разрешённый шаг
 
-Modern Workbench:
+**Live Workbench acceptance из архива v198.**
 
-- shell, navigation model and Dock Manager;
-- atomic Command Framework/Event Bus dispatch;
-- LAS Viewer primary-module lifecycle;
-- project and recent-session entry points;
-- four responsive viewport profiles: phone, tablet, laptop and wide;
-- horizontal overflow guard and 44 px minimum interactive target;
-- deterministic unique focus order and keyboard interaction semantics;
-- accessible labels, roles, descriptions and landmarks in renderer contracts;
-- WCAG 2.2 AA contrast/readability checks for active presentation tokens;
-- presentation contracts remain serializable and contain no raw DataFrame or runtime service objects;
-- Modern Workbench is now the real default application startup path;
-- legacy UI cannot be selected through stale browser/session state and requires an explicit operational environment flag.
+1. распаковать v198 в отдельную новую папку;
+2. запустить `./run_app.ps1 -ForceRestart`;
+3. убедиться, что сверху виден `Build: v198`;
+4. сверить `Runtime source` с новой папкой;
+5. подтвердить Toolbar, Project Explorer, Workspace Host, Properties и Status Bar;
+6. проверить navigation/collapse/restore и отсутствие traceback;
+7. только после этого закрыть Stage 4 и активировать Petrophysical Engine.
 
-## 2. Что не считается завершённым
-
-- Workbench UI Completion is complete.
-- Petrophysical Engine formula/unit/provenance work remains active.
-- Modeling Engine remains deferred until Petrophysical Engine Definition of Done.
-
-## 3. Следующий разрешённый инкремент
-
-**Petrophysical Engine contract audit and enforcement.**
-
-Состав:
-
-1. audit existing VSH, PHIE and Archie formula implementations against registered sources;
-2. define explicit input/output unit contracts and canonical units;
-3. add calculation provenance and quality flags;
-4. block incompatible or dimensionally invalid inputs before output curves are written;
-5. integrate through existing application services without domain calculations in UI;
-6. targeted regression, full preflight and status update.
-
-Stage 6 Modeling Engine remains outside the next increment.
+Modeling Engine остаётся заблокированным до завершения Petrophysical Engine.

@@ -20,7 +20,10 @@ PDF_FONT_ENV_VARS: tuple[str, str] = ("GAS_RATIO_PRO_PDF_FONT", "GAS_RATIO_PRO_P
 REQUIRED_PROJECT_FILES: tuple[str, ...] = (
     "app/streamlit_app.py",
     "config/palettes.json",
-    "docs/project_plan.md",
+    "docs/PROJECT_ROADMAP.md",
+    "docs/PROJECT_STATUS.md",
+    "docs/ARCHITECTURE.md",
+    "docs/DOCUMENTATION_INDEX.md",
     "docs/setup.md",
     "docs/user_guide.md",
     "docs/data_format.md",

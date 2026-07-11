@@ -789,7 +789,7 @@ START_ACTIONS: tuple[dict[str, str], ...] = (
 )
 
 DOCUMENTATION_TAB_DOCS: tuple[tuple[str, str], ...] = (
-    ("Карта документации", "docs/README.md"),
+    ("Карта документации", "docs/DOCUMENTATION_INDEX.md"),
     ("Активный roadmap", "docs/PROJECT_ROADMAP.md"),
     ("Текущий статус", "docs/PROJECT_STATUS.md"),
     ("Быстрый старт", "docs/setup.md"),
@@ -799,7 +799,7 @@ DOCUMENTATION_TAB_DOCS: tuple[tuple[str, str], ...] = (
     ("План LAS-корреляции", "docs/las_correlation_plan.md"),
     ("Формулы", "docs/formulas.md"),
     ("Mud gas literature", "docs/mud_gas_analysis_literature.md"),
-    ("План проекта", "docs/project_plan.md"),
+    ("Архитектура", "docs/ARCHITECTURE.md"),
     ("Troubleshooting", "docs/troubleshooting.md"),
 )
 

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any, MutableMapping, Protocol
 
 from core.command_framework import CommandExecutionResult, WorkbenchCommandRegistry
+from core.build_info import runtime_build_info
 from core.workbench_controller import WorkbenchController, build_workbench_controller
 from core.workbench_ui_layout import build_workbench_ui_layout
 from core.workbench_shell import (
@@ -201,9 +202,15 @@ def _render_native_streamlit_layout(
 
     executed: list[CommandExecutionResult] = []
     active_workspace = payload.get("interaction", {}).get("active_workspace") or "dashboard"
+    build = runtime_build_info()
     st_module.markdown(
         "<div class='workbench-titlebar'><h1>Gas Ratio Pro — Modern Workbench</h1>"
-        f"<span>Workspace: <b>{_html(active_workspace)}</b></span></div>",
+        f"<span>Workspace: <b>{_html(active_workspace)}</b> · "
+        f"Build: <b>{_html(build.version)}</b></span></div>",
+        unsafe_allow_html=True,
+    )
+    st_module.markdown(
+        f"<div class='workbench-runtime-source'>Runtime source: {_html(build.project_root)}</div>",
         unsafe_allow_html=True,
     )
 
