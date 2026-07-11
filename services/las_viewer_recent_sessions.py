@@ -1875,6 +1875,108 @@ class LasViewerRecentSessions:
             "valid": True,
         }
 
+    @classmethod
+    def read_audit_journal_signature_report_export(
+        cls, path: str | Path
+    ) -> tuple[LasViewerAuditJournalSignatureEvent, ...]:
+        """Read and validate an integrity-protected verification report export."""
+        source = Path(path)
+        verified = cls.verify_audit_journal_signature_report_export(source)
+        text = source.read_text(encoding="utf-8")
+        raw_events: list[dict[str, object]] = []
+
+        if verified["format"] == "json":
+            payload = json.loads(text)
+            report = payload.get("report", {})
+            events = report.get("events", []) if isinstance(report, dict) else []
+            if not isinstance(events, list):
+                raise ValueError("invalid signature verification report events")
+            raw_events = [event for event in events if isinstance(event, dict)]
+            if len(raw_events) != len(events):
+                raise ValueError("invalid signature verification report event")
+        else:
+            _, separator, body = text.partition("\n")
+            if not separator:
+                raise ValueError("invalid signature verification CSV export")
+            try:
+                raw_events = [dict(row) for row in csv.DictReader(io.StringIO(body))]
+            except (csv.Error, TypeError) as exc:
+                raise ValueError("invalid signature verification report events") from exc
+
+        decoded: list[LasViewerAuditJournalSignatureEvent] = []
+        for value in raw_events:
+            try:
+                occurred_at_ns = max(0, int(value.get("occurred_at_ns", 0)))
+            except (TypeError, ValueError) as exc:
+                raise ValueError("invalid signature verification report timestamp") from exc
+            accepted_value = value.get("accepted", False)
+            if isinstance(accepted_value, str):
+                normalized = accepted_value.strip().lower()
+                if normalized not in {"true", "false"}:
+                    raise ValueError("invalid signature verification report outcome")
+                accepted = normalized == "true"
+            elif isinstance(accepted_value, bool):
+                accepted = accepted_value
+            else:
+                raise ValueError("invalid signature verification report outcome")
+            decoded.append(LasViewerAuditJournalSignatureEvent(
+                source=str(value.get("source", "")),
+                operation=str(value.get("operation", "")),
+                accepted=accepted,
+                signer_id=str(value.get("signer_id", "")),
+                key_id=str(value.get("key_id", "")),
+                reason=str(value.get("reason", "")),
+                occurred_at_ns=occurred_at_ns,
+            ))
+
+        if len(decoded) != int(verified["event_count"]):
+            raise ValueError("signature verification report event count mismatch")
+        return tuple(decoded)
+
+    def import_audit_journal_signature_reports(
+        self, paths: list[str | Path] | tuple[str | Path, ...]
+    ) -> dict[str, object]:
+        """Transactionally import and merge validated verification report exports."""
+        sources = tuple(paths)
+        decoded = [self.read_audit_journal_signature_report_export(path) for path in sources]
+        existing = self._load_audit_journal_signature_events()
+        identity = lambda event: (
+            event.source, event.operation, event.accepted, event.signer_id,
+            event.key_id, event.reason, event.occurred_at_ns,
+        )
+        seen = {identity(event) for event in existing}
+        imported = 0
+        skipped = 0
+        for event in (event for batch in decoded for event in batch):
+            key = identity(event)
+            if key in seen:
+                skipped += 1
+                continue
+            existing.append(event)
+            seen.add(key)
+            imported += 1
+        existing.sort(key=lambda event: (
+            event.occurred_at_ns, event.operation, event.source,
+            event.signer_id, event.key_id, event.reason, event.accepted,
+        ))
+        existing = existing[-200:]
+        self._save_preferences(
+            pinned_keys=self._load_pinned_keys(),
+            collapsed_groups=self._load_collapsed_groups(),
+            navigation_state=self.navigation_state(),
+            navigation_history=self.navigation_history(),
+            audit_journal_signature_events=existing,
+        )
+        return {
+            "schema": "las.viewer.audit-journal-signature-report-import-result",
+            "version": "1.0",
+            "source_count": len(sources),
+            "imported": imported,
+            "skipped": skipped,
+            "stored": len(existing),
+            "renderer_neutral": True,
+        }
+
     def verify_bookmark_trash_journal_export(
         self,
         path: str | Path,

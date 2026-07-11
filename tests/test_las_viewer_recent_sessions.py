@@ -2084,3 +2084,70 @@ def test_signature_verification_report_export_rejects_unknown_format(tmp_path):
         assert "format" in str(exc)
     else:
         raise AssertionError("ValueError expected")
+
+
+def test_signature_verification_report_imports_json_transactionally(tmp_path):
+    source = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "source"))
+    invalid = tmp_path / "invalid-source.json"
+    invalid.write_text("{}", encoding="utf-8")
+    source.verify_bookmark_trash_journal_export(invalid, operation="import")
+    report = tmp_path / "report.json"
+    source.export_audit_journal_signature_report(report)
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "target"))
+    result = target.import_audit_journal_signature_reports([report])
+
+    assert result["imported"] == 1
+    assert result["skipped"] == 0
+    assert target.audit_journal_signature_events()[0].operation == "import"
+
+
+def test_signature_verification_report_imports_csv_and_skips_duplicates(tmp_path):
+    source = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "csv-source"))
+    invalid = tmp_path / "invalid-csv-source.json"
+    invalid.write_text("{}", encoding="utf-8")
+    source.verify_bookmark_trash_journal_export(invalid, operation="merge")
+    report = tmp_path / "report.csv"
+    source.export_audit_journal_signature_report(report, format="csv")
+
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "csv-target"))
+    first = target.import_audit_journal_signature_reports([report])
+    second = target.import_audit_journal_signature_reports([report])
+
+    assert first["imported"] == 1
+    assert second["imported"] == 0
+    assert second["skipped"] == 1
+
+
+def test_signature_verification_report_import_is_transactional(tmp_path):
+    source = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "tx-source"))
+    valid = tmp_path / "valid-report.json"
+    source.export_audit_journal_signature_report(valid)
+    invalid = tmp_path / "broken-report.json"
+    invalid.write_text("{}", encoding="utf-8")
+    target = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "tx-target"))
+
+    try:
+        target.import_audit_journal_signature_reports([valid, invalid])
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("ValueError expected")
+
+    assert target.audit_journal_signature_events() == ()
+
+
+def test_signature_verification_report_reader_rejects_invalid_csv_outcome(tmp_path):
+    source = LasViewerRecentSessions(LasViewerWorkspaceAutosaveRepository(tmp_path / "invalid-outcome"))
+    report = tmp_path / "report.csv"
+    source.export_audit_journal_signature_report(report, format="csv")
+    text = report.read_text(encoding="utf-8")
+    # Preserve a valid checksum by producing a real event first, then tamper and expect integrity failure.
+    report.write_text(text.replace("accepted", "accepted_invalid", 1), encoding="utf-8")
+
+    try:
+        source.read_audit_journal_signature_report_export(report)
+    except ValueError as exc:
+        assert "integrity" in str(exc) or "invalid" in str(exc)
+    else:
+        raise AssertionError("ValueError expected")
