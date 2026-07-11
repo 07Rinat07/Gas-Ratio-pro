@@ -1933,6 +1933,74 @@ class LasViewerRecentSessions:
             raise ValueError("signature verification report event count mismatch")
         return tuple(decoded)
 
+    @classmethod
+    def compare_audit_journal_signature_report_exports(
+        cls,
+        baseline_path: str | Path,
+        candidate_path: str | Path,
+    ) -> dict[str, object]:
+        """Compare two validated verification report exports without importing them.
+
+        Events are matched by their complete stable identity, so duplicate records are
+        handled deterministically and no repository state is modified.
+        """
+        baseline = cls.read_audit_journal_signature_report_export(baseline_path)
+        candidate = cls.read_audit_journal_signature_report_export(candidate_path)
+
+        def identity(event: LasViewerAuditJournalSignatureEvent) -> tuple[object, ...]:
+            return (
+                event.source,
+                event.operation,
+                event.accepted,
+                event.signer_id,
+                event.key_id,
+                event.reason,
+                event.occurred_at_ns,
+            )
+
+        baseline_map = {identity(event): event for event in baseline}
+        candidate_map = {identity(event): event for event in candidate}
+        baseline_keys = set(baseline_map)
+        candidate_keys = set(candidate_map)
+
+        added = [candidate_map[key] for key in sorted(candidate_keys - baseline_keys)]
+        removed = [baseline_map[key] for key in sorted(baseline_keys - candidate_keys)]
+        unchanged = baseline_keys & candidate_keys
+
+        baseline_accepted = sum(1 for event in baseline if event.accepted)
+        candidate_accepted = sum(1 for event in candidate if event.accepted)
+        baseline_rejected = len(baseline) - baseline_accepted
+        candidate_rejected = len(candidate) - candidate_accepted
+
+        return {
+            "schema": "las.viewer.audit-journal-signature-report-comparison",
+            "version": "1.0",
+            "baseline": {
+                "path": str(Path(baseline_path)),
+                "total": len(baseline),
+                "accepted": baseline_accepted,
+                "rejected": baseline_rejected,
+            },
+            "candidate": {
+                "path": str(Path(candidate_path)),
+                "total": len(candidate),
+                "accepted": candidate_accepted,
+                "rejected": candidate_rejected,
+            },
+            "delta": {
+                "total": len(candidate) - len(baseline),
+                "accepted": candidate_accepted - baseline_accepted,
+                "rejected": candidate_rejected - baseline_rejected,
+            },
+            "added_count": len(added),
+            "removed_count": len(removed),
+            "unchanged_count": len(unchanged),
+            "changed": bool(added or removed),
+            "added": [event.to_dict() for event in added],
+            "removed": [event.to_dict() for event in removed],
+            "renderer_neutral": True,
+        }
+
     def import_audit_journal_signature_reports(
         self, paths: list[str | Path] | tuple[str | Path, ...]
     ) -> dict[str, object]:

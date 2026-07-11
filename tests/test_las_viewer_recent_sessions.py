@@ -2151,3 +2151,71 @@ def test_signature_verification_report_reader_rejects_invalid_csv_outcome(tmp_pa
         assert "integrity" in str(exc) or "invalid" in str(exc)
     else:
         raise AssertionError("ValueError expected")
+
+
+def test_signature_verification_report_comparison_detects_added_and_removed_events(tmp_path):
+    baseline_recent = LasViewerRecentSessions(
+        LasViewerWorkspaceAutosaveRepository(tmp_path / "compare-baseline")
+    )
+    first_source = tmp_path / "compare-first.json"
+    first_source.write_text("{}", encoding="utf-8")
+    baseline_recent.verify_bookmark_trash_journal_export(first_source, operation="verify")
+    baseline_path = tmp_path / "baseline-report.json"
+    baseline_recent.export_audit_journal_signature_report(baseline_path)
+
+    candidate_recent = LasViewerRecentSessions(
+        LasViewerWorkspaceAutosaveRepository(tmp_path / "compare-candidate")
+    )
+    second_source = tmp_path / "compare-second.json"
+    second_source.write_text("{}", encoding="utf-8")
+    candidate_recent.verify_bookmark_trash_journal_export(second_source, operation="import")
+    candidate_path = tmp_path / "candidate-report.json"
+    candidate_recent.export_audit_journal_signature_report(candidate_path)
+
+    comparison = LasViewerRecentSessions.compare_audit_journal_signature_report_exports(
+        baseline_path, candidate_path
+    )
+
+    assert comparison["schema"] == "las.viewer.audit-journal-signature-report-comparison"
+    assert comparison["changed"] is True
+    assert comparison["added_count"] == 1
+    assert comparison["removed_count"] == 1
+    assert comparison["unchanged_count"] == 0
+    assert comparison["added"][0]["operation"] == "import"
+    assert comparison["removed"][0]["operation"] == "verify"
+
+
+def test_signature_verification_report_comparison_reports_identical_exports(tmp_path):
+    recent = LasViewerRecentSessions(
+        LasViewerWorkspaceAutosaveRepository(tmp_path / "compare-identical")
+    )
+    source = tmp_path / "compare-identical-source.json"
+    source.write_text("{}", encoding="utf-8")
+    recent.verify_bookmark_trash_journal_export(source)
+    report = tmp_path / "identical-report.json"
+    recent.export_audit_journal_signature_report(report)
+
+    comparison = recent.compare_audit_journal_signature_report_exports(report, report)
+
+    assert comparison["changed"] is False
+    assert comparison["added_count"] == 0
+    assert comparison["removed_count"] == 0
+    assert comparison["unchanged_count"] == 1
+    assert comparison["delta"] == {"total": 0, "accepted": 0, "rejected": 0}
+
+
+def test_signature_verification_report_comparison_validates_both_inputs(tmp_path):
+    recent = LasViewerRecentSessions(
+        LasViewerWorkspaceAutosaveRepository(tmp_path / "compare-invalid")
+    )
+    valid = tmp_path / "valid-compare-report.json"
+    recent.export_audit_journal_signature_report(valid)
+    invalid = tmp_path / "invalid-compare-report.json"
+    invalid.write_text("{}", encoding="utf-8")
+
+    try:
+        recent.compare_audit_journal_signature_report_exports(valid, invalid)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("ValueError expected")
