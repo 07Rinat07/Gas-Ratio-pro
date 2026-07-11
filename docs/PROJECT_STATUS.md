@@ -1,31 +1,29 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v199
-Current stage: Stage 4 — Workbench UI Completion / UX Redesign
-Runtime acceptance: **v198 shell confirmed; professional UX acceptance pending**
+Baseline: v200
+Current stage: Stage 4 — Workbench UI Completion / UX interaction stabilization
+Runtime acceptance: **v199 visual layout confirmed; title/interaction defects under correction in v200**
 
 ## 1. Подтвержденное состояние
 
-Перезапуск Streamlit подтвердил, что production entry point и пятизонный Workbench подключены корректно. Архитектурный разрыв устранен. Реальный интерфейс v198, однако, остается техническим: слишком мелкая типографика, неравномерная ribbon-компоновка, слабая визуальная иерархия, избыточные текстовые dock-команды и недостаточно доминирующий workspace.
+Живой запуск v199 подтвердил новый production Workbench и корректную пятизонную компоновку. В ходе визуальной приемки выявлены два дефекта: title bar частично перекрывался системной панелью Streamlit, а команды не давали пользователю явной обратной связи и показывали взаимоисключающие dock-действия одновременно.
 
-## 2. Активный инкремент v199
+## 2. Активный инкремент v200
 
-**Workbench UX Redesign** без новых domain-функций:
+**Workbench UX interaction stabilization** без новых domain-функций:
 
-- профессиональная title/menu/ribbon композиция;
-- вывод только непустых групп команд;
-- крупные читаемые элементы управления;
-- Project Explorer в виде визуального дерева;
-- центральный workspace как доминирующая область;
-- компактные dock controls;
-- структурированная Properties panel;
-- компактный Status Bar;
-- сохранение Command Framework, Event Bus и application/render contracts;
-- обязательная живая визуальная приемка до закрытия Stage 4.
+- безопасный верхний отступ под системную панель Streamlit;
+- видимое выделение активного workspace;
+- явная обратная связь после успешной команды;
+- скрытие избыточного `Activate tool`;
+- показ только применимого `Collapse` или `Restore` для каждой панели;
+- проверка реального изменения application state при нажатии навигации;
+- production smoke и regression;
+- повторная живая приемка до закрытия Stage 4.
 
 ## 3. Единственный следующий разрешенный шаг
 
-Завершить v199, запустить новый build из отдельной папки, проверить реальный экран и исправить только подтвержденные UX/production дефекты. Stage 5 Petrophysical Engine остается заблокированным до живой приемки Stage 4.
+Завершить v200 и подтвердить на живом экране, что заголовок полностью виден, навигация меняет активный workspace, dock-кнопки изменяют панели и в интерфейсе отсутствуют traceback. Stage 5 Petrophysical Engine остается заблокированным до этой приемки.
 
 ## 4. Управляющая документация
 

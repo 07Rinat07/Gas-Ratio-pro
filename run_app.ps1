@@ -50,7 +50,7 @@ if ($null -ne $owner) {
     }
 }
 
-Write-Host "Starting Gas Ratio Pro v199" -ForegroundColor Green
+Write-Host "Starting Gas Ratio Pro v200" -ForegroundColor Green
 Write-Host "Source: $ProjectRoot" -ForegroundColor Cyan
 Write-Host "URL: http://localhost:$Port" -ForegroundColor Cyan
 

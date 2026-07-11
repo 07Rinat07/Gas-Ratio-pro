@@ -23,6 +23,7 @@ from core.workbench_shell import (
 
 WORKBENCH_RENDERER_NAME = "streamlit-modern"
 WORKBENCH_RENDERER_CONTRACT_VERSION = "workbench-renderer-contract"
+WORKBENCH_LAST_UI_ACTION_KEY = "workbench_last_ui_action"
 
 
 class StreamlitLike(Protocol):
@@ -81,10 +82,10 @@ def build_workbench_responsive_css() -> str:
 <style>
 :root { --wb-bg:#0b1018; --wb-surface:#111925; --wb-surface-2:#162131; --wb-line:#2b3a50; --wb-text:#edf3fb; --wb-muted:#91a2b8; --wb-accent:#3f8cff; --wb-success:#38c77a; }
 html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] { background:var(--wb-bg) !important; color:var(--wb-text); overflow-x: hidden; }
-.block-container { max-width:100% !important; padding:.35rem .55rem .2rem !important; }
-[data-testid="stHeader"] { height:2.2rem; background:rgba(11,16,24,.92); }
+.block-container { max-width:100% !important; padding:2.65rem .55rem .2rem !important; }
+[data-testid="stHeader"] { height:2.2rem; background:rgba(11,16,24,.96); }
 [data-testid="stToolbar"] { top:.15rem; }
-.workbench-titlebar { display:flex; align-items:center; justify-content:space-between; min-height:48px; padding:.25rem .55rem; border-bottom:1px solid var(--wb-line); background:linear-gradient(180deg,#121c2a,#0e151f); }
+.workbench-titlebar { position:relative; z-index:2; display:flex; align-items:center; justify-content:space-between; min-height:48px; padding:.25rem .55rem; border-bottom:1px solid var(--wb-line); background:linear-gradient(180deg,#121c2a,#0e151f); }
 .workbench-brand { display:flex; gap:.65rem; align-items:center; }
 .workbench-logo { width:28px; height:28px; display:grid; place-items:center; border-radius:7px; color:white; background:linear-gradient(135deg,#2f78ff,#18b7d8); font-size:1.05rem; box-shadow:0 0 18px rgba(63,140,255,.25); }
 .workbench-titlebar h1 { font-size:1.28rem; line-height:1.2; margin:0; letter-spacing:.01em; }
@@ -96,6 +97,7 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] { backgro
 .workbench-ribbon { padding:.45rem .5rem .5rem; border-bottom:1px solid var(--wb-line); background:linear-gradient(180deg,#121b28,#0e151f); }
 .workbench-ribbon-label { color:var(--wb-muted); text-transform:uppercase; letter-spacing:.08em; font-size:.64rem; margin:.1rem 0 .25rem; }
 .workbench-runtime-source { display:none; }
+.workbench-command-feedback { margin:.35rem .55rem; padding:.42rem .65rem; border:1px solid #2e5944; border-radius:5px; background:#10251b; color:#b9f3d1; font-size:.78rem; }
 [data-testid="stHorizontalBlock"] { gap:.55rem; }
 div[data-testid="stButton"] > button { min-height: 44px; border-radius:6px; border:1px solid #344760; background:linear-gradient(180deg,#1b2a3d,#142031); color:#f1f6fd; font-size:.82rem; font-weight:600; padding:.45rem .65rem; box-shadow:none; }
 div[data-testid="stButton"] > button:hover { border-color:#4e8be8; background:linear-gradient(180deg,#233752,#182943); color:white; }
@@ -193,9 +195,16 @@ def _dispatch_action(
         version=contract.version,
         command_registry=registry,
     )
-    return controller.dispatch_renderer_action(
+    result = controller.dispatch_renderer_action(
         str(action.get("id", "")), dict(action.get("payload", {}) or {})
     ).command_result
+    registry.state[WORKBENCH_LAST_UI_ACTION_KEY] = {
+        "action_id": str(action.get("id", "")),
+        "title": str(action.get("title") or action.get("label") or action.get("id") or "Command"),
+        "executed": bool(result.executed),
+        "message": str(result.message or ""),
+    }
+    return result
 
 
 def _render_native_streamlit_layout(
@@ -228,30 +237,69 @@ def _render_native_streamlit_layout(
         + "</nav>", unsafe_allow_html=True,
     )
 
-    # Show only groups containing usable actions. The previous renderer created
-    # seven equal-width columns even for empty groups, which caused tiny text,
-    # clipped labels and large unused gaps.
-    groups = [dict(group) for group in layout.get("toolbar", ()) if group.get("actions")]
+    # Show only commands that are meaningful in the current presentation state.
+    # Active navigation is highlighted, redundant tool activation is hidden, and
+    # mutually exclusive dock commands never appear together.
+    active_navigation_id = str(payload.get("interaction", {}).get("active_navigation_id", "") or "")
+    dock_state = {str(item.get("id")): dict(item) for item in payload.get("dock_panes", ())}
+
+    def _visible_action(action: dict[str, Any]) -> bool:
+        action_id = str(action.get("id", ""))
+        if action_id == "action.activate_tool":
+            return False
+        if action_id in {"action.collapse_dock_pane", "action.restore_dock_pane"}:
+            pane_id = str(action.get("payload", {}).get("pane_id", ""))
+            pane = dock_state.get(pane_id, {})
+            is_open = bool(pane.get("opened", True)) and not bool(pane.get("collapsed", False))
+            return is_open if action_id == "action.collapse_dock_pane" else not is_open
+        return True
+
+    groups: list[dict[str, Any]] = []
+    for raw_group in layout.get("toolbar", ()):
+        actions = [dict(action) for action in raw_group.get("actions", ()) if action.get("id") and _visible_action(dict(action))]
+        if actions:
+            group = dict(raw_group)
+            group["actions"] = actions
+            groups.append(group)
+
     if groups:
         st_module.markdown("<div class='workbench-ribbon'><div class='workbench-ribbon-label'>Commands</div></div>", unsafe_allow_html=True)
         for group in groups:
-            actions = [dict(a) for a in group.get("actions", ()) if a.get("id")]
-            if not actions:
-                continue
+            actions = list(group.get("actions", ()))
             st_module.markdown(
                 f"<div class='workbench-ribbon-label'>{_html(group.get('title', 'Commands'))}</div>",
                 unsafe_allow_html=True,
             )
-            for offset in range(0, len(actions), 6):
-                row = actions[offset:offset + 6]
-                columns = st_module.columns(len(row), gap="small")
+            for offset in range(0, len(actions), 5):
+                row = actions[offset:offset + 5]
+                columns = st_module.columns([1] * len(row) + [1.15] * max(0, 5 - len(row)), gap="small")
                 for action, column in zip(row, columns):
                     with column:
                         ui_id = str(action.get("ui_id") or action.get("id"))
                         key = "workbench_toolbar_" + ui_id.replace(".", "_")
-                        label = str(action.get("title") or action.get("label") or action.get("id"))
-                        if st_module.button(label, key=key, disabled=not bool(action.get("enabled", True)), width="stretch"):
+                        action_id = str(action.get("id", ""))
+                        nav_id = str(action.get("payload", {}).get("navigation_id", ""))
+                        active = action_id == "action.select_navigation" and nav_id == active_navigation_id
+                        label = str(action.get("title") or action.get("label") or action_id)
+                        if active:
+                            label = "● " + label
+                        if st_module.button(
+                            label,
+                            key=key,
+                            disabled=not bool(action.get("enabled", True)) or active,
+                            width="stretch",
+                            type="primary" if active else "secondary",
+                            help=("Current workspace" if active else f"Open {label.replace('● ', '')}"),
+                        ):
                             executed.append(_dispatch_action(contract, registry, action))
+
+    feedback = registry.state.get(WORKBENCH_LAST_UI_ACTION_KEY)
+    if isinstance(feedback, dict) and feedback.get("executed"):
+        st_module.markdown(
+            "<div class='workbench-command-feedback'>✓ "
+            f"{_html(feedback.get('title', 'Command'))}: {_html(feedback.get('message') or 'Completed')}</div>",
+            unsafe_allow_html=True,
+        )
 
     dock_panes = {str(item.get("id")): dict(item) for item in payload.get("dock_panes", ())}
     explorer = dock_panes.get("dock.project_explorer", {})

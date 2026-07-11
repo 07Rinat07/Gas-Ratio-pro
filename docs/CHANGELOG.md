@@ -1,3 +1,11 @@
+
+## v200 — Workbench UX interaction stabilization
+
+- Prevented Streamlit system header from clipping the Workbench title bar.
+- Added active workspace highlighting and deterministic command feedback.
+- Removed redundant tool activation from the ribbon.
+- Made dock collapse/restore actions mutually exclusive and state-aware.
+- Added production interaction tests for real application-state transitions.
 # GAS RATIO PRO — Changelog
 
 ## v199 — Workbench UX redesign
