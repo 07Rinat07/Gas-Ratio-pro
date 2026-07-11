@@ -14,6 +14,7 @@ from core.command_framework import CommandExecutionResult, WorkbenchCommandRegis
 from core.workbench_context import WorkbenchSelection, WorkbenchSelectionService, WorkspaceContext
 from core.workbench_lifecycle import WorkbenchLifecycleManager, WorkbenchLifecycleResult
 from core.workbench_navigation import WorkbenchNavigationRouter
+from core.workbench_dispatcher import WorkbenchDispatchStep, WorkbenchShellDispatchResult, WorkbenchShellDispatcher
 from core.workbench_tools import (
     WORKBENCH_ACTIVATE_TOOL_COMMAND_ID,
     WorkbenchToolDescriptor,
@@ -51,6 +52,7 @@ class WorkbenchControllerResult:
     tool_views: dict[str, Any] | None = None
     module_routes: list[dict[str, Any]] | None = None
     active_module: dict[str, Any] | None = None
+    shell_dispatch: WorkbenchShellDispatchResult | None = None
 
     def view_model(self) -> dict[str, Any]:
         """Return the renderer-facing payload after the interaction."""
@@ -64,6 +66,8 @@ class WorkbenchControllerResult:
             payload["module_routes"] = list(self.module_routes)
         if self.active_module is not None:
             payload["active_module"] = dict(self.active_module)
+        if self.shell_dispatch is not None:
+            payload["shell_event"] = self.shell_dispatch.to_dict()
         return payload
 
 
@@ -135,7 +139,11 @@ class WorkbenchController:
             "tool": dict(tool_view),
         }
 
-    def _result(self, command_result: CommandExecutionResult) -> WorkbenchControllerResult:
+    def _result(
+        self,
+        command_result: CommandExecutionResult,
+        shell_dispatch: WorkbenchShellDispatchResult | None = None,
+    ) -> WorkbenchControllerResult:
         """Build a controller result with a fresh shell, contract and tool views."""
 
         shell = self.shell()
@@ -151,7 +159,36 @@ class WorkbenchController:
             tool_views,
             self.navigation_router.payload(),
             self._active_module_payload(contract_payload, tool_views),
+            shell_dispatch,
         )
+
+
+    def _shell_state_snapshot(self) -> dict[str, Any]:
+        """Return the normalized renderer-safe state emitted after a dispatch."""
+
+        shell = self.shell()
+        return {
+            "active_navigation_id": shell.interaction.active_navigation_id,
+            "active_workspace": shell.interaction.active_workspace,
+            "active_tool_id": shell.active_tool_id,
+            "active_dock_pane_id": shell.interaction.active_dock_pane_id,
+            "open_tool_ids": list(shell.open_tool_ids),
+        }
+
+    def _dispatch_shell(
+        self,
+        intent: str,
+        steps: tuple[WorkbenchDispatchStep, ...],
+        *,
+        metadata: dict[str, Any] | None = None,
+    ) -> WorkbenchControllerResult:
+        dispatcher = WorkbenchShellDispatcher(
+            self.state,
+            self.command_registry,
+            self._shell_state_snapshot,
+        )
+        dispatch_result = dispatcher.dispatch(intent, steps, metadata=metadata)
+        return self._result(dispatch_result.primary_result, dispatch_result)
 
     def _navigation_ids(self) -> set[str]:
         return {item.id for item in self.shell().navigation if item.visible and item.enabled}
@@ -169,20 +206,21 @@ class WorkbenchController:
         if clean_id not in self._navigation_ids():
             raise KeyError(f"Unknown or unavailable Workbench navigation item: {clean_id}")
         route = self.navigation_router.by_navigation(clean_id)
-        result = self.command_registry.execute(
-            WORKBENCH_SELECT_NAVIGATION_COMMAND_ID,
-            {"navigation_id": clean_id},
-        )
-        # Navigation owns module focus.  Tool activation remains command-backed;
-        # no renderer or UI adapter writes Workbench state directly.
-        self.command_registry.execute(
-            WORKBENCH_ACTIVATE_TOOL_COMMAND_ID,
-            {"tool_id": route.tool_id, "metadata": {"navigation_id": clean_id}},
-        )
+        steps = [
+            WorkbenchDispatchStep(WORKBENCH_SELECT_NAVIGATION_COMMAND_ID, {"navigation_id": clean_id}),
+            WorkbenchDispatchStep(
+                WORKBENCH_ACTIVATE_TOOL_COMMAND_ID,
+                {"tool_id": route.tool_id, "metadata": {"navigation_id": clean_id}},
+            ),
+        ]
         tool_pane_id = f"dock.{route.tool_id}"
         if tool_pane_id in {pane.id for pane in self.shell().dock_layout.panes}:
-            self.command_registry.execute(WORKBENCH_OPEN_DOCK_PANE_COMMAND_ID, {"pane_id": tool_pane_id})
-        return self._result(result)
+            steps.append(WorkbenchDispatchStep(WORKBENCH_OPEN_DOCK_PANE_COMMAND_ID, {"pane_id": tool_pane_id}))
+        return self._dispatch_shell(
+            "navigation.select",
+            tuple(steps),
+            metadata={"navigation_id": clean_id, "tool_id": route.tool_id, "pane_id": tool_pane_id},
+        )
 
     def activate_dock_pane(self, pane_id: str) -> WorkbenchControllerResult:
         """Activate a dock pane through the command framework."""
@@ -190,18 +228,28 @@ class WorkbenchController:
         clean_id = str(pane_id or "").strip()
         if clean_id not in self._dock_pane_ids():
             raise KeyError(f"Unknown or unavailable Workbench dock pane: {clean_id}")
-        result = self.command_registry.execute(
-            WORKBENCH_ACTIVATE_DOCK_PANE_COMMAND_ID,
-            {"pane_id": clean_id},
+        return self._dispatch_shell(
+            "dock.focus",
+            (WorkbenchDispatchStep(WORKBENCH_ACTIVATE_DOCK_PANE_COMMAND_ID, {"pane_id": clean_id}),),
+            metadata={"pane_id": clean_id},
         )
-        return self._result(result)
 
     def _dispatch_dock_command(self, command_id: str, pane_id: str) -> WorkbenchControllerResult:
         clean_id = str(pane_id or "").strip()
         all_ids = {pane.id for pane in self.shell().dock_layout.panes}
         if clean_id not in all_ids:
             raise KeyError(f"Unknown Workbench dock pane: {clean_id}")
-        return self._result(self.command_registry.execute(command_id, {"pane_id": clean_id}))
+        intent = {
+            WORKBENCH_OPEN_DOCK_PANE_COMMAND_ID: "dock.open",
+            WORKBENCH_CLOSE_DOCK_PANE_COMMAND_ID: "dock.close",
+            WORKBENCH_COLLAPSE_DOCK_PANE_COMMAND_ID: "dock.collapse",
+            WORKBENCH_RESTORE_DOCK_PANE_COMMAND_ID: "dock.restore",
+        }.get(command_id, "dock.update")
+        return self._dispatch_shell(
+            intent,
+            (WorkbenchDispatchStep(command_id, {"pane_id": clean_id}),),
+            metadata={"pane_id": clean_id},
+        )
 
     def open_dock_pane(self, pane_id: str) -> WorkbenchControllerResult:
         return self._dispatch_dock_command(WORKBENCH_OPEN_DOCK_PANE_COMMAND_ID, pane_id)
@@ -226,14 +274,20 @@ class WorkbenchController:
         clean_id = str(tool_id or "").strip()
         if clean_id not in self._tool_ids():
             raise KeyError(f"Unknown or unavailable Workbench tool: {clean_id}")
-        result = self.command_registry.execute(
-            WORKBENCH_ACTIVATE_TOOL_COMMAND_ID,
-            {"tool_id": clean_id, "metadata": dict(metadata or {})},
-        )
+        steps = [
+            WorkbenchDispatchStep(
+                WORKBENCH_ACTIVATE_TOOL_COMMAND_ID,
+                {"tool_id": clean_id, "metadata": dict(metadata or {})},
+            )
+        ]
         tool_pane_id = f"dock.{clean_id}"
         if tool_pane_id in {pane.id for pane in self.shell().dock_layout.panes}:
-            self.command_registry.execute(WORKBENCH_OPEN_DOCK_PANE_COMMAND_ID, {"pane_id": tool_pane_id})
-        return self._result(result)
+            steps.append(WorkbenchDispatchStep(WORKBENCH_OPEN_DOCK_PANE_COMMAND_ID, {"pane_id": tool_pane_id}))
+        return self._dispatch_shell(
+            "tool.activate",
+            tuple(steps),
+            metadata={"tool_id": clean_id, "pane_id": tool_pane_id},
+        )
 
     def list_tools(self) -> tuple[WorkbenchToolDescriptor, ...]:
         """List visible Workbench tool descriptors."""

@@ -1,5 +1,14 @@
 # Changelog
 
+## v189
+
+- Added one atomic Workbench shell dispatcher for navigation, tool activation and dock lifecycle commands.
+- Added rollback of the complete presentation state when any command in a coordinated transition fails.
+- Published one normalized `workbench.shell.state_changed` event after each successful shell transition.
+- Exposed a serializable renderer-facing shell event contract with final navigation, workspace, tool and dock focus state.
+- Removed the architectural gap between independent command calls and coherent Workbench shell state.
+- Added unit, integration, rollback and renderer-contract regression coverage.
+
 ## v188
 
 - Added an application-level Dock Manager for pane open, close, collapse, restore and focus operations.
