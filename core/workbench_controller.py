@@ -128,6 +128,10 @@ class WorkbenchController:
         payload["tool_views"] = tool_views
         payload["module_routes"] = self.navigation_router.payload()
         payload["active_module"] = self._active_module_payload(payload, tool_views)
+        from core.workbench_ui_providers import WorkbenchUIProviderService
+        payload["ui_providers"] = WorkbenchUIProviderService(self.state).build(
+            context, payload["active_module"]
+        ).to_dict()
         return payload
 
 
@@ -345,6 +349,10 @@ class WorkbenchController:
             return self.collapse_dock_pane(str(clean_payload.get("pane_id") or clean_payload.get("id") or ""))
         if clean_action_id == "action.restore_dock_pane":
             return self.restore_dock_pane(str(clean_payload.get("pane_id") or clean_payload.get("id") or ""))
+        if clean_action_id == "action.resize_dock_pane":
+            from core.workbench_shell import WORKBENCH_RESIZE_DOCK_PANE_COMMAND_ID
+            result = self.command_registry.execute(WORKBENCH_RESIZE_DOCK_PANE_COMMAND_ID, clean_payload)
+            return self._result(result)
         if clean_action_id == "action.activate_tool":
             return self.activate_tool(str(clean_payload.get("tool_id") or clean_payload.get("id") or ""), metadata=dict(clean_payload.get("metadata", {}) or {}))
         if clean_action_id == "action.open_las":

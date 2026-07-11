@@ -33,6 +33,7 @@ def test_renderer_contract_lists_only_command_backed_actions():
         "action.close_dock_pane",
         "action.collapse_dock_pane",
         "action.restore_dock_pane",
+        "action.resize_dock_pane",
         "action.activate_tool",
     )
     assert actions["action.select_navigation"]["command_id"] == WORKBENCH_SELECT_NAVIGATION_COMMAND_ID

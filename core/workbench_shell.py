@@ -37,6 +37,7 @@ WORKBENCH_OPEN_DOCK_PANE_COMMAND_ID = "workbench.dock.open"
 WORKBENCH_CLOSE_DOCK_PANE_COMMAND_ID = "workbench.dock.close"
 WORKBENCH_COLLAPSE_DOCK_PANE_COMMAND_ID = "workbench.dock.collapse"
 WORKBENCH_RESTORE_DOCK_PANE_COMMAND_ID = "workbench.dock.restore"
+WORKBENCH_RESIZE_DOCK_PANE_COMMAND_ID = "workbench.dock.resize"
 
 
 @dataclass(frozen=True, slots=True)
@@ -252,6 +253,19 @@ class WorkbenchDockManager:
     def restore(self, pane_id: str) -> WorkbenchDockPane:
         return self.open(pane_id)
 
+    def resize(self, pane_id: str, size: int) -> WorkbenchDockPane:
+        """Persist a supported dock size without exposing CSS mutation to UI."""
+        clean_size = int(size)
+        if clean_size < 160 or clean_size > 640:
+            raise ValueError("Dock pane size must be between 160 and 640 pixels.")
+        pane = self._update(pane_id, size=clean_size)
+        self.event_bus.publish(
+            "workbench.dock.resized",
+            {"pane_id": pane.id, "size": clean_size},
+            source="WorkbenchDockManager",
+        )
+        return pane
+
     def ensure_tool_panes(self, tools: Iterable[WorkbenchToolDescriptor], open_tool_ids: Iterable[str]) -> WorkbenchDockLayout:
         panes = list(self.layout().panes)
         by_id = {pane.id: pane for pane in panes}
@@ -414,6 +428,20 @@ def register_workbench_interaction_commands(
             lambda payload, action=action: _dock_action(action, payload),
             replace=True,
         )
+    command_registry.register(
+        WorkbenchCommand(
+            WORKBENCH_RESIZE_DOCK_PANE_COMMAND_ID,
+            "Изменить размер панели Workbench",
+            "workbench",
+            "Изменить поддерживаемую ширину dock-панели через command layer.",
+            payload={},
+        ),
+        lambda payload: dock_manager.resize(
+            str(payload.get("pane_id") or payload.get("id") or "").strip(),
+            int(payload.get("size", 0)),
+        ).to_dict(),
+        replace=True,
+    )
     return command_registry
 
 
@@ -611,6 +639,7 @@ def build_workbench_renderer_contract(
         WorkbenchRendererAction("action.close_dock_pane", WORKBENCH_CLOSE_DOCK_PANE_COMMAND_ID, "Закрыть панель", "dock", payload_schema={"pane_id": "string"}),
         WorkbenchRendererAction("action.collapse_dock_pane", WORKBENCH_COLLAPSE_DOCK_PANE_COMMAND_ID, "Свернуть панель", "dock", payload_schema={"pane_id": "string"}),
         WorkbenchRendererAction("action.restore_dock_pane", WORKBENCH_RESTORE_DOCK_PANE_COMMAND_ID, "Восстановить панель", "dock", payload_schema={"pane_id": "string"}),
+        WorkbenchRendererAction("action.resize_dock_pane", WORKBENCH_RESIZE_DOCK_PANE_COMMAND_ID, "Изменить размер панели", "dock", payload_schema={"pane_id": "string", "size": "integer"}),
         WorkbenchRendererAction(
             "action.activate_tool",
             WORKBENCH_ACTIVATE_TOOL_COMMAND_ID,

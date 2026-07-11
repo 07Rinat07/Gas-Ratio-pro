@@ -1,7 +1,7 @@
 # GAS RATIO PRO — Active Project Roadmap
 
 Status: Active  
-Baseline: v195  
+Baseline: v196  
 Purpose: единственная активная последовательность реализации проекта.
 
 ## 1. Обязательные правила
@@ -106,19 +106,19 @@ Status: **COMPLETED v193**
 
 ### Stage 4 — Workbench UI Completion
 
-Status: **ACTIVE v195**
+Status: **ACTIVE v196**
 
 Цель: превратить подключённый production Workbench из минимального shell в полноценное инженерное рабочее окружение до подключения следующих domain-модулей.
 
 Обязательные задачи:
 
 1. Полноэкранный application layout без неиспользуемой центральной области. **COMPLETED v195**
-2. Верхний command toolbar/ribbon, использующий существующий Command Framework. **FOUNDATION v195**
-3. Центральный workspace-host для LAS Viewer и последующих инженерных модулей. **FOUNDATION v195**
-4. Project Explorer слева с сериализуемым project-tree contract. **FOUNDATION v195**
-5. Context-sensitive Properties panel справа без domain-вычислений в UI. **FOUNDATION v195**
-6. Status bar: активный проект, скважина, LAS, viewport/scale и operational status. **FOUNDATION v195**
-7. Реальное размещение и изменение размеров dock panes в поддерживаемых Streamlit границах.
+2. Верхний command toolbar/ribbon, использующий существующий Command Framework. **COMPLETED v196**
+3. Центральный workspace-host для LAS Viewer и последующих инженерных модулей. **COMPLETED v196**
+4. Project Explorer слева с сериализуемым project-tree contract. **COMPLETED v196**
+5. Context-sensitive Properties panel справа без domain-вычислений в UI. **COMPLETED v196**
+6. Status bar: активный проект, скважина, LAS, viewport/scale и operational status. **COMPLETED v196**
+7. Реальное размещение, collapse/restore и изменение размеров dock panes в поддерживаемых Streamlit границах. **COMPLETED v196**
 8. Responsive, keyboard-navigation и accessibility regression для нового layout.
 9. Smoke-проверка production startup и основных navigation/tool workflows.
 

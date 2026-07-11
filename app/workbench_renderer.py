@@ -84,6 +84,13 @@ def build_workbench_responsive_css() -> str:
 .workbench-titlebar h1 { font-size:1.25rem; margin:0; }
 .workbench-toolbar { display:flex; flex-wrap:wrap; gap:.4rem; padding:.45rem; border:1px solid #273246; border-radius:.65rem; background:#111722; }
 .workbench-toolbar-item { padding:.4rem .7rem; border-radius:.45rem; background:#182235; border:1px solid #30405a; font-size:.82rem; }
+.workbench-toolbar-actions { display:flex; flex-wrap:wrap; gap:.35rem; margin:.2rem 0 .45rem; }
+.workbench-las-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(9rem,1fr)); gap:.5rem; margin-bottom:.65rem; }
+.workbench-las-card { border:1px solid #30405a; background:#141c29; border-radius:.45rem; padding:.55rem .65rem; }
+.workbench-las-tracks { display:grid; grid-template-columns:repeat(auto-fit,minmax(11rem,1fr)); gap:.5rem; }
+.workbench-las-track { min-height:12rem; border:1px solid #30405a; border-radius:.5rem; background:linear-gradient(180deg,#172132,#0f141e); padding:.55rem; }
+.workbench-las-track h4 { margin:.05rem 0 .45rem; font-size:.85rem; }
+.workbench-las-track small { color:#8fa0b8; display:block; }
 .workbench-main { display:grid; grid-template-columns:1fr; gap:.6rem; flex:1; min-height:0; }
 .workbench-pane { min-width:0; min-height:0; overflow:auto; border:1px solid #273246; border-radius:.65rem; background:#0f141e; }
 .workbench-pane-header { position:sticky; top:0; z-index:2; padding:.65rem .75rem; font-weight:700; background:#151d2a; border-bottom:1px solid #273246; }
@@ -186,6 +193,21 @@ def render_streamlit_workbench_contract(
         for item in layout["toolbar"]
     )
     st_module.markdown(f"<nav class='workbench-toolbar' aria-label='Command toolbar'>{toolbar_html}</nav>", unsafe_allow_html=True)
+    allowed_toolbar_actions = {
+        str(action.get("ui_id") or action.get("id")): dict(action)
+        for group in layout["toolbar"]
+        for action in group.get("actions", [])
+        if action.get("id") and action.get("enabled", True)
+    }
+    for ui_id, action in allowed_toolbar_actions.items():
+        action_id = str(action.get("id"))
+        label = str(action.get("title") or action.get("label") or action_id)
+        key = "workbench_toolbar_" + ui_id.replace(".", "_")
+        if st_module.button(label, key=key, disabled=not bool(action.get("enabled", True))):
+            controller = WorkbenchController(
+                registry.state, renderer=contract.renderer, version=contract.version, command_registry=registry
+            )
+            executed.append(controller.dispatch_renderer_action(action_id, dict(action.get("payload", {}) or {})).command_result)
 
     tree_html = "".join(
         f"<div class='workbench-tree-item' style='padding-left:{.45 + .8 * int(item.get('level', 0))}rem'>"
@@ -194,8 +216,30 @@ def render_streamlit_workbench_contract(
     )
     workspace = layout["workspace"]
     cards = workspace.get("content", {}).get("summary_cards", [])
-    cards_html = "".join(f"<div class='workbench-property'><span>{_html(card.get('title'))}</span><b>{_html(card.get('value'))}</b></div>" for card in cards)
-    center_html = cards_html or f"<div class='workbench-workspace-empty'><h3>{_html(workspace['title'])}</h3><p>{_html(workspace['empty_state'])}</p></div>"
+    cards_html = "".join(f"<div class='workbench-las-card'><small>{_html(card.get('title'))}</small><b>{_html(card.get('value'))}</b></div>" for card in cards)
+    runtime = dict(workspace.get("runtime", {}) or {})
+    visualization = dict(runtime.get("visualization", {}) or {})
+    track_html = ""
+    if runtime.get("embedded"):
+        curves = list(visualization.get("curves", ()) or ())
+        for track in list(visualization.get("tracks", ()) or ()):
+            track_id = str(track.get("id") or track.get("track_id") or "track")
+            track_curves = [curve for curve in curves if str(curve.get("track_id", "")) == track_id]
+            labels = ", ".join(str(curve.get("mnemonic") or curve.get("title") or curve.get("id") or "") for curve in track_curves[:8]) or "No visible curves"
+            track_html += (
+                f"<article class='workbench-las-track' aria-label='LAS track {_html(track_id)}'>"
+                f"<h4>{_html(track.get('title') or track_id)}</h4>"
+                f"<small>{_html(labels)}</small></article>"
+            )
+        depth = dict(visualization.get("depth_range", {}) or {})
+        depth_text = f"{_html(depth.get('start', '—'))} – {_html(depth.get('stop', '—'))} {_html(visualization.get('depth_unit', ''))}"
+        center_html = (
+            f"<div class='workbench-las-summary'>{cards_html}"
+            f"<div class='workbench-las-card'><small>Depth viewport</small><b>{depth_text}</b></div></div>"
+            f"<div class='workbench-las-tracks'>{track_html}</div>"
+        )
+    else:
+        center_html = (f"<div class='workbench-las-summary'>{cards_html}</div>" if cards_html else "") or f"<div class='workbench-workspace-empty'><h3>{_html(workspace['title'])}</h3><p>{_html(workspace['empty_state'])}</p></div>"
     props_html = "".join(f"<div class='workbench-property'><span>{_html(item['label'])}</span><b>{_html(item['value'])}</b></div>" for item in layout["properties"] )
     st_module.markdown(
         "<section class='workbench-main'>"

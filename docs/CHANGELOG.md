@@ -1393,3 +1393,14 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Connected the active module view model to the central workspace host without moving domain calculations or repository access into Streamlit.
 - Preserved command-backed navigation and dock focus controls.
 - Added production renderer, serialization, responsive and smoke regression coverage.
+
+
+## v196 Interactive Workbench panes and embedded LAS workspace
+
+- Added application-level providers for hydrated Project Explorer, selection-driven Properties and operational Status Bar payloads.
+- Connected toolbar groups to real renderer actions routed through `WorkbenchController` and the Command Framework.
+- Embedded the existing LAS visualization payload in the central workspace host without exposing raw DataFrames or repository objects.
+- Added viewport, scale, track and curve status metadata.
+- Added supported dock pane resizing with validation, command dispatch and Event Bus notification.
+- Preserved responsive/accessibility contracts and presentation-only Streamlit boundaries.
+- Added unit, integration and regression coverage for the interactive Workbench panes.

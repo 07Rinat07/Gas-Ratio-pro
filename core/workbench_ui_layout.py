@@ -40,21 +40,47 @@ def build_workbench_ui_layout(payload: Mapping[str, Any]) -> WorkbenchUILayoutCo
     route = dict(active_module.get("route", {}) or {})
 
     commands = tuple(payload.get("commands", ()) or ())
+    module_actions = tuple(tool.get("actions", ()) or ())
+    navigation_actions = tuple({
+        "ui_id": f"toolbar.navigation.{item.get('id', '')}",
+        "id": "action.select_navigation",
+        "title": str(item.get("title") or item.get("id") or "Open workspace"),
+        "payload": {"navigation_id": str(item.get("id") or "")},
+        "enabled": bool(item.get("enabled", True)),
+        "category": "project",
+    } for item in tuple(payload.get("navigation", ()) or ()) if item.get("id"))
+    dock_actions = (
+        {"ui_id": "toolbar.dock.project_explorer.collapse", "id": "action.collapse_dock_pane", "title": "Collapse Explorer", "payload": {"pane_id": "dock.project_explorer"}, "enabled": True, "category": "settings"},
+        {"ui_id": "toolbar.dock.properties.collapse", "id": "action.collapse_dock_pane", "title": "Collapse Properties", "payload": {"pane_id": "dock.properties"}, "enabled": True, "category": "settings"},
+        {"ui_id": "toolbar.dock.project_explorer.restore", "id": "action.restore_dock_pane", "title": "Restore Explorer", "payload": {"pane_id": "dock.project_explorer"}, "enabled": True, "category": "settings"},
+        {"ui_id": "toolbar.dock.properties.restore", "id": "action.restore_dock_pane", "title": "Restore Properties", "payload": {"pane_id": "dock.properties"}, "enabled": True, "category": "settings"},
+    )
     toolbar_groups = ("file", "project", "data", "las", "interpretation", "report", "settings")
+    action_group = {
+        "action.open_las": "las", "action.las_primary_activate": "las",
+        "action.las_primary_zoom": "las", "action.las_primary_pan": "las",
+        "action.las_primary_fit": "las", "action.las_primary_reset": "las",
+        "action.las_primary_export": "report", "action.run_gas_ratio_analysis": "interpretation",
+        "action.refresh_report_preview": "report", "action.export_report_bundle": "report",
+        "action.select_navigation": "project", "action.activate_tool": "project",
+        "action.collapse_dock_pane": "settings", "action.restore_dock_pane": "settings",
+    }
+    all_actions = [dict(item) for item in (*navigation_actions, *dock_actions, *module_actions) if item.get("id")]
     toolbar: list[dict[str, Any]] = []
     for group in toolbar_groups:
-        matching = [command for command in commands if str(command.get("category", "")).lower() == group]
+        actions = [item for item in all_actions if action_group.get(str(item.get("id")), str(item.get("category", "")).lower()) == group]
+        matching = [command for command in commands if str(command.get("group", command.get("category", ""))).lower() == group]
         toolbar.append({
-            "id": f"toolbar.{group}",
-            "title": group.title(),
+            "id": f"toolbar.{group}", "title": group.title(),
             "command_ids": [str(command.get("id", "")) for command in matching if command.get("id")],
-            "enabled": True,
+            "actions": actions, "enabled": True,
         })
 
     project_id = context.get("project_id") or status.get("project_id")
     well_id = context.get("well_id") or status.get("well_id")
     las_id = context.get("las_id") or status.get("las_id")
-    tree = (
+    providers = dict(payload.get("ui_providers", {}) or {})
+    tree = tuple(providers.get("project_tree", ()) or (
         {"id": "tree.project", "title": _value(project_id, "No project open"), "kind": "project", "level": 0, "active": bool(project_id)},
         {"id": "tree.wells", "title": "Wells", "kind": "collection", "level": 1, "count": 1 if well_id else 0},
         {"id": "tree.las", "title": "LAS", "kind": "collection", "level": 1, "count": 1 if las_id else 0},
@@ -62,7 +88,7 @@ def build_workbench_ui_layout(payload: Mapping[str, Any]) -> WorkbenchUILayoutCo
         {"id": "tree.calculations", "title": "Calculations", "kind": "collection", "level": 1, "count": 0},
         {"id": "tree.reports", "title": "Reports", "kind": "collection", "level": 1, "count": 1 if status.get("active_report") else 0},
         {"id": "tree.exports", "title": "Exports", "kind": "collection", "level": 1, "count": int(status.get("recent_exports_count", 0) or 0)},
-    )
+    ))
 
     workspace = {
         "id": "workspace.host",
@@ -71,28 +97,29 @@ def build_workbench_ui_layout(payload: Mapping[str, Any]) -> WorkbenchUILayoutCo
         "status": tool.get("status") or "ready",
         "empty_state": tool.get("empty_state") or "Select a module or open a project to begin.",
         "content": dict(tool.get("content", {}) or {}),
+        "runtime": dict(providers.get("workspace_runtime", {}) or {}),
         "actions": list(tool.get("actions", ()) or ()),
         "active_tool_id": payload.get("active_tool_id", ""),
         "active_workspace": interaction.get("active_workspace", ""),
     }
 
-    properties = (
+    properties = tuple(providers.get("properties", ()) or (
         {"label": "Project", "value": _value(project_id)},
         {"label": "Well", "value": _value(well_id)},
         {"label": "LAS", "value": _value(las_id)},
         {"label": "Module", "value": _value(workspace["title"])},
         {"label": "Renderer", "value": _value(workspace["renderer_hint"])},
         {"label": "State", "value": _value(workspace["status"])},
-    )
+    ))
 
-    status_items = (
+    status_items = tuple(providers.get("status_items", ()) or (
         {"label": "Project", "value": _value(project_id)},
         {"label": "Well", "value": _value(well_id)},
         {"label": "LAS", "value": _value(las_id)},
         {"label": "Workspace", "value": _value(interaction.get("active_workspace"))},
         {"label": "Module", "value": _value(workspace["title"])},
         {"label": "Status", "value": "Ready" if status.get("ready") else "Awaiting project"},
-    )
+    ))
     return WorkbenchUILayoutContract(
         toolbar=tuple(toolbar), project_tree=tree, workspace=workspace,
         properties=properties, status_items=status_items,
