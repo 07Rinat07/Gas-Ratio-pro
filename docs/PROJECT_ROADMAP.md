@@ -67,7 +67,7 @@ Status: **ACTIVE**
 
 Обязательные задачи:
 
-1. Реальный LAS-open workflow через существующий импортёр.
+1. Реальный LAS-open workflow через существующий импортёр. **COMPLETED v180**
 2. Полноценное построение multi-track viewer из LAS curves.
 3. Общие depth viewport, cursor и selection.
 4. Track configuration: порядок, ширина, шкала, видимость.

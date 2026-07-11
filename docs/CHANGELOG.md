@@ -1232,3 +1232,13 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Archived replaced project plans and progress logs under `docs/archive/legacy_plans/`.
 - Converted legacy `project_plan.md` and `PROJECT_PROGRESS_NEXT_STEP.md` into compatibility entry points.
 - Defined a policy that future version notes belong in `CHANGELOG.md` unless they describe a stable public contract.
+
+## v180 LAS Viewer open workflow
+
+- Added a real LAS-open application workflow using the existing LAS importer.
+- Validated LAS content and supported depth channels before mutating project storage.
+- Persisted accepted LAS files through the existing `LasManagerService`.
+- Connected imported LAS data to visualization payload and compact `LasViewerSession` contracts.
+- Prevented raw DataFrame storage in UI/session contracts.
+- Added rollback and regression coverage for invalid LAS, missing depth channels and unsupported extensions.
+

@@ -1,8 +1,8 @@
 # GAS RATIO PRO — Current Project Status
 
-Baseline: v179  
+Baseline: v180  
 Current stage: LAS Viewer completion  
-Last fully verified baseline: 1743 tests passed (v179); preflight OK. Visualization Engine Stage 1 is complete.
+Last fully verified baseline: v179 — 1743 tests passed; preflight OK. Visualization Engine Stage 1 is complete. LAS-open workflow completed in v180.
 
 ## 1. Что подтверждено кодом и тестами
 
@@ -33,15 +33,17 @@ LAS Viewer foundation:
 
 ## 3. Следующий разрешённый инкремент
 
-**Implement the real LAS-open workflow through the existing importer.**
+**Build the complete multi-track viewer from imported LAS curves.**
 
 Состав:
 
-1. использовать существующий LAS importer без дублирования parsing-логики;
-2. связать open workflow с существующими viewer session и track-layout contracts;
-3. корректно обрабатывать invalid LAS, пустые curves и отсутствующий depth channel;
-4. не переносить raw dataframe в UI session state;
-5. покрыть workflow unit, integration и regression tests.
+1. использовать payload, созданный LAS-open workflow;
+2. построить полный multi-track viewer из доступных LAS curves;
+3. сохранить renderer-neutral track/layout contracts;
+4. корректно обработать пустые и полностью null curves;
+5. покрыть построение unit, integration и regression tests.
+
+LAS-open workflow подтверждён: importer → project storage → visualization payload → compact viewer session. Raw dataframe в UI session state не сохраняется.
 
 Никакие audit/bookmark/licensing функции в следующий инкремент не входят.
 

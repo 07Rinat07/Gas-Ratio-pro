@@ -2,8 +2,8 @@
 
 Актуальный статус проекта ведётся в [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
-Текущий этап: **Visualization Engine completion**.  
-Следующий шаг: **final large-LAS performance regression for Visualization Engine**.
+Текущий этап: **LAS Viewer completion**.  
+Следующий шаг: **complete multi-track viewer construction from imported LAS curves**.
 
 Исторический progress log перенесён в:
 
