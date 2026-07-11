@@ -42,6 +42,7 @@ from services.visualization_performance import (
     VisualizationPerformanceEngine,
     VisualizationPerformanceProfile,
 )
+from services.visualization_render_validation import VisualizationRenderValidationPipeline
 
 
 @dataclass(frozen=True, slots=True)
@@ -298,6 +299,7 @@ class VisualizationScenePipeline:
         render_model_builder: RenderModelBuilder | None = None,
         performance_engine: VisualizationPerformanceEngine | None = None,
         validator: SceneValidator | None = None,
+        render_validator: VisualizationRenderValidationPipeline | None = None,
     ) -> None:
         self.domain_model_builder = domain_model_builder or DomainModelBuilder()
         self.context_builder = context_builder or SceneContextBuilder()
@@ -310,6 +312,7 @@ class VisualizationScenePipeline:
         self.render_model_builder = render_model_builder or RenderModelBuilder()
         self.performance_engine = performance_engine or VisualizationPerformanceEngine()
         self.validator = validator or SceneValidator()
+        self.render_validator = render_validator or VisualizationRenderValidationPipeline()
 
     def run(self, payload: Mapping[str, Any]) -> VisualizationScenePipelineResult:
         domain_model = self.domain_model_builder.build(payload)
@@ -360,6 +363,12 @@ class VisualizationScenePipeline:
             enabled=cache_enabled,
         )
         validation = self.validator.validate(context, scene, layout)
+        render_validation = self.render_validator.validate({
+            "render_model": render_model.to_dict(),
+            "print_layout": print_layout.to_dict(),
+        })
+        validation["render_validation"] = render_validation.to_dict()
+        validation["render_validation_ok"] = render_validation.ok
         validation["axis_grid_ok"] = axis_grid.ok
         validation["axis_count"] = len(axis_grid.axes)
         validation["grid_line_count"] = len(axis_grid.grid_lines)
@@ -375,6 +384,7 @@ class VisualizationScenePipeline:
         validation["performance_ok"] = performance.ok
         validation["render_model_cache_hit"] = performance.cache_hit
         validation["render_model_cache_key"] = performance.cache_key
+        validation["ok"] = bool(validation.get("ok", False) and render_validation.ok)
         return VisualizationScenePipelineResult(
             domain_model=domain_model,
             context=context,
