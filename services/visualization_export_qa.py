@@ -14,6 +14,7 @@ from typing import Any, Mapping
 from xml.etree import ElementTree
 
 from services.visualization_renderer_parity import VisualizationRendererParityValidator
+from services.visualization_print_quality import VisualizationPrintQualityValidator
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +26,7 @@ class VisualizationExportQaReport:
     pdf_ok: bool = False
     renderer_parity_ok: bool = False
     geometry_signature_match: bool = False
+    print_quality_ok: bool = False
     expected_primitive_count: int = 0
     svg_primitive_count: int = 0
     expected_clip_count: int = 0
@@ -43,6 +45,7 @@ class VisualizationExportQaReport:
             "pdf_ok": self.pdf_ok,
             "renderer_parity_ok": self.renderer_parity_ok,
             "geometry_signature_match": self.geometry_signature_match,
+            "print_quality_ok": self.print_quality_ok,
             "expected_primitive_count": self.expected_primitive_count,
             "svg_primitive_count": self.svg_primitive_count,
             "expected_clip_count": self.expected_clip_count,
@@ -71,6 +74,10 @@ class VisualizationExportQaValidator:
         expected_clips = _mapping_list(render_model.get("clip_regions"))
         issues: list[str] = []
 
+        print_quality = VisualizationPrintQualityValidator().validate(pipeline)
+        if not print_quality.ok:
+            issues.extend(f"export_qa_print_quality:{item}" for item in print_quality.issues)
+
         svg_parity = VisualizationRendererParityValidator().validate(pipeline, svg_meta)
         pdf_parity = VisualizationRendererParityValidator().validate(pipeline, pdf_meta)
         renderer_parity_ok = svg_parity.ok and pdf_parity.ok
@@ -97,11 +104,12 @@ class VisualizationExportQaValidator:
             issues.append("export_qa_renderer_geometry_signature_mismatch")
 
         return VisualizationExportQaReport(
-            ok=svg_ok and pdf_ok and renderer_parity_ok and geometry_signature_match and not issues,
+            ok=svg_ok and pdf_ok and renderer_parity_ok and geometry_signature_match and print_quality.ok and not issues,
             svg_ok=svg_ok,
             pdf_ok=pdf_ok,
             renderer_parity_ok=renderer_parity_ok,
             geometry_signature_match=geometry_signature_match,
+            print_quality_ok=print_quality.ok,
             expected_primitive_count=len(expected_primitives),
             svg_primitive_count=svg_primitive_count,
             expected_clip_count=len(expected_clips),
