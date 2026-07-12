@@ -491,3 +491,5 @@ Roadmap изменяется только когда:
 ### Completed: durable Data to Interpretation handoff
 - Preserve the last explicit calculation across Workbench workspace transitions.
 - Invalidate it only on explicit mapping reset, project change, LAS reset or manual cleanup.
+
+- [x] Fix active calculation revision contract used by Data → Interpretation handoff.

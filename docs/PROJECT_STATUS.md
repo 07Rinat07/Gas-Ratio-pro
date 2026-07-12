@@ -207,3 +207,7 @@ Next:
 - Active calculation is now stored in a durable `workbench_active_calculation` contract.
 - Workspace navigation no longer clears the last explicitly calculated DataFrame.
 - Added commit/restore/missing diagnostics to application logs.
+
+## Active calculation handoff hotfix
+- Fixed the Data workspace crash caused by an invalid `RevisionSnapshot.calculation_revision` access.
+- Active calculations can now be committed to the durable Workbench contract and restored by Interpretation.

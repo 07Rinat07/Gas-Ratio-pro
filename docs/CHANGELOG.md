@@ -1706,3 +1706,6 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 
 - Fixed repeated loss of calculated data when moving from Data to Interpretation by introducing a durable active-calculation contract.
 - Added explicit lifecycle logging for calculation commit, restore, migration and missing-state diagnostics.
+
+- Fixed active calculation persistence after mapping and calculation: `RevisionSnapshot.calculation` is now used instead of the removed `calculation_revision` attribute.
+- Added a regression test covering the full revision snapshot contract used by the Data → Interpretation handoff.
