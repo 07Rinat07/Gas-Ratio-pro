@@ -50,6 +50,23 @@ class DatasetCard:
     updated_at: str = ""
 
 
+@dataclass(frozen=True)
+class DatasetSectionAudit:
+    project_id: str
+    section: str
+    active_records: int
+    archived_records: int
+    orphan_directories: tuple[str, ...] = ()
+
+    @property
+    def total_records(self) -> int:
+        return self.active_records + self.archived_records
+
+    @property
+    def needs_cleanup(self) -> bool:
+        return self.archived_records > 0 or bool(self.orphan_directories)
+
+
 class DatasetManagerService:
     """Service layer for Dataset Manager storage lifecycle operations.
 
@@ -203,6 +220,83 @@ class DatasetManagerService:
     def list_records(self, project_id: str, section: str, *, include_archived: bool = True) -> tuple[object, ...]:
         spec = self._spec(section)
         return spec.list_records(self.root, project_id, include_archived=include_archived)
+
+
+    def audit_section(self, project_id: str, section: str) -> DatasetSectionAudit:
+        """Inspect active, archived and unreferenced dataset storage.
+
+        Orphan directories are physical dataset folders not referenced by the
+        current manifest. They can remain after interrupted imports or legacy
+        versions and must not silently appear as active datasets.
+        """
+        spec = self._spec(section)
+        clean_project_id = safe_project_id(project_id)
+        if spec.key == "las":
+            records = tuple(self.las_manager.list_files(clean_project_id, include_archived=True))
+            active = sum(1 for item in records if not getattr(item, "archived_at", ""))
+            archived = len(records) - active
+            # LAS folders are managed by LasManagerService; do not guess orphan
+            # semantics from the multi-level wells layout.
+            return DatasetSectionAudit(clean_project_id, spec.key, active, archived, ())
+
+        records = tuple(spec.list_records(self.root, clean_project_id, include_archived=True))
+        active = sum(1 for item in records if not getattr(item, "archived_at", ""))
+        archived = len(records) - active
+        referenced = {str(getattr(item, "id", "")) for item in records if getattr(item, "id", "")}
+        section_path = self.section_dir(clean_project_id, spec.key)
+        ignored = {spec.manifest_name}
+        orphan_dirs = tuple(
+            sorted(
+                child.name
+                for child in section_path.iterdir()
+                if child.is_dir() and child.name not in referenced and child.name not in ignored
+            )
+        ) if section_path.exists() else ()
+        return DatasetSectionAudit(clean_project_id, spec.key, active, archived, orphan_dirs)
+
+    def purge_archived(self, project_id: str, section: str) -> DatasetDeleteSummary:
+        """Permanently remove archived datasets from one section."""
+        spec = self._spec(section)
+        if spec.key == "las":
+            records = tuple(self.las_manager.list_files(project_id, include_archived=True))
+        else:
+            records = tuple(spec.list_records(self.root, project_id, include_archived=True))
+        archived_ids = tuple(
+            str(getattr(item, "id", ""))
+            for item in records
+            if getattr(item, "archived_at", "") and getattr(item, "id", "")
+        )
+        return self.delete_selected(project_id, spec.key, archived_ids)
+
+    def clear_orphan_directories(self, project_id: str, section: str) -> DatasetDeleteSummary:
+        """Remove unreferenced physical dataset directories after audit."""
+        spec = self._spec(section)
+        audit = self.audit_section(project_id, spec.key)
+        if spec.key == "las" or not audit.orphan_directories:
+            result = self.sync_project_index(project_id)
+            return DatasetDeleteSummary(project_id, spec.key, 0, 0, 0, 0, result.entries_count)
+        deleted = missing = released = 0
+        for directory_name in audit.orphan_directories:
+            path = self.section_dir(project_id, spec.key) / directory_name
+            released += self.file_handle_manager.release_path(path)
+            released += self.resource_manager.release_path(path)
+            released += self.cache_manager.clear_path(path)
+            result = self.delete_engine.delete_path(path, missing_ok=True)
+            if result.deleted:
+                deleted += 1
+            else:
+                missing += 1
+            released += result.released_resources
+        index_result = self.sync_project_index(project_id)
+        return DatasetDeleteSummary(
+            project_id=safe_project_id(project_id),
+            section=spec.key,
+            requested=len(audit.orphan_directories),
+            deleted=deleted,
+            missing=missing,
+            released_resources=released,
+            index_entries=index_result.entries_count,
+        )
 
     def register_dataset_file(
         self,

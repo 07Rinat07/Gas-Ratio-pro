@@ -1623,3 +1623,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Moved LAS-correlation HTML generation behind an explicit action.
 - Incremented the independent export revision only when a new artifact is actually generated.
 - Added export timing records and regression coverage preventing implicit serialization from returning.
+
+### Dataset Manager storage lifecycle audit
+- Added per-section counters for active, archived and orphan dataset storage.
+- Added safe cleanup actions for selected datasets, archived records, orphan directories, one section and all dataset sections.
+- Destructive bulk actions now require exact project ID confirmation and create a project ZIP backup before deletion.
+- Dataset manifests and Project Database index are synchronized after cleanup so deleted records do not return after rerun or restart.

@@ -416,3 +416,9 @@ Roadmap изменяется только когда:
 - [x] Generate LAS-correlation HTML only after explicit preparation.
 - [x] Increment export revision only when artifact bytes are generated.
 - [ ] Complete live Windows acceptance with Kaleido installed for PNG/PDF/SVG.
+
+### Stage 4W Dataset lifecycle hardening
+- [x] Audit active, archived and orphan dataset storage per table section.
+- [x] Add safe cleanup actions with project ID confirmation.
+- [x] Create automatic ZIP backup before bulk dataset cleanup.
+- [x] Rebuild manifests and project index after deletion.

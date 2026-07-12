@@ -9286,70 +9286,132 @@ def _render_dataset_manager_toolbar(
     selected_dataset_id: str = "",
     logger=None,
 ) -> None:
-    """Render Unified Manager toolbar for one Dataset Manager section."""
+    """Render safe Dataset Manager lifecycle controls for one section."""
 
     service = _dataset_manager_service()
     supported_section = section in service.section_specs
     key_prefix = f"dataset_manager_{section}_{project_id}"
+    try:
+        audit = service.audit_section(project_id, section) if supported_section else None
+    except Exception:
+        audit = None
+        if logger:
+            logger.exception("dataset_manager_audit_failed project_id=%s section=%s", safe_log_value(project_id), safe_log_value(section))
+
     st.caption(
-        "Dataset Manager · единая панель управления Dataset: импорт, обновление, "
-        "удаление выбранного, очистка раздела и очистка всех datasets проекта."
+        "Dataset Manager хранит активные и архивные наборы раздельно. "
+        "Удаление с диска доступно только после явного подтверждения ID проекта."
     )
-    columns = st.columns([1.1, 1.1, 1.2, 1.2, 1.4, 1.4, 1.5, 1.1])
-    with columns[0]:
-        st.button("➕ Импорт", key=f"{key_prefix}_import", disabled=True)
-    with columns[1]:
-        if st.button("🔄 Обновить", key=f"{key_prefix}_refresh"):
-            _refresh_ui()
-    with columns[2]:
-        st.button("✏ Редактировать", key=f"{key_prefix}_edit", disabled=True)
-    with columns[3]:
-        st.button("📋 Дублировать", key=f"{key_prefix}_duplicate", disabled=True)
-    with columns[4]:
-        if st.button("🗑 Удалить выбранный", key=f"{key_prefix}_delete_selected", disabled=(not selected_dataset_id or not supported_section)):
-            try:
+    if audit is not None:
+        metrics = st.columns(3)
+        metrics[0].metric("Активные", audit.active_records)
+        metrics[1].metric("Архивные", audit.archived_records)
+        metrics[2].metric("Orphan-каталоги", len(audit.orphan_directories))
+        if audit.needs_cleanup:
+            st.warning(
+                "Раздел содержит архивные или не привязанные к manifest данные. "
+                "Они не участвуют в текущей сессии, но занимают место на диске."
+            )
+
+    basic = st.columns([1.1, 1.1, 1.4])
+    basic[0].button("➕ Импорт", key=f"{key_prefix}_import", disabled=True, width="stretch")
+    if basic[1].button("🔄 Обновить", key=f"{key_prefix}_refresh", width="stretch"):
+        _refresh_ui()
+    basic[2].button("📤 Экспорт списка", key=f"{key_prefix}_export", disabled=True, width="stretch")
+
+    with st.expander("Очистка и обслуживание раздела", expanded=False):
+        st.caption(
+            f"Для destructive-операций введите ID активного проекта: `{project_id}`. "
+            "Перед массовой очисткой приложение автоматически создаст backup ZIP проекта."
+        )
+        confirmation = st.text_input(
+            "Подтверждение ID проекта",
+            key=f"{key_prefix}_confirmation",
+            placeholder=project_id,
+        ).strip()
+        confirmed = confirmation == project_id
+        if confirmation and not confirmed:
+            st.error("ID проекта не совпадает. Очистка заблокирована.")
+
+        action_cols = st.columns(4)
+        delete_selected = action_cols[0].button(
+            "Удалить выбранный",
+            key=f"{key_prefix}_delete_selected",
+            disabled=(not selected_dataset_id or not supported_section or not confirmed),
+            width="stretch",
+        )
+        purge_archived = action_cols[1].button(
+            "Удалить архивные",
+            key=f"{key_prefix}_purge_archived",
+            disabled=(not supported_section or not confirmed or audit is None or audit.archived_records == 0),
+            width="stretch",
+        )
+        clear_orphans = action_cols[2].button(
+            "Удалить orphan",
+            key=f"{key_prefix}_clear_orphans",
+            disabled=(not supported_section or not confirmed or audit is None or not audit.orphan_directories),
+            width="stretch",
+        )
+        clear_section = action_cols[3].button(
+            "Очистить раздел",
+            key=f"{key_prefix}_clear_section",
+            disabled=(not supported_section or not confirmed),
+            width="stretch",
+        )
+
+        try:
+            if delete_selected:
                 summary = service.delete_dataset(project_id, section, selected_dataset_id)
-                st.success(f"Удалено Dataset: {summary.deleted}. Освобождено ресурсов: {summary.released_resources}.")
+                st.success(f"Удалено datasets: {summary.deleted}. Освобождено ресурсов: {summary.released_resources}.")
                 _refresh_ui()
-            except StorageDeleteError as exc:
-                if logger:
-                    logger.exception("dataset_manager_delete_selected_failed project_id=%s section=%s dataset_id=%s", safe_log_value(project_id), safe_log_value(section), safe_log_value(selected_dataset_id))
-                st.error(str(exc))
-            except Exception:
-                if logger:
-                    logger.exception("dataset_manager_delete_selected_failed project_id=%s section=%s dataset_id=%s", safe_log_value(project_id), safe_log_value(section), safe_log_value(selected_dataset_id))
-                st.error("Не удалось удалить выбранный Dataset. Подробности записаны в logs/app.log.")
-    with columns[5]:
-        if st.button("🧹 Очистить раздел", key=f"{key_prefix}_clear_section", disabled=not supported_section):
-            try:
+            elif purge_archived:
+                backup = create_project_backup(LAS_CORRELATION_PROJECTS_ROOT, project_id, f"Before purging archived {section} datasets")
+                st.caption(f"Backup создан: {backup.file_name}")
+                summary = service.purge_archived(project_id, section)
+                st.success(f"Архив очищен. Удалено datasets: {summary.deleted}.")
+                _refresh_ui()
+            elif clear_orphans:
+                backup = create_project_backup(LAS_CORRELATION_PROJECTS_ROOT, project_id, f"Before clearing orphan {section} dataset folders")
+                st.caption(f"Backup создан: {backup.file_name}")
+                summary = service.clear_orphan_directories(project_id, section)
+                st.success(f"Orphan-каталоги очищены: {summary.deleted}.")
+                _refresh_ui()
+            elif clear_section:
+                backup = create_project_backup(LAS_CORRELATION_PROJECTS_ROOT, project_id, f"Before clearing {section} dataset section")
+                st.caption(f"Backup создан: {backup.file_name}")
                 summary = service.clear_section(project_id, section)
-                st.success(f"Раздел очищен. Удалено записей: {summary.deleted}. Освобождено ресурсов: {summary.released_resources}.")
+                st.success(f"Раздел очищен. Удалено datasets: {summary.deleted}.")
                 _refresh_ui()
-            except StorageDeleteError as exc:
-                if logger:
-                    logger.exception("dataset_manager_clear_section_failed project_id=%s section=%s", safe_log_value(project_id), safe_log_value(section))
-                st.error(str(exc))
-            except Exception:
-                if logger:
-                    logger.exception("dataset_manager_clear_section_failed project_id=%s section=%s", safe_log_value(project_id), safe_log_value(section))
-                st.error("Не удалось очистить раздел Dataset Manager. Подробности записаны в logs/app.log.")
-    with columns[6]:
-        if st.button("🗑 Очистить всё", key=f"{key_prefix}_clear_all"):
+        except StorageDeleteError as exc:
+            if logger:
+                logger.exception("dataset_manager_storage_delete_failed project_id=%s section=%s", safe_log_value(project_id), safe_log_value(section))
+            st.error(str(exc))
+        except Exception:
+            if logger:
+                logger.exception("dataset_manager_cleanup_failed project_id=%s section=%s", safe_log_value(project_id), safe_log_value(section))
+            st.error("Не удалось выполнить очистку Dataset Manager. Подробности записаны в logs/app.log.")
+
+        st.divider()
+        st.markdown("**Полная очистка всех Dataset-разделов проекта**")
+        st.caption("Удаляет LAS, CSV, Excel, Core, Mud Log и Production datasets, но не расчёты, отчёты и backups.")
+        if st.button(
+            "Очистить все Dataset-разделы",
+            key=f"{key_prefix}_clear_all",
+            disabled=not confirmed,
+            width="stretch",
+        ):
             try:
+                backup = create_project_backup(LAS_CORRELATION_PROJECTS_ROOT, project_id, "Before clearing all dataset sections")
+                st.caption(f"Backup создан: {backup.file_name}")
                 summary = service.clear_all(project_id)
-                st.success(f"Все Dataset-разделы очищены. Удалено записей: {summary.deleted}. Освобождено ресурсов: {summary.released_resources}.")
+                st.success(f"Все Dataset-разделы очищены. Удалено datasets: {summary.deleted}.")
                 _refresh_ui()
             except StorageDeleteError as exc:
-                if logger:
-                    logger.exception("dataset_manager_clear_all_failed project_id=%s", safe_log_value(project_id))
                 st.error(str(exc))
             except Exception:
                 if logger:
                     logger.exception("dataset_manager_clear_all_failed project_id=%s", safe_log_value(project_id))
                 st.error("Не удалось очистить Dataset Manager. Подробности записаны в logs/app.log.")
-    with columns[7]:
-        st.button("📤 Экспорт", key=f"{key_prefix}_export", disabled=True)
-
 
 def _render_dataset_manager_table(
     *,

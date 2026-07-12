@@ -121,3 +121,8 @@ Active governance remains limited to:
 - `CHANGELOG.md` for history only.
 
 No new roadmap, sprint-status or progress files are created.
+
+## Dataset Manager cleanup stabilization
+- Dataset tables now distinguish active records from archived records and orphan physical folders.
+- Hidden archived datasets no longer remain invisible without diagnostics.
+- Cleanup is explicit, project-scoped and backup-protected.
