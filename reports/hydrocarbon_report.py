@@ -6,7 +6,7 @@ from typing import Sequence
 import pandas as pd
 
 from core.reservoir_passport import build_reservoir_passport
-from core.reservoir_ranking import rank_reservoir_intervals
+from core.reservoir_ranking import DEFAULT_RANKING_PROFILE, ReservoirRankingProfile, rank_reservoir_intervals
 from core.hydrocarbon_intervals import (
     HydrocarbonInterval,
     HydrocarbonIntervalResult,
@@ -217,9 +217,13 @@ def build_reservoir_passport_tables(
 
 
 def build_reservoir_ranking_table(
-    df: pd.DataFrame, intervals: Sequence[HydrocarbonInterval]
+    df: pd.DataFrame,
+    intervals: Sequence[HydrocarbonInterval],
+    *,
+    profile: ReservoirRankingProfile | None = None,
 ) -> HtmlReportTable | None:
-    ranking = rank_reservoir_intervals(df, intervals)
+    profile = profile or DEFAULT_RANKING_PROFILE
+    ranking = rank_reservoir_intervals(df, intervals, profile=profile)
     if not ranking:
         return None
     rows = tuple((
@@ -231,7 +235,7 @@ def build_reservoir_ranking_table(
         item.recommendation,
     ) for item in ranking[:20])
     return HtmlReportTable(
-        title="Reservoir Ranking — приоритетные интервалы",
+        title=f"Reservoir Ranking — {profile.name}",
         headers=("№", "ID", "Интервал, м", "Мощность, м", "Флюид", "Индекс",
                  "Класс", "Достоверность", "Методики", "Полнота", "Мощность",
                  "Штраф", "Рекомендация"),
@@ -248,6 +252,7 @@ def build_hydrocarbon_report_payload(
     depth_label: str = "",
     report_profile: str = "engineering",
     include_plot: bool = False,
+    ranking_profile: ReservoirRankingProfile | None = None,
 ) -> HydrocarbonReportPayload:
     """Build the single source of truth for hydrocarbon report exports.
 
@@ -302,7 +307,7 @@ def build_hydrocarbon_report_payload(
     reservoir_passports_table, reservoir_passport_methods_table = build_reservoir_passport_tables(
         df, result.intervals, depth_column=depth_column
     )
-    reservoir_ranking_table = build_reservoir_ranking_table(df, result.intervals)
+    reservoir_ranking_table = build_reservoir_ranking_table(df, result.intervals, profile=ranking_profile)
     # Engineering profile stays concise: exclude zero-thickness point anomalies
     # from the primary table and rank only the strongest intervals.  The full
     # card set and detailed reasoning remain available in the expert appendix.

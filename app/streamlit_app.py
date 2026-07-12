@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import html
+import hashlib
 import importlib
 import os
 import random
@@ -244,7 +245,20 @@ from palettes.well_log_tablet import (
 )
 from palettes.pixler import build_pixler_palette
 from core.reservoir_passport import build_reservoir_passport
-from core.reservoir_ranking import rank_reservoir_intervals, reservoir_ranking_dataframe
+from core.reservoir_ranking import (
+    BUILTIN_RANKING_PROFILES,
+    DEFAULT_RANKING_PROFILE,
+    ReservoirRankingProfile,
+    ReservoirRankingWeights,
+    compare_reservoir_rankings,
+    rank_reservoir_intervals,
+    ranking_profile_by_id,
+    reservoir_ranking_dataframe,
+)
+from projects.reservoir_ranking_profiles import (
+    load_project_ranking_profiles,
+    save_project_ranking_profiles,
+)
 from palettes.ternary import build_ternary_palette
 from projects import (
     ProjectRecord,
@@ -7901,6 +7915,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
             calculated_df, list(detected_interval_result.intervals),
             selected_interval_id=str(selected_reservoir_overlay.interval_id) if selected_reservoir_overlay is not None else "",
             key="workspace_reservoir_ranking_table",
+            project_id=str(active_project.id),
         )
 
     st.subheader("Pixler + ternary")
@@ -8543,28 +8558,138 @@ def _render_reservoir_ranking(
     *,
     selected_interval_id: str,
     key: str,
+    project_id: str,
 ) -> None:
     if frame.empty or not intervals:
         return
-    ranking = rank_reservoir_intervals(frame, intervals)
-    ranking_df = reservoir_ranking_dataframe(ranking)
-    if ranking_df.empty:
-        return
-    ranking_df.insert(0, "Активный", ["▶" if str(value) == str(selected_interval_id) else "" for value in ranking_df["ID"]])
-    with st.expander("Reservoir Ranking — приоритетные интервалы", expanded=True):
+
+    try:
+        saved_profiles = load_project_ranking_profiles(
+            root=LAS_CORRELATION_PROJECTS_ROOT, project_id=project_id,
+        )
+    except Exception:
+        saved_profiles = ()
+
+    all_profiles = (*BUILTIN_RANKING_PROFILES, *saved_profiles)
+    profile_lookup = {profile.profile_id: profile for profile in all_profiles}
+    profile_key = f"{key}_profile_id"
+    current_profile_id = str(st.session_state.get(profile_key, DEFAULT_RANKING_PROFILE.profile_id))
+    if current_profile_id not in profile_lookup:
+        current_profile_id = DEFAULT_RANKING_PROFILE.profile_id
+        st.session_state[profile_key] = current_profile_id
+
+    with st.expander("Reservoir Ranking 2.0 — настраиваемые профили", expanded=True):
+        profile_id = st.selectbox(
+            "Профиль ранжирования",
+            options=list(profile_lookup),
+            index=list(profile_lookup).index(current_profile_id),
+            format_func=lambda value: profile_lookup[value].name,
+            key=profile_key,
+        )
+        base_profile = profile_lookup[profile_id]
+        st.caption(base_profile.description or "Настраиваемый инженерный профиль.")
+
+        custom_mode = st.checkbox(
+            "Изменить веса текущего профиля",
+            value=False,
+            key=f"{key}_custom_mode",
+        )
+        if custom_mode:
+            w = base_profile.weights.normalized()
+            c1, c2, c3, c4 = st.columns(4)
+            confidence_w = c1.number_input("Достоверность, %", 0.0, 100.0, float(w.confidence), 1.0, key=f"{key}_w_conf")
+            agreement_w = c2.number_input("Согласованность, %", 0.0, 100.0, float(w.agreement), 1.0, key=f"{key}_w_agree")
+            completeness_w = c3.number_input("Полнота C1–C5, %", 0.0, 100.0, float(w.completeness), 1.0, key=f"{key}_w_complete")
+            thickness_w = c4.number_input("Мощность, %", 0.0, 100.0, float(w.thickness), 1.0, key=f"{key}_w_thick")
+            reference_thickness = st.number_input(
+                "Мощность насыщения вклада, м",
+                min_value=0.1, max_value=500.0, value=float(base_profile.reference_thickness), step=0.5,
+                key=f"{key}_reference_thickness",
+                help="При этой мощности вклад мощности достигает максимума и далее не растёт.",
+            )
+            normalized_weights = ReservoirRankingWeights(
+                confidence_w, agreement_w, completeness_w, thickness_w,
+            ).normalized()
+            current_profile = ReservoirRankingProfile(
+                profile_id=f"session-{key}",
+                name="Текущие пользовательские веса",
+                weights=normalized_weights,
+                reference_thickness=float(reference_thickness),
+                description="Временный профиль текущей сессии.",
+                built_in=False,
+            )
+            st.caption(
+                "Нормализованные веса: "
+                f"достоверность {normalized_weights.confidence:.1f}%, "
+                f"согласованность {normalized_weights.agreement:.1f}%, "
+                f"полнота {normalized_weights.completeness:.1f}%, "
+                f"мощность {normalized_weights.thickness:.1f}%."
+            )
+            save_name = st.text_input("Название сохраняемого профиля", key=f"{key}_save_name")
+            if st.button("Сохранить профиль в проект", key=f"{key}_save_profile", width="stretch"):
+                clean_name = str(save_name or "").strip()
+                if not clean_name:
+                    st.warning("Введите название профиля.")
+                else:
+                    profile_slug = "custom-" + hashlib.sha1(clean_name.encode("utf-8")).hexdigest()[:10]
+                    saved = ReservoirRankingProfile(
+                        profile_id=profile_slug,
+                        name=clean_name,
+                        weights=normalized_weights,
+                        reference_thickness=float(reference_thickness),
+                        description="Пользовательский профиль проекта.",
+                        built_in=False,
+                    )
+                    merged = [item for item in saved_profiles if item.profile_id != profile_slug] + [saved]
+                    try:
+                        save_project_ranking_profiles(
+                            merged, root=LAS_CORRELATION_PROJECTS_ROOT, project_id=project_id,
+                        )
+                    except Exception:
+                        st.error("Не удалось сохранить профиль ранжирования.")
+                    else:
+                        st.success(f"Профиль «{clean_name}» сохранён.")
+        else:
+            current_profile = base_profile
+
+        reference_options = {profile.profile_id: profile for profile in all_profiles}
+        reference_id = st.selectbox(
+            "Сравнить с профилем",
+            options=list(reference_options),
+            index=0,
+            format_func=lambda value: reference_options[value].name,
+            key=f"{key}_reference_profile",
+        )
+        reference_profile = reference_options[reference_id]
+
+        _application_state_controller().state["active_reservoir_ranking_profile"] = current_profile
+        ranking = rank_reservoir_intervals(frame, intervals, profile=current_profile)
+        reference_ranking = rank_reservoir_intervals(frame, intervals, profile=reference_profile)
+        changes = compare_reservoir_rankings(
+            reference_ranking, ranking,
+            previous_profile=reference_profile,
+            current_profile=current_profile,
+        )
+        ranking_df = reservoir_ranking_dataframe(ranking, changes)
+        if ranking_df.empty:
+            return
+        ranking_df.insert(0, "Активный", ["▶" if str(value) == str(selected_interval_id) else "" for value in ranking_df["ID"]])
         st.caption(
-            "Индекс приоритета 0–100 объединяет достоверность (30%), согласованность методик (30%), "
-            "полноту C1–C5 (20%) и валовую мощность (20%). Это не оценка запасов, net pay или коммерческой ценности."
+            f"Активный профиль: {current_profile.name}. Индекс 0–100 является инструментом инженерной приоритизации, "
+            "а не оценкой запасов, net pay, насыщенности или коммерческой ценности."
         )
         event = st.dataframe(
-            ranking_df.head(20), width="stretch", height=430, hide_index=True,
+            ranking_df.head(20), width="stretch", height=470, hide_index=True,
             on_select="rerun", selection_mode="single-row", key=key,
             column_config={
                 "Активный": st.column_config.TextColumn("", width="small"),
                 "Место": st.column_config.NumberColumn("№", format="%d", width="small"),
+                "Δ места": st.column_config.NumberColumn("Δ места", format="%+d", width="small"),
                 "ID": st.column_config.TextColumn("ID", width="small"),
                 "Индекс приоритета": st.column_config.ProgressColumn("Приоритет", min_value=0, max_value=100, format="%.1f"),
+                "Δ индекса": st.column_config.NumberColumn("Δ индекса", format="%+.1f"),
                 "Мощность, м": st.column_config.NumberColumn("Мощность, м", format="%.2f"),
+                "Почему изменилось": st.column_config.TextColumn("Почему изменилось", width="large"),
                 "Рекомендация": st.column_config.TextColumn("Рекомендация", width="large"),
             },
         )
@@ -8746,6 +8871,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             calculated_df, list(detected_interval_result.intervals),
             selected_interval_id=selected_interval_id,
             key="interpretation_reservoir_ranking_table",
+            project_id=str(active_project.id),
         )
 
     if valid_depth.empty:
@@ -9215,6 +9341,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                         depth_label=_range_label(print_depth_range, unit="м"),
                         report_profile=presentation_state.profile,
                         include_plot=True,
+                        ranking_profile=_application_state_controller().state.get("active_reservoir_ranking_profile"),
                     )
                     if presentation_payload.presentation_model is None:
                         raise RuntimeError("PresentationModel не был сформирован.")
