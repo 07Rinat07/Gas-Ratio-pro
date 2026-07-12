@@ -1792,3 +1792,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added a minimum interval thickness display filter without modifying source data.
 - Added a shared selected interval state for the interval selector, depth panel and interval passport.
 - Added a compact selected interval passport below the graphs.
+
+## Shared selected interval for plots and reports
+
+- Connected Data Workspace Pixler and ternary to the common selected reservoir interval.
+- Added bidirectional synchronization between Data Workspace and Interpretation selectors with rerun-safe state handling.
+- Changed professional PDF/DOCX export to default to the selected reservoir interval.
+- Kept explicit current-view and manual depth-range export modes.

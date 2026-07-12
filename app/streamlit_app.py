@@ -7506,50 +7506,162 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         st.error("Не найдено ни одного интервала для выбора.")
         return
 
+    # Use one detected-interval model and one shared selection contract for
+    # Data Workspace, Interpretation, Pixler, ternary, Depth Panel and export.
+    detected_interval_result = None
+    interval_pairs: list[tuple[object, object]] = []
+    selected_reservoir_interval = None
+    selected_reservoir_overlay = None
+    try:
+        detected_interval_result = detect_hydrocarbon_intervals(calculated_df)
+        detected_overlays = reservoir_interval_overlays(detected_interval_result.intervals)
+        interval_pairs = list(zip(detected_overlays, detected_interval_result.intervals))
+    except Exception as exc:
+        logger.warning("workspace_interval_detection_failed error=%s", safe_log_value(exc))
+
+    if interval_pairs:
+        option_ids = [str(overlay.interval_id) for overlay, _ in interval_pairs]
+        remembered_interval_id = str(
+            state_controller.get_value("selected_reservoir_interval_id", "") or ""
+        )
+        default_interval_position = (
+            option_ids.index(remembered_interval_id)
+            if remembered_interval_id in option_ids
+            else 0
+        )
+        workspace_selection_key = "workspace_selected_reservoir_interval_id"
+        workspace_synced_key = "workspace_selected_reservoir_interval_synced_id"
+        if (
+            remembered_interval_id in option_ids
+            and (
+                workspace_selection_key not in st.session_state
+                or st.session_state.get(workspace_synced_key) != remembered_interval_id
+            )
+        ):
+            st.session_state[workspace_selection_key] = remembered_interval_id
+            st.session_state[workspace_synced_key] = remembered_interval_id
+        selected_reservoir_interval_id = st.selectbox(
+            "Выбранный пласт для Pixler и ternary",
+            options=option_ids,
+            index=default_interval_position,
+            format_func=lambda value: _interval_display_label(
+                next(interval for overlay, interval in interval_pairs if overlay.interval_id == value),
+                value,
+            ),
+            key=workspace_selection_key,
+            help=(
+                "Этот выбор общий для вкладок Работа с данными и Интерпретация, "
+                "а также используется как интервал по умолчанию для PDF/DOCX."
+            ),
+        )
+        selected_reservoir_overlay, selected_reservoir_interval = next(
+            pair for pair in interval_pairs
+            if pair[0].interval_id == selected_reservoir_interval_id
+        )
+        selected_reservoir_depth = (
+            float(selected_reservoir_interval.top) + float(selected_reservoir_interval.base)
+        ) / 2.0
+        st.session_state[workspace_synced_key] = str(selected_reservoir_interval_id)
+        state_controller.update_values({
+            "selected_reservoir_interval_id": str(selected_reservoir_interval_id),
+            "selected_reservoir_depth": selected_reservoir_depth,
+            "selected_reservoir_top": float(selected_reservoir_interval.top),
+            "selected_reservoir_bottom": float(selected_reservoir_interval.base),
+        })
+
     valid_ratio_mask = pd.Series(False, index=calculated_df.index)
-    required_ratio_columns = [column for column in ("wh", "bh", "ch", "c1_c2", "c2_sumc", "c3_sumc", "nc4_sumc") if column in calculated_df.columns]
+    required_ratio_columns = [
+        column
+        for column in ("wh", "bh", "ch", "c1_c2", "c2_sumc", "c3_sumc", "nc4_sumc")
+        if column in calculated_df.columns
+    ]
     if required_ratio_columns:
-        numeric_ratio_frame = calculated_df[required_ratio_columns].apply(pd.to_numeric, errors="coerce")
+        numeric_ratio_frame = calculated_df[required_ratio_columns].apply(
+            pd.to_numeric, errors="coerce"
+        )
         valid_ratio_mask = numeric_ratio_frame.notna().all(axis=1)
-    valid_indices = [int(index) for index in calculated_df.index[valid_ratio_mask] if not pd.isna(index)]
+    valid_indices = [
+        int(index)
+        for index in calculated_df.index[valid_ratio_mask]
+        if not pd.isna(index)
+    ]
+
     default_index = valid_indices[0] if valid_indices else interval_indices[0]
+    if selected_reservoir_interval is not None and "depth" in calculated_df.columns:
+        depth_numeric = pd.to_numeric(calculated_df["depth"], errors="coerce")
+        interval_mask = depth_numeric.between(
+            float(selected_reservoir_interval.top),
+            float(selected_reservoir_interval.base),
+            inclusive="both",
+        )
+        interval_candidates = calculated_df.index[interval_mask]
+        if len(interval_candidates):
+            target_depth = float(state_controller.get_value(
+                "selected_reservoir_depth",
+                (float(selected_reservoir_interval.top) + float(selected_reservoir_interval.base)) / 2.0,
+            ))
+            candidate_depths = depth_numeric.loc[interval_candidates]
+            nearest_label = (candidate_depths - target_depth).abs().idxmin()
+            if not pd.isna(nearest_label):
+                default_index = int(nearest_label)
+
     selected_index = st.selectbox(
-        "Выбор интервала",
+        "Выбор глубинной точки внутри пласта",
         options=interval_indices,
         index=interval_indices.index(default_index),
         format_func=lambda index: _interval_label(calculated_df, index),
     )
     if selected_index not in calculated_df.index:
         logger.warning("selected_interval_missing index=%s", safe_log_value(selected_index))
-        st.error("Выбранный интервал не найден.")
+        st.error("Выбранная глубинная точка не найдена.")
         return
 
     selected_row = calculated_df.loc[selected_index]
     logger.info("interval_selected index=%s", safe_log_value(selected_index))
     _render_interval_rule_summary(selected_row, ch_mode=ch_mode)
 
-    st.subheader("Pixler + ternary")
-    selected_depth_value = pd.to_numeric(pd.Series([selected_row.get("depth")]), errors="coerce").iloc[0]
+    selected_depth_value = pd.to_numeric(
+        pd.Series([selected_row.get("depth")]), errors="coerce"
+    ).iloc[0]
     selected_depth_value = None if pd.isna(selected_depth_value) else float(selected_depth_value)
+
+    # Selecting a depth point also updates the shared interval selection when
+    # the point belongs to another detected interval.
+    if selected_depth_value is not None and interval_pairs:
+        matching_pair = next((
+            pair for pair in interval_pairs
+            if float(pair[1].top) <= selected_depth_value <= float(pair[1].base)
+        ), None)
+        if matching_pair is not None:
+            selected_reservoir_overlay, selected_reservoir_interval = matching_pair
+            state_controller.update_values({
+                "selected_reservoir_interval_id": str(selected_reservoir_overlay.interval_id),
+                "selected_reservoir_depth": selected_depth_value,
+                "selected_reservoir_top": float(selected_reservoir_interval.top),
+                "selected_reservoir_bottom": float(selected_reservoir_interval.base),
+            })
+
+    st.subheader("Pixler + ternary")
     pixler_interval_frame = calculated_df
     pixler_interval_label = "Весь рассчитанный интервал"
     pixler_fluid_label = "Не определён"
-    try:
-        detected_intervals = detect_hydrocarbon_intervals(calculated_df)
-        for detected_interval in detected_intervals.intervals:
-            if selected_depth_value is not None and detected_interval.top <= selected_depth_value <= detected_interval.base:
-                depth_numeric = pd.to_numeric(calculated_df.get("depth"), errors="coerce")
-                pixler_interval_frame = calculated_df.loc[
-                    depth_numeric.between(detected_interval.top, detected_interval.base, inclusive="both")
-                ]
-                pixler_fluid_label = str(detected_interval.fluid_type)
-                pixler_interval_label = (
-                    f"{detected_interval.top:g}–{detected_interval.base:g} м · "
-                    f"{detected_interval.fluid_type} · {detected_interval.confidence_score}%"
-                )
-                break
-    except Exception as exc:
-        logger.warning("pixler_interval_context_failed error=%s", safe_log_value(exc))
+    if selected_reservoir_interval is not None:
+        depth_numeric = pd.to_numeric(calculated_df.get("depth"), errors="coerce")
+        pixler_interval_frame = calculated_df.loc[
+            depth_numeric.between(
+                float(selected_reservoir_interval.top),
+                float(selected_reservoir_interval.base),
+                inclusive="both",
+            )
+        ]
+        pixler_fluid_label = str(selected_reservoir_interval.fluid_type)
+        pixler_interval_label = (
+            f"{selected_reservoir_overlay.interval_id} · "
+            f"{float(selected_reservoir_interval.top):g}–"
+            f"{float(selected_reservoir_interval.base):g} м · "
+            f"{selected_reservoir_interval.fluid_type} · "
+            f"{selected_reservoir_interval.confidence_score}%"
+        )
 
     left, right = st.columns(2)
     left.plotly_chart(
@@ -8139,6 +8251,23 @@ def _interval_display_label(interval: object, interval_id: str) -> str:
     )
 
 
+def _selected_interval_print_range(
+    interval: object | None,
+    fallback: tuple[float, float],
+) -> tuple[float, float]:
+    """Return the selected reservoir top/base or a normalized fallback range."""
+    if interval is not None:
+        try:
+            top = float(getattr(interval, "top"))
+            base = float(getattr(interval, "base"))
+            if top != base:
+                return (min(top, base), max(top, base))
+        except (TypeError, ValueError, AttributeError):
+            pass
+    first, second = float(fallback[0]), float(fallback[1])
+    return (min(first, second), max(first, second))
+
+
 def _render_selected_interval_passport(interval: object, interval_id: str) -> None:
     explanation = getattr(interval, "explanation", None)
     fluid_labels = {
@@ -8228,6 +8357,17 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         option_ids = [overlay.interval_id for overlay, _ in selectable_pairs]
         remembered_id = str(state_controller.get_value("selected_reservoir_interval_id", "") or "")
         default_pos = option_ids.index(remembered_id) if remembered_id in option_ids else 0
+        interpretation_selection_key = "interpretation_selected_interval_id"
+        interpretation_synced_key = "interpretation_selected_interval_synced_id"
+        if (
+            remembered_id in option_ids
+            and (
+                interpretation_selection_key not in st.session_state
+                or st.session_state.get(interpretation_synced_key) != remembered_id
+            )
+        ):
+            st.session_state[interpretation_selection_key] = remembered_id
+            st.session_state[interpretation_synced_key] = remembered_id
         selected_interval_id = st.selectbox(
             "Выбранный пласт / интервал",
             options=option_ids,
@@ -8236,12 +8376,13 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 next(interval for overlay, interval in selectable_pairs if overlay.interval_id == value),
                 value,
             ),
-            key="interpretation_selected_interval_id",
+            key=interpretation_selection_key,
         )
         selected_overlay, selected_interval = next(
             pair for pair in selectable_pairs if pair[0].interval_id == selected_interval_id
         )
         selected_interval_depth = (float(selected_interval.top) + float(selected_interval.base)) / 2.0
+        st.session_state[interpretation_synced_key] = str(selected_interval_id)
         state_controller.update_values({
             "selected_reservoir_interval_id": selected_interval_id,
             "selected_reservoir_depth": selected_interval_depth,
@@ -8607,27 +8748,58 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                     index=0,
                     key=f"presentation_export_format_{active_project.id}",
                 )
+                print_mode_options = ["Текущий интервал графиков", "Выбрать отдельно"]
+                if selected_interval is not None:
+                    print_mode_options.insert(0, "Выбранный пласт")
+                print_mode_key = f"presentation_print_depth_mode_{active_project.id}"
+                if selected_interval is not None and print_mode_key not in st.session_state:
+                    st.session_state[print_mode_key] = "Выбранный пласт"
                 print_mode = st.radio(
                     "Интервал печати",
-                    options=("Текущий интервал графиков", "Выбрать отдельно"),
+                    options=tuple(print_mode_options),
                     horizontal=True,
-                    key=f"presentation_print_depth_mode_{active_project.id}",
+                    key=print_mode_key,
+                    help=(
+                        "Выбранный пласт использует общий selected_reservoir_interval_id. "
+                        "PDF и DOCX формируются только по его фактическим границам."
+                    ),
                 )
-                if print_mode == "Выбрать отдельно":
+                full_print_min = float(valid_depth.min()) if not valid_depth.empty else float(depth_range[0])
+                full_print_max = float(valid_depth.max()) if not valid_depth.empty else float(depth_range[1])
+                if print_mode == "Выбранный пласт" and selected_interval is not None:
+                    print_top, print_bottom = _selected_interval_print_range(
+                        selected_interval,
+                        depth_range,
+                    )
+                    st.caption(
+                        f"Будет напечатан {selected_interval_id}: "
+                        f"{print_top:g}–{print_bottom:g} м."
+                    )
+                elif print_mode == "Выбрать отдельно":
+                    default_print_top = (
+                        float(selected_interval.top)
+                        if selected_interval is not None
+                        else float(depth_range[0])
+                    )
+                    default_print_bottom = (
+                        float(selected_interval.base)
+                        if selected_interval is not None
+                        else float(depth_range[1])
+                    )
                     print_left, print_right = st.columns(2)
                     print_top = print_left.number_input(
                         "Печать от, м",
-                        min_value=float(depth_range[0]),
-                        max_value=float(depth_range[1]),
-                        value=float(depth_range[0]),
+                        min_value=full_print_min,
+                        max_value=full_print_max,
+                        value=max(full_print_min, min(full_print_max, default_print_top)),
                         step=0.1,
                         key=f"presentation_print_top_{active_project.id}",
                     )
                     print_bottom = print_right.number_input(
                         "Печать до, м",
-                        min_value=float(depth_range[0]),
-                        max_value=float(depth_range[1]),
-                        value=float(depth_range[1]),
+                        min_value=full_print_min,
+                        max_value=full_print_max,
+                        value=max(full_print_min, min(full_print_max, default_print_bottom)),
                         step=0.1,
                         key=f"presentation_print_bottom_{active_project.id}",
                     )

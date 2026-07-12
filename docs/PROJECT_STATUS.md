@@ -286,3 +286,7 @@ HTML printing/export is removed from the active UI. PDF and DOCX are the primary
 ## Current interpretation increment
 
 The interpretation workspace now supports whole-well overview and detailed interval modes. The selected reservoir interval is persisted in the application state and drives the detail depth range, depth-panel highlight and interval passport. Minimum-thickness filtering affects visualization only.
+
+## Shared interval selection — current status
+
+The common `selected_reservoir_interval_id` now controls the reservoir selector in both Data Workspace and Interpretation. Pixler and ternary use the full selected reservoir interval rather than an unrelated selected dataframe row. The selected depth remains a point marker inside that interval. Professional PDF/DOCX export defaults to the selected reservoir top/base while preserving current-view and manual print ranges.

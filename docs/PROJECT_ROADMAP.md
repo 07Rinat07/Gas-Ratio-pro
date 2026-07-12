@@ -611,3 +611,10 @@ The stage is complete only when an engineer can select an interval and obtain sy
 - [x] Selected interval passport foundation.
 
 Next: use the same selection context in the Data workspace Pixler and ternary selectors and in report generation without duplicating interval detection.
+
+## Completed: shared selected interval in Data Workspace and report export
+
+- [x] Drive Data Workspace Pixler and ternary from `selected_reservoir_interval_id`.
+- [x] Keep the selected reservoir synchronized between Data Workspace and Interpretation without overwriting a new user choice during rerun.
+- [x] Use the selected reservoir top/base as the default PDF/DOCX print interval.
+- [x] Preserve manual and current-graph print interval modes as explicit alternatives.
