@@ -886,7 +886,7 @@ def build_well_log_tablet(
                 "y": top_depth,
                 "text": str(zone.label),
                 "showarrow": False,
-                "font": {"color": "#172033", "size": 12},
+                "font": {"color": THEME.text_color, "size": 12},
                 "bgcolor": "rgba(255,255,255,0.75)",
             }
         )

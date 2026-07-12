@@ -1,3 +1,12 @@
+## v221.2 — Plot Contrast & Interactive Performance Hotfix
+
+- Switched browser Plotly figures to a dark engineering theme with explicit high-contrast axes, labels, legends and grid lines.
+- Kept PNG/SVG/PDF static export on a separate light print-safe theme.
+- Added explicit ternary-axis contrast and export annotation recoloring.
+- Added deterministic screen-only downsampling for large LAS frames; calculations, tables and reports retain the full dataset.
+- Added Plotly screen configuration without vendor logo and unnecessary scroll zoom.
+- Added regression tests for screen contrast, export contrast isolation and large-frame downsampling.
+
 ## v221.1 — Selected Interval Header Hotfix
 
 - Restored the shared `_render_selected_interval_header` renderer used by the data and interpretation workspaces.

@@ -221,6 +221,7 @@ from las_editor.depth_grid import (
 from core.hydrocarbon_intervals import detect_hydrocarbon_intervals
 from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
+from palettes.plot_engine import PLOTLY_SCREEN_CONFIG, downsample_frame_for_screen
 from palettes.depth_tracks import (
     build_depth_gas_tracks,
     build_depth_interpretation_track,
@@ -7880,6 +7881,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
             fluid_label=pixler_fluid_label,
         ),
         width="stretch",
+        config=PLOTLY_SCREEN_CONFIG,
     )
     right.plotly_chart(
         build_ternary_palette(
@@ -7891,6 +7893,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
             fluid_label=pixler_fluid_label,
         ),
         width="stretch",
+        config=PLOTLY_SCREEN_CONFIG,
     )
 
     if selected_reservoir_interval is not None and selected_reservoir_overlay is not None:
@@ -7901,10 +7904,11 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         )
 
     st.subheader("Графики по глубине")
+    screen_plot_df = downsample_frame_for_screen(calculated_df)
     tab_gas, tab_ratios, tab_pixler = st.tabs(["C1-C5", "Wh/Bh/Ch", "Pixler ratios"])
-    tab_gas.plotly_chart(build_depth_gas_tracks(calculated_df), width="stretch")
-    tab_ratios.plotly_chart(build_depth_ratio_tracks(calculated_df), width="stretch")
-    tab_pixler.plotly_chart(build_depth_pixler_tracks(calculated_df), width="stretch")
+    tab_gas.plotly_chart(build_depth_gas_tracks(screen_plot_df), width="stretch", config=PLOTLY_SCREEN_CONFIG)
+    tab_ratios.plotly_chart(build_depth_ratio_tracks(screen_plot_df), width="stretch", config=PLOTLY_SCREEN_CONFIG)
+    tab_pixler.plotly_chart(build_depth_pixler_tracks(screen_plot_df), width="stretch", config=PLOTLY_SCREEN_CONFIG)
 
     st.subheader("Расчетная таблица")
     _render_dataframe_panel(
@@ -9108,6 +9112,9 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     if filtered_df.empty:
         st.error("В примененном диапазоне глубин нет строк. Измените настройки и повторно постройте графики.")
         return
+    screen_filtered_df = downsample_frame_for_screen(filtered_df)
+    if len(screen_filtered_df) < len(filtered_df):
+        logger.info("interpretation_screen_downsample full_rows=%d screen_rows=%d", len(filtered_df), len(screen_filtered_df))
     if render_settings.tablet_adaptive_height and depth_range is not None:
         height = _adaptive_tablet_height(depth_range, render_settings.tablet_view_mode, height)
 
@@ -9117,6 +9124,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         calculated_signature,
         int(applied_presentation.calculation_revision),
         tuple(sorted((str(key), repr(value)) for key, value in applied_presentation.settings.items())),
+        len(screen_filtered_df),
     )
     cached_figure_set = _application_state_controller().state.get("interpretation_figure_cache")
     if isinstance(cached_figure_set, dict) and cached_figure_set.get("key") == figure_cache_key:
@@ -9134,18 +9142,18 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         figures = []
         tablet_figure = None
         if "Интерпретация" in selected_tracks:
-            figures.append(build_depth_interpretation_track(filtered_df, depth_range=depth_range, height=height))
+            figures.append(build_depth_interpretation_track(screen_filtered_df, depth_range=depth_range, height=height))
         if "C1-C5" in selected_tracks:
-            figures.append(build_depth_gas_tracks(filtered_df, depth_range=depth_range, x_range=gas_x_range, height=height))
+            figures.append(build_depth_gas_tracks(screen_filtered_df, depth_range=depth_range, x_range=gas_x_range, height=height))
         if "Wh/Bh/Ch" in selected_tracks:
-            figures.append(build_depth_ratio_tracks(filtered_df, depth_range=depth_range, x_range=ratio_x_range, height=height))
+            figures.append(build_depth_ratio_tracks(screen_filtered_df, depth_range=depth_range, x_range=ratio_x_range, height=height))
         if "Pixler ratios" in selected_tracks:
-            figures.append(build_depth_pixler_tracks(filtered_df, depth_range=depth_range, x_range=pixler_x_range, height=height))
+            figures.append(build_depth_pixler_tracks(screen_filtered_df, depth_range=depth_range, x_range=pixler_x_range, height=height))
         if TABLET_TRACK_OPTION in selected_tracks and tablet_columns:
             tablet_tracks = normalize_track_configs(
                 tablet_columns,
                 x_ranges=tablet_x_ranges,
-                units=tablet_units_from_dataframe(filtered_df),
+                units=tablet_units_from_dataframe(screen_filtered_df),
                 colors=tablet_colors,
                 fill=tablet_fill,
                 fill_modes=tablet_fill_modes,
@@ -9161,7 +9169,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             if selected_tablet_depth is None and tablet_markers:
                 selected_tablet_depth = float(tablet_markers[0].depth)
             tablet_figure = build_well_log_tablet(
-                filtered_df,
+                screen_filtered_df,
                 tablet_tracks,
                 depth_range=depth_range,
                 markers=tablet_markers,
@@ -9193,7 +9201,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     if not figures:
         st.warning("Выберите хотя бы один график.")
     for figure in figures:
-        st.plotly_chart(figure, width="stretch")
+        st.plotly_chart(figure, width="stretch", config=PLOTLY_SCREEN_CONFIG)
     if tablet_figure is not None:
         _render_static_export_controls(
             tablet_figure,
@@ -13082,7 +13090,7 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         for warning in studio_panel.warnings:
             st.warning(warning)
     if studio_figure is not None:
-        st.plotly_chart(studio_figure, width="stretch")
+        st.plotly_chart(studio_figure, width="stretch", config=PLOTLY_SCREEN_CONFIG)
         if studio_panel.markers:
             st.dataframe(pd.DataFrame(correlation_marker_rows(studio_panel)), width="stretch")
 
@@ -13097,7 +13105,7 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         view_mode=view_mode,
         comparison_curve=comparison_curve,
     )
-    st.plotly_chart(figure, width="stretch")
+    st.plotly_chart(figure, width="stretch", config=PLOTLY_SCREEN_CONFIG)
     correlation_revision = revision_controller_from_state(_application_state_controller().state).snapshot
     st.caption("Для печати используйте PDF; для изображений доступны PNG и SVG.")
     _render_static_export_controls(

@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 
 @dataclass(frozen=True, slots=True)
 class EngineeringPlotTheme:
-    template: str = "plotly_white"
+    template: str = "plotly_dark"
     font_family: str = "Arial, sans-serif"
     font_size: int = 12
     title_size: int = 18
@@ -16,10 +16,11 @@ class EngineeringPlotTheme:
     tick_size: int = 11
     line_width: float = 1.7
     marker_size: int = 8
-    grid_color: str = "rgba(71, 85, 105, 0.18)"
-    text_color: str = "#172033"
-    paper_color: str = "#ffffff"
-    plot_color: str = "#ffffff"
+    grid_color: str = "rgba(148, 163, 184, 0.24)"
+    text_color: str = "#e5edf8"
+    paper_color: str = "#0b1220"
+    plot_color: str = "#0b1220"
+    axis_color: str = "#cbd5e1"
     margin_left: int = 72
     margin_right: int = 28
     margin_top: int = 76
@@ -49,7 +50,9 @@ LEGEND_HORIZONTAL: Mapping[str, Any] = {
     "xanchor": "left",
     "yanchor": "top",
     "font": {"size": THEME.tick_size},
-    "bgcolor": "rgba(255,255,255,0.78)",
+    "bgcolor": "rgba(11,18,32,0.88)",
+    "bordercolor": "rgba(148,163,184,0.28)",
+    "borderwidth": 1,
 }
 
 DEPTH_AXIS_TITLE = "Глубина, м"
@@ -105,6 +108,9 @@ def apply_engineering_layout(
         title_font={"size": THEME.axis_title_size},
         tickfont={"size": THEME.tick_size},
         gridcolor=THEME.grid_color,
+        color=THEME.axis_color,
+        linecolor=THEME.axis_color,
+        tickcolor=THEME.axis_color,
         zeroline=False,
         automargin=True,
     )
@@ -112,6 +118,9 @@ def apply_engineering_layout(
         title_font={"size": THEME.axis_title_size},
         tickfont={"size": THEME.tick_size},
         gridcolor=THEME.grid_color,
+        color=THEME.axis_color,
+        linecolor=THEME.axis_color,
+        tickcolor=THEME.axis_color,
         zeroline=False,
         automargin=True,
     )
@@ -131,6 +140,9 @@ def apply_depth_axis(
         "range": [float(bottom_depth), float(top_depth)],
         "autorange": False,
         "gridcolor": THEME.grid_color,
+        "color": THEME.axis_color,
+        "linecolor": THEME.axis_color,
+        "tickcolor": THEME.axis_color,
         "zeroline": False,
         "automargin": True,
     }
@@ -150,11 +162,59 @@ def normalize_trace_style(fig: go.Figure) -> go.Figure:
 
 
 def prepare_figure_for_export(fig: go.Figure, *, width: int, height: int) -> go.Figure:
-    """Return an export copy with the same engineering theme as the screen figure."""
+    """Return a light, print-safe copy without mutating the dark screen figure."""
     if not isinstance(fig, go.Figure):
         return fig
     exported = go.Figure(fig)
-    apply_engineering_layout(exported, height=height)
-    exported.update_layout(width=max(320, int(width)))
+    exported.update_layout(
+        template="plotly_white",
+        width=max(320, int(width)),
+        height=int(height),
+        paper_bgcolor="#ffffff",
+        plot_bgcolor="#ffffff",
+        font={"family": THEME.font_family, "size": THEME.font_size, "color": "#172033"},
+        legend={**dict(LEGEND_HORIZONTAL), "font": {"size": THEME.tick_size, "color": "#172033"}, "bgcolor": "rgba(255,255,255,0.90)", "bordercolor": "rgba(71,85,105,0.22)"},
+    )
+    exported.update_xaxes(
+        color="#334155", linecolor="#64748b", tickcolor="#64748b",
+        gridcolor="rgba(71,85,105,0.18)", zeroline=False, automargin=True,
+    )
+    exported.update_yaxes(
+        color="#334155", linecolor="#64748b", tickcolor="#64748b",
+        gridcolor="rgba(71,85,105,0.18)", zeroline=False, automargin=True,
+    )
+    # Ternary axes do not inherit x/y axis styling.
+    if getattr(exported.layout, "ternary", None):
+        exported.update_layout(ternary={
+            "bgcolor": "#ffffff",
+            "aaxis": {"color": "#334155", "gridcolor": "rgba(71,85,105,0.25)", "linecolor": "#64748b"},
+            "baxis": {"color": "#334155", "gridcolor": "rgba(71,85,105,0.25)", "linecolor": "#64748b"},
+            "caxis": {"color": "#334155", "gridcolor": "rgba(71,85,105,0.25)", "linecolor": "#64748b"},
+        })
+    if getattr(exported.layout, "annotations", None):
+        for annotation in exported.layout.annotations:
+            annotation.font = {**(annotation.font.to_plotly_json() if annotation.font else {}), "color": "#172033"}
     normalize_trace_style(exported)
     return exported
+
+
+def downsample_frame_for_screen(frame, *, max_rows: int = 2200):
+    """Uniformly reduce large frames for interactive Plotly rendering.
+
+    Calculations, tables and report exports keep the full dataframe. Only the
+    browser-facing figure receives this deterministic sample, which avoids
+    serialising tens of thousands of points on every Streamlit rerun.
+    """
+    if frame is None or len(frame) <= max_rows or max_rows < 3:
+        return frame
+    import numpy as np
+    positions = np.linspace(0, len(frame) - 1, num=max_rows, dtype=int)
+    positions = np.unique(np.concatenate(([0], positions, [len(frame) - 1])))
+    return frame.iloc[positions].copy()
+
+
+PLOTLY_SCREEN_CONFIG: Mapping[str, Any] = {
+    "displaylogo": False,
+    "responsive": True,
+    "scrollZoom": False,
+}

@@ -272,9 +272,10 @@ def build_ternary_palette(
         margin={"l": 20, "r": 20, "t": 85, "b": 60},
         ternary={
             "sum": 1,
-            "aaxis": {"title": "C2/ΣC", "min": 0.0, "ticksuffix": ""},
-            "baxis": {"title": "C3/ΣC", "min": 0.0, "ticksuffix": ""},
-            "caxis": {"title": "nC4/ΣC", "min": 0.0, "ticksuffix": ""},
+            "bgcolor": THEME.plot_color,
+            "aaxis": {"title": "C2/ΣC", "min": 0.0, "ticksuffix": "", "color": THEME.axis_color, "gridcolor": THEME.grid_color, "linecolor": THEME.axis_color},
+            "baxis": {"title": "C3/ΣC", "min": 0.0, "ticksuffix": "", "color": THEME.axis_color, "gridcolor": THEME.grid_color, "linecolor": THEME.axis_color},
+            "caxis": {"title": "nC4/ΣC", "min": 0.0, "ticksuffix": "", "color": THEME.axis_color, "gridcolor": THEME.grid_color, "linecolor": THEME.axis_color},
         },
         showlegend=True,
         legend={"orientation": "h", "y": -0.13, "x": 0.0},
