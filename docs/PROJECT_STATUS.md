@@ -211,3 +211,5 @@ Next:
 ## Active calculation handoff hotfix
 - Fixed the Data workspace crash caused by an invalid `RevisionSnapshot.calculation_revision` access.
 - Active calculations can now be committed to the durable Workbench contract and restored by Interpretation.
+
+- Interpretation handoff hotfix: `RevisionSnapshot` now supports canonical and legacy revision attribute names; delivery archives exclude stale bytecode.

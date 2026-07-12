@@ -16,12 +16,32 @@ T = TypeVar("T")
 
 @dataclass(frozen=True, slots=True)
 class RevisionSnapshot:
-    """Immutable revision boundary for the engineering presentation pipeline."""
+    """Immutable revision boundary for the engineering presentation pipeline.
+
+    The ``*_revision`` aliases preserve compatibility with older Workbench
+    callers and cached modules while the canonical field names remain short.
+    """
 
     data: int = 0
     calculation: int = 0
     presentation: int = 0
     export: int = 0
+
+    @property
+    def data_revision(self) -> int:
+        return self.data
+
+    @property
+    def calculation_revision(self) -> int:
+        return self.calculation
+
+    @property
+    def presentation_revision(self) -> int:
+        return self.presentation
+
+    @property
+    def export_revision(self) -> int:
+        return self.export
 
 
 class RevisionController:

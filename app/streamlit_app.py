@@ -2550,7 +2550,7 @@ def _store_interpretation_dataset(calculated_df: pd.DataFrame, source_label: str
     durable_contract = {
         "project_id": active_project_id,
         "source": str(source_label),
-        "calculation_revision": int(snapshot.calculation),
+        "calculation_revision": int(snapshot.calculation_revision),
         "rows": int(len(committed_frame)),
         "dataframe": committed_frame,
     }
@@ -2569,7 +2569,7 @@ def _store_interpretation_dataset(calculated_df: pd.DataFrame, source_label: str
         "active_calculation_committed project_id=%s rows=%d revision=%d source=%s",
         safe_log_value(active_project_id),
         len(committed_frame),
-        int(snapshot.calculation),
+        int(snapshot.calculation_revision),
         safe_log_value(source_label),
     )
 

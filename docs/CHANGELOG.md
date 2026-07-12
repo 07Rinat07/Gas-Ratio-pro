@@ -1709,3 +1709,6 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 
 - Fixed active calculation persistence after mapping and calculation: `RevisionSnapshot.calculation` is now used instead of the removed `calculation_revision` attribute.
 - Added a regression test covering the full revision snapshot contract used by the Data → Interpretation handoff.
+
+- Added backward-compatible `*_revision` aliases to `RevisionSnapshot` and fixed active calculation handoff across mixed cached/runtime module versions.
+- Removed Python bytecode caches from the delivery archive to prevent stale revision contracts after replacement.

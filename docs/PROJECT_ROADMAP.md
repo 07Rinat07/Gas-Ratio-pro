@@ -493,3 +493,5 @@ Roadmap изменяется только когда:
 - Invalidate it only on explicit mapping reset, project change, LAS reset or manual cleanup.
 
 - [x] Fix active calculation revision contract used by Data → Interpretation handoff.
+
+- Completed compatibility hardening for revision snapshots used by Data → Interpretation handoff.
