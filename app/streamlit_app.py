@@ -9454,7 +9454,15 @@ def _render_dataset_manager_table(
         f"{title}: {len(datasets)} · готово: {ready_count} · "
         f"требует проверки: {warning_count} · ошибок чтения: {error_count}"
     )
-    st.dataframe(build_project_dataset_table(datasets), width="stretch", height=260)
+    _render_workbench_data_grid(
+        build_project_dataset_table(datasets),
+        key_prefix=f"workbench_dataset_{project_id}_{section}",
+        type_column="Тип",
+        status_column="Статус",
+        default_sort="Сохранено",
+        technical_columns=("Скважина ID", "Источник ID", "Архивировано"),
+        height=300,
+    )
 
     selected_dataset = {dataset.id: dataset for dataset in datasets}[selected_dataset_id]
     detail_rows = [
@@ -9655,7 +9663,7 @@ def _render_project_manager_tools(project: ProjectRecord, logger) -> None:
                 st.success("Стартовая запись истории добавлена.")
 
 
-def _render_project_database_table(
+def _render_workbench_data_grid(
     dataframe: pd.DataFrame,
     *,
     key_prefix: str,
@@ -9667,7 +9675,7 @@ def _render_project_database_table(
     ),
     height: int = 360,
 ) -> None:
-    """Render a compact, filterable and paginated Project Database table."""
+    """Render the shared Workbench Data Grid for project-owned records."""
 
     frame = dataframe.copy()
     if frame.empty:
@@ -9774,6 +9782,12 @@ def _render_project_database_table(
         f"всего {view.total_rows} · страница {view.page} из {view.page_count}"
     )
     st.dataframe(view.dataframe, width="stretch", height=height, hide_index=True)
+
+
+def _render_project_database_table(*args, **kwargs) -> None:
+    """Backward-compatible alias for Project Database callers."""
+
+    _render_workbench_data_grid(*args, **kwargs)
 
 
 def _render_project_file_index(project: ProjectRecord, logger) -> None:
@@ -10516,7 +10530,15 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
             st.caption("В активном проекте пока нет сохраненных экспортов.")
             return
 
-        st.dataframe(_project_exports_table(records), width="stretch", height=220)
+        _render_workbench_data_grid(
+            _project_exports_table(records),
+            key_prefix=f"workbench_exports_{project.id}",
+            type_column="Тип",
+            status_column=None,
+            default_sort="Сохранено",
+            technical_columns=("Export ID", "Источник"),
+            height=300,
+        )
         records_by_id = {record.id: record for record in records}
         selected_id = st.selectbox(
             "Экспорт проекта",
@@ -11002,7 +11024,15 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
             st.warning("По текущему фильтру сохраненные расчеты не найдены.")
             return
 
-        st.dataframe(_project_calculations_table(records), width="stretch", height=220)
+        _render_workbench_data_grid(
+            _project_calculations_table(records),
+            key_prefix=f"workbench_calculations_{project.id}",
+            type_column=None,
+            status_column=None,
+            default_sort="Сохранено",
+            technical_columns=("Calculation ID",),
+            height=300,
+        )
         records_by_id = {record.id: record for record in records}
         selected_id = st.selectbox(
             "Расчет проекта",

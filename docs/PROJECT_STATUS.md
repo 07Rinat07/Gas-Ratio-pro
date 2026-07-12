@@ -137,3 +137,7 @@ Completed:
 - Every destructive operation rebuilds the file index, versions and UUID registry.
 
 - Project Database tables now use a shared compact view with search, type/status filters, sorting, pagination, and technical columns hidden by default.
+
+### Unified Workbench Data Grid
+
+Status: implemented for Project Database, Dataset Manager, saved calculations and project exports. Report files are represented through the project export catalog until a dedicated persisted report repository is introduced.

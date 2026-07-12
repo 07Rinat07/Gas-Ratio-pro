@@ -431,3 +431,11 @@ Roadmap изменяется только когда:
 - Permit real-file cleanup only for verified exact duplicates with explicit confirmation.
 
 - [x] Improve Project Database tables with filtering, sorting, pagination and optional technical metadata.
+
+### Unified Workbench Data Grid
+
+- [x] Project Database tables
+- [x] Dataset Manager tables
+- [x] Saved calculation archive
+- [x] Project export catalog
+- [ ] Dedicated persisted report catalog, after Report Repository is introduced

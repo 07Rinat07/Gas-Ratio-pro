@@ -1639,3 +1639,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added regression tests for preservation of source data, version compaction and duplicate deletion guards.
 
 - Improved Project Database tables: added search, type/status filters, stable sorting, pagination, compact paths, and an opt-in technical data mode.
+
+## Unified Workbench Data Grid
+
+- Renamed the reusable Project Database table renderer into the shared Workbench Data Grid.
+- Applied the same search, filtering, sorting, pagination and technical-column mode to Dataset Manager, saved calculations and project exports.
+- Preserved the former Project Database renderer as a compatibility alias to avoid regressions in existing routes.
+- Kept report generation views unchanged where no persisted report catalog exists; report artifacts continue to appear in the unified export catalog.
