@@ -1,38 +1,9 @@
 # Current status
 
-**Version:** v221.3 stable bugfix  
-**Current state:** manual acceptance continues; export first-run instability remains open.
+**Version:** v221.1 stable bugfix  
+**Status:** selected interval header runtime failure fixed.
 
-## Next increment: v222 — Export Engine Refactoring
-
-Status: **PLANNED — NEXT PRIORITY**
-
-Reason:
-- the Professional Export workflow can leave the workspace on the first format preparation attempt;
-- subsequent attempts may succeed, which indicates initialization/state ordering rather than report-content failure;
-- format changes still trigger expensive interpretation workspace rerenders.
-
-Approved implementation order:
-1. isolate export state and introduce `ExportController`;
-2. implement lazy initialization and explicit generation only on button click;
-3. remove export-driven reruns and unrelated graph rebuilds;
-4. add deterministic cache and resource factories;
-5. add stage-aware diagnostics;
-6. close first-run, format-switch, large-LAS and failure-containment regressions;
-7. package `v222-rc1` for manual acceptance.
-
-User-facing formats remain: PDF, DOCX, PNG, SVG and XLSX.
-
-`README.md` is not used for roadmap or documentation-link duplication.
-
----
-
-
-## Previous stable increment: v221.1 — Selected Interval Header Hotfix
-
-Status: **COMPLETED**
-
-## Previous increment: v221 — Stable Release
+## Current increment: v221 — Stable Release
 
 Status: **STABLE — AUTOMATED RELEASE GATES PASSED**
 
@@ -462,3 +433,14 @@ Release candidate preparation is active. Navigation helper regressions found in 
 - Full monolithic suite: not certified; the run exceeded the audit runtime and showed additional historical failures outside the targeted gates.
 
 Decision: package as **release candidate v221-rc1**, not as final stable release. Final promotion requires a completed full-suite run with all remaining failures classified or fixed.
+
+## v222-rc1 — Export Engine Refactoring
+
+- Добавлен renderer-neutral `ExportController`.
+- Разделены кэш модели отчёта и кэш готового формата.
+- Переключение PDF/DOCX/PNG/SVG/XLSX не перестраивает инженерную модель при неизменных данных.
+- Генерация запускается только после явного подтверждения пользователя.
+- Ошибки экспорта содержат этап, тип исключения и корреляционный код.
+- Рабочая область не падает при ошибке отдельного renderer.
+- README.md не изменялся.
+

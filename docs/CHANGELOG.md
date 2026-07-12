@@ -1,13 +1,3 @@
-# GAS RATIO PRO — Changelog
-
-## Unreleased — v222 planning
-
-- Approved Export Engine Refactoring as the next project priority.
-- Defined a dedicated ExportController, lazy initialization, deterministic export state and stage-aware diagnostics.
-- Added mandatory first-run, format-switch, large-LAS, cache and failure-containment regression scenarios.
-- Kept PDF, DOCX, PNG, SVG and XLSX as the supported user-facing formats.
-- Left `README.md` unchanged and excluded roadmap/documentation-link duplication from it.
-
 ## v221.2 — Plot Contrast & Interactive Performance Hotfix
 
 - Switched browser Plotly figures to a dark engineering theme with explicit high-contrast axes, labels, legends and grid lines.
@@ -30,6 +20,8 @@
 - Preserved unified graphics, navigation, export and report contracts.
 - Removed the stale root progress document that violated documentation governance.
 - Packaged the stable candidate for manual acceptance testing.
+
+# GAS RATIO PRO — Changelog
 
 ## v220 — Plot Engine Cleanup
 
@@ -1988,3 +1980,14 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 ### Validation
 - 47 targeted tablet, plot-engine, PDF, DOCX and export regression tests passed.
 - Python modules compiled successfully.
+
+## v222-rc1 — Export Engine Refactoring
+
+- Добавлен renderer-neutral `ExportController`.
+- Разделены кэш модели отчёта и кэш готового формата.
+- Переключение PDF/DOCX/PNG/SVG/XLSX не перестраивает инженерную модель при неизменных данных.
+- Генерация запускается только после явного подтверждения пользователя.
+- Ошибки экспорта содержат этап, тип исключения и корреляционный код.
+- Рабочая область не падает при ошибке отдельного renderer.
+- README.md не изменялся.
+

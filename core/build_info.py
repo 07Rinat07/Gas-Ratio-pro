@@ -11,8 +11,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-BUILD_VERSION = "v221.3"
-BUILD_CHANNEL = "stable"
+BUILD_VERSION = "v222-rc1"
+BUILD_CHANNEL = "release-candidate"
 
 
 @dataclass(frozen=True, slots=True)
