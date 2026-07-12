@@ -625,3 +625,10 @@ Next: use the same selection context in the Data workspace Pixler and ternary se
 
 - [x] Unified compact Engineering Header for the selected reservoir above Pixler, ternary and Depth Panel.
 - [x] Fluid-colored active-row markers shared by engineering interval tables.
+
+### Reservoir Passport 2.0 — выполнено
+- [x] Газовый состав C1–C5 по интервалу.
+- [x] Производные коэффициенты и отношения.
+- [x] Результаты Pixler, ternary и Haworth.
+- [x] Индекс согласованности методик.
+- [x] Ограничения, рекомендации и готовность к PDF/DOCX.

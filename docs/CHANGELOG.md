@@ -1809,3 +1809,8 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added one compact selected-interval header shared by Data Workspace and Interpretation.
 - Added unified fluid color markers for active and neighboring engineering-table rows.
 - Reused the same interval selection context for Pixler, ternary, Depth Panel, passport and report defaults.
+
+## Reservoir Passport 2.0
+- Добавлен единый паспорт выбранного интервала: газовый состав C1–C5, медианные коэффициенты, Pixler, ternary, Haworth, согласованность, ограничения и готовность к отчёту.
+- Паспорт подключён к вкладкам «Работа с данными» и «Интерпретация».
+- Сводка паспортов и таблица согласованности методик включены в модель PDF/DOCX-отчёта.

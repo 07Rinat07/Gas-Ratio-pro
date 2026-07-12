@@ -5,6 +5,7 @@ from typing import Sequence
 
 import pandas as pd
 
+from core.reservoir_passport import build_reservoir_passport
 from core.hydrocarbon_intervals import (
     HydrocarbonInterval,
     HydrocarbonIntervalResult,
@@ -52,6 +53,8 @@ class HydrocarbonReportPayload:
     interval_cards: tuple[IntervalReportCard, ...] = ()
     interval_cards_table: HtmlReportTable | None = None
     interval_card_reasoning_table: HtmlReportTable | None = None
+    reservoir_passports_table: HtmlReportTable | None = None
+    reservoir_passport_methods_table: HtmlReportTable | None = None
     presentation_model: PresentationModel | None = None
 
     @property
@@ -85,6 +88,8 @@ class HydrocarbonReportPayload:
                 self.main_intervals_table,
                 self.executive_recommendations_table,
                 self.interval_cards_table,
+                self.reservoir_passports_table,
+                self.reservoir_passport_methods_table,
                 self.interval_card_reasoning_table,
                 self.summary_table,
                 self.marker_table,
@@ -174,6 +179,39 @@ def build_hydrocarbon_diagnostics_table(result: HydrocarbonIntervalResult) -> Ht
     )
 
 
+
+def build_reservoir_passport_tables(
+    df: pd.DataFrame, intervals: Sequence[HydrocarbonInterval], *, depth_column: str = "depth"
+) -> tuple[HtmlReportTable | None, HtmlReportTable | None]:
+    summary_rows: list[tuple[str, ...]] = []
+    method_rows: list[tuple[str, ...]] = []
+    for index, interval in enumerate(intervals, start=1):
+        interval_id = f"HC-{index:03d}"
+        passport = build_reservoir_passport(df, interval, interval_id=interval_id)
+        summary_rows.append((
+            passport.interval_id, f"{passport.top:g}–{passport.base:g}", f"{passport.thickness:g}",
+            passport.fluid_type, f"{passport.confidence_score}%",
+            f"{passport.data_completeness_percent:g}%", f"{passport.agreement_percent:g}%",
+            passport.readiness_label, passport.engineering_conclusion,
+        ))
+        for method in passport.methods:
+            method_rows.append((
+                passport.interval_id, method.method, method.classification,
+                f"{method.support_percent:g}%", method.status, method.note,
+            ))
+    summary = HtmlReportTable(
+        title="Reservoir Passport 2.0 — сводка интервалов",
+        headers=("ID", "Интервал, м", "Мощность, м", "Флюид", "Достоверность",
+                 "Полнота C1–C5", "Согласованность", "Готовность", "Инженерный вывод"),
+        rows=tuple(summary_rows),
+    ) if summary_rows else None
+    methods = HtmlReportTable(
+        title="Reservoir Passport 2.0 — согласованность методик",
+        headers=("ID", "Методика", "Результат", "Поддержка", "Статус", "Комментарий"),
+        rows=tuple(method_rows),
+    ) if method_rows else None
+    return summary, methods
+
 def build_hydrocarbon_report_payload(
     df: pd.DataFrame,
     *,
@@ -235,6 +273,9 @@ def build_hydrocarbon_report_payload(
     interpretation_table = build_hydrocarbon_interpretation_table(result.intervals)
     diagnostics_table = build_hydrocarbon_diagnostics_table(result)
     interval_cards = build_interval_report_cards(result.intervals)
+    reservoir_passports_table, reservoir_passport_methods_table = build_reservoir_passport_tables(
+        df, result.intervals, depth_column=depth_column
+    )
     # Engineering profile stays concise: exclude zero-thickness point anomalies
     # from the primary table and rank only the strongest intervals.  The full
     # card set and detailed reasoning remain available in the expert appendix.
@@ -261,9 +302,11 @@ def build_hydrocarbon_report_payload(
         main_intervals_report_table,
         executive_recommendations_report_table,
         interval_cards_report_table,
+        reservoir_passports_table,
     )
     technical_tables = (
         interval_card_reasoning_report_table,
+        reservoir_passport_methods_table,
         summary_table,
         marker_table,
         barrier_table,
@@ -296,6 +339,8 @@ def build_hydrocarbon_report_payload(
         interval_cards=interval_cards,
         interval_cards_table=interval_cards_report_table,
         interval_card_reasoning_table=interval_card_reasoning_report_table,
+        reservoir_passports_table=reservoir_passports_table,
+        reservoir_passport_methods_table=reservoir_passport_methods_table,
         presentation_model=presentation_model,
         summary_table=summary_table,
         marker_table=marker_table,

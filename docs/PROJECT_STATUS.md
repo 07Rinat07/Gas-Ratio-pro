@@ -296,3 +296,6 @@ The common `selected_reservoir_interval_id` now controls the reservoir selector 
 - Engineering Navigation 2.0: реализованы кнопки перехода, удержание активного интервала в видимой области и единый маркер выбора.
 
 Engineering Header implemented: the selected HC interval now has one compact context card with fluid, top/base, thickness, confidence, decision level, project and source. Engineering tables use the same fluid palette in their active-row marker.
+
+### Reservoir Passport 2.0
+Реализован единый инженерный паспорт УВ-интервала и подключён к интерфейсу и профессиональной отчётности PDF/DOCX.

@@ -243,6 +243,7 @@ from palettes.well_log_tablet import (
     tablet_units_from_dataframe,
 )
 from palettes.pixler import build_pixler_palette
+from core.reservoir_passport import build_reservoir_passport
 from palettes.ternary import build_ternary_palette
 from projects import (
     ProjectRecord,
@@ -7940,6 +7941,13 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         width="stretch",
     )
 
+    if selected_reservoir_interval is not None and selected_reservoir_overlay is not None:
+        _render_selected_interval_passport(
+            selected_reservoir_interval, str(selected_reservoir_overlay.interval_id),
+            frame=calculated_df, selected_row=selected_row,
+            pixler_zones=palette_config.pixler_zones, ternary_regions=palette_config.ternary_regions,
+        )
+
     st.subheader("Графики по глубине")
     tab_gas, tab_ratios, tab_pixler = st.tabs(["C1-C5", "Wh/Bh/Ch", "Pixler ratios"])
     tab_gas.plotly_chart(build_depth_gas_tracks(calculated_df), width="stretch")
@@ -8521,31 +8529,61 @@ def _selected_interval_print_range(
     return (min(first, second), max(first, second))
 
 
-def _render_selected_interval_passport(interval: object, interval_id: str) -> None:
-    explanation = getattr(interval, "explanation", None)
-    fluid_labels = {
-        "oil": "Нефтяной интервал", "gas": "Газовый интервал",
-        "condensate": "Газоконденсатный интервал", "gas_oil": "Газонефтяной интервал",
-        "oil_gas": "Нефтегазовый интервал", "mixed": "Смешанный интервал",
-        "transition": "Переходный интервал", "water": "Водонасыщенный интервал",
-        "uncertain": "Неопределённый интервал",
-    }
-    with st.expander(f"Паспорт выбранного интервала {interval_id}", expanded=True):
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Кровля", f"{float(getattr(interval, 'top', 0.0)):g} м")
-        c2.metric("Подошва", f"{float(getattr(interval, 'base', 0.0)):g} м")
-        c3.metric("Мощность", f"{float(getattr(interval, 'thickness', 0.0)):g} м")
-        c4.metric("Достоверность", f"{int(getattr(interval, 'confidence_score', 0))}%")
-        st.markdown(f"**Вероятный флюид:** {fluid_labels.get(str(getattr(interval, 'fluid_type', '')), str(getattr(interval, 'fluid_type', '')))}")
-        summary = str(getattr(explanation, "summary", "") or getattr(interval, "interpretation", ""))
-        if summary:
-            st.markdown(f"**Инженерный вывод:** {summary}")
-        recommendations = tuple(getattr(explanation, "recommendations", ()) or ())
-        limitations = tuple(getattr(explanation, "limitations", ()) or ())
-        if recommendations:
-            st.markdown("**Рекомендации:** " + " ".join(str(item) for item in recommendations[:3]))
-        if limitations:
-            st.markdown("**Ограничения:** " + " ".join(str(item) for item in limitations[:3]))
+def _render_selected_interval_passport(
+    interval: object,
+    interval_id: str,
+    *,
+    frame: pd.DataFrame | None = None,
+    selected_row: pd.Series | None = None,
+    pixler_zones=(),
+    ternary_regions=(),
+) -> None:
+    if frame is None or frame.empty:
+        return
+    passport = build_reservoir_passport(
+        frame, interval, interval_id=interval_id, selected_row=selected_row,
+        pixler_zones=tuple(pixler_zones),
+        ternary_regions=tuple(ternary_regions),
+    )
+    with st.expander(f"Reservoir Passport 2.0 — {passport.interval_id}", expanded=True):
+        c1, c2, c3, c4, c5 = st.columns(5)
+        c1.metric("Кровля", f"{passport.top:g} м")
+        c2.metric("Подошва", f"{passport.base:g} м")
+        c3.metric("Мощность", f"{passport.thickness:g} м")
+        c4.metric("Достоверность", f"{passport.confidence_score}%")
+        c5.metric("Согласованность", f"{passport.agreement_percent:g}%")
+        st.markdown(f"**Вероятный флюид:** {passport.fluid_type}  ·  **{passport.readiness_label}**")
+
+        gas_df = pd.DataFrame([{
+            "Компонент": name.upper().replace("IC", "iC").replace("NC", "nC"),
+            "Медиана по интервалу": value,
+        } for name, value in passport.gas_composition])
+        ratio_df = pd.DataFrame([{
+            "Показатель": name, "Медиана по интервалу": value,
+        } for name, value in passport.derived_metrics])
+        method_df = pd.DataFrame([{
+            "Методика": item.method, "Результат": item.classification,
+            "Поддержка, %": item.support_percent, "Статус": item.status,
+        } for item in passport.methods])
+        tab_gas, tab_ratios, tab_methods, tab_decision = st.tabs((
+            "Газовый состав", "Коэффициенты", "Методики", "Заключение",
+        ))
+        tab_gas.dataframe(gas_df, width="stretch", hide_index=True, height=300)
+        tab_gas.caption(f"Полнота компонентов C1–C5: {passport.data_completeness_percent:g}%")
+        tab_ratios.dataframe(ratio_df, width="stretch", hide_index=True, height=360)
+        tab_methods.dataframe(method_df, width="stretch", hide_index=True, height=220)
+        tab_methods.caption(f"Индекс согласованности методик: {passport.agreement_percent:g}%")
+        if passport.engineering_conclusion:
+            tab_decision.markdown(f"**Инженерное заключение:** {passport.engineering_conclusion}")
+        if passport.recommendations:
+            tab_decision.markdown("**Рекомендации:**")
+            for item in passport.recommendations[:5]:
+                tab_decision.markdown(f"- {item}")
+        if passport.limitations:
+            tab_decision.markdown("**Ограничения:**")
+            for item in passport.limitations[:5]:
+                tab_decision.markdown(f"- {item}")
+        tab_decision.info(passport.readiness_label)
 
 
 def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> None:
@@ -8970,7 +9008,10 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             presentation_revision=revision_snapshot.presentation,
         )
     if selected_interval is not None and selected_interval_id:
-        _render_selected_interval_passport(selected_interval, selected_interval_id)
+        _render_selected_interval_passport(
+            selected_interval, selected_interval_id, frame=calculated_df,
+            pixler_zones=palette_config.pixler_zones, ternary_regions=palette_config.ternary_regions,
+        )
 
     if TABLET_TRACK_OPTION in selected_tracks and tablet_markers and tablet_columns:
         marker_table = build_marker_interpretation_table(filtered_df, tablet_markers, columns=tablet_columns)
