@@ -73,11 +73,15 @@ Implemented in the current increment:
 - added regression coverage preventing reintroduction of `st.spinner` and legacy export alert placeholders.
 - routed v214 runtime, cache and widget-state access through `ApplicationStateController`;
 - passed the final direct-session-state architecture audit for the Streamlit application.
+- separated LAS-correlation draft controls from an applied multi-well presentation snapshot;
+- added explicit `Построить корреляцию` action for Correlation Studio, curve comparison and synchronized multi-well plots;
+- tied correlation rendering to the exact content signatures of all loaded LAS wells;
+- added one-entry correlation figure cache and render timing diagnostics.
 
 Remaining v214 scope:
 
 - remove all widget default/session-state conflicts;
-- complete remaining explicit apply coverage for export controls and secondary presentation workspaces;
+- complete remaining explicit apply coverage for secondary export controls;
 - stop unrelated reruns from rebuilding figures or exports;
 - replace floating/blank Streamlit activity artifact with inline status; **completed for mapping, calculation, rendering and export**;
 - extend characterization and performance tests.

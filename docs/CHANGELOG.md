@@ -1,3 +1,12 @@
+## v214 — Explicit multi-well correlation build
+
+- Separated mutable LAS-correlation controls from the applied multi-well presentation snapshot.
+- Added explicit `Построить корреляцию` action for synchronized well plots, curve comparison and Correlation Studio.
+- Bound the applied correlation snapshot to exact content signatures for every loaded LAS well.
+- Prevented well selection, depth range, X-scale, marker and grid edits from rebuilding Plotly figures before explicit apply.
+- Added one-entry correlation figure cache, inline rendering status and duration logging.
+- Added persistence, source-guard and static regression tests for the correlation workflow.
+
 ## v214 — Explicit presentation and tablet build
 
 - Separated mutable graph and tablet controls from the applied presentation snapshot.

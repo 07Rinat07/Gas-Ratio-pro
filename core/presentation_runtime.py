@@ -374,3 +374,57 @@ def presentation_matches_source(
         and applied.source_signature == source_signature
         and applied.calculation_revision == int(calculation_revision)
     )
+
+
+APPLIED_CORRELATION_STATE_KEY = "engineering_applied_correlation"
+
+
+@dataclass(frozen=True, slots=True)
+class AppliedCorrelationState:
+    """Immutable correlation snapshot separated from mutable LAS workspace widgets."""
+
+    source_signature: str
+    settings: Mapping[str, object]
+    studio_settings: Mapping[str, object] = field(default_factory=dict)
+
+
+def persist_applied_correlation(
+    state: MutableMapping[str, object],
+    applied: AppliedCorrelationState,
+) -> None:
+    """Persist a JSON-safe correlation presentation snapshot."""
+
+    state[APPLIED_CORRELATION_STATE_KEY] = {
+        "source_signature": str(applied.source_signature),
+        "settings": dict(applied.settings),
+        "studio_settings": dict(applied.studio_settings),
+    }
+
+
+def applied_correlation_from_state(
+    state: MutableMapping[str, object],
+) -> AppliedCorrelationState | None:
+    """Restore an applied correlation snapshot and reject malformed state."""
+
+    raw = state.get(APPLIED_CORRELATION_STATE_KEY)
+    if not isinstance(raw, Mapping):
+        return None
+    settings = raw.get("settings")
+    studio_settings = raw.get("studio_settings", {})
+    source_signature = str(raw.get("source_signature", "")).strip()
+    if not source_signature or not isinstance(settings, Mapping) or not isinstance(studio_settings, Mapping):
+        return None
+    return AppliedCorrelationState(
+        source_signature=source_signature,
+        settings=dict(settings),
+        studio_settings=dict(studio_settings),
+    )
+
+
+def correlation_matches_source(
+    applied: AppliedCorrelationState | None,
+    source_signature: str,
+) -> bool:
+    """Return True only when correlation settings belong to current LAS contents."""
+
+    return applied is not None and applied.source_signature == source_signature

@@ -78,13 +78,17 @@ from core.workbench_runtime_diagnostics import record_render_audit
 from core.application_state import ApplicationStateController
 from core.models import CalculationConfig, STANDARD_FIELDS
 from core.presentation_runtime import (
+    AppliedCorrelationState,
     AppliedMappingState,
     AppliedPresentationState,
+    applied_correlation_from_state,
     applied_mapping_from_state,
     applied_presentation_from_state,
+    correlation_matches_source,
     dataframe_signature,
     load_las_sheets_cached,
     mapping_matches_source,
+    persist_applied_correlation,
     persist_applied_mapping,
     persist_applied_presentation,
     persist_revisions,
@@ -11109,39 +11113,17 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         marker_records = marker_rows.to_dict("records") if isinstance(marker_rows, pd.DataFrame) else []
         state_controller.set_value("las_correlation_studio_markers", marker_records)
 
-        studio_panel = build_correlation_panel(
-            selected_wells,
-            markers=marker_records,
-            depth_range=depth_range,
-            depth_step=float(studio_depth_step),
-            groups=selected_groups,
-            grid_mode=studio_grid_mode,
-        )
-        studio_summary = correlation_panel_summary(studio_panel)
-        st.caption(
-            f"Скважин: {studio_summary['wells']} · Маркеров: {studio_summary['markers']} · "
-            f"Точек сетки: {studio_summary['grid_points']}"
-        )
-        if studio_panel.warnings:
-            for warning in studio_panel.warnings:
-                st.warning(warning)
         studio_curve_options = common_curve_names(selected_wells, groups=selected_groups)
+        studio_curve = ""
         if studio_curve_options:
             studio_curve = st.selectbox(
                 "Кривая для correlation-панели",
                 options=studio_curve_options,
                 key="las_correlation_studio_curve",
             )
-            studio_figure = build_correlation_panel_figure(
-                studio_panel,
-                studio_curve,
-                height_per_well=max(480, int(height_per_well)),
-            )
-            st.plotly_chart(studio_figure, width="stretch")
-            if studio_panel.markers:
-                st.dataframe(pd.DataFrame(correlation_marker_rows(studio_panel)), width="stretch")
         else:
             st.info("Для Correlation Studio выберите группы с числовыми кривыми.")
+        st.caption("Черновые tops, markers и параметры сетки применяются только после нажатия кнопки построения корреляции.")
     view_mode = st.radio(
         "Представление графика",
         options=SUPPORTED_VIEW_MODES,
@@ -11176,35 +11158,187 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         view_mode=view_mode,
         comparison_curve=comparison_curve,
     )
-    if view_mode == VIEW_MODE_BY_CURVE and comparison_curve:
-        figure = build_las_curve_comparison_figure(
+
+    correlation_source_signature = "|".join(
+        f"{well.name}:{well.depth_column}:{dataframe_signature(well.data)}"
+        for well in wells
+    )
+    build_correlation_clicked = st.button(
+        "Построить корреляцию",
+        type="primary",
+        width="stretch",
+        key="apply_las_correlation_presentation",
+        help="Фиксирует выбранные скважины, группы, масштабы, tops и markers. Изменения виджетов не перестраивают графики до следующего применения.",
+    )
+    if build_correlation_clicked:
+        correlation_status = st.empty()
+        _set_inline_operation_status(
+            correlation_status,
+            "Корреляция",
+            "Проверяются и фиксируются параметры нескольких скважин.",
+        )
+        persist_applied_correlation(
+            _application_state_controller().state,
+            AppliedCorrelationState(
+                source_signature=correlation_source_signature,
+                settings=settings_to_dict(current_settings),
+                studio_settings={
+                    "grid_mode": studio_grid_mode,
+                    "depth_step": float(studio_depth_step),
+                    "markers": tuple(dict(row) for row in marker_records),
+                    "curve": studio_curve,
+                },
+            ),
+        )
+        revisions = revision_controller_from_state(_application_state_controller().state)
+        persist_revisions(_application_state_controller().state, revisions.bump_presentation())
+        _application_state_controller().state.pop("las_correlation_figure_cache", None)
+        logger.info(
+            "las_correlation_presentation_committed signature=%s wells=%d markers=%d",
+            safe_log_value(correlation_source_signature[:12]),
+            len(current_settings.selected_well_names),
+            len(marker_records),
+        )
+        _set_inline_operation_status(
+            correlation_status,
+            "Корреляция",
+            "Настройки применены. Выполняется синхронное построение.",
+            state="success",
+        )
+
+    applied_correlation = applied_correlation_from_state(_application_state_controller().state)
+    if not correlation_matches_source(applied_correlation, correlation_source_signature):
+        st.info(
+            "Настройте скважины, диапазоны, tops и markers, затем нажмите `Построить корреляцию`. "
+            "Черновые изменения не запускают Plotly-рендер."
+        )
+        return
+
+    render_settings = settings_from_dict(applied_correlation.settings)
+    selected_wells = [well for well in wells if well.name in render_settings.selected_well_names]
+    selected_wells = [
+        apply_curve_group_overrides(well, render_settings.curve_group_overrides.get(well.name, {}))
+        for well in selected_wells
+    ]
+    if not selected_wells:
+        st.error("В применённом снимке корреляции нет доступных скважин. Обновите настройки и повторите построение.")
+        return
+    gis_groups = tuple(render_settings.gis_groups)
+    gas_groups = tuple(render_settings.gas_groups)
+    selected_groups = tuple(dict.fromkeys((*gis_groups, *gas_groups)))
+    depth_range = render_settings.depth_range
+    gis_x_range = render_settings.gis_x_range
+    gas_x_range = render_settings.gas_x_range
+    height_per_well = int(render_settings.height_per_well)
+    view_mode = render_settings.view_mode
+    comparison_curve = render_settings.comparison_curve
+    studio_settings = dict(applied_correlation.studio_settings)
+    studio_grid_mode = str(studio_settings.get("grid_mode") or "union")
+    studio_depth_step = float(studio_settings.get("depth_step") or 0.5)
+    marker_records = [dict(row) for row in studio_settings.get("markers", ()) if isinstance(row, dict)]
+    studio_curve = str(studio_settings.get("curve") or "")
+    current_settings = render_settings
+
+    figure_cache_key = (
+        correlation_source_signature,
+        tuple(sorted((str(key), repr(value)) for key, value in applied_correlation.settings.items())),
+        tuple(sorted((str(key), repr(value)) for key, value in applied_correlation.studio_settings.items())),
+    )
+    cached_correlation = _application_state_controller().state.get("las_correlation_figure_cache")
+    if isinstance(cached_correlation, dict) and cached_correlation.get("key") == figure_cache_key:
+        studio_panel = cached_correlation.get("studio_panel")
+        studio_figure = cached_correlation.get("studio_figure")
+        figure = cached_correlation.get("figure")
+        figure_title = str(cached_correlation.get("figure_title") or "Gas Ratio Interpreter - LAS correlation")
+        figure_file_name = str(cached_correlation.get("figure_file_name") or "las_correlation.html")
+        logger.info("las_correlation_figure_cache_hit wells=%d", len(selected_wells))
+    else:
+        render_status = st.empty()
+        _set_inline_operation_status(render_status, "Рендеринг", "Строится синхронная корреляция нескольких скважин.")
+        render_started = perf_counter()
+        studio_panel = build_correlation_panel(
             selected_wells,
-            comparison_curve,
+            markers=marker_records,
             depth_range=depth_range,
-            x_range=_comparison_x_range_for_curve(
+            depth_step=studio_depth_step,
+            groups=selected_groups,
+            grid_mode=studio_grid_mode,
+        )
+        valid_studio_curves = common_curve_names(selected_wells, groups=selected_groups)
+        if studio_curve not in valid_studio_curves:
+            studio_curve = valid_studio_curves[0] if valid_studio_curves else ""
+        studio_figure = (
+            build_correlation_panel_figure(
+                studio_panel,
+                studio_curve,
+                height_per_well=max(480, int(height_per_well)),
+            )
+            if studio_curve
+            else None
+        )
+        if view_mode == VIEW_MODE_BY_CURVE and comparison_curve:
+            figure = build_las_curve_comparison_figure(
                 selected_wells,
                 comparison_curve,
-                tuple(gis_groups),
-                tuple(gas_groups),
-                gis_x_range,
-                gas_x_range,
-            ),
-            height=max(650, int(height_per_well)),
+                depth_range=depth_range,
+                x_range=_comparison_x_range_for_curve(
+                    selected_wells,
+                    comparison_curve,
+                    tuple(gis_groups),
+                    tuple(gas_groups),
+                    gis_x_range,
+                    gas_x_range,
+                ),
+                height=max(650, int(height_per_well)),
+            )
+            figure_title = f"Gas Ratio Interpreter - LAS curve comparison: {comparison_curve}"
+            figure_file_name = "las_curve_comparison.html"
+        else:
+            figure = build_las_correlation_figure(
+                selected_wells,
+                gis_groups=tuple(gis_groups),
+                gas_groups=tuple(gas_groups),
+                depth_range=depth_range,
+                gis_x_range=gis_x_range,
+                gas_x_range=gas_x_range,
+                height_per_well=height_per_well,
+            )
+            figure_title = "Gas Ratio Interpreter - LAS correlation"
+            figure_file_name = "las_correlation.html"
+        _application_state_controller().state["las_correlation_figure_cache"] = {
+            "key": figure_cache_key,
+            "studio_panel": studio_panel,
+            "studio_figure": studio_figure,
+            "figure": figure,
+            "figure_title": figure_title,
+            "figure_file_name": figure_file_name,
+        }
+        render_duration_ms = (perf_counter() - render_started) * 1000.0
+        logger.info(
+            "las_correlation_figure_cache_miss wells=%d markers=%d duration_ms=%.2f",
+            len(selected_wells),
+            len(marker_records),
+            render_duration_ms,
         )
-        figure_title = f"Gas Ratio Interpreter - LAS curve comparison: {comparison_curve}"
-        figure_file_name = "las_curve_comparison.html"
-    else:
-        figure = build_las_correlation_figure(
-            selected_wells,
-            gis_groups=tuple(gis_groups),
-            gas_groups=tuple(gas_groups),
-            depth_range=depth_range,
-            gis_x_range=gis_x_range,
-            gas_x_range=gas_x_range,
-            height_per_well=height_per_well,
+        _set_inline_operation_status(
+            render_status,
+            "Рендеринг",
+            f"Корреляция построена: {len(selected_wells)} скважин, {render_duration_ms:.0f} мс.",
+            state="success",
         )
-        figure_title = "Gas Ratio Interpreter - LAS correlation"
-        figure_file_name = "las_correlation.html"
+
+    studio_summary = correlation_panel_summary(studio_panel)
+    st.caption(
+        f"Correlation Studio · скважин: {studio_summary['wells']} · маркеров: {studio_summary['markers']} · "
+        f"точек сетки: {studio_summary['grid_points']}"
+    )
+    if studio_panel.warnings:
+        for warning in studio_panel.warnings:
+            st.warning(warning)
+    if studio_figure is not None:
+        st.plotly_chart(studio_figure, width="stretch")
+        if studio_panel.markers:
+            st.dataframe(pd.DataFrame(correlation_marker_rows(studio_panel)), width="stretch")
 
     report_metadata_rows = _las_correlation_report_rows(
         project=active_project,

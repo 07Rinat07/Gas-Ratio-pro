@@ -179,3 +179,56 @@ def test_streamlit_operations_use_inline_status_without_spinner_overlay() -> Non
     assert 'export_progress.info(' not in source
     assert 'calculation_duration_ms' in source
     assert 'render_duration_ms' in source
+
+
+def test_applied_correlation_round_trip_and_source_guard():
+    from core.presentation_runtime import (
+        AppliedCorrelationState,
+        applied_correlation_from_state,
+        correlation_matches_source,
+        persist_applied_correlation,
+    )
+
+    state: dict[str, object] = {}
+    snapshot = AppliedCorrelationState(
+        source_signature="well-a:123|well-b:456",
+        settings={"selected_well_names": ["Well A", "Well B"], "height_per_well": 430},
+        studio_settings={"grid_mode": "union", "depth_step": 0.5, "markers": ({"name": "Top", "depth": 1000.0},)},
+    )
+    persist_applied_correlation(state, snapshot)
+
+    restored = applied_correlation_from_state(state)
+    assert restored == snapshot
+    assert correlation_matches_source(restored, snapshot.source_signature) is True
+    assert correlation_matches_source(restored, "other-source") is False
+
+
+def test_applied_correlation_rejects_malformed_state():
+    from core.presentation_runtime import applied_correlation_from_state
+
+    assert applied_correlation_from_state({}) is None
+    assert applied_correlation_from_state({"engineering_applied_correlation": {"settings": []}}) is None
+    assert applied_correlation_from_state(
+        {
+            "engineering_applied_correlation": {
+                "source_signature": "abc",
+                "settings": {},
+                "studio_settings": [],
+            }
+        }
+    ) is None
+
+
+def test_las_correlation_uses_explicit_apply_and_figure_cache():
+    source = (Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py").read_text(encoding="utf-8")
+    function_source = source[source.index("def _render_las_correlation_tab"):source.index("WORKBENCH_LAS_MODE_KEY")]
+
+    button_position = function_source.index('"Построить корреляцию"')
+    first_panel_build = function_source.index("build_correlation_panel(")
+    first_main_build = function_source.index("build_las_correlation_figure(")
+
+    assert button_position < first_panel_build
+    assert button_position < first_main_build
+    assert "las_correlation_figure_cache" in function_source
+    assert "correlation_matches_source" in function_source
+    assert "Черновые изменения не запускают Plotly-рендер" in function_source
