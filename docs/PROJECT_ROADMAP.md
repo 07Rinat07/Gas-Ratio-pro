@@ -422,3 +422,10 @@ Roadmap изменяется только когда:
 - [x] Add safe cleanup actions with project ID confirmation.
 - [x] Create automatic ZIP backup before bulk dataset cleanup.
 - [x] Rebuild manifests and project index after deletion.
+
+### Stage 4W — Project Database table lifecycle (completed)
+
+- Separate derived metadata cleanup from user-file deletion.
+- Add synchronized maintenance for file index, file versions and UUID registry.
+- Add safe compaction/reset with automatic project backup.
+- Permit real-file cleanup only for verified exact duplicates with explicit confirmation.

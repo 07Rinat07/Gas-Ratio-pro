@@ -9657,6 +9657,72 @@ def _render_project_manager_tools(project: ProjectRecord, logger) -> None:
 def _render_project_file_index(project: ProjectRecord, logger) -> None:
     """Render Project Database file index for the active project."""
 
+    with st.expander("Project Database · Обслуживание", expanded=False):
+        st.caption(
+            "Синхронизация не удаляет файлы. Сжатие и сброс затрагивают только служебные "
+            "project_index.json, project_file_versions.json и project_uuids.json. "
+            "Перед изменением metadata автоматически создается ZIP-backup проекта."
+        )
+        confirmation = st.text_input(
+            "Для обслуживания введите ID активного проекта",
+            key=f"project_database_maintenance_confirm_{project.id}",
+            placeholder=project.id,
+        )
+        confirmed = confirmation.strip() == project.id
+        actions = st.columns(3)
+        with actions[0]:
+            if st.button("Синхронизировать таблицы", key=f"project_database_sync_{project.id}"):
+                try:
+                    result = _index_manager().sync_project_storage(project.id)
+                    uuid_summary = update_project_uuid_registry(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+                except Exception:
+                    logger.exception("project_database_sync_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось синхронизировать Project Database. Подробности записаны в logs/app.log.")
+                else:
+                    st.success(
+                        f"Таблицы синхронизированы: файлов {result.entries_count}, "
+                        f"версий {result.version_count}, UUID {uuid_summary.total_count}."
+                    )
+                    _refresh_ui()
+        with actions[1]:
+            if st.button(
+                "Сжать metadata",
+                key=f"project_database_compact_{project.id}",
+                disabled=not confirmed,
+            ):
+                try:
+                    result = _project_manager_service().compact_project_database_metadata(project.id)
+                except Exception:
+                    logger.exception("project_database_compact_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось сжать metadata Project Database. Подробности записаны в logs/app.log.")
+                else:
+                    st.success(
+                        f"Metadata сжаты. Файлов: {result.indexed_files}, версий: {result.version_rows}, "
+                        f"UUID: {result.uuid_rows}. Backup: {result.backup_id}."
+                    )
+                    _refresh_ui()
+        with actions[2]:
+            if st.button(
+                "Сбросить metadata",
+                key=f"project_database_reset_{project.id}",
+                disabled=not confirmed,
+            ):
+                try:
+                    result = _project_manager_service().reset_project_database_metadata(project.id)
+                except Exception:
+                    logger.exception("project_database_reset_failed project_id=%s", safe_log_value(project.id))
+                    st.error("Не удалось пересоздать metadata Project Database. Подробности записаны в logs/app.log.")
+                else:
+                    st.success(
+                        f"Metadata пересозданы из фактических файлов. Файлов: {result.indexed_files}, "
+                        f"версий: {result.version_rows}, UUID: {result.uuid_rows}. Backup: {result.backup_id}."
+                    )
+                    _refresh_ui()
+        st.caption(
+            "Сжать metadata: оставить по одной активной записи версии. "
+            "Сбросить metadata: удалить только служебные таблицы и построить их заново; пользовательские файлы сохраняются."
+        )
+
     with st.expander("Project Database · Индексация файлов", expanded=False):
         st.caption(
             "Индекс собирает metadata файлов активного проекта: путь, тип, размер, "
@@ -9718,6 +9784,48 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
                 "Найдены возможные дубликаты файлов проекта. Проверьте таблицу перед удалением или объединением datasets."
             )
             st.dataframe(build_project_duplicate_files_table(duplicate_groups), width="stretch", height=220)
+            exact_duplicate_paths = tuple(
+                entry.relative_path
+                for group in duplicate_groups
+                if group.reason == "checksum"
+                for entry in group.entries[1:]
+                if entry.kind != "Metadata"
+            )
+            if exact_duplicate_paths:
+                st.markdown("##### Удаление подтвержденного SHA-256-дубликата")
+                st.caption(
+                    "Удаляется только выбранная лишняя копия. Перед удалением создается ZIP-backup; "
+                    "служебные JSON-файлы этим действием удалить нельзя."
+                )
+                duplicate_path = st.selectbox(
+                    "Лишняя копия",
+                    options=exact_duplicate_paths,
+                    key=f"project_database_duplicate_path_{project.id}",
+                )
+                duplicate_confirmation = st.text_input(
+                    "Подтвердите ID проекта для удаления дубликата",
+                    key=f"project_database_duplicate_confirm_{project.id}",
+                    placeholder=project.id,
+                )
+                if st.button(
+                    "Удалить выбранный дубликат",
+                    key=f"project_database_duplicate_delete_{project.id}",
+                    disabled=duplicate_confirmation.strip() != project.id,
+                ):
+                    try:
+                        result = _project_manager_service().delete_exact_duplicate_file(project.id, duplicate_path)
+                    except Exception:
+                        logger.exception(
+                            "project_database_duplicate_delete_failed project_id=%s path=%s",
+                            safe_log_value(project.id), safe_log_value(duplicate_path),
+                        )
+                        st.error("Не удалось удалить дубликат. Подробности записаны в logs/app.log.")
+                    else:
+                        st.success(
+                            f"Удален дубликат: {result.deleted_path}. "
+                            f"Project Database синхронизирована. Backup: {result.backup_id}."
+                        )
+                        _refresh_ui()
         else:
             st.success("Дубликаты по SHA-256 и паре имя/размер не найдены.")
         st.dataframe(build_project_file_index_table(annotated_entries), width="stretch", height=260)

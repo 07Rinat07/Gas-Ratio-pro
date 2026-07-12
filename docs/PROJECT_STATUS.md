@@ -126,3 +126,12 @@ No new roadmap, sprint-status or progress files are created.
 - Dataset tables now distinguish active records from archived records and orphan physical folders.
 - Hidden archived datasets no longer remain invisible without diagnostics.
 - Cleanup is explicit, project-scoped and backup-protected.
+
+### Workbench stabilization — Project Database maintenance
+
+Completed:
+- Project Database tables can be synchronized from actual storage.
+- File-version metadata can be compacted without touching source files.
+- Index, version and UUID metadata can be safely reset and regenerated after automatic backup.
+- Real file deletion is restricted to explicitly selected exact SHA-256 duplicates; metadata JSON files are protected.
+- Every destructive operation rebuilds the file index, versions and UUID registry.

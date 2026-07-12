@@ -1629,3 +1629,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added safe cleanup actions for selected datasets, archived records, orphan directories, one section and all dataset sections.
 - Destructive bulk actions now require exact project ID confirmation and create a project ZIP backup before deletion.
 - Dataset manifests and Project Database index are synchronized after cleanup so deleted records do not return after rerun or restart.
+
+## Project Database maintenance and duplicate safety
+
+- Added safe Project Database synchronization, metadata compaction and metadata reset actions.
+- Metadata reset regenerates `project_index.json`, `project_file_versions.json` and `project_uuids.json` from actual project storage without deleting user files.
+- Metadata compaction keeps one active metadata version per current file and removes obsolete non-restorable history rows.
+- Added exact SHA-256 duplicate removal with project ID confirmation, automatic ZIP backup, protected metadata files and post-delete index/UUID synchronization.
+- Added regression tests for preservation of source data, version compaction and duplicate deletion guards.

@@ -688,6 +688,61 @@ def update_project_file_versions(
     return tuple(assets)
 
 
+
+def compact_project_file_versions(
+    root: Path | str,
+    project_id: str,
+) -> tuple[ProjectFileVersionAsset, ...]:
+    """Keep only the active metadata version for every file asset.
+
+    File contents are never touched.  This operation is intended for Project
+    Database maintenance when long-running projects accumulated obsolete
+    checksum history that no longer has a corresponding restorable file copy.
+    """
+
+    assets = load_project_file_versions(root, project_id)
+    compacted: list[ProjectFileVersionAsset] = []
+    for asset in assets:
+        active = asset.active_version
+        if active is None:
+            continue
+        normalized = ProjectFileVersionRecord(
+            id=active.id,
+            version_number=1,
+            relative_path=active.relative_path,
+            name=active.name,
+            kind=active.kind,
+            size_bytes=active.size_bytes,
+            modified_at=active.modified_at,
+            checksum_sha256=active.checksum_sha256,
+            created_at=active.created_at,
+            author=active.author,
+            status="active",
+            change_summary="Compacted active metadata version",
+            metadata=dict(active.metadata),
+        )
+        compacted.append(
+            ProjectFileVersionAsset(
+                asset_key=asset.asset_key,
+                relative_path=asset.relative_path,
+                name=asset.name,
+                kind=asset.kind,
+                active_version_id=normalized.id,
+                versions=(normalized,),
+            )
+        )
+
+    path = _file_versions_path(root, project_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": PROJECT_FILE_VERSIONS_SCHEMA_VERSION,
+        "project_id": safe_project_id(project_id),
+        "generated_at": _utc_now(),
+        "assets": [_version_asset_to_dict(asset) for asset in compacted],
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return tuple(compacted)
+
 def build_project_file_versions_table(assets: tuple[ProjectFileVersionAsset, ...]) -> pd.DataFrame:
     """Build a compact table with active version information for UI/reporting."""
 

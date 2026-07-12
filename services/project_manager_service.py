@@ -19,6 +19,17 @@ from projects.project_manager import (
     restore_project_backup,
     save_project_recovery_state,
 )
+from projects.project_index import (
+    PROJECT_FILE_VERSIONS_FILE_NAME,
+    PROJECT_INDEX_FILE_NAME,
+    PROJECT_UUID_REGISTRY_FILE_NAME,
+    compact_project_file_versions,
+    detect_project_duplicate_files,
+    load_project_file_index,
+    load_project_file_versions,
+    load_project_uuid_registry,
+    update_project_uuid_registry,
+)
 from projects.repository import (
     DEFAULT_PROJECT_ID,
     DEFAULT_PROJECTS_ROOT,
@@ -67,6 +78,18 @@ class ProjectDeleteResult:
     @property
     def deleted(self) -> bool:
         return self.project_deleted
+
+
+@dataclass(frozen=True)
+class ProjectDatabaseMaintenanceResult:
+    project_id: str
+    operation: str
+    backup_id: str
+    indexed_files: int
+    version_assets: int
+    version_rows: int
+    uuid_rows: int
+    deleted_path: str = ""
 
 
 class ProjectManagerService:
@@ -178,6 +201,70 @@ class ProjectManagerService:
             active_step,
             message,
             payload or {},
+        )
+
+    def compact_project_database_metadata(self, project_id: str) -> ProjectDatabaseMaintenanceResult:
+        """Rebuild indexes and keep one active metadata version per file.
+
+        The operation creates a managed ZIP backup and never removes source
+        datasets, LAS files, reports or exports.
+        """
+        clean_id = safe_project_id(project_id)
+        backup = self.create_backup(clean_id, "Before Project Database metadata compaction")
+        sync = self.index_manager.sync_project_storage(clean_id)
+        assets = compact_project_file_versions(self.root, clean_id)
+        uuid_summary = update_project_uuid_registry(self.root, clean_id)
+        return ProjectDatabaseMaintenanceResult(
+            project_id=clean_id, operation="compact", backup_id=backup.backup_id,
+            indexed_files=sync.entries_count, version_assets=len(assets),
+            version_rows=sum(asset.version_count for asset in assets),
+            uuid_rows=uuid_summary.total_count,
+        )
+
+    def reset_project_database_metadata(self, project_id: str) -> ProjectDatabaseMaintenanceResult:
+        """Delete only derived Project Database JSON and regenerate it from disk."""
+        clean_id = safe_project_id(project_id)
+        backup = self.create_backup(clean_id, "Before Project Database metadata reset")
+        project_dir = self.root / clean_id
+        for name in (PROJECT_INDEX_FILE_NAME, PROJECT_FILE_VERSIONS_FILE_NAME, PROJECT_UUID_REGISTRY_FILE_NAME):
+            self.delete_engine.delete_path(project_dir / name, missing_ok=True)
+        sync = self.index_manager.sync_project_storage(clean_id)
+        uuid_summary = update_project_uuid_registry(self.root, clean_id)
+        return ProjectDatabaseMaintenanceResult(
+            project_id=clean_id, operation="reset", backup_id=backup.backup_id,
+            indexed_files=sync.entries_count, version_assets=sync.version_asset_count,
+            version_rows=sync.version_count, uuid_rows=uuid_summary.total_count,
+        )
+
+    def delete_exact_duplicate_file(self, project_id: str, relative_path: str) -> ProjectDatabaseMaintenanceResult:
+        """Delete one user file only when it belongs to an exact SHA-256 duplicate group."""
+        clean_id = safe_project_id(project_id)
+        clean_relative = Path(str(relative_path).replace("\\", "/"))
+        if clean_relative.is_absolute() or ".." in clean_relative.parts:
+            raise ValueError("Некорректный относительный путь файла.")
+        entries = load_project_file_index(self.root, clean_id)
+        entry = next((item for item in entries if item.relative_path == clean_relative.as_posix()), None)
+        if entry is None:
+            raise ValueError("Файл отсутствует в актуальном Project Database index.")
+        if entry.kind == "Metadata":
+            raise ValueError("Служебные metadata нельзя удалять как пользовательский дубликат.")
+        exact_groups = tuple(group for group in detect_project_duplicate_files(entries) if group.reason == "checksum")
+        group = next((group for group in exact_groups if any(item.relative_path == entry.relative_path for item in group.entries)), None)
+        if group is None:
+            raise ValueError("Удаление разрешено только для подтвержденного SHA-256-дубликата.")
+        backup = self.create_backup(clean_id, f"Before duplicate removal: {entry.relative_path}")
+        target = (self.root / clean_id / clean_relative).resolve()
+        project_dir = (self.root / clean_id).resolve()
+        if project_dir not in target.parents:
+            raise ValueError("Файл находится вне активного проекта.")
+        self.delete_engine.delete_path(target, missing_ok=False)
+        sync = self.index_manager.sync_project_storage(clean_id)
+        uuid_summary = update_project_uuid_registry(self.root, clean_id)
+        return ProjectDatabaseMaintenanceResult(
+            project_id=clean_id, operation="delete-duplicate", backup_id=backup.backup_id,
+            indexed_files=sync.entries_count, version_assets=sync.version_asset_count,
+            version_rows=sync.version_count, uuid_rows=uuid_summary.total_count,
+            deleted_path=entry.relative_path,
         )
 
     def delete_project_complete(self, project_id: str) -> ProjectDeleteResult:
