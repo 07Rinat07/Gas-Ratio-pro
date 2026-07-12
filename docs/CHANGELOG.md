@@ -1753,3 +1753,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added interval median, selected-depth marker, zone support calculation and engineer-facing conclusion.
 - Connected the selected depth to the detected hydrocarbon interval when available.
 - Added interval-aware Ternary 2.0 with normalized measurement cloud, median center, selected-depth marker, configured regions, completeness metrics and an engineering conclusion.
+
+
+## 2026-07-12 — Depth Panel 2.0 engineering tracks
+
+- Replaced the single interval strip with separate Reservoir Type, Confidence and Recommendations tracks.
+- Added 0–100% confidence bars and decision-level labels for every interpreted interval.
+- Added one concise engineer-facing verification action per interval, sourced from the common interpretation explanation/rule model.
+- Preserved shared depth alignment, top/base boundaries, selected-depth marker and backward compatibility when no intervals are detected.

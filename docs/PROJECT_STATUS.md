@@ -250,5 +250,10 @@ Implemented foundation:
 - top/base boundaries and the selected-depth marker are explicit;
 - missing measurements remain gaps and are never converted to zero for display.
 
-Next: add confidence and recommendation tracks, synchronize the selected interval with the registry/passport, and provide a print-light renderer from the same plot model.
+Implemented in the current increment:
+- separate Reservoir Type, Confidence and Recommendations tracks;
+- confidence is encoded as a 0–100% bar with decision level;
+- the recommendation track shows one practical verification action per interval.
+
+Next: synchronize the selected interval with the registry/passport and provide a print-light renderer from the same plot model.
 

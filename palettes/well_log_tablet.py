@@ -182,6 +182,37 @@ class ReservoirIntervalOverlay:
     thickness: float = 0.0
     decision_level: str = ""
     note: str = ""
+    recommendation: str = ""
+
+
+def _interval_recommendation(interval: object) -> str:
+    """Return one concise engineer-facing action for an interval overlay."""
+
+    explanation = getattr(interval, "explanation", None)
+    recommendations = getattr(explanation, "recommendations", ()) if explanation is not None else ()
+    for recommendation in recommendations or ():
+        text = str(recommendation or "").strip()
+        if text:
+            return text
+
+    structured = getattr(explanation, "structured_recommendations", ()) if explanation is not None else ()
+    for recommendation in structured or ():
+        text = str(getattr(recommendation, "action", "") or "").strip()
+        if text:
+            return text
+
+    for trace in getattr(interval, "rule_traces", ()) or ():
+        text = str(getattr(trace, "recommendation", "") or "").strip()
+        if text:
+            return text
+
+    decision_level = str(getattr(interval, "decision_level", "") or "").lower()
+    confidence = int(getattr(interval, "confidence_score", 0) or 0)
+    if decision_level == "high" or confidence >= 80:
+        return "Приоритетно сопоставить с ГИС, литологией и результатами испытаний."
+    if decision_level == "medium" or confidence >= 60:
+        return "Проверить по соседним глубинам, ГИС и качеству исходных газовых данных."
+    return "Требуется ручная проверка данных и подтверждение независимыми методами."
 
 
 def reservoir_interval_overlays(intervals: Sequence[object]) -> tuple[ReservoirIntervalOverlay, ...]:
@@ -207,6 +238,7 @@ def reservoir_interval_overlays(intervals: Sequence[object]) -> tuple[ReservoirI
                 thickness=thickness,
                 decision_level=str(getattr(interval, "decision_level", "") or ""),
                 note=str(getattr(interval, "engineering_note", "") or ""),
+                recommendation=_interval_recommendation(interval),
             )
         )
     return tuple(overlays)
@@ -614,11 +646,10 @@ def build_well_log_tablet(
         return _empty_tablet_figure("Нет числовой глубины для планшета", height=height)
 
     depth = plot_df["_plot_depth"]
-    interval_track_enabled = bool(reservoir_intervals)
-    titles = (["УВ-интервалы"] if interval_track_enabled else []) + [
-        _track_title(track, plot_df[track.column]) for track in selected_tracks
-    ]
-    widths = ([0.34] if interval_track_enabled else []) + [1.0] * len(selected_tracks)
+    engineering_tracks_enabled = bool(reservoir_intervals)
+    engineering_titles = ["Тип пласта", "Достоверность", "Рекомендации"] if engineering_tracks_enabled else []
+    titles = engineering_titles + [_track_title(track, plot_df[track.column]) for track in selected_tracks]
+    widths = ([0.42, 0.30, 0.76] if engineering_tracks_enabled else []) + [1.0] * len(selected_tracks)
     fig = make_subplots(
         rows=1,
         cols=len(titles),
@@ -628,21 +659,22 @@ def build_well_log_tablet(
         column_widths=widths,
     )
 
-    track_offset = 1 if interval_track_enabled else 0
-    if interval_track_enabled:
-        fig.add_trace(
-            go.Scatter(
-                x=[0.5, 0.5],
-                y=[float(depth.min()), float(depth.max())],
-                mode="lines",
-                line={"color": "rgba(0,0,0,0)", "width": 0},
-                hoverinfo="skip",
-                showlegend=False,
-            ),
-            row=1,
-            col=1,
-        )
-        fig.update_xaxes(range=[0, 1], showticklabels=False, zeroline=False, row=1, col=1)
+    track_offset = 3 if engineering_tracks_enabled else 0
+    if engineering_tracks_enabled:
+        for engineering_col in range(1, 4):
+            fig.add_trace(
+                go.Scatter(
+                    x=[0.5, 0.5],
+                    y=[float(depth.min()), float(depth.max())],
+                    mode="lines",
+                    line={"color": "rgba(0,0,0,0)", "width": 0},
+                    hoverinfo="skip",
+                    showlegend=False,
+                ),
+                row=1,
+                col=engineering_col,
+            )
+            fig.update_xaxes(range=[0, 1], showticklabels=False, zeroline=False, row=1, col=engineering_col)
 
     visible_track_count = 0
     for index, track in enumerate(selected_tracks, start=1):
@@ -754,26 +786,23 @@ def build_well_log_tablet(
                 "layer": "below",
             }
         )
-        if interval_track_enabled:
+        if engineering_tracks_enabled:
+            midpoint = (top_depth + bottom_depth) / 2.0
+            # Reservoir type track.
             shapes.append(
                 {
                     "type": "rect",
                     "xref": "x",
-                    "x0": 0.08,
-                    "x1": 0.92,
+                    "x0": 0.06,
+                    "x1": 0.94,
                     "yref": "y",
                     "y0": top_depth,
                     "y1": bottom_depth,
                     "fillcolor": color,
-                    "opacity": 0.72,
+                    "opacity": 0.78,
                     "line": {"color": color, "width": 1.2},
                     "layer": "above",
                 }
-            )
-            midpoint = (top_depth + bottom_depth) / 2.0
-            label = (
-                f"<b>{interval.interval_id}</b><br>{fluid_label}<br>"
-                f"{interval.thickness:g} м · {interval.confidence_score}%"
             )
             annotations.append(
                 {
@@ -781,11 +810,88 @@ def build_well_log_tablet(
                     "x": 0.5,
                     "yref": "y",
                     "y": midpoint,
-                    "text": label,
+                    "text": f"<b>{interval.interval_id}</b><br>{fluid_label}<br>{interval.thickness:g} м",
                     "showarrow": False,
                     "align": "center",
                     "font": {"color": "#ffffff", "size": 10},
-                    "hovertext": interval.note or fluid_label,
+                }
+            )
+
+            # Confidence track: horizontal fill encodes 0-100 percent.
+            confidence_fraction = max(0.0, min(float(interval.confidence_score) / 100.0, 1.0))
+            confidence_color = "#2ca02c" if interval.confidence_score >= 80 else ("#f2c94c" if interval.confidence_score >= 60 else "#e67e22")
+            shapes.append(
+                {
+                    "type": "rect",
+                    "xref": "x2",
+                    "x0": 0.04,
+                    "x1": 0.96,
+                    "yref": "y",
+                    "y0": top_depth,
+                    "y1": bottom_depth,
+                    "fillcolor": "#d9dee7",
+                    "opacity": 0.38,
+                    "line": {"color": "#87909e", "width": 0.5},
+                    "layer": "above",
+                }
+            )
+            shapes.append(
+                {
+                    "type": "rect",
+                    "xref": "x2",
+                    "x0": 0.04,
+                    "x1": 0.04 + 0.92 * confidence_fraction,
+                    "yref": "y",
+                    "y0": top_depth,
+                    "y1": bottom_depth,
+                    "fillcolor": confidence_color,
+                    "opacity": 0.82,
+                    "line": {"width": 0},
+                    "layer": "above",
+                }
+            )
+            annotations.append(
+                {
+                    "xref": "x2",
+                    "x": 0.5,
+                    "yref": "y",
+                    "y": midpoint,
+                    "text": f"<b>{interval.confidence_score}%</b><br>{interval.decision_level or 'не определён'}",
+                    "showarrow": False,
+                    "align": "center",
+                    "font": {"color": "#172033", "size": 10},
+                }
+            )
+
+            # Recommendation track keeps one practical action next to the interval.
+            recommendation = str(interval.recommendation or interval.note or "Требуется инженерная проверка.").strip()
+            compact_recommendation = recommendation if len(recommendation) <= 92 else recommendation[:89].rstrip() + "…"
+            shapes.append(
+                {
+                    "type": "rect",
+                    "xref": "x3",
+                    "x0": 0.02,
+                    "x1": 0.98,
+                    "yref": "y",
+                    "y0": top_depth,
+                    "y1": bottom_depth,
+                    "fillcolor": "#f7f9fc",
+                    "opacity": 0.74,
+                    "line": {"color": color, "width": 0.8},
+                    "layer": "above",
+                }
+            )
+            annotations.append(
+                {
+                    "xref": "x3",
+                    "x": 0.04,
+                    "xanchor": "left",
+                    "yref": "y",
+                    "y": midpoint,
+                    "text": compact_recommendation,
+                    "showarrow": False,
+                    "align": "left",
+                    "font": {"color": "#172033", "size": 9},
                 }
             )
         # Explicit top/base boundaries aid engineering reading and printing.
@@ -860,7 +966,7 @@ def build_well_log_tablet(
         )
 
     fig.update_layout(
-        title="Depth Panel 2.0 — УВ-интервалы, кривые и достоверность",
+        title="Depth Panel 2.0 — тип пласта, достоверность, рекомендации и кривые",
         height=height,
         margin={"l": 70, "r": 80, "t": 115, "b": 50},
         showlegend=False,

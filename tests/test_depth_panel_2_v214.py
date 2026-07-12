@@ -64,7 +64,7 @@ def test_depth_panel_adds_interval_track_boundaries_and_selected_depth() -> None
     )
 
     assert figure.layout.title.text.startswith("Depth Panel 2.0")
-    assert len(figure.data) == 3  # interval track + two engineering curves
+    assert len(figure.data) == 5  # three engineering tracks + two curves
     annotation_texts = [str(item.text) for item in figure.layout.annotations]
     assert any("HC-001" in text and "Нефть" in text for text in annotation_texts)
     assert any("Выбрано: 1002" in text for text in annotation_texts)
@@ -87,3 +87,30 @@ def test_depth_panel_remains_backward_compatible_without_intervals() -> None:
 
     assert len(figure.data) == 1
     assert not any("HC-" in str(item.text) for item in figure.layout.annotations)
+
+
+def test_depth_panel_adds_confidence_and_recommendation_tracks() -> None:
+    overlay = ReservoirIntervalOverlay(
+        interval_id="HC-017",
+        top_depth=1001.0,
+        bottom_depth=1003.0,
+        fluid_type="gas",
+        confidence_score=82,
+        thickness=2.0,
+        decision_level="high",
+        recommendation="Сопоставить с ГИС, литологией и испытаниями.",
+    )
+
+    figure = build_well_log_tablet(
+        _frame(),
+        (TabletTrackConfig("c1"),),
+        reservoir_intervals=(overlay,),
+    )
+
+    subplot_titles = [str(annotation.text) for annotation in figure.layout.annotations[:4]]
+    assert subplot_titles[:3] == ["Тип пласта", "Достоверность", "Рекомендации"]
+    texts = [str(annotation.text) for annotation in figure.layout.annotations]
+    assert any("82%" in text and "high" in text for text in texts)
+    assert any("Сопоставить с ГИС" in text for text in texts)
+    assert any(shape.type == "rect" and shape.xref == "x2" for shape in figure.layout.shapes)
+    assert any(shape.type == "rect" and shape.xref == "x3" for shape in figure.layout.shapes)
