@@ -316,3 +316,5 @@ Engineering Header implemented: the selected HC interval now has one compact con
 ## Method Framework 1.0
 
 Статус: базовый рабочий инкремент завершён. Pixler, ternary и Haworth реализуют единый контракт и запускаются через `MethodRegistry`. Reservoir Passport и Explainable Interpretation получают унифицированные `MethodResult`; прямые вызовы конкретных методик из паспорта удалены. Недостаток входных данных возвращается как контролируемый unavailable-result с диагностикой, а не как исключение.
+
+- Graphics recovery: fixed the blocking `palette_config` NameError in Interpretation; print/graph stabilization remains the active priority.

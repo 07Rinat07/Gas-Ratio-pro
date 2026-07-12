@@ -1851,3 +1851,5 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 ### Changed
 - Reservoir Passport now executes the default method registry and passes normalized results directly to Explainable Interpretation.
 - `MethodResult` moved to the method framework and remains re-exported through the existing expert interpretation module for compatibility.
+
+- Fixed Interpretation workspace crash caused by an undefined local palette configuration; graph and report rendering now load palette settings inside the route.

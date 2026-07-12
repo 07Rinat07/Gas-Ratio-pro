@@ -8793,6 +8793,18 @@ def _render_selected_interval_passport(
 
 def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> None:
     st.subheader("Интерпретационные графики")
+    # The interpretation workspace is a standalone route and must not rely on
+    # palette_config created inside the Data workspace renderer.  Keeping the
+    # configuration local also makes PDF/DOCX and cached figure rendering
+    # deterministic after Streamlit reruns.
+    try:
+        palette_config = load_palette_config()
+    except Exception:
+        logger.exception("interpretation_palette_config_load_failed")
+        st.error("Не удалось загрузить конфигурацию графиков. Проверьте config/palettes.json.")
+        st.caption("Подробности записаны в logs/app.log.")
+        return
+
     state_controller = _application_state_controller()
     calculated_df, source_label = _active_calculation_dataset(active_project.id)
     if calculated_df is None or calculated_df.empty:

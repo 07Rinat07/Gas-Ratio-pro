@@ -674,3 +674,5 @@ Next: use the same selection context in the Data workspace Pixler and ternary se
 - [ ] Move plot descriptions behind the same method capability contract.
 - [ ] Add project-level enable/disable configuration for registered methods.
 - [ ] Add new published methods only through the framework.
+
+- [x] Graphics Recovery: restore local palette configuration in Interpretation and prevent route-level `NameError`.
