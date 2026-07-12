@@ -8,9 +8,8 @@ import pandas as pd
 
 from core.hydrocarbon_intervals import HydrocarbonInterval
 from palettes.config import DEFAULT_PIXLER_ZONES, PixlerZone, TernaryRegion
-from palettes.pixler import analyze_pixler_interval
-from palettes.ternary import analyze_ternary_interval
-from core.expert_interpretation import MethodResult, CrossMethodAnalysis, build_cross_method_analysis
+from core.expert_interpretation import CrossMethodAnalysis, build_cross_method_analysis
+from core.methods import MethodContext, build_default_method_registry
 
 GAS_COMPONENTS: tuple[str, ...] = ("c1", "c2", "c3", "ic4", "nc4", "ic5", "nc5")
 DERIVED_METRICS: tuple[str, ...] = (
@@ -88,15 +87,6 @@ def _normalize_fluid(text: object) -> str:
     return "unknown"
 
 
-def _haworth_result(interval: HydrocarbonInterval) -> ReservoirMethodResult:
-    value = _safe_number(interval.average_ch)
-    classification = _normalize_fluid(interval.fluid_type)
-    if value is None:
-        return ReservoirMethodResult("Haworth", classification, 0.0, "Недостаточно данных", "Ch отсутствует.")
-    support = min(100.0, max(35.0, float(interval.confidence_score)))
-    return ReservoirMethodResult("Haworth", classification, support, "Доступно", f"Медиана/среднее Ch: {value:.3g}.")
-
-
 def _agreement(methods: Sequence[ReservoirMethodResult]) -> float:
     usable = [result for result in methods if result.classification not in {"unknown", ""} and result.support_percent > 0]
     if not usable:
@@ -127,33 +117,31 @@ def build_reservoir_passport(
     gas_composition = _median_values(interval_frame, GAS_COMPONENTS)
     derived_metrics = _median_values(interval_frame, DERIVED_METRICS)
     effective_pixler_zones = pixler_zones or DEFAULT_PIXLER_ZONES
-    pixler = analyze_pixler_interval(interval_frame, selected_row, zones=effective_pixler_zones)
-    ternary = analyze_ternary_interval(interval_frame, selected_row, regions=ternary_regions)
-    haworth = _haworth_result(interval)
-    methods = (
-        ReservoirMethodResult("Pixler", _normalize_fluid(pixler.dominant_zone), pixler.zone_support_percent,
-                              "Доступно" if pixler.valid_measurements else "Недостаточно данных", pixler.conclusion),
-        ReservoirMethodResult("Ternary", _normalize_fluid(ternary.dominant_region), ternary.region_support_percent,
-                              "Доступно" if ternary.valid_measurements else "Недостаточно данных", ternary.conclusion),
-        haworth,
+    method_context = MethodContext(
+        frame=interval_frame,
+        interval=interval,
+        interval_id=str(interval_id),
+        selected_row=selected_row,
+        pixler_zones=effective_pixler_zones,
+        ternary_regions=ternary_regions,
+    )
+    method_results = build_default_method_registry().analyze_all(method_context)
+    methods = tuple(
+        ReservoirMethodResult(
+            result.method,
+            _normalize_fluid(result.classification),
+            float(result.support),
+            "Доступно" if result.available else "Недостаточно данных",
+            str(result.explanation or "; ".join(result.limitations)),
+        )
+        for result in method_results
     )
 
     available = sum(1 for _, value in gas_composition if value is not None)
     completeness = round(available / len(GAS_COMPONENTS) * 100.0, 1) if GAS_COMPONENTS else 0.0
     explanation = interval.explanation
     cross_method = build_cross_method_analysis(
-        tuple(
-            MethodResult(
-                method=item.method,
-                classification=item.classification,
-                confidence=float(item.support_percent),
-                support=float(item.support_percent),
-                limitations=tuple([item.note] if item.status != "Доступно" and item.note else ()),
-                explanation=item.note,
-                available=item.status == "Доступно",
-            )
-            for item in methods
-        ),
+        method_results,
         data_completeness_percent=completeness,
         interval_confidence_percent=float(interval.confidence_score),
         limitations=tuple(explanation.limitations if explanation else ()) or tuple(interval.warnings) or tuple(interval.quality_flags),

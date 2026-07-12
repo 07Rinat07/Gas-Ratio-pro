@@ -663,3 +663,14 @@ Next: use the same selection context in the Data workspace Pixler and ternary se
 - [x] Разложение уверенности.
 - [x] Интеграция с Reservoir Passport и PDF/DOCX.
 - [ ] Расширение Method Library новыми методиками.
+
+## Method Framework 1.0
+
+- [x] Added the common `BaseMethod`, `MethodContext` and `MethodResult` contracts.
+- [x] Added an ordered `MethodRegistry` and default registry factory.
+- [x] Moved Pixler, ternary and Haworth interval analysis behind the common method interface.
+- [x] Changed Reservoir Passport to execute registered methods instead of calling method-specific analyzers directly.
+- [x] Added non-throwing unavailable-result diagnostics for missing method inputs.
+- [ ] Move plot descriptions behind the same method capability contract.
+- [ ] Add project-level enable/disable configuration for registered methods.
+- [ ] Add new published methods only through the framework.

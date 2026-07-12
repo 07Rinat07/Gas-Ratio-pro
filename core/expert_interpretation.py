@@ -3,17 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Sequence
 
-
-@dataclass(frozen=True, slots=True)
-class MethodResult:
-    method: str
-    classification: str
-    confidence: float
-    support: float
-    evidence: tuple[str, ...] = ()
-    limitations: tuple[str, ...] = ()
-    explanation: str = ""
-    available: bool = True
+from core.methods.result import MethodResult
 
 
 @dataclass(frozen=True, slots=True)

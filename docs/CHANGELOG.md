@@ -1840,3 +1840,14 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Добавлен единый межметодический анализ Pixler, ternary и Haworth.
 - Реализованы матрица согласованности, вклад методик, QC, причины расхождений и разложение уверенности.
 - Экспертное заключение включено в Reservoir Passport и профессиональные PDF/DOCX.
+
+## Method Framework 1.0
+
+### Added
+- Added `core/methods/` with common method contracts, context, result diagnostics, registry and factory.
+- Added framework adapters for Pixler, ternary and Haworth.
+- Added regression tests for registry order, unified execution and unavailable input handling.
+
+### Changed
+- Reservoir Passport now executes the default method registry and passes normalized results directly to Explainable Interpretation.
+- `MethodResult` moved to the method framework and remains re-exported through the existing expert interpretation module for compatibility.

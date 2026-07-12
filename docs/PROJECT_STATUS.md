@@ -312,3 +312,7 @@ Engineering Header implemented: the selected HC interval now has one compact con
 ## Explainable Interpretation Engine
 
 Статус: первый рабочий инкремент завершён. Реализованы единый MethodResult, Cross-Method Analysis, Agreement Matrix, Method Contribution, QC и Expert Conclusion для Pixler, ternary и Haworth.
+
+## Method Framework 1.0
+
+Статус: базовый рабочий инкремент завершён. Pixler, ternary и Haworth реализуют единый контракт и запускаются через `MethodRegistry`. Reservoir Passport и Explainable Interpretation получают унифицированные `MethodResult`; прямые вызовы конкретных методик из паспорта удалены. Недостаток входных данных возвращается как контролируемый unavailable-result с диагностикой, а не как исключение.
