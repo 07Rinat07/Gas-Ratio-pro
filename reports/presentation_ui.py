@@ -7,7 +7,7 @@ from typing import Iterable, Literal
 from reports.presentation_export import PresentationExportOptions, safe_export_basename
 
 ReportProfile = Literal["engineering", "expert"]
-ExportFormat = Literal["html", "pdf", "docx", "bundle"]
+ExportFormat = Literal["pdf", "docx", "bundle"]
 
 
 @dataclass(frozen=True)
@@ -69,32 +69,25 @@ _REPORT_PROFILES: tuple[ReportProfileOption, ...] = (
 
 _EXPORT_FORMATS: tuple[ExportFormatOption, ...] = (
     ExportFormatOption(
-        id="html",
-        label="HTML",
-        extension="html",
-        mime_type="text/html",
-        description="Быстрый просмотр и печать через браузер.",
-    ),
-    ExportFormatOption(
         id="pdf",
         label="PDF",
         extension="pdf",
         mime_type="application/pdf",
-        description="Печатный инженерный отчет.",
+        description="Готовый печатный инженерный отчет.",
     ),
     ExportFormatOption(
         id="docx",
         label="DOCX",
         extension="docx",
         mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        description="Редактируемый отчет для организации.",
+        description="Редактируемый отчет для согласования и передачи заказчику.",
     ),
     ExportFormatOption(
         id="bundle",
-        label="HTML + PDF + DOCX",
+        label="PDF + DOCX",
         extension="zip",
         mime_type="application/zip",
-        description="Единый пакет всех форматов из одного PresentationModel.",
+        description="Пакет PDF и DOCX из одного PresentationModel.",
     ),
 )
 
@@ -129,7 +122,7 @@ def normalize_export_format(value: str | None) -> ExportFormat:
         return normalized  # type: ignore[return-value]
     if normalized in {"all", "zip", "package", "пакет"}:
         return "bundle"
-    return "html"
+    return "pdf"
 
 
 def profile_by_id(profile: str | None) -> ReportProfileOption:
@@ -140,7 +133,7 @@ def profile_by_id(profile: str | None) -> ReportProfileOption:
 
 
 def export_format_by_id(export_format: str | None) -> ExportFormatOption:
-    """Return export format metadata by id with HTML as safe default."""
+    """Return export format metadata by id with PDF as safe default."""
 
     format_id = normalize_export_format(export_format)
     return next(option for option in _EXPORT_FORMATS if option.id == format_id)
@@ -193,9 +186,7 @@ from tempfile import TemporaryDirectory
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from reports.presentation_export import (
-    export_presentation_bundle_package,
     export_presentation_docx_package,
-    export_presentation_html_package,
     export_presentation_pdf_package,
 )
 from reports.presentation_model import PresentationModel
@@ -205,7 +196,7 @@ from reports.presentation_model import PresentationModel
 class PresentationUiExportArtifact:
     """Download-ready export artifact for Streamlit or another UI shell.
 
-    The UI should not know how HTML, PDF, DOCX or bundle reports are rendered.
+    The UI should not know how PDF, DOCX or bundle reports are rendered.
     It passes a PresentationModel plus normalized UI state and receives bytes,
     a safe file name and the correct MIME type.
     """
@@ -229,23 +220,12 @@ def build_ui_export_artifact(
     """Render a UI-selected report export into download-ready bytes.
 
     This is the handoff point between Modern UI and Presentation Layer.  It is
-    intentionally renderer-neutral: Streamlit does not branch into HTML/PDF/DOCX
+    intentionally renderer-neutral: Streamlit does not branch into PDF/DOCX
     internals and does not duplicate report content logic.
     """
 
     options = export_options_from_ui_state(state)
     format_option = export_format_by_id(state.export_format)
-
-    if state.export_format == "html":
-        result = export_presentation_html_package(model, options=options)
-        return PresentationUiExportArtifact(
-            content=_read_single_export(result.html_path),
-            file_name=result.html_path.name,
-            mime_type=format_option.mime_type,
-            export_format=state.export_format,
-            profile=state.profile,
-            manifest_names=(result.manifest_path.name,),
-        )
 
     if state.export_format == "pdf":
         result = export_presentation_pdf_package(model, options=options)
@@ -279,13 +259,14 @@ def build_ui_export_artifact(
             output_dir=Path(temp_dir),
         )
         temp_options = export_options_from_ui_state(temp_state)
-        result = export_presentation_bundle_package(model, options=temp_options)
+        pdf_result = export_presentation_pdf_package(model, options=temp_options)
+        docx_result = export_presentation_docx_package(model, options=temp_options)
         zip_path = Path(temp_dir) / f"{safe_export_basename(state.base_name)}.zip"
         bundle_files = (
-            result.html_path,
-            result.pdf_path,
-            result.docx_path,
-            result.manifest_path,
+            pdf_result.pdf_path,
+            pdf_result.manifest_path,
+            docx_result.docx_path,
+            docx_result.manifest_path,
         )
         with ZipFile(zip_path, "w", compression=ZIP_DEFLATED) as archive:
             for path in bundle_files:
@@ -296,5 +277,8 @@ def build_ui_export_artifact(
             mime_type=format_option.mime_type,
             export_format=state.export_format,
             profile=state.profile,
-            manifest_names=(result.manifest_path.name,),
+            manifest_names=(
+                pdf_result.manifest_path.name,
+                docx_result.manifest_path.name,
+            ),
         )

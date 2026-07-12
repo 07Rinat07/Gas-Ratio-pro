@@ -592,3 +592,11 @@ The stage is complete only when an engineer can select an interval and obtain sy
 - [x] Add an independent depth-from/depth-to interval for PDF/DOCX report generation.
 - [ ] Extend the reusable manual X/Y axis contract to correlation and remaining project charts.
 - [ ] Add print presets for current interval, selected reservoir and full well.
+
+
+## Reporting format policy
+
+- [x] Remove user-facing HTML print/export.
+- [x] Keep PDF and DOCX as primary professional report formats.
+- [x] Keep a PDF + DOCX package for convenient delivery.
+- [ ] Continue synchronized interval selection and the two Depth Panel viewing modes.

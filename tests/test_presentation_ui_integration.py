@@ -25,10 +25,10 @@ def test_report_profile_options_keep_engineering_first_and_expert_second():
 def test_export_format_options_cover_all_renderers():
     formats = export_format_options()
 
-    assert [option.id for option in formats] == ["html", "pdf", "docx", "bundle"]
+    assert [option.id for option in formats] == ["pdf", "docx", "bundle"]
     assert export_format_by_id("pdf").mime_type == "application/pdf"
     assert export_format_by_id("docx").extension == "docx"
-    assert export_format_by_id("unknown").id == "html"
+    assert export_format_by_id("unknown").id == "pdf"
 
 
 def test_profile_normalization_is_safe_for_ui_inputs():
@@ -43,7 +43,7 @@ def test_export_format_normalization_supports_bundle_aliases():
     assert normalize_export_format("pdf") == "pdf"
     assert normalize_export_format("all") == "bundle"
     assert normalize_export_format("zip") == "bundle"
-    assert normalize_export_format("bad") == "html"
+    assert normalize_export_format("bad") == "pdf"
 
 
 def test_report_base_name_is_path_safe():

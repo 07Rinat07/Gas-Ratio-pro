@@ -36,24 +36,6 @@ def _model():
     return payload.presentation_model
 
 
-def test_ui_export_artifact_returns_download_ready_html(tmp_path) -> None:
-    state = build_presentation_export_ui_state(
-        profile="engineering",
-        export_format="html",
-        output_dir=tmp_path,
-        base_name_parts=("../Well A", "report"),
-        include_figures=True,
-    )
-
-    artifact = build_ui_export_artifact(_model(), state)
-
-    assert artifact.file_name == "Well_A_report.html"
-    assert artifact.mime_type == "text/html"
-    assert artifact.profile == "engineering"
-    assert artifact.content.startswith(b"<!doctype html>")
-    assert artifact.manifest_names == ("Well_A_report.manifest.json",)
-
-
 def test_ui_export_artifact_returns_download_ready_pdf(tmp_path) -> None:
     state = build_presentation_export_ui_state(
         profile="engineering",
@@ -83,7 +65,7 @@ def test_ui_export_artifact_returns_bundle_zip(tmp_path) -> None:
     assert artifact.mime_type == "application/zip"
     with ZipFile(BytesIO(artifact.content)) as archive:
         names = set(archive.namelist())
-    assert "Well_A_bundle.html" in names
     assert "Well_A_bundle.pdf" in names
     assert "Well_A_bundle.docx" in names
-    assert "Well_A_bundle.bundle.manifest.json" in names
+    assert "Well_A_bundle.pdf.manifest.json" in names
+    assert "Well_A_bundle.docx.manifest.json" in names

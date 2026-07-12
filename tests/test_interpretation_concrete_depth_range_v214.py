@@ -22,4 +22,4 @@ def test_applied_manual_interval_is_normalized_before_filtering() -> None:
 
 def test_export_metadata_uses_safe_effective_depth_range() -> None:
     source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
-    assert source.count('"depth_range": _effective_depth_range(filtered_df, depth_range)') >= 2
+    assert source.count('"depth_range": _effective_depth_range(filtered_df, depth_range)') >= 1

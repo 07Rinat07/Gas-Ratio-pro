@@ -277,3 +277,8 @@ Next: synchronize the selected interval between the register, Pixler, ternary, D
 - The empty visual range from 0 m to the first measured LAS depth has been removed.
 - Professional export supports an independent print interval.
 - Pixler supports a persisted manual logarithmic Y range.
+
+
+## Reporting format cleanup
+
+HTML printing/export is removed from the active UI. PDF and DOCX are the primary report formats; ZIP combines both. CSV/XLSX and PNG/SVG remain technical data/figure exports where applicable.

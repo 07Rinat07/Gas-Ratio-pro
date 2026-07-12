@@ -1777,3 +1777,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added independent depth interval selection for professional PDF/DOCX export.
 - Added manual logarithmic Y limits and a visible probable-fluid badge to Pixler.
 - Added a visible probable-fluid badge to the ternary plot.
+
+
+## Removed HTML report export
+
+- Removed HTML from user-facing report and print formats.
+- Professional export now offers PDF, DOCX, or a PDF + DOCX ZIP package.
+- Removed the legacy quick HTML graph/interval-report controls from Interpretation.

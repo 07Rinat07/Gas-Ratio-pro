@@ -277,9 +277,9 @@ def test_expensive_exports_require_explicit_actions():
     source = (Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py").read_text(encoding="utf-8")
 
     assert "Подготовить PNG, PDF и SVG" in source
-    assert "Подготовить HTML и отчет интервала" in source
+    assert "Подготовить HTML и отчет интервала" not in source
     assert "Подготовить CSV выбранного интервала" in source
-    assert "Подготовить HTML корреляции" in source
+    assert "Подготовить HTML корреляции" not in source
     assert "Подготовить PNG/PDF/SVG файлы" not in source
     assert "interpretation_interval_csv_completed" in source
-    assert "las_correlation_html_export_completed" in source
+    assert "las_correlation_html_export_completed" not in source
