@@ -600,3 +600,14 @@ The stage is complete only when an engineer can select an interval and obtain sy
 - [x] Keep PDF and DOCX as primary professional report formats.
 - [x] Keep a PDF + DOCX package for convenient delivery.
 - [ ] Continue synchronized interval selection and the two Depth Panel viewing modes.
+
+## Completed: synchronized interval viewing
+
+- [x] Whole-well overview mode.
+- [x] Detailed selected-interval mode.
+- [x] Adaptive depth-panel height.
+- [x] Minimum interval thickness visualization filter.
+- [x] Shared selected interval state for the interpretation workspace.
+- [x] Selected interval passport foundation.
+
+Next: use the same selection context in the Data workspace Pixler and ternary selectors and in report generation without duplicating interval detection.

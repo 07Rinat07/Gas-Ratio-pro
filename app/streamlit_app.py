@@ -8006,6 +8006,11 @@ def _apply_interpretation_graph_settings_to_session(settings: InterpretationGrap
         "interpretation_tablet_fill": bool(settings.tablet_fill),
         "interpretation_tablet_marker_count": len(settings.tablet_markers),
         "interpretation_tablet_zone_count": len(settings.tablet_zones),
+        "interpretation_tablet_view_mode": "Детальный интервал" if settings.tablet_view_mode == "detail" else "Обзор всей скважины",
+        "interpretation_min_interval_thickness": float(settings.tablet_min_interval_thickness),
+        "interpretation_selected_interval_id": str(settings.selected_interval_id),
+        "selected_reservoir_interval_id": str(settings.selected_interval_id),
+        "interpretation_tablet_adaptive_height": bool(settings.tablet_adaptive_height),
     }
     if settings.depth_range is None:
         values["interpretation_depth_range_mode"] = "Весь интервал"
@@ -8058,6 +8063,9 @@ def _interpretation_graph_settings_summary(settings: InterpretationGraphSettings
         f"Планшет: {tablet_label}",
         f"Маркеры планшета: {len(settings.tablet_markers)}",
         f"Зоны планшета: {len(settings.tablet_zones)}",
+        f"Режим планшета: {'детальный интервал' if settings.tablet_view_mode == 'detail' else 'обзор всей скважины'}",
+        f"Минимальная мощность: {settings.tablet_min_interval_thickness:g} м",
+        f"Выбранный интервал: {settings.selected_interval_id or 'не выбран'}",
     )
 
 
@@ -8108,6 +8116,56 @@ def _render_interpretation_graph_settings_saver(
                 st.success("Настройки интерпретационных графиков сохранены в проект.")
 
 
+def _adaptive_tablet_height(depth_range: tuple[float, float], view_mode: str, base_height: int) -> int:
+    span = max(0.1, abs(float(depth_range[1]) - float(depth_range[0])))
+    if view_mode == "detail":
+        # Detailed interval: allocate more pixels per metre, but keep the page usable.
+        return max(680, min(1500, int(520 + span * 22)))
+    # Whole-well overview must remain compact enough for navigation.
+    return max(680, min(1100, int(base_height)))
+
+
+def _interval_display_label(interval: object, interval_id: str) -> str:
+    fluid_labels = {
+        "oil": "Нефть", "gas": "Газ", "condensate": "Газоконденсат",
+        "gas_oil": "Газ–нефть", "oil_gas": "Нефть–газ", "mixed": "Смешанный",
+        "transition": "Переходный", "water": "Вода", "uncertain": "Неопределённый",
+    }
+    fluid = fluid_labels.get(str(getattr(interval, "fluid_type", "")), str(getattr(interval, "fluid_type", "")))
+    return (
+        f"{interval_id} · {float(getattr(interval, 'top', 0.0)):g}–"
+        f"{float(getattr(interval, 'base', 0.0)):g} м · {float(getattr(interval, 'thickness', 0.0)):g} м · "
+        f"{fluid} · {int(getattr(interval, 'confidence_score', 0))}%"
+    )
+
+
+def _render_selected_interval_passport(interval: object, interval_id: str) -> None:
+    explanation = getattr(interval, "explanation", None)
+    fluid_labels = {
+        "oil": "Нефтяной интервал", "gas": "Газовый интервал",
+        "condensate": "Газоконденсатный интервал", "gas_oil": "Газонефтяной интервал",
+        "oil_gas": "Нефтегазовый интервал", "mixed": "Смешанный интервал",
+        "transition": "Переходный интервал", "water": "Водонасыщенный интервал",
+        "uncertain": "Неопределённый интервал",
+    }
+    with st.expander(f"Паспорт выбранного интервала {interval_id}", expanded=True):
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Кровля", f"{float(getattr(interval, 'top', 0.0)):g} м")
+        c2.metric("Подошва", f"{float(getattr(interval, 'base', 0.0)):g} м")
+        c3.metric("Мощность", f"{float(getattr(interval, 'thickness', 0.0)):g} м")
+        c4.metric("Достоверность", f"{int(getattr(interval, 'confidence_score', 0))}%")
+        st.markdown(f"**Вероятный флюид:** {fluid_labels.get(str(getattr(interval, 'fluid_type', '')), str(getattr(interval, 'fluid_type', '')))}")
+        summary = str(getattr(explanation, "summary", "") or getattr(interval, "interpretation", ""))
+        if summary:
+            st.markdown(f"**Инженерный вывод:** {summary}")
+        recommendations = tuple(getattr(explanation, "recommendations", ()) or ())
+        limitations = tuple(getattr(explanation, "limitations", ()) or ())
+        if recommendations:
+            st.markdown("**Рекомендации:** " + " ".join(str(item) for item in recommendations[:3]))
+        if limitations:
+            st.markdown("**Ограничения:** " + " ".join(str(item) for item in limitations[:3]))
+
+
 def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> None:
     st.subheader("Интерпретационные графики")
     state_controller = _application_state_controller()
@@ -8128,6 +8186,69 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
 
     depth = _depth_values_for_graphs(calculated_df)
     valid_depth = depth.dropna()
+    detected_interval_result = None
+    all_reservoir_overlays = ()
+    selected_interval = None
+    selected_interval_id = ""
+    selected_interval_depth = None
+    try:
+        detected_interval_result = detect_hydrocarbon_intervals(calculated_df)
+        all_reservoir_overlays = reservoir_interval_overlays(detected_interval_result.intervals)
+    except Exception as exc:
+        logger.warning("interpretation_interval_detection_failed error=%s", safe_log_value(exc))
+
+    control_left, control_mid, control_right = st.columns((1.2, 1.0, 1.0))
+    view_mode_label = control_left.radio(
+        "Режим планшета",
+        options=("Обзор всей скважины", "Детальный интервал"),
+        horizontal=False,
+        key="interpretation_tablet_view_mode",
+    )
+    view_mode = "detail" if view_mode_label == "Детальный интервал" else "overview"
+    min_interval_thickness = float(control_mid.number_input(
+        "Минимальная мощность, м",
+        min_value=0.0,
+        value=float(state_controller.get_value("interpretation_min_interval_thickness", 0.0) or 0.0),
+        step=0.2,
+        key="interpretation_min_interval_thickness",
+        help="Скрывает мелкие интервалы только на планшете. Исходные данные и расчёт не изменяются.",
+    ))
+    adaptive_height = bool(control_right.checkbox(
+        "Адаптивная высота",
+        value=True,
+        key="interpretation_tablet_adaptive_height",
+    ))
+
+    if detected_interval_result is not None and detected_interval_result.intervals:
+        interval_pairs = list(zip(all_reservoir_overlays, detected_interval_result.intervals))
+        selectable_pairs = [
+            pair for pair in interval_pairs
+            if float(getattr(pair[1], "thickness", 0.0)) >= min_interval_thickness
+        ] or interval_pairs
+        option_ids = [overlay.interval_id for overlay, _ in selectable_pairs]
+        remembered_id = str(state_controller.get_value("selected_reservoir_interval_id", "") or "")
+        default_pos = option_ids.index(remembered_id) if remembered_id in option_ids else 0
+        selected_interval_id = st.selectbox(
+            "Выбранный пласт / интервал",
+            options=option_ids,
+            index=default_pos,
+            format_func=lambda value: _interval_display_label(
+                next(interval for overlay, interval in selectable_pairs if overlay.interval_id == value),
+                value,
+            ),
+            key="interpretation_selected_interval_id",
+        )
+        selected_overlay, selected_interval = next(
+            pair for pair in selectable_pairs if pair[0].interval_id == selected_interval_id
+        )
+        selected_interval_depth = (float(selected_interval.top) + float(selected_interval.base)) / 2.0
+        state_controller.update_values({
+            "selected_reservoir_interval_id": selected_interval_id,
+            "selected_reservoir_depth": selected_interval_depth,
+            "selected_reservoir_top": float(selected_interval.top),
+            "selected_reservoir_bottom": float(selected_interval.base),
+        })
+
     if valid_depth.empty:
         st.warning("В расчетной таблице нет числовой глубины. Графики будут построены по техническому индексу.")
         filtered_df = calculated_df.copy()
@@ -8137,35 +8258,45 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         min_depth = float(valid_depth.min())
         max_depth = float(valid_depth.max())
         st.caption(f"Фактическая глубина LAS: {min_depth:g}–{max_depth:g} м. Пустой диапазон от 0 не добавляется.")
-        mode = st.radio(
-            "Ось Y / диапазон глубины",
-            options=("Весь интервал", "Ручной интервал"),
-            horizontal=True,
-            key="interpretation_depth_range_mode",
-        )
-        if mode == "Ручной интервал":
-            top_col, bottom_col = st.columns(2)
-            top_depth = top_col.number_input(
-                "Верх, м", min_value=min_depth, max_value=max_depth, value=min_depth, step=0.1,
-                key="interpretation_top_depth",
-            )
-            bottom_depth = bottom_col.number_input(
-                "Низ, м", min_value=min_depth, max_value=max_depth, value=max_depth, step=0.1,
-                key="interpretation_bottom_depth",
-            )
+        if view_mode == "detail" and selected_interval is not None:
+            interval_span = max(0.1, float(selected_interval.thickness))
+            margin = max(1.0, interval_span * 0.15)
+            top_depth = max(min_depth, float(selected_interval.top) - margin)
+            bottom_depth = min(max_depth, float(selected_interval.base) + margin)
+            depth_range = (top_depth, bottom_depth)
+            saved_depth_range = depth_range
+            st.caption(f"Детальный режим: {top_depth:g}–{bottom_depth:g} м вокруг {selected_interval_id}.")
         else:
-            top_depth = min_depth
-            bottom_depth = max_depth
-        depth_range = (min(float(top_depth), float(bottom_depth)), max(float(top_depth), float(bottom_depth)))
-        saved_depth_range = depth_range if mode == "Ручной интервал" else None
+            mode = st.radio(
+                "Ось Y / диапазон глубины",
+                options=("Весь интервал", "Ручной интервал"),
+                horizontal=True,
+                key="interpretation_depth_range_mode",
+            )
+            if mode == "Ручной интервал":
+                top_col, bottom_col = st.columns(2)
+                top_depth = top_col.number_input(
+                    "Верх, м", min_value=min_depth, max_value=max_depth, value=min_depth, step=0.1,
+                    key="interpretation_top_depth",
+                )
+                bottom_depth = bottom_col.number_input(
+                    "Низ, м", min_value=min_depth, max_value=max_depth, value=max_depth, step=0.1,
+                    key="interpretation_bottom_depth",
+                )
+            else:
+                top_depth = min_depth
+                bottom_depth = max_depth
+            depth_range = (min(float(top_depth), float(bottom_depth)), max(float(top_depth), float(bottom_depth)))
+            saved_depth_range = depth_range if mode == "Ручной интервал" else None
         filtered_df = _filter_by_depth_range(calculated_df, depth_range[0], depth_range[1])
 
-    st.metric("Строк в выбранном интервале", len(filtered_df))
     if filtered_df.empty:
-        st.error("В выбранном диапазоне глубин нет строк.")
+        st.error("В выбранном диапазоне глубин нет данных.")
         return
 
-    height = st.slider("Высота графиков", min_value=420, max_value=1100, value=650, step=10, key="interpretation_chart_height")
+    manual_height = st.slider("Базовая высота графиков", min_value=420, max_value=1100, value=650, step=10, key="interpretation_chart_height")
+    height = _adaptive_tablet_height(depth_range, view_mode, int(manual_height)) if adaptive_height and depth_range is not None else int(manual_height)
+    st.caption(f"Рабочая высота планшета: {height}px.")
     selected_tracks = st.multiselect(
         "Графики",
         options=INTERPRETATION_TRACK_OPTIONS,
@@ -8214,6 +8345,10 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             for zone in tablet_zones
         ),
         tablet_fill=tablet_fill,
+        tablet_view_mode=view_mode,
+        tablet_min_interval_thickness=min_interval_thickness,
+        selected_interval_id=selected_interval_id,
+        tablet_adaptive_height=adaptive_height,
     )
     _render_interpretation_graph_settings_saver(active_project, current_settings, logger)
 
@@ -8338,6 +8473,8 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     if filtered_df.empty:
         st.error("В примененном диапазоне глубин нет строк. Измените настройки и повторно постройте графики.")
         return
+    if render_settings.tablet_adaptive_height and depth_range is not None:
+        height = _adaptive_tablet_height(depth_range, render_settings.tablet_view_mode, height)
 
     # Plotly construction is expensive. The cache key now depends only on the
     # applied presentation snapshot, never on mutable widget drafts.
@@ -8378,19 +8515,16 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 fill=tablet_fill,
                 fill_modes=tablet_fill_modes,
             )
-            try:
-                detected_interval_result = detect_hydrocarbon_intervals(filtered_df)
-                reservoir_overlays = reservoir_interval_overlays(detected_interval_result.intervals)
-            except Exception as exc:
-                logger.warning(
-                    "depth_panel_interval_detection_failed error=%s",
-                    safe_log_value(exc),
-                )
-                reservoir_overlays = ()
-
-            selected_tablet_depth = (
-                float(tablet_markers[0].depth) if tablet_markers else None
+            # Use the full-well interval model so IDs stay stable between overview,
+            # detail mode, Pixler, ternary and reports. Filtering affects only display.
+            reservoir_overlays = tuple(
+                overlay for overlay in all_reservoir_overlays
+                if float(overlay.thickness) >= float(render_settings.tablet_min_interval_thickness)
+                or overlay.interval_id == str(render_settings.selected_interval_id)
             )
+            selected_tablet_depth = selected_interval_depth
+            if selected_tablet_depth is None and tablet_markers:
+                selected_tablet_depth = float(tablet_markers[0].depth)
             tablet_figure = build_well_log_tablet(
                 filtered_df,
                 tablet_tracks,
@@ -8434,6 +8568,8 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             source_signature=calculated_signature,
             presentation_revision=revision_snapshot.presentation,
         )
+    if selected_interval is not None and selected_interval_id:
+        _render_selected_interval_passport(selected_interval, selected_interval_id)
 
     if TABLET_TRACK_OPTION in selected_tracks and tablet_markers and tablet_columns:
         marker_table = build_marker_interpretation_table(filtered_df, tablet_markers, columns=tablet_columns)

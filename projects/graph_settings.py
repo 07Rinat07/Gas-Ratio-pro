@@ -35,6 +35,10 @@ class InterpretationGraphSettings:
     tablet_markers: tuple[dict[str, Any], ...] = ()
     tablet_zones: tuple[dict[str, Any], ...] = ()
     tablet_fill: bool = False
+    tablet_view_mode: str = "overview"
+    tablet_min_interval_thickness: float = 0.0
+    selected_interval_id: str = ""
+    tablet_adaptive_height: bool = True
 
 
 def _utc_now() -> str:
@@ -196,6 +200,10 @@ def settings_to_dict(settings: InterpretationGraphSettings) -> dict[str, Any]:
         "tablet_markers": list(settings.tablet_markers),
         "tablet_zones": list(settings.tablet_zones),
         "tablet_fill": bool(settings.tablet_fill),
+        "tablet_view_mode": str(settings.tablet_view_mode),
+        "tablet_min_interval_thickness": float(settings.tablet_min_interval_thickness),
+        "selected_interval_id": str(settings.selected_interval_id),
+        "tablet_adaptive_height": bool(settings.tablet_adaptive_height),
     }
 
 
@@ -223,6 +231,10 @@ def settings_from_dict(raw: object) -> InterpretationGraphSettings:
         tablet_markers=_markers_from_raw(payload.get("tablet_markers")),
         tablet_zones=_zones_from_raw(payload.get("tablet_zones")),
         tablet_fill=bool(payload.get("tablet_fill", False)),
+        tablet_view_mode=str(payload.get("tablet_view_mode", "overview") or "overview"),
+        tablet_min_interval_thickness=max(0.0, float(payload.get("tablet_min_interval_thickness", 0.0) or 0.0)),
+        selected_interval_id=str(payload.get("selected_interval_id", "") or ""),
+        tablet_adaptive_height=bool(payload.get("tablet_adaptive_height", True)),
     )
 
 

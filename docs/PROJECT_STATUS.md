@@ -282,3 +282,7 @@ Next: synchronize the selected interval between the register, Pixler, ternary, D
 ## Reporting format cleanup
 
 HTML printing/export is removed from the active UI. PDF and DOCX are the primary report formats; ZIP combines both. CSV/XLSX and PNG/SVG remain technical data/figure exports where applicable.
+
+## Current interpretation increment
+
+The interpretation workspace now supports whole-well overview and detailed interval modes. The selected reservoir interval is persisted in the application state and drives the detail depth range, depth-panel highlight and interval passport. Minimum-thickness filtering affects visualization only.
