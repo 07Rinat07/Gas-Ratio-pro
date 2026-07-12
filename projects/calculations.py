@@ -22,6 +22,7 @@ PROJECT_CALCULATION_METADATA_FILE_NAME = "metadata.json"
 PROJECT_CALCULATION_CSV_FILE_NAME = "calculation.csv"
 PROJECT_CALCULATION_XLSX_FILE_NAME = "calculation.xlsx"
 PROJECT_CALCULATION_ACTION_LOG_FILE_NAME = "actions.json"
+PROJECT_CALCULATION_DIAGNOSTICS_FILE_NAME = "diagnostics.json"
 PROJECT_CALCULATIONS_SCHEMA_VERSION = 1
 PROJECT_CALCULATION_CARD_WARNING_LIMIT = 5
 PROJECT_CALCULATION_CARD_COLUMN_LIMIT = 12
@@ -49,7 +50,7 @@ PROJECT_CALCULATION_KEY_COLUMN_PRIORITY = (
     "inverse_oil_indicator",
     "interpretation",
 )
-PROJECT_CALCULATION_EXPORT_LABELS = {"csv": "CSV", "xlsx": "XLSX", "metadata": "metadata.json"}
+PROJECT_CALCULATION_EXPORT_LABELS = {"csv": "CSV", "xlsx": "XLSX", "metadata": "metadata.json", "diagnostics": "diagnostics.json"}
 PROJECT_CALCULATION_COMPARE_COLUMN_LIMIT = 20
 PROJECT_CALCULATION_CARD_MAPPING_LIMIT = 8
 PROJECT_CALCULATION_REQUIRED_MAPPING_FIELDS = (
@@ -1022,6 +1023,7 @@ def save_project_calculation(
     ch_mode: str = "",
     warnings: tuple[str, ...] | list[str] | None = None,
     header_row: int | None = None,
+    diagnostics: dict[str, Any] | None = None,
 ) -> ProjectCalculationRecord:
     if df is None or df.empty:
         raise ValueError("Нет расчетных данных для сохранения в проект.")
@@ -1059,6 +1061,16 @@ def save_project_calculation(
         json.dumps(metadata, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    diagnostic_payload = dict(diagnostics or {})
+    if diagnostic_payload:
+        diagnostic_payload.setdefault("schema_version", 1)
+        diagnostic_payload.setdefault("calculation_id", calculation_id)
+        diagnostic_payload.setdefault("saved_at", now)
+        diagnostic_payload.setdefault("row_count", int(len(df)))
+        (calculation_dir / PROJECT_CALCULATION_DIAGNOSTICS_FILE_NAME).write_text(
+            json.dumps(diagnostic_payload, ensure_ascii=False, indent=2, allow_nan=False),
+            encoding="utf-8",
+        )
 
     record = ProjectCalculationRecord(
         id=calculation_id,
@@ -1072,6 +1084,7 @@ def save_project_calculation(
             "csv": PROJECT_CALCULATION_CSV_FILE_NAME,
             "xlsx": PROJECT_CALCULATION_XLSX_FILE_NAME,
             "metadata": PROJECT_CALCULATION_METADATA_FILE_NAME,
+            **({"diagnostics": PROJECT_CALCULATION_DIAGNOSTICS_FILE_NAME} if diagnostic_payload else {}),
         },
     )
     records = (record, *tuple(item for item in _read_manifest(root, project_id) if item.id != record.id))
@@ -1179,6 +1192,29 @@ def check_project_calculation_integrity(
             column_mismatch = "metadata columns не совпадают с CSV columns"
             messages.append("Список колонок в metadata не совпадает с CSV snapshot.")
 
+    diagnostics_name = record.files.get("diagnostics")
+    if diagnostics_name:
+        diagnostics_path = base_dir / Path(diagnostics_name).name
+        checked_files.append("diagnostics")
+        if not diagnostics_path.exists():
+            missing_files.append("diagnostics")
+            messages.append("diagnostics.json отсутствует в папке snapshot.")
+        elif diagnostics_path.stat().st_size <= 0:
+            empty_files.append("diagnostics")
+            messages.append("diagnostics.json пустой.")
+        else:
+            try:
+                diagnostics_payload = json.loads(diagnostics_path.read_text(encoding="utf-8"))
+                if not isinstance(diagnostics_payload, dict):
+                    raise ValueError("diagnostics root must be object")
+                diagnostics_rows = int(diagnostics_payload.get("total_rows", diagnostics_payload.get("row_count", -1)) or 0)
+                if dataframe is not None and diagnostics_rows not in {-1, len(dataframe)}:
+                    corrupted_files.append("diagnostics")
+                    messages.append("Количество строк в diagnostics не совпадает с CSV snapshot.")
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError):
+                corrupted_files.append("diagnostics")
+                messages.append("diagnostics.json поврежден или имеет неверную структуру.")
+
     clean_corrupted = tuple(dict.fromkeys(corrupted_files))
     ok = not (missing_files or empty_files or clean_corrupted or row_count_mismatch or column_mismatch)
     if ok:
@@ -1227,6 +1263,25 @@ def read_project_calculation_metadata(
 ) -> dict[str, Any]:
     data = read_project_calculation_file_bytes(root, project_id, calculation_id, "metadata")
     return json.loads(data.decode("utf-8"))
+
+
+def read_project_calculation_diagnostics(
+    root: Path | str,
+    project_id: str,
+    calculation_id: str,
+) -> dict[str, Any] | None:
+    """Read a persisted diagnostics snapshot; return None for legacy calculations."""
+    records = {record.id: record for record in list_project_calculations(root, project_id)}
+    record = records.get(calculation_id)
+    if record is None:
+        raise FileNotFoundError(f"Project calculation not found: {calculation_id}")
+    if not record.files.get("diagnostics"):
+        return None
+    data = read_project_calculation_file_bytes(root, project_id, calculation_id, "diagnostics")
+    payload = json.loads(data.decode("utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("diagnostics.json must contain a JSON object")
+    return payload
 
 
 def delete_project_calculation(root: Path | str, project_id: str, calculation_id: str) -> bool:

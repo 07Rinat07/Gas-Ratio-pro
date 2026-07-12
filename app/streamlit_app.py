@@ -69,6 +69,7 @@ from core.calculation_diagnostics import (
     build_calculation_diagnostics_report,
     column_quality_dataframe,
     formula_diagnostics_dataframe,
+    calculation_diagnostics_to_dict,
 )
 from core.diagnostics import (
     build_mapping_diagnostics,
@@ -335,6 +336,7 @@ summarize_project_calculations = project_calculations.summarize_project_calculat
 read_project_calculation_dataframe = project_calculations.read_project_calculation_dataframe
 read_project_calculation_file_bytes = project_calculations.read_project_calculation_file_bytes
 read_project_calculation_metadata = project_calculations.read_project_calculation_metadata
+read_project_calculation_diagnostics = project_calculations.read_project_calculation_diagnostics
 build_project_calculation_card = project_calculations.build_project_calculation_card
 check_project_calculation_integrity = project_calculations.check_project_calculation_integrity
 compare_project_calculations = project_calculations.compare_project_calculations
@@ -11343,6 +11345,9 @@ def _render_project_calculation_saver(
                     ch_mode=ch_mode,
                     warnings=tuple(warnings),
                     header_row=int(header_row),
+                    diagnostics=calculation_diagnostics_to_dict(
+                        build_calculation_diagnostics_report(calculated_df, ch_mode=ch_mode)
+                    ),
                 )
             except Exception:
                 logger.exception("project_calculation_save_failed project_id=%s", safe_log_value(project.id))

@@ -13,6 +13,9 @@ class WorkbenchUILayoutContract:
     properties: tuple[dict[str, Any], ...]
     status_items: tuple[dict[str, Any], ...]
     regions: dict[str, Any] = field(default_factory=dict)
+    property_actions: tuple[dict[str, Any], ...] = ()
+    property_action_result: dict[str, Any] = field(default_factory=dict)
+    show_technical_properties: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {

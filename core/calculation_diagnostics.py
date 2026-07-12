@@ -273,3 +273,77 @@ def formula_diagnostics_dataframe(report: CalculationDiagnosticsReport) -> pd.Da
         }
         for item in report.formulas
     ])
+
+
+def calculation_diagnostics_to_dict(report: CalculationDiagnosticsReport) -> dict[str, object]:
+    """Serialize a diagnostics report without leaking pandas/numpy objects."""
+    return {
+        "schema_version": 1,
+        "total_rows": int(report.total_rows),
+        "columns": [
+            {
+                "field": item.field,
+                "total_rows": int(item.total_rows),
+                "numeric_rows": int(item.numeric_rows),
+                "missing_rows": int(item.missing_rows),
+                "zero_rows": int(item.zero_rows),
+                "negative_rows": int(item.negative_rows),
+                "minimum": item.minimum,
+                "maximum": item.maximum,
+            }
+            for item in report.columns
+        ],
+        "formulas": [
+            {
+                "formula": item.formula,
+                "label": item.label,
+                "expression": item.expression,
+                "total_rows": int(item.total_rows),
+                "valid_rows": int(item.valid_rows),
+                "invalid_rows": int(item.invalid_rows),
+                "missing_input_rows": int(item.missing_input_rows),
+                "zero_denominator_rows": int(item.zero_denominator_rows),
+                "non_numeric_rows": int(item.non_numeric_rows),
+                "dominant_reason": item.dominant_reason,
+                "recommendations": list(item.recommendations),
+            }
+            for item in report.formulas
+        ],
+        "recommendations": list(report.recommendations),
+        "problematic_rows": report.problematic_rows.replace({np.nan: None}).to_dict(orient="records"),
+    }
+
+
+def calculation_diagnostics_from_dict(payload: Mapping[str, object]) -> CalculationDiagnosticsReport:
+    """Restore a persisted diagnostics snapshot without recalculating source data."""
+    columns = tuple(ColumnQuality(
+        field=str(item.get("field", "")),
+        total_rows=int(item.get("total_rows", 0) or 0),
+        numeric_rows=int(item.get("numeric_rows", 0) or 0),
+        missing_rows=int(item.get("missing_rows", 0) or 0),
+        zero_rows=int(item.get("zero_rows", 0) or 0),
+        negative_rows=int(item.get("negative_rows", 0) or 0),
+        minimum=None if item.get("minimum") is None else float(item["minimum"]),
+        maximum=None if item.get("maximum") is None else float(item["maximum"]),
+    ) for item in payload.get("columns", ()) if isinstance(item, Mapping))
+    formulas = tuple(FormulaDiagnostic(
+        formula=str(item.get("formula", "")),
+        label=str(item.get("label", "")),
+        expression=str(item.get("expression", "")),
+        total_rows=int(item.get("total_rows", 0) or 0),
+        valid_rows=int(item.get("valid_rows", 0) or 0),
+        invalid_rows=int(item.get("invalid_rows", 0) or 0),
+        missing_input_rows=int(item.get("missing_input_rows", 0) or 0),
+        zero_denominator_rows=int(item.get("zero_denominator_rows", 0) or 0),
+        non_numeric_rows=int(item.get("non_numeric_rows", 0) or 0),
+        dominant_reason=str(item.get("dominant_reason", "")),
+        recommendations=tuple(str(v) for v in item.get("recommendations", ()) if str(v)),
+    ) for item in payload.get("formulas", ()) if isinstance(item, Mapping))
+    rows = payload.get("problematic_rows", ())
+    return CalculationDiagnosticsReport(
+        total_rows=int(payload.get("total_rows", 0) or 0),
+        columns=columns,
+        formulas=formulas,
+        recommendations=tuple(str(v) for v in payload.get("recommendations", ()) if str(v)),
+        problematic_rows=pd.DataFrame(list(rows) if isinstance(rows, (list, tuple)) else []),
+    )

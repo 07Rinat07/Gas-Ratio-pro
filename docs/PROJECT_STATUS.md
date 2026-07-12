@@ -181,3 +181,16 @@ Multi-selection is available for datasets, calculations and exports. Bulk destru
 ### Calculation Diagnostics 2.0 foundation
 
 Implemented a structured diagnostics report for mapped gas components and calculated ratios. The interpretation workflow now presents compact diagnostic tables instead of one warning banner per formula. Formula and data-quality causes are separated, and the UI Ch reference matches the calculation core.
+
+### Persisted diagnostics snapshot and Workbench contract stabilization
+
+Completed:
+- fixed the startup regression caused by an incomplete `WorkbenchUILayoutContract` definition;
+- new saved calculations include `diagnostics.json` with column quality, formula diagnostics, recommendations and sampled problem rows;
+- diagnostics snapshots can be restored without recalculating source LAS data;
+- integrity checks validate diagnostics JSON and row-count consistency;
+- legacy snapshots without diagnostics remain supported.
+
+Next:
+- expose persisted diagnostics inside the saved-calculation card and Properties diagnostics section;
+- add LAS NULL metadata and gas-sampling density analysis.

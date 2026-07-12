@@ -1687,3 +1687,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added first-problem-row preview without modifying source data.
 - Corrected the Ch formula shown in the UI to Haworth Character Ratio `(ΣC4 + ΣC5) / C3`.
 - Removed duplicated methodology notices from the warning stream while preserving a single documented notice.
+
+## 2026-07-12 — Persisted calculation diagnostics and Workbench layout fix
+
+- Fixed `WorkbenchUILayoutContract` so contextual `property_actions`, action results and technical-property mode are valid contract fields instead of causing a startup `TypeError`.
+- Added JSON serialization and restoration for `CalculationDiagnosticsReport`.
+- Saved `diagnostics.json` together with new calculation snapshots.
+- Added integrity validation for the persisted diagnostics snapshot while preserving compatibility with legacy calculations that do not contain it.
+- Connected calculation saving to the structured diagnostics engine so reopening a snapshot does not require recalculating the source dataset.

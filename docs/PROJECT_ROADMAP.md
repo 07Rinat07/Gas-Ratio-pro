@@ -473,3 +473,11 @@ Roadmap изменяется только когда:
 - [ ] Persist diagnostics snapshots with saved calculations.
 - [ ] Add diagnostics comparison between calculation revisions.
 - [ ] Export diagnostics into PDF and DOCX reports.
+
+### Persisted Calculation Diagnostics Snapshot
+
+- [x] Store structured diagnostics with each new saved calculation.
+- [x] Validate diagnostics JSON during calculation integrity checks.
+- [x] Preserve backward compatibility with older snapshots.
+- [ ] Display persisted diagnostics after restart without recalculation.
+- [ ] Add LAS NULL and sampling-density diagnostics.
