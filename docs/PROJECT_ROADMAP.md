@@ -439,3 +439,13 @@ Roadmap изменяется только когда:
 - [x] Saved calculation archive
 - [x] Project export catalog
 - [ ] Dedicated persisted report catalog, after Report Repository is introduced
+
+### Unified Workbench Data Grid — selection boundary
+
+- [x] Publish selected Dataset rows to Properties.
+- [x] Publish selected Calculation rows to Properties.
+- [x] Publish selected Export rows to Properties.
+- [x] Remove duplicate selectors below unified grids.
+- [ ] Move contextual object actions into Properties.
+- [ ] Add multi-selection and bulk actions.
+- [ ] Extend selection to all Project Database tables.

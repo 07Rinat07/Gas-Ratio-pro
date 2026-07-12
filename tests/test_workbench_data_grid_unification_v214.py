@@ -10,7 +10,7 @@ def test_shared_workbench_data_grid_exists():
 
 def test_dataset_manager_uses_shared_grid():
     assert 'key_prefix=f"workbench_dataset_{project_id}_{section}"' in APP
-    assert 'technical_columns=("Скважина ID", "Источник ID", "Архивировано")' in APP
+    assert 'technical_columns=("Dataset ID", "Скважина ID", "Источник ID", "Архивировано")' in APP
 
 
 def test_calculation_archive_uses_shared_grid():

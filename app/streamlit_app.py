@@ -75,6 +75,7 @@ from core.diagnostics import (
 from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summarize_interpretation
 from core.logging_config import configure_logging, safe_log_value
 from core.workbench_runtime_diagnostics import record_render_audit
+from core.workbench_context import WorkbenchSelectionService
 from core.application_state import ApplicationStateController
 from core.models import CalculationConfig, STANDARD_FIELDS
 from core.presentation_runtime import (
@@ -9427,25 +9428,14 @@ def _render_dataset_manager_table(
 ) -> None:
     """Render one Dataset Manager table and selected dataset details."""
 
-    selected_dataset_id = ""
-    if datasets:
-        datasets_by_id = {dataset.id: dataset for dataset in datasets}
-        selected_dataset_id = st.selectbox(
-            title,
-            options=tuple(datasets_by_id),
-            format_func=lambda dataset_id: datasets_by_id[dataset_id].name,
-            key=select_key,
-        )
-    _render_dataset_manager_toolbar(
-        project_id=project_id,
-        section=section,
-        selected_dataset_id=selected_dataset_id,
-        logger=logger,
-    )
-
     if not datasets:
+        _render_dataset_manager_toolbar(
+            project_id=project_id, section=section, selected_dataset_id="", logger=logger
+        )
         st.caption(empty_caption)
         return
+
+    datasets_by_id = {dataset.id: dataset for dataset in datasets}
 
     ready_count = sum(1 for dataset in datasets if dataset.status == "ready")
     warning_count = sum(1 for dataset in datasets if dataset.status == "warning")
@@ -9454,17 +9444,23 @@ def _render_dataset_manager_table(
         f"{title}: {len(datasets)} · готово: {ready_count} · "
         f"требует проверки: {warning_count} · ошибок чтения: {error_count}"
     )
-    _render_workbench_data_grid(
+    selected_row = _render_workbench_data_grid(
         build_project_dataset_table(datasets),
         key_prefix=f"workbench_dataset_{project_id}_{section}",
         type_column="Тип",
         status_column="Статус",
         default_sort="Сохранено",
-        technical_columns=("Скважина ID", "Источник ID", "Архивировано"),
+        technical_columns=("Dataset ID", "Скважина ID", "Источник ID", "Архивировано"),
         height=300,
+        id_column="Dataset ID",
+        selection_target="dataset",
+        selection_label_column="Dataset",
     )
-
-    selected_dataset = {dataset.id: dataset for dataset in datasets}[selected_dataset_id]
+    selected_dataset_id = str((selected_row or {}).get("Dataset ID") or next(iter(datasets_by_id)))
+    _render_dataset_manager_toolbar(
+        project_id=project_id, section=section, selected_dataset_id=selected_dataset_id, logger=logger
+    )
+    selected_dataset = datasets_by_id[selected_dataset_id]
     detail_rows = [
         ("Тип", selected_dataset.kind),
         ("Статус", selected_dataset.status_label),
@@ -9674,13 +9670,22 @@ def _render_workbench_data_grid(
         "UUID", "SHA-256", "Ключ", "Object ID", "Скважина ID", "Путь", "Относительный путь"
     ),
     height: int = 360,
-) -> None:
-    """Render the shared Workbench Data Grid for project-owned records."""
+    id_column: str | None = None,
+    selection_target: str | None = None,
+    selection_label_column: str | None = None,
+) -> dict[str, object] | None:
+    """Render the shared Workbench Data Grid and publish one object selection.
+
+    The grid owns filtering, sorting and paging.  When ``id_column`` and
+    ``selection_target`` are supplied, the selected row is persisted through
+    ``WorkbenchSelectionService`` so the right-hand Properties pane can render
+    the same object consistently across Dataset, Calculation and Export views.
+    """
 
     frame = dataframe.copy()
     if frame.empty:
         st.caption("Нет записей для отображения.")
-        return
+        return None
 
     controls = st.columns((2.2, 1.3, 1.3, 1.2))
     with controls[0]:
@@ -9782,6 +9787,37 @@ def _render_workbench_data_grid(
         f"всего {view.total_rows} · страница {view.page} из {view.page_count}"
     )
     st.dataframe(view.dataframe, width="stretch", height=height, hide_index=True)
+
+    if not id_column or not selection_target or id_column not in frame.columns:
+        return None
+
+    visible_ids = [str(value) for value in view.dataframe.get(id_column, pd.Series(dtype=str)).dropna().tolist()]
+    if not visible_ids:
+        st.caption("На текущей странице нет доступных для выбора объектов.")
+        return None
+
+    source_by_id = {str(row[id_column]): row.to_dict() for _, row in frame.iterrows() if pd.notna(row.get(id_column))}
+    selected_id = st.selectbox(
+        "Выбранный объект",
+        options=tuple(visible_ids),
+        format_func=lambda object_id: str(
+            source_by_id.get(object_id, {}).get(selection_label_column or "", object_id)
+        ),
+        key=f"{key_prefix}_selected_object",
+    )
+    selected_row = dict(source_by_id.get(str(selected_id), {}))
+    if selected_row:
+        metadata = {
+            str(key): value
+            for key, value in selected_row.items()
+            if str(key) != id_column and isinstance(value, (str, int, float, bool))
+        }
+        WorkbenchSelectionService(_application_state_controller().state).select(
+            selection_target, str(selected_id), metadata
+        )
+        st.caption("Подробности выбранной строки отображаются в панели Properties.")
+        return selected_row
+    return None
 
 
 def _render_project_database_table(*args, **kwargs) -> None:
@@ -10530,7 +10566,7 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
             st.caption("В активном проекте пока нет сохраненных экспортов.")
             return
 
-        _render_workbench_data_grid(
+        selected_row = _render_workbench_data_grid(
             _project_exports_table(records),
             key_prefix=f"workbench_exports_{project.id}",
             type_column="Тип",
@@ -10538,14 +10574,12 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
             default_sort="Сохранено",
             technical_columns=("Export ID", "Источник"),
             height=300,
+            id_column="Export ID",
+            selection_target="export",
+            selection_label_column="Название",
         )
         records_by_id = {record.id: record for record in records}
-        selected_id = st.selectbox(
-            "Экспорт проекта",
-            options=tuple(records_by_id),
-            format_func=lambda record_id: _project_export_option_label(records_by_id[record_id]),
-            key=f"project_export_select_{project.id}",
-        )
+        selected_id = str((selected_row or {}).get("Export ID") or next(iter(records_by_id)))
         selected_record = records_by_id[selected_id]
 
         action_col_1, action_col_2, action_col_3 = st.columns(3)
@@ -11024,7 +11058,7 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
             st.warning("По текущему фильтру сохраненные расчеты не найдены.")
             return
 
-        _render_workbench_data_grid(
+        selected_row = _render_workbench_data_grid(
             _project_calculations_table(records),
             key_prefix=f"workbench_calculations_{project.id}",
             type_column=None,
@@ -11032,14 +11066,12 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
             default_sort="Сохранено",
             technical_columns=("Calculation ID",),
             height=300,
+            id_column="Calculation ID",
+            selection_target="calculation",
+            selection_label_column="Источник",
         )
         records_by_id = {record.id: record for record in records}
-        selected_id = st.selectbox(
-            "Расчет проекта",
-            options=tuple(records_by_id),
-            format_func=lambda record_id: _project_calculation_option_label(records_by_id[record_id]),
-            key=f"project_calculation_select_{project.id}",
-        )
+        selected_id = str((selected_row or {}).get("Calculation ID") or next(iter(records_by_id)))
         selected_record = records_by_id[selected_id]
         _render_project_calculation_metadata(project, selected_id, logger)
 

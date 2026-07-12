@@ -1646,3 +1646,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Applied the same search, filtering, sorting, pagination and technical-column mode to Dataset Manager, saved calculations and project exports.
 - Preserved the former Project Database renderer as a compatibility alias to avoid regressions in existing routes.
 - Kept report generation views unchanged where no persisted report catalog exists; report artifacts continue to appear in the unified export catalog.
+
+## Workbench Data Grid selection and Properties integration
+
+- Connected Dataset Manager, calculation archive and project export grids to the central Workbench selection service.
+- Added stable hidden identifiers for dataset rows.
+- Removed duplicate object selectors below Data Grid tables.
+- Selected grid records now populate the right-hand Properties pane through one shared selection boundary.
+- Preserved existing filters, sorting, pagination and technical-column visibility.

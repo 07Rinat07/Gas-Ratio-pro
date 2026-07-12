@@ -141,3 +141,17 @@ Completed:
 ### Unified Workbench Data Grid
 
 Status: implemented for Project Database, Dataset Manager, saved calculations and project exports. Report files are represented through the project export catalog until a dedicated persisted report repository is introduced.
+
+### Current increment — Data Grid to Properties integration
+
+Completed:
+- shared row selection contract for Workbench Data Grid;
+- Dataset, Calculation and Export selection routed through WorkbenchSelectionService;
+- duplicate selectors removed from the affected panels;
+- stable technical identifiers retained but hidden by default;
+- selected object metadata prepared for the Properties pane.
+
+Next:
+- move object-specific actions into a contextual Properties action group;
+- add multi-row selection and bulk action contracts;
+- complete the same selection behavior for remaining Project Database tables.
