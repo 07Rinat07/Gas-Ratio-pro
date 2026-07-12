@@ -4,6 +4,8 @@ import pandas as pd
 
 from app.streamlit_app import (
     _adjacent_interval_id,
+    _filter_engineering_intervals,
+    _interval_fluid_options,
     _interval_navigation_state,
     _interval_table_window,
     _ordered_interval_ids,
@@ -16,6 +18,9 @@ def _table(count: int = 30) -> pd.DataFrame:
             "ID": [f"HC-{index:03d}" for index in range(1, count + 1)],
             "Интервал, м": [f"{1000 + index}–{1001 + index}" for index in range(count)],
             "Мощность, м": [1.0] * count,
+            "Вероятный флюид": ["Газ" if index % 2 else "Нефть" for index in range(count)],
+            "Достоверность": [f"{70 + index % 20}%" for index in range(count)],
+            "Инженерное заключение": [f"Заключение {index + 1}" for index in range(count)],
         }
     )
 
@@ -34,8 +39,8 @@ def test_window_centers_active_interval_and_marks_it() -> None:
     assert start <= 24 < end
     assert len(window) == 11
     active = window.loc[window["ID"] == "HC-025", "Активный"].tolist()
-    assert active == ["▶"]
-    assert window.loc[window["ID"] != "HC-025", "Активный"].eq("").all()
+    assert active == ["▶ 🟩"]
+    assert window.loc[window["ID"] != "HC-025", "Активный"].isin({"🟩", "🟥"}).all()
 
 
 def test_navigation_state_uses_current_table_order() -> None:
@@ -46,11 +51,37 @@ def test_navigation_state_uses_current_table_order() -> None:
     assert _ordered_interval_ids(table) == ids
 
 
+
+def test_interval_filter_preserves_order_and_supports_visible_fields() -> None:
+    table = _table(8)
+    filtered = _filter_engineering_intervals(table, search_text="HC-005")
+    assert filtered["ID"].tolist() == ["HC-005"]
+
+    gas = _filter_engineering_intervals(table, fluid_labels=["Газ"])
+    assert gas["ID"].tolist() == ["HC-002", "HC-004", "HC-006", "HC-008"]
+    assert _interval_fluid_options(table) == ["Нефть", "Газ"]
+
+    conclusion = _filter_engineering_intervals(table, search_text="заключение 7")
+    assert conclusion["ID"].tolist() == ["HC-007"]
+
+
+def test_interval_filter_combines_search_and_fluid() -> None:
+    table = _table(10)
+    filtered = _filter_engineering_intervals(
+        table, search_text="HC-00", fluid_labels=["Нефть"]
+    )
+    assert filtered["ID"].tolist() == ["HC-001", "HC-003", "HC-005", "HC-007", "HC-009"]
+
+
 def test_streamlit_source_uses_selector_navigation_without_step_buttons() -> None:
     source = open("app/streamlit_app.py", encoding="utf-8").read()
     assert "◀ Предыдущий интервал" not in source
     assert "Следующий интервал ▶" not in source
     assert 'key="workspace_interval_selector"' in source
     assert 'key="interpretation_interval_selector"' in source
+    assert 'key="workspace_interval_search"' in source
+    assert 'key="workspace_interval_fluid_filter"' in source
+    assert 'key="interpretation_interval_search"' in source
+    assert 'key="interpretation_interval_fluid_filter"' in source
     assert "Активная строка удерживается в видимой области" in source
     assert 'window.insert(0, "Активный"' in source

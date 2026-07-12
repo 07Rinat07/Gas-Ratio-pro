@@ -1,3 +1,18 @@
+## Current increment: v217 — Engineering Navigation
+
+Status: **COMPLETED**
+
+Implemented:
+- removed reliance on previous/next interval controls;
+- added searchable interval lists in Data and Interpretation workspaces;
+- added fluid filters and empty-result handling;
+- preserved active-row highlighting and stable interval order;
+- synchronized interval selection across engineering plots, tablet, passport and export state;
+- passed focused navigation and presentation regression tests.
+
+Next: **Sprint 3 — Print & Export 2.0**.
+
+
 ## Current increment: v216 — Graphics Recovery
 
 Status: **COMPLETED**

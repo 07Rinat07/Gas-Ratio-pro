@@ -1,3 +1,11 @@
+## v217 — Engineering Navigation (completed)
+
+- Added searchable, filterable interval navigation to Data and Interpretation workspaces.
+- Preserved one shared active interval across Pixler, ternary, depth panel, tablet, passport and export.
+- Kept the active row visible and marked without previous/next buttons.
+- Next priority: Sprint 3 — Print & Export 2.0.
+
+
 ## v216 — Graphics Recovery (completed)
 
 - Unified depth-track titles, legends, margins and engineering hover labels.

@@ -1,3 +1,13 @@
+## v217 — Engineering Navigation
+
+- Completed interval navigation without previous/next step buttons.
+- Added search by interval ID, depth, fluid, confidence and engineering conclusion.
+- Added fluid-type filtering in Data and Interpretation workspaces.
+- Preserved engineering table order after filtering and kept the active interval centered and marked.
+- Synchronized filtered selection with Pixler, ternary, depth panel, tablet, interval passport and report/export state.
+- Added focused regression tests for combined search, filtering and navigation contracts.
+
+
 ## v216 — Graphics Recovery
 
 - Unified Russian engineer-facing titles for gas, Haworth ratio, Pixler and interpretation depth plots.

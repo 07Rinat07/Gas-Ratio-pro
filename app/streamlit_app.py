@@ -2794,6 +2794,49 @@ def _interval_navigation_state(
     return ids, position
 
 
+def _interval_fluid_options(table: pd.DataFrame | None) -> list[str]:
+    """Return stable user-facing fluid labels available in an interval table."""
+    if table is None or table.empty or "Вероятный флюид" not in table.columns:
+        return []
+    values: list[str] = []
+    for value in table["Вероятный флюид"].tolist():
+        label = str(value or "").strip()
+        if label and label not in values:
+            values.append(label)
+    return values
+
+
+def _filter_engineering_intervals(
+    table: pd.DataFrame | None,
+    *,
+    search_text: str = "",
+    fluid_labels: list[str] | tuple[str, ...] | None = None,
+) -> pd.DataFrame:
+    """Filter engineering intervals without exposing technical columns.
+
+    Search covers the complete visible engineering row so users can find an
+    interval by ID, depth range, fluid, confidence or engineering conclusion.
+    The original row order is preserved because it defines navigation order.
+    """
+    if table is None:
+        return pd.DataFrame()
+    result = table.copy()
+    if result.empty:
+        return result
+
+    selected_fluids = {str(value).strip() for value in (fluid_labels or ()) if str(value).strip()}
+    if selected_fluids and "Вероятный флюид" in result.columns:
+        fluid_series = result["Вероятный флюид"].fillna("").astype(str).str.strip()
+        result = result.loc[fluid_series.isin(selected_fluids)]
+
+    query = str(search_text or "").strip().casefold()
+    if query and not result.empty:
+        searchable = result.fillna("").astype(str).agg(" ".join, axis=1).str.casefold()
+        result = result.loc[searchable.str.contains(query, regex=False)]
+
+    return result.reset_index(drop=True)
+
+
 _FLUID_VISUALS: dict[str, tuple[str, str, str]] = {
     "oil": ("Нефть", "#22c55e", "🟩"),
     "нефть": ("Нефть", "#22c55e", "🟩"),
@@ -7678,11 +7721,33 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
     if workspace_interval_summary.empty:
         st.info("По текущему расчету уверенные УВ-интервалы не выделены.")
     else:
+        workspace_filter_left, workspace_filter_right = st.columns([2, 1])
+        workspace_search = workspace_filter_left.text_input(
+            "Поиск интервала",
+            key="workspace_interval_search",
+            placeholder="ID, глубина, флюид, заключение",
+        )
+        workspace_fluid_options = _interval_fluid_options(workspace_interval_summary)
+        workspace_fluids = workspace_filter_right.multiselect(
+            "Флюид",
+            options=workspace_fluid_options,
+            key="workspace_interval_fluid_filter",
+            placeholder="Все типы",
+        )
+        filtered_workspace_summary = _filter_engineering_intervals(
+            workspace_interval_summary,
+            search_text=workspace_search,
+            fluid_labels=workspace_fluids,
+        )
+        if filtered_workspace_summary.empty:
+            st.info("По заданным условиям интервалы не найдены.")
+            return
+
         active_workspace_interval_id = str(
             state_controller.get_value("selected_reservoir_interval_id", "") or ""
         )
         workspace_ids, workspace_position = _interval_navigation_state(
-            workspace_interval_summary,
+            filtered_workspace_summary,
             active_workspace_interval_id,
         )
         if workspace_ids and active_workspace_interval_id not in workspace_ids:
@@ -7697,7 +7762,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
                 f'{row["ID"]} · {row.get("Интервал, м", "—")} · '
                 f'{row.get("Вероятный флюид", "—")} · {row.get("Достоверность", "—")}'
             )
-            for _, row in workspace_interval_summary.iterrows()
+            for _, row in filtered_workspace_summary.iterrows()
         }
         selected_workspace_id = st.selectbox(
             "Выбранный интервал",
@@ -7715,13 +7780,14 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
             })
 
         workspace_table, workspace_start, workspace_end = _interval_table_window(
-            workspace_interval_summary,
+            filtered_workspace_summary,
             active_workspace_interval_id,
             window_size=21,
         )
         st.caption(
             f"Активная строка удерживается в видимой области: интервалы "
-            f"{workspace_start + 1}–{workspace_end} из {len(workspace_interval_summary)}."
+            f"{workspace_start + 1}–{workspace_end} из {len(filtered_workspace_summary)} "
+            f"(всего {len(workspace_interval_summary)})."
         )
         workspace_table_event = st.dataframe(
             workspace_table,
@@ -9454,11 +9520,33 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     if engineering_summary.empty:
         st.info("В выбранном диапазоне уверенные УВ-интервалы не выделены.")
     else:
+        interpretation_filter_left, interpretation_filter_right = st.columns([2, 1])
+        interpretation_search = interpretation_filter_left.text_input(
+            "Поиск интервала",
+            key="interpretation_interval_search",
+            placeholder="ID, глубина, флюид, заключение",
+        )
+        interpretation_fluid_options = _interval_fluid_options(engineering_summary)
+        interpretation_fluids = interpretation_filter_right.multiselect(
+            "Флюид",
+            options=interpretation_fluid_options,
+            key="interpretation_interval_fluid_filter",
+            placeholder="Все типы",
+        )
+        filtered_engineering_summary = _filter_engineering_intervals(
+            engineering_summary,
+            search_text=interpretation_search,
+            fluid_labels=interpretation_fluids,
+        )
+        if filtered_engineering_summary.empty:
+            st.info("По заданным условиям интервалы не найдены.")
+            return
+
         current_interval_id = str(
             state_controller.get_value("selected_reservoir_interval_id", "") or ""
         )
         engineering_ids, engineering_position = _interval_navigation_state(
-            engineering_summary,
+            filtered_engineering_summary,
             current_interval_id,
         )
         if engineering_ids and current_interval_id not in engineering_ids:
@@ -9473,7 +9561,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 f'{row["ID"]} · {row.get("Интервал, м", "—")} · '
                 f'{row.get("Вероятный флюид", "—")} · {row.get("Достоверность", "—")}'
             )
-            for _, row in engineering_summary.iterrows()
+            for _, row in filtered_engineering_summary.iterrows()
         }
         selected_interpretation_id = st.selectbox(
             "Выбранный интервал",
@@ -9489,13 +9577,14 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             state_controller.update_values({"selected_reservoir_interval_id": current_interval_id})
 
         visible_summary, visible_start, visible_end = _interval_table_window(
-            engineering_summary,
+            filtered_engineering_summary,
             current_interval_id,
             window_size=21,
         )
         st.caption(
             f"Активный пласт отмечен символом ▶ и удерживается в центре списка. "
-            f"Показаны интервалы {visible_start + 1}–{visible_end} из {len(engineering_summary)}."
+            f"Показаны интервалы {visible_start + 1}–{visible_end} из {len(filtered_engineering_summary)} "
+            f"(всего {len(engineering_summary)})."
         )
         interpretation_table_event = st.dataframe(
             visible_summary,
