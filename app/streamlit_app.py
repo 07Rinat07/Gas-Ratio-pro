@@ -9456,6 +9456,7 @@ def _render_dataset_manager_table(
         selection_target="dataset",
         selection_label_column="Dataset",
         selection_metadata={"section": section, "project_id": project_id},
+        enable_multi_selection=True,
     )
     selected_dataset_id = str((selected_row or {}).get("Dataset ID") or next(iter(datasets_by_id)))
     _render_dataset_manager_toolbar(
@@ -9675,6 +9676,7 @@ def _render_workbench_data_grid(
     selection_target: str | None = None,
     selection_label_column: str | None = None,
     selection_metadata: dict[str, object] | None = None,
+    enable_multi_selection: bool = False,
 ) -> dict[str, object] | None:
     """Render the shared Workbench Data Grid and publish one object selection.
 
@@ -9799,6 +9801,64 @@ def _render_workbench_data_grid(
         return None
 
     source_by_id = {str(row[id_column]): row.to_dict() for _, row in frame.iterrows() if pd.notna(row.get(id_column))}
+
+    if enable_multi_selection:
+        from core.workbench_bulk_actions import WorkbenchBulkActionService, bulk_actions_for
+
+        with st.expander("Массовые операции", expanded=False):
+            selected_ids = st.multiselect(
+                "Выбранные объекты",
+                options=tuple(visible_ids),
+                format_func=lambda object_id: str(source_by_id.get(object_id, {}).get(selection_label_column or "", object_id)),
+                key=f"{key_prefix}_bulk_selected",
+            )
+            bulk_service = WorkbenchBulkActionService(_application_state_controller().state)
+            bulk_service.set_selection(
+                key=key_prefix, target=selection_target, object_ids=selected_ids, metadata=dict(selection_metadata or {})
+            )
+            actions = tuple(bulk_actions_for(selection_target))
+            if selected_ids and actions:
+                action_by_id = {str(item["id"]): item for item in actions}
+                action_id = st.selectbox(
+                    "Действие",
+                    options=tuple(action_by_id),
+                    format_func=lambda value: str(action_by_id[value]["title"]),
+                    key=f"{key_prefix}_bulk_action",
+                )
+                selected_action = action_by_id[action_id]
+                confirmed = True
+                if bool(selected_action.get("requires_confirmation")):
+                    project_id = str((selection_metadata or {}).get("project_id") or "")
+                    confirmation = st.text_input(
+                        "Для подтверждения введите ID проекта",
+                        key=f"{key_prefix}_bulk_confirm",
+                        placeholder=project_id,
+                    )
+                    confirmed = bool(project_id) and confirmation.strip() == project_id
+                if st.button(
+                    str(selected_action["title"]),
+                    key=f"{key_prefix}_bulk_execute",
+                    disabled=not confirmed,
+                    width="stretch",
+                ):
+                    bulk_service.request({
+                        "target": selection_target,
+                        "action_id": action_id,
+                        "object_ids": tuple(selected_ids),
+                        "metadata": dict(selection_metadata or {}),
+                        "confirmed": confirmed,
+                    })
+                    st.rerun()
+            else:
+                st.caption("Выберите один или несколько объектов на текущей странице.")
+            bulk_result = bulk_service.result()
+            if bulk_result:
+                message = str(bulk_result.get("message") or "")
+                if bool(bulk_result.get("success")):
+                    st.success(message)
+                else:
+                    st.error(message)
+
     selected_id = st.selectbox(
         "Выбранный объект",
         options=tuple(visible_ids),
@@ -10584,6 +10644,7 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
             selection_target="export",
             selection_label_column="Название",
             selection_metadata={"project_id": project.id},
+            enable_multi_selection=True,
         )
         records_by_id = {record.id: record for record in records}
         selected_id = str((selected_row or {}).get("Export ID") or next(iter(records_by_id)))
@@ -11077,6 +11138,7 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
             selection_target="calculation",
             selection_label_column="Источник",
             selection_metadata={"project_id": project.id},
+            enable_multi_selection=True,
         )
         records_by_id = {record.id: record for record in records}
         selected_id = str((selected_row or {}).get("Calculation ID") or next(iter(records_by_id)))
@@ -12272,6 +12334,121 @@ def legacy_ui_requested(environ: dict[str, str] | None = None) -> bool:
     return str(source.get(LEGACY_UI_ENV_VAR, "")).strip().lower() in _LEGACY_UI_TRUE_VALUES
 
 
+def _process_workbench_bulk_action(logger) -> None:
+    """Execute one bulk Data Grid action at the application boundary."""
+
+    import csv
+    import io
+    import json
+    import zipfile
+
+    from core.workbench_bulk_actions import WorkbenchBulkActionService
+
+    state = _application_state_controller().state
+    service = WorkbenchBulkActionService(state)
+    request = service.consume()
+    if not request:
+        return
+
+    target = str(request.get("target") or "")
+    action_id = str(request.get("action_id") or "")
+    object_ids = tuple(str(item) for item in request.get("object_ids", ()) if str(item).strip())
+    metadata = dict(request.get("metadata", {}) or {})
+    project_id = str(metadata.get("project_id") or _application_state_controller().context().project_id or DEFAULT_PROJECT_ID)
+    confirmed = bool(request.get("confirmed"))
+
+    try:
+        if action_id == "delete" and not confirmed:
+            raise ValueError("Массовое удаление не подтверждено ID проекта.")
+
+        if action_id == "verify":
+            failures: list[str] = []
+            if target == "dataset":
+                section = str(metadata.get("section") or "")
+                existing = {str(getattr(item, "id", "")) for item in _dataset_manager_service().list_records(project_id, section, include_archived=True)}
+                failures = [item for item in object_ids if item not in existing]
+            elif target == "calculation":
+                for item in object_ids:
+                    integrity = check_project_calculation_integrity(LAS_CORRELATION_PROJECTS_ROOT, project_id, item)
+                    if not integrity.ok:
+                        failures.append(item)
+            elif target == "export":
+                existing = {str(item.id) for item in _export_manager_service().list_exports(project_id)}
+                failures = [item for item in object_ids if item not in existing]
+            service.set_result(
+                success=not failures,
+                message=(f"Проверено объектов: {len(object_ids)}. Ошибок нет." if not failures else f"Проверено: {len(object_ids)}. Проблемные ID: {', '.join(failures)}"),
+                action_id=action_id,
+            )
+            return
+
+        if action_id == "delete":
+            backup = create_project_backup(LAS_CORRELATION_PROJECTS_ROOT, project_id, f"Before bulk delete {target}")
+            deleted = 0
+            if target == "dataset":
+                section = str(metadata.get("section") or "")
+                deleted = _dataset_manager_service().delete_selected(project_id, section, object_ids).deleted
+            elif target == "calculation":
+                for item in object_ids:
+                    deleted += int(project_calculations.delete_project_calculation(LAS_CORRELATION_PROJECTS_ROOT, project_id, item))
+                _index_manager().sync_project_storage(project_id)
+            elif target == "export":
+                for item in object_ids:
+                    deleted += int(_export_manager_service().delete_export(project_id, item).deleted)
+            else:
+                raise ValueError(f"Массовое удаление не поддерживается для {target}.")
+            service.set_result(success=True, message=f"Удалено объектов: {deleted}. Backup: {backup.file_name}.", action_id=action_id)
+            return
+
+        if action_id == "export":
+            buffer = io.BytesIO()
+            with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("selection.json", json.dumps({"project_id": project_id, "target": target, "object_ids": object_ids}, ensure_ascii=False, indent=2))
+                if target == "calculation":
+                    for calculation_id in object_ids:
+                        for suffix in ("csv", "xlsx", "metadata"):
+                            try:
+                                data = read_project_calculation_file_bytes(LAS_CORRELATION_PROJECTS_ROOT, project_id, calculation_id, suffix)
+                            except Exception:
+                                continue
+                            extension = "json" if suffix == "metadata" else suffix
+                            archive.writestr(f"calculations/{calculation_id}/{suffix}.{extension}", data)
+                elif target == "export":
+                    records = {item.id: item for item in _export_manager_service().list_exports(project_id)}
+                    for export_id in object_ids:
+                        record = records.get(export_id)
+                        if record is not None:
+                            archive.writestr(f"exports/{export_id}/{record.file_name}", _export_manager_service().read_export_bytes(project_id, export_id))
+                elif target == "dataset":
+                    section = str(metadata.get("section") or "")
+                    records = [item for item in _dataset_manager_service().list_records(project_id, section, include_archived=True) if str(getattr(item, "id", "")) in object_ids]
+                    output = io.StringIO()
+                    writer = csv.DictWriter(output, fieldnames=("id", "name", "section", "status", "file"))
+                    writer.writeheader()
+                    for item in records:
+                        writer.writerow({"id": getattr(item, "id", ""), "name": getattr(item, "label", getattr(item, "name", "")), "section": section, "status": getattr(item, "status", ""), "file": getattr(item, "original_file_name", "")})
+                    archive.writestr("datasets.csv", output.getvalue().encode("utf-8-sig"))
+                else:
+                    raise ValueError(f"Массовый экспорт не поддерживается для {target}.")
+            save_result = _export_manager_service().save_export(
+                project_id=project_id,
+                data=buffer.getvalue(),
+                label=f"Bulk {target} package",
+                file_name=f"bulk-{target}-package.zip",
+                mime_type="application/zip",
+                kind="archive",
+                source="Workbench Data Grid",
+                metadata={"object_ids": list(object_ids), "target": target},
+            )
+            service.set_result(success=True, message=f"ZIP-пакет создан: {save_result.file_name}.", action_id=action_id, export_id=save_result.id)
+            return
+
+        raise ValueError(f"Неизвестное массовое действие: {target}/{action_id}")
+    except Exception as exc:
+        logger.exception("workbench_bulk_action_failed target=%s action=%s", safe_log_value(target), safe_log_value(action_id))
+        service.set_result(success=False, message=f"Не удалось выполнить массовое действие: {exc}", action_id=action_id)
+
+
 def _process_workbench_property_action(logger) -> None:
     """Execute one requested Properties action at the application boundary."""
 
@@ -12355,6 +12532,7 @@ def _run_modern_workbench() -> None:
     from core.streamlit_runtime_compat import configure_streamlit_runtime_log_capture
     logger = configure_streamlit_runtime_log_capture()
     logger.info("modern_workbench_started")
+    _process_workbench_bulk_action(logger)
     _process_workbench_property_action(logger)
     results = render_streamlit_workbench(_application_state_controller().state, st)
     if any(result.executed for result in results):

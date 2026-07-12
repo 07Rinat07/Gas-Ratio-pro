@@ -174,3 +174,6 @@ Completed:
 Next:
 - add persisted reports and correlation objects to the project tree;
 - add context actions and optional multi-selection without introducing destructive right-click shortcuts.
+
+### Unified Workbench Data Grid — bulk actions completed
+Multi-selection is available for datasets, calculations and exports. Bulk destructive actions require exact project confirmation and create a project backup before mutation.

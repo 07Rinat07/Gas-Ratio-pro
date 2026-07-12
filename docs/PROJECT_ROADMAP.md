@@ -460,3 +460,5 @@ Roadmap изменяется только когда:
 - [ ] Add persisted report and correlation nodes after their repositories are available.
 - [x] Move contextual actions to Properties.
 - [ ] Add safe multi-selection and bulk actions.
+
+- [x] Unified Data Grid multi-selection and safe bulk actions for datasets, calculations and exports.

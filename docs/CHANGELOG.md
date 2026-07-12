@@ -1673,3 +1673,8 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Removed duplicate object selectors below Data Grid tables.
 - Selected grid records now populate the right-hand Properties pane through one shared selection boundary.
 - Preserved existing filters, sorting, pagination and technical-column visibility.
+
+## Workbench bulk operations
+- Added multi-selection to Dataset Manager, calculation archive and project exports.
+- Added bulk verification, safe deletion with project-ID confirmation and automatic ZIP backup.
+- Added bulk ZIP/package generation through the project export repository.
