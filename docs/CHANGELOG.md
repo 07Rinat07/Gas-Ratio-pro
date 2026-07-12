@@ -1,3 +1,13 @@
+# GAS RATIO PRO — Changelog
+
+## Unreleased — v222 planning
+
+- Approved Export Engine Refactoring as the next project priority.
+- Defined a dedicated ExportController, lazy initialization, deterministic export state and stage-aware diagnostics.
+- Added mandatory first-run, format-switch, large-LAS, cache and failure-containment regression scenarios.
+- Kept PDF, DOCX, PNG, SVG and XLSX as the supported user-facing formats.
+- Left `README.md` unchanged and excluded roadmap/documentation-link duplication from it.
+
 ## v221.2 — Plot Contrast & Interactive Performance Hotfix
 
 - Switched browser Plotly figures to a dark engineering theme with explicit high-contrast axes, labels, legends and grid lines.
@@ -20,8 +30,6 @@
 - Preserved unified graphics, navigation, export and report contracts.
 - Removed the stale root progress document that violated documentation governance.
 - Packaged the stable candidate for manual acceptance testing.
-
-# GAS RATIO PRO — Changelog
 
 ## v220 — Plot Engine Cleanup
 

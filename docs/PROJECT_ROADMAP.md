@@ -1,3 +1,67 @@
+# GAS RATIO PRO — Active Project Roadmap
+
+## v222 — Export Engine Refactoring (planned)
+
+Status: **NEXT PRIORITY**
+
+Goal: eliminate first-run export failures and make professional export independent from unrelated Streamlit reruns.
+
+## Scope
+
+1. Introduce a dedicated `ExportController` with explicit stages:
+   - validate request;
+   - freeze report model;
+   - prepare figures;
+   - render selected format;
+   - store artifact metadata;
+   - expose download result.
+2. Apply lazy initialization: opening export settings must not build PDF, DOCX, PNG, SVG or XLSX.
+3. Generate artifacts only after the explicit `Подготовить выбранный формат` action.
+4. Remove export-triggered `st.rerun()` calls and replace them with deterministic state transitions.
+5. Reuse the committed calculation, interval selection and presentation snapshot without rebuilding Pixler, ternary, Haworth or the tablet when only the output format changes.
+6. Add a dedicated export cache keyed by:
+   - project and calculation revision;
+   - profile;
+   - depth range;
+   - selected interval;
+   - format;
+   - report model signature.
+7. Isolate heavy resources such as Kaleido and document renderers behind lazy resource factories.
+8. Add stage-aware diagnostics with correlation ID, operation, renderer, format and complete traceback in `logs/app.log`.
+9. Preserve supported user formats: PDF, DOCX, PNG, SVG and XLSX.
+10. Preserve strict profile propagation for client and engineering reports.
+
+## Mandatory regression scenarios
+
+- first opening of Professional Export after a fresh application start;
+- first click on `Подготовить выбранный формат`;
+- switching PDF → DOCX → XLSX without leaving the workspace;
+- changing report profile before the first export;
+- changing depth range and selected interval;
+- repeated export from cache;
+- export after loading a large LAS;
+- renderer dependency failure with readable diagnostics and no workspace crash;
+- download button availability after successful generation;
+- no recalculation or graph rebuild when only the output format changes.
+
+## Definition of Done
+
+- the first export attempt succeeds in a clean session;
+- export settings never force graph reconstruction;
+- changing format does not leave the interpretation workspace;
+- all export failures are contained inside the export boundary and produce actionable diagnostics;
+- PDF, DOCX, PNG, SVG and XLSX pass functional and regression tests;
+- large-LAS export remains responsive;
+- full test suite and manual acceptance pass.
+
+## Planned release sequence
+
+- `v222-rc1`: controller, lazy initialization and state isolation;
+- `v222-rc2`: cache, diagnostics and full regression closure;
+- `v222`: manual acceptance and stable packaging.
+
+---
+
 ## v218 — Print & Export 2.0 (completed)
 
 - Removed HTML as a user-download format from reports and calculation comparison.
@@ -34,7 +98,6 @@
 - Renamed the chart to `Интерпретационный планшет`.
 - PDF and DOCX remain the primary report formats; HTML stays internal only.
 
-# GAS RATIO PRO — Active Project Roadmap
 
 Status: Active  
 Baseline: v208  
