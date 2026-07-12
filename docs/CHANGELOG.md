@@ -1,3 +1,13 @@
+
+## v215 — Engineering UI cleanup (in progress)
+
+- Removed the blocking previous/next interval buttons from Data and Interpretation workspaces.
+- Added one synchronized interval selector with engineering labels.
+- Removed user-visible PDF placeholders such as `+N колонок в HTML/DOCX`.
+- Simplified tablet track titles by removing `auto`, `line` and internal scale-mode captions.
+- Renamed the chart to `Интерпретационный планшет`.
+- PDF and DOCX remain the primary report formats; HTML stays internal only.
+
 ## v214 — Depth Panel collision and readability fix
 
 - Added pixel-aware collision suppression for interval labels.

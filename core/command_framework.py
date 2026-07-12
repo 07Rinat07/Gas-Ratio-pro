@@ -165,5 +165,5 @@ def default_workbench_commands() -> tuple[WorkbenchCommand, ...]:
         WorkbenchCommand("workspace.save_session", "Сохранить сессию", "workspace", "Сохранить легкое состояние Workbench.", "Ctrl+S", "save"),
         WorkbenchCommand("workspace.restore_session", "Восстановить сессию", "workspace", "Восстановить ранее сохраненную сессию.", "Ctrl+Shift+O", "restore"),
         WorkbenchCommand("workspace.reset", "Сбросить рабочую область", "workspace", "Очистить производные данные текущей области.", "Ctrl+Shift+R", "reset"),
-        WorkbenchCommand("export.bundle", "Экспортировать пакет", "export", "Создать HTML PDF DOCX пакет отчета.", "Ctrl+E", "export"),
+        WorkbenchCommand("export.bundle", "Экспортировать пакет", "export", "Создать пакет отчёта PDF/DOCX.", "Ctrl+E", "export"),
     )

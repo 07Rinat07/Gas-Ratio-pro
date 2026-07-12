@@ -46,9 +46,11 @@ def test_navigation_state_uses_current_table_order() -> None:
     assert _ordered_interval_ids(table) == ids
 
 
-def test_streamlit_source_contains_navigation_controls() -> None:
+def test_streamlit_source_uses_selector_navigation_without_step_buttons() -> None:
     source = open("app/streamlit_app.py", encoding="utf-8").read()
-    assert "◀ Предыдущий интервал" in source
-    assert "Следующий интервал ▶" in source
+    assert "◀ Предыдущий интервал" not in source
+    assert "Следующий интервал ▶" not in source
+    assert 'key="workspace_interval_selector"' in source
+    assert 'key="interpretation_interval_selector"' in source
     assert "Активная строка удерживается в видимой области" in source
     assert 'window.insert(0, "Активный"' in source

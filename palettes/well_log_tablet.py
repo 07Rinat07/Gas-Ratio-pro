@@ -546,12 +546,12 @@ def normalize_tablet_fill_mode(value: str | None, *, legacy_fill: bool = False) 
 
 def tablet_fill_mode_label(mode: str | None) -> str:
     labels = {
-        "none": "line",
-        "to_zero": "fill to zero",
-        "to_left": "fill to left scale",
-        "to_right": "fill to right scale",
+        "none": "",
+        "to_zero": "заливка к нулю",
+        "to_left": "заливка к левой границе",
+        "to_right": "заливка к правой границе",
     }
-    return labels.get(normalize_tablet_fill_mode(mode), "line")
+    return labels.get(normalize_tablet_fill_mode(mode), "")
 
 
 def _hex_to_rgba(color: str, opacity: float) -> str:
@@ -598,15 +598,10 @@ def tablet_units_from_dataframe(df: pd.DataFrame) -> dict[str, str]:
 
 
 def _track_title(track: TabletTrackConfig, values: pd.Series) -> str:
+    """Return a compact engineer-facing title without renderer internals."""
     label = track.label or track.column
     unit = f", {track.unit}" if track.unit else ""
-    if track.x_range is not None:
-        scale = f"{track.x_range[0]:g} - {track.x_range[1]:g}"
-    else:
-        numeric = pd.to_numeric(values, errors="coerce").dropna()
-        scale = "auto" if numeric.empty else f"auto {numeric.min():g} - {numeric.max():g}"
-    fill_label = tablet_fill_mode_label(track.fill_mode if track.fill_mode else ("to_zero" if track.fill else "none"))
-    return f"{label}{unit}<br>{scale}<br>{fill_label}"
+    return f"{label}{unit}"
 
 
 def _empty_tablet_figure(message: str, *, height: int) -> go.Figure:
@@ -1134,7 +1129,7 @@ def build_well_log_tablet(
         )
 
     fig.update_layout(
-        title="Depth Panel 2.0 — интервалы, достоверность, QC и кривые",
+        title="Интерпретационный планшет",
         height=height,
         margin={"l": 82, "r": 86, "t": 122, "b": 54},
         showlegend=False,

@@ -281,10 +281,10 @@ def _document_table(block: DocumentTable, styles: dict[str, ParagraphStyle]) -> 
     if not block.headers or not block.rows:
         return []
     original_cols = len(block.headers)
+    # PDF must contain only actual engineering columns. Hidden renderer metadata
+    # is never represented by a synthetic user-visible column.
     max_cols = min(original_cols, 8)
     visible_headers = list(block.headers[:max_cols])
-    if original_cols > max_cols:
-        visible_headers.append("…")
     data: list[list[Paragraph]] = [
         [_paragraph(header, styles["table_header"]) for header in visible_headers]
     ]
@@ -292,8 +292,6 @@ def _document_table(block: DocumentTable, styles: dict[str, ParagraphStyle]) -> 
         cells = list(row[:max_cols])
         if len(cells) < max_cols:
             cells.extend([""] * (max_cols - len(cells)))
-        if original_cols > max_cols:
-            cells.append(f"+{original_cols - max_cols} колонок в HTML/DOCX")
         data.append([_paragraph(cell, styles["table_cell"]) for cell in cells])
     max_cols = len(visible_headers)
 

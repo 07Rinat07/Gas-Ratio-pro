@@ -15,3 +15,9 @@ def test_interpretation_workspace_has_no_legacy_html_export_controls():
     assert "gas_ratio_interval_report.html" not in source
     assert "Подготовить HTML корреляции" not in source
     assert "HTML для печати графика" not in source
+
+
+def test_pdf_renderer_does_not_emit_hidden_column_placeholders():
+    source = open("reports/presentation_pdf.py", encoding="utf-8").read()
+    assert "колонок в HTML/DOCX" not in source
+    assert 'visible_headers.append("…")' not in source

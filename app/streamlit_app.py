@@ -792,7 +792,7 @@ START_ACTIONS: tuple[dict[str, str], ...] = (
         "icon": "📈",
         "button_label": "Открыть LAS-корреляцию",
         "target_tab": "LAS-корреляция",
-        "description": "Сравнение нескольких скважин, группировка кривых, X-scale, интервал, печатный HTML и графический экспорт.",
+        "description": "Сравнение нескольких скважин, группировка кривых, X-scale, интервал, печатный PDF/DOCX и графический экспорт.",
         "when": "Когда нужно сопоставить несколько LAS по одному интервалу.",
         "tooltip": "Открыть multi-LAS корреляцию.",
     },
@@ -7692,35 +7692,27 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
                 "selected_reservoir_interval_id": active_workspace_interval_id
             })
 
-        nav_prev, nav_status, nav_next = st.columns((1.0, 2.6, 1.0))
-        if nav_prev.button(
-            "◀ Предыдущий интервал",
-            disabled=not workspace_ids or workspace_position <= 0,
-            width="stretch",
-            key="workspace_previous_interval",
-        ):
+        workspace_label_by_id = {
+            str(row["ID"]): (
+                f'{row["ID"]} · {row.get("Интервал, м", "—")} · '
+                f'{row.get("Вероятный флюид", "—")} · {row.get("Достоверность", "—")}'
+            )
+            for _, row in workspace_interval_summary.iterrows()
+        }
+        selected_workspace_id = st.selectbox(
+            "Выбранный интервал",
+            options=workspace_ids,
+            index=workspace_position if workspace_ids else None,
+            format_func=lambda interval_id: workspace_label_by_id.get(str(interval_id), str(interval_id)),
+            key="workspace_interval_selector",
+            help="Выбор синхронизирует инженерную таблицу, Pixler, ternary, планшет, паспорт и экспорт.",
+        ) if workspace_ids else ""
+        if selected_workspace_id and selected_workspace_id != active_workspace_interval_id:
+            active_workspace_interval_id = str(selected_workspace_id)
+            workspace_position = workspace_ids.index(active_workspace_interval_id)
             state_controller.update_values({
-                "selected_reservoir_interval_id": _adjacent_interval_id(
-                    workspace_ids, active_workspace_interval_id, -1
-                )
+                "selected_reservoir_interval_id": active_workspace_interval_id
             })
-            st.rerun()
-        nav_status.markdown(
-            f"**{active_workspace_interval_id or 'Интервал не выбран'}**  "
-            f"{workspace_position + 1 if workspace_ids else 0} из {len(workspace_ids)}"
-        )
-        if nav_next.button(
-            "Следующий интервал ▶",
-            disabled=not workspace_ids or workspace_position >= len(workspace_ids) - 1,
-            width="stretch",
-            key="workspace_next_interval",
-        ):
-            state_controller.update_values({
-                "selected_reservoir_interval_id": _adjacent_interval_id(
-                    workspace_ids, active_workspace_interval_id, 1
-                )
-            })
-            st.rerun()
 
         workspace_table, workspace_start, workspace_end = _interval_table_window(
             workspace_interval_summary,
@@ -9476,33 +9468,25 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 "selected_reservoir_interval_id": current_interval_id
             })
 
-        previous_col, active_col, next_col = st.columns((1.0, 2.8, 1.0))
-        if previous_col.button(
-            "◀ Предыдущий интервал",
-            disabled=not engineering_ids or engineering_position <= 0,
-            width="stretch",
-            key="interpretation_previous_interval",
-        ):
-            target_id = _adjacent_interval_id(
-                engineering_ids, current_interval_id, -1
+        interpretation_label_by_id = {
+            str(row["ID"]): (
+                f'{row["ID"]} · {row.get("Интервал, м", "—")} · '
+                f'{row.get("Вероятный флюид", "—")} · {row.get("Достоверность", "—")}'
             )
-            state_controller.update_values({"selected_reservoir_interval_id": target_id})
-            st.rerun()
-        active_col.markdown(
-            f"### {current_interval_id or 'Интервал не выбран'}  "
-            f"{engineering_position + 1 if engineering_ids else 0} из {len(engineering_ids)}"
-        )
-        if next_col.button(
-            "Следующий интервал ▶",
-            disabled=not engineering_ids or engineering_position >= len(engineering_ids) - 1,
-            width="stretch",
-            key="interpretation_next_interval",
-        ):
-            target_id = _adjacent_interval_id(
-                engineering_ids, current_interval_id, 1
-            )
-            state_controller.update_values({"selected_reservoir_interval_id": target_id})
-            st.rerun()
+            for _, row in engineering_summary.iterrows()
+        }
+        selected_interpretation_id = st.selectbox(
+            "Выбранный интервал",
+            options=engineering_ids,
+            index=engineering_position if engineering_ids else None,
+            format_func=lambda interval_id: interpretation_label_by_id.get(str(interval_id), str(interval_id)),
+            key="interpretation_interval_selector",
+            help="Выбор синхронизирует Pixler, ternary, планшет, паспорт и диапазон PDF/DOCX.",
+        ) if engineering_ids else ""
+        if selected_interpretation_id and selected_interpretation_id != current_interval_id:
+            current_interval_id = str(selected_interpretation_id)
+            engineering_position = engineering_ids.index(current_interval_id)
+            state_controller.update_values({"selected_reservoir_interval_id": current_interval_id})
 
         visible_summary, visible_start, visible_end = _interval_table_window(
             engineering_summary,

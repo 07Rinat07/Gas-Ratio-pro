@@ -63,7 +63,7 @@ def test_depth_panel_adds_interval_track_boundaries_and_selected_depth() -> None
         selected_depth=1002.0,
     )
 
-    assert figure.layout.title.text.startswith("Depth Panel 2.0")
+    assert figure.layout.title.text == "Интерпретационный планшет"
     assert len(figure.data) == 6  # three engineering tracks + QC markers + two curves
     annotation_texts = [str(item.text) for item in figure.layout.annotations]
     assert any("HC-001" in text and "Нефть" in text for text in annotation_texts)
