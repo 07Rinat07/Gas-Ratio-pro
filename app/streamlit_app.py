@@ -2760,9 +2760,10 @@ def _interval_table_window(
     end = min(len(table), start + size)
     start = max(0, end - size)
     window = table.iloc[start:end].copy().reset_index(drop=True)
+    fluid_values = window.get("Вероятный флюид", pd.Series([""] * len(window))).tolist()
     window.insert(0, "Активный", [
-        "▶" if str(value or "").strip() == active else ""
-        for value in window["ID"].tolist()
+        _active_interval_table_marker(fluid, active=str(interval_id or "").strip() == active)
+        for interval_id, fluid in zip(window["ID"].tolist(), fluid_values)
     ])
     return window, start, end
 
@@ -2775,6 +2776,91 @@ def _interval_navigation_state(
     active = str(active_interval_id or "").strip()
     position = ids.index(active) if active in ids else 0
     return ids, position
+
+
+_FLUID_VISUALS: dict[str, tuple[str, str, str]] = {
+    "oil": ("Нефть", "#22c55e", "🟩"),
+    "нефть": ("Нефть", "#22c55e", "🟩"),
+    "нефтяной интервал": ("Нефть", "#22c55e", "🟩"),
+    "gas": ("Газ", "#ef4444", "🟥"),
+    "газ": ("Газ", "#ef4444", "🟥"),
+    "газовый интервал": ("Газ", "#ef4444", "🟥"),
+    "condensate": ("Газоконденсат", "#f59e0b", "🟧"),
+    "газоконденсат": ("Газоконденсат", "#f59e0b", "🟧"),
+    "газоконденсатный интервал": ("Газоконденсат", "#f59e0b", "🟧"),
+    "water": ("Вода", "#3b82f6", "🟦"),
+    "вода": ("Вода", "#3b82f6", "🟦"),
+    "водонасыщенный интервал": ("Вода", "#3b82f6", "🟦"),
+    "mixed": ("Смешанный", "#a855f7", "🟪"),
+    "смешанный": ("Смешанный", "#a855f7", "🟪"),
+    "transition": ("Переходный", "#eab308", "🟨"),
+    "переходный": ("Переходный", "#eab308", "🟨"),
+    "gas_oil": ("Газ–нефть", "#84cc16", "🟩"),
+    "oil_gas": ("Нефть–газ", "#84cc16", "🟩"),
+    "uncertain": ("Требует проверки", "#94a3b8", "⬜"),
+    "неопределённый": ("Требует проверки", "#94a3b8", "⬜"),
+}
+
+
+def _fluid_visual(fluid_value: object) -> tuple[str, str, str]:
+    raw = str(fluid_value or "").strip()
+    key = raw.casefold()
+    if key in _FLUID_VISUALS:
+        return _FLUID_VISUALS[key]
+    for candidate, visual in _FLUID_VISUALS.items():
+        if candidate and candidate in key:
+            return visual
+    label = raw or "Не определён"
+    return label, "#94a3b8", "⬜"
+
+
+def _active_interval_table_marker(fluid_value: object, *, active: bool) -> str:
+    raw = str(fluid_value or "").strip()
+    if not raw:
+        return "▶" if active else ""
+    _, _, symbol = _fluid_visual(raw)
+    return f"▶ {symbol}" if active else symbol
+
+
+def _render_selected_interval_header(
+    interval: object | None,
+    interval_id: str,
+    *,
+    project_label: str = "",
+    source_label: str = "",
+) -> None:
+    """Render one compact reservoir-context header shared by all plots."""
+    if interval is None or not str(interval_id or "").strip():
+        return
+    fluid_label, color, symbol = _fluid_visual(getattr(interval, "fluid_type", ""))
+    top = float(getattr(interval, "top", 0.0) or 0.0)
+    base = float(getattr(interval, "base", 0.0) or 0.0)
+    thickness = float(getattr(interval, "thickness", abs(base - top)) or 0.0)
+    confidence = int(getattr(interval, "confidence_score", 0) or 0)
+    decision = str(getattr(interval, "decision_level", "") or "не определён").strip()
+    qc_label = "Готов к отчёту" if confidence >= 80 else ("Требует проверки" if confidence < 60 else "Инженерная проверка")
+    project_html = f"<span><b>Проект:</b> {html.escape(project_label)}</span>" if project_label else ""
+    source_html = f"<span><b>Источник:</b> {html.escape(source_label)}</span>" if source_label else ""
+    st.markdown(
+        f"""
+<div style="border:1px solid {color}; border-left:8px solid {color}; border-radius:12px;
+            padding:12px 16px; margin:8px 0 14px 0; background:rgba(15,23,42,0.55);">
+  <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px;">
+    <span style="font-size:1.15rem; font-weight:800; color:{color};">{symbol} {html.escape(str(interval_id))}</span>
+    <span style="font-size:1.05rem; font-weight:700;">{html.escape(fluid_label)}</span>
+    <span><b>Интервал:</b> {top:g}–{base:g} м</span>
+    <span><b>Мощность:</b> {thickness:g} м</span>
+    <span><b>Достоверность:</b> {confidence}%</span>
+    <span><b>Решение:</b> {html.escape(decision)}</span>
+    <span style="padding:2px 9px; border-radius:999px; background:{color}22; color:{color}; font-weight:700;">{html.escape(qc_label)}</span>
+  </div>
+  <div style="display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:7px; opacity:.86; font-size:.88rem;">
+    {project_html}{source_html}
+  </div>
+</div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 def _dataframe_to_report_table(title: str, df: pd.DataFrame) -> HtmlReportTable | None:
     if df is None or df.empty:
@@ -7801,6 +7887,13 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
                 "selected_reservoir_bottom": float(selected_reservoir_interval.base),
             })
 
+    _render_selected_interval_header(
+        selected_reservoir_interval,
+        str(selected_reservoir_overlay.interval_id) if selected_reservoir_overlay is not None else "",
+        project_label=str(getattr(active_project, "name", "") or ""),
+        source_label=str(sheet_name),
+    )
+
     st.subheader("Pixler + ternary")
     pixler_interval_frame = calculated_df
     pixler_interval_label = "Весь рассчитанный интервал"
@@ -8549,6 +8642,13 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             "selected_reservoir_top": float(selected_interval.top),
             "selected_reservoir_bottom": float(selected_interval.base),
         })
+
+    _render_selected_interval_header(
+        selected_interval,
+        selected_interval_id,
+        project_label=str(getattr(active_project, "name", "") or ""),
+        source_label=str(source_label),
+    )
 
     if valid_depth.empty:
         st.warning("В расчетной таблице нет числовой глубины. Графики будут построены по техническому индексу.")

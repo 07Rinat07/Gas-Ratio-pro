@@ -622,3 +622,6 @@ Next: use the same selection context in the Data workspace Pixler and ternary se
 - [x] Выбор инженерного интервала кликом по строке таблицы с общей синхронизацией Pixler, ternary, Depth Panel, паспорта и PDF/DOCX.
 
 - [x] Engineering Navigation 2.0: предыдущий/следующий интервал, центрированное окно таблицы и визуальный маркер активного пласта.
+
+- [x] Unified compact Engineering Header for the selected reservoir above Pixler, ternary and Depth Panel.
+- [x] Fluid-colored active-row markers shared by engineering interval tables.

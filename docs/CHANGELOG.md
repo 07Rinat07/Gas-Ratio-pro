@@ -1804,3 +1804,8 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 
 ### Changed
 - Добавлена последовательная навигация по интервалам, центрирование инженерной таблицы вокруг активного пласта и визуальный маркер выбранной строки.
+
+### Changed — Engineering reservoir context header
+- Added one compact selected-interval header shared by Data Workspace and Interpretation.
+- Added unified fluid color markers for active and neighboring engineering-table rows.
+- Reused the same interval selection context for Pixler, ternary, Depth Panel, passport and report defaults.
