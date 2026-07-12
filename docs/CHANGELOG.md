@@ -1604,3 +1604,12 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added regression coverage against spinner reintroduction and legacy export status placeholders.
 - Routed revision, applied mapping, presentation cache and export state through `ApplicationStateController`.
 - Restored compliance with the final direct-session-state architecture audit.
+
+## v214 Explicit export preparation
+
+- Replaced rerun-driven PNG/PDF/SVG serialization with an explicit prepare action and cached static artifacts.
+- Added an immutable export snapshot bound to the exact source signature and presentation revision.
+- Moved interpretation HTML, interval print report and selected-interval CSV generation behind explicit actions.
+- Moved LAS-correlation HTML generation behind an explicit action.
+- Incremented the independent export revision only when a new artifact is actually generated.
+- Added export timing records and regression coverage preventing implicit serialization from returning.

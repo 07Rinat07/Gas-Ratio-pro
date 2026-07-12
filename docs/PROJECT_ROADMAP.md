@@ -382,3 +382,14 @@ Roadmap изменяется только когда:
 - [ ] Confirm no floating empty status box during navigation and export settings.
 
 - v213: repair correlation route registration, printable plot depth crop, report table density, and valid interval defaults.
+
+
+## Stage 4R v214 export preparation boundary
+
+- [x] Generate PNG/PDF/SVG only after an explicit prepare action.
+- [x] Cache static Plotly artifacts by source signature, presentation revision and export dimensions.
+- [x] Generate interpretation HTML and printable interval reports only after explicit preparation.
+- [x] Generate selected-interval CSV only after explicit preparation.
+- [x] Generate LAS-correlation HTML only after explicit preparation.
+- [x] Increment export revision only when artifact bytes are generated.
+- [ ] Complete live Windows acceptance with Kaleido installed for PNG/PDF/SVG.

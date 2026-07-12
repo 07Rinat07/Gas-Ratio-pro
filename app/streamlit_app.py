@@ -79,16 +79,20 @@ from core.application_state import ApplicationStateController
 from core.models import CalculationConfig, STANDARD_FIELDS
 from core.presentation_runtime import (
     AppliedCorrelationState,
+    AppliedExportState,
     AppliedMappingState,
     AppliedPresentationState,
     applied_correlation_from_state,
+    applied_export_from_state,
     applied_mapping_from_state,
     applied_presentation_from_state,
     correlation_matches_source,
+    export_matches_source,
     dataframe_signature,
     load_las_sheets_cached,
     mapping_matches_source,
     persist_applied_correlation,
+    persist_applied_export,
     persist_applied_mapping,
     persist_applied_presentation,
     persist_revisions,
@@ -2650,16 +2654,13 @@ def _render_static_export_controls(
     base_file_name: str,
     default_height: int,
     key_prefix: str,
+    source_signature: str,
+    presentation_revision: int,
 ) -> None:
     with st.expander("PNG/PDF/SVG экспорт", expanded=False):
         st.caption(
-            "Статический экспорт готовит отдельные файлы графика. "
-            "Если движок экспорта не установлен, приложение покажет понятное предупреждение."
-        )
-        prepare_export = st.checkbox(
-            "Подготовить PNG/PDF/SVG файлы",
-            value=False,
-            key=f"{key_prefix}_prepare_static_export",
+            "Статические файлы формируются только после явного действия. "
+            "Изменение размеров не запускает Kaleido до нажатия кнопки."
         )
         width_col, height_col, scale_col = st.columns(3)
         export_width = width_col.number_input(
@@ -2686,28 +2687,85 @@ def _render_static_export_controls(
             step=0.5,
             key=f"{key_prefix}_static_scale",
         )
-        if not prepare_export:
+        export_settings = {
+            "kind": "static_plotly",
+            "base_file_name": str(base_file_name),
+            "width": int(export_width),
+            "height": int(export_height),
+            "scale": float(export_scale),
+            "formats": tuple(SUPPORTED_STATIC_EXPORT_FORMATS),
+        }
+        cache_key = f"{key_prefix}_static_export_artifacts"
+        prepare_export = st.button(
+            "Подготовить PNG, PDF и SVG",
+            width="stretch",
+            type="primary",
+            key=f"{key_prefix}_prepare_static_export",
+        )
+        if prepare_export:
+            started = perf_counter()
+            progress = st.empty()
+            _set_inline_operation_status(progress, "Экспорт", "Формируются PNG, PDF и SVG.")
+            artifacts: dict[str, bytes] = {}
+            try:
+                for format_name in SUPPORTED_STATIC_EXPORT_FORMATS:
+                    artifacts[format_name] = export_plotly_static_bytes(
+                        figure,
+                        StaticExportOptions(
+                            format=format_name,
+                            width=int(export_width),
+                            height=int(export_height),
+                            scale=float(export_scale),
+                        ),
+                    )
+                persist_applied_export(
+                    _application_state_controller().state,
+                    AppliedExportState(
+                        source_signature=source_signature,
+                        presentation_revision=int(presentation_revision),
+                        settings=export_settings,
+                    ),
+                )
+                revisions = revision_controller_from_state(_application_state_controller().state)
+                persist_revisions(_application_state_controller().state, revisions.bump_export())
+                _application_state_controller().state[cache_key] = {
+                    "source_signature": source_signature,
+                    "presentation_revision": int(presentation_revision),
+                    "settings": export_settings,
+                    "artifacts": artifacts,
+                }
+                _set_inline_operation_status(
+                    progress,
+                    "Экспорт",
+                    f"Статические файлы подготовлены за {(perf_counter() - started) * 1000.0:.0f} мс.",
+                    state="success",
+                )
+            except StaticExportUnavailableError as exc:
+                _application_state_controller().state.pop(cache_key, None)
+                _set_inline_operation_status(progress, "Экспорт", str(exc), state="error")
+
+        cached = _application_state_controller().state.get(cache_key)
+        cache_matches = (
+            isinstance(cached, dict)
+            and cached.get("source_signature") == source_signature
+            and int(cached.get("presentation_revision", -1)) == int(presentation_revision)
+            and cached.get("settings") == export_settings
+            and isinstance(cached.get("artifacts"), dict)
+        )
+        if not cache_matches:
+            st.info("Настройте размеры и нажмите «Подготовить PNG, PDF и SVG».")
             return
 
         base_name = Path(base_file_name).stem or "las_correlation"
+        artifacts = cached["artifacts"]
         columns = st.columns(len(SUPPORTED_STATIC_EXPORT_FORMATS))
         for index, format_name in enumerate(SUPPORTED_STATIC_EXPORT_FORMATS):
-            try:
-                data = export_plotly_static_bytes(
-                    figure,
-                    StaticExportOptions(
-                        format=format_name,
-                        width=int(export_width),
-                        height=int(export_height),
-                        scale=float(export_scale),
-                    ),
-                )
-            except StaticExportUnavailableError as exc:
-                st.warning(str(exc))
-                break
+            data = artifacts.get(format_name)
+            if not isinstance(data, (bytes, bytearray)):
+                continue
             columns[index].download_button(
                 format_name.upper(),
-                data=data,
+                data=bytes(data),
                 file_name=f"{base_name}.{format_name}",
                 mime=_static_export_mime(format_name),
                 width="stretch",
@@ -8070,6 +8128,8 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             base_file_name="gas_ratio_well_log_tablet",
             default_height=max(int(height), 760),
             key_prefix="interpretation_tablet",
+            source_signature=calculated_signature,
+            presentation_revision=revision_snapshot.presentation,
         )
 
     if TABLET_TRACK_OPTION in selected_tracks and tablet_markers and tablet_columns:
@@ -8096,46 +8156,99 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             zone_report_table = _dataframe_to_report_table("Таблица интерпретационных зон планшета", build_interpretation_zone_table(tablet_zones))
             if zone_report_table is not None:
                 report_tables.append(zone_report_table)
-        html_bytes = _plotly_figures_to_html(
-            figures,
-            report_title,
-            subtitle="Интерпретационные графики и планшет выбранного интервала",
-            metadata_rows=(
-                ("Источник данных", str(source_label)),
-                ("Активный проект", f"{active_project.name} ({active_project.id})"),
-                ("Диапазон глубины", _range_label(depth_range, unit="м")),
-                ("Строк в интервале", str(len(filtered_df))),
-                ("Планшетные параметры", ", ".join(tablet_columns) if tablet_columns else "не выбраны"),
-            ),
-            notes=(INTERPRETATION_NOTE,),
-            tables=tuple(report_tables),
-        )
-        interval_report_bytes = build_interval_print_report(
-            figures,
-            title=f"Gas Ratio Interval Report - {source_label}",
-            source_label=str(source_label),
-            project_label=f"{active_project.name} ({active_project.id})",
-            depth_label=_range_label(depth_range, unit="м"),
-            interval_df=filtered_df,
-            tablet_columns=tablet_columns,
-            extra_tables=tuple(report_tables),
-            notes=(INTERPRETATION_NOTE,),
-        )
-        html_download_col, interval_report_col, html_save_col = st.columns(3)
-        html_download_col.download_button(
-            "HTML графиков",
-            data=html_bytes,
-            file_name="gas_ratio_depth_graphs.html",
-            mime="text/html",
+        quick_export_key = f"interpretation_quick_export_{active_project.id}"
+        quick_export_settings = {
+            "source_signature": calculated_signature,
+            "presentation_revision": int(revision_snapshot.presentation),
+            "depth_range": tuple(float(value) for value in depth_range),
+            "rows": int(len(filtered_df)),
+            "figure_count": int(len(figures)),
+            "tablet_columns": tuple(str(value) for value in tablet_columns),
+        }
+        prepare_quick_exports = st.button(
+            "Подготовить HTML и отчет интервала",
             width="stretch",
+            key=f"prepare_interpretation_quick_exports_{active_project.id}",
         )
-        interval_report_col.download_button(
-            "Печатный отчет интервала",
-            data=interval_report_bytes,
-            file_name="gas_ratio_interval_report.html",
-            mime="text/html",
-            width="stretch",
+        if prepare_quick_exports:
+            export_started = perf_counter()
+            export_status = st.empty()
+            _set_inline_operation_status(export_status, "Экспорт", "Формируются HTML и отчет интервала.")
+            html_bytes = _plotly_figures_to_html(
+                figures,
+                report_title,
+                subtitle="Интерпретационные графики и планшет выбранного интервала",
+                metadata_rows=(
+                    ("Источник данных", str(source_label)),
+                    ("Активный проект", f"{active_project.name} ({active_project.id})"),
+                    ("Диапазон глубины", _range_label(depth_range, unit="м")),
+                    ("Строк в интервале", str(len(filtered_df))),
+                    ("Планшетные параметры", ", ".join(tablet_columns) if tablet_columns else "не выбраны"),
+                ),
+                notes=(INTERPRETATION_NOTE,),
+                tables=tuple(report_tables),
+            )
+            interval_report_bytes = build_interval_print_report(
+                figures,
+                title=f"Gas Ratio Interval Report - {source_label}",
+                source_label=str(source_label),
+                project_label=f"{active_project.name} ({active_project.id})",
+                depth_label=_range_label(depth_range, unit="м"),
+                interval_df=filtered_df,
+                tablet_columns=tablet_columns,
+                extra_tables=tuple(report_tables),
+                notes=(INTERPRETATION_NOTE,),
+            )
+            _application_state_controller().state[quick_export_key] = {
+                "settings": quick_export_settings,
+                "html": html_bytes,
+                "interval_report": interval_report_bytes,
+            }
+            persist_applied_export(
+                _application_state_controller().state,
+                AppliedExportState(
+                    source_signature=calculated_signature,
+                    presentation_revision=int(revision_snapshot.presentation),
+                    settings={"kind": "interpretation_html", **quick_export_settings},
+                ),
+            )
+            revisions = revision_controller_from_state(_application_state_controller().state)
+            persist_revisions(_application_state_controller().state, revisions.bump_export())
+            _set_inline_operation_status(
+                export_status,
+                "Экспорт",
+                f"HTML и отчет подготовлены за {(perf_counter() - export_started) * 1000.0:.0f} мс.",
+                state="success",
+            )
+
+        quick_export = _application_state_controller().state.get(quick_export_key)
+        quick_export_matches = (
+            isinstance(quick_export, dict)
+            and quick_export.get("settings") == quick_export_settings
+            and isinstance(quick_export.get("html"), (bytes, bytearray))
+            and isinstance(quick_export.get("interval_report"), (bytes, bytearray))
         )
+        if quick_export_matches:
+            html_bytes = bytes(quick_export["html"])
+            interval_report_bytes = bytes(quick_export["interval_report"])
+            html_download_col, interval_report_col, html_save_col = st.columns(3)
+            html_download_col.download_button(
+                "HTML графиков",
+                data=html_bytes,
+                file_name="gas_ratio_depth_graphs.html",
+                mime="text/html",
+                width="stretch",
+            )
+            interval_report_col.download_button(
+                "Печатный отчет интервала",
+                data=interval_report_bytes,
+                file_name="gas_ratio_interval_report.html",
+                mime="text/html",
+                width="stretch",
+            )
+        else:
+            html_save_col = None
+            st.info("HTML и печатный отчет не формируются автоматически. Нажмите кнопку подготовки экспорта.")
         with st.expander("Профессиональный экспорт отчета", expanded=False):
             profile_options = report_profile_options()
             format_options = export_format_options()
@@ -8270,7 +8383,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                     "Подробности записаны в logs/app.log."
                 )
             st.caption("Экспорт формируется из единого PresentationModel: экран, HTML, PDF и DOCX не дублируют инженерскую логику.")
-        if html_save_col.button("Сохранить отчет в проект", width="stretch", key=f"save_interpretation_html_export_{active_project.id}"):
+        if html_save_col is not None and html_save_col.button("Сохранить отчет в проект", width="stretch", key=f"save_interpretation_html_export_{active_project.id}"):
             _save_project_export_with_feedback(
                 project=active_project,
                 data=interval_report_bytes,
@@ -8291,30 +8404,67 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     st.dataframe(summarize_interpretation(filtered_df), width="stretch")
     st.subheader("Таблица выбранного интервала")
     st.dataframe(filtered_df, width="stretch")
-    interval_csv_bytes = export_csv_bytes(filtered_df)
-    interval_download_col, interval_save_col = st.columns(2)
-    interval_download_col.download_button(
-        "Экспорт выбранного интервала CSV",
-        data=interval_csv_bytes,
-        file_name="gas_ratio_selected_interval.csv",
-        mime="text/csv",
+    interval_csv_key = f"interpretation_interval_csv_{active_project.id}"
+    interval_csv_settings = {
+        "source_signature": calculated_signature,
+        "presentation_revision": int(revision_snapshot.presentation),
+        "depth_range": tuple(float(value) for value in depth_range),
+        "rows": int(len(filtered_df)),
+    }
+    prepare_interval_csv = st.button(
+        "Подготовить CSV выбранного интервала",
         width="stretch",
+        key=f"prepare_interpretation_interval_csv_{active_project.id}",
     )
-    if interval_save_col.button("Сохранить CSV в проект", width="stretch", key=f"save_interpretation_interval_csv_{active_project.id}"):
-        _save_project_export_with_feedback(
-            project=active_project,
-            data=interval_csv_bytes,
-            label=f"Интервал интерпретации: {source_label}",
-            file_name="gas_ratio_selected_interval.csv",
-            mime_type="text/csv",
-            kind="interpretation_interval_csv",
-            source=str(source_label),
-            metadata={
-                "rows": len(filtered_df),
-                "settings": project_graph_settings.settings_to_dict(current_settings),
-            },
-            logger=logger,
+    if prepare_interval_csv:
+        csv_started = perf_counter()
+        interval_csv_bytes = export_csv_bytes(filtered_df)
+        _application_state_controller().state[interval_csv_key] = {
+            "settings": interval_csv_settings,
+            "content": interval_csv_bytes,
+        }
+        revisions = revision_controller_from_state(_application_state_controller().state)
+        persist_revisions(_application_state_controller().state, revisions.bump_export())
+        logger.info(
+            "interpretation_interval_csv_completed rows=%d bytes=%d duration_ms=%.2f",
+            len(filtered_df),
+            len(interval_csv_bytes),
+            (perf_counter() - csv_started) * 1000.0,
         )
+
+    cached_interval_csv = _application_state_controller().state.get(interval_csv_key)
+    csv_matches = (
+        isinstance(cached_interval_csv, dict)
+        and cached_interval_csv.get("settings") == interval_csv_settings
+        and isinstance(cached_interval_csv.get("content"), (bytes, bytearray))
+    )
+    if csv_matches:
+        interval_csv_bytes = bytes(cached_interval_csv["content"])
+        interval_download_col, interval_save_col = st.columns(2)
+        interval_download_col.download_button(
+            "Экспорт выбранного интервала CSV",
+            data=interval_csv_bytes,
+            file_name="gas_ratio_selected_interval.csv",
+            mime="text/csv",
+            width="stretch",
+        )
+        if interval_save_col.button("Сохранить CSV в проект", width="stretch", key=f"save_interpretation_interval_csv_{active_project.id}"):
+            _save_project_export_with_feedback(
+                project=active_project,
+                data=interval_csv_bytes,
+                label=f"Интервал интерпретации: {source_label}",
+                file_name="gas_ratio_selected_interval.csv",
+                mime_type="text/csv",
+                kind="interpretation_interval_csv",
+                source=str(source_label),
+                metadata={
+                    "rows": len(filtered_df),
+                    "settings": project_graph_settings.settings_to_dict(current_settings),
+                },
+                logger=logger,
+            )
+    else:
+        st.caption("CSV будет сериализован только после нажатия кнопки подготовки.")
     logger.info("interpretation_graphs_rendered rows=%d figure_count=%d", len(filtered_df), len(figures))
 
 
@@ -11352,24 +11502,60 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         comparison_curve=comparison_curve,
     )
     st.plotly_chart(figure, width="stretch")
-    st.download_button(
-        "HTML для печати графика",
-        data=_plotly_figures_to_html(
+    correlation_revision = revision_controller_from_state(_application_state_controller().state).snapshot
+    correlation_html_key = "las_correlation_html_export"
+    prepare_correlation_html = st.button(
+        "Подготовить HTML корреляции",
+        width="stretch",
+        key="prepare_las_correlation_html",
+    )
+    correlation_html_settings = {
+        "source_signature": correlation_source_signature,
+        "presentation_revision": int(correlation_revision.presentation),
+        "figure_file_name": figure_file_name,
+    }
+    if prepare_correlation_html:
+        export_started = perf_counter()
+        html_content = _plotly_figures_to_html(
             [figure],
             figure_title,
             subtitle="LAS-корреляция: печатный график выбранного интервала",
             metadata_rows=report_metadata_rows,
             notes=(INTERPRETATION_NOTE,),
-        ),
-        file_name=figure_file_name,
-        mime="text/html",
-        width="stretch",
-    )
+        )
+        _application_state_controller().state[correlation_html_key] = {
+            "settings": correlation_html_settings,
+            "content": html_content,
+        }
+        revisions = revision_controller_from_state(_application_state_controller().state)
+        persist_revisions(_application_state_controller().state, revisions.bump_export())
+        logger.info(
+            "las_correlation_html_export_completed bytes=%d duration_ms=%.2f",
+            len(html_content),
+            (perf_counter() - export_started) * 1000.0,
+        )
+    cached_correlation_html = _application_state_controller().state.get(correlation_html_key)
+    if (
+        isinstance(cached_correlation_html, dict)
+        and cached_correlation_html.get("settings") == correlation_html_settings
+        and isinstance(cached_correlation_html.get("content"), (bytes, bytearray))
+    ):
+        st.download_button(
+            "HTML для печати графика",
+            data=bytes(cached_correlation_html["content"]),
+            file_name=figure_file_name,
+            mime="text/html",
+            width="stretch",
+        )
+    else:
+        st.caption("HTML корреляции формируется только после явного действия.")
     _render_static_export_controls(
         figure,
         base_file_name=figure_file_name,
         default_height=int(figure.layout.height or height_per_well),
         key_prefix="las_correlation",
+        source_signature=correlation_source_signature,
+        presentation_revision=correlation_revision.presentation,
     )
     _render_las_correlation_interval_table(
         selected_wells,

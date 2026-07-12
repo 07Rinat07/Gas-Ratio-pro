@@ -77,11 +77,16 @@ Implemented in the current increment:
 - added explicit `Построить корреляцию` action for Correlation Studio, curve comparison and synchronized multi-well plots;
 - tied correlation rendering to the exact content signatures of all loaded LAS wells;
 - added one-entry correlation figure cache and render timing diagnostics.
+- moved PNG/PDF/SVG static rendering behind an explicit preparation action and artifact cache;
+- moved interpretation HTML, printable interval report and interval CSV serialization behind explicit actions;
+- moved LAS-correlation HTML serialization behind an explicit action;
+- added immutable export snapshots bound to source signature and presentation revision;
+- connected completed artifact generation to the independent export revision and timing log.
 
 Remaining v214 scope:
 
 - remove all widget default/session-state conflicts;
-- complete remaining explicit apply coverage for secondary export controls;
+- complete remaining explicit apply coverage for secondary export controls; **completed for interpretation and LAS correlation exports**;
 - stop unrelated reruns from rebuilding figures or exports;
 - replace floating/blank Streamlit activity artifact with inline status; **completed for mapping, calculation, rendering and export**;
 - extend characterization and performance tests.

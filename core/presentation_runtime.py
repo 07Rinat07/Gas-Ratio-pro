@@ -428,3 +428,67 @@ def correlation_matches_source(
     """Return True only when correlation settings belong to current LAS contents."""
 
     return applied is not None and applied.source_signature == source_signature
+
+
+APPLIED_EXPORT_STATE_KEY = "engineering_applied_export"
+
+
+@dataclass(frozen=True, slots=True)
+class AppliedExportState:
+    """Immutable export request bound to an exact presentation revision."""
+
+    source_signature: str
+    presentation_revision: int
+    settings: Mapping[str, object]
+
+
+def persist_applied_export(
+    state: MutableMapping[str, object],
+    applied: AppliedExportState,
+) -> None:
+    """Persist a JSON-safe export request snapshot."""
+
+    state[APPLIED_EXPORT_STATE_KEY] = {
+        "source_signature": str(applied.source_signature),
+        "presentation_revision": int(applied.presentation_revision),
+        "settings": dict(applied.settings),
+    }
+
+
+def applied_export_from_state(
+    state: MutableMapping[str, object],
+) -> AppliedExportState | None:
+    """Restore an applied export request and reject malformed legacy state."""
+
+    raw = state.get(APPLIED_EXPORT_STATE_KEY)
+    if not isinstance(raw, Mapping):
+        return None
+    settings = raw.get("settings")
+    source_signature = str(raw.get("source_signature", "")).strip()
+    if not source_signature or not isinstance(settings, Mapping):
+        return None
+    try:
+        presentation_revision = int(raw.get("presentation_revision", -1))
+    except (TypeError, ValueError):
+        return None
+    if presentation_revision < 0:
+        return None
+    return AppliedExportState(
+        source_signature=source_signature,
+        presentation_revision=presentation_revision,
+        settings=dict(settings),
+    )
+
+
+def export_matches_source(
+    applied: AppliedExportState | None,
+    source_signature: str,
+    presentation_revision: int,
+) -> bool:
+    """Return True only for an export created from the current presentation."""
+
+    return (
+        applied is not None
+        and applied.source_signature == source_signature
+        and applied.presentation_revision == int(presentation_revision)
+    )

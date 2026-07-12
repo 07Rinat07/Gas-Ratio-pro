@@ -232,3 +232,54 @@ def test_las_correlation_uses_explicit_apply_and_figure_cache():
     assert "las_correlation_figure_cache" in function_source
     assert "correlation_matches_source" in function_source
     assert "Черновые изменения не запускают Plotly-рендер" in function_source
+
+
+def test_applied_export_round_trip_and_presentation_guard():
+    from core.presentation_runtime import (
+        AppliedExportState,
+        applied_export_from_state,
+        export_matches_source,
+        persist_applied_export,
+    )
+
+    state: dict[str, object] = {}
+    snapshot = AppliedExportState(
+        source_signature="dataset-abc",
+        presentation_revision=7,
+        settings={"kind": "static_plotly", "width": 1600, "height": 1200},
+    )
+    persist_applied_export(state, snapshot)
+
+    restored = applied_export_from_state(state)
+    assert restored == snapshot
+    assert export_matches_source(restored, "dataset-abc", 7) is True
+    assert export_matches_source(restored, "dataset-other", 7) is False
+    assert export_matches_source(restored, "dataset-abc", 8) is False
+
+
+def test_applied_export_rejects_malformed_state():
+    from core.presentation_runtime import applied_export_from_state
+
+    assert applied_export_from_state({}) is None
+    assert applied_export_from_state({"engineering_applied_export": {"settings": []}}) is None
+    assert applied_export_from_state(
+        {
+            "engineering_applied_export": {
+                "source_signature": "abc",
+                "presentation_revision": -1,
+                "settings": {},
+            }
+        }
+    ) is None
+
+
+def test_expensive_exports_require_explicit_actions():
+    source = (Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py").read_text(encoding="utf-8")
+
+    assert "Подготовить PNG, PDF и SVG" in source
+    assert "Подготовить HTML и отчет интервала" in source
+    assert "Подготовить CSV выбранного интервала" in source
+    assert "Подготовить HTML корреляции" in source
+    assert "Подготовить PNG/PDF/SVG файлы" not in source
+    assert "interpretation_interval_csv_completed" in source
+    assert "las_correlation_html_export_completed" in source
