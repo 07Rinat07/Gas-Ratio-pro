@@ -483,3 +483,6 @@ Roadmap изменяется только когда:
 - [ ] Add LAS NULL and sampling-density diagnostics.
 
 - Regression guard added for methodology warning imports used by the Data workspace.
+
+- [x] Preserve active calculation across Data, Interpretation and Reports navigation.
+- [x] Add project-bound guard for shared calculation state.

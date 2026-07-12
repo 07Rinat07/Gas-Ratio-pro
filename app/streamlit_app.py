@@ -482,6 +482,9 @@ PROJECT_SESSION_SUMMARY_KEY = "project_session_summary"
 PROJECT_SESSION_PROJECT_ID_KEY = "project_session_project_id"
 INTERPRETATION_SESSION_DATA_KEY = "interpretation_session_data"
 INTERPRETATION_SESSION_SOURCE_KEY = "interpretation_session_source"
+ACTIVE_CALCULATION_DATA_KEY = "active_calculation_result_data"
+ACTIVE_CALCULATION_SOURCE_KEY = "active_calculation_result_source"
+ACTIVE_CALCULATION_PROJECT_KEY = "active_calculation_project_id"
 LAS_CORRELATION_SETTINGS_KEY = "las_correlation_settings"
 ACTIVE_PROJECT_ID_KEY = "active_project_id"
 PROJECT_SELECTBOX_KEY_PREFIX = "active_project_select"
@@ -2531,16 +2534,48 @@ def _filter_by_depth_range(df: pd.DataFrame, top_depth: float, bottom_depth: flo
     return df.loc[(depth >= top) & (depth <= bottom)].copy()
 
 def _store_interpretation_dataset(calculated_df: pd.DataFrame, source_label: str) -> None:
-    _application_state_controller().update_values(
+    controller = _application_state_controller()
+    active_project_id = str(controller.get_value(ACTIVE_PROJECT_ID_KEY, "") or "")
+    controller.update_values(
         {
+            # Legacy keys are retained for compatibility with existing tests and
+            # older workspace code.  The active-calculation keys are deliberately
+            # not workspace-local: Data, Interpretation and Reports must share the
+            # same committed result across ordinary navigation reruns.
             INTERPRETATION_SESSION_DATA_KEY: calculated_df,
             INTERPRETATION_SESSION_SOURCE_KEY: str(source_label),
+            ACTIVE_CALCULATION_DATA_KEY: calculated_df,
+            ACTIVE_CALCULATION_SOURCE_KEY: str(source_label),
+            ACTIVE_CALCULATION_PROJECT_KEY: active_project_id,
         }
     )
-    revisions = revision_controller_from_state(_application_state_controller().state)
+    revisions = revision_controller_from_state(controller.state)
     snapshot = revisions.bump_calculation()
-    persist_revisions(_application_state_controller().state, snapshot)
-    _application_state_controller().state.pop("interpretation_figure_cache", None)
+    persist_revisions(controller.state, snapshot)
+    controller.state.pop("interpretation_figure_cache", None)
+
+
+def _active_calculation_dataset(project_id: str = "") -> tuple[pd.DataFrame | None, str]:
+    """Return the committed calculation shared by Data/Interpretation/Reports.
+
+    The result is accepted only for the active project.  This prevents a durable
+    session value from leaking into another project while still surviving normal
+    Workbench navigation and Streamlit reruns.
+    """
+    controller = _application_state_controller()
+    expected_project_id = str(project_id or controller.get_value(ACTIVE_PROJECT_ID_KEY, "") or "")
+    stored_project_id = str(controller.get_value(ACTIVE_CALCULATION_PROJECT_KEY, "") or "")
+    if stored_project_id and expected_project_id and stored_project_id != expected_project_id:
+        return None, ""
+
+    frame = controller.get_value(ACTIVE_CALCULATION_DATA_KEY)
+    source = str(controller.get_value(ACTIVE_CALCULATION_SOURCE_KEY, "") or "")
+    if not isinstance(frame, pd.DataFrame) or frame.empty:
+        frame = controller.get_value(INTERPRETATION_SESSION_DATA_KEY)
+        source = str(controller.get_value(INTERPRETATION_SESSION_SOURCE_KEY, source) or source)
+    if not isinstance(frame, pd.DataFrame) or frame.empty:
+        return None, ""
+    return frame, source or "текущий расчет"
 
 
 def _plotly_figures_to_html(
@@ -4278,6 +4313,9 @@ def _clear_las_working_state() -> None:
         "active_well_id",
         "active_las_id",
         "active_version_id",
+        ACTIVE_CALCULATION_DATA_KEY,
+        ACTIVE_CALCULATION_SOURCE_KEY,
+        ACTIVE_CALCULATION_PROJECT_KEY,
     }
     _application_state_controller().clear_matching(exact_keys=exact_keys, prefixes=prefixes)
     try:
@@ -4507,6 +4545,9 @@ def _clear_invalid_interpretation_state(reason: str) -> None:
         {
             INTERPRETATION_SESSION_DATA_KEY: None,
             INTERPRETATION_SESSION_SOURCE_KEY: "",
+            ACTIVE_CALCULATION_DATA_KEY: None,
+            ACTIVE_CALCULATION_SOURCE_KEY: "",
+            ACTIVE_CALCULATION_PROJECT_KEY: "",
             "interpretation_figure_cache": None,
             "interpretation_invalid_reason": str(reason),
         }
@@ -4749,9 +4790,8 @@ def _workflow_status_detail_rows(active_project: ProjectRecord) -> tuple[tuple[s
             "Откройте сохраненный проект или загрузите новые данные во вкладке `Работа с данными`.",
         ))
 
-    interpretation_df = controller.get_value(INTERPRETATION_SESSION_DATA_KEY)
+    interpretation_df, source = _active_calculation_dataset(active_project.id)
     if isinstance(interpretation_df, pd.DataFrame) and not interpretation_df.empty:
-        source = controller.get_value(INTERPRETATION_SESSION_SOURCE_KEY, "расчетная таблица")
         rows.append((
             "Интерпретационные графики",
             f"доступны данные: {source}, строк: {len(interpretation_df)}",
@@ -7905,12 +7945,17 @@ def _render_interpretation_graph_settings_saver(
 def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> None:
     st.subheader("Интерпретационные графики")
     state_controller = _application_state_controller()
-    calculated_df = state_controller.get_value(INTERPRETATION_SESSION_DATA_KEY)
+    calculated_df, source_label = _active_calculation_dataset(active_project.id)
     if calculated_df is None or calculated_df.empty:
+        last_cleanup = state_controller.get_value("last_session_cleanup", {})
+        logger.warning(
+            "interpretation_data_unavailable project_id=%s cleanup_reason=%s",
+            safe_log_value(active_project.id),
+            safe_log_value(last_cleanup.get("reason", "") if isinstance(last_cleanup, dict) else ""),
+        )
         st.info("Сначала выполните расчет во вкладке `Работа с данными`. После этого здесь появятся графики и таблица интерпретации.")
         return
 
-    source_label = state_controller.get_value(INTERPRETATION_SESSION_SOURCE_KEY, "текущий расчет")
     st.caption(f"Источник данных: {source_label}")
     st.caption(f"Активный проект: {active_project.name} ({active_project.id})")
     _render_interpretation_graph_settings_loader(active_project, logger)
@@ -12222,7 +12267,7 @@ def _render_workbench_reports(logger, active_project: ProjectRecord) -> None:
 
     st.markdown("### Reports")
     state_controller = _application_state_controller()
-    calculated_df = state_controller.get_value(INTERPRETATION_SESSION_DATA_KEY)
+    calculated_df, _source_label = _active_calculation_dataset(active_project.id)
     if calculated_df is None or calculated_df.empty:
         st.warning("Для отчетов сначала нужны рассчитанные данные.")
         st.caption("Откройте Data Workspace, загрузите исходные данные и выполните расчет. После этого здесь появятся предпросмотр, PDF/DOCX и печатный экспорт.")

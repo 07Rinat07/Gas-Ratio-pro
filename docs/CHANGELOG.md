@@ -1697,3 +1697,8 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Connected calculation saving to the structured diagnostics engine so reopening a snapshot does not require recalculating the source dataset.
 
 - Fixed Workbench startup regression caused by a missing METHODOLOGY_WARNING import in app/streamlit_app.py.
+
+## 2026-07-12 — Active calculation cross-workspace state
+- Fixed loss of committed calculation when navigating from Data to Interpretation or Reports.
+- Added a project-bound active calculation contract shared across Workbench modules.
+- Added regression coverage for workspace cleanup and cross-project isolation.

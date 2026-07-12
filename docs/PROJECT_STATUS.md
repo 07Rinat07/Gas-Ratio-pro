@@ -196,3 +196,8 @@ Next:
 - add LAS NULL metadata and gas-sampling density analysis.
 
 - Workbench Data route startup regression fixed: methodology notices now import both CH_WARNING and METHODOLOGY_WARNING.
+
+### Active calculation handoff
+- Committed calculation survives ordinary Workbench navigation.
+- Interpretation and Reports read the same project-bound result without recalculation.
+- Cross-project reuse is blocked by project id guard.
