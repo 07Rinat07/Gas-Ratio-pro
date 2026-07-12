@@ -317,12 +317,12 @@ from core.project_database_table import build_project_database_table_view
 from projects import well_cards as project_well_cards
 from projects import las_files as project_las_files
 from reports.export_csv import export_csv_bytes
-from reports.export_html import HtmlReportMetadata, HtmlReportTable, build_plotly_html_report
 from reports.interval_report import build_interval_print_report
 from reports.hydrocarbon_report import build_hydrocarbon_report_payload
 from reports.presentation_ui import (
     build_presentation_export_ui_state,
     build_ui_export_artifact,
+    PresentationUiExportArtifact,
     export_format_options,
     report_profile_options,
 )
@@ -360,10 +360,7 @@ check_project_calculation_integrity = project_calculations.check_project_calcula
 compare_project_calculations = project_calculations.compare_project_calculations
 build_project_calculation_comparison_table = project_calculations.build_project_calculation_comparison_table
 export_project_calculation_comparison_csv = project_calculations.export_project_calculation_comparison_csv
-export_project_calculation_comparison_html = project_calculations.export_project_calculation_comparison_html
 export_project_calculation_actions_csv = project_calculations.export_project_calculation_actions_csv
-export_project_calculation_actions_html = project_calculations.export_project_calculation_actions_html
-export_project_calculation_card_html = project_calculations.export_project_calculation_card_html
 export_project_calculation_card_csv = project_calculations.export_project_calculation_card_csv
 save_project_calculation = project_calculations.save_project_calculation
 append_project_calculation_action = project_calculations.append_project_calculation_action
@@ -2674,269 +2671,6 @@ def _active_calculation_dataset(project_id: str = "") -> tuple[pd.DataFrame | No
     return migrated_contract["dataframe"], str(migrated_contract["source"])
 
 
-def _plotly_figures_to_html(
-    figures,
-    title: str,
-    *,
-    subtitle: str = "",
-    metadata_rows: tuple[tuple[str, str], ...] = (),
-    notes: tuple[str, ...] = (),
-    tables: tuple[HtmlReportTable, ...] = (),
-) -> bytes:
-    return build_plotly_html_report(
-        figures,
-        HtmlReportMetadata(
-            title=title,
-            subtitle=subtitle,
-            rows=metadata_rows,
-            notes=notes,
-            tables=tables,
-        ),
-    )
-
-
-
-
-def _selected_dataframe_rows(event: object) -> list[int]:
-    """Return selected dataframe row indices for Streamlit event/dict variants."""
-    selection = getattr(event, "selection", None)
-    if selection is None and isinstance(event, dict):
-        selection = event.get("selection")
-    rows = getattr(selection, "rows", None)
-    if rows is None and isinstance(selection, dict):
-        rows = selection.get("rows")
-    if not rows:
-        return []
-    result: list[int] = []
-    for value in rows:
-        try:
-            result.append(int(value))
-        except (TypeError, ValueError):
-            continue
-    return result
-
-
-def _selected_interval_id_from_table(event: object, table: pd.DataFrame) -> str:
-    rows = _selected_dataframe_rows(event)
-    if not rows or table is None or table.empty or "ID" not in table.columns:
-        return ""
-    row_index = rows[0]
-    if row_index < 0 or row_index >= len(table):
-        return ""
-    return str(table.iloc[row_index]["ID"] or "").strip()
-
-
-def _ordered_interval_ids(table: pd.DataFrame | None) -> list[str]:
-    """Return stable interval IDs in the current engineering table order."""
-    if table is None or table.empty or "ID" not in table.columns:
-        return []
-    result: list[str] = []
-    for value in table["ID"].tolist():
-        interval_id = str(value or "").strip()
-        if interval_id and interval_id not in result:
-            result.append(interval_id)
-    return result
-
-
-def _adjacent_interval_id(
-    interval_ids: list[str] | tuple[str, ...],
-    current_interval_id: str,
-    step: int,
-) -> str:
-    """Return previous/next interval without wrapping at the table boundaries."""
-    ids = [str(value).strip() for value in interval_ids if str(value).strip()]
-    if not ids:
-        return ""
-    current = str(current_interval_id or "").strip()
-    index = ids.index(current) if current in ids else 0
-    target = max(0, min(len(ids) - 1, index + int(step)))
-    return ids[target]
-
-
-def _interval_table_window(
-    table: pd.DataFrame,
-    active_interval_id: str,
-    *,
-    window_size: int = 21,
-) -> tuple[pd.DataFrame, int, int]:
-    """Return a table window centered on the active interval.
-
-    Streamlit does not expose a stable public API for programmatic dataframe
-    scrolling. Keeping the active row in a centered window provides the same
-    practical navigation result and remains compatible with row selection.
-    """
-    if table is None or table.empty:
-        return table.copy(), 0, 0
-    size = max(5, int(window_size))
-    ids = _ordered_interval_ids(table)
-    active = str(active_interval_id or "").strip()
-    active_pos = ids.index(active) if active in ids else 0
-    half = size // 2
-    start = max(0, active_pos - half)
-    end = min(len(table), start + size)
-    start = max(0, end - size)
-    window = table.iloc[start:end].copy().reset_index(drop=True)
-    fluid_values = window.get("Вероятный флюид", pd.Series([""] * len(window))).tolist()
-    window.insert(0, "Активный", [
-        _active_interval_table_marker(fluid, active=str(interval_id or "").strip() == active)
-        for interval_id, fluid in zip(window["ID"].tolist(), fluid_values)
-    ])
-    return window, start, end
-
-
-def _interval_navigation_state(
-    table: pd.DataFrame,
-    active_interval_id: str,
-) -> tuple[list[str], int]:
-    ids = _ordered_interval_ids(table)
-    active = str(active_interval_id or "").strip()
-    position = ids.index(active) if active in ids else 0
-    return ids, position
-
-
-def _interval_fluid_options(table: pd.DataFrame | None) -> list[str]:
-    """Return stable user-facing fluid labels available in an interval table."""
-    if table is None or table.empty or "Вероятный флюид" not in table.columns:
-        return []
-    values: list[str] = []
-    for value in table["Вероятный флюид"].tolist():
-        label = str(value or "").strip()
-        if label and label not in values:
-            values.append(label)
-    return values
-
-
-def _filter_engineering_intervals(
-    table: pd.DataFrame | None,
-    *,
-    search_text: str = "",
-    fluid_labels: list[str] | tuple[str, ...] | None = None,
-) -> pd.DataFrame:
-    """Filter engineering intervals without exposing technical columns.
-
-    Search covers the complete visible engineering row so users can find an
-    interval by ID, depth range, fluid, confidence or engineering conclusion.
-    The original row order is preserved because it defines navigation order.
-    """
-    if table is None:
-        return pd.DataFrame()
-    result = table.copy()
-    if result.empty:
-        return result
-
-    selected_fluids = {str(value).strip() for value in (fluid_labels or ()) if str(value).strip()}
-    if selected_fluids and "Вероятный флюид" in result.columns:
-        fluid_series = result["Вероятный флюид"].fillna("").astype(str).str.strip()
-        result = result.loc[fluid_series.isin(selected_fluids)]
-
-    query = str(search_text or "").strip().casefold()
-    if query and not result.empty:
-        searchable = result.fillna("").astype(str).agg(" ".join, axis=1).str.casefold()
-        result = result.loc[searchable.str.contains(query, regex=False)]
-
-    return result.reset_index(drop=True)
-
-
-_FLUID_VISUALS: dict[str, tuple[str, str, str]] = {
-    "oil": ("Нефть", "#22c55e", "🟩"),
-    "нефть": ("Нефть", "#22c55e", "🟩"),
-    "нефтяной интервал": ("Нефть", "#22c55e", "🟩"),
-    "gas": ("Газ", "#ef4444", "🟥"),
-    "газ": ("Газ", "#ef4444", "🟥"),
-    "газовый интервал": ("Газ", "#ef4444", "🟥"),
-    "condensate": ("Газоконденсат", "#f59e0b", "🟧"),
-    "газоконденсат": ("Газоконденсат", "#f59e0b", "🟧"),
-    "газоконденсатный интервал": ("Газоконденсат", "#f59e0b", "🟧"),
-    "water": ("Вода", "#3b82f6", "🟦"),
-    "вода": ("Вода", "#3b82f6", "🟦"),
-    "водонасыщенный интервал": ("Вода", "#3b82f6", "🟦"),
-    "mixed": ("Смешанный", "#a855f7", "🟪"),
-    "смешанный": ("Смешанный", "#a855f7", "🟪"),
-    "transition": ("Переходный", "#eab308", "🟨"),
-    "переходный": ("Переходный", "#eab308", "🟨"),
-    "gas_oil": ("Газ–нефть", "#84cc16", "🟩"),
-    "oil_gas": ("Нефть–газ", "#84cc16", "🟩"),
-    "uncertain": ("Требует проверки", "#94a3b8", "⬜"),
-    "неопределённый": ("Требует проверки", "#94a3b8", "⬜"),
-}
-
-
-def _fluid_visual(fluid_value: object) -> tuple[str, str, str]:
-    raw = str(fluid_value or "").strip()
-    key = raw.casefold()
-    if key in _FLUID_VISUALS:
-        return _FLUID_VISUALS[key]
-    for candidate, visual in _FLUID_VISUALS.items():
-        if candidate and candidate in key:
-            return visual
-    label = raw or "Не определён"
-    return label, "#94a3b8", "⬜"
-
-
-def _active_interval_table_marker(fluid_value: object, *, active: bool) -> str:
-    raw = str(fluid_value or "").strip()
-    if not raw:
-        return "▶" if active else ""
-    _, _, symbol = _fluid_visual(raw)
-    return f"▶ {symbol}" if active else symbol
-
-
-def _render_selected_interval_header(
-    interval: object | None,
-    interval_id: str,
-    *,
-    project_label: str = "",
-    source_label: str = "",
-) -> None:
-    """Render one compact reservoir-context header shared by all plots."""
-    if interval is None or not str(interval_id or "").strip():
-        return
-    fluid_label, color, symbol = _fluid_visual(getattr(interval, "fluid_type", ""))
-    top = float(getattr(interval, "top", 0.0) or 0.0)
-    base = float(getattr(interval, "base", 0.0) or 0.0)
-    thickness = float(getattr(interval, "thickness", abs(base - top)) or 0.0)
-    confidence = int(getattr(interval, "confidence_score", 0) or 0)
-    decision = str(getattr(interval, "decision_level", "") or "не определён").strip()
-    qc_label = "Готов к отчёту" if confidence >= 80 else ("Требует проверки" if confidence < 60 else "Инженерная проверка")
-    project_html = f"<span><b>Проект:</b> {html.escape(project_label)}</span>" if project_label else ""
-    source_html = f"<span><b>Источник:</b> {html.escape(source_label)}</span>" if source_label else ""
-    st.markdown(
-        f"""
-<div style="border:1px solid {color}; border-left:8px solid {color}; border-radius:12px;
-            padding:12px 16px; margin:8px 0 14px 0; background:rgba(15,23,42,0.55);">
-  <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px;">
-    <span style="font-size:1.15rem; font-weight:800; color:{color};">{symbol} {html.escape(str(interval_id))}</span>
-    <span style="font-size:1.05rem; font-weight:700;">{html.escape(fluid_label)}</span>
-    <span><b>Интервал:</b> {top:g}–{base:g} м</span>
-    <span><b>Мощность:</b> {thickness:g} м</span>
-    <span><b>Достоверность:</b> {confidence}%</span>
-    <span><b>Решение:</b> {html.escape(decision)}</span>
-    <span style="padding:2px 9px; border-radius:999px; background:{color}22; color:{color}; font-weight:700;">{html.escape(qc_label)}</span>
-  </div>
-  <div style="display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:7px; opacity:.86; font-size:.88rem;">
-    {project_html}{source_html}
-  </div>
-</div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-def _dataframe_to_report_table(title: str, df: pd.DataFrame) -> HtmlReportTable | None:
-    if df is None or df.empty:
-        return None
-    safe_df = df.copy()
-    for column in safe_df.columns:
-        if pd.api.types.is_float_dtype(safe_df[column]):
-            safe_df[column] = safe_df[column].map(lambda value: "" if pd.isna(value) else f"{float(value):g}")
-        else:
-            safe_df[column] = safe_df[column].map(lambda value: "" if pd.isna(value) else str(value))
-    return HtmlReportTable(
-        title=title,
-        headers=tuple(str(column) for column in safe_df.columns),
-        rows=tuple(tuple(row) for row in safe_df.itertuples(index=False, name=None)),
-    )
-
-
 def _dataframe_shape_label(df: pd.DataFrame | None) -> str:
     """Return a short table size label for UI captions and smoke tests."""
     if df is None:
@@ -3046,7 +2780,7 @@ def _render_static_export_controls(
             key=f"{key_prefix}_static_height",
         )
         export_scale = scale_col.number_input(
-            "Scale",
+            "Масштаб изображения",
             min_value=0.5,
             max_value=4.0,
             value=2.0,
@@ -9441,10 +9175,38 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                     )
                     if presentation_payload.presentation_model is None:
                         raise RuntimeError("PresentationModel не был сформирован.")
-                    export_artifact = build_ui_export_artifact(
-                        presentation_payload.presentation_model,
-                        presentation_state,
-                    )
+                    if selected_format.id == "xlsx":
+                        export_artifact = PresentationUiExportArtifact(
+                            content=export_xlsx_bytes(print_df, sheet_name="engineering_data"),
+                            file_name=f"{presentation_state.base_name}.xlsx",
+                            mime_type=selected_format.mime_type,
+                            export_format="xlsx",
+                            profile=presentation_state.profile,
+                        )
+                    elif selected_format.id in {"png", "svg"}:
+                        report_figures = presentation_payload.presentation_model.figures
+                        if not report_figures:
+                            raise RuntimeError("Инженерный график не был сформирован для экспорта.")
+                        export_artifact = PresentationUiExportArtifact(
+                            content=export_plotly_static_bytes(
+                                report_figures[0],
+                                StaticExportOptions(
+                                    format=selected_format.id,
+                                    width=1800,
+                                    height=max(int(height), 1000),
+                                    scale=2.0,
+                                ),
+                            ),
+                            file_name=f"{presentation_state.base_name}.{selected_format.extension}",
+                            mime_type=selected_format.mime_type,
+                            export_format=selected_format.id,
+                            profile=presentation_state.profile,
+                        )
+                    else:
+                        export_artifact = build_ui_export_artifact(
+                            presentation_payload.presentation_model,
+                            presentation_state,
+                        )
                     _set_inline_operation_status(
                         export_progress,
                         "Экспорт",
@@ -9509,7 +9271,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                     f"Не удалось сформировать экспорт. Код ошибки: {cached_error.get('id', '—')}. "
                     "Подробности записаны в logs/app.log."
                 )
-            st.caption("Экспорт формируется из единого PresentationModel: экран, PDF и DOCX используют одну инженерную модель.")
+            st.caption("Экспорт использует единый выбранный диапазон глубин и согласованные инженерные данные.")
 
     st.subheader("Инженерная сводка УВ-интервалов")
     st.caption(
@@ -12026,21 +11788,14 @@ def _render_project_calculation_actions(project: ProjectRecord, logger) -> None:
             st.caption("Действий по сохраненным расчетам пока нет.")
             return
         st.dataframe(_project_calculation_actions_table(actions), width="stretch", hide_index=True, height=220)
-        csv_col, html_col = st.columns(2)
-        csv_col.download_button(
+        st.download_button(
             "Скачать журнал CSV",
             data=export_project_calculation_actions_csv(actions),
             file_name=f"calculation-actions-{project.id}.csv",
             mime="text/csv",
             key=f"project_calculation_actions_csv_{project.id}",
         )
-        html_col.download_button(
-            "Скачать журнал HTML",
-            data=export_project_calculation_actions_html(actions),
-            file_name=f"calculation-actions-{project.id}.html",
-            mime="text/html",
-            key=f"project_calculation_actions_html_{project.id}",
-        )
+
 
 
 def _project_calculation_option_label(record) -> str:
@@ -12242,8 +11997,7 @@ def _render_project_calculation_comparison(project: ProjectRecord, records: tupl
         diff_table = build_project_calculation_comparison_table(comparison)
         st.dataframe(diff_table, width="stretch", hide_index=True)
 
-        csv_export_col, html_export_col = st.columns(2)
-        if csv_export_col.download_button(
+        if st.download_button(
             "Скачать сравнение CSV",
             data=export_project_calculation_comparison_csv(comparison),
             file_name=f"calculation-comparison-{comparison.left_id}-vs-{comparison.right_id}.csv",
@@ -12259,22 +12013,7 @@ def _render_project_calculation_comparison(project: ProjectRecord, records: tupl
                 export_format="CSV",
                 details="comparison export",
             )
-        if html_export_col.download_button(
-            "Скачать сравнение HTML",
-            data=export_project_calculation_comparison_html(comparison),
-            file_name=f"calculation-comparison-{comparison.left_id}-vs-{comparison.right_id}.html",
-            mime="text/html",
-            key=f"project_calculation_compare_html_{project.id}_{comparison.left_id}_{comparison.right_id}",
-        ):
-            _record_project_calculation_action(
-                project,
-                "download_export",
-                logger,
-                calculation_id=comparison.left_id,
-                related_calculation_id=comparison.right_id,
-                export_format="HTML",
-                details="comparison export",
-            )
+
 
 def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
     all_records = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)
@@ -12391,7 +12130,7 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
                 for message in integrity.messages:
                     st.caption(f"• {message}")
 
-        csv_col, xlsx_col, csv_card_col, html_card_col, open_col = st.columns(5)
+        csv_col, xlsx_col, csv_card_col, open_col = st.columns(4)
         try:
             csv_data = (
                 read_project_calculation_file_bytes(LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id, "csv")
@@ -12405,11 +12144,6 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
             )
             card_csv_data = (
                 export_project_calculation_card_csv(LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id)
-                if not downloads_disabled
-                else b""
-            )
-            card_html_data = (
-                export_project_calculation_card_html(LAS_CORRELATION_PROJECTS_ROOT, project.id, selected_id)
                 if not downloads_disabled
                 else b""
             )
@@ -12449,23 +12183,6 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
                     calculation_id=selected_id,
                     export_format="CSV",
                     details="calculation card metadata",
-                )
-            if html_card_col.download_button(
-                "Скачать карточку HTML",
-                data=card_html_data,
-                file_name=f"{selected_record.id}-card.html",
-                mime="text/html",
-                width="stretch",
-                disabled=downloads_disabled,
-                key=f"project_calculation_card_html_{project.id}_{selected_id}",
-            ):
-                _record_project_calculation_action(
-                    project,
-                    "download_export",
-                    logger,
-                    calculation_id=selected_id,
-                    export_format="HTML",
-                    details="calculation card report",
                 )
         except Exception:
             logger.exception(

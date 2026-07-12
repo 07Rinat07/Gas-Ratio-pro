@@ -25,9 +25,12 @@ def test_report_profile_options_keep_engineering_first_and_expert_second():
 def test_export_format_options_cover_all_renderers():
     formats = export_format_options()
 
-    assert [option.id for option in formats] == ["pdf", "docx", "bundle"]
+    assert [option.id for option in formats] == ["pdf", "docx", "png", "svg", "xlsx", "bundle"]
     assert export_format_by_id("pdf").mime_type == "application/pdf"
     assert export_format_by_id("docx").extension == "docx"
+    assert export_format_by_id("png").mime_type == "image/png"
+    assert export_format_by_id("svg").extension == "svg"
+    assert export_format_by_id("xlsx").extension == "xlsx"
     assert export_format_by_id("unknown").id == "pdf"
 
 

@@ -3,7 +3,7 @@ from reports.presentation_ui import export_format_options, normalize_export_form
 
 def test_user_facing_report_formats_do_not_include_html():
     formats = export_format_options()
-    assert [item.id for item in formats] == ["pdf", "docx", "bundle"]
+    assert [item.id for item in formats] == ["pdf", "docx", "png", "svg", "xlsx", "bundle"]
     assert all(item.extension != "html" for item in formats)
     assert normalize_export_format("html") == "pdf"
 
@@ -15,6 +15,8 @@ def test_interpretation_workspace_has_no_legacy_html_export_controls():
     assert "gas_ratio_interval_report.html" not in source
     assert "Подготовить HTML корреляции" not in source
     assert "HTML для печати графика" not in source
+    assert "Скачать сравнение HTML" not in source
+    assert "gas_ratio_interval_report.html" not in source
 
 
 def test_pdf_renderer_does_not_emit_hidden_column_placeholders():

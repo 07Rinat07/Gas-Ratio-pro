@@ -7,7 +7,7 @@ from typing import Iterable, Literal
 from reports.presentation_export import PresentationExportOptions, safe_export_basename
 
 ReportProfile = Literal["engineering", "expert"]
-ExportFormat = Literal["pdf", "docx", "bundle"]
+ExportFormat = Literal["pdf", "docx", "png", "svg", "xlsx", "bundle"]
 
 
 @dataclass(frozen=True)
@@ -83,11 +83,32 @@ _EXPORT_FORMATS: tuple[ExportFormatOption, ...] = (
         description="Редактируемый отчет для согласования и передачи заказчику.",
     ),
     ExportFormatOption(
+        id="png",
+        label="PNG",
+        extension="png",
+        mime_type="image/png",
+        description="Растровое изображение инженерного графика для презентаций и приложений.",
+    ),
+    ExportFormatOption(
+        id="svg",
+        label="SVG",
+        extension="svg",
+        mime_type="image/svg+xml",
+        description="Векторное изображение инженерного графика без потери качества.",
+    ),
+    ExportFormatOption(
+        id="xlsx",
+        label="XLSX",
+        extension="xlsx",
+        mime_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        description="Табличные данные выбранного диапазона глубин.",
+    ),
+    ExportFormatOption(
         id="bundle",
         label="PDF + DOCX",
         extension="zip",
         mime_type="application/zip",
-        description="Пакет PDF и DOCX из одного PresentationModel.",
+        description="Пакет PDF и DOCX из одной инженерной модели.",
     ),
 )
 

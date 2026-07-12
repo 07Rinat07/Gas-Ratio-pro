@@ -1,3 +1,13 @@
+## v218 — Print & Export 2.0 (completed)
+
+- Removed HTML as a user-download format from reports and calculation comparison.
+- Unified PDF, DOCX, PNG, SVG and XLSX under one professional export workflow.
+- Added one depth-range contract shared by document, image and spreadsheet exports.
+- Kept active interval selection as the default export range.
+- Cleaned export labels from renderer and implementation terminology.
+- Next priority: Sprint 4 — Engineering Reports.
+
+
 ## v217 — Engineering Navigation (completed)
 
 - Added searchable, filterable interval navigation to Data and Interpretation workspaces.

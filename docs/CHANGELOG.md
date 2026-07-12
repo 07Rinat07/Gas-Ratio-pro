@@ -1,3 +1,14 @@
+## v218 — Print & Export 2.0
+
+- Removed the remaining user-facing HTML comparison download.
+- Removed dead HTML report helpers from the interpretation application layer.
+- Added PNG, SVG and XLSX to the professional export format registry.
+- Reused the selected print depth range for PDF, DOCX, PNG, SVG and XLSX.
+- Added direct static graph generation for PNG/SVG and range-filtered XLSX export.
+- Replaced the visible `Scale` control with `Масштаб изображения`.
+- Updated export contracts and regression tests.
+
+
 ## v217 — Engineering Navigation
 
 - Completed interval navigation without previous/next step buttons.

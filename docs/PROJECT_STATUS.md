@@ -1,3 +1,18 @@
+## Current increment: v218 — Print & Export 2.0
+
+Status: **COMPLETED**
+
+Implemented:
+- removed HTML downloads from user-facing report and calculation-comparison workflows;
+- unified PDF, DOCX, PNG, SVG and XLSX in the professional export selector;
+- applied one print depth range to every supported export format;
+- synchronized the default export range with the active engineering interval;
+- replaced renderer terminology with engineering-facing labels and messages;
+- passed focused export, interval-sync and preflight regression tests.
+
+Next: **Sprint 4 — Engineering Reports**.
+
+
 ## Current increment: v217 — Engineering Navigation
 
 Status: **COMPLETED**
