@@ -64,7 +64,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from core.calculations import CH_WARNING, calculate_gas_ratios
+from core.calculations import CH_WARNING, METHODOLOGY_WARNING, calculate_gas_ratios
 from core.calculation_diagnostics import (
     build_calculation_diagnostics_report,
     column_quality_dataframe,

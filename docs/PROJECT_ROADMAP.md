@@ -481,3 +481,5 @@ Roadmap изменяется только когда:
 - [x] Preserve backward compatibility with older snapshots.
 - [ ] Display persisted diagnostics after restart without recalculation.
 - [ ] Add LAS NULL and sampling-density diagnostics.
+
+- Regression guard added for methodology warning imports used by the Data workspace.

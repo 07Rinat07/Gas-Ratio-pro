@@ -194,3 +194,5 @@ Completed:
 Next:
 - expose persisted diagnostics inside the saved-calculation card and Properties diagnostics section;
 - add LAS NULL metadata and gas-sampling density analysis.
+
+- Workbench Data route startup regression fixed: methodology notices now import both CH_WARNING and METHODOLOGY_WARNING.

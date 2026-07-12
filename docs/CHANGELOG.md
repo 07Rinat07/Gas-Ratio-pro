@@ -1695,3 +1695,5 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Saved `diagnostics.json` together with new calculation snapshots.
 - Added integrity validation for the persisted diagnostics snapshot while preserving compatibility with legacy calculations that do not contain it.
 - Connected calculation saving to the structured diagnostics engine so reopening a snapshot does not require recalculating the source dataset.
+
+- Fixed Workbench startup regression caused by a missing METHODOLOGY_WARNING import in app/streamlit_app.py.
