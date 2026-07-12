@@ -449,3 +449,14 @@ Roadmap изменяется только когда:
 - [ ] Move contextual object actions into Properties.
 - [ ] Add multi-selection and bulk actions.
 - [ ] Extend selection to all Project Database tables.
+
+### Workbench UX Refactor — Project Explorer 2.0
+
+- [x] Replace the flat Explorer counter list with the persisted metadata-only project hierarchy.
+- [x] Add expandable project, folder, well group, well, LAS version, calculation and export nodes.
+- [x] Add project-object search that retains ancestor context.
+- [x] Synchronize Explorer selection with Properties through WorkbenchSelectionService.
+- [x] Add compact ready/warning/error/empty status markers.
+- [ ] Add persisted report and correlation nodes after their repositories are available.
+- [ ] Move contextual actions to Properties.
+- [ ] Add safe multi-selection and bulk actions.

@@ -12022,9 +12022,70 @@ def _active_project_for_workbench(logger) -> ProjectRecord:
                 "exports": 0,
             },
         )
+        project_tree = build_project_tree(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+        serialized_tree: list[dict[str, object]] = []
+
+        def _serialize_project_tree_node(node, *, level: int = 0, parent_id: str = "") -> None:
+            kind = str(node.kind or "")
+            route_by_kind = {
+                "project": "nav.dashboard",
+                "well": "nav.data",
+                "las_version": "nav.las_workspace",
+                "calculation": "nav.data",
+                "export": "nav.exports",
+            }
+            route_by_id = {
+                "folder:wells": "nav.data",
+                "folder:calculations": "nav.data",
+                "folder:exports": "nav.exports",
+            }
+            target_by_kind = {
+                "project": "project",
+                "well": "well",
+                "las_version": "las",
+                "calculation": "calculation",
+                "export": "export",
+                "folder_item": "collection",
+                "custom_folder": "collection",
+                "well_group": "collection",
+                "folder": "collection",
+            }
+            metadata = dict(node.metadata or {})
+            object_id = str(
+                metadata.get("project_id")
+                or metadata.get("well_id")
+                or metadata.get("las_file_id")
+                or metadata.get("calculation_id")
+                or metadata.get("export_id")
+                or metadata.get("folder_id")
+                or node.id
+            )
+            serialized_tree.append(
+                {
+                    "id": str(node.id),
+                    "parent_id": parent_id,
+                    "title": str(node.label),
+                    "kind": kind,
+                    "level": int(level),
+                    "count": len(tuple(node.children or ())),
+                    "has_children": bool(node.children),
+                    "selectable": kind not in {"empty", "missing"},
+                    "target": target_by_kind.get(kind, "collection"),
+                    "object_id": object_id,
+                    "navigation_id": route_by_id.get(str(node.id), route_by_kind.get(kind, "")),
+                    "status": str(node.status or ""),
+                    "metadata": metadata,
+                }
+            )
+            for child in tuple(node.children or ()):
+                _serialize_project_tree_node(child, level=level + 1, parent_id=str(node.id))
+
+        _serialize_project_tree_node(project_tree)
+        state.set_value("workbench_project_tree", serialized_tree)
     except Exception:
         logger.exception("workbench_project_counts_failed project_id=%s", safe_log_value(project.id))
         state.set_value("workbench_project_counts", {})
+        state.set_value("workbench_project_tree", [])
     return project
 
 

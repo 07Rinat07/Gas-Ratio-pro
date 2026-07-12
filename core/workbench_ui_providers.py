@@ -62,27 +62,31 @@ class WorkbenchUIProviderService:
         well_id = context.application.well_id or content.get("selected_las", {}).get("well_id", "")
         las_id = context.application.las_id
 
-        tree: list[dict[str, Any]] = [
-            {"id": "tree.project", "title": _text(project_id, "No project open"), "kind": "project", "level": 0, "count": 1 if project_id else 0, "selectable": bool(project_id), "target": "project", "object_id": project_id},
-            {"id": "tree.wells", "title": "Wells", "kind": "collection", "level": 1, "count": 1 if well_id else 0, "selectable": False},
-        ]
-        if well_id:
-            tree.append({"id": f"tree.well.{well_id}", "title": _text(well_id), "kind": "well", "level": 2, "count": 1, "selectable": True, "target": "well", "object_id": well_id})
-        tree.append({"id": "tree.las", "title": "LAS", "kind": "collection", "level": 1, "count": 1 if las_id else 0, "selectable": False})
-        if las_id:
-            tree.append({"id": f"tree.las.{las_id}", "title": _text(las_id), "kind": "las", "level": 2, "count": len(curves), "selectable": True, "target": "las", "object_id": las_id})
-        tree.append({"id": "tree.curves", "title": "Curves", "kind": "collection", "level": 1, "count": len(curves), "selectable": False})
-        for curve in curves[:200]:
-            curve_id = str(curve.get("id") or curve.get("mnemonic") or curve.get("name") or "").strip()
-            if curve_id:
-                tree.append({"id": f"tree.curve.{curve_id}", "title": str(curve.get("title") or curve.get("mnemonic") or curve_id), "kind": "curve", "level": 2, "count": 0, "selectable": True, "target": "curve", "object_id": curve_id, "metadata": {"unit": curve.get("unit", ""), "track_id": curve.get("track_id", "")}})
-        project_counts = dict(self.state.get("workbench_project_counts", {}) or {})
-        tree.extend((
-            {"id": "tree.correlation", "title": "Correlation", "kind": "collection", "level": 1, "count": int(project_counts.get("correlations", 0) or 0), "selectable": True},
-            {"id": "tree.calculations", "title": "Calculations", "kind": "collection", "level": 1, "count": int(project_counts.get("calculations", 0) or 0), "selectable": False},
-            {"id": "tree.reports", "title": "Reports", "kind": "collection", "level": 1, "count": int(project_counts.get("reports", 1 if context.active_report else 0) or 0), "selectable": False},
-            {"id": "tree.exports", "title": "Exports", "kind": "collection", "level": 1, "count": int(project_counts.get("exports", len(tuple(self.state.get("recent_exports", ()) or ()))) or 0), "selectable": False},
-        ))
+        persisted_tree = tuple(self.state.get("workbench_project_tree", ()) or ())
+        if persisted_tree:
+            tree = [dict(item) for item in persisted_tree if isinstance(item, Mapping)]
+        else:
+            tree: list[dict[str, Any]] = [
+                {"id": "tree.project", "title": _text(project_id, "No project open"), "kind": "project", "level": 0, "count": 1 if project_id else 0, "selectable": bool(project_id), "target": "project", "object_id": project_id, "navigation_id": "nav.dashboard"},
+                {"id": "tree.wells", "title": "Wells", "kind": "collection", "level": 1, "count": 1 if well_id else 0, "selectable": False, "navigation_id": "nav.data"},
+            ]
+            if well_id:
+                tree.append({"id": f"tree.well.{well_id}", "parent_id": "tree.wells", "title": _text(well_id), "kind": "well", "level": 2, "count": 1, "selectable": True, "target": "well", "object_id": well_id, "navigation_id": "nav.data"})
+            tree.append({"id": "tree.las", "title": "LAS", "kind": "collection", "level": 1, "count": 1 if las_id else 0, "selectable": False, "navigation_id": "nav.las_workspace"})
+            if las_id:
+                tree.append({"id": f"tree.las.{las_id}", "parent_id": "tree.las", "title": _text(las_id), "kind": "las", "level": 2, "count": len(curves), "selectable": True, "target": "las", "object_id": las_id, "navigation_id": "nav.las_workspace"})
+            tree.append({"id": "tree.curves", "title": "Curves", "kind": "collection", "level": 1, "count": len(curves), "selectable": False, "navigation_id": "nav.las_workspace"})
+            for curve in curves[:200]:
+                curve_id = str(curve.get("id") or curve.get("mnemonic") or curve.get("name") or "").strip()
+                if curve_id:
+                    tree.append({"id": f"tree.curve.{curve_id}", "parent_id": "tree.curves", "title": str(curve.get("title") or curve.get("mnemonic") or curve_id), "kind": "curve", "level": 2, "count": 0, "selectable": True, "target": "curve", "object_id": curve_id, "navigation_id": "nav.las_workspace", "metadata": {"unit": curve.get("unit", ""), "track_id": curve.get("track_id", "")}})
+            project_counts = dict(self.state.get("workbench_project_counts", {}) or {})
+            tree.extend((
+                {"id": "tree.correlation", "title": "Correlation", "kind": "collection", "level": 1, "count": int(project_counts.get("correlations", 0) or 0), "selectable": True, "navigation_id": "nav.correlation"},
+                {"id": "tree.calculations", "title": "Calculations", "kind": "collection", "level": 1, "count": int(project_counts.get("calculations", 0) or 0), "selectable": False, "navigation_id": "nav.data"},
+                {"id": "tree.reports", "title": "Reports", "kind": "collection", "level": 1, "count": int(project_counts.get("reports", 1 if context.active_report else 0) or 0), "selectable": False, "navigation_id": "nav.reports"},
+                {"id": "tree.exports", "title": "Exports", "kind": "collection", "level": 1, "count": int(project_counts.get("exports", len(tuple(self.state.get("recent_exports", ()) or ()))) or 0), "selectable": False, "navigation_id": "nav.exports"},
+            ))
 
         target = str(selected.get("target") or "").strip()
         object_id = str(selected.get("object_id") or "").strip()

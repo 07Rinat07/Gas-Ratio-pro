@@ -1,5 +1,14 @@
 # GAS RATIO PRO — Changelog
 
+## v214 — Project Explorer 2.0 foundation
+
+- Replaced the flat Workbench Explorer list with the persisted metadata-only project hierarchy.
+- Added expandable project, folder, well group, well, LAS version, calculation and export nodes.
+- Added project-object search with automatic ancestor preservation.
+- Routed node selection through WorkbenchSelectionService so Properties receives the selected object metadata.
+- Added compact ready, warning, error and empty-state markers without loading heavy payloads.
+- Added framework-neutral Explorer filtering and expansion tests.
+
 ## v214 — Workbench stabilization after live UI review
 
 - Converted saved calculations into an explicit project archive instead of treating them as current session data.

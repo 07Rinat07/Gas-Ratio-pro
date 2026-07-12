@@ -155,3 +155,18 @@ Next:
 - move object-specific actions into a contextual Properties action group;
 - add multi-row selection and bulk action contracts;
 - complete the same selection behavior for remaining Project Database tables.
+
+### Current increment — Project Explorer 2.0 foundation
+
+Completed:
+- Modern Workbench now consumes the persisted metadata-only project tree instead of a flat counter list.
+- Project, folders, well groups, wells, LAS versions, calculations and exports are represented as hierarchical selectable nodes.
+- Explorer search preserves ancestors of every matching object.
+- Expansion state is stored independently from domain data and does not load LAS/calculation payloads.
+- Selection is synchronized through WorkbenchSelectionService and reflected in Properties.
+- Status markers distinguish ready, warning, error and empty nodes without treating missing data as an application error.
+
+Next:
+- move object-specific actions into contextual Properties groups;
+- add persisted reports and correlation objects to the project tree;
+- add context actions and optional multi-selection without introducing destructive right-click shortcuts.

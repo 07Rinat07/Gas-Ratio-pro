@@ -18,6 +18,12 @@ from core.command_framework import CommandExecutionResult, WorkbenchCommandRegis
 from core.build_info import runtime_build_info
 from core.workbench_controller import WorkbenchController, build_workbench_controller
 from core.workbench_ui_layout import build_workbench_ui_layout
+from core.workbench_project_explorer import (
+    explorer_kind_icon,
+    explorer_status_marker,
+    filter_project_explorer_nodes,
+    visible_project_explorer_nodes,
+)
 from core.workbench_runtime_diagnostics import (
     diagnostics_enabled, diagnostics_snapshot, record_binding_state, record_runtime_exception,
 )
@@ -413,54 +419,94 @@ def _render_native_streamlit_layout(
     widths = [1.15 if explorer_open else 0.10, 4.9, 1.35 if properties_open else 0.10]
     left, center, right = st_module.columns(widths, gap="small")
 
-    kind_icons = {"project":"▣", "collection":"▸", "well":"◉", "las":"▤", "curve":"⌁"}
     with left:
         if explorer_open:
             st_module.markdown("<div class='workbench-pane-title'><span>Project Explorer</span><span>⌕</span></div>", unsafe_allow_html=True)
-            tree_route_map = {
-                "tree.project": "nav.dashboard",
-                "tree.wells": "nav.data",
-                "tree.las": "nav.las_workspace",
-                "tree.curves": "nav.las_workspace",
-                "tree.correlation": "nav.correlation",
-                "tree.calculations": "nav.data",
-                "tree.reports": "nav.reports",
-                "tree.exports": "nav.exports",
+            raw_tree = tuple(dict(item) for item in layout.get("project_tree", ()) or ())
+            query = ""
+            if hasattr(st_module, "text_input"):
+                query = str(
+                    st_module.text_input(
+                        "Search project",
+                        key="workbench_project_explorer_search",
+                        placeholder="well, LAS, calculation, export",
+                        label_visibility="collapsed",
+                    )
+                    or ""
+                )
+            filtered_view = filter_project_explorer_nodes(raw_tree, query)
+            all_parent_ids = {
+                str(item.get("parent_id") or "")
+                for item in raw_tree
+                if str(item.get("parent_id") or "")
             }
-            for item in layout.get("project_tree", ()):
+            root_ids = [str(item.get("id") or "") for item in raw_tree if not str(item.get("parent_id") or "")]
+            expanded_key = "workbench_project_explorer_expanded"
+            expanded_ids = set(registry.state.get(expanded_key, root_ids) or root_ids)
+            if query.strip():
+                expanded_ids.update(all_parent_ids)
+            visible_tree = visible_project_explorer_nodes(
+                filtered_view.nodes,
+                expanded_ids,
+                force_expand=bool(query.strip()),
+            )
+            if query.strip() and hasattr(st_module, "caption"):
+                st_module.caption(
+                    f"Matches: {filtered_view.matched_nodes} · Project objects: {filtered_view.total_nodes}"
+                )
+            if query.strip() and not filtered_view.nodes:
+                if hasattr(st_module, "info"):
+                    st_module.info("No project objects found.")
+            selected_state = dict(registry.state.get("workbench_selection", {}) or {})
+            selected_target = str(selected_state.get("target") or "")
+            selected_object_id = str(selected_state.get("object_id") or "")
+            for item in visible_tree:
                 item_id = str(item.get("id", ""))
                 level = int(item.get("level", 0))
-                icon = kind_icons.get(str(item.get("kind", "")), "•")
+                kind = str(item.get("kind", ""))
+                has_children = bool(item.get("has_children", False) or item_id in all_parent_ids)
+                is_expanded = item_id in expanded_ids
+                icon = explorer_kind_icon(kind)
+                marker = explorer_status_marker(item)
                 count = item.get("count")
-                label = f"{'  ' * level}{icon} {item.get('title', '')}"
-                if count not in (None, ""):
+                expander_symbol = "▾" if has_children and is_expanded else ("▸" if has_children else " ")
+                label = f"{'  ' * level}{expander_symbol} {marker} {icon} {item.get('title', '')}"
+                if count not in (None, "") and has_children:
                     label += f" ({int(count)})"
-                navigation_id = tree_route_map.get(item_id)
+                navigation_id = str(item.get("navigation_id") or "").strip()
                 selectable = bool(item.get("selectable", False))
                 target = str(item.get("target") or ("collection" if navigation_id else "")).strip()
                 object_id = str(item.get("object_id") or item_id).strip()
                 metadata = dict(item.get("metadata", {}) or {})
                 metadata.setdefault("title", str(item.get("title") or ""))
-                metadata.setdefault("kind", str(item.get("kind") or ""))
+                metadata.setdefault("kind", kind)
+                metadata.setdefault("status", str(item.get("status") or ""))
                 if count not in (None, ""):
                     metadata.setdefault("count", int(count))
                 if navigation_id:
                     metadata.setdefault("navigation_id", navigation_id)
-                if navigation_id or selectable:
+                active_object = target == selected_target and object_id == selected_object_id
+                if navigation_id or selectable or has_children:
                     if st_module.button(
                         label,
-                        key=f"workbench_tree_{item_id.replace('.', '_')}",
+                        key=f"workbench_tree_{item_id.replace('.', '_').replace(':', '_')}",
                         width="stretch",
-                        type="primary" if navigation_id == active_navigation_id else "secondary",
-                        help="Select object and open its workspace" if navigation_id else "Select object",
+                        type="primary" if active_object else "secondary",
+                        help=str(item.get("status") or "Select project object"),
                     ):
+                        if has_children:
+                            if item_id in expanded_ids:
+                                expanded_ids.remove(item_id)
+                            else:
+                                expanded_ids.add(item_id)
+                            registry.state[expanded_key] = sorted(expanded_ids)
                         controller = WorkbenchController(
                             registry.state,
                             renderer=contract.renderer,
                             version=contract.version,
                             command_registry=registry,
                         )
-                        if target and object_id:
+                        if target and object_id and selectable:
                             controller.select_object(target, object_id, metadata)
                         if navigation_id and navigation_id != active_navigation_id:
                             executed.append(
