@@ -217,6 +217,7 @@ from las_editor.depth_grid import (
     validate_depth_integrity,
     resample_las_data,
 )
+from core.hydrocarbon_intervals import detect_hydrocarbon_intervals
 from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
 from palettes.depth_tracks import (
@@ -7527,9 +7528,35 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
     _render_interval_rule_summary(selected_row, ch_mode=ch_mode)
 
     st.subheader("Pixler + ternary")
+    selected_depth_value = pd.to_numeric(pd.Series([selected_row.get("depth")]), errors="coerce").iloc[0]
+    selected_depth_value = None if pd.isna(selected_depth_value) else float(selected_depth_value)
+    pixler_interval_frame = calculated_df
+    pixler_interval_label = "Весь рассчитанный интервал"
+    try:
+        detected_intervals = detect_hydrocarbon_intervals(calculated_df)
+        for detected_interval in detected_intervals.intervals:
+            if selected_depth_value is not None and detected_interval.top <= selected_depth_value <= detected_interval.base:
+                depth_numeric = pd.to_numeric(calculated_df.get("depth"), errors="coerce")
+                pixler_interval_frame = calculated_df.loc[
+                    depth_numeric.between(detected_interval.top, detected_interval.base, inclusive="both")
+                ]
+                pixler_interval_label = (
+                    f"{detected_interval.top:g}–{detected_interval.base:g} м · "
+                    f"{detected_interval.fluid_type} · {detected_interval.confidence_score}%"
+                )
+                break
+    except Exception as exc:
+        logger.warning("pixler_interval_context_failed error=%s", safe_log_value(exc))
+
     left, right = st.columns(2)
     left.plotly_chart(
-        build_pixler_palette(selected_row, zones=palette_config.pixler_zones),
+        build_pixler_palette(
+            selected_row,
+            zones=palette_config.pixler_zones,
+            interval_frame=pixler_interval_frame,
+            interval_label=pixler_interval_label,
+            selected_depth=selected_depth_value,
+        ),
         width="stretch",
     )
     right.plotly_chart(

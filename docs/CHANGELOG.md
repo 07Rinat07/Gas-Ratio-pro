@@ -1738,3 +1738,8 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Increased raw calculation table viewport and enabled horizontal/vertical inspection without index noise.
 - Reworked printable executive summary around depth ranges, cumulative interpreted thickness and best interval by fluid.
 - Renamed and expanded the printable interval registry for engineering review.
+
+### Changed — Pixler 2.0 foundation
+- Replaced the single-row Pixler line with an interval-aware measurement cloud.
+- Added interval median, selected-depth marker, zone support calculation and engineer-facing conclusion.
+- Connected the selected depth to the detected hydrocarbon interval when available.

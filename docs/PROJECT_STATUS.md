@@ -237,3 +237,6 @@ Completed in the current increment:
 - the Data workspace primary summary now uses the interval registry instead of `interpretation/count`;
 - technical row counters are explicitly limited to Diagnostics and Developer mode;
 - the active roadmap contains the ordered Pixler → ternary → depth panel → passport → reporting refactor and its Definition of Done.
+
+## Interpretation 2.0 — current increment
+Pixler 2.0 foundation is active: the chart renders the interval measurement cloud, median profile, selected-depth marker, configurable zones and a concise methodological conclusion. Zone limits remain explicitly provisional until corporate calibration is supplied.

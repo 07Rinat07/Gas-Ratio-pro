@@ -570,3 +570,10 @@ This is the current product priority. The goal is to replace technically correct
 ### Definition of Done
 
 The stage is complete only when an engineer can select an interval and obtain synchronized Pixler, ternary, depth panel, interval passport and printable reports without reading dataframe counters or developer diagnostics.
+
+### Pixler 2.0 — interval-aware visualization (implemented foundation)
+- [x] Use all valid measurements of the selected hydrocarbon interval instead of a single row.
+- [x] Show interval median and a separate marker for the selected depth.
+- [x] Overlay configurable interpretation zones and an engineer-facing conclusion.
+- [ ] Validate zone limits against approved corporate methodology and field calibration.
+- [ ] Add interval selector synchronization with the reservoir register and passport.
