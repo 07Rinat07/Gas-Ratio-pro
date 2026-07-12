@@ -451,7 +451,7 @@ def render_engineering_document_pdf(
     for index, section in enumerate(document.sections):
         if section.page_break_before and story:
             story.append(PageBreak())
-        if section.title and (index > 0 or section.title not in {"Инженерные разделы отчета", "Разделы экспертного отчета"}):
+        if section.title and (index > 0 or section.title not in {"Ключевые результаты", "Инженерные результаты и расчетные приложения"}):
             story.append(_paragraph(section.title, styles["h2"]))
         for block in section.blocks:
             if isinstance(block, DocumentTable):

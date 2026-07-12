@@ -712,3 +712,10 @@ Next: use the same selection context in the Data workspace Pixler and ternary se
 - [ ] Add new published methods only through the framework.
 
 - [x] Graphics Recovery: restore local palette configuration in Interpretation and prevent route-level `NameError`.
+
+## Sprint 4 — Engineering Reports — завершено
+- Добавлены отдельные профили «Отчет для заказчика» и «Инженерный отчет».
+- Клиентский профиль сокращен до ключевых выводов, интервалов, достоверности, рекомендаций и ограничений.
+- Инженерный профиль сохраняет расширенные расчетные таблицы и приложения.
+- PDF и DOCX используют единую модель документа и одинаковую структуру разделов.
+- Служебные поля, внутренние идентификаторы и технические метаданные исключены из пользовательских титульных данных.

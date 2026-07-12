@@ -129,15 +129,19 @@ class EngineeringDocument:
         )
 
 
-def _technical_appendix_notice() -> DocumentNotice:
+def _report_scope_notice(*, engineering: bool) -> DocumentNotice:
+    if engineering:
+        return DocumentNotice(
+            title="Область применения",
+            text=("Результаты предназначены для инженерной интерпретации и должны рассматриваться совместно "
+                  "с материалами ГИС, литологией, керном, испытаниями и данными разработки."),
+            role="engineering-scope",
+        )
     return DocumentNotice(
-        title="Техническое приложение: состав",
-        text=(
-            "Полные расчетные таблицы, диагностика, предупреждения качества данных и служебные сведения "
-            "доступны в экспертном профиле отчета. Инженерный профиль намеренно показывает сначала выводы, "
-            "интервалы, достоверность, рекомендации и ограничения."
-        ),
-        role="technical-appendix-notice",
+        title="Ограничения интерпретации",
+        text=("Выводы отражают интерпретацию доступных данных газового каротажа. Окончательные решения "
+              "принимаются после сопоставления с материалами ГИС, испытаниями и геологической моделью."),
+        role="client-limitations",
     )
 
 
@@ -187,6 +191,33 @@ def _printable_table(table: HtmlReportTable, *, technical: bool) -> DocumentTabl
     return DocumentTable(title=_clean_user_cell(table.title), headers=clean_headers, rows=clean_rows)
 
 
+def _client_table(table: HtmlReportTable) -> DocumentTable:
+    """Return a compact customer-facing table without internal fields."""
+    printable = _printable_table(table, technical=False)
+    headers = printable.headers[:6]
+    rows = tuple(row[: len(headers)] for row in printable.rows[:12])
+    return DocumentTable(title=printable.title, headers=headers, rows=rows)
+
+
+def _client_tables(model: PresentationModel) -> tuple[DocumentTable, ...]:
+    preferred = ("заключ", "интервал", "достовер", "рекоменд", "огранич")
+    selected = [table for table in model.engineer_first_tables if any(key in str(table.title).lower() for key in preferred)]
+    if not selected:
+        selected = list(model.engineer_first_tables[:4])
+    return tuple(_client_table(table) for table in selected[:5])
+
+
+def _clean_metadata_rows(rows: Sequence[tuple[str, str]], *, engineering: bool) -> tuple[tuple[str, str], ...]:
+    blocked = ("id", "schema", "renderer", "version", "hash", "path", "source_label", "profile")
+    clean = []
+    for key, value in rows:
+        label = _clean_user_cell(key).strip()
+        if any(token in label.lower() for token in blocked):
+            continue
+        clean.append((label, _clean_user_cell(value)))
+    return tuple(clean if engineering else clean[:6])
+
+
 def select_document_tables(
     model: PresentationModel,
     *,
@@ -200,11 +231,13 @@ def select_document_tables(
     """
 
     include_technical = (
-        model.metadata.report_profile == "expert"
+        model.metadata.report_profile not in {"client", "customer"}
         if include_technical_appendix is None
         else bool(include_technical_appendix)
     )
-    source_tables = model.expert_tables if include_technical else model.engineer_first_tables
+    if not include_technical:
+        return _client_tables(model)
+    source_tables = model.expert_tables
     engineering_ids = {id(table) for table in model.engineer_first_tables}
     return tuple(
         _printable_table(table, technical=id(table) not in engineering_ids)
@@ -226,7 +259,7 @@ def build_engineering_document(
     """
 
     include_technical = (
-        model.metadata.report_profile == "expert"
+        model.metadata.report_profile not in {"client", "customer"}
         if include_technical_appendix is None
         else bool(include_technical_appendix)
     )
@@ -259,28 +292,27 @@ def build_engineering_document(
     if tables:
         sections.append(
             DocumentSection(
-                title="Инженерные разделы отчета" if not include_technical else "Разделы экспертного отчета",
+                title="Ключевые результаты" if not include_technical else "Инженерные результаты и расчетные приложения",
                 blocks=tables,
                 page_break_before=bool(sections),
             )
         )
 
-    if not include_technical:
-        sections.append(
-            DocumentSection(
-                title="Техническое приложение",
-                blocks=(_technical_appendix_notice(),),
-                page_break_before=False,
-            )
+    sections.append(
+        DocumentSection(
+            title="Заключение и ограничения",
+            blocks=(_report_scope_notice(engineering=include_technical),),
+            page_break_before=False,
         )
+    )
 
     metadata = DocumentMetadata(
         title=model.metadata.title,
         subtitle=model.metadata.subtitle,
-        rows=model.metadata.as_report_rows(),
+        rows=_clean_metadata_rows(model.metadata.as_report_rows(), engineering=include_technical),
         notes=(
             "Каждая интерпретация является инженерной гипотезой и должна оцениваться совместно с ГИС, литологией, керном и испытаниями.",
         ),
-        profile="expert" if include_technical else "engineering",
+        profile="engineering" if include_technical else "client",
     )
     return EngineeringDocument(metadata=metadata, sections=tuple(sections))

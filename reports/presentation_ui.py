@@ -6,7 +6,7 @@ from typing import Iterable, Literal
 
 from reports.presentation_export import PresentationExportOptions, safe_export_basename
 
-ReportProfile = Literal["engineering", "expert"]
+ReportProfile = Literal["client", "engineering"]
 ExportFormat = Literal["pdf", "docx", "png", "svg", "xlsx", "bundle"]
 
 
@@ -54,15 +54,15 @@ class PresentationExportUiState:
 
 _REPORT_PROFILES: tuple[ReportProfileOption, ...] = (
     ReportProfileOption(
-        id="engineering",
-        label="Инженерный отчет",
-        description="Краткое заключение, интервалы, уверенность, рекомендации и ограничения без технического мусора.",
+        id="client",
+        label="Отчет для заказчика",
+        description="Краткие выводы, ключевые интервалы, достоверность и рекомендации без расчетных и служебных приложений.",
         include_technical_appendix=False,
     ),
     ReportProfileOption(
-        id="expert",
-        label="Экспертный отчет",
-        description="Инженерный отчет плюс технические таблицы, диагностика и расчетные приложения.",
+        id="engineering",
+        label="Инженерный отчет",
+        description="Расширенный профессиональный отчет с графиками, расчетными таблицами, ограничениями и техническими приложениями.",
         include_technical_appendix=True,
     ),
 )
@@ -129,8 +129,10 @@ def normalize_report_profile(value: str | None) -> ReportProfile:
     """Normalize user input to a supported report profile."""
 
     normalized = str(value or "").strip().lower()
+    if normalized in {"client", "customer", "заказчик", "клиентский", "client_report"}:
+        return "client"
     if normalized in {"expert", "экспертный", "expert_report"}:
-        return "expert"
+        return "engineering"
     return "engineering"
 
 

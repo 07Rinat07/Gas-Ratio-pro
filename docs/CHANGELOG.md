@@ -1893,3 +1893,18 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - `MethodResult` moved to the method framework and remains re-exported through the existing expert interpretation module for compatibility.
 
 - Fixed Interpretation workspace crash caused by an undefined local palette configuration; graph and report rendering now load palette settings inside the route.
+
+## v219 — Engineering Reports
+### Added
+- Профиль отчета для заказчика.
+- Расширенный инженерный профиль.
+- Единая секция заключения и ограничений.
+
+### Changed
+- Сокращена клиентская версия таблиц и метаданных.
+- Обновлена структура PDF/DOCX и порядок размещения графиков.
+- Старый профиль `expert` сохранен как совместимый псевдоним инженерного профиля.
+
+### Removed
+- Служебные идентификаторы, renderer/schema/path/hash-поля из пользовательских метаданных отчета.
+- Техническое приложение из отчета для заказчика.

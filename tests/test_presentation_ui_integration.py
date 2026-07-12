@@ -13,10 +13,10 @@ from reports.presentation_ui import (
 )
 
 
-def test_report_profile_options_keep_engineering_first_and_expert_second():
+def test_report_profile_options_keep_client_first_and_engineering_second():
     profiles = report_profile_options()
 
-    assert [profile.id for profile in profiles] == ["engineering", "expert"]
+    assert [profile.id for profile in profiles] == ["client", "engineering"]
     assert profiles[0].include_technical_appendix is False
     assert profiles[1].include_technical_appendix is True
     assert "технические" not in profiles[0].description.lower()
@@ -35,8 +35,8 @@ def test_export_format_options_cover_all_renderers():
 
 
 def test_profile_normalization_is_safe_for_ui_inputs():
-    assert normalize_report_profile("expert") == "expert"
-    assert normalize_report_profile("Экспертный") == "expert"
+    assert normalize_report_profile("expert") == "engineering"
+    assert normalize_report_profile("Экспертный") == "engineering"
     assert normalize_report_profile("engineering") == "engineering"
     assert normalize_report_profile(None) == "engineering"
     assert profile_by_id("bad-value").id == "engineering"
@@ -62,7 +62,7 @@ def test_ui_state_maps_profile_to_technical_appendix(tmp_path):
         include_figures=True,
     )
 
-    assert state.profile == "expert"
+    assert state.profile == "engineering"
     assert state.export_format == "bundle"
     assert state.include_technical_appendix is True
     assert state.base_name == "Karakuik_Well_12"

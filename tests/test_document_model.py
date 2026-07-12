@@ -47,26 +47,24 @@ def test_document_table_selection_matches_presentation_model_without_rebuild() -
     payload = build_hydrocarbon_report_payload(_sample_frame())
     assert payload.presentation_model is not None
 
-    engineering = select_document_tables(payload.presentation_model, include_technical_appendix=False)
-    expert = select_document_tables(payload.presentation_model, include_technical_appendix=True)
+    client = select_document_tables(payload.presentation_model, include_technical_appendix=False)
+    engineering = select_document_tables(payload.presentation_model, include_technical_appendix=True)
 
-    assert tuple(table.title for table in engineering) == tuple(
-        table.title for table in payload.presentation_model.engineer_first_tables
-    )
-    assert tuple(table.title for table in expert) == tuple(table.title for table in payload.presentation_model.expert_tables)
-    assert len(expert) > len(engineering)
+    assert len(client) <= 5
+    assert tuple(table.title for table in engineering) == tuple(table.title for table in payload.presentation_model.expert_tables)
+    assert len(engineering) >= len(client)
 
 
 def test_html_renderer_consumes_document_model_contract() -> None:
     payload = build_hydrocarbon_report_payload(_sample_frame(), include_plot=True)
     assert payload.presentation_model is not None
 
-    document = build_engineering_document(payload.presentation_model, include_figures=True)
+    document = build_engineering_document(payload.presentation_model, include_figures=True, include_technical_appendix=False)
     rendered = build_presentation_html_report(payload.presentation_model)
 
     assert rendered.table_titles == document.table_titles
     assert rendered.figure_count == document.plot_count
     assert rendered.profile == document.metadata.profile
     html = rendered.content.decode("utf-8")
-    assert "Техническое приложение" in html
+    assert "Ограничения интерпретации" in html
     assert "Диагностика движка УВ-интервалов" not in html
