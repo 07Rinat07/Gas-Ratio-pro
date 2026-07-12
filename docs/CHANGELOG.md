@@ -1,5 +1,15 @@
 # GAS RATIO PRO — Changelog
 
+## v214 — Contextual Properties actions
+
+- Added a contextual action group to the right-hand Properties pane for LAS, datasets, calculations, reports and exports.
+- Added command-backed action requests so the renderer never mutates repositories directly.
+- Added explicit object-ID confirmation for archive and delete operations.
+- Added automatic project backup before destructive Properties actions.
+- Added integrity checks for datasets, LAS and saved calculations.
+- Added technical-properties toggle while keeping IDs, paths and checksums hidden by default.
+- Removed the architectural dependency on duplicated selectors for object actions.
+
 ## v214 — Project Explorer 2.0 foundation
 
 - Replaced the flat Workbench Explorer list with the persisted metadata-only project hierarchy.

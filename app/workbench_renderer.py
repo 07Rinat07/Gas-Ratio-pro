@@ -18,6 +18,9 @@ from core.command_framework import CommandExecutionResult, WorkbenchCommandRegis
 from core.build_info import runtime_build_info
 from core.workbench_controller import WorkbenchController, build_workbench_controller
 from core.workbench_ui_layout import build_workbench_ui_layout
+from core.workbench_property_actions import (
+    WORKBENCH_PROPERTY_ACTION_COMMAND_ID, WORKBENCH_PROPERTY_TECHNICAL_KEY,
+)
 from core.workbench_project_explorer import (
     explorer_kind_icon,
     explorer_status_marker,
@@ -653,6 +656,59 @@ def _render_native_streamlit_layout(
                 props_html or "<div class='workbench-properties-empty'><b>Nothing selected</b><br><small>Choose an object in Project Explorer or the active workspace.</small></div>",
                 unsafe_allow_html=True,
             )
+
+            action_result = dict(layout.get("property_action_result", {}) or {})
+            if action_result.get("message"):
+                if action_result.get("success"):
+                    st_module.success(str(action_result.get("message")))
+                else:
+                    st_module.error(str(action_result.get("message")))
+
+            selection = dict(payload.get("context", {}).get("selection", {}) or {})
+            target = str(selection.get("target") or "")
+            object_id = str(selection.get("object_id") or "")
+            metadata = dict(selection.get("metadata", {}) or {})
+            property_actions = tuple(layout.get("property_actions", ()) or ())
+            if property_actions and target and object_id:
+                st_module.markdown("#### Действия")
+                confirmation = st_module.text_input(
+                    "Подтверждение удаления/архивирования",
+                    value="",
+                    key=f"workbench_properties_confirm_{target}_{object_id}",
+                    placeholder=object_id,
+                    help="Для опасного действия введите точный ID выбранного объекта.",
+                )
+                for action in property_actions:
+                    action_id = str(action.get("id") or "")
+                    title = str(action.get("title") or action_id)
+                    requires_confirmation = bool(action.get("requires_confirmation"))
+                    confirmed = (not requires_confirmation) or confirmation.strip() == object_id
+                    if st_module.button(
+                        title,
+                        key=f"workbench_properties_action_{target}_{object_id}_{action_id}",
+                        width="stretch",
+                        type="primary" if action_id == "open" else "secondary",
+                        disabled=requires_confirmation and not confirmed,
+                    ):
+                        if action_id == "technical":
+                            registry.state[WORKBENCH_PROPERTY_TECHNICAL_KEY] = not bool(
+                                registry.state.get(WORKBENCH_PROPERTY_TECHNICAL_KEY, False)
+                            )
+                            executed.append(CommandExecutionResult(
+                                WORKBENCH_PROPERTY_ACTION_COMMAND_ID, True,
+                                message="Technical properties toggled.", result={"technical": True}
+                            ))
+                        else:
+                            executed.append(registry.execute(
+                                WORKBENCH_PROPERTY_ACTION_COMMAND_ID,
+                                {
+                                    "action_id": action_id,
+                                    "target": target,
+                                    "object_id": object_id,
+                                    "metadata": metadata,
+                                    "confirmed": confirmed,
+                                },
+                            ))
             collapse = {"id":"action.collapse_dock_pane", "payload":{"pane_id":"dock.properties"}}
             if st_module.button("›", key="workbench_native_collapse_properties", help="Collapse Properties"):
                 executed.append(_dispatch_action(contract, registry, collapse))

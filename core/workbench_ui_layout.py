@@ -22,6 +22,9 @@ class WorkbenchUILayoutContract:
             "properties": [dict(item) for item in self.properties],
             "status_items": [dict(item) for item in self.status_items],
             "regions": dict(self.regions),
+            "property_actions": [dict(item) for item in self.property_actions],
+            "property_action_result": dict(self.property_action_result or {}),
+            "show_technical_properties": bool(self.show_technical_properties),
         }
 
 
@@ -125,4 +128,7 @@ def build_workbench_ui_layout(payload: Mapping[str, Any]) -> WorkbenchUILayoutCo
         toolbar=tuple(toolbar), project_tree=tree, workspace=workspace,
         properties=properties, status_items=status_items,
         regions={"left": "project_explorer", "center": "workspace_host", "right": "properties", "top": "command_toolbar", "bottom": "status_bar"},
+        property_actions=tuple(providers.get("property_actions", ()) or ()),
+        property_action_result=dict(providers.get("property_action_result", {}) or {}),
+        show_technical_properties=bool(providers.get("show_technical_properties", False)),
     )

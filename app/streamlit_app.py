@@ -9455,6 +9455,7 @@ def _render_dataset_manager_table(
         id_column="Dataset ID",
         selection_target="dataset",
         selection_label_column="Dataset",
+        selection_metadata={"section": section, "project_id": project_id},
     )
     selected_dataset_id = str((selected_row or {}).get("Dataset ID") or next(iter(datasets_by_id)))
     _render_dataset_manager_toolbar(
@@ -9673,6 +9674,7 @@ def _render_workbench_data_grid(
     id_column: str | None = None,
     selection_target: str | None = None,
     selection_label_column: str | None = None,
+    selection_metadata: dict[str, object] | None = None,
 ) -> dict[str, object] | None:
     """Render the shared Workbench Data Grid and publish one object selection.
 
@@ -9812,6 +9814,10 @@ def _render_workbench_data_grid(
             for key, value in selected_row.items()
             if str(key) != id_column and isinstance(value, (str, int, float, bool))
         }
+        metadata.update({
+            str(key): value for key, value in dict(selection_metadata or {}).items()
+            if isinstance(value, (str, int, float, bool))
+        })
         WorkbenchSelectionService(_application_state_controller().state).select(
             selection_target, str(selected_id), metadata
         )
@@ -10577,6 +10583,7 @@ def _render_project_exports_panel(project: ProjectRecord, logger) -> None:
             id_column="Export ID",
             selection_target="export",
             selection_label_column="Название",
+            selection_metadata={"project_id": project.id},
         )
         records_by_id = {record.id: record for record in records}
         selected_id = str((selected_row or {}).get("Export ID") or next(iter(records_by_id)))
@@ -11069,6 +11076,7 @@ def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
             id_column="Calculation ID",
             selection_target="calculation",
             selection_label_column="Источник",
+            selection_metadata={"project_id": project.id},
         )
         records_by_id = {record.id: record for record in records}
         selected_id = str((selected_row or {}).get("Calculation ID") or next(iter(records_by_id)))
@@ -12264,6 +12272,80 @@ def legacy_ui_requested(environ: dict[str, str] | None = None) -> bool:
     return str(source.get(LEGACY_UI_ENV_VAR, "")).strip().lower() in _LEGACY_UI_TRUE_VALUES
 
 
+def _process_workbench_property_action(logger) -> None:
+    """Execute one requested Properties action at the application boundary."""
+
+    from core.workbench_property_actions import WorkbenchPropertyActionService
+    from core.workbench_context import WorkbenchSelectionService
+    from core.workbench_controller import build_workbench_controller
+
+    state = _application_state_controller().state
+    action_service = WorkbenchPropertyActionService(state)
+    request = action_service.consume()
+    if not request:
+        return
+
+    action_id = str(request.get("action_id") or "")
+    target = str(request.get("target") or "")
+    object_id = str(request.get("object_id") or "")
+    metadata = dict(request.get("metadata", {}) or {})
+    project_id = str(metadata.get("project_id") or _application_state_controller().context().project_id or DEFAULT_PROJECT_ID)
+    confirmed = bool(request.get("confirmed"))
+
+    try:
+        if action_id in {"open", "download"}:
+            navigation = {
+                "las": "nav.las_workspace", "dataset": "nav.data", "calculation": "nav.data",
+                "export": "nav.exports", "report": "nav.reports", "project": "nav.dashboard",
+            }.get(target, "nav.dashboard")
+            build_workbench_controller(state).select_navigation(navigation)
+            action_service.set_result(success=True, message="Рабочая область выбранного объекта открыта.", action_id=action_id)
+            return
+
+        if action_id == "verify":
+            if target == "calculation":
+                integrity = check_project_calculation_integrity(LAS_CORRELATION_PROJECTS_ROOT, project_id, object_id)
+                message = "Проверка целостности пройдена." if integrity.ok else "Проверка обнаружила проблемы: " + "; ".join(integrity.messages)
+                action_service.set_result(success=integrity.ok, message=message, action_id=action_id)
+            elif target == "dataset":
+                section = str(metadata.get("section") or "")
+                records = _dataset_manager_service().list_records(project_id, section, include_archived=True)
+                exists = any(str(getattr(record, "id", "")) == object_id for record in records)
+                action_service.set_result(success=exists, message="Dataset зарегистрирован и доступен." if exists else "Dataset отсутствует в manifest.", action_id=action_id)
+            elif target == "las":
+                exists = any(record.id == object_id for record in _las_manager_service().list_files(project_id, include_archived=True))
+                action_service.set_result(success=exists, message="LAS зарегистрирован и доступен." if exists else "LAS не найден в проекте.", action_id=action_id)
+            else:
+                action_service.set_result(success=True, message="Объект доступен.", action_id=action_id)
+            return
+
+        if action_id in {"delete", "archive"} and not confirmed:
+            raise ValueError("Опасное действие не подтверждено точным ID объекта.")
+
+        backup = create_project_backup(LAS_CORRELATION_PROJECTS_ROOT, project_id, f"Before Properties {action_id} {target} {object_id}")
+        if action_id == "archive" and target == "las":
+            _las_manager_service().archive_file(project_id, object_id)
+            message = f"LAS архивирован. Backup: {backup.file_name}."
+        elif action_id == "delete" and target == "dataset":
+            section = str(metadata.get("section") or "")
+            result = _dataset_manager_service().delete_selected(project_id, section, (object_id,))
+            message = f"Dataset удалён: {result.deleted}. Backup: {backup.file_name}."
+        elif action_id == "delete" and target == "export":
+            result = _export_manager_service().delete_export(project_id, object_id)
+            message = ("Экспорт удалён." if result.deleted else "Экспорт уже отсутствует.") + f" Backup: {backup.file_name}."
+        elif action_id == "delete" and target == "calculation":
+            deleted = project_calculations.delete_project_calculation(LAS_CORRELATION_PROJECTS_ROOT, project_id, object_id)
+            _index_manager().sync_project_storage(project_id)
+            message = ("Расчёт удалён." if deleted else "Расчёт уже отсутствует.") + f" Backup: {backup.file_name}."
+        else:
+            raise ValueError(f"Действие пока не поддерживается: {target}/{action_id}")
+        WorkbenchSelectionService(state).clear("properties_action_completed")
+        action_service.set_result(success=True, message=message, action_id=action_id)
+    except Exception as exc:
+        logger.exception("workbench_property_action_failed target=%s object_id=%s action=%s", safe_log_value(target), safe_log_value(object_id), safe_log_value(action_id))
+        action_service.set_result(success=False, message=f"Не удалось выполнить действие: {exc}", action_id=action_id)
+
+
 def _run_modern_workbench() -> None:
     """Render Modern Workbench as the production application entry point."""
 
@@ -12273,6 +12355,7 @@ def _run_modern_workbench() -> None:
     from core.streamlit_runtime_compat import configure_streamlit_runtime_log_capture
     logger = configure_streamlit_runtime_log_capture()
     logger.info("modern_workbench_started")
+    _process_workbench_property_action(logger)
     results = render_streamlit_workbench(_application_state_controller().state, st)
     if any(result.executed for result in results):
         st.rerun()

@@ -446,7 +446,7 @@ Roadmap изменяется только когда:
 - [x] Publish selected Calculation rows to Properties.
 - [x] Publish selected Export rows to Properties.
 - [x] Remove duplicate selectors below unified grids.
-- [ ] Move contextual object actions into Properties.
+- [x] Move contextual object actions into Properties.
 - [ ] Add multi-selection and bulk actions.
 - [ ] Extend selection to all Project Database tables.
 
@@ -458,5 +458,5 @@ Roadmap изменяется только когда:
 - [x] Synchronize Explorer selection with Properties through WorkbenchSelectionService.
 - [x] Add compact ready/warning/error/empty status markers.
 - [ ] Add persisted report and correlation nodes after their repositories are available.
-- [ ] Move contextual actions to Properties.
+- [x] Move contextual actions to Properties.
 - [ ] Add safe multi-selection and bulk actions.

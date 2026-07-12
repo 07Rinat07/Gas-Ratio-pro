@@ -1227,3 +1227,20 @@ def read_project_calculation_metadata(
 ) -> dict[str, Any]:
     data = read_project_calculation_file_bytes(root, project_id, calculation_id, "metadata")
     return json.loads(data.decode("utf-8"))
+
+
+def delete_project_calculation(root: Path | str, project_id: str, calculation_id: str) -> bool:
+    """Permanently delete one saved calculation directory.
+
+    Backup creation and project-index synchronization are intentionally owned by
+    the calling application/service boundary.
+    """
+    import shutil
+    clean_id = _safe_calculation_id(calculation_id)
+    target = _calculation_dir(root, project_id, clean_id)
+    if not target.exists():
+        return False
+    if not target.is_dir():
+        raise ValueError(f"Calculation path is not a directory: {clean_id}")
+    shutil.rmtree(target)
+    return True

@@ -11,6 +11,7 @@ from typing import Any, Mapping, MutableMapping
 
 from core.workbench_context import WorkspaceContext
 from core.workbench_las_primary_module import WorkbenchLasPrimaryModuleService
+from core.workbench_property_actions import property_actions_for, WORKBENCH_PROPERTY_ACTION_RESULT_KEY, WORKBENCH_PROPERTY_TECHNICAL_KEY
 
 
 def _text(value: Any, fallback: str = "—") -> str:
@@ -32,6 +33,9 @@ class WorkbenchUIProviderPayload:
     properties: tuple[dict[str, Any], ...]
     status_items: tuple[dict[str, Any], ...]
     workspace_runtime: dict[str, Any]
+    property_actions: tuple[dict[str, Any], ...] = ()
+    property_action_result: dict[str, Any] | None = None
+    show_technical_properties: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -39,6 +43,9 @@ class WorkbenchUIProviderPayload:
             "properties": [dict(item) for item in self.properties],
             "status_items": [dict(item) for item in self.status_items],
             "workspace_runtime": dict(self.workspace_runtime),
+            "property_actions": [dict(item) for item in self.property_actions],
+            "property_action_result": dict(self.property_action_result or {}),
+            "show_technical_properties": bool(self.show_technical_properties),
         }
 
 
@@ -91,6 +98,11 @@ class WorkbenchUIProviderService:
         target = str(selected.get("target") or "").strip()
         object_id = str(selected.get("object_id") or "").strip()
         metadata = dict(selected.get("metadata", {}) or {})
+        show_technical_properties = bool(self.state.get(WORKBENCH_PROPERTY_TECHNICAL_KEY, False))
+        technical_property_keys = {
+            "uuid", "sha-256", "sha256", "checksum", "key", "object_id", "dataset id",
+            "calculation id", "export id", "source id", "well id", "path", "relative path",
+        }
         properties: list[dict[str, Any]] = []
         if object_id:
             target_titles = {
@@ -114,10 +126,16 @@ class WorkbenchUIProviderService:
             )
             emitted: set[str] = set()
             for key in preferred_order:
-                if key in metadata and isinstance(metadata[key], (str, int, float, bool)) or (key in metadata and metadata[key] is None):
+                normalized_key = key.replace("_", " ").strip().lower()
+                if not show_technical_properties and normalized_key in technical_property_keys:
+                    continue
+                if (key in metadata and isinstance(metadata[key], (str, int, float, bool))) or (key in metadata and metadata[key] is None):
                     properties.append({"label": key.replace("_", " ").title(), "value": _text(metadata[key])})
                     emitted.add(key)
             for key, value in sorted(metadata.items()):
+                normalized_key = str(key).replace("_", " ").strip().lower()
+                if not show_technical_properties and normalized_key in technical_property_keys:
+                    continue
                 if key not in emitted and (isinstance(value, (str, int, float, bool)) or value is None):
                     properties.append({"label": str(key).replace("_", " ").title(), "value": _text(value)})
         else:
@@ -160,4 +178,9 @@ class WorkbenchUIProviderService:
             "scale": scale,
             "raw_dataframe_included": False,
         }
-        return WorkbenchUIProviderPayload(tuple(tree), tuple(properties), status_items, workspace_runtime)
+        return WorkbenchUIProviderPayload(
+            tuple(tree), tuple(properties), status_items, workspace_runtime,
+            property_actions=property_actions_for(target) if object_id else (),
+            property_action_result=dict(self.state.get(WORKBENCH_PROPERTY_ACTION_RESULT_KEY, {}) or {}),
+            show_technical_properties=show_technical_properties,
+        )

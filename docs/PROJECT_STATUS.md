@@ -151,8 +151,13 @@ Completed:
 - stable technical identifiers retained but hidden by default;
 - selected object metadata prepared for the Properties pane.
 
+Completed additionally:
+- object-specific actions moved into a contextual Properties action group;
+- destructive actions require exact object-ID confirmation and automatic ZIP backup;
+- technical properties are hidden by default and can be toggled in Properties;
+- integrity checks are available for selected LAS, dataset and calculation objects.
+
 Next:
-- move object-specific actions into a contextual Properties action group;
 - add multi-row selection and bulk action contracts;
 - complete the same selection behavior for remaining Project Database tables.
 
@@ -167,6 +172,5 @@ Completed:
 - Status markers distinguish ready, warning, error and empty nodes without treating missing data as an application error.
 
 Next:
-- move object-specific actions into contextual Properties groups;
 - add persisted reports and correlation objects to the project tree;
 - add context actions and optional multi-selection without introducing destructive right-click shortcuts.

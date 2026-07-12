@@ -726,6 +726,15 @@ class WorkbenchShellBuilder:
         register_workbench_tool_action_commands(self.state, self.command_registry)
         from core.workbench_las_primary_module import register_workbench_las_primary_commands
         register_workbench_las_primary_commands(self.state, self.command_registry)
+        from core.workbench_property_actions import (
+            WORKBENCH_PROPERTY_ACTION_COMMAND_ID, WorkbenchPropertyActionService,
+        )
+        from core.command_framework import WorkbenchCommand
+        property_actions = WorkbenchPropertyActionService(self.state)
+        self.command_registry.register(
+            WorkbenchCommand(WORKBENCH_PROPERTY_ACTION_COMMAND_ID, "Properties action", "properties", "Request a context action for the selected object."),
+            property_actions.request, replace=True,
+        )
 
     def build(
         self,
