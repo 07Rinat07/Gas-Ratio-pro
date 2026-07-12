@@ -1966,3 +1966,17 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 ### Validation
 - Complete suite executed in eight isolated segments: **2003 passed, 0 failed**.
 - Python modules compiled successfully.
+
+## v221.3 — Tablet Visibility & Export Stability Hotfix
+
+### Fixed
+- Increased contrast and line width of all well-log tablet curves on the dark screen theme.
+- Strengthened hydrocarbon interval bands, selected interval borders and QC markers.
+- Separated the three engineering track headings to prevent overlap in the upper-left corner.
+- Validated stored print-range mode before rendering the export form to prevent invalid-state crashes after interval/profile changes.
+- Preserved the selected client report profile through the hydrocarbon report payload and PDF/DOCX metadata.
+- Corrected report metadata label to `Для заказчика` for the client profile.
+
+### Validation
+- 47 targeted tablet, plot-engine, PDF, DOCX and export regression tests passed.
+- Python modules compiled successfully.

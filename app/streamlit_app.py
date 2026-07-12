@@ -9245,7 +9245,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                     options=[option.label for option in profile_options],
                     index=0,
                     key=f"presentation_report_profile_{active_project.id}",
-                    help="Инженерный профиль скрывает техническую диагностику; экспертный добавляет приложения и таблицы проверки.",
+                    help="Отчёт для заказчика содержит краткие выводы без технических приложений; инженерный отчёт включает расширенные расчётные материалы.",
                 )
                 selected_format_label = st.selectbox(
                     "Формат экспорта",
@@ -9257,8 +9257,12 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 if selected_interval is not None:
                     print_mode_options.insert(0, "Выбранный пласт")
                 print_mode_key = f"presentation_print_depth_mode_{active_project.id}"
-                if selected_interval is not None and print_mode_key not in _application_state_controller().state:
-                    _application_state_controller().state[print_mode_key] = "Выбранный пласт"
+                export_state = _application_state_controller().state
+                stored_print_mode = export_state.get(print_mode_key)
+                if stored_print_mode not in print_mode_options:
+                    export_state[print_mode_key] = (
+                        "Выбранный пласт" if selected_interval is not None else "Текущий интервал графиков"
+                    )
                 print_mode = st.radio(
                     "Интервал печати",
                     options=tuple(print_mode_options),
@@ -9316,8 +9320,8 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                     type="primary",
                 )
 
-            selected_profile = next(option for option in profile_options if option.label == selected_profile_label)
-            selected_format = next(option for option in format_options if option.label == selected_format_label)
+            selected_profile = next((option for option in profile_options if option.label == selected_profile_label), profile_options[0])
+            selected_format = next((option for option in format_options if option.label == selected_format_label), format_options[0])
 
             if prepare_export:
                 generation_started = perf_counter()

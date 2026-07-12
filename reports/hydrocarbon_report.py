@@ -359,7 +359,7 @@ def build_hydrocarbon_report_payload(
             source_label=source_label,
             project_label=project_label,
             depth_label=depth_label,
-            report_profile=report_profile if report_profile in {"engineering", "expert"} else "engineering",
+            report_profile=report_profile if report_profile in {"client", "engineering", "expert"} else "engineering",
         ),
         depth_column=depth_column,
         include_plot=include_plot,

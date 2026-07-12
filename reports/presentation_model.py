@@ -30,7 +30,8 @@ class PresentationMetadata:
     subtitle: str = "Инженерное заключение по вероятным УВ-интервалам"
 
     def as_report_rows(self) -> tuple[tuple[str, str], ...]:
-        profile = "Инженерный" if self.report_profile == "engineering" else "Экспертный"
+        profile_map = {"client": "Для заказчика", "engineering": "Инженерный", "expert": "Экспертный"}
+        profile = profile_map.get(str(self.report_profile).strip().lower(), "Инженерный")
         rows = (
             ("Источник данных", self.source_label),
             ("Проект", self.project_label),

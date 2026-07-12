@@ -12,14 +12,14 @@ from palettes.plot_engine import ENGINEERING_COLORS, THEME, apply_depth_axis, ap
 
 
 DEFAULT_TABLET_COLORS: tuple[str, ...] = (
-    "#172033",
-    ENGINEERING_COLORS["accent"],
-    ENGINEERING_COLORS["primary"],
-    ENGINEERING_COLORS["secondary"],
-    ENGINEERING_COLORS["gas"],
-    "#9467bd",
-    "#17becf",
-    "#8c564b",
+    "#ff6b5f",
+    "#00d6a3",
+    "#4da3ff",
+    "#c084fc",
+    "#ffb020",
+    "#22d3ee",
+    "#f472b6",
+    "#f59e8b",
 )
 PREFERRED_TABLET_COLUMNS: tuple[str, ...] = (
     "gr",
@@ -762,16 +762,16 @@ def build_well_log_tablet(
         selected_depth=selected_depth,
     )
     engineering_tracks_enabled = bool(reservoir_intervals)
-    engineering_titles = ["Тип пласта", "Достоверность", "Рекомендации"] if engineering_tracks_enabled else []
+    engineering_titles = ["Тип<br>пласта", "Достовер-<br>ность", "Рекомендации"] if engineering_tracks_enabled else []
     titles = engineering_titles + [_track_title(track, plot_df[track.column]) for track in selected_tracks]
     # Engineering columns need enough width for a compact identity, a confidence bar
     # and a QC marker. Long recommendations are intentionally moved to hover text.
-    widths = ([0.54, 0.38, 0.28] if engineering_tracks_enabled else []) + [1.0] * len(selected_tracks)
+    widths = ([0.78, 0.62, 0.62] if engineering_tracks_enabled else []) + [1.0] * len(selected_tracks)
     fig = make_subplots(
         rows=1,
         cols=len(titles),
         shared_yaxes=True,
-        horizontal_spacing=0.012,
+        horizontal_spacing=0.018,
         subplot_titles=titles,
         column_widths=widths,
     )
@@ -825,9 +825,9 @@ def build_well_log_tablet(
                 y=depth,
                 mode="lines",
                 name=track.label or track.column,
-                line={"color": color, "width": 1.6},
+                line={"color": color, "width": 2.35},
                 fill=fill,
-                fillcolor=_hex_to_rgba(color, 0.18),
+                fillcolor=_hex_to_rgba(color, 0.24),
                 hovertemplate=f"{track.label or track.column}: %{{x:.4g}}<br>Глубина: %{{y:.2f}} м<extra></extra>",
             ),
             row=1,
@@ -917,8 +917,8 @@ def build_well_log_tablet(
                 "y0": top_depth,
                 "y1": bottom_depth,
                 "fillcolor": color,
-                "opacity": 0.16 if is_selected else 0.045,
-                "line": {"color": color, "width": 1.8 if is_selected else 0},
+                "opacity": 0.28 if is_selected else 0.10,
+                "line": {"color": color, "width": 2.4 if is_selected else 0.7},
                 "layer": "below",
             }
         )
@@ -937,7 +937,7 @@ def build_well_log_tablet(
                     "y1": bottom_depth,
                     "fillcolor": color,
                     "opacity": 0.95 if is_selected else 0.72,
-                    "line": {"color": "#ffffff" if is_selected else color, "width": 1.8 if is_selected else 0.5},
+                    "line": {"color": "#ffffff" if is_selected else color, "width": 2.4 if is_selected else 0.7},
                     "layer": "above",
                 }
             )
@@ -1060,10 +1060,10 @@ def build_well_log_tablet(
                 y=[point["depth"] for point in recommendation_points],
                 mode="markers",
                 marker={
-                    "size": 9,
+                    "size": 12,
                     "symbol": [point["symbol"] for point in recommendation_points],
                     "color": [point["color"] for point in recommendation_points],
-                    "line": {"color": "#ffffff", "width": 0.8},
+                    "line": {"color": "#ffffff", "width": 1.35},
                 },
                 customdata=[point["hover"] for point in recommendation_points],
                 hovertemplate="%{customdata}<extra></extra>",
@@ -1131,9 +1131,18 @@ def build_well_log_tablet(
 
     apply_engineering_layout(
         fig, title="Интерпретационный планшет", height=height,
-        margin={"l": 82, "r": 86, "t": 112, "b": 54}, showlegend=False,
+        margin={"l": 86, "r": 96, "t": 138, "b": 62}, showlegend=False,
     )
     fig.update_layout(shapes=shapes, annotations=list(fig.layout.annotations) + annotations)
+    # Subplot titles are generated as annotations. Narrow engineering tracks
+    # need explicit spacing and compact typography to avoid collisions.
+    subplot_title_count = len(titles)
+    if getattr(fig.layout, "annotations", None):
+        for annotation in list(fig.layout.annotations)[:subplot_title_count]:
+            annotation.font = {"family": THEME.font_family, "size": 11, "color": "#f8fafc"}
+            annotation.y = 1.045
+            annotation.yanchor = "bottom"
+            annotation.align = "center"
     normalize_trace_style(fig)
     return fig
 
