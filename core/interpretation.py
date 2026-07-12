@@ -60,7 +60,7 @@ def engineering_interval_summary(df: pd.DataFrame, *, depth_column: str = "depth
     """
     if df is None or df.empty:
         return pd.DataFrame(columns=[
-            "Интервал, м", "Мощность, м", "Вероятный флюид",
+            "ID", "Интервал, м", "Мощность, м", "Вероятный флюид",
             "Достоверность", "Уровень решения", "Инженерное заключение",
         ])
 
@@ -71,6 +71,10 @@ def engineering_interval_summary(df: pd.DataFrame, *, depth_column: str = "depth
 
     result = detect_hydrocarbon_intervals(df, depth_column=depth_column)
     rows: list[dict[str, object]] = []
+    interval_ids = {
+        id(interval): f"HC-{position:03d}"
+        for position, interval in enumerate(result.intervals, start=1)
+    }
     for interval in sorted(
         result.intervals,
         key=lambda item: (-int(item.confidence_score or 0), -float(item.thickness or 0), float(item.top)),
@@ -83,6 +87,7 @@ def engineering_interval_summary(df: pd.DataFrame, *, depth_column: str = "depth
             else interval.engineering_note or interval.interpretation
         )
         rows.append({
+            "ID": interval_ids[id(interval)],
             "Интервал, м": f"{interval.top:g}–{interval.base:g}",
             "Мощность, м": round(float(interval.thickness or 0.0), 2),
             "Вероятный флюид": FLUID_TYPE_LABELS.get(interval.fluid_type, interval.fluid_type),

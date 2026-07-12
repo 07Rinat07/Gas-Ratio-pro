@@ -2679,6 +2679,36 @@ def _plotly_figures_to_html(
     )
 
 
+
+
+def _selected_dataframe_rows(event: object) -> list[int]:
+    """Return selected dataframe row indices for Streamlit event/dict variants."""
+    selection = getattr(event, "selection", None)
+    if selection is None and isinstance(event, dict):
+        selection = event.get("selection")
+    rows = getattr(selection, "rows", None)
+    if rows is None and isinstance(selection, dict):
+        rows = selection.get("rows")
+    if not rows:
+        return []
+    result: list[int] = []
+    for value in rows:
+        try:
+            result.append(int(value))
+        except (TypeError, ValueError):
+            continue
+    return result
+
+
+def _selected_interval_id_from_table(event: object, table: pd.DataFrame) -> str:
+    rows = _selected_dataframe_rows(event)
+    if not rows or table is None or table.empty or "ID" not in table.columns:
+        return ""
+    row_index = rows[0]
+    if row_index < 0 or row_index >= len(table):
+        return ""
+    return str(table.iloc[row_index]["ID"] or "").strip()
+
 def _dataframe_to_report_table(title: str, df: pd.DataFrame) -> HtmlReportTable | None:
     if df is None or df.empty:
         return None
@@ -7479,12 +7509,16 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
     if workspace_interval_summary.empty:
         st.info("По текущему расчету уверенные УВ-интервалы не выделены.")
     else:
-        st.dataframe(
+        workspace_table_event = st.dataframe(
             workspace_interval_summary,
             width="stretch",
             height=360,
             hide_index=True,
+            on_select="rerun",
+            selection_mode="single-row",
+            key="workspace_engineering_interval_table",
             column_config={
+                "ID": st.column_config.TextColumn("ID", width="small"),
                 "Интервал, м": st.column_config.TextColumn("Интервал, м", width="medium"),
                 "Мощность, м": st.column_config.NumberColumn("Мощность, м", format="%.2f"),
                 "Вероятный флюид": st.column_config.TextColumn("Вероятный флюид", width="medium"),
@@ -7495,6 +7529,12 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
                 "Инженерное заключение": st.column_config.TextColumn("Инженерное заключение", width="large"),
             },
         )
+        table_interval_id = _selected_interval_id_from_table(
+            workspace_table_event,
+            workspace_interval_summary,
+        )
+        if table_interval_id:
+            state_controller.update_values({"selected_reservoir_interval_id": table_interval_id})
 
     interval_indices = [
         int(index)
@@ -7540,19 +7580,17 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         ):
             st.session_state[workspace_selection_key] = remembered_interval_id
             st.session_state[workspace_synced_key] = remembered_interval_id
-        selected_reservoir_interval_id = st.selectbox(
-            "Выбранный пласт для Pixler и ternary",
-            options=option_ids,
-            index=default_interval_position,
-            format_func=lambda value: _interval_display_label(
-                next(interval for overlay, interval in interval_pairs if overlay.interval_id == value),
-                value,
-            ),
-            key=workspace_selection_key,
-            help=(
-                "Этот выбор общий для вкладок Работа с данными и Интерпретация, "
-                "а также используется как интервал по умолчанию для PDF/DOCX."
-            ),
+        selected_reservoir_interval_id = (
+            str(state_controller.get_value("selected_reservoir_interval_id", "") or "")
+            if str(state_controller.get_value("selected_reservoir_interval_id", "") or "") in option_ids
+            else option_ids[default_interval_position]
+        )
+        st.caption(
+            "Выбран из инженерной таблицы: "
+            + _interval_display_label(
+                next(interval for overlay, interval in interval_pairs if overlay.interval_id == selected_reservoir_interval_id),
+                selected_reservoir_interval_id,
+            )
         )
         selected_reservoir_overlay, selected_reservoir_interval = next(
             pair for pair in interval_pairs
@@ -8368,15 +8406,15 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         ):
             st.session_state[interpretation_selection_key] = remembered_id
             st.session_state[interpretation_synced_key] = remembered_id
-        selected_interval_id = st.selectbox(
-            "Выбранный пласт / интервал",
-            options=option_ids,
-            index=default_pos,
-            format_func=lambda value: _interval_display_label(
-                next(interval for overlay, interval in selectable_pairs if overlay.interval_id == value),
-                value,
-            ),
-            key=interpretation_selection_key,
+        selected_interval_id = (
+            remembered_id if remembered_id in option_ids else option_ids[default_pos]
+        )
+        st.caption(
+            "Выбран из инженерной таблицы: "
+            + _interval_display_label(
+                next(interval for overlay, interval in selectable_pairs if overlay.interval_id == selected_interval_id),
+                selected_interval_id,
+            )
         )
         selected_overlay, selected_interval = next(
             pair for pair in selectable_pairs if pair[0].interval_id == selected_interval_id
@@ -8936,12 +8974,16 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     if engineering_summary.empty:
         st.info("В выбранном диапазоне уверенные УВ-интервалы не выделены.")
     else:
-        st.dataframe(
+        interpretation_table_event = st.dataframe(
             engineering_summary,
             width="stretch",
             height=430,
             hide_index=True,
+            on_select="rerun",
+            selection_mode="single-row",
+            key="interpretation_engineering_interval_table",
             column_config={
+                "ID": st.column_config.TextColumn("ID", width="small"),
                 "Интервал, м": st.column_config.TextColumn("Интервал, м", width="medium"),
                 "Мощность, м": st.column_config.NumberColumn("Мощность, м", format="%.2f"),
                 "Вероятный флюид": st.column_config.TextColumn("Вероятный флюид", width="medium"),
@@ -8952,6 +8994,30 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 "Инженерное заключение": st.column_config.TextColumn("Инженерное заключение", width="large"),
             },
         )
+        table_interval_id = _selected_interval_id_from_table(
+            interpretation_table_event,
+            engineering_summary,
+        )
+        current_interval_id = str(
+            state_controller.get_value("selected_reservoir_interval_id", "") or ""
+        )
+        if table_interval_id and table_interval_id != current_interval_id:
+            interval_lookup = {
+                str(overlay.interval_id): interval
+                for overlay, interval in zip(all_reservoir_overlays, detected_interval_result.intervals)
+            } if detected_interval_result is not None else {}
+            table_interval = interval_lookup.get(table_interval_id)
+            update_payload = {"selected_reservoir_interval_id": table_interval_id}
+            if table_interval is not None:
+                update_payload.update({
+                    "selected_reservoir_depth": (
+                        float(table_interval.top) + float(table_interval.base)
+                    ) / 2.0,
+                    "selected_reservoir_top": float(table_interval.top),
+                    "selected_reservoir_bottom": float(table_interval.base),
+                })
+            state_controller.update_values(update_payload)
+            st.rerun()
 
     st.subheader("Расчетные данные выбранного интервала")
     st.caption("Таблица прокручивается вертикально и горизонтально; служебные колонки можно изучать при необходимости.")

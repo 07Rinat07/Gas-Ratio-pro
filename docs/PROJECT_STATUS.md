@@ -290,3 +290,5 @@ The interpretation workspace now supports whole-well overview and detailed inter
 ## Shared interval selection — current status
 
 The common `selected_reservoir_interval_id` now controls the reservoir selector in both Data Workspace and Interpretation. Pixler and ternary use the full selected reservoir interval rather than an unrelated selected dataframe row. The selected depth remains a point marker inside that interval. Professional PDF/DOCX export defaults to the selected reservoir top/base while preserving current-view and manual print ranges.
+
+- Инженерные таблицы интервалов поддерживают single-row selection и являются основным источником выбранного пласта; отдельные селекторы удалены.

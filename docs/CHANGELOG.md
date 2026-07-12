@@ -1799,3 +1799,5 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added bidirectional synchronization between Data Workspace and Interpretation selectors with rerun-safe state handling.
 - Changed professional PDF/DOCX export to default to the selected reservoir interval.
 - Kept explicit current-view and manual depth-range export modes.
+
+- Changed: выбор УВ-интервала перенесён в инженерные таблицы; клик по строке синхронизирует графики, планшет, паспорт и диапазон PDF/DOCX.

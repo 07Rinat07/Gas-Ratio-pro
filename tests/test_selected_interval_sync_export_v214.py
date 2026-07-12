@@ -17,7 +17,9 @@ def test_selected_interval_print_range_falls_back_safely():
 def test_data_workspace_pixler_and_ternary_use_shared_interval_contract():
     source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
     assert '"selected_reservoir_interval_id"' in source
-    assert '"Выбранный пласт для Pixler и ternary"' in source
+    assert 'workspace_engineering_interval_table' in source
+    assert 'selection_mode="single-row"' in source
+    assert '_selected_interval_id_from_table' in source
     assert "pixler_interval_frame = calculated_df.loc[" in source
     assert "build_pixler_palette(" in source
     assert "build_ternary_palette(" in source

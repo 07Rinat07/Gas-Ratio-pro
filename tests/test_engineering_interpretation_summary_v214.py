@@ -17,6 +17,8 @@ def test_engineering_summary_returns_intervals_not_row_counts() -> None:
         "interpretation": ["Газовая залежь"] * 3 + ["Нефтяная залежь"] * 2,
     })
     result = engineering_interval_summary(df)
+    assert "ID" in result.columns
+    assert result["ID"].str.match(r"HC-\d{3}").all()
     assert "Интервал, м" in result.columns
     assert "Вероятный флюид" in result.columns
     assert "Инженерное заключение" in result.columns

@@ -618,3 +618,5 @@ Next: use the same selection context in the Data workspace Pixler and ternary se
 - [x] Keep the selected reservoir synchronized between Data Workspace and Interpretation without overwriting a new user choice during rerun.
 - [x] Use the selected reservoir top/base as the default PDF/DOCX print interval.
 - [x] Preserve manual and current-graph print interval modes as explicit alternatives.
+
+- [x] Выбор инженерного интервала кликом по строке таблицы с общей синхронизацией Pixler, ternary, Depth Panel, паспорта и PDF/DOCX.
