@@ -8227,10 +8227,14 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     )
     tablet_fill = bool(render_settings.tablet_fill)
     if render_settings.depth_range is None:
+        # ``None`` is the persisted representation of "full interval".  From
+        # this point onward the renderer, report metadata and export helpers all
+        # require a concrete iterable range, so resolve it once and keep the full
+        # dataframe unchanged.
         filtered_df = calculated_df.copy()
-        depth_range = None
+        depth_range = _effective_depth_range(filtered_df, None)
     else:
-        depth_range = render_settings.depth_range
+        depth_range = _effective_depth_range(calculated_df, render_settings.depth_range)
         filtered_df = _filter_by_depth_range(calculated_df, depth_range[0], depth_range[1])
     if filtered_df.empty:
         st.error("В примененном диапазоне глубин нет строк. Измените настройки и повторно постройте графики.")

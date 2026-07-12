@@ -1719,3 +1719,7 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Fixed `TypeError: 'NoneType' object is not iterable` after successful graph rendering when the full depth interval is selected.
 - Added a concrete effective depth interval for export metadata while preserving `None` as the plotting signal for the full interval.
 - Removed duplicate Streamlit widget default/session-state warnings for tablet markers and zones.
+
+## 2026-07-12 — Interpretation concrete depth range hotfix
+- Resolved persisted full-interval `None` into a concrete depth range before report/export metadata is built.
+- Added regression coverage for full and manual depth intervals.
