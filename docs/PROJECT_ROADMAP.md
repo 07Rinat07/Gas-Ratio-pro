@@ -1,3 +1,11 @@
+## v216 — Graphics Recovery (completed)
+
+- Unified depth-track titles, legends, margins and engineering hover labels.
+- Removed renderer implementation terms from tablet track headers.
+- Stabilized tablet fill rendering without exposing `fill`, `line` or scale-mode captions.
+- Confirmed Pixler, ternary, depth-panel, tablet, print and export regression tests.
+- Next priority: Sprint 2 — Engineering Navigation.
+
 
 ## v215 — Engineering UI cleanup (in progress)
 

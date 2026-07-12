@@ -827,7 +827,7 @@ def build_well_log_tablet(
                 line={"color": color, "width": 1.6},
                 fill=fill,
                 fillcolor=_hex_to_rgba(color, 0.18),
-                hovertemplate=f"{track.column}=%{{x}}<br>Depth=%{{y}}<extra></extra>",
+                hovertemplate=f"{track.label or track.column}: %{{x:.4g}}<br>Глубина: %{{y:.2f}} м<extra></extra>",
             ),
             row=1,
             col=subplot_col,
@@ -1131,8 +1131,9 @@ def build_well_log_tablet(
     fig.update_layout(
         title="Интерпретационный планшет",
         height=height,
-        margin={"l": 82, "r": 86, "t": 122, "b": 54},
+        margin={"l": 82, "r": 86, "t": 112, "b": 54},
         showlegend=False,
+        hovermode="closest",
         shapes=shapes,
         annotations=list(fig.layout.annotations) + annotations,
     )

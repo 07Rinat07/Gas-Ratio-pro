@@ -4,6 +4,9 @@ import pandas as pd
 import plotly.graph_objects as go
 
 
+ENGINEERING_GRAPH_MARGIN = {"l": 72, "r": 28, "t": 68, "b": 64}
+ENGINEERING_LEGEND = {"orientation": "h", "y": -0.16, "x": 0.0, "xanchor": "left"}
+
 INTERPRETATION_COLORS: dict[str, str] = {
     "Газовая залежь": "#ff9f1c",
     "Жирный газ / конденсат": "#e76f51",
@@ -90,6 +93,9 @@ def _build_depth_tracks(
                 y=depth,
                 mode="lines",
                 name=column,
+                line={"width": 1.6},
+                connectgaps=False,
+                hovertemplate=f"{column}: %{{x:.4g}}<br>Глубина: %{{y:.2f}} м<extra></extra>",
             )
         )
 
@@ -106,8 +112,9 @@ def _build_depth_tracks(
     fig.update_layout(
         title=title,
         height=height,
-        margin={"l": 70, "r": 25, "t": 55, "b": 45},
-        legend={"orientation": "h", "y": -0.18},
+        margin=ENGINEERING_GRAPH_MARGIN,
+        legend=ENGINEERING_LEGEND,
+        hovermode="closest",
     )
     fig.update_xaxes(title=x_title, zeroline=False)
     if x_range is not None:
@@ -139,8 +146,8 @@ def build_depth_gas_tracks(
     return _build_depth_tracks(
         df,
         ("c1", "c2", "c3", "ic4", "nc4", "ic5", "nc5"),
-        "Gas components by depth",
-        "Component value",
+        "Компоненты газа по глубине",
+        "Содержание компонента",
         depth_range=depth_range,
         x_range=x_range,
         height=height,
@@ -157,8 +164,8 @@ def build_depth_ratio_tracks(
     return _build_depth_tracks(
         df,
         ("wh", "bh", "ch", "bar2"),
-        "Gas ratios by depth",
-        "Ratio",
+        "Газовые коэффициенты по глубине",
+        "Значение коэффициента",
         depth_range=depth_range,
         x_range=x_range,
         height=height,
@@ -175,8 +182,8 @@ def build_depth_pixler_tracks(
     return _build_depth_tracks(
         df,
         ("c1_c2", "c1_c3", "c1_c4", "c1_c5"),
-        "Pixler ratios by depth",
-        "Pixler ratio",
+        "Коэффициенты Pixler по глубине",
+        "Значение коэффициента Pixler",
         depth_range=depth_range,
         x_range=x_range,
         height=height,
@@ -214,18 +221,18 @@ def build_depth_interpretation_track(
             mode="markers",
             marker={"size": 11, "color": colors},
             text=interpretations,
-            hovertemplate="Depth=%{y}<br>%{text}<extra></extra>",
-            name="interpretation",
+            hovertemplate="Глубина: %{y:.2f} м<br>%{text}<extra></extra>",
+            name="Интерпретация",
         )
     )
     fig.update_layout(
-        title="Interpretation markers by depth",
+        title="Интерпретация по глубине",
         height=height,
-        margin={"l": 70, "r": 25, "t": 55, "b": 85},
+        margin=ENGINEERING_GRAPH_MARGIN,
         showlegend=False,
     )
     fig.update_xaxes(
-        title="Interpretation",
+        title="Интерпретация",
         tickmode="array",
         tickvals=list(category_index.values()),
         ticktext=list(category_index.keys()),

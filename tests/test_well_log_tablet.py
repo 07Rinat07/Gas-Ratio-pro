@@ -210,8 +210,10 @@ def test_per_track_fill_modes_add_baseline_traces_and_titles():
     assert list(fig.data[2].x) == [20.0, 20.0]
     assert fig.data[1].fill == "tonextx"
     assert fig.data[3].fill == "tonextx"
-    assert "fill to left scale" in fig.layout.annotations[0].text
-    assert "fill to right scale" in fig.layout.annotations[1].text
+    assert fig.layout.annotations[0].text == "GR"
+    assert fig.layout.annotations[1].text == "C1"
+    assert "fill" not in fig.layout.annotations[0].text.lower()
+    assert "line" not in fig.layout.annotations[0].text.lower()
 
 
 def test_legacy_tablet_fill_still_maps_to_zero_fill():

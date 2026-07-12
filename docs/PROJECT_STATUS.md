@@ -1,3 +1,15 @@
+## Current increment: v216 — Graphics Recovery
+
+Status: **COMPLETED**
+
+Implemented:
+- restored and regression-checked Pixler, ternary, depth tracks and engineering tablet rendering;
+- unified engineer-facing graph titles, margins, legends and hover labels;
+- removed internal renderer terms from tablet headers;
+- verified 75 focused graphics, print and export tests.
+
+Next: **Sprint 2 — Engineering Navigation**.
+
 
 ## v215 — Engineering UI cleanup (in progress)
 

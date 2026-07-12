@@ -1,3 +1,12 @@
+## v216 — Graphics Recovery
+
+- Unified Russian engineer-facing titles for gas, Haworth ratio, Pixler and interpretation depth plots.
+- Standardized depth-plot margins, horizontal legends, line widths and hover formatting.
+- Removed internal fill/line/scale-mode wording from well-log tablet headers.
+- Added stable Russian depth/value hover labels to tablet curves.
+- Updated the tablet regression contract to prohibit renderer terminology in visible titles.
+- Passed 75 focused graphics, print and export tests.
+
 
 ## v215 — Engineering UI cleanup (in progress)
 
