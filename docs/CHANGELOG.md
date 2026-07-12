@@ -1,3 +1,13 @@
+# GAS RATIO PRO — Changelog
+
+## v214 — Workbench stabilization after live UI review
+
+- Converted saved calculations into an explicit project archive instead of treating them as current session data.
+- Prevented archived warning, integrity and export evaluation until the archive is explicitly opened.
+- Removed duplicate navigation and dock commands from the ribbon; it now contains only contextual module actions.
+- Hydrated Project Explorer calculation and artifact counters from the active project.
+- Added regression tests for archive gating, ribbon information architecture and Explorer counters.
+
 ## v214 — Explicit multi-well correlation build
 
 - Separated mutable LAS-correlation controls from the applied multi-well presentation snapshot.

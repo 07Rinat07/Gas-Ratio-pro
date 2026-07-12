@@ -83,6 +83,13 @@ Implemented in the current increment:
 - added immutable export snapshots bound to source signature and presentation revision;
 - connected completed artifact generation to the independent export revision and timing log.
 
+Workbench stabilization added after live UI review:
+
+- saved project calculations are treated as an archive, not as current session data;
+- archived warnings and exports are not evaluated until the user explicitly opens the archive;
+- the command ribbon is limited to contextual module actions and no longer duplicates top navigation or dock controls;
+- Project Explorer counts are hydrated from the active project instead of remaining decorative zeroes.
+
 Remaining v214 scope:
 
 - remove all widget default/session-state conflicts;

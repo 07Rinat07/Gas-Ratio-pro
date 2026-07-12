@@ -10605,14 +10605,26 @@ def _render_project_calculation_comparison(project: ProjectRecord, records: tupl
 def _render_project_calculations_panel(project: ProjectRecord, logger) -> None:
     all_records = list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)
     summary = summarize_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-    with st.expander("Сохраненные расчеты проекта", expanded=bool(all_records)):
-        st.caption(_project_calculations_summary_caption(summary))
+    with st.expander("Архив расчетов проекта", expanded=False):
+        st.caption(
+            "Сохраненные snapshots проекта не являются текущими загруженными данными. "
+            "Откройте архив явно, чтобы просмотреть или восстановить расчет."
+        )
         if all_records:
             metric_count, metric_rows, metric_warnings, metric_columns = st.columns(4)
-            metric_count.metric("Расчетов", summary.count)
-            metric_rows.metric("Строк", summary.total_rows)
-            metric_warnings.metric("Предупреждений", summary.total_warnings)
+            metric_count.metric("Сохранено", summary.count)
+            metric_rows.metric("Строк в архиве", summary.total_rows)
+            metric_warnings.metric("Диагностик в архиве", summary.total_warnings)
             metric_columns.metric("Колонок", len(summary.columns))
+            inspect_archive = st.checkbox(
+                "Показать сохраненные расчеты",
+                value=False,
+                key=f"project_calculation_archive_open_{project.id}",
+                help="До включения архив не читает metadata, таблицы и выгрузки сохраненных расчетов.",
+            )
+            if not inspect_archive:
+                st.info("Текущая рабочая сессия пуста. Архивные расчеты не загружены и не используются.")
+                return
         if not all_records:
             st.caption("В активном проекте пока нет сохраненных расчетов.")
             _render_project_calculation_actions(project, logger)
@@ -11614,6 +11626,19 @@ def _active_project_for_workbench(logger) -> ProjectRecord:
         _project_manager_service().touch_recent(project)
     except Exception:
         logger.exception("workbench_recent_project_touch_failed project_id=%s", safe_log_value(project.id))
+    try:
+        state.set_value(
+            "workbench_project_counts",
+            {
+                "calculations": len(list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)),
+                "correlations": 0,
+                "reports": 0,
+                "exports": 0,
+            },
+        )
+    except Exception:
+        logger.exception("workbench_project_counts_failed project_id=%s", safe_log_value(project.id))
+        state.set_value("workbench_project_counts", {})
     return project
 
 

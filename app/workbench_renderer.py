@@ -286,8 +286,14 @@ def _render_native_streamlit_layout(
                 else:
                     registry.state[WORKBENCH_MENU_PANEL_KEY] = ""
                     executed.append(
-                        dispatch_workbench_renderer_action(
-                            contract, registry, "action.select_navigation", {"navigation_id": navigation_id}
+                        _dispatch_action(
+                            contract,
+                            registry,
+                            {
+                                "id": "action.select_navigation",
+                                "title": title,
+                                "payload": {"navigation_id": navigation_id},
+                            },
                         )
                     )
 
@@ -340,13 +346,16 @@ def _render_native_streamlit_layout(
 
     def _visible_action(action: dict[str, Any]) -> bool:
         action_id = str(action.get("id", ""))
-        if action_id == "action.activate_tool":
+        # Navigation belongs to the single top menu and Project Explorer.
+        # Dock controls live on the pane rails.  Repeating either group in the
+        # ribbon creates a third navigation level and visual noise.
+        if action_id in {
+            "action.activate_tool",
+            "action.select_navigation",
+            "action.collapse_dock_pane",
+            "action.restore_dock_pane",
+        }:
             return False
-        if action_id in {"action.collapse_dock_pane", "action.restore_dock_pane"}:
-            pane_id = str(action.get("payload", {}).get("pane_id", ""))
-            pane = dock_state.get(pane_id, {})
-            is_open = bool(pane.get("opened", True)) and not bool(pane.get("collapsed", False))
-            return is_open if action_id == "action.collapse_dock_pane" else not is_open
         return True
 
     groups: list[dict[str, Any]] = []

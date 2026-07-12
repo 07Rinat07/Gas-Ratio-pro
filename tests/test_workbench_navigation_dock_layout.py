@@ -14,6 +14,7 @@ def test_workbench_shell_contains_default_navigation_and_dock_layout():
         "nav.dashboard",
         "nav.data",
         "nav.las_workspace",
+        "nav.correlation",
         "nav.interpretation",
         "nav.reports",
         "nav.exports",

@@ -6,7 +6,7 @@ from pathlib import Path
 def test_v199_runtime_identity():
     assert BUILD_VERSION == "v211"
     assert BUILD_CHANNEL == "workbench-functional-ui"
-    assert runtime_build_info().version == "v210"
+    assert runtime_build_info().version == "v211"
 
 
 def test_v199_css_has_professional_regions_and_readable_controls():
@@ -23,7 +23,7 @@ def test_v199_css_has_professional_regions_and_readable_controls():
 def test_stage4_remains_open_until_live_ux_acceptance():
     roadmap = Path("docs/PROJECT_ROADMAP.md").read_text(encoding="utf-8")
     status = Path("docs/PROJECT_STATUS.md").read_text(encoding="utf-8")
-    assert "IN PROGRESS v208" in roadmap
+    assert "IN PROGRESS v214" in roadmap
     assert "Live visual acceptance" in roadmap
-    assert "Petrophysical Engine" in status
-    assert "заблокирован" in status
+    assert "Stage 5: **BLOCKED**" in status
+    assert "BLOCKED" in status

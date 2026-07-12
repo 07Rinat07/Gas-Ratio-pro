@@ -12,6 +12,7 @@ def test_single_navigation_model_maps_every_shell_section_to_one_tool():
         "nav.dashboard",
         "nav.data",
         "nav.las_workspace",
+        "nav.correlation",
         "nav.interpretation",
         "nav.reports",
         "nav.exports",

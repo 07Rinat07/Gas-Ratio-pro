@@ -51,7 +51,7 @@ def test_native_renderer_uses_real_streamlit_regions_instead_of_cross_call_html_
 
 
 def test_native_renderer_button_returns_command_execution_result_with_executed_contract():
-    fake = NativeFakeStreamlit("workbench_toolbar_toolbar_navigation_nav_las_workspace")
+    fake = NativeFakeStreamlit("workbench_menu_las")
     results = render_streamlit_workbench({}, fake)
     assert len(results) == 1
     assert all(isinstance(item, CommandExecutionResult) for item in results)

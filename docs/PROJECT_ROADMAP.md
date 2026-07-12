@@ -104,6 +104,29 @@ Status: **COMPLETED v193**
 - создавать второй параллельный UI workflow;
 - переносить вычисления в UI.
 
+### Stage 4W — Workbench Stabilization and Information Architecture
+
+Status: **IN PROGRESS v214**
+
+Цель: устранить ложные состояния, дублирующую навигацию и визуальный хаос до перехода к новому Well Log Renderer.
+
+Обязательные задачи:
+
+1. Разделить текущую рабочую сессию и архив проекта.
+2. Не показывать предупреждения, integrity-check и экспорт архивного расчета без явного открытия пользователем.
+3. Оставить один основной уровень навигации; ribbon использовать только для контекстных команд активного модуля.
+4. Синхронизировать Project Explorer с реальными объектами и счетчиками проекта.
+5. Добавить понятные empty states для проекта, LAS и расчетов.
+6. Провести live visual acceptance на широком и обычном desktop-разрешении.
+
+Definition of Done:
+
+- пустая рабочая сессия не показывает ошибки и предупреждения архивных расчетов;
+- архивные snapshots открываются только по явному действию;
+- верхнее меню, Explorer и ribbon не дублируют одну и ту же навигацию;
+- счетчики Explorer соответствуют проекту;
+- центральная рабочая область визуально доминирует над служебными панелями.
+
 ### Stage 4 — Workbench UI Completion
 
 Status: **IN PROGRESS v213 — live acceptance failed for professional visualization, reporting and runtime responsiveness; controlled refactor approved**

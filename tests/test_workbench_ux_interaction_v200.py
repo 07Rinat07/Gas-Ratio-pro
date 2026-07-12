@@ -49,7 +49,7 @@ def test_titlebar_is_pushed_below_streamlit_system_header():
 
 def test_navigation_button_mutates_state_and_records_visible_feedback():
     state: dict = {}
-    fake = FakeStreamlit("workbench_toolbar_toolbar_navigation_nav_las_workspace")
+    fake = FakeStreamlit("workbench_menu_las")
     results = render_streamlit_workbench(state, fake)
 
     assert results and results[0].executed
@@ -70,16 +70,16 @@ def test_toolbar_hides_redundant_activate_and_mutually_exclusive_restore_actions
     labels = [label for label, _key, _kwargs in fake.button_calls]
 
     assert "Activate tool" not in labels
-    assert "Collapse Explorer" in labels
-    assert "Collapse Properties" in labels
+    assert "Collapse Explorer" not in labels
+    assert "Collapse Properties" not in labels
     assert "Restore Explorer" not in labels
     assert "Restore Properties" not in labels
-    assert any(label.startswith("● Dashboard") for label in labels)
+    assert "LAS" in labels
 
 
-def test_current_navigation_is_primary_and_disabled():
+def test_current_navigation_is_highlighted_in_single_top_menu():
     fake = FakeStreamlit()
     render_streamlit_workbench({}, fake)
-    dashboard = next(item for item in fake.button_calls if item[0].startswith("● Dashboard"))
-    assert dashboard[2]["type"] == "primary"
-    assert dashboard[2]["disabled"] is True
+    settings = next(item for item in fake.button_calls if item[0] == "Settings")
+    assert settings[2]["type"] == "primary"
+    assert settings[2]["disabled"] is False

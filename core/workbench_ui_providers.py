@@ -76,11 +76,12 @@ class WorkbenchUIProviderService:
             curve_id = str(curve.get("id") or curve.get("mnemonic") or curve.get("name") or "").strip()
             if curve_id:
                 tree.append({"id": f"tree.curve.{curve_id}", "title": str(curve.get("title") or curve.get("mnemonic") or curve_id), "kind": "curve", "level": 2, "count": 0, "selectable": True, "target": "curve", "object_id": curve_id, "metadata": {"unit": curve.get("unit", ""), "track_id": curve.get("track_id", "")}})
+        project_counts = dict(self.state.get("workbench_project_counts", {}) or {})
         tree.extend((
-            {"id": "tree.correlation", "title": "Correlation", "kind": "collection", "level": 1, "count": 0, "selectable": True},
-            {"id": "tree.calculations", "title": "Calculations", "kind": "collection", "level": 1, "count": 0, "selectable": False},
-            {"id": "tree.reports", "title": "Reports", "kind": "collection", "level": 1, "count": 1 if context.active_report else 0, "selectable": False},
-            {"id": "tree.exports", "title": "Exports", "kind": "collection", "level": 1, "count": len(tuple(self.state.get("recent_exports", ()) or ())), "selectable": False},
+            {"id": "tree.correlation", "title": "Correlation", "kind": "collection", "level": 1, "count": int(project_counts.get("correlations", 0) or 0), "selectable": True},
+            {"id": "tree.calculations", "title": "Calculations", "kind": "collection", "level": 1, "count": int(project_counts.get("calculations", 0) or 0), "selectable": False},
+            {"id": "tree.reports", "title": "Reports", "kind": "collection", "level": 1, "count": int(project_counts.get("reports", 1 if context.active_report else 0) or 0), "selectable": False},
+            {"id": "tree.exports", "title": "Exports", "kind": "collection", "level": 1, "count": int(project_counts.get("exports", len(tuple(self.state.get("recent_exports", ()) or ()))) or 0), "selectable": False},
         ))
 
         target = str(selected.get("target") or "").strip()
