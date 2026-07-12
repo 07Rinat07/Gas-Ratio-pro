@@ -1930,3 +1930,16 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Updated release export QA and documentation governance contracts.
 - Verified navigation, Pixler, ternary, professional well-log/tablet, static export, large-LAS and performance regression gates.
 - Full monolithic pytest execution still exceeds the available audit runtime and exposed additional historical failures outside the targeted release gates; v221-rc1 is therefore a release candidate, not a final stable release.
+
+
+## v221-rc2 — Full Regression Closure
+
+### Fixed
+- Corrected engineering report freeze composition when no technical appendix override is supplied.
+- Removed `Dataset ID` from the public dataset summary and retained it only inside the selection boundary.
+- Updated launcher and runtime build identity to `v221-rc2`.
+- Replaced stale Workbench source-string tests with public navigation-contract assertions.
+
+### Validation
+- Complete suite executed in eight isolated segments: **2003 passed, 0 failed**.
+- Python modules compiled successfully.

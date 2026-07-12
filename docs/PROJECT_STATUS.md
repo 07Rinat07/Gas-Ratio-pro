@@ -1,3 +1,18 @@
+## Current increment: v221-rc2 — Full Regression Closure
+
+Status: **RELEASE CANDIDATE — REGRESSION CLOSED**
+
+Implemented:
+- executed the complete test suite in eight deterministic segments;
+- confirmed 2003 passing tests with no remaining failures;
+- fixed the engineering presentation freeze profile mismatch;
+- removed the internal Dataset ID from the user-facing dataset summary while retaining stable internal selection;
+- updated runtime build identity to v221-rc2 / release-candidate;
+- replaced stale source-string assertions with navigation-contract checks;
+- synchronized legacy regression tests with the current release contract.
+
+Next: **v221 stable release validation and packaging**.
+
 ## Current increment: v218 — Print & Export 2.0
 
 Status: **COMPLETED**

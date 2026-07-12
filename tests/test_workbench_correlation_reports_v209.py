@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from core.workbench_ui_layout import build_workbench_ui_layout
+from core.workbench_navigation import WorkbenchNavigationRouter
 from reports.document_model import build_engineering_document
 
 
@@ -8,7 +9,7 @@ def test_workbench_exposes_correlation_route_in_production_sources() -> None:
     renderer = Path('app/workbench_renderer.py').read_text(encoding='utf-8')
     app = Path('app/streamlit_app.py').read_text(encoding='utf-8')
     assert '("Correlation", "nav.correlation")' in renderer
-    assert '"tree.correlation": "nav.correlation"' in renderer
+    assert WorkbenchNavigationRouter().by_navigation("nav.correlation").workspace == "correlation"
     assert '"nav.correlation": ("las-correlation"' in app
     assert 'multi-well-uploader' in app
 

@@ -13,7 +13,9 @@ def test_dataset_table_exposes_hidden_stable_identifier():
         saved_at="2026-07-12T00:00:00Z", status="ready", row_count=10, column_count=6,
     )
     table = build_project_dataset_table((record,))
-    assert table.loc[0, "Dataset ID"] == "dataset-1"
+    assert "Dataset ID" not in table.columns
+    source = APP.read_text(encoding="utf-8")
+    assert 'dataset_table.insert(0, "Dataset ID"' in source
 
 
 def test_shared_grid_publishes_selection_to_properties_boundary():

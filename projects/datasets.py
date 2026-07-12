@@ -1825,7 +1825,6 @@ def build_project_dataset_table(datasets: tuple[ProjectDatasetRecord, ...] | lis
     return pd.DataFrame(
         [
             {
-                "Dataset ID": dataset.id,
                 "Тип": dataset.kind,
                 "Dataset": dataset.name,
                 "Статус": dataset.status_label,

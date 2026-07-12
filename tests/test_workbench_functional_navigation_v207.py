@@ -14,7 +14,7 @@ def test_workbench_menu_and_project_tree_use_real_buttons():
     assert '("Data", "nav.data")' in source
     assert 'workbench_menu_' in source
     assert 'workbench_tree_' in source
-    assert 'tree.calculations": "nav.data"' in source
+    assert WorkbenchNavigationRouter().by_navigation("nav.data").workspace == "data"
     assert "<span class='workbench-menu-item" not in source
 
 

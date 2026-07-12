@@ -10569,8 +10569,10 @@ def _render_dataset_manager_table(
         f"{title}: {len(datasets)} · готово: {ready_count} · "
         f"требует проверки: {warning_count} · ошибок чтения: {error_count}"
     )
+    dataset_table = build_project_dataset_table(datasets).copy()
+    dataset_table.insert(0, "Dataset ID", [dataset.id for dataset in datasets])
     selected_row = _render_workbench_data_grid(
-        build_project_dataset_table(datasets),
+        dataset_table,
         key_prefix=f"workbench_dataset_{project_id}_{section}",
         type_column="Тип",
         status_column="Статус",

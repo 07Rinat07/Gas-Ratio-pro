@@ -750,3 +750,11 @@ Release candidate Definition of Done:
 - architecture state audit passes;
 - export and large-LAS preflight passes;
 - unresolved historical failures are documented explicitly.
+
+
+## Stabilization & Release Audit
+
+### v221-rc2 — Full Regression Closure — COMPLETED
+- Full regression suite closed: 2003 tests passed.
+- Release profile, navigation, dataset UI and build identity contracts synchronized.
+- Next gate: v221 stable packaging and final manual acceptance.

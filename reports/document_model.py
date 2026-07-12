@@ -256,7 +256,12 @@ def build_engineering_document(
         include_technical_appendix is None and profile in {"client", "customer"}
     )
     include_technical = bool(include_technical_appendix) or profile == "expert"
-    tables = select_document_tables(model, include_technical_appendix=include_technical)
+    tables = select_document_tables(
+        model,
+        include_technical_appendix=(
+            include_technical_appendix if include_technical_appendix is not None else None
+        ),
+    )
 
     sections: list[DocumentSection] = []
 

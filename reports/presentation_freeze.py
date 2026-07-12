@@ -82,17 +82,22 @@ def build_presentation_freeze_status(
         if include_technical_appendix is None
         else bool(include_technical_appendix)
     )
+    effective_appendix = (
+        include_technical_appendix
+        if include_technical_appendix is not None
+        else (True if include_technical else None)
+    )
     document: EngineeringDocument = build_engineering_document(
         model,
         include_figures=include_figures,
-        include_technical_appendix=include_technical,
+        include_technical_appendix=effective_appendix,
     )
 
     html = build_presentation_html_report(
         model,
         options=PresentationHtmlOptions(
             include_figures=include_figures,
-            include_technical_appendix=include_technical,
+            include_technical_appendix=effective_appendix,
             page_title=model.metadata.title,
         ),
     )
@@ -100,7 +105,7 @@ def build_presentation_freeze_status(
         model,
         options=PresentationPdfOptions(
             include_figures=include_figures,
-            include_technical_appendix=include_technical,
+            include_technical_appendix=effective_appendix,
             title=model.metadata.title,
         ),
     )
@@ -108,7 +113,7 @@ def build_presentation_freeze_status(
         model,
         options=PresentationDocxOptions(
             include_figures=include_figures,
-            include_technical_appendix=include_technical,
+            include_technical_appendix=effective_appendix,
             title=model.metadata.title,
         ),
     )
