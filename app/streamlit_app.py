@@ -244,6 +244,7 @@ from palettes.well_log_tablet import (
 )
 from palettes.pixler import build_pixler_palette
 from core.reservoir_passport import build_reservoir_passport
+from core.reservoir_ranking import rank_reservoir_intervals, reservoir_ranking_dataframe
 from palettes.ternary import build_ternary_palette
 from projects import (
     ProjectRecord,
@@ -7895,6 +7896,13 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         source_label=str(sheet_name),
     )
 
+    if detected_interval_result is not None:
+        _render_reservoir_ranking(
+            calculated_df, list(detected_interval_result.intervals),
+            selected_interval_id=str(selected_reservoir_overlay.interval_id) if selected_reservoir_overlay is not None else "",
+            key="workspace_reservoir_ranking_table",
+        )
+
     st.subheader("Pixler + ternary")
     pixler_interval_frame = calculated_df
     pixler_interval_label = "Весь рассчитанный интервал"
@@ -8529,6 +8537,52 @@ def _selected_interval_print_range(
     return (min(first, second), max(first, second))
 
 
+def _render_reservoir_ranking(
+    frame: pd.DataFrame,
+    intervals: tuple[object, ...] | list[object],
+    *,
+    selected_interval_id: str,
+    key: str,
+) -> None:
+    if frame.empty or not intervals:
+        return
+    ranking = rank_reservoir_intervals(frame, intervals)
+    ranking_df = reservoir_ranking_dataframe(ranking)
+    if ranking_df.empty:
+        return
+    ranking_df.insert(0, "Активный", ["▶" if str(value) == str(selected_interval_id) else "" for value in ranking_df["ID"]])
+    with st.expander("Reservoir Ranking — приоритетные интервалы", expanded=True):
+        st.caption(
+            "Индекс приоритета 0–100 объединяет достоверность (30%), согласованность методик (30%), "
+            "полноту C1–C5 (20%) и валовую мощность (20%). Это не оценка запасов, net pay или коммерческой ценности."
+        )
+        event = st.dataframe(
+            ranking_df.head(20), width="stretch", height=430, hide_index=True,
+            on_select="rerun", selection_mode="single-row", key=key,
+            column_config={
+                "Активный": st.column_config.TextColumn("", width="small"),
+                "Место": st.column_config.NumberColumn("№", format="%d", width="small"),
+                "ID": st.column_config.TextColumn("ID", width="small"),
+                "Индекс приоритета": st.column_config.ProgressColumn("Приоритет", min_value=0, max_value=100, format="%.1f"),
+                "Мощность, м": st.column_config.NumberColumn("Мощность, м", format="%.2f"),
+                "Рекомендация": st.column_config.TextColumn("Рекомендация", width="large"),
+            },
+        )
+        chosen = _selected_interval_id_from_table(event, ranking_df.head(20))
+        if chosen and chosen != selected_interval_id:
+            lookup = {f"HC-{index:03d}": interval for index, interval in enumerate(intervals, start=1)}
+            interval = lookup.get(chosen)
+            payload = {"selected_reservoir_interval_id": chosen}
+            if interval is not None:
+                payload.update({
+                    "selected_reservoir_depth": (float(interval.top) + float(interval.base)) / 2.0,
+                    "selected_reservoir_top": float(interval.top),
+                    "selected_reservoir_bottom": float(interval.base),
+                })
+            _application_state_controller().update_values(payload)
+            st.rerun()
+
+
 def _render_selected_interval_passport(
     interval: object,
     interval_id: str,
@@ -8687,6 +8741,12 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         project_label=str(getattr(active_project, "name", "") or ""),
         source_label=str(source_label),
     )
+    if detected_interval_result is not None:
+        _render_reservoir_ranking(
+            calculated_df, list(detected_interval_result.intervals),
+            selected_interval_id=selected_interval_id,
+            key="interpretation_reservoir_ranking_table",
+        )
 
     if valid_depth.empty:
         st.warning("В расчетной таблице нет числовой глубины. Графики будут построены по техническому индексу.")

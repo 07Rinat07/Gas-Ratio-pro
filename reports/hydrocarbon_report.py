@@ -6,6 +6,7 @@ from typing import Sequence
 import pandas as pd
 
 from core.reservoir_passport import build_reservoir_passport
+from core.reservoir_ranking import rank_reservoir_intervals
 from core.hydrocarbon_intervals import (
     HydrocarbonInterval,
     HydrocarbonIntervalResult,
@@ -55,6 +56,7 @@ class HydrocarbonReportPayload:
     interval_card_reasoning_table: HtmlReportTable | None = None
     reservoir_passports_table: HtmlReportTable | None = None
     reservoir_passport_methods_table: HtmlReportTable | None = None
+    reservoir_ranking_table: HtmlReportTable | None = None
     presentation_model: PresentationModel | None = None
 
     @property
@@ -212,6 +214,30 @@ def build_reservoir_passport_tables(
     ) if method_rows else None
     return summary, methods
 
+
+
+def build_reservoir_ranking_table(
+    df: pd.DataFrame, intervals: Sequence[HydrocarbonInterval]
+) -> HtmlReportTable | None:
+    ranking = rank_reservoir_intervals(df, intervals)
+    if not ranking:
+        return None
+    rows = tuple((
+        str(item.rank), item.interval_id, f"{item.top:g}–{item.base:g}",
+        f"{item.thickness:g}", item.fluid_type, f"{item.priority_score:g}",
+        item.priority_class, f"{item.confidence_component:g}",
+        f"{item.agreement_component:g}", f"{item.completeness_component:g}",
+        f"{item.thickness_component:g}", f"-{item.penalty:g}" if item.penalty else "0",
+        item.recommendation,
+    ) for item in ranking[:20])
+    return HtmlReportTable(
+        title="Reservoir Ranking — приоритетные интервалы",
+        headers=("№", "ID", "Интервал, м", "Мощность, м", "Флюид", "Индекс",
+                 "Класс", "Достоверность", "Методики", "Полнота", "Мощность",
+                 "Штраф", "Рекомендация"),
+        rows=rows,
+    )
+
 def build_hydrocarbon_report_payload(
     df: pd.DataFrame,
     *,
@@ -276,6 +302,7 @@ def build_hydrocarbon_report_payload(
     reservoir_passports_table, reservoir_passport_methods_table = build_reservoir_passport_tables(
         df, result.intervals, depth_column=depth_column
     )
+    reservoir_ranking_table = build_reservoir_ranking_table(df, result.intervals)
     # Engineering profile stays concise: exclude zero-thickness point anomalies
     # from the primary table and rank only the strongest intervals.  The full
     # card set and detailed reasoning remain available in the expert appendix.
@@ -302,6 +329,7 @@ def build_hydrocarbon_report_payload(
         main_intervals_report_table,
         executive_recommendations_report_table,
         interval_cards_report_table,
+        reservoir_ranking_table,
         reservoir_passports_table,
     )
     technical_tables = (
@@ -341,6 +369,7 @@ def build_hydrocarbon_report_payload(
         interval_card_reasoning_table=interval_card_reasoning_report_table,
         reservoir_passports_table=reservoir_passports_table,
         reservoir_passport_methods_table=reservoir_passport_methods_table,
+        reservoir_ranking_table=reservoir_ranking_table,
         presentation_model=presentation_model,
         summary_table=summary_table,
         marker_table=marker_table,
