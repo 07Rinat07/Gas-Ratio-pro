@@ -2709,6 +2709,73 @@ def _selected_interval_id_from_table(event: object, table: pd.DataFrame) -> str:
         return ""
     return str(table.iloc[row_index]["ID"] or "").strip()
 
+
+def _ordered_interval_ids(table: pd.DataFrame | None) -> list[str]:
+    """Return stable interval IDs in the current engineering table order."""
+    if table is None or table.empty or "ID" not in table.columns:
+        return []
+    result: list[str] = []
+    for value in table["ID"].tolist():
+        interval_id = str(value or "").strip()
+        if interval_id and interval_id not in result:
+            result.append(interval_id)
+    return result
+
+
+def _adjacent_interval_id(
+    interval_ids: list[str] | tuple[str, ...],
+    current_interval_id: str,
+    step: int,
+) -> str:
+    """Return previous/next interval without wrapping at the table boundaries."""
+    ids = [str(value).strip() for value in interval_ids if str(value).strip()]
+    if not ids:
+        return ""
+    current = str(current_interval_id or "").strip()
+    index = ids.index(current) if current in ids else 0
+    target = max(0, min(len(ids) - 1, index + int(step)))
+    return ids[target]
+
+
+def _interval_table_window(
+    table: pd.DataFrame,
+    active_interval_id: str,
+    *,
+    window_size: int = 21,
+) -> tuple[pd.DataFrame, int, int]:
+    """Return a table window centered on the active interval.
+
+    Streamlit does not expose a stable public API for programmatic dataframe
+    scrolling. Keeping the active row in a centered window provides the same
+    practical navigation result and remains compatible with row selection.
+    """
+    if table is None or table.empty:
+        return table.copy(), 0, 0
+    size = max(5, int(window_size))
+    ids = _ordered_interval_ids(table)
+    active = str(active_interval_id or "").strip()
+    active_pos = ids.index(active) if active in ids else 0
+    half = size // 2
+    start = max(0, active_pos - half)
+    end = min(len(table), start + size)
+    start = max(0, end - size)
+    window = table.iloc[start:end].copy().reset_index(drop=True)
+    window.insert(0, "Активный", [
+        "▶" if str(value or "").strip() == active else ""
+        for value in window["ID"].tolist()
+    ])
+    return window, start, end
+
+
+def _interval_navigation_state(
+    table: pd.DataFrame,
+    active_interval_id: str,
+) -> tuple[list[str], int]:
+    ids = _ordered_interval_ids(table)
+    active = str(active_interval_id or "").strip()
+    position = ids.index(active) if active in ids else 0
+    return ids, position
+
 def _dataframe_to_report_table(title: str, df: pd.DataFrame) -> HtmlReportTable | None:
     if df is None or df.empty:
         return None
@@ -7509,15 +7576,69 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
     if workspace_interval_summary.empty:
         st.info("По текущему расчету уверенные УВ-интервалы не выделены.")
     else:
-        workspace_table_event = st.dataframe(
+        active_workspace_interval_id = str(
+            state_controller.get_value("selected_reservoir_interval_id", "") or ""
+        )
+        workspace_ids, workspace_position = _interval_navigation_state(
             workspace_interval_summary,
+            active_workspace_interval_id,
+        )
+        if workspace_ids and active_workspace_interval_id not in workspace_ids:
+            active_workspace_interval_id = workspace_ids[0]
+            workspace_position = 0
+            state_controller.update_values({
+                "selected_reservoir_interval_id": active_workspace_interval_id
+            })
+
+        nav_prev, nav_status, nav_next = st.columns((1.0, 2.6, 1.0))
+        if nav_prev.button(
+            "◀ Предыдущий интервал",
+            disabled=not workspace_ids or workspace_position <= 0,
             width="stretch",
-            height=360,
+            key="workspace_previous_interval",
+        ):
+            state_controller.update_values({
+                "selected_reservoir_interval_id": _adjacent_interval_id(
+                    workspace_ids, active_workspace_interval_id, -1
+                )
+            })
+            st.rerun()
+        nav_status.markdown(
+            f"**{active_workspace_interval_id or 'Интервал не выбран'}**  "
+            f"{workspace_position + 1 if workspace_ids else 0} из {len(workspace_ids)}"
+        )
+        if nav_next.button(
+            "Следующий интервал ▶",
+            disabled=not workspace_ids or workspace_position >= len(workspace_ids) - 1,
+            width="stretch",
+            key="workspace_next_interval",
+        ):
+            state_controller.update_values({
+                "selected_reservoir_interval_id": _adjacent_interval_id(
+                    workspace_ids, active_workspace_interval_id, 1
+                )
+            })
+            st.rerun()
+
+        workspace_table, workspace_start, workspace_end = _interval_table_window(
+            workspace_interval_summary,
+            active_workspace_interval_id,
+            window_size=21,
+        )
+        st.caption(
+            f"Активная строка удерживается в видимой области: интервалы "
+            f"{workspace_start + 1}–{workspace_end} из {len(workspace_interval_summary)}."
+        )
+        workspace_table_event = st.dataframe(
+            workspace_table,
+            width="stretch",
+            height=430,
             hide_index=True,
             on_select="rerun",
             selection_mode="single-row",
             key="workspace_engineering_interval_table",
             column_config={
+                "Активный": st.column_config.TextColumn("", width="small"),
                 "ID": st.column_config.TextColumn("ID", width="small"),
                 "Интервал, м": st.column_config.TextColumn("Интервал, м", width="medium"),
                 "Мощность, м": st.column_config.NumberColumn("Мощность, м", format="%.2f"),
@@ -7531,10 +7652,11 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         )
         table_interval_id = _selected_interval_id_from_table(
             workspace_table_event,
-            workspace_interval_summary,
+            workspace_table,
         )
-        if table_interval_id:
+        if table_interval_id and table_interval_id != active_workspace_interval_id:
             state_controller.update_values({"selected_reservoir_interval_id": table_interval_id})
+            st.rerun()
 
     interval_indices = [
         int(index)
@@ -8974,8 +9096,59 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     if engineering_summary.empty:
         st.info("В выбранном диапазоне уверенные УВ-интервалы не выделены.")
     else:
-        interpretation_table_event = st.dataframe(
+        current_interval_id = str(
+            state_controller.get_value("selected_reservoir_interval_id", "") or ""
+        )
+        engineering_ids, engineering_position = _interval_navigation_state(
             engineering_summary,
+            current_interval_id,
+        )
+        if engineering_ids and current_interval_id not in engineering_ids:
+            current_interval_id = engineering_ids[0]
+            engineering_position = 0
+            state_controller.update_values({
+                "selected_reservoir_interval_id": current_interval_id
+            })
+
+        previous_col, active_col, next_col = st.columns((1.0, 2.8, 1.0))
+        if previous_col.button(
+            "◀ Предыдущий интервал",
+            disabled=not engineering_ids or engineering_position <= 0,
+            width="stretch",
+            key="interpretation_previous_interval",
+        ):
+            target_id = _adjacent_interval_id(
+                engineering_ids, current_interval_id, -1
+            )
+            state_controller.update_values({"selected_reservoir_interval_id": target_id})
+            st.rerun()
+        active_col.markdown(
+            f"### {current_interval_id or 'Интервал не выбран'}  "
+            f"{engineering_position + 1 if engineering_ids else 0} из {len(engineering_ids)}"
+        )
+        if next_col.button(
+            "Следующий интервал ▶",
+            disabled=not engineering_ids or engineering_position >= len(engineering_ids) - 1,
+            width="stretch",
+            key="interpretation_next_interval",
+        ):
+            target_id = _adjacent_interval_id(
+                engineering_ids, current_interval_id, 1
+            )
+            state_controller.update_values({"selected_reservoir_interval_id": target_id})
+            st.rerun()
+
+        visible_summary, visible_start, visible_end = _interval_table_window(
+            engineering_summary,
+            current_interval_id,
+            window_size=21,
+        )
+        st.caption(
+            f"Активный пласт отмечен символом ▶ и удерживается в центре списка. "
+            f"Показаны интервалы {visible_start + 1}–{visible_end} из {len(engineering_summary)}."
+        )
+        interpretation_table_event = st.dataframe(
+            visible_summary,
             width="stretch",
             height=430,
             hide_index=True,
@@ -8983,6 +9156,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             selection_mode="single-row",
             key="interpretation_engineering_interval_table",
             column_config={
+                "Активный": st.column_config.TextColumn("", width="small"),
                 "ID": st.column_config.TextColumn("ID", width="small"),
                 "Интервал, м": st.column_config.TextColumn("Интервал, м", width="medium"),
                 "Мощность, м": st.column_config.NumberColumn("Мощность, м", format="%.2f"),
@@ -8996,10 +9170,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         )
         table_interval_id = _selected_interval_id_from_table(
             interpretation_table_event,
-            engineering_summary,
-        )
-        current_interval_id = str(
-            state_controller.get_value("selected_reservoir_interval_id", "") or ""
+            visible_summary,
         )
         if table_interval_id and table_interval_id != current_interval_id:
             interval_lookup = {

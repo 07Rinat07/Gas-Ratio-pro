@@ -620,3 +620,5 @@ Next: use the same selection context in the Data workspace Pixler and ternary se
 - [x] Preserve manual and current-graph print interval modes as explicit alternatives.
 
 - [x] Выбор инженерного интервала кликом по строке таблицы с общей синхронизацией Pixler, ternary, Depth Panel, паспорта и PDF/DOCX.
+
+- [x] Engineering Navigation 2.0: предыдущий/следующий интервал, центрированное окно таблицы и визуальный маркер активного пласта.

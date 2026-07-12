@@ -1801,3 +1801,6 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Kept explicit current-view and manual depth-range export modes.
 
 - Changed: выбор УВ-интервала перенесён в инженерные таблицы; клик по строке синхронизирует графики, планшет, паспорт и диапазон PDF/DOCX.
+
+### Changed
+- Добавлена последовательная навигация по интервалам, центрирование инженерной таблицы вокруг активного пласта и визуальный маркер выбранной строки.
