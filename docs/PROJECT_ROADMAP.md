@@ -495,3 +495,5 @@ Roadmap изменяется только когда:
 - [x] Fix active calculation revision contract used by Data → Interpretation handoff.
 
 - Completed compatibility hardening for revision snapshots used by Data → Interpretation handoff.
+
+- Interpretation first-render fix: initial graphs/tablet now auto-commit on first valid calculation; explicit button remains for later settings changes. Streamlit marker/zone count widgets now use Session State as the single source of truth.

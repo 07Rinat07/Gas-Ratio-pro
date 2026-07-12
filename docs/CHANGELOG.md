@@ -1712,3 +1712,5 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 
 - Added backward-compatible `*_revision` aliases to `RevisionSnapshot` and fixed active calculation handoff across mixed cached/runtime module versions.
 - Removed Python bytecode caches from the delivery archive to prevent stale revision contracts after replacement.
+
+- Interpretation first-render fix: initial graphs/tablet now auto-commit on first valid calculation; explicit button remains for later settings changes. Streamlit marker/zone count widgets now use Session State as the single source of truth.

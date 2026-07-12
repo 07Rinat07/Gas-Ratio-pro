@@ -213,3 +213,5 @@ Next:
 - Active calculations can now be committed to the durable Workbench contract and restored by Interpretation.
 
 - Interpretation handoff hotfix: `RevisionSnapshot` now supports canonical and legacy revision attribute names; delivery archives exclude stale bytecode.
+
+- Interpretation first-render fix: initial graphs/tablet now auto-commit on first valid calculation; explicit button remains for later settings changes. Streamlit marker/zone count widgets now use Session State as the single source of truth.

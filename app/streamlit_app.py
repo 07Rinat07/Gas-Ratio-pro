@@ -7660,13 +7660,15 @@ def _render_tablet_marker_controls(depth_range: tuple[float, float] | None, df: 
         default_top, default_bottom = 0.0, float(max(len(df) - 1, 0))
 
     with st.expander("Маркеры интерпретации планшета", expanded=False):
+        marker_count_key = "interpretation_tablet_marker_count"
+        if marker_count_key not in st.session_state:
+            st.session_state[marker_count_key] = 0
         marker_count = st.number_input(
             "Количество маркеров",
             min_value=0,
             max_value=8,
-            value=0,
             step=1,
-            key="interpretation_tablet_marker_count",
+            key=marker_count_key,
         )
         markers: list[InterpretationMarker] = []
         span = max(default_bottom - default_top, 0.0)
@@ -7705,13 +7707,15 @@ def _render_tablet_zone_controls(depth_range: tuple[float, float] | None, df: pd
         default_top, default_bottom = 0.0, float(max(len(df) - 1, 0))
 
     with st.expander("Интерпретационные зоны планшета", expanded=False):
+        zone_count_key = "interpretation_tablet_zone_count"
+        if zone_count_key not in st.session_state:
+            st.session_state[zone_count_key] = 0
         zone_count = st.number_input(
             "Количество зон",
             min_value=0,
             max_value=12,
-            value=0,
             step=1,
-            key="interpretation_tablet_zone_count",
+            key=zone_count_key,
         )
         zones: list[InterpretationZone] = []
         span = max(default_bottom - default_top, 0.0)
@@ -8147,11 +8151,36 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         revision_snapshot.calculation,
     )
     if not applied_matches:
-        st.info(
-            "Настройте параметры и нажмите `Построить графики и планшет`. "
-            "Черновые изменения не запускают дорогостоящий рендер."
+        # Build the first presentation automatically. Repeated widget changes still
+        # require the explicit Apply button, so expensive plots are not rebuilt on
+        # every Streamlit rerun.
+        persist_applied_presentation(
+            _application_state_controller().state,
+            AppliedPresentationState(
+                source_signature=calculated_signature,
+                calculation_revision=revision_snapshot.calculation,
+                settings=interpretation_graph_settings_to_dict(current_settings),
+            ),
         )
-        return
+        revisions = revision_controller_from_state(_application_state_controller().state)
+        persist_revisions(_application_state_controller().state, revisions.bump_presentation())
+        _application_state_controller().state.pop("interpretation_figure_cache", None)
+        logger.info(
+            "interpretation_presentation_auto_committed signature=%s calculation_revision=%d tracks=%s",
+            safe_log_value(calculated_signature[:12]),
+            revision_snapshot.calculation,
+            safe_log_value(",".join(current_settings.selected_tracks)),
+        )
+        applied_presentation = applied_presentation_from_state(_application_state_controller().state)
+        applied_matches = presentation_matches_source(
+            applied_presentation,
+            calculated_signature,
+            revision_snapshot.calculation,
+        )
+        if not applied_matches:
+            st.error("Не удалось зафиксировать настройки интерпретационных графиков.")
+            return
+        st.caption("Первичное представление построено автоматически. После изменения настроек нажмите кнопку применения повторно.")
 
     render_settings = interpretation_graph_settings_from_dict(dict(applied_presentation.settings))
     selected_tracks = tuple(render_settings.selected_tracks)
