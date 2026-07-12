@@ -288,6 +288,7 @@ from projects import graph_settings as project_graph_settings
 from projects import datasets as project_datasets
 from projects import project_labels as project_labels
 from projects import project_index as project_index
+from core.project_database_table import build_project_database_table_view
 from projects import well_cards as project_well_cards
 from projects import las_files as project_las_files
 from reports.export_csv import export_csv_bytes
@@ -9654,6 +9655,127 @@ def _render_project_manager_tools(project: ProjectRecord, logger) -> None:
                 st.success("Стартовая запись истории добавлена.")
 
 
+def _render_project_database_table(
+    dataframe: pd.DataFrame,
+    *,
+    key_prefix: str,
+    type_column: str | None = "Тип",
+    status_column: str | None = "Статус",
+    default_sort: str | None = None,
+    technical_columns: tuple[str, ...] = (
+        "UUID", "SHA-256", "Ключ", "Object ID", "Скважина ID", "Путь", "Относительный путь"
+    ),
+    height: int = 360,
+) -> None:
+    """Render a compact, filterable and paginated Project Database table."""
+
+    frame = dataframe.copy()
+    if frame.empty:
+        st.caption("Нет записей для отображения.")
+        return
+
+    controls = st.columns((2.2, 1.3, 1.3, 1.2))
+    with controls[0]:
+        search = st.text_input(
+            "Поиск",
+            key=f"{key_prefix}_search",
+            placeholder="Имя, путь, тип или статус",
+        )
+    with controls[1]:
+        type_options = sorted(frame[type_column].dropna().astype(str).unique()) if type_column and type_column in frame else []
+        selected_types = st.multiselect(
+            "Тип",
+            options=type_options,
+            default=type_options,
+            key=f"{key_prefix}_types",
+            disabled=not type_options,
+        )
+    with controls[2]:
+        status_options = sorted(frame[status_column].dropna().astype(str).unique()) if status_column and status_column in frame else []
+        selected_statuses = st.multiselect(
+            "Статус",
+            options=status_options,
+            default=status_options,
+            key=f"{key_prefix}_statuses",
+            disabled=not status_options,
+        )
+    with controls[3]:
+        show_technical = st.toggle(
+            "Технические данные",
+            value=False,
+            key=f"{key_prefix}_technical",
+        )
+
+    sort_columns = tuple(frame.columns)
+    preferred_sort = default_sort if default_sort in sort_columns else sort_columns[0]
+    sort_row = st.columns((2, 1, 1, 1))
+    with sort_row[0]:
+        sort_column = st.selectbox(
+            "Сортировка",
+            options=sort_columns,
+            index=sort_columns.index(preferred_sort),
+            key=f"{key_prefix}_sort",
+        )
+    with sort_row[1]:
+        ascending = st.selectbox(
+            "Порядок",
+            options=(True, False),
+            format_func=lambda value: "По возрастанию" if value else "По убыванию",
+            key=f"{key_prefix}_ascending",
+        )
+    with sort_row[2]:
+        page_size = st.selectbox(
+            "Строк на странице",
+            options=(10, 25, 50, 100),
+            index=1,
+            key=f"{key_prefix}_page_size",
+        )
+
+    preliminary = build_project_database_table_view(
+        frame,
+        search=search,
+        type_column=type_column,
+        selected_types=selected_types,
+        status_column=status_column,
+        selected_statuses=selected_statuses,
+        sort_column=sort_column,
+        ascending=ascending,
+        page=1,
+        page_size=page_size,
+        show_technical=show_technical,
+        technical_columns=technical_columns,
+    )
+    with sort_row[3]:
+        page = st.number_input(
+            "Страница",
+            min_value=1,
+            max_value=preliminary.page_count,
+            value=1,
+            step=1,
+            key=f"{key_prefix}_page",
+        )
+
+    view = build_project_database_table_view(
+        frame,
+        search=search,
+        type_column=type_column,
+        selected_types=selected_types,
+        status_column=status_column,
+        selected_statuses=selected_statuses,
+        sort_column=sort_column,
+        ascending=ascending,
+        page=int(page),
+        page_size=page_size,
+        show_technical=show_technical,
+        technical_columns=technical_columns,
+    )
+    st.caption(
+        f"Показано {len(view.dataframe)} из {view.filtered_rows} найденных · "
+        f"всего {view.total_rows} · страница {view.page} из {view.page_count}"
+    )
+    st.dataframe(view.dataframe, width="stretch", height=height, hide_index=True)
+
+
 def _render_project_file_index(project: ProjectRecord, logger) -> None:
     """Render Project Database file index for the active project."""
 
@@ -9783,7 +9905,15 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
             st.warning(
                 "Найдены возможные дубликаты файлов проекта. Проверьте таблицу перед удалением или объединением datasets."
             )
-            st.dataframe(build_project_duplicate_files_table(duplicate_groups), width="stretch", height=220)
+            _render_project_database_table(
+                build_project_duplicate_files_table(duplicate_groups),
+                key_prefix=f"project_database_duplicates_{project.id}",
+                type_column="Типы",
+                status_column=None,
+                default_sort="Лишних файлов",
+                technical_columns=("Ключ", "Файлы"),
+                height=280,
+            )
             exact_duplicate_paths = tuple(
                 entry.relative_path
                 for group in duplicate_groups
@@ -9828,7 +9958,12 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
                         _refresh_ui()
         else:
             st.success("Дубликаты по SHA-256 и паре имя/размер не найдены.")
-        st.dataframe(build_project_file_index_table(annotated_entries), width="stretch", height=260)
+        _render_project_database_table(
+            build_project_file_index_table(annotated_entries),
+            key_prefix=f"project_database_files_{project.id}",
+            default_sort="Изменен",
+            height=420,
+        )
 
     with st.expander("Project Database · Версии файлов", expanded=False):
         st.caption(
@@ -9860,7 +9995,14 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
             f"Файлов под версионным контролем: {len(assets)} · всего версий: {total_versions} · "
             f"файлов с историей изменений: {changed_assets}"
         )
-        st.dataframe(build_project_file_versions_table(assets), width="stretch", height=240)
+        _render_project_database_table(
+            build_project_file_versions_table(assets),
+            key_prefix=f"project_database_versions_{project.id}",
+            status_column=None,
+            default_sort="Файл",
+            technical_columns=("SHA-256", "Путь"),
+            height=380,
+        )
 
         assets_with_history = [asset for asset in assets if asset.version_count > 1]
         if assets_with_history:
@@ -9870,7 +10012,13 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
                 key=f"project_file_versions_history_select_{project.id}",
             )
             selected_asset = assets_with_history[[f"{asset.relative_path} · версий: {asset.version_count}" for asset in assets_with_history].index(selected_label)]
-            st.dataframe(build_project_file_version_history_table(selected_asset), width="stretch", height=220)
+            _render_project_database_table(
+                build_project_file_version_history_table(selected_asset),
+                key_prefix=f"project_database_version_history_{project.id}_{selected_asset.asset_key[:12]}",
+                default_sort="Версия",
+                technical_columns=("SHA-256", "Путь", "ID"),
+                height=300,
+            )
 
     with st.expander("Project Database · Автоматические UUID", expanded=False):
         st.caption(
@@ -9914,7 +10062,13 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
                 f"UUID объектов: {len(uuid_entries)} · типов: {', '.join(object_types)} · "
                 f"восстановленных записей: {restored}"
             )
-            st.dataframe(build_project_uuid_registry_table(uuid_entries), width="stretch", height=260)
+            _render_project_database_table(
+                build_project_uuid_registry_table(uuid_entries),
+                key_prefix=f"project_database_uuid_{project.id}",
+                default_sort="Тип",
+                technical_columns=("UUID", "Ключ", "Object ID", "Путь"),
+                height=420,
+            )
 
 def _project_workspace_summary_rows(project: ProjectRecord) -> tuple[tuple[str, str], ...]:
     all_well_cards = _las_manager_service().list_wells(project.id, include_archived=True)

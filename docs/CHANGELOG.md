@@ -1637,3 +1637,5 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Metadata compaction keeps one active metadata version per current file and removes obsolete non-restorable history rows.
 - Added exact SHA-256 duplicate removal with project ID confirmation, automatic ZIP backup, protected metadata files and post-delete index/UUID synchronization.
 - Added regression tests for preservation of source data, version compaction and duplicate deletion guards.
+
+- Improved Project Database tables: added search, type/status filters, stable sorting, pagination, compact paths, and an opt-in technical data mode.

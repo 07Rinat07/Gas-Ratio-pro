@@ -135,3 +135,5 @@ Completed:
 - Index, version and UUID metadata can be safely reset and regenerated after automatic backup.
 - Real file deletion is restricted to explicitly selected exact SHA-256 duplicates; metadata JSON files are protected.
 - Every destructive operation rebuilds the file index, versions and UUID registry.
+
+- Project Database tables now use a shared compact view with search, type/status filters, sorting, pagination, and technical columns hidden by default.

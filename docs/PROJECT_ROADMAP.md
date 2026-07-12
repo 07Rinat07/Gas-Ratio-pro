@@ -429,3 +429,5 @@ Roadmap изменяется только когда:
 - Add synchronized maintenance for file index, file versions and UUID registry.
 - Add safe compaction/reset with automatic project backup.
 - Permit real-file cleanup only for verified exact duplicates with explicit confirmation.
+
+- [x] Improve Project Database tables with filtering, sorting, pagination and optional technical metadata.
