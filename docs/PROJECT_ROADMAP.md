@@ -462,3 +462,14 @@ Roadmap изменяется только когда:
 - [ ] Add safe multi-selection and bulk actions.
 
 - [x] Unified Data Grid multi-selection and safe bulk actions for datasets, calculations and exports.
+
+### Calculation Diagnostics 2.0
+
+- [x] Structured C1–nC5 column quality report.
+- [x] Per-formula valid/invalid row counts.
+- [x] Missing-input, zero-denominator and non-numeric cause counts.
+- [x] Problem-row preview and concrete recommendations.
+- [x] Replace repeated NaN banners with grouped diagnostics UI.
+- [ ] Persist diagnostics snapshots with saved calculations.
+- [ ] Add diagnostics comparison between calculation revisions.
+- [ ] Export diagnostics into PDF and DOCX reports.

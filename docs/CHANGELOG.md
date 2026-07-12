@@ -1678,3 +1678,12 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added multi-selection to Dataset Manager, calculation archive and project exports.
 - Added bulk verification, safe deletion with project-ID confirmation and automatic ZIP backup.
 - Added bulk ZIP/package generation through the project export repository.
+
+## 2026-07-12 — Calculation Diagnostics 2.0 foundation
+
+- Added structured calculation diagnostics for C1–nC5 data quality and formula validity.
+- Replaced repeated NaN warning banners with Summary, Quality, Formulas, Problem Rows and Recommendations tabs.
+- Added exact counts for missing inputs, zero denominators and non-numeric values.
+- Added first-problem-row preview without modifying source data.
+- Corrected the Ch formula shown in the UI to Haworth Character Ratio `(ΣC4 + ΣC5) / C3`.
+- Removed duplicated methodology notices from the warning stream while preserving a single documented notice.

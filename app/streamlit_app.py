@@ -65,6 +65,11 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from core.calculations import CH_WARNING, calculate_gas_ratios
+from core.calculation_diagnostics import (
+    build_calculation_diagnostics_report,
+    column_quality_dataframe,
+    formula_diagnostics_dataframe,
+)
 from core.diagnostics import (
     build_mapping_diagnostics,
     build_ratio_nan_diagnostics,
@@ -4588,15 +4593,43 @@ def _render_ratio_nan_diagnostics(
     ch_mode: str,
     messages: tuple[str, ...] | None = None,
 ) -> None:
-    messages = messages if messages is not None else ratio_nan_warning_messages(calculated_df, ch_mode=ch_mode)
-    diagnostics = build_ratio_nan_diagnostics(calculated_df, ch_mode=ch_mode)
+    report = build_calculation_diagnostics_report(calculated_df, ch_mode=ch_mode)
+    problem_count = sum(item.invalid_rows for item in report.formulas)
 
-    with st.expander("Диагностика расчетов", expanded=bool(messages)):
-        st.dataframe(_format_ratio_nan_diagnostics_table(diagnostics), width="stretch")
-        if messages:
-            st.caption("Если значение NaN есть только в части строк, проверьте эти интервалы в расчетной таблице.")
-        else:
-            st.success("Wh, Bh, Ch, BAR2 и oil/inverse oil indicator рассчитаны во всех строках.")
+    with st.expander("Диагностика расчётов", expanded=bool(problem_count)):
+        summary_tab, quality_tab, formulas_tab, rows_tab, recommendations_tab = st.tabs(
+            ["Сводка", "Качество данных", "Формулы", "Проблемные строки", "Рекомендации"]
+        )
+
+        with summary_tab:
+            metrics = st.columns(4)
+            metrics[0].metric("Строк", report.total_rows)
+            metrics[1].metric("Компонентов", len(report.columns))
+            metrics[2].metric("Формул", len(report.formulas))
+            metrics[3].metric("Проблемных результатов", problem_count)
+            summary = formula_diagnostics_dataframe(report)[
+                ["Коэффициент", "Рассчитано", "Рассчитано, %", "Не рассчитано", "Основная причина"]
+            ]
+            st.dataframe(summary, width="stretch", hide_index=True)
+
+        with quality_tab:
+            st.dataframe(column_quality_dataframe(report), width="stretch", hide_index=True)
+            st.caption("NaN и пустые значения показывают качество входных C1–nC5 после применённого mapping.")
+
+        with formulas_tab:
+            st.dataframe(formula_diagnostics_dataframe(report), width="stretch", hide_index=True)
+            st.caption("Причины считаются по строкам: пустые входы, нечисловые значения и нулевые знаменатели.")
+
+        with rows_tab:
+            if report.problematic_rows.empty:
+                st.success("Проблемных строк не найдено.")
+            else:
+                st.dataframe(report.problematic_rows, width="stretch", hide_index=False)
+                st.caption("Показаны первые 100 проблемных строк. Исходные данные не изменяются.")
+
+        with recommendations_tab:
+            for recommendation in report.recommendations:
+                st.info(recommendation)
 
 
 def _render_formula_reference() -> None:
@@ -4604,7 +4637,7 @@ def _render_formula_reference() -> None:
         st.markdown(
             "`Wh = (C2 + C3 + iC4 + nC4 + iC5 + nC5) * 100 / (C1 + C2 + C3 + iC4 + nC4 + iC5 + nC5)`\n\n"
             "`Bh = (C1 + C2) / (C3 + iC4 + nC4 + iC5 + nC5)`\n\n"
-            "`Ch = (C3 + iC4 + nC4 + iC5 + nC5) / (iC4 + nC4 + iC5 + nC5)` в режиме `A`\n\n"
+            "`Ch = (iC4 + nC4 + iC5 + nC5) / C3` в режиме `A`\n\n"
             "`BAR2 = C1 / C2`\n\n"
             "`Oil indicator = (C3 + iC4 + nC4 + iC5 + nC5) / C1`\n\n"
             "`Inverse oil indicator = C1 / (C3 + iC4 + nC4 + iC5 + nC5)`\n\n"
@@ -7289,22 +7322,23 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
     )
 
     nan_messages = ratio_nan_warning_messages(calculated_df, ch_mode=ch_mode)
+    methodology_notices = {CH_WARNING, METHODOLOGY_WARNING}
     warnings = (
         list(mapping_result.warnings)
         + list(prepared.warnings)
-        + list(calculation.warnings)
+        + [item for item in calculation.warnings if item not in methodology_notices]
         + list(mapping_messages)
-        + list(nan_messages)
     )
     warnings = list(dict.fromkeys(warnings))
 
-    with st.expander("Предупреждения и проверки", expanded=bool(warnings)):
+    with st.expander("Проверки workflow", expanded=bool(warnings)):
         if warnings:
             for warning in warnings:
                 st.warning(warning)
         else:
-            st.success("Критичных предупреждений нет.")
+            st.success("Критичных предупреждений workflow нет.")
         st.info(CH_WARNING)
+        st.caption(METHODOLOGY_WARNING)
     _render_ratio_nan_diagnostics(calculated_df, ch_mode, nan_messages)
 
     if calculated_df.empty:

@@ -177,3 +177,7 @@ Next:
 
 ### Unified Workbench Data Grid — bulk actions completed
 Multi-selection is available for datasets, calculations and exports. Bulk destructive actions require exact project confirmation and create a project backup before mutation.
+
+### Calculation Diagnostics 2.0 foundation
+
+Implemented a structured diagnostics report for mapped gas components and calculated ratios. The interpretation workflow now presents compact diagnostic tables instead of one warning banner per formula. Formula and data-quality causes are separated, and the UI Ch reference matches the calculation core.
