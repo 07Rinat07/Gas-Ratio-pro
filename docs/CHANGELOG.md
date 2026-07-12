@@ -1714,3 +1714,8 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Removed Python bytecode caches from the delivery archive to prevent stale revision contracts after replacement.
 
 - Interpretation first-render fix: initial graphs/tablet now auto-commit on first valid calculation; explicit button remains for later settings changes. Streamlit marker/zone count widgets now use Session State as the single source of truth.
+
+### Interpretation full-interval export hotfix
+- Fixed `TypeError: 'NoneType' object is not iterable` after successful graph rendering when the full depth interval is selected.
+- Added a concrete effective depth interval for export metadata while preserving `None` as the plotting signal for the full interval.
+- Removed duplicate Streamlit widget default/session-state warnings for tablet markers and zones.

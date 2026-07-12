@@ -215,3 +215,5 @@ Next:
 - Interpretation handoff hotfix: `RevisionSnapshot` now supports canonical and legacy revision attribute names; delivery archives exclude stale bytecode.
 
 - Interpretation first-render fix: initial graphs/tablet now auto-commit on first valid calculation; explicit button remains for later settings changes. Streamlit marker/zone count widgets now use Session State as the single source of truth.
+
+- Interpretation graphs now render and complete without a workspace failure when the full depth interval is active; export metadata resolves the actual dataset depth bounds safely.

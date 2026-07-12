@@ -2534,6 +2534,28 @@ def _filter_by_depth_range(df: pd.DataFrame, top_depth: float, bottom_depth: flo
     bottom = max(float(top_depth), float(bottom_depth))
     return df.loc[(depth >= top) & (depth <= bottom)].copy()
 
+
+def _effective_depth_range(
+    df: pd.DataFrame,
+    depth_range: tuple[float, float] | None,
+) -> tuple[float, float]:
+    """Return a concrete depth interval for metadata/export operations.
+
+    Plot builders may legitimately use ``None`` to mean the full interval, but
+    export metadata must always be iterable and numeric.
+    """
+
+    if depth_range is not None:
+        return (float(depth_range[0]), float(depth_range[1]))
+
+    depth = _depth_values_for_graphs(df).dropna()
+    if not depth.empty:
+        return (float(depth.min()), float(depth.max()))
+
+    if len(df) > 0:
+        return (0.0, float(len(df) - 1))
+    return (0.0, 0.0)
+
 def _store_interpretation_dataset(calculated_df: pd.DataFrame, source_label: str) -> None:
     """Commit one calculation for all Workbench workspaces.
 
@@ -7676,22 +7698,19 @@ def _render_tablet_marker_controls(depth_range: tuple[float, float] | None, df: 
             label_default = chr(ord("a") + index)
             depth_default = default_top + (span * (index + 1) / (int(marker_count) + 1)) if marker_count else default_top
             label_col, depth_col, note_col = st.columns((1, 1, 3))
-            label = label_col.text_input(
-                f"Метка {index + 1}",
-                value=label_default,
-                key=f"interpretation_tablet_marker_{index}_label",
-            )
+            label_key = f"interpretation_tablet_marker_{index}_label"
+            depth_key = f"interpretation_tablet_marker_{index}_depth"
+            note_key = f"interpretation_tablet_marker_{index}_note"
+            st.session_state.setdefault(label_key, label_default)
+            st.session_state.setdefault(depth_key, float(depth_default))
+            st.session_state.setdefault(note_key, "")
+            label = label_col.text_input(f"Метка {index + 1}", key=label_key)
             marker_depth = depth_col.number_input(
                 f"Глубина {index + 1}",
-                value=float(depth_default),
                 step=0.1,
-                key=f"interpretation_tablet_marker_{index}_depth",
+                key=depth_key,
             )
-            note = note_col.text_input(
-                f"Комментарий {index + 1}",
-                value="",
-                key=f"interpretation_tablet_marker_{index}_note",
-            )
+            note = note_col.text_input(f"Комментарий {index + 1}", key=note_key)
             markers.append(InterpretationMarker(label=(label.strip() or label_default), depth=float(marker_depth), note=note.strip()))
     return tuple(markers)
 
@@ -7723,33 +7742,29 @@ def _render_tablet_zone_controls(depth_range: tuple[float, float] | None, df: pd
             zone_top_default = default_top + (span * index / max(int(zone_count), 1))
             zone_bottom_default = default_top + (span * (index + 1) / max(int(zone_count), 1))
             label_col, top_col, bottom_col, color_col = st.columns((1.4, 1, 1, 1))
-            label = label_col.text_input(
-                f"Зона {index + 1}",
-                value=f"Zone {index + 1}",
-                key=f"interpretation_tablet_zone_{index}_label",
-            )
+            label_key = f"interpretation_tablet_zone_{index}_label"
+            top_key = f"interpretation_tablet_zone_{index}_top"
+            bottom_key = f"interpretation_tablet_zone_{index}_bottom"
+            color_key = f"interpretation_tablet_zone_{index}_color"
+            note_key = f"interpretation_tablet_zone_{index}_note"
+            st.session_state.setdefault(label_key, f"Zone {index + 1}")
+            st.session_state.setdefault(top_key, float(zone_top_default))
+            st.session_state.setdefault(bottom_key, float(zone_bottom_default))
+            st.session_state.setdefault(color_key, "#ffd966")
+            st.session_state.setdefault(note_key, "")
+            label = label_col.text_input(f"Зона {index + 1}", key=label_key)
             top_depth = top_col.number_input(
                 f"Верх зоны {index + 1}",
-                value=float(zone_top_default),
                 step=0.1,
-                key=f"interpretation_tablet_zone_{index}_top",
+                key=top_key,
             )
             bottom_depth = bottom_col.number_input(
                 f"Низ зоны {index + 1}",
-                value=float(zone_bottom_default),
                 step=0.1,
-                key=f"interpretation_tablet_zone_{index}_bottom",
+                key=bottom_key,
             )
-            color = color_col.color_picker(
-                f"Цвет зоны {index + 1}",
-                value="#ffd966",
-                key=f"interpretation_tablet_zone_{index}_color",
-            )
-            note = st.text_input(
-                f"Комментарий зоны {index + 1}",
-                value="",
-                key=f"interpretation_tablet_zone_{index}_note",
-            )
+            color = color_col.color_picker(f"Цвет зоны {index + 1}", key=color_key)
+            note = st.text_input(f"Комментарий зоны {index + 1}", key=note_key)
             if float(top_depth) == float(bottom_depth):
                 st.warning(f"Зона {index + 1}: верх и низ совпадают, зона не будет построена.")
                 continue
@@ -8330,7 +8345,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         quick_export_settings = {
             "source_signature": calculated_signature,
             "presentation_revision": int(revision_snapshot.presentation),
-            "depth_range": tuple(float(value) for value in depth_range),
+            "depth_range": _effective_depth_range(filtered_df, depth_range),
             "rows": int(len(filtered_df)),
             "figure_count": int(len(figures)),
             "tablet_columns": tuple(str(value) for value in tablet_columns),
@@ -8578,7 +8593,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     interval_csv_settings = {
         "source_signature": calculated_signature,
         "presentation_revision": int(revision_snapshot.presentation),
-        "depth_range": tuple(float(value) for value in depth_range),
+        "depth_range": _effective_depth_range(filtered_df, depth_range),
         "rows": int(len(filtered_df)),
     }
     prepare_interval_csv = st.button(
