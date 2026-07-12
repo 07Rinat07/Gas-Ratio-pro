@@ -24,7 +24,7 @@ def test_interval_cards_present_engineer_first_fields() -> None:
     assert payload.interval_cards
     table = payload.interval_cards_table
     assert table is not None
-    assert table.title == "Карточки интервалов залежей"
+    assert table.title == "Реестр интерпретированных УВ-интервалов"
     assert "Строк" not in " ".join(table.headers)
     assert any("м" in str(row[1]) for row in table.rows)
     assert payload.interval_card_reasoning_table is not None

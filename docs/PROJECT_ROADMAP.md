@@ -499,3 +499,8 @@ Roadmap изменяется только когда:
 - Interpretation first-render fix: initial graphs/tablet now auto-commit on first valid calculation; explicit button remains for later settings changes. Streamlit marker/zone count widgets now use Session State as the single source of truth.
 
 - [x] Stabilize Interpretation full-interval rendering/export metadata and tablet marker/zone widget state.
+
+### Completed: Engineer-oriented interpretation tables
+- interval-first summary in Interpretation workspace;
+- scrollable calculation and interval tables;
+- printable interval registry and decision-oriented executive summary.

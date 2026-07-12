@@ -135,15 +135,19 @@ def interval_cards_overview_table(cards: Sequence[IntervalReportCard]) -> HtmlRe
             card.depth_range,
             card.thickness,
             card.fluid_type,
-            card.decision_level,
             card.confidence,
+            card.decision_level,
             card.summary,
+            "; ".join(card.limitations[:2]) if card.limitations else "—",
         )
         for card in cards
     )
     return HtmlReportTable(
-        title="Карточки интервалов залежей",
-        headers=("№", "Интервал", "Мощность", "Тип", "Уровень", "Достоверность", "Заключение"),
+        title="Реестр интерпретированных УВ-интервалов",
+        headers=(
+            "ID", "Интервал, м", "Мощность", "Вероятный флюид",
+            "Достоверность", "Решение", "Инженерный вывод", "Ограничения",
+        ),
         rows=rows,
     )
 

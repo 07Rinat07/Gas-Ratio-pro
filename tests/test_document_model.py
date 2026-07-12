@@ -36,7 +36,7 @@ def test_document_model_is_renderer_neutral_single_source() -> None:
 
     assert document.schema == "gas-ratio-pro/document/model/v1"
     assert document.metadata.profile == "engineering"
-    assert "Краткое инженерное заключение" in document.table_titles
+    assert "Инженерная сводка перспективных интервалов" in document.table_titles
     assert document.plot_count == 1
     assert any(isinstance(block, DocumentTable) for section in document.sections for block in section.blocks)
     assert any(isinstance(block, DocumentPlot) for section in document.sections for block in section.blocks)

@@ -23,7 +23,7 @@ def test_executive_summary_focuses_on_intervals_not_row_count() -> None:
 
     summary = build_executive_summary_from_dataframe(frame)
 
-    assert summary.title == "Краткое инженерное заключение"
+    assert summary.title == "Инженерная сводка перспективных интервалов"
     assert summary.main_intervals
     assert "строк" not in " ".join(item.title.lower() for item in summary.items)
     assert any(item.title == "Наиболее перспективный интервал" for item in summary.items)
@@ -43,7 +43,7 @@ def test_hydrocarbon_report_payload_puts_executive_tables_first() -> None:
     payload = build_hydrocarbon_report_payload(frame)
 
     assert payload.executive_summary is not None
-    assert payload.professional_tables[0].title == "Краткое инженерное заключение"
+    assert payload.professional_tables[0].title == "Инженерная сводка перспективных интервалов"
     assert payload.main_intervals_table is not None
     assert main_intervals_table(payload.executive_summary) is not None
 
@@ -75,4 +75,4 @@ def test_interval_print_report_header_hides_technical_row_counter() -> None:
     assert "Инженерное заключение" in header
     assert "Строк в интервале" not in header
     assert "Планшетные параметры" not in header
-    assert "Краткое инженерное заключение" in html
+    assert "Инженерная сводка перспективных интервалов" in html

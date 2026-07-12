@@ -217,3 +217,6 @@ Next:
 - Interpretation first-render fix: initial graphs/tablet now auto-commit on first valid calculation; explicit button remains for later settings changes. Streamlit marker/zone count widgets now use Session State as the single source of truth.
 
 - Interpretation graphs now render and complete without a workspace failure when the full depth interval is active; export metadata resolves the actual dataset depth bounds safely.
+
+### Interpretation reporting UX
+The Interpretation workspace now prioritizes detected hydrocarbon intervals rather than dataframe row counts. Printable reports expose depth ranges, thickness, probable fluid, confidence, geological support, decision level, conclusions and limitations.

@@ -78,7 +78,7 @@ from core.diagnostics import (
     mapping_warning_messages,
     ratio_nan_warning_messages,
 )
-from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summarize_interpretation
+from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summarize_interpretation, engineering_interval_summary
 from core.logging_config import configure_logging, safe_log_value
 from core.workbench_runtime_diagnostics import record_render_audit
 from core.workbench_context import WorkbenchSelectionService
@@ -8589,10 +8589,35 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 logger=logger,
             )
 
-    st.subheader("Сводка интерпретации")
-    st.dataframe(summarize_interpretation(filtered_df), width="stretch")
-    st.subheader("Таблица выбранного интервала")
-    st.dataframe(filtered_df, width="stretch")
+    st.subheader("Инженерная сводка УВ-интервалов")
+    st.caption(
+        "Показаны вероятные нефтяные, газовые, газоконденсатные, смешанные и проверочные интервалы. "
+        "Технические счетчики строк намеренно скрыты."
+    )
+    engineering_summary = engineering_interval_summary(filtered_df)
+    if engineering_summary.empty:
+        st.info("В выбранном диапазоне уверенные УВ-интервалы не выделены.")
+    else:
+        st.dataframe(
+            engineering_summary,
+            width="stretch",
+            height=430,
+            hide_index=True,
+            column_config={
+                "Интервал, м": st.column_config.TextColumn("Интервал, м", width="medium"),
+                "Мощность, м": st.column_config.NumberColumn("Мощность, м", format="%.2f"),
+                "Вероятный флюид": st.column_config.TextColumn("Вероятный флюид", width="medium"),
+                "Достоверность": st.column_config.TextColumn("Достоверность", width="small"),
+                "Данные": st.column_config.TextColumn("Качество данных", width="small"),
+                "Геология": st.column_config.TextColumn("Геологическая поддержка", width="small"),
+                "Уровень решения": st.column_config.TextColumn("Уровень решения", width="small"),
+                "Инженерное заключение": st.column_config.TextColumn("Инженерное заключение", width="large"),
+            },
+        )
+
+    st.subheader("Расчетные данные выбранного интервала")
+    st.caption("Таблица прокручивается вертикально и горизонтально; служебные колонки можно изучать при необходимости.")
+    st.dataframe(filtered_df, width="stretch", height=520, hide_index=True)
     interval_csv_key = f"interpretation_interval_csv_{active_project.id}"
     interval_csv_settings = {
         "source_signature": calculated_signature,

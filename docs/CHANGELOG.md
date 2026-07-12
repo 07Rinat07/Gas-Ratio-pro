@@ -1723,3 +1723,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 ## 2026-07-12 — Interpretation concrete depth range hotfix
 - Resolved persisted full-interval `None` into a concrete depth range before report/export metadata is built.
 - Added regression coverage for full and manual depth intervals.
+
+## Engineer-facing interpretation summaries
+- Replaced row-count interpretation summary with interval-oriented oil, gas, condensate and review tables.
+- Added scrollable engineering interval grid with depth, thickness, confidence, data quality, geology support and conclusion.
+- Increased raw calculation table viewport and enabled horizontal/vertical inspection without index noise.
+- Reworked printable executive summary around depth ranges, cumulative interpreted thickness and best interval by fluid.
+- Renamed and expanded the printable interval registry for engineering review.

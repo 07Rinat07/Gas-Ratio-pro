@@ -54,7 +54,7 @@ def test_export_presentation_html_package_writes_html_and_manifest(tmp_path) -> 
     assert result.figure_count == 1
 
     html = result.html_path.read_text(encoding="utf-8")
-    assert "Краткое инженерное заключение" in html
+    assert "Инженерная сводка перспективных интервалов" in html
     assert "Диагностика движка УВ-интервалов" not in html
 
     manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))

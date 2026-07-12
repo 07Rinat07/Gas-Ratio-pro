@@ -138,48 +138,56 @@ def _overall_assessment(result: HydrocarbonIntervalResult) -> str:
 
 
 def build_executive_summary(result: HydrocarbonIntervalResult) -> ExecutiveSummary:
-    """Build a first-page report summary from the frozen HIE result."""
+    """Build a decision-oriented first-page summary for geoscience teams."""
 
     summary = summarize_hydrocarbon_interval_result(result)
-    fluid_counts: Mapping[str, int] = summary.get("fluid_type_counts", {}) or {}
     main_intervals = _best_intervals(result.intervals)
+    productive = tuple(item for item in result.intervals if item.fluid_type in PRODUCTIVE_FLUIDS)
 
     items: list[ExecutiveSummaryItem] = []
-    productive_count = int(summary.get("productive_intervals", 0) or 0)
-    items.append(
-        ExecutiveSummaryItem(
-            title="Вероятные продуктивные интервалы",
-            value=str(productive_count),
-            note="Газ, нефть, газоконденсат и смешанные УВ-интервалы.",
-        )
-    )
-    for fluid_type in ("gas", "oil", "condensate", "gas_oil", "oil_gas", "mixed", "transition", "uncertain", "water"):
-        count = int(fluid_counts.get(fluid_type, 0) or 0)
-        if count:
-            items.append(ExecutiveSummaryItem(title=_fluid_label(fluid_type), value=str(count)))
+    if productive:
+        top = min(float(item.top) for item in productive)
+        base = max(float(item.base) for item in productive)
+        total_thickness = sum(float(item.thickness or 0.0) for item in productive)
+        items.append(ExecutiveSummaryItem(
+            title="Диапазон вероятного УВ-насыщения",
+            value=f"{top:g}–{base:g} м",
+            note=f"Суммарная мощность выделенных интервалов: {total_thickness:.1f} м.",
+        ))
+
+    for fluid_type in ("oil", "gas", "condensate", "gas_oil", "oil_gas", "mixed"):
+        intervals = [item for item in productive if item.fluid_type == fluid_type]
+        if not intervals:
+            continue
+        best = sorted(intervals, key=lambda item: (-int(item.confidence_score or 0), -float(item.thickness or 0)))[0]
+        total = sum(float(item.thickness or 0.0) for item in intervals)
+        items.append(ExecutiveSummaryItem(
+            title=_fluid_label(fluid_type),
+            value=f"{best.top:g}–{best.base:g} м",
+            note=(
+                f"Лучший интервал: {best.thickness:g} м, достоверность {_confidence_label(best)}; "
+                f"суммарная выделенная мощность {total:.1f} м."
+            ),
+        ))
 
     review_required = int(summary.get("review_required", 0) or 0)
     if review_required:
-        items.append(
-            ExecutiveSummaryItem(
-                title="Требуют проверки",
-                value=str(review_required),
-                note="Интервалы с низкой/неопределенной достоверностью или ограничениями данных.",
-            )
-        )
+        items.append(ExecutiveSummaryItem(
+            title="Приоритет ручной проверки",
+            value=f"{review_required} интервалов",
+            note="Низкая достоверность, недостаток данных, одиночные точки или противоречие методов.",
+        ))
 
     if main_intervals:
         best = main_intervals[0]
-        items.append(
-            ExecutiveSummaryItem(
-                title="Наиболее перспективный интервал",
-                value=_format_depth_range(best),
-                note=f"{_fluid_label(best.fluid_type)}, достоверность {_confidence_label(best)}.",
-            )
-        )
+        items.append(ExecutiveSummaryItem(
+            title="Наиболее перспективный интервал",
+            value=_format_depth_range(best),
+            note=f"{_fluid_label(best.fluid_type)}, мощность {best.thickness:g} м, достоверность {_confidence_label(best)}.",
+        ))
 
     return ExecutiveSummary(
-        title="Краткое инженерное заключение",
+        title="Инженерная сводка перспективных интервалов",
         overall_assessment=_overall_assessment(result),
         items=tuple(items),
         main_intervals=main_intervals,
@@ -226,8 +234,8 @@ def main_intervals_table(summary: ExecutiveSummary) -> HtmlReportTable | None:
             )
         )
     return HtmlReportTable(
-        title="Основные интервалы для инженерной проверки",
-        headers=("№", "От", "До", "Мощность", "Тип", "Уровень", "Достоверность", "Заключение"),
+        title="Приоритетные интервалы нефти, газа и конденсата",
+        headers=("№", "Кровля, м", "Подошва, м", "Мощность, м", "Флюид", "Решение", "Достоверность", "Инженерный вывод"),
         rows=tuple(rows),
     )
 

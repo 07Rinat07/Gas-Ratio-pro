@@ -36,8 +36,8 @@ def test_engineering_presentation_html_uses_engineer_first_profile() -> None:
 
     assert rendered.profile == "engineering"
     assert rendered.figure_count == 1
-    assert "Краткое инженерное заключение" in html
-    assert "Карточки интервалов залежей" in html
+    assert "Инженерная сводка перспективных интервалов" in html
+    assert "Реестр интерпретированных УВ-интервалов" in html
     assert "Профессиональный планшет интерпретации" in html
     assert "Диагностика движка УВ-интервалов" not in html
     assert "Technical row" not in html
