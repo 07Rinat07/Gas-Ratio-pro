@@ -43,6 +43,20 @@ PREFERRED_TABLET_COLUMNS: tuple[str, ...] = (
 DEPTH_COLUMN_NAMES = {"depth", "depth_from", "depth_to", "_plot_depth"}
 
 
+FLUID_INTERVAL_STYLES: Mapping[str, tuple[str, str]] = {
+    "oil": ("#2ca02c", "Нефть"),
+    "gas": ("#d62728", "Газ"),
+    "condensate": ("#ff9f1c", "Газоконденсат"),
+    "gas_oil": ("#bcbd22", "Газ–нефть"),
+    "oil_gas": ("#bcbd22", "Нефть–газ"),
+    "mixed": ("#9467bd", "Смешанный"),
+    "transition": ("#f2c94c", "Переходный"),
+    "water": ("#1f77b4", "Вода"),
+    "dry_gas": ("#7b2cbf", "Сухой газ"),
+    "uncertain": ("#7f8c8d", "Требует проверки"),
+}
+
+
 MUD_GAS_LITERATURE_TRACK_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("GR/lithology", ("gr", "gamma", "gamma_ray", "lithology")),
     ("Total gas", ("total_gas", "tgas", "gas_total", "totalgas", "gas")),
@@ -156,6 +170,46 @@ class InterpretationZone:
     bottom_depth: float
     color: str = "#ffd966"
     note: str = ""
+
+
+@dataclass(frozen=True)
+class ReservoirIntervalOverlay:
+    interval_id: str
+    top_depth: float
+    bottom_depth: float
+    fluid_type: str
+    confidence_score: int = 0
+    thickness: float = 0.0
+    decision_level: str = ""
+    note: str = ""
+
+
+def reservoir_interval_overlays(intervals: Sequence[object]) -> tuple[ReservoirIntervalOverlay, ...]:
+    """Convert HydrocarbonInterval-like objects into UI-safe interval overlays."""
+
+    overlays: list[ReservoirIntervalOverlay] = []
+    for index, interval in enumerate(intervals, start=1):
+        try:
+            top = float(getattr(interval, "top"))
+            base = float(getattr(interval, "base"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        fluid_type = str(getattr(interval, "fluid_type", "uncertain") or "uncertain")
+        confidence = int(getattr(interval, "confidence_score", 0) or 0)
+        thickness = float(getattr(interval, "thickness", abs(base - top)) or abs(base - top))
+        overlays.append(
+            ReservoirIntervalOverlay(
+                interval_id=f"HC-{index:03d}",
+                top_depth=min(top, base),
+                bottom_depth=max(top, base),
+                fluid_type=fluid_type,
+                confidence_score=confidence,
+                thickness=thickness,
+                decision_level=str(getattr(interval, "decision_level", "") or ""),
+                note=str(getattr(interval, "engineering_note", "") or ""),
+            )
+        )
+    return tuple(overlays)
 
 
 def numeric_tablet_columns(df: pd.DataFrame | Sequence[object]) -> tuple[str, ...]:
@@ -544,6 +598,8 @@ def build_well_log_tablet(
     depth_range: tuple[float, float] | None = None,
     markers: Sequence[InterpretationMarker] = (),
     zones: Sequence[InterpretationZone] = (),
+    reservoir_intervals: Sequence[ReservoirIntervalOverlay] = (),
+    selected_depth: float | None = None,
     height: int = 760,
 ) -> go.Figure:
     if df is None or df.empty:
@@ -558,17 +614,39 @@ def build_well_log_tablet(
         return _empty_tablet_figure("Нет числовой глубины для планшета", height=height)
 
     depth = plot_df["_plot_depth"]
-    titles = [_track_title(track, plot_df[track.column]) for track in selected_tracks]
+    interval_track_enabled = bool(reservoir_intervals)
+    titles = (["УВ-интервалы"] if interval_track_enabled else []) + [
+        _track_title(track, plot_df[track.column]) for track in selected_tracks
+    ]
+    widths = ([0.34] if interval_track_enabled else []) + [1.0] * len(selected_tracks)
     fig = make_subplots(
         rows=1,
-        cols=len(selected_tracks),
+        cols=len(titles),
         shared_yaxes=True,
         horizontal_spacing=0.012,
         subplot_titles=titles,
+        column_widths=widths,
     )
+
+    track_offset = 1 if interval_track_enabled else 0
+    if interval_track_enabled:
+        fig.add_trace(
+            go.Scatter(
+                x=[0.5, 0.5],
+                y=[float(depth.min()), float(depth.max())],
+                mode="lines",
+                line={"color": "rgba(0,0,0,0)", "width": 0},
+                hoverinfo="skip",
+                showlegend=False,
+            ),
+            row=1,
+            col=1,
+        )
+        fig.update_xaxes(range=[0, 1], showticklabels=False, zeroline=False, row=1, col=1)
 
     visible_track_count = 0
     for index, track in enumerate(selected_tracks, start=1):
+        subplot_col = index + track_offset
         values = pd.to_numeric(plot_df[track.column], errors="coerce")
         if values.isna().all():
             continue
@@ -588,7 +666,7 @@ def build_well_log_tablet(
                     showlegend=False,
                 ),
                 row=1,
-                col=index,
+                col=subplot_col,
             )
             fill = "tonextx"
 
@@ -604,12 +682,12 @@ def build_well_log_tablet(
                 hovertemplate=f"{track.column}=%{{x}}<br>Depth=%{{y}}<extra></extra>",
             ),
             row=1,
-            col=index,
+            col=subplot_col,
         )
         visible_track_count += 1
-        fig.update_xaxes(title_text=track.column, zeroline=False, row=1, col=index)
+        fig.update_xaxes(title_text=track.column, zeroline=False, row=1, col=subplot_col)
         if track.x_range is not None:
-            fig.update_xaxes(range=list(track.x_range), row=1, col=index)
+            fig.update_xaxes(range=list(track.x_range), row=1, col=subplot_col)
 
     if visible_track_count == 0:
         return _empty_tablet_figure("В выбранных параметрах нет числовых значений", height=height)
@@ -654,6 +732,105 @@ def build_well_log_tablet(
             }
         )
 
+    for interval in reservoir_intervals:
+        top_depth = min(float(interval.top_depth), float(interval.bottom_depth))
+        bottom_depth = max(float(interval.top_depth), float(interval.bottom_depth))
+        color, fluid_label = FLUID_INTERVAL_STYLES.get(
+            str(interval.fluid_type).lower(), FLUID_INTERVAL_STYLES["uncertain"]
+        )
+        # Light background across all curve tracks.
+        shapes.append(
+            {
+                "type": "rect",
+                "xref": "paper",
+                "x0": 0,
+                "x1": 1,
+                "yref": "y",
+                "y0": top_depth,
+                "y1": bottom_depth,
+                "fillcolor": color,
+                "opacity": 0.10,
+                "line": {"color": color, "width": 0.8},
+                "layer": "below",
+            }
+        )
+        if interval_track_enabled:
+            shapes.append(
+                {
+                    "type": "rect",
+                    "xref": "x",
+                    "x0": 0.08,
+                    "x1": 0.92,
+                    "yref": "y",
+                    "y0": top_depth,
+                    "y1": bottom_depth,
+                    "fillcolor": color,
+                    "opacity": 0.72,
+                    "line": {"color": color, "width": 1.2},
+                    "layer": "above",
+                }
+            )
+            midpoint = (top_depth + bottom_depth) / 2.0
+            label = (
+                f"<b>{interval.interval_id}</b><br>{fluid_label}<br>"
+                f"{interval.thickness:g} м · {interval.confidence_score}%"
+            )
+            annotations.append(
+                {
+                    "xref": "x",
+                    "x": 0.5,
+                    "yref": "y",
+                    "y": midpoint,
+                    "text": label,
+                    "showarrow": False,
+                    "align": "center",
+                    "font": {"color": "#ffffff", "size": 10},
+                    "hovertext": interval.note or fluid_label,
+                }
+            )
+        # Explicit top/base boundaries aid engineering reading and printing.
+        for boundary, suffix in ((top_depth, "кровля"), (bottom_depth, "подошва")):
+            shapes.append(
+                {
+                    "type": "line",
+                    "xref": "paper",
+                    "x0": 0,
+                    "x1": 1,
+                    "yref": "y",
+                    "y0": boundary,
+                    "y1": boundary,
+                    "line": {"color": color, "width": 1.0, "dash": "dot"},
+                }
+            )
+
+    if selected_depth is not None:
+        shapes.append(
+            {
+                "type": "line",
+                "xref": "paper",
+                "x0": 0,
+                "x1": 1,
+                "yref": "y",
+                "y0": float(selected_depth),
+                "y1": float(selected_depth),
+                "line": {"color": "#00d4ff", "width": 2.0},
+            }
+        )
+        annotations.append(
+            {
+                "xref": "paper",
+                "x": 1.01,
+                "yref": "y",
+                "y": float(selected_depth),
+                "text": f"Выбрано: {float(selected_depth):g} м",
+                "showarrow": True,
+                "arrowhead": 2,
+                "ax": 58,
+                "ay": 0,
+                "font": {"color": "#00d4ff", "size": 11},
+            }
+        )
+
     for marker in markers:
         shapes.append(
             {
@@ -683,7 +860,7 @@ def build_well_log_tablet(
         )
 
     fig.update_layout(
-        title="Well-log tablet",
+        title="Depth Panel 2.0 — УВ-интервалы, кривые и достоверность",
         height=height,
         margin={"l": 70, "r": 80, "t": 115, "b": 50},
         showlegend=False,

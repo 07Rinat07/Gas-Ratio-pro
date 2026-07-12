@@ -8,6 +8,15 @@
 
 # GAS RATIO PRO — Changelog
 
+## v214 — Depth Panel 2.0 foundation
+
+- Added a dedicated interpreted-interval track to the interactive well-log tablet.
+- Added fluid-colored interval fills across all curve tracks.
+- Added explicit top/base boundaries, interval IDs, thickness and confidence labels.
+- Added a synchronized selected-depth line across the complete panel.
+- Preserved NaN gaps instead of drawing absent measurements as zero.
+- Added regression tests for interval overlays and backward compatibility.
+
 ## v214 — Contextual Properties actions
 
 - Added a contextual action group to the right-hand Properties pane for LAS, datasets, calculations, reports and exports.

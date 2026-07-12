@@ -239,6 +239,7 @@ from palettes.well_log_tablet import (
     mud_gas_literature_tablet_columns,
     normalize_track_configs,
     numeric_tablet_columns,
+    reservoir_interval_overlays,
     tablet_units_from_dataframe,
 )
 from palettes.pixler import build_pixler_palette
@@ -8335,12 +8336,27 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 fill=tablet_fill,
                 fill_modes=tablet_fill_modes,
             )
+            try:
+                detected_interval_result = detect_hydrocarbon_intervals(filtered_df)
+                reservoir_overlays = reservoir_interval_overlays(detected_interval_result.intervals)
+            except Exception as exc:
+                logger.warning(
+                    "depth_panel_interval_detection_failed error=%s",
+                    safe_log_value(exc),
+                )
+                reservoir_overlays = ()
+
+            selected_tablet_depth = (
+                float(tablet_markers[0].depth) if tablet_markers else None
+            )
             tablet_figure = build_well_log_tablet(
                 filtered_df,
                 tablet_tracks,
                 depth_range=depth_range,
                 markers=tablet_markers,
                 zones=tablet_zones,
+                reservoir_intervals=reservoir_overlays,
+                selected_depth=selected_tablet_depth,
                 height=max(int(height), 760),
             )
             figures.append(tablet_figure)

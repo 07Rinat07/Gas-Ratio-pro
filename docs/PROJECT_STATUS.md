@@ -241,3 +241,14 @@ Completed in the current increment:
 ## Interpretation 2.0 — current increment
 Pixler 2.0 foundation is active: the chart renders the interval measurement cloud, median profile, selected-depth marker, configurable zones and a concise methodological conclusion. Zone limits remain explicitly provisional until corporate calibration is supplied.
 - Ternary 2.0 interval foundation implemented: interval cloud, median center, selected-depth marker, data-completeness assessment and region-support summary are available; region boundaries remain draft until corporate validation.
+## Depth Panel 2.0 — current increment
+
+Implemented foundation:
+- detected hydrocarbon intervals are rendered as a dedicated left-hand engineering track;
+- interval fills span all selected curves on one shared reversed depth axis;
+- every interval shows ID, probable fluid, thickness and confidence;
+- top/base boundaries and the selected-depth marker are explicit;
+- missing measurements remain gaps and are never converted to zero for display.
+
+Next: add confidence and recommendation tracks, synchronize the selected interval with the registry/passport, and provide a print-light renderer from the same plot model.
+

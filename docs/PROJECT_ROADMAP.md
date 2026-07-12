@@ -536,11 +536,11 @@ This is the current product priority. The goal is to replace technically correct
 
 ### 4.4 Depth engineering panel
 
-- [ ] Use a shared reversed depth axis across every track.
+- [x] Use a shared reversed depth axis across every track.
 - [ ] Add Total Gas, C1–C5, Wh/Bh/Ch, Pixler ratios, interval type and confidence tracks.
-- [ ] Draw top/base boundaries, interval fills, IDs, thickness and selected-depth marker.
+- [x] Draw top/base boundaries, interval fills, IDs, thickness and selected-depth marker.
 - [ ] Use logarithmic scale only for curves whose physical range requires it.
-- [ ] Never replace missing measurements with zero for presentation.
+- [x] Never replace missing measurements with zero for presentation.
 - [ ] Add practical track presets and readable print layout.
 
 ### 4.5 Interval passport and method agreement
@@ -578,3 +578,4 @@ The stage is complete only when an engineer can select an interval and obtain sy
 - [ ] Validate zone limits against approved corporate methodology and field calibration.
 - [ ] Add interval selector synchronization with the reservoir register and passport.
 - [x] Ternary 2.0 interval foundation: cloud of valid interval measurements, normalized median center, selected-depth marker, configured methodological regions, completeness assessment and engineering conclusion.
+- [x] Depth Panel 2.0 foundation: dedicated interval track, shared reversed depth axis, fluid-colored interval fills, explicit top/base boundaries, interval ID, thickness, confidence and selected-depth marker.
