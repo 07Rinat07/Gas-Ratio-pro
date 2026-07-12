@@ -15,4 +15,4 @@ def test_marker_count_widget_has_single_source_of_truth() -> None:
     block = source[source.index('marker_count_key = "interpretation_tablet_marker_count"'):]
     block = block[: block.index("markers: list[InterpretationMarker]")]
     assert "\n            value=0," not in block
-    assert "st.session_state[marker_count_key] = 0" in block
+    assert "_application_state_controller().state[marker_count_key] = 0" in block

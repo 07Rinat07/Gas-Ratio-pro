@@ -18,17 +18,17 @@ def test_single_active_governance_set_exists() -> None:
     assert "project_plan.md" not in files
 
 
-def test_roadmap_and_status_reopen_stage_four_until_live_acceptance() -> None:
+def test_roadmap_and_status_track_current_stabilization_stage() -> None:
     roadmap = (DOCS / "PROJECT_ROADMAP.md").read_text(encoding="utf-8")
     status = (DOCS / "PROJECT_STATUS.md").read_text(encoding="utf-8")
     assert "единственная активная последовательность" in roadmap
     assert "Stage 4 — Workbench UI Completion" in roadmap
-    assert "IN PROGRESS v208" in roadmap
-    assert "Live acceptance" in roadmap
+    assert "Stabilization & Release Audit" in roadmap
+    assert "Release candidate" in roadmap
     assert "Petrophysical Engine" in roadmap
     assert "BLOCKED" in roadmap
-    assert "Runtime acceptance: **FAILED for v202" in status
-    assert "Functional visibility repair" in status
+    assert "Stabilization & Release Audit" in status
+    assert "release candidate" in status.casefold()
 
 
 def test_versioned_roadmaps_and_progress_documents_are_archived() -> None:

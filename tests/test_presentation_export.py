@@ -50,7 +50,7 @@ def test_export_presentation_html_package_writes_html_and_manifest(tmp_path) -> 
 
     assert result.html_path.exists()
     assert result.manifest_path.exists()
-    assert result.profile == "client"
+    assert result.profile == "engineering"
     assert result.figure_count == 1
 
     html = result.html_path.read_text(encoding="utf-8")
@@ -59,7 +59,7 @@ def test_export_presentation_html_package_writes_html_and_manifest(tmp_path) -> 
 
     manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
     assert manifest["schema"] == "gas-ratio-pro/presentation/export/v1"
-    assert manifest["profile"] == "client"
+    assert manifest["profile"] == "engineering"
     assert manifest["metadata"]["source_label"] == "well.las"
     assert manifest["html_file"] == result.html_path.name
 
@@ -95,7 +95,7 @@ def test_export_presentation_bundle_package_writes_all_formats_from_one_model(tm
     assert result.pdf_path.exists()
     assert result.docx_path.exists()
     assert result.manifest_path.exists()
-    assert result.profile == "client"
+    assert result.profile == "engineering"
     assert result.figure_count == 1
 
     manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
@@ -131,7 +131,7 @@ def test_export_presentation_package_facade_writes_html_with_normalized_result(t
     assert result.files["html"].exists()
     assert result.primary_path() == result.files["html"]
     assert result.manifest_path.exists()
-    assert result.profile == "client"
+    assert result.profile == "engineering"
 
     manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
     assert manifest["files"] == {"html": result.files["html"].name}

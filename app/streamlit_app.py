@@ -2591,7 +2591,7 @@ def _store_interpretation_dataset(calculated_df: pd.DataFrame, source_label: str
         "rows": int(len(committed_frame)),
         "dataframe": committed_frame,
     }
-    controller.update_values(
+    _application_state_controller().update_values(
         {
             INTERPRETATION_SESSION_DATA_KEY: committed_frame,
             INTERPRETATION_SESSION_SOURCE_KEY: str(source_label),
@@ -6977,6 +6977,143 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
                 st.success(f"Подготовленный LAS сохранен в проект: {saved_las_result.record.name} / {saved_las_result.record.version_label}.")
 
 
+def _fluid_visual(value: object) -> tuple[str, str, str]:
+    """Return a stable user label, engineering color and compact marker."""
+    text = str(value or "").strip().casefold()
+    if "газоконденсат" in text or ("газ" in text and "конденсат" in text):
+        return "Газоконденсат", "#f59e0b", "🟧"
+    if "нефт" in text or text == "oil":
+        return "Нефть", "#22c55e", "🟩"
+    if "газ" in text or text == "gas":
+        return "Газ", "#ef4444", "🟥"
+    if "вод" in text or text == "water":
+        return "Вода", "#3b82f6", "🟦"
+    return (str(value or "Не определён"), "#94a3b8", "⬜")
+
+
+def _active_interval_table_marker(fluid: object, *, active: bool) -> str:
+    marker = _fluid_visual(fluid)[2]
+    return f"▶ {marker}" if active else marker
+
+
+def _ordered_interval_ids(table: pd.DataFrame) -> list[str]:
+    if not isinstance(table, pd.DataFrame) or table.empty or "ID" not in table.columns:
+        return []
+    return [str(value) for value in table["ID"].tolist() if str(value).strip()]
+
+
+def _adjacent_interval_id(interval_ids: list[str], active_id: str, offset: int) -> str:
+    if not interval_ids:
+        return ""
+    try:
+        index = interval_ids.index(str(active_id))
+    except ValueError:
+        index = 0
+    target = max(0, min(len(interval_ids) - 1, index + int(offset)))
+    return interval_ids[target]
+
+
+def _interval_navigation_state(table: pd.DataFrame, active_id: str) -> tuple[list[str], int]:
+    interval_ids = _ordered_interval_ids(table)
+    if not interval_ids:
+        return [], 0
+    try:
+        position = interval_ids.index(str(active_id))
+    except ValueError:
+        position = 0
+    return interval_ids, position
+
+
+def _interval_fluid_options(table: pd.DataFrame) -> list[str]:
+    if not isinstance(table, pd.DataFrame) or table.empty or "Вероятный флюид" not in table.columns:
+        return []
+    result: list[str] = []
+    for raw in table["Вероятный флюид"].tolist():
+        label = _fluid_visual(raw)[0]
+        if label not in result:
+            result.append(label)
+    return result
+
+
+def _filter_engineering_intervals(
+    table: pd.DataFrame,
+    *,
+    search_text: str = "",
+    fluid_labels: list[str] | tuple[str, ...] | None = None,
+) -> pd.DataFrame:
+    if not isinstance(table, pd.DataFrame) or table.empty:
+        return table.copy() if isinstance(table, pd.DataFrame) else pd.DataFrame()
+    mask = pd.Series(True, index=table.index)
+    query = str(search_text or "").strip().casefold()
+    if query:
+        searchable = table.astype(str).agg(" ".join, axis=1).str.casefold()
+        mask &= searchable.str.contains(query, regex=False, na=False)
+    selected = {str(item).strip().casefold() for item in (fluid_labels or []) if str(item).strip()}
+    if selected and "Вероятный флюид" in table.columns:
+        labels = table["Вероятный флюид"].map(lambda value: _fluid_visual(value)[0].casefold())
+        mask &= labels.isin(selected)
+    return table.loc[mask].copy()
+
+
+def _interval_table_window(
+    table: pd.DataFrame,
+    active_id: str,
+    *,
+    window_size: int = 21,
+) -> tuple[pd.DataFrame, int, int]:
+    if not isinstance(table, pd.DataFrame) or table.empty:
+        empty = table.copy() if isinstance(table, pd.DataFrame) else pd.DataFrame()
+        if "Активный" not in empty.columns:
+            empty.insert(0, "Активный", pd.Series(dtype=str))
+        return empty, 0, 0
+    size = max(1, int(window_size))
+    ids = _ordered_interval_ids(table)
+    try:
+        active_index = ids.index(str(active_id))
+    except ValueError:
+        active_index = 0
+    half = size // 2
+    start = max(0, active_index - half)
+    end = min(len(table), start + size)
+    start = max(0, end - size)
+    window = table.iloc[start:end].copy().reset_index(drop=True)
+    fluids = window.get("Вероятный флюид", pd.Series([""] * len(window)))
+    markers = [
+        _active_interval_table_marker(fluid, active=str(interval_id) == str(active_id))
+        for fluid, interval_id in zip(fluids.tolist(), window.get("ID", pd.Series([""] * len(window))).tolist())
+    ]
+    window.insert(0, "Активный", markers)
+    return window, start, end
+
+
+def _selected_dataframe_rows(event: object) -> list[int]:
+    selection = getattr(event, "selection", None)
+    if selection is None and isinstance(event, dict):
+        selection = event.get("selection")
+    rows = getattr(selection, "rows", None)
+    if rows is None and isinstance(selection, dict):
+        rows = selection.get("rows")
+    if rows is None:
+        return []
+    result: list[int] = []
+    for value in rows:
+        try:
+            result.append(int(value))
+        except (TypeError, ValueError):
+            continue
+    return result
+
+
+def _selected_interval_id_from_table(event: object, table: pd.DataFrame) -> str:
+    rows = _selected_dataframe_rows(event)
+    if not rows or not isinstance(table, pd.DataFrame) or table.empty or "ID" not in table.columns:
+        return ""
+    index = rows[0]
+    if index < 0 or index >= len(table):
+        return ""
+    return str(table.iloc[index]["ID"])
+
+
 def _render_workspace(logger, active_project: ProjectRecord) -> None:
     try:
         palette_config = load_palette_config()
@@ -7590,12 +7727,12 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         if (
             remembered_interval_id in option_ids
             and (
-                workspace_selection_key not in st.session_state
-                or st.session_state.get(workspace_synced_key) != remembered_interval_id
+                workspace_selection_key not in _application_state_controller().state
+                or _application_state_controller().state.get(workspace_synced_key) != remembered_interval_id
             )
         ):
-            st.session_state[workspace_selection_key] = remembered_interval_id
-            st.session_state[workspace_synced_key] = remembered_interval_id
+            _application_state_controller().state[workspace_selection_key] = remembered_interval_id
+            _application_state_controller().state[workspace_synced_key] = remembered_interval_id
         selected_reservoir_interval_id = (
             str(state_controller.get_value("selected_reservoir_interval_id", "") or "")
             if str(state_controller.get_value("selected_reservoir_interval_id", "") or "") in option_ids
@@ -7615,7 +7752,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         selected_reservoir_depth = (
             float(selected_reservoir_interval.top) + float(selected_reservoir_interval.base)
         ) / 2.0
-        st.session_state[workspace_synced_key] = str(selected_reservoir_interval_id)
+        _application_state_controller().state[workspace_synced_key] = str(selected_reservoir_interval_id)
         state_controller.update_values({
             "selected_reservoir_interval_id": str(selected_reservoir_interval_id),
             "selected_reservoir_depth": selected_reservoir_depth,
@@ -7953,8 +8090,8 @@ def _render_tablet_marker_controls(depth_range: tuple[float, float] | None, df: 
 
     with st.expander("Маркеры интерпретации планшета", expanded=False):
         marker_count_key = "interpretation_tablet_marker_count"
-        if marker_count_key not in st.session_state:
-            st.session_state[marker_count_key] = 0
+        if marker_count_key not in _application_state_controller().state:
+            _application_state_controller().state[marker_count_key] = 0
         marker_count = st.number_input(
             "Количество маркеров",
             min_value=0,
@@ -7971,9 +8108,9 @@ def _render_tablet_marker_controls(depth_range: tuple[float, float] | None, df: 
             label_key = f"interpretation_tablet_marker_{index}_label"
             depth_key = f"interpretation_tablet_marker_{index}_depth"
             note_key = f"interpretation_tablet_marker_{index}_note"
-            st.session_state.setdefault(label_key, label_default)
-            st.session_state.setdefault(depth_key, float(depth_default))
-            st.session_state.setdefault(note_key, "")
+            _application_state_controller().state.setdefault(label_key, label_default)
+            _application_state_controller().state.setdefault(depth_key, float(depth_default))
+            _application_state_controller().state.setdefault(note_key, "")
             label = label_col.text_input(f"Метка {index + 1}", key=label_key)
             marker_depth = depth_col.number_input(
                 f"Глубина {index + 1}",
@@ -7997,8 +8134,8 @@ def _render_tablet_zone_controls(depth_range: tuple[float, float] | None, df: pd
 
     with st.expander("Интерпретационные зоны планшета", expanded=False):
         zone_count_key = "interpretation_tablet_zone_count"
-        if zone_count_key not in st.session_state:
-            st.session_state[zone_count_key] = 0
+        if zone_count_key not in _application_state_controller().state:
+            _application_state_controller().state[zone_count_key] = 0
         zone_count = st.number_input(
             "Количество зон",
             min_value=0,
@@ -8017,11 +8154,11 @@ def _render_tablet_zone_controls(depth_range: tuple[float, float] | None, df: pd
             bottom_key = f"interpretation_tablet_zone_{index}_bottom"
             color_key = f"interpretation_tablet_zone_{index}_color"
             note_key = f"interpretation_tablet_zone_{index}_note"
-            st.session_state.setdefault(label_key, f"Zone {index + 1}")
-            st.session_state.setdefault(top_key, float(zone_top_default))
-            st.session_state.setdefault(bottom_key, float(zone_bottom_default))
-            st.session_state.setdefault(color_key, "#ffd966")
-            st.session_state.setdefault(note_key, "")
+            _application_state_controller().state.setdefault(label_key, f"Zone {index + 1}")
+            _application_state_controller().state.setdefault(top_key, float(zone_top_default))
+            _application_state_controller().state.setdefault(bottom_key, float(zone_bottom_default))
+            _application_state_controller().state.setdefault(color_key, "#ffd966")
+            _application_state_controller().state.setdefault(note_key, "")
             label = label_col.text_input(f"Зона {index + 1}", key=label_key)
             top_depth = top_col.number_input(
                 f"Верх зоны {index + 1}",
@@ -8365,10 +8502,10 @@ def _render_reservoir_ranking(
     all_profiles = (*BUILTIN_RANKING_PROFILES, *saved_profiles)
     profile_lookup = {profile.profile_id: profile for profile in all_profiles}
     profile_key = f"{key}_profile_id"
-    current_profile_id = str(st.session_state.get(profile_key, DEFAULT_RANKING_PROFILE.profile_id))
+    current_profile_id = str(_application_state_controller().state.get(profile_key, DEFAULT_RANKING_PROFILE.profile_id))
     if current_profile_id not in profile_lookup:
         current_profile_id = DEFAULT_RANKING_PROFILE.profile_id
-        st.session_state[profile_key] = current_profile_id
+        _application_state_controller().state[profile_key] = current_profile_id
 
     with st.expander("Reservoir Ranking 2.0 — настраиваемые профили", expanded=True):
         profile_id = st.selectbox(
@@ -8662,12 +8799,12 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         if (
             remembered_id in option_ids
             and (
-                interpretation_selection_key not in st.session_state
-                or st.session_state.get(interpretation_synced_key) != remembered_id
+                interpretation_selection_key not in _application_state_controller().state
+                or _application_state_controller().state.get(interpretation_synced_key) != remembered_id
             )
         ):
-            st.session_state[interpretation_selection_key] = remembered_id
-            st.session_state[interpretation_synced_key] = remembered_id
+            _application_state_controller().state[interpretation_selection_key] = remembered_id
+            _application_state_controller().state[interpretation_synced_key] = remembered_id
         selected_interval_id = (
             remembered_id if remembered_id in option_ids else option_ids[default_pos]
         )
@@ -8682,7 +8819,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             pair for pair in selectable_pairs if pair[0].interval_id == selected_interval_id
         )
         selected_interval_depth = (float(selected_interval.top) + float(selected_interval.base)) / 2.0
-        st.session_state[interpretation_synced_key] = str(selected_interval_id)
+        _application_state_controller().state[interpretation_synced_key] = str(selected_interval_id)
         state_controller.update_values({
             "selected_reservoir_interval_id": selected_interval_id,
             "selected_reservoir_depth": selected_interval_depth,
@@ -9069,8 +9206,8 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 if selected_interval is not None:
                     print_mode_options.insert(0, "Выбранный пласт")
                 print_mode_key = f"presentation_print_depth_mode_{active_project.id}"
-                if selected_interval is not None and print_mode_key not in st.session_state:
-                    st.session_state[print_mode_key] = "Выбранный пласт"
+                if selected_interval is not None and print_mode_key not in _application_state_controller().state:
+                    _application_state_controller().state[print_mode_key] = "Выбранный пласт"
                 print_mode = st.radio(
                     "Интервал печати",
                     options=tuple(print_mode_options),

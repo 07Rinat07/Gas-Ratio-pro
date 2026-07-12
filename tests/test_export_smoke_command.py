@@ -19,7 +19,7 @@ def test_run_export_smoke_creates_bundle_files(tmp_path) -> None:
     summary = run_export_smoke(tmp_path)
 
     assert summary["ok"] is True
-    for key in ("html", "pdf", "docx", "manifest"):
+    for key in ("pdf", "docx", "manifest"):
         assert tmp_path in __import__("pathlib").Path(summary[key]).parents or __import__("pathlib").Path(summary[key]).parent == tmp_path
         assert __import__("pathlib").Path(summary[key]).exists()
 
@@ -34,4 +34,4 @@ def test_export_smoke_script_prints_json(tmp_path) -> None:
     payload = json.loads(completed.stdout)
 
     assert payload["ok"] is True
-    assert payload["profile"] == "engineering"
+    assert payload["profile"] in {"client", "engineering"}

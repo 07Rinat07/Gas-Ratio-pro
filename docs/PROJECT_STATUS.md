@@ -376,3 +376,20 @@ Engineering Header implemented: the selected HC interval now has one compact con
 
 ## v220 — Plot Engine Cleanup
 Статус: завершено. Создан единый графический конфигурационный слой. Экранные графики и статический экспорт используют общие палитру, шрифты, легенды, оси, hover-подсказки и правила глубины. Устранено дублирование базовых Plotly-настроек в ключевых инженерных модулях.
+
+## v221 — Stabilization & Release Audit
+
+Status: **IN PROGRESS**
+
+Release candidate preparation is active. Navigation helper regressions found in v220 were restored. Direct UI access to `st.session_state` is being removed through `ApplicationStateController`. Full-suite, real-LAS, export and performance gates are being executed before the release candidate is marked stable.
+
+### v221-rc1 audit result
+
+- Collection blockers: fixed.
+- Direct `st.session_state` UI accesses: 0 outside the controller factory.
+- Navigation and visualization regression gate: passed.
+- Export, large-LAS and performance gate: passed.
+- Real sample LAS workflow gate: passed through automated open-workflow and plot tests.
+- Full monolithic suite: not certified; the run exceeded the audit runtime and showed additional historical failures outside the targeted gates.
+
+Decision: package as **release candidate v221-rc1**, not as final stable release. Final promotion requires a completed full-suite run with all remaining failures classified or fixed.

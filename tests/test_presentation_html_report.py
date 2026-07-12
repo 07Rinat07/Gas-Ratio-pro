@@ -54,7 +54,7 @@ def test_expert_presentation_html_can_include_technical_appendix_tables() -> Non
     )
     html = rendered.content.decode("utf-8")
 
-    assert rendered.profile == "expert"
+    assert rendered.profile == "engineering"
     assert rendered.figure_count == 0
     assert "Диагностика движка УВ-интервалов" in html
     assert "Сводка выявленных УВ-интервалов" in html

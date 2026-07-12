@@ -259,7 +259,7 @@ def build_presentation_html_report(
     document = build_engineering_document(
         model,
         include_figures=opts.include_figures,
-        include_technical_appendix=include_technical,
+        include_technical_appendix=True if include_technical else None,
     )
 
     parts = [

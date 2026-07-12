@@ -3,8 +3,8 @@ from __future__ import annotations
 """Reproducible smoke export command for professional report packages.
 
 The command is intentionally small and deterministic. It builds one sample
-PresentationModel from in-memory engineering data and exports HTML, PDF and
-DOCX through the production bundle exporter. This gives QA a fast way to verify
+PresentationModel from in-memory engineering data and exports PDF and DOCX
+through the production renderers. This gives QA a fast way to verify
 that renderer dependencies, Unicode fonts and manifests are ready before a user
 exports a real LAS report.
 """
@@ -56,20 +56,20 @@ def run_export_smoke(output_dir: str | Path) -> dict[str, object]:
         depth_label="2148.2-2156.0 м",
         include_plot=False,
     )
-    result = export_presentation_bundle_package(
-        payload.presentation_model,
-        options=PresentationExportOptions(
-            output_dir=output_dir,
-            base_name="gas-ratio-export-smoke",
-            include_figures=False,
-            include_technical_appendix=False,
-            overwrite=True,
-        ),
+    options = PresentationExportOptions(
+        output_dir=output_dir,
+        base_name="gas-ratio-export-smoke",
+        include_figures=False,
+        include_technical_appendix=False,
+        overwrite=True,
     )
+    # Bundle generation remains an internal release-QA compatibility path.
+    # The HTML artifact is not exposed by the application or returned as a
+    # user-selectable export format.
+    result = export_presentation_bundle_package(payload.presentation_model, options=options)
     return {
         "ok": True,
         "profile": result.profile,
-        "html": str(result.html_path),
         "pdf": str(result.pdf_path),
         "docx": str(result.docx_path),
         "manifest": str(result.manifest_path),
@@ -78,9 +78,10 @@ def run_export_smoke(output_dir: str | Path) -> dict[str, object]:
     }
 
 
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run Gas Ratio Pro professional export smoke QA.")
-    parser.add_argument("--output-dir", default="tmp/export-smoke", help="Directory for generated HTML/PDF/DOCX files.")
+    parser.add_argument("--output-dir", default="tmp/export-smoke", help="Directory for generated PDF/DOCX files.")
     args = parser.parse_args()
     summary = run_export_smoke(args.output_dir)
     print(json.dumps(summary, ensure_ascii=False, indent=2))

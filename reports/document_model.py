@@ -223,24 +223,17 @@ def select_document_tables(
     *,
     include_technical_appendix: bool | None = None,
 ) -> tuple[DocumentTable, ...]:
-    """Select report tables from PresentationModel and convert to Document blocks.
-
-    This function is the document-level equivalent of the table selector used by
-    the previous HTML renderer. It is intentionally deterministic and does not
-    rebuild or reinterpret any engineering content.
-    """
-
-    include_technical = (
-        model.metadata.report_profile not in {"client", "customer"}
-        if include_technical_appendix is None
-        else bool(include_technical_appendix)
-    )
-    if not include_technical:
+    """Select client, engineering or technical tables without rebuilding data."""
+    profile = str(model.metadata.report_profile or "engineering").strip().lower()
+    if include_technical_appendix is False:
         return _client_tables(model)
-    source_tables = model.expert_tables
+    include_technical = bool(include_technical_appendix) or profile == "expert"
+    if profile in {"client", "customer"} and include_technical_appendix is None:
+        return _client_tables(model)
+    source_tables = model.expert_tables if include_technical else model.engineer_first_tables
     engineering_ids = {id(table) for table in model.engineer_first_tables}
     return tuple(
-        _printable_table(table, technical=id(table) not in engineering_ids)
+        _printable_table(table, technical=include_technical and id(table) not in engineering_ids)
         for table in source_tables
     )
 
@@ -258,11 +251,11 @@ def build_engineering_document(
     concrete renderers must consume the resulting blocks.
     """
 
-    include_technical = (
-        model.metadata.report_profile not in {"client", "customer"}
-        if include_technical_appendix is None
-        else bool(include_technical_appendix)
+    profile = str(model.metadata.report_profile or "engineering").strip().lower()
+    client_mode = include_technical_appendix is False or (
+        include_technical_appendix is None and profile in {"client", "customer"}
     )
+    include_technical = bool(include_technical_appendix) or profile == "expert"
     tables = select_document_tables(model, include_technical_appendix=include_technical)
 
     sections: list[DocumentSection] = []
@@ -313,6 +306,6 @@ def build_engineering_document(
         notes=(
             "Каждая интерпретация является инженерной гипотезой и должна оцениваться совместно с ГИС, литологией, керном и испытаниями.",
         ),
-        profile="engineering" if include_technical else "client",
+        profile="client" if client_mode else "engineering",
     )
     return EngineeringDocument(metadata=metadata, sections=tuple(sections))

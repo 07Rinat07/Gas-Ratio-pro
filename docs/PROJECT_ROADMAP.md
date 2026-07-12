@@ -728,3 +728,25 @@ Next: use the same selection context in the Data workspace Pixler and ternary se
 - Depth-графики, Pixler, ternary, интерпретационный и отчётный планшеты переведены на общий слой.
 - PNG, SVG и PDF используют экспортную копию той же экранной фигуры и темы.
 - Добавлены регрессионные тесты общего графического контракта.
+
+## v221 — Stabilization & Release Audit (active)
+
+Status: **IN PROGRESS**
+
+- Full regression suite and release preflight.
+- Separation of current regressions from historical compatibility debt.
+- Manual smoke scenarios for data import, interpretation, navigation and export.
+- Real LAS verification for Pixler, ternary, Haworth and engineering tablet.
+- PDF, DOCX, PNG, SVG and XLSX cross-format verification.
+- Large-LAS and performance regression.
+- Removal of dead user-facing HTML paths and obsolete export entry points.
+- Elimination of direct UI access to `st.session_state` outside the application-state boundary.
+- Release candidate packaging only after critical gates pass.
+
+Release candidate Definition of Done:
+
+- no collection errors;
+- no new regressions in v216-v220 contracts;
+- architecture state audit passes;
+- export and large-LAS preflight passes;
+- unresolved historical failures are documented explicitly.

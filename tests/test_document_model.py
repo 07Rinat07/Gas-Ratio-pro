@@ -47,19 +47,19 @@ def test_document_table_selection_matches_presentation_model_without_rebuild() -
     payload = build_hydrocarbon_report_payload(_sample_frame())
     assert payload.presentation_model is not None
 
-    client = select_document_tables(payload.presentation_model, include_technical_appendix=False)
-    engineering = select_document_tables(payload.presentation_model, include_technical_appendix=True)
+    engineering = select_document_tables(payload.presentation_model, include_technical_appendix=None)
+    technical = select_document_tables(payload.presentation_model, include_technical_appendix=True)
 
-    assert len(client) <= 5
-    assert tuple(table.title for table in engineering) == tuple(table.title for table in payload.presentation_model.expert_tables)
-    assert len(engineering) >= len(client)
+    assert tuple(table.title for table in engineering) == tuple(table.title for table in payload.presentation_model.engineer_first_tables)
+    assert tuple(table.title for table in technical) == tuple(table.title for table in payload.presentation_model.expert_tables)
+    assert len(technical) >= len(engineering)
 
 
 def test_html_renderer_consumes_document_model_contract() -> None:
     payload = build_hydrocarbon_report_payload(_sample_frame(), include_plot=True)
     assert payload.presentation_model is not None
 
-    document = build_engineering_document(payload.presentation_model, include_figures=True, include_technical_appendix=False)
+    document = build_engineering_document(payload.presentation_model, include_figures=True, include_technical_appendix=None)
     rendered = build_presentation_html_report(payload.presentation_model)
 
     assert rendered.table_titles == document.table_titles

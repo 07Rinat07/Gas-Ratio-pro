@@ -1920,3 +1920,13 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 ### Removed
 - Служебные идентификаторы, renderer/schema/path/hash-поля из пользовательских метаданных отчета.
 - Техническое приложение из отчета для заказчика.
+
+## v221-rc1 — Stabilization & Release Audit
+
+- Restored missing engineering-navigation helpers that caused full-suite collection errors in v220.
+- Removed all direct UI access to `st.session_state` outside `ApplicationStateController`.
+- Unified client, engineering and technical-compatibility report profile selection across HTML-internal, PDF and DOCX renderers.
+- Removed HTML from the public export smoke result; the bundle HTML renderer remains internal for backward-compatible release validation only.
+- Updated release export QA and documentation governance contracts.
+- Verified navigation, Pixler, ternary, professional well-log/tablet, static export, large-LAS and performance regression gates.
+- Full monolithic pytest execution still exceeds the available audit runtime and exposed additional historical failures outside the targeted release gates; v221-rc1 is therefore a release candidate, not a final stable release.
