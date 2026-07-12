@@ -542,7 +542,8 @@ This is the current product priority. The goal is to replace technically correct
 - [ ] Use logarithmic scale only for curves whose physical range requires it.
 - [x] Never replace missing measurements with zero for presentation.
 - [ ] Add practical track presets and readable print layout.
-- [x] Add a recommendation track with one practical engineer-facing action per interval.
+- [x] Add collision-aware interval labeling: suppress tiny/overlapping labels, show selected interval prominently and keep full details in hover.
+- [x] Add a compact QC/recommendation track with hover details instead of long text inside the depth panel.
 
 ### 4.5 Interval passport and method agreement
 
@@ -581,3 +582,5 @@ The stage is complete only when an engineer can select an interval and obtain sy
 - [x] Ternary 2.0 interval foundation: cloud of valid interval measurements, normalized median center, selected-depth marker, configured methodological regions, completeness assessment and engineering conclusion.
 - [x] Depth Panel 2.0 foundation: shared reversed depth axis, fluid-colored interval fills, explicit top/base boundaries, interval ID, thickness and selected-depth marker.
 - [x] Depth Panel 2.0 engineering tracks: separate Reservoir Type, Confidence and Recommendations tracks driven by the common interval model.
+
+- [x] Depth Panel readability hotfix: removed repeated Depth titles, suppressed overlapping HC labels and confidence text, reduced full-width boundaries, and moved recommendation detail to hover-only QC markers.

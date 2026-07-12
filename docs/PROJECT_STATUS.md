@@ -257,3 +257,17 @@ Implemented in the current increment:
 
 Next: synchronize the selected interval with the registry/passport and provide a print-light renderer from the same plot model.
 
+
+## Depth Panel 2.0 — readability stabilization
+
+The live panel review exposed severe annotation collisions when 115 short intervals were rendered over the full depth range. The renderer now:
+
+- estimates interval height in screen pixels;
+- keeps permanent labels only where they fit and always prioritizes the selected interval;
+- suppresses repeated top/base lines for tiny intervals;
+- uses subtle background bands for non-selected intervals;
+- replaces long recommendation cards with compact QC markers and hover text;
+- removes repeated `Depth` axis titles from every track;
+- preserves detailed interval information without making the plot unreadable.
+
+Next: synchronize the selected interval between the register, Pixler, ternary, Depth Panel and interval passport.

@@ -1,3 +1,13 @@
+## v214 — Depth Panel collision and readability fix
+
+- Added pixel-aware collision suppression for interval labels.
+- Preserved the selected interval label even when neighboring intervals are dense.
+- Removed full-width top/base boundaries for tiny unlabeled intervals.
+- Reduced non-selected interval fill intensity and strengthened selected-interval emphasis.
+- Replaced recommendation text blocks with compact QC markers and hover details.
+- Removed repeated `Depth` titles from each subplot and retained one shared `Глубина, м` axis.
+- Added regression tests for dense interval sets and y-axis title duplication.
+
 ## v214 — Interpretation 2.0 planning and engineer-facing summary
 
 - Replaced the Data workspace `interpretation/count` table with the hydrocarbon interval registry.

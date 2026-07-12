@@ -623,6 +623,117 @@ def _empty_tablet_figure(message: str, *, height: int) -> go.Figure:
     return fig
 
 
+
+
+def _visible_depth_bounds(
+    depth: pd.Series,
+    depth_range: tuple[float, float] | None,
+) -> tuple[float, float]:
+    """Return normalized visible top/base depth for collision calculations."""
+
+    if depth_range is not None:
+        top, base = (float(depth_range[0]), float(depth_range[1]))
+    else:
+        numeric = pd.to_numeric(depth, errors="coerce").dropna()
+        if numeric.empty:
+            return 0.0, 1.0
+        top, base = float(numeric.min()), float(numeric.max())
+    if top > base:
+        top, base = base, top
+    if top == base:
+        base = top + 1.0
+    return top, base
+
+
+def _interval_pixel_height(
+    top_depth: float,
+    bottom_depth: float,
+    *,
+    visible_top: float,
+    visible_bottom: float,
+    plot_height: int,
+) -> float:
+    """Estimate interval height in screen pixels for label suppression."""
+
+    span = max(float(visible_bottom) - float(visible_top), 1e-9)
+    usable_height = max(int(plot_height) - 185, 220)
+    clipped_top = max(float(visible_top), min(float(top_depth), float(bottom_depth)))
+    clipped_bottom = min(float(visible_bottom), max(float(top_depth), float(bottom_depth)))
+    visible_thickness = max(0.0, clipped_bottom - clipped_top)
+    return visible_thickness / span * usable_height
+
+
+def _select_non_overlapping_intervals(
+    intervals: Sequence[ReservoirIntervalOverlay],
+    *,
+    visible_top: float,
+    visible_bottom: float,
+    plot_height: int,
+    selected_depth: float | None,
+    minimum_label_pixels: float = 24.0,
+    minimum_spacing_pixels: float = 18.0,
+) -> tuple[set[str], set[str], str | None]:
+    """Choose labels/markers that remain readable at the current depth scale.
+
+    Plotly does not perform annotation collision detection. This helper keeps
+    selected and sufficiently thick intervals, then greedily suppresses labels
+    whose midpoints would collide on screen.
+    """
+
+    span = max(float(visible_bottom) - float(visible_top), 1e-9)
+    usable_height = max(int(plot_height) - 185, 220)
+    selected_id: str | None = None
+    if selected_depth is not None:
+        for interval in intervals:
+            top = min(float(interval.top_depth), float(interval.bottom_depth))
+            base = max(float(interval.top_depth), float(interval.bottom_depth))
+            if top <= float(selected_depth) <= base:
+                selected_id = interval.interval_id
+                break
+
+    candidates: list[tuple[float, float, ReservoirIntervalOverlay]] = []
+    marker_candidates: list[tuple[float, ReservoirIntervalOverlay]] = []
+    for interval in intervals:
+        top = min(float(interval.top_depth), float(interval.bottom_depth))
+        base = max(float(interval.top_depth), float(interval.bottom_depth))
+        if base < visible_top or top > visible_bottom:
+            continue
+        midpoint = (top + base) / 2.0
+        px_height = _interval_pixel_height(
+            top,
+            base,
+            visible_top=visible_top,
+            visible_bottom=visible_bottom,
+            plot_height=plot_height,
+        )
+        marker_candidates.append((midpoint, interval))
+        if px_height >= minimum_label_pixels or interval.interval_id == selected_id:
+            candidates.append((midpoint, px_height, interval))
+
+    def midpoint_to_px(midpoint: float) -> float:
+        return (float(midpoint) - visible_top) / span * usable_height
+
+    label_ids: set[str] = set()
+    last_px: float | None = None
+    for midpoint, _height, interval in sorted(candidates, key=lambda item: item[0]):
+        current_px = midpoint_to_px(midpoint)
+        force = interval.interval_id == selected_id
+        if force or last_px is None or abs(current_px - last_px) >= minimum_spacing_pixels:
+            label_ids.add(interval.interval_id)
+            last_px = current_px
+
+    # Recommendation/QC markers can be denser than text, but still need spacing.
+    marker_ids: set[str] = set()
+    last_marker_px: float | None = None
+    for midpoint, interval in sorted(marker_candidates, key=lambda item: item[0]):
+        current_px = midpoint_to_px(midpoint)
+        force = interval.interval_id == selected_id
+        if force or last_marker_px is None or abs(current_px - last_marker_px) >= 10.0:
+            marker_ids.add(interval.interval_id)
+            last_marker_px = current_px
+
+    return label_ids, marker_ids, selected_id
+
 def build_well_log_tablet(
     df: pd.DataFrame,
     tracks: Sequence[TabletTrackConfig],
@@ -646,10 +757,20 @@ def build_well_log_tablet(
         return _empty_tablet_figure("Нет числовой глубины для планшета", height=height)
 
     depth = plot_df["_plot_depth"]
+    visible_top, visible_bottom = _visible_depth_bounds(depth, depth_range)
+    label_interval_ids, marker_interval_ids, selected_interval_id = _select_non_overlapping_intervals(
+        reservoir_intervals,
+        visible_top=visible_top,
+        visible_bottom=visible_bottom,
+        plot_height=height,
+        selected_depth=selected_depth,
+    )
     engineering_tracks_enabled = bool(reservoir_intervals)
     engineering_titles = ["Тип пласта", "Достоверность", "Рекомендации"] if engineering_tracks_enabled else []
     titles = engineering_titles + [_track_title(track, plot_df[track.column]) for track in selected_tracks]
-    widths = ([0.42, 0.30, 0.76] if engineering_tracks_enabled else []) + [1.0] * len(selected_tracks)
+    # Engineering columns need enough width for a compact identity, a confidence bar
+    # and a QC marker. Long recommendations are intentionally moved to hover text.
+    widths = ([0.54, 0.38, 0.28] if engineering_tracks_enabled else []) + [1.0] * len(selected_tracks)
     fig = make_subplots(
         rows=1,
         cols=len(titles),
@@ -730,9 +851,14 @@ def build_well_log_tablet(
         yaxis_options["range"] = [bottom_depth, top_depth]
         yaxis_options["autorange"] = False
     fig.update_yaxes(**yaxis_options)
+    # Shared y-axes otherwise repeat the word "Depth" inside every track.
+    for subplot_col in range(1, len(titles) + 1):
+        fig.update_yaxes(title_text="", row=1, col=subplot_col)
+    fig.update_yaxes(title_text="Глубина, м", row=1, col=1)
 
     shapes = []
     annotations = []
+    recommendation_points: list[dict[str, object]] = []
     for zone in zones:
         top_depth = min(float(zone.top_depth), float(zone.bottom_depth))
         bottom_depth = max(float(zone.top_depth), float(zone.bottom_depth))
@@ -767,10 +893,19 @@ def build_well_log_tablet(
     for interval in reservoir_intervals:
         top_depth = min(float(interval.top_depth), float(interval.bottom_depth))
         bottom_depth = max(float(interval.top_depth), float(interval.bottom_depth))
+        if bottom_depth < visible_top or top_depth > visible_bottom:
+            continue
         color, fluid_label = FLUID_INTERVAL_STYLES.get(
             str(interval.fluid_type).lower(), FLUID_INTERVAL_STYLES["uncertain"]
         )
-        # Light background across all curve tracks.
+        is_selected = interval.interval_id == selected_interval_id
+        show_label = interval.interval_id in label_interval_ids
+        show_marker = interval.interval_id in marker_interval_ids
+        midpoint = (top_depth + bottom_depth) / 2.0
+
+        # Keep all intervals discoverable as subtle bands, but reserve strong
+        # borders and text for the selected/readable intervals. This prevents
+        # hundreds of top/base lines from turning the panel into dotted noise.
         shapes.append(
             {
                 "type": "rect",
@@ -781,14 +916,15 @@ def build_well_log_tablet(
                 "y0": top_depth,
                 "y1": bottom_depth,
                 "fillcolor": color,
-                "opacity": 0.10,
-                "line": {"color": color, "width": 0.8},
+                "opacity": 0.16 if is_selected else 0.045,
+                "line": {"color": color, "width": 1.8 if is_selected else 0},
                 "layer": "below",
             }
         )
+
         if engineering_tracks_enabled:
-            midpoint = (top_depth + bottom_depth) / 2.0
-            # Reservoir type track.
+            # Reservoir type track. Thin intervals retain their color block and
+            # hover identity, while permanent text is collision-suppressed.
             shapes.append(
                 {
                     "type": "rect",
@@ -799,116 +935,143 @@ def build_well_log_tablet(
                     "y0": top_depth,
                     "y1": bottom_depth,
                     "fillcolor": color,
-                    "opacity": 0.78,
-                    "line": {"color": color, "width": 1.2},
+                    "opacity": 0.95 if is_selected else 0.72,
+                    "line": {"color": "#ffffff" if is_selected else color, "width": 1.8 if is_selected else 0.5},
                     "layer": "above",
                 }
             )
-            annotations.append(
-                {
-                    "xref": "x",
-                    "x": 0.5,
-                    "yref": "y",
-                    "y": midpoint,
-                    "text": f"<b>{interval.interval_id}</b><br>{fluid_label}<br>{interval.thickness:g} м",
-                    "showarrow": False,
-                    "align": "center",
-                    "font": {"color": "#ffffff", "size": 10},
-                }
-            )
+            if show_label:
+                annotations.append(
+                    {
+                        "xref": "x",
+                        "x": 0.5,
+                        "yref": "y",
+                        "y": midpoint,
+                        "text": f"<b>{interval.interval_id}</b><br>{fluid_label}<br>{interval.thickness:g} м",
+                        "showarrow": False,
+                        "align": "center",
+                        "font": {"color": "#ffffff", "size": 10 if is_selected else 9},
+                    }
+                )
 
-            # Confidence track: horizontal fill encodes 0-100 percent.
+            # Confidence track: bar remains visible for all intervals, text only
+            # where there is enough vertical room.
             confidence_fraction = max(0.0, min(float(interval.confidence_score) / 100.0, 1.0))
-            confidence_color = "#2ca02c" if interval.confidence_score >= 80 else ("#f2c94c" if interval.confidence_score >= 60 else "#e67e22")
-            shapes.append(
-                {
-                    "type": "rect",
-                    "xref": "x2",
-                    "x0": 0.04,
-                    "x1": 0.96,
-                    "yref": "y",
-                    "y0": top_depth,
-                    "y1": bottom_depth,
-                    "fillcolor": "#d9dee7",
-                    "opacity": 0.38,
-                    "line": {"color": "#87909e", "width": 0.5},
-                    "layer": "above",
-                }
+            confidence_color = (
+                "#2ca02c" if interval.confidence_score >= 80
+                else ("#f2c94c" if interval.confidence_score >= 60 else "#e63946")
             )
             shapes.append(
                 {
                     "type": "rect",
                     "xref": "x2",
-                    "x0": 0.04,
-                    "x1": 0.04 + 0.92 * confidence_fraction,
+                    "x0": 0.08,
+                    "x1": 0.92,
                     "yref": "y",
                     "y0": top_depth,
                     "y1": bottom_depth,
-                    "fillcolor": confidence_color,
-                    "opacity": 0.82,
+                    "fillcolor": "#344054",
+                    "opacity": 0.45,
                     "line": {"width": 0},
                     "layer": "above",
                 }
             )
-            annotations.append(
-                {
-                    "xref": "x2",
-                    "x": 0.5,
-                    "yref": "y",
-                    "y": midpoint,
-                    "text": f"<b>{interval.confidence_score}%</b><br>{interval.decision_level or 'не определён'}",
-                    "showarrow": False,
-                    "align": "center",
-                    "font": {"color": "#172033", "size": 10},
-                }
-            )
-
-            # Recommendation track keeps one practical action next to the interval.
-            recommendation = str(interval.recommendation or interval.note or "Требуется инженерная проверка.").strip()
-            compact_recommendation = recommendation if len(recommendation) <= 92 else recommendation[:89].rstrip() + "…"
             shapes.append(
                 {
                     "type": "rect",
-                    "xref": "x3",
-                    "x0": 0.02,
-                    "x1": 0.98,
+                    "xref": "x2",
+                    "x0": 0.08,
+                    "x1": 0.08 + 0.84 * confidence_fraction,
                     "yref": "y",
                     "y0": top_depth,
                     "y1": bottom_depth,
-                    "fillcolor": "#f7f9fc",
-                    "opacity": 0.74,
-                    "line": {"color": color, "width": 0.8},
+                    "fillcolor": confidence_color,
+                    "opacity": 0.92,
+                    "line": {"width": 0},
                     "layer": "above",
                 }
             )
-            annotations.append(
-                {
-                    "xref": "x3",
-                    "x": 0.04,
-                    "xanchor": "left",
-                    "yref": "y",
-                    "y": midpoint,
-                    "text": compact_recommendation,
-                    "showarrow": False,
-                    "align": "left",
-                    "font": {"color": "#172033", "size": 9},
-                }
-            )
-        # Explicit top/base boundaries aid engineering reading and printing.
-        for boundary, suffix in ((top_depth, "кровля"), (bottom_depth, "подошва")):
-            shapes.append(
-                {
-                    "type": "line",
-                    "xref": "paper",
-                    "x0": 0,
-                    "x1": 1,
-                    "yref": "y",
-                    "y0": boundary,
-                    "y1": boundary,
-                    "line": {"color": color, "width": 1.0, "dash": "dot"},
-                }
-            )
+            if show_label:
+                annotations.append(
+                    {
+                        "xref": "x2",
+                        "x": 0.5,
+                        "yref": "y",
+                        "y": midpoint,
+                        "text": f"<b>{interval.confidence_score}%</b>",
+                        "showarrow": False,
+                        "align": "center",
+                        "font": {"color": "#ffffff", "size": 10},
+                    }
+                )
 
+            # Recommendations are represented by compact QC markers. The full
+            # engineer-facing action remains available in hover text.
+            if show_marker:
+                recommendation = str(
+                    interval.recommendation or interval.note or "Требуется инженерная проверка."
+                ).strip()
+                if interval.confidence_score >= 80:
+                    symbol, marker_color, status = "circle", "#2ca02c", "Сопоставить и подтвердить"
+                elif interval.confidence_score >= 60:
+                    symbol, marker_color, status = "diamond", "#f2c94c", "Проверить дополнительно"
+                else:
+                    symbol, marker_color, status = "x", "#e63946", "Требует проверки"
+                recommendation_points.append(
+                    {
+                        "depth": midpoint,
+                        "symbol": symbol,
+                        "color": marker_color,
+                        "status": status,
+                        "hover": (
+                            f"<b>{interval.interval_id}</b><br>{fluid_label}<br>"
+                            f"{top_depth:g}–{bottom_depth:g} м · {interval.thickness:g} м<br>"
+                            f"Достоверность: {interval.confidence_score}%<br>{recommendation}"
+                        ),
+                    }
+                )
+
+        # Draw top/base boundaries only for the selected interval and intervals
+        # that are large enough to carry a permanent label.
+        if is_selected or show_label:
+            for boundary in (top_depth, bottom_depth):
+                shapes.append(
+                    {
+                        "type": "line",
+                        "xref": "paper",
+                        "x0": 0,
+                        "x1": 1,
+                        "yref": "y",
+                        "y0": boundary,
+                        "y1": boundary,
+                        "line": {
+                            "color": "#ffffff" if is_selected else color,
+                            "width": 1.5 if is_selected else 0.8,
+                            "dash": "dash" if is_selected else "dot",
+                        },
+                    }
+                )
+
+    if engineering_tracks_enabled and recommendation_points:
+        fig.add_trace(
+            go.Scatter(
+                x=[0.5] * len(recommendation_points),
+                y=[point["depth"] for point in recommendation_points],
+                mode="markers",
+                marker={
+                    "size": 9,
+                    "symbol": [point["symbol"] for point in recommendation_points],
+                    "color": [point["color"] for point in recommendation_points],
+                    "line": {"color": "#ffffff", "width": 0.8},
+                },
+                customdata=[point["hover"] for point in recommendation_points],
+                hovertemplate="%{customdata}<extra></extra>",
+                showlegend=False,
+                name="QC",
+            ),
+            row=1,
+            col=3,
+        )
     if selected_depth is not None:
         shapes.append(
             {
@@ -966,9 +1129,9 @@ def build_well_log_tablet(
         )
 
     fig.update_layout(
-        title="Depth Panel 2.0 — тип пласта, достоверность, рекомендации и кривые",
+        title="Depth Panel 2.0 — интервалы, достоверность, QC и кривые",
         height=height,
-        margin={"l": 70, "r": 80, "t": 115, "b": 50},
+        margin={"l": 82, "r": 86, "t": 122, "b": 54},
         showlegend=False,
         shapes=shapes,
         annotations=list(fig.layout.annotations) + annotations,
