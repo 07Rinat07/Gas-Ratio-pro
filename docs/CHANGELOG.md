@@ -1991,3 +1991,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Рабочая область не падает при ошибке отдельного renderer.
 - README.md не изменялся.
 
+## v222-rc2 — README policy guard
+
+- Удалён раздел «Документация» из `README.md`.
+- Добавлен регрессионный тест, запрещающий публикацию внутренних ссылок `docs/*` в `README.md`.
+- Политика README синхронизирована с требованием владельца проекта.
+- Build identity обновлён до `v222-rc2`.

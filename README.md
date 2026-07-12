@@ -76,11 +76,3 @@ http://localhost:8501
 
 ## Лицензия
 Частный проект. Все права защищены.
-
-## Документация
-
-- История изменений: `docs/CHANGELOG.md`
-- Формулы и расчётные зависимости: `docs/formulas.md`
-- Руководство пользователя: `docs/user_guide.md`
-- Текущий статус: `docs/PROJECT_STATUS.md`
-- Roadmap: `docs/PROJECT_ROADMAP.md`

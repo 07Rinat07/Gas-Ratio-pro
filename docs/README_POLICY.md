@@ -1,6 +1,6 @@
 # README Policy
 
-README.md is the public entry point of the project. It must describe the product, its purpose, installation, launch process, high-level architecture and documentation map.
+README.md is the public entry point of the project. It must describe the product, its purpose, installation, launch process and high-level architecture.
 
 README.md must not be used as a development diary.
 
@@ -12,7 +12,6 @@ README.md must not be used as a development diary.
 - High-level architecture.
 - Project structure.
 - Installation and launch instructions.
-- Documentation links.
 - Author and license information.
 
 ## Not allowed in README.md
@@ -24,11 +23,6 @@ README.md must not be used as a development diary.
 - Internal progress logs.
 - Temporary planning text.
 
-## Where to place development details
+## Internal documentation rule
 
-- Version history: `docs/CHANGELOG.md`.
-- Roadmap and priorities: `docs/PROJECT_ROADMAP.md`.
-- Current development status: `docs/PROJECT_STATUS.md`.
-- Version history: `docs/CHANGELOG.md`.
-- Architecture decisions: dedicated ADR or architecture documents.
-- Formula and source policy: scientific and formula documentation.
+Internal files from `docs/` are maintained independently and must not be listed in `README.md` unless the project owner explicitly requests it.
