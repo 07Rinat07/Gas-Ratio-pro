@@ -94,6 +94,7 @@ DEFAULT_PRESERVED_KEYS = (
     "active_las_id",
     "active_workspace_id",
     "last_session_cleanup",
+    "workbench_active_calculation",
 )
 
 CONTEXT_KEYS = {

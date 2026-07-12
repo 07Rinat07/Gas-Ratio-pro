@@ -486,3 +486,8 @@ Roadmap изменяется только когда:
 
 - [x] Preserve active calculation across Data, Interpretation and Reports navigation.
 - [x] Add project-bound guard for shared calculation state.
+
+
+### Completed: durable Data to Interpretation handoff
+- Preserve the last explicit calculation across Workbench workspace transitions.
+- Invalidate it only on explicit mapping reset, project change, LAS reset or manual cleanup.

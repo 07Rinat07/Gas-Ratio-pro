@@ -201,3 +201,9 @@ Next:
 - Committed calculation survives ordinary Workbench navigation.
 - Interpretation and Reports read the same project-bound result without recalculation.
 - Cross-project reuse is blocked by project id guard.
+
+
+## Interpretation workspace durable calculation fix
+- Active calculation is now stored in a durable `workbench_active_calculation` contract.
+- Workspace navigation no longer clears the last explicitly calculated DataFrame.
+- Added commit/restore/missing diagnostics to application logs.

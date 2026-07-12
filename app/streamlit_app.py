@@ -485,6 +485,7 @@ INTERPRETATION_SESSION_SOURCE_KEY = "interpretation_session_source"
 ACTIVE_CALCULATION_DATA_KEY = "active_calculation_result_data"
 ACTIVE_CALCULATION_SOURCE_KEY = "active_calculation_result_source"
 ACTIVE_CALCULATION_PROJECT_KEY = "active_calculation_project_id"
+ACTIVE_CALCULATION_CONTRACT_KEY = "workbench_active_calculation"
 LAS_CORRELATION_SETTINGS_KEY = "las_correlation_settings"
 ACTIVE_PROJECT_ID_KEY = "active_project_id"
 PROJECT_SELECTBOX_KEY_PREFIX = "active_project_select"
@@ -2534,48 +2535,103 @@ def _filter_by_depth_range(df: pd.DataFrame, top_depth: float, bottom_depth: flo
     return df.loc[(depth >= top) & (depth <= bottom)].copy()
 
 def _store_interpretation_dataset(calculated_df: pd.DataFrame, source_label: str) -> None:
+    """Commit one calculation for all Workbench workspaces.
+
+    The durable contract is intentionally stored under a non-transient key.
+    Workspace transitions are allowed to clear widget and presentation state,
+    but must never discard the last explicitly calculated dataframe.
+    """
     controller = _application_state_controller()
     active_project_id = str(controller.get_value(ACTIVE_PROJECT_ID_KEY, "") or "")
-    controller.update_values(
-        {
-            # Legacy keys are retained for compatibility with existing tests and
-            # older workspace code.  The active-calculation keys are deliberately
-            # not workspace-local: Data, Interpretation and Reports must share the
-            # same committed result across ordinary navigation reruns.
-            INTERPRETATION_SESSION_DATA_KEY: calculated_df,
-            INTERPRETATION_SESSION_SOURCE_KEY: str(source_label),
-            ACTIVE_CALCULATION_DATA_KEY: calculated_df,
-            ACTIVE_CALCULATION_SOURCE_KEY: str(source_label),
-            ACTIVE_CALCULATION_PROJECT_KEY: active_project_id,
-        }
-    )
+    committed_frame = calculated_df.copy(deep=True)
     revisions = revision_controller_from_state(controller.state)
     snapshot = revisions.bump_calculation()
     persist_revisions(controller.state, snapshot)
+    durable_contract = {
+        "project_id": active_project_id,
+        "source": str(source_label),
+        "calculation_revision": int(snapshot.calculation_revision),
+        "rows": int(len(committed_frame)),
+        "dataframe": committed_frame,
+    }
+    controller.update_values(
+        {
+            INTERPRETATION_SESSION_DATA_KEY: committed_frame,
+            INTERPRETATION_SESSION_SOURCE_KEY: str(source_label),
+            ACTIVE_CALCULATION_DATA_KEY: committed_frame,
+            ACTIVE_CALCULATION_SOURCE_KEY: str(source_label),
+            ACTIVE_CALCULATION_PROJECT_KEY: active_project_id,
+            ACTIVE_CALCULATION_CONTRACT_KEY: durable_contract,
+        }
+    )
     controller.state.pop("interpretation_figure_cache", None)
+    configure_logging().info(
+        "active_calculation_committed project_id=%s rows=%d revision=%d source=%s",
+        safe_log_value(active_project_id),
+        len(committed_frame),
+        int(snapshot.calculation_revision),
+        safe_log_value(source_label),
+    )
 
 
 def _active_calculation_dataset(project_id: str = "") -> tuple[pd.DataFrame | None, str]:
-    """Return the committed calculation shared by Data/Interpretation/Reports.
-
-    The result is accepted only for the active project.  This prevents a durable
-    session value from leaking into another project while still surviving normal
-    Workbench navigation and Streamlit reruns.
-    """
+    """Return the durable calculation shared by Data/Interpretation/Reports."""
     controller = _application_state_controller()
+    logger = configure_logging()
     expected_project_id = str(project_id or controller.get_value(ACTIVE_PROJECT_ID_KEY, "") or "")
+
+    contract = controller.get_value(ACTIVE_CALCULATION_CONTRACT_KEY, {})
+    if isinstance(contract, dict):
+        contract_project_id = str(contract.get("project_id", "") or "")
+        if contract_project_id and expected_project_id and contract_project_id != expected_project_id:
+            logger.warning(
+                "active_calculation_project_mismatch expected=%s stored=%s",
+                safe_log_value(expected_project_id),
+                safe_log_value(contract_project_id),
+            )
+            return None, ""
+        contract_frame = contract.get("dataframe")
+        if isinstance(contract_frame, pd.DataFrame) and not contract_frame.empty:
+            source = str(contract.get("source", "") or "текущий расчет")
+            logger.info(
+                "active_calculation_restored project_id=%s rows=%d revision=%s",
+                safe_log_value(expected_project_id),
+                len(contract_frame),
+                safe_log_value(contract.get("calculation_revision", "")),
+            )
+            return contract_frame, source
+
+    # Backward-compatible migration from builds that stored separate keys.
     stored_project_id = str(controller.get_value(ACTIVE_CALCULATION_PROJECT_KEY, "") or "")
     if stored_project_id and expected_project_id and stored_project_id != expected_project_id:
         return None, ""
-
     frame = controller.get_value(ACTIVE_CALCULATION_DATA_KEY)
     source = str(controller.get_value(ACTIVE_CALCULATION_SOURCE_KEY, "") or "")
     if not isinstance(frame, pd.DataFrame) or frame.empty:
         frame = controller.get_value(INTERPRETATION_SESSION_DATA_KEY)
         source = str(controller.get_value(INTERPRETATION_SESSION_SOURCE_KEY, source) or source)
     if not isinstance(frame, pd.DataFrame) or frame.empty:
+        logger.warning(
+            "active_calculation_missing project_id=%s contract_type=%s",
+            safe_log_value(expected_project_id),
+            type(contract).__name__,
+        )
         return None, ""
-    return frame, source or "текущий расчет"
+
+    migrated_contract = {
+        "project_id": stored_project_id or expected_project_id,
+        "source": source or "текущий расчет",
+        "calculation_revision": 0,
+        "rows": int(len(frame)),
+        "dataframe": frame.copy(deep=True),
+    }
+    controller.set_value(ACTIVE_CALCULATION_CONTRACT_KEY, migrated_contract)
+    logger.info(
+        "active_calculation_migrated project_id=%s rows=%d",
+        safe_log_value(expected_project_id),
+        len(frame),
+    )
+    return migrated_contract["dataframe"], str(migrated_contract["source"])
 
 
 def _plotly_figures_to_html(
@@ -4316,6 +4372,7 @@ def _clear_las_working_state() -> None:
         ACTIVE_CALCULATION_DATA_KEY,
         ACTIVE_CALCULATION_SOURCE_KEY,
         ACTIVE_CALCULATION_PROJECT_KEY,
+        ACTIVE_CALCULATION_CONTRACT_KEY,
     }
     _application_state_controller().clear_matching(exact_keys=exact_keys, prefixes=prefixes)
     try:
@@ -4548,6 +4605,7 @@ def _clear_invalid_interpretation_state(reason: str) -> None:
             ACTIVE_CALCULATION_DATA_KEY: None,
             ACTIVE_CALCULATION_SOURCE_KEY: "",
             ACTIVE_CALCULATION_PROJECT_KEY: "",
+            ACTIVE_CALCULATION_CONTRACT_KEY: {},
             "interpretation_figure_cache": None,
             "interpretation_invalid_reason": str(reason),
         }

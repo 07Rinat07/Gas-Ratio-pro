@@ -1702,3 +1702,7 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Fixed loss of committed calculation when navigating from Data to Interpretation or Reports.
 - Added a project-bound active calculation contract shared across Workbench modules.
 - Added regression coverage for workspace cleanup and cross-project isolation.
+
+
+- Fixed repeated loss of calculated data when moving from Data to Interpretation by introducing a durable active-calculation contract.
+- Added explicit lifecycle logging for calculation commit, restore, migration and missing-state diagnostics.
