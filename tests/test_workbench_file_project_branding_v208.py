@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_v208_build_identity():
-    assert BUILD_VERSION == "v221-rc2"
+    assert BUILD_VERSION == "v221"
 
 
 def test_title_bar_uses_real_brand_logo():

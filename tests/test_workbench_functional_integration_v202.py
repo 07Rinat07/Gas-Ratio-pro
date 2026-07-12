@@ -9,7 +9,7 @@ from core.workbench_tools import WorkbenchToolRegistry
 
 
 def test_v202_build_identity() -> None:
-    assert BUILD_VERSION == "v221-rc2"
+    assert BUILD_VERSION == "v221"
 
 
 def test_existing_workflows_are_reused_by_modern_workbench(monkeypatch) -> None:

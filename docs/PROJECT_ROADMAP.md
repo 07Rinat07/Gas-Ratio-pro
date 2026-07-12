@@ -758,3 +758,11 @@ Release candidate Definition of Done:
 - Full regression suite closed: 2003 tests passed.
 - Release profile, navigation, dataset UI and build identity contracts synchronized.
 - Next gate: v221 stable packaging and final manual acceptance.
+
+
+### v221 — Stable Release — COMPLETED
+
+- Promoted build identity to v221 / stable.
+- Preserved the five completed engineering stabilization sprints.
+- Closed the automated regression suite before stable packaging.
+- Next gate: manual acceptance and targeted v221.1 maintenance fixes.

@@ -1,3 +1,11 @@
+
+## v221 — Stable Release
+
+- Promoted runtime identity and launcher from v221-rc2 to v221 stable.
+- Preserved unified graphics, navigation, export and report contracts.
+- Removed the stale root progress document that violated documentation governance.
+- Packaged the stable candidate for manual acceptance testing.
+
 # GAS RATIO PRO — Changelog
 
 ## v220 — Plot Engine Cleanup

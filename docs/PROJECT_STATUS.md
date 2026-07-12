@@ -1,3 +1,23 @@
+## Current increment: v221 — Stable Release
+
+Status: **STABLE — AUTOMATED RELEASE GATES PASSED**
+
+Implemented:
+- promoted runtime build identity from v221-rc2 to v221 / stable;
+- synchronized the Windows launcher with the stable build identity;
+- retained PDF, DOCX, PNG, SVG and XLSX as user-facing export formats;
+- retained the internal HTML compatibility renderer only for automated regression coverage; it is not exposed in the user interface;
+- removed the stale root progress document that conflicted with documentation governance;
+- preserved the user's local README, branding assets and additional documentation;
+- prepared the stable archive for manual acceptance testing.
+
+Release validation:
+- full automated suite executed in deterministic segments;
+- Python compilation gate executed for application, core, reports, projects and palettes;
+- release archive generated without caches and local virtual environments.
+
+Next: **manual acceptance and targeted v221.1 bugfixes based on field feedback**.
+
 ## Current increment: v221-rc2 — Full Regression Closure
 
 Status: **RELEASE CANDIDATE — REGRESSION CLOSED**
