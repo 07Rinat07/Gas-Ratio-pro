@@ -220,3 +220,20 @@ Next:
 
 ### Interpretation reporting UX
 The Interpretation workspace now prioritizes detected hydrocarbon intervals rather than dataframe row counts. Printable reports expose depth ranges, thickness, probable fluid, confidence, geological support, decision level, conclusions and limitations.
+
+## Current priority — Interpretation 2.0
+
+Approved direction:
+
+- engineer-facing interval analysis replaces row-count summaries;
+- Pixler, ternary and depth tracks require methodological and visual rehabilitation;
+- selected interval will become the shared context for graphs, passport and reports;
+- Customer Summary, Engineering Report and Technical Report are the three supported report purposes;
+- generated figures must have interactive dark and print-safe light profiles;
+- documentation remains single-source, current and free of duplicate plan/status files.
+
+Completed in the current increment:
+
+- the Data workspace primary summary now uses the interval registry instead of `interpretation/count`;
+- technical row counters are explicitly limited to Diagnostics and Developer mode;
+- the active roadmap contains the ordered Pixler → ternary → depth panel → passport → reporting refactor and its Definition of Done.

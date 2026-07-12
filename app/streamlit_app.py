@@ -78,7 +78,7 @@ from core.diagnostics import (
     mapping_warning_messages,
     ratio_nan_warning_messages,
 )
-from core.interpretation import INTERPRETATION_NOTE, add_interpretation, summarize_interpretation, engineering_interval_summary
+from core.interpretation import INTERPRETATION_NOTE, add_interpretation, engineering_interval_summary
 from core.logging_config import configure_logging, safe_log_value
 from core.workbench_runtime_diagnostics import record_render_audit
 from core.workbench_context import WorkbenchSelectionService
@@ -7468,8 +7468,31 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         st.error("Нет расчетных данных для отображения.")
         return
 
-    st.subheader("Сводка классификации")
-    st.dataframe(summarize_interpretation(calculated_df), width="stretch", height=220)
+    st.subheader("Инженерная сводка интерпретации")
+    st.caption(
+        "Сводка показывает выделенные интервалы, их мощность, вероятный флюид, "
+        "достоверность и инженерное заключение. Счетчики строк доступны только в диагностике."
+    )
+    workspace_interval_summary = engineering_interval_summary(calculated_df)
+    if workspace_interval_summary.empty:
+        st.info("По текущему расчету уверенные УВ-интервалы не выделены.")
+    else:
+        st.dataframe(
+            workspace_interval_summary,
+            width="stretch",
+            height=360,
+            hide_index=True,
+            column_config={
+                "Интервал, м": st.column_config.TextColumn("Интервал, м", width="medium"),
+                "Мощность, м": st.column_config.NumberColumn("Мощность, м", format="%.2f"),
+                "Вероятный флюид": st.column_config.TextColumn("Вероятный флюид", width="medium"),
+                "Достоверность": st.column_config.TextColumn("Достоверность", width="small"),
+                "Данные": st.column_config.TextColumn("Качество данных", width="small"),
+                "Геология": st.column_config.TextColumn("Геологическая поддержка", width="small"),
+                "Уровень решения": st.column_config.TextColumn("Уровень решения", width="small"),
+                "Инженерное заключение": st.column_config.TextColumn("Инженерное заключение", width="large"),
+            },
+        )
 
     interval_indices = [
         int(index)

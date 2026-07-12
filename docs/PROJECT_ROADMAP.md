@@ -504,3 +504,69 @@ Roadmap изменяется только когда:
 - interval-first summary in Interpretation workspace;
 - scrollable calculation and interval tables;
 - printable interval registry and decision-oriented executive summary.
+
+## 4. Active engineering refactor — Reservoir Intelligence / Interpretation 2.0
+
+This is the current product priority. The goal is to replace technically correct but weak visual output with an engineer-facing interpretation workspace.
+
+### 4.1 Information architecture and terminology
+
+- [x] Remove dataframe row counters from the primary interpretation summary.
+- [x] Show interval, top/base, thickness, probable fluid, confidence, data quality, geological support and conclusion.
+- [ ] Add interval filters by fluid, depth, thickness, confidence and review status.
+- [ ] Synchronize table selection with Pixler, ternary, depth tracks and interval passport.
+- [ ] Keep rows/cells/counts only in Diagnostics and Developer mode.
+
+### 4.2 Pixler rehabilitation
+
+- [ ] Plot all valid samples for the selected interval instead of a single decorative polyline.
+- [ ] Add selected-depth marker, interval centroid/median and interval trend.
+- [ ] Add named interpretation fields with explicit methodology status.
+- [ ] Show depth, ratio, classification, data quality and method agreement in hover details.
+- [ ] Explain what the graph supports, contradicts or cannot determine.
+- [ ] Provide dark interactive and light print render profiles from one plot model.
+
+### 4.3 Ternary rehabilitation
+
+- [ ] Plot the interval point cloud, selected depth and robust center.
+- [ ] Show percentages of valid points by interpretation region.
+- [ ] Distinguish confirmed methodology boundaries from project draft boundaries.
+- [ ] Report component completeness and points outside defined regions.
+- [ ] Link ternary classification to the common confidence engine.
+
+### 4.4 Depth engineering panel
+
+- [ ] Use a shared reversed depth axis across every track.
+- [ ] Add Total Gas, C1–C5, Wh/Bh/Ch, Pixler ratios, interval type and confidence tracks.
+- [ ] Draw top/base boundaries, interval fills, IDs, thickness and selected-depth marker.
+- [ ] Use logarithmic scale only for curves whose physical range requires it.
+- [ ] Never replace missing measurements with zero for presentation.
+- [ ] Add practical track presets and readable print layout.
+
+### 4.5 Interval passport and method agreement
+
+- [ ] Show interval ID, top, base, thickness, probable fluid and confidence.
+- [ ] Show robust interval statistics for gas components and calculated ratios.
+- [ ] List supporting, conflicting and unavailable methods.
+- [ ] Show data limitations and concrete verification recommendations.
+- [ ] Keep water, non-productive and insufficient-data conclusions methodologically distinct.
+
+### 4.6 Reporting profiles
+
+- [ ] Customer Summary: concise deliverable for the customer, focused on intervals, confidence, limitations and recommendations.
+- [ ] Engineering Report: full working interpretation with plots, interval registry, passports and methodology agreement.
+- [ ] Technical Report: reproducible audit with mapping, formulas, diagnostics and calculation provenance.
+- [ ] Export figures from the shared plot model; do not use UI screenshots.
+- [ ] Produce vector or high-resolution print-safe figures for PDF and DOCX.
+
+### 4.7 Refactoring and quality gates
+
+- [ ] Separate interval analytics, plot models, Plotly renderers and report renderers.
+- [ ] Reduce `app/streamlit_app.py` by moving interpretation business logic out of UI functions.
+- [ ] Add golden-data tests for Pixler, ternary and depth panel classification.
+- [ ] Add visual/export smoke tests for dark screen and light print profiles.
+- [ ] Each graph must answer: what, where, interpretation, evidence, confidence and limitation.
+
+### Definition of Done
+
+The stage is complete only when an engineer can select an interval and obtain synchronized Pixler, ternary, depth panel, interval passport and printable reports without reading dataframe counters or developer diagnostics.

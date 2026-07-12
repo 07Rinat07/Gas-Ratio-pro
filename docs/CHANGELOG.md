@@ -1,3 +1,11 @@
+## v214 — Interpretation 2.0 planning and engineer-facing summary
+
+- Replaced the Data workspace `interpretation/count` table with the hydrocarbon interval registry.
+- Added interval, thickness, probable fluid, confidence, data quality, geological support and engineering conclusion columns.
+- Restricted dataframe row counters to diagnostics/developer contexts.
+- Added the ordered Reservoir Intelligence / Interpretation 2.0 roadmap covering Pixler, ternary, depth panel, interval passport and print reporting.
+- Defined Customer Summary, Engineering Report and Technical Report by purpose rather than job title.
+
 # GAS RATIO PRO — Changelog
 
 ## v214 — Contextual Properties actions
