@@ -1834,3 +1834,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Пользовательские профили сохраняются в проекте в `reservoir_ranking_profiles.json`.
 - Добавлено сравнение с базовым профилем: изменение места, индекса и объяснение влияния весов.
 - Активный профиль передаётся в PDF/DOCX и указывается в заголовке таблицы рейтинга.
+
+## Explainable Interpretation Engine
+
+- Добавлен единый межметодический анализ Pixler, ternary и Haworth.
+- Реализованы матрица согласованности, вклад методик, QC, причины расхождений и разложение уверенности.
+- Экспертное заключение включено в Reservoir Passport и профессиональные PDF/DOCX.

@@ -308,3 +308,7 @@ Engineering Header implemented: the selected HC interval now has one compact con
 ### Reservoir Ranking 2.0
 
 Реализованы настраиваемые веса, встроенные и проектные пользовательские профили, сравнение рейтингов и объяснение изменения позиции интервала. Активный профиль используется в профессиональном экспорте PDF/DOCX.
+
+## Explainable Interpretation Engine
+
+Статус: первый рабочий инкремент завершён. Реализованы единый MethodResult, Cross-Method Analysis, Agreement Matrix, Method Contribution, QC и Expert Conclusion для Pixler, ternary и Haworth.

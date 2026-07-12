@@ -8744,14 +8744,40 @@ def _render_selected_interval_passport(
             "Методика": item.method, "Результат": item.classification,
             "Поддержка, %": item.support_percent, "Статус": item.status,
         } for item in passport.methods])
-        tab_gas, tab_ratios, tab_methods, tab_decision = st.tabs((
-            "Газовый состав", "Коэффициенты", "Методики", "Заключение",
+        tab_gas, tab_ratios, tab_methods, tab_cross, tab_decision = st.tabs((
+            "Газовый состав", "Коэффициенты", "Методики", "Cross-Method", "Заключение",
         ))
         tab_gas.dataframe(gas_df, width="stretch", hide_index=True, height=300)
         tab_gas.caption(f"Полнота компонентов C1–C5: {passport.data_completeness_percent:g}%")
         tab_ratios.dataframe(ratio_df, width="stretch", hide_index=True, height=360)
         tab_methods.dataframe(method_df, width="stretch", hide_index=True, height=220)
         tab_methods.caption(f"Индекс согласованности методик: {passport.agreement_percent:g}%")
+        analysis = passport.cross_method_analysis
+        if analysis is not None and analysis.agreement_matrix:
+            matrix = pd.DataFrame(analysis.agreement_matrix[1:], columns=analysis.agreement_matrix[0])
+            tab_cross.markdown("**Матрица согласованности**")
+            tab_cross.dataframe(matrix, width="stretch", hide_index=True, height=220)
+        contrib_df = pd.DataFrame([{
+            "Методика": item.method,
+            "Вклад, %": item.contribution_percent,
+            "Классификация": item.classification,
+            "Поддержка, %": item.support_percent,
+        } for item in analysis.contributions]) if analysis is not None else pd.DataFrame()
+        if not contrib_df.empty:
+            tab_cross.markdown("**Вклад методик в итоговую классификацию**")
+            tab_cross.dataframe(contrib_df, width="stretch", hide_index=True, height=220)
+        if analysis is not None and analysis.disagreement_reasons:
+            tab_cross.markdown("**Возможные причины расхождения:**")
+            for reason in analysis.disagreement_reasons:
+                tab_cross.markdown(f"- {reason}")
+        if analysis is not None and analysis.quality_issues:
+            tab_cross.markdown("**QC:**")
+            for issue in analysis.quality_issues[:8]:
+                tab_cross.markdown(f"- `{issue.severity}` — {issue.message}")
+        if analysis is not None:
+            breakdown_df = pd.DataFrame(analysis.confidence_breakdown, columns=("Источник", "Оценка, %"))
+            tab_cross.markdown("**Разложение уверенности**")
+            tab_cross.dataframe(breakdown_df, width="stretch", hide_index=True, height=220)
         if passport.engineering_conclusion:
             tab_decision.markdown(f"**Инженерное заключение:** {passport.engineering_conclusion}")
         if passport.recommendations:

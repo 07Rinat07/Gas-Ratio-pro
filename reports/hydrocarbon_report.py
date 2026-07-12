@@ -196,10 +196,12 @@ def build_reservoir_passport_tables(
             f"{passport.data_completeness_percent:g}%", f"{passport.agreement_percent:g}%",
             passport.readiness_label, passport.engineering_conclusion,
         ))
+        contribution_map = ({item.method: item.contribution_percent for item in passport.cross_method_analysis.contributions}
+                            if passport.cross_method_analysis is not None else {})
         for method in passport.methods:
             method_rows.append((
                 passport.interval_id, method.method, method.classification,
-                f"{method.support_percent:g}%", method.status, method.note,
+                f"{method.support_percent:g}%", f"{contribution_map.get(method.method, 0):g}%", method.status, method.note,
             ))
     summary = HtmlReportTable(
         title="Reservoir Passport 2.0 — сводка интервалов",
@@ -209,7 +211,7 @@ def build_reservoir_passport_tables(
     ) if summary_rows else None
     methods = HtmlReportTable(
         title="Reservoir Passport 2.0 — согласованность методик",
-        headers=("ID", "Методика", "Результат", "Поддержка", "Статус", "Комментарий"),
+        headers=("ID", "Методика", "Результат", "Поддержка", "Вклад", "Статус", "Комментарий"),
         rows=tuple(method_rows),
     ) if method_rows else None
     return summary, methods

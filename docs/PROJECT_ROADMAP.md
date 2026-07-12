@@ -652,3 +652,14 @@ Next: use the same selection context in the Data workspace Pixler and ternary se
 - [x] Передача активного профиля в PDF/DOCX.
 
 Следующий этап: Cross-Method Analysis — структурированный анализ согласий и противоречий Pixler, ternary и Haworth с инженерным объяснением причин расхождений.
+
+## Explainable Interpretation Engine
+
+- [x] Единый формат результата методик.
+- [x] Анализ согласия и противоречий Pixler, ternary и Haworth.
+- [x] Матрица согласованности.
+- [x] Вклад методик в итоговую классификацию.
+- [x] QC и причины возможных расхождений.
+- [x] Разложение уверенности.
+- [x] Интеграция с Reservoir Passport и PDF/DOCX.
+- [ ] Расширение Method Library новыми методиками.

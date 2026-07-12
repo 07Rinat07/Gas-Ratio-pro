@@ -10,6 +10,7 @@ from core.hydrocarbon_intervals import HydrocarbonInterval
 from palettes.config import DEFAULT_PIXLER_ZONES, PixlerZone, TernaryRegion
 from palettes.pixler import analyze_pixler_interval
 from palettes.ternary import analyze_ternary_interval
+from core.expert_interpretation import MethodResult, CrossMethodAnalysis, build_cross_method_analysis
 
 GAS_COMPONENTS: tuple[str, ...] = ("c1", "c2", "c3", "ic4", "nc4", "ic5", "nc5")
 DERIVED_METRICS: tuple[str, ...] = (
@@ -48,6 +49,7 @@ class ReservoirPassport:
     engineering_conclusion: str
     ready_for_report: bool
     readiness_label: str
+    cross_method_analysis: CrossMethodAnalysis | None = None
 
 
 def _safe_number(value: object) -> float | None:
@@ -138,8 +140,25 @@ def build_reservoir_passport(
 
     available = sum(1 for _, value in gas_composition if value is not None)
     completeness = round(available / len(GAS_COMPONENTS) * 100.0, 1) if GAS_COMPONENTS else 0.0
-    agreement = _agreement(methods)
     explanation = interval.explanation
+    cross_method = build_cross_method_analysis(
+        tuple(
+            MethodResult(
+                method=item.method,
+                classification=item.classification,
+                confidence=float(item.support_percent),
+                support=float(item.support_percent),
+                limitations=tuple([item.note] if item.status != "Доступно" and item.note else ()),
+                explanation=item.note,
+                available=item.status == "Доступно",
+            )
+            for item in methods
+        ),
+        data_completeness_percent=completeness,
+        interval_confidence_percent=float(interval.confidence_score),
+        limitations=tuple(explanation.limitations if explanation else ()) or tuple(interval.warnings) or tuple(interval.quality_flags),
+    )
+    agreement = cross_method.agreement_percent
     limitations = tuple(explanation.limitations if explanation else ()) or tuple(interval.warnings) or tuple(interval.quality_flags)
     recommendations = tuple(explanation.recommendations if explanation else ())
     conclusion = (explanation.summary if explanation and explanation.summary else interval.interpretation) or interval.engineering_note
@@ -154,7 +173,8 @@ def build_reservoir_passport(
         methods=methods, agreement_percent=agreement, data_completeness_percent=completeness,
         limitations=tuple(str(item) for item in limitations if str(item).strip()),
         recommendations=tuple(str(item) for item in recommendations if str(item).strip()),
-        engineering_conclusion=str(conclusion or ""), ready_for_report=ready, readiness_label=readiness,
+        engineering_conclusion=str(cross_method.expert_conclusion or conclusion or ""), ready_for_report=ready, readiness_label=readiness,
+        cross_method_analysis=cross_method,
     )
 
 
