@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from palettes.plot_engine import prepare_figure_for_export
+
 
 StaticExportFormat = Literal["png", "pdf", "svg"]
 SUPPORTED_STATIC_EXPORT_FORMATS: tuple[StaticExportFormat, ...] = ("png", "pdf", "svg")
@@ -31,7 +33,10 @@ def validate_static_export_format(format_name: str) -> StaticExportFormat:
 def export_plotly_static_bytes(figure, options: StaticExportOptions) -> bytes:
     export_format = validate_static_export_format(options.format)
     try:
-        return figure.to_image(
+        export_figure = prepare_figure_for_export(
+            figure, width=max(320, int(options.width)), height=max(320, int(options.height))
+        )
+        return export_figure.to_image(
             format=export_format,
             width=max(320, int(options.width)),
             height=max(320, int(options.height)),

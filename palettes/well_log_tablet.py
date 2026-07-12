@@ -8,14 +8,15 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from palettes.depth_tracks import _depth_axis, _prepare_depth_frame
+from palettes.plot_engine import ENGINEERING_COLORS, THEME, apply_depth_axis, apply_engineering_layout, normalize_trace_style
 
 
 DEFAULT_TABLET_COLORS: tuple[str, ...] = (
-    "#111111",
-    "#d62728",
-    "#1f77b4",
-    "#2ca02c",
-    "#ff7f0e",
+    "#172033",
+    ENGINEERING_COLORS["accent"],
+    ENGINEERING_COLORS["primary"],
+    ENGINEERING_COLORS["secondary"],
+    ENGINEERING_COLORS["gas"],
     "#9467bd",
     "#17becf",
     "#8c564b",
@@ -614,7 +615,7 @@ def _empty_tablet_figure(message: str, *, height: int) -> go.Figure:
         text=message,
         showarrow=False,
     )
-    fig.update_layout(height=height, margin={"l": 70, "r": 30, "t": 70, "b": 45})
+    apply_engineering_layout(fig, height=height, margin={"l": 70, "r": 30, "t": 70, "b": 45}, showlegend=False)
     return fig
 
 
@@ -1128,15 +1129,12 @@ def build_well_log_tablet(
             }
         )
 
-    fig.update_layout(
-        title="Интерпретационный планшет",
-        height=height,
-        margin={"l": 82, "r": 86, "t": 112, "b": 54},
-        showlegend=False,
-        hovermode="closest",
-        shapes=shapes,
-        annotations=list(fig.layout.annotations) + annotations,
+    apply_engineering_layout(
+        fig, title="Интерпретационный планшет", height=height,
+        margin={"l": 82, "r": 86, "t": 112, "b": 54}, showlegend=False,
     )
+    fig.update_layout(shapes=shapes, annotations=list(fig.layout.annotations) + annotations)
+    normalize_trace_style(fig)
     return fig
 
 

@@ -3,9 +3,14 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 
+from palettes.plot_engine import (
+    AXIS_TITLES, DEPTH_AXIS_TITLE, ENGINEERING_COLORS, LEGEND_HORIZONTAL, THEME,
+    apply_depth_axis, apply_engineering_layout, engineering_hover, normalize_trace_style,
+)
+
 
 ENGINEERING_GRAPH_MARGIN = {"l": 72, "r": 28, "t": 68, "b": 64}
-ENGINEERING_LEGEND = {"orientation": "h", "y": -0.16, "x": 0.0, "xanchor": "left"}
+ENGINEERING_LEGEND = dict(LEGEND_HORIZONTAL)
 
 INTERPRETATION_COLORS: dict[str, str] = {
     "Газовая залежь": "#ff9f1c",
@@ -93,9 +98,9 @@ def _build_depth_tracks(
                 y=depth,
                 mode="lines",
                 name=column,
-                line={"width": 1.6},
+                line={"width": THEME.line_width},
                 connectgaps=False,
-                hovertemplate=f"{column}: %{{x:.4g}}<br>Глубина: %{{y:.2f}} м<extra></extra>",
+                hovertemplate=engineering_hover(column),
             )
         )
 
@@ -109,12 +114,8 @@ def _build_depth_tracks(
             showarrow=False,
         )
 
-    fig.update_layout(
-        title=title,
-        height=height,
-        margin=ENGINEERING_GRAPH_MARGIN,
-        legend=ENGINEERING_LEGEND,
-        hovermode="closest",
+    apply_engineering_layout(
+        fig, title=title, height=height, margin=ENGINEERING_GRAPH_MARGIN, legend=ENGINEERING_LEGEND
     )
     fig.update_xaxes(title=x_title, zeroline=False)
     if x_range is not None:
@@ -132,7 +133,8 @@ def _build_depth_tracks(
         "range": [float(bottom_depth), float(top_depth)],
         "autorange": False,
     }
-    fig.update_yaxes(**yaxis_options)
+    apply_depth_axis(fig, top_depth, bottom_depth)
+    normalize_trace_style(fig)
     return fig
 
 
@@ -219,17 +221,14 @@ def build_depth_interpretation_track(
             x=[category_index[name] for name in interpretations],
             y=plot_df["_plot_depth"],
             mode="markers",
-            marker={"size": 11, "color": colors},
+            marker={"size": 11, "color": colors, "line": {"width": 0.6, "color": "#ffffff"}},
             text=interpretations,
             hovertemplate="Глубина: %{y:.2f} м<br>%{text}<extra></extra>",
             name="Интерпретация",
         )
     )
-    fig.update_layout(
-        title="Интерпретация по глубине",
-        height=height,
-        margin=ENGINEERING_GRAPH_MARGIN,
-        showlegend=False,
+    apply_engineering_layout(
+        fig, title="Интерпретация по глубине", height=height, margin=ENGINEERING_GRAPH_MARGIN, showlegend=False
     )
     fig.update_xaxes(
         title="Интерпретация",
@@ -244,9 +243,6 @@ def build_depth_interpretation_track(
         bottom_depth = float(plot_df["_plot_depth"].max())
     else:
         top_depth, bottom_depth = depth_range
-    fig.update_yaxes(
-        title="Глубина, м",
-        range=[float(bottom_depth), float(top_depth)],
-        autorange=False,
-    )
+    apply_depth_axis(fig, top_depth, bottom_depth)
+    normalize_trace_style(fig)
     return fig

@@ -8,6 +8,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from palettes.config import DEFAULT_PIXLER_ZONES, PixlerZone
+from palettes.plot_engine import LEGEND_HORIZONTAL, THEME, apply_engineering_layout, normalize_trace_style
 
 
 PIXLER_RATIOS: tuple[tuple[str, str], ...] = (
@@ -180,13 +181,11 @@ def build_pixler_palette(
             hovertemplate="%{x}: %{y:.3g}<extra>" + selected_name + "</extra>",
         ))
 
-    fig.update_layout(
+    apply_engineering_layout(
+        fig,
         title={"text": f"Pixler — {interval_label}<br><sup>{summary.conclusion}</sup>", "x": 0.01},
         margin={"l": 65, "r": 20, "t": 88, "b": 55},
-        showlegend=True,
-        legend={"orientation": "h", "y": -0.16, "x": 0},
-        height=500,
-        hovermode="closest",
+        showlegend=True, legend=LEGEND_HORIZONTAL, height=500,
     )
     yaxis_options = {
         "title": "Отношение компонентов (логарифмическая шкала)",
@@ -205,9 +204,10 @@ def build_pixler_palette(
             bgcolor="rgba(15,23,42,0.82)", bordercolor="rgba(255,255,255,0.25)",
             font={"size": 13},
         )
-    fig.update_xaxes(title="Pixler ratios", tickfont={"size": 13})
+    fig.update_xaxes(title="Отношения Pixler", tickfont={"size": THEME.tick_size})
 
     if summary.valid_measurements == 0 and all(value is None for value in summary.selected_values):
         fig.add_annotation(x=0.5, y=0.5, xref="paper", yref="paper", text="Нет положительных Pixler ratios", showarrow=False)
 
+    normalize_trace_style(fig)
     return fig

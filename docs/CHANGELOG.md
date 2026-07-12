@@ -1,3 +1,15 @@
+# GAS RATIO PRO — Changelog
+
+## v220 — Plot Engine Cleanup
+
+- Added the shared `palettes/plot_engine.py` configuration layer.
+- Unified engineering colors, typography, margins, legends, grids and trace defaults.
+- Standardized reversed metric depth axes and Russian axis labels.
+- Standardized engineer-facing hover templates.
+- Migrated depth tracks, Pixler, ternary, interpretation tablet and report tablet to the common theme.
+- Made PNG, SVG and PDF export use a themed copy of the same screen figure.
+- Added plot-engine regression tests.
+
 ## v218 — Print & Export 2.0
 
 - Removed the remaining user-facing HTML comparison download.

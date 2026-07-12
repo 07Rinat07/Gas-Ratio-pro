@@ -7,6 +7,8 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from palettes.plot_engine import DEPTH_AXIS_TITLE, THEME, apply_depth_axis, apply_engineering_layout, engineering_hover, normalize_trace_style
+
 from core.hydrocarbon_intervals import HydrocarbonInterval, MARKER_STYLE_BY_FLUID
 
 
@@ -254,9 +256,9 @@ def build_professional_well_log_plot(
                 y=depth,
                 mode="lines",
                 name=column,
-                line={"width": 1.35},
+                line={"width": THEME.line_width},
                 connectgaps=False,
-                hovertemplate=f"{column}: %{{x}}<br>Depth: %{{y}}<extra></extra>",
+                hovertemplate=engineering_hover(column),
                 showlegend=False,
             ),
             row=1,
@@ -269,7 +271,7 @@ def build_professional_well_log_plot(
 
     top_depth = float(prepared[cfg.depth_column].min())
     bottom_depth = float(prepared[cfg.depth_column].max())
-    fig.update_yaxes(title_text="Depth, m", autorange=False, range=[bottom_depth, top_depth], showgrid=True)
+    apply_depth_axis(fig, top_depth, bottom_depth, title=DEPTH_AXIS_TITLE, showgrid=True)
 
     shapes: list[dict[str, object]] = []
     annotations = list(fig.layout.annotations or ())
@@ -321,14 +323,10 @@ def build_professional_well_log_plot(
                 }
             )
 
-    fig.update_layout(
-        title=cfg.title,
-        height=cfg.height,
-        margin={"l": 64, "r": 28, "t": 76, "b": 42},
-        template="plotly_white",
-        font={"family": "Arial, sans-serif", "size": 10, "color": "#172033"},
-        shapes=shapes,
-        annotations=annotations,
-        showlegend=False,
+    apply_engineering_layout(
+        fig, title=cfg.title, height=cfg.height,
+        margin={"l": 64, "r": 28, "t": 76, "b": 42}, showlegend=False,
     )
+    fig.update_layout(shapes=shapes, annotations=annotations)
+    normalize_trace_style(fig)
     return WellLogPlotResult(fig, plotted_columns, summary, len(visible_intervals))

@@ -7,6 +7,7 @@ from typing import Mapping
 import pandas as pd
 import plotly.graph_objects as go
 
+from palettes.plot_engine import LEGEND_HORIZONTAL, THEME, apply_engineering_layout, normalize_trace_style
 from palettes.config import TernaryRegion
 
 
@@ -300,6 +301,8 @@ def build_ternary_palette(
             }]
         ),
     )
+    apply_engineering_layout(fig, height=500, legend=LEGEND_HORIZONTAL, margin={"l": 20, "r": 20, "t": 85, "b": 60})
+    normalize_trace_style(fig)
     if fluid_label:
         fig.add_annotation(
             x=0.98, y=1.08, xref="paper", yref="paper",
