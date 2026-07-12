@@ -1,3 +1,9 @@
+## v221.1 — Selected Interval Header Hotfix
+
+- Restored the shared `_render_selected_interval_header` renderer used by the data and interpretation workspaces.
+- Fixed runtime `NameError` failures after LAS calculation and interval selection.
+- Added regression coverage for both workspace call sites and the empty-selection state.
+
 
 ## v221 — Stable Release
 

@@ -8441,6 +8441,49 @@ def _render_interpretation_graph_settings_saver(
                 st.success("Настройки интерпретационных графиков сохранены в проект.")
 
 
+def _render_selected_interval_header(
+    interval: object | None,
+    interval_id: str,
+    *,
+    project_label: str = "",
+    source_label: str = "",
+) -> None:
+    """Render the shared engineering header for the active reservoir interval.
+
+    The helper is intentionally defensive because both the data workspace and
+    the interpretation workspace call it before an interval may be available.
+    It exposes only user-facing engineering fields and never internal IDs beyond
+    the public interval label already shown in navigation tables.
+    """
+    if interval is None:
+        st.info("Инженерный интервал не выбран.")
+        return
+
+    top = float(getattr(interval, "top", 0.0) or 0.0)
+    base = float(getattr(interval, "base", top) or top)
+    thickness = float(getattr(interval, "thickness", abs(base - top)) or 0.0)
+    confidence_score = int(getattr(interval, "confidence_score", 0) or 0)
+    fluid_label, _, fluid_marker = _fluid_visual(getattr(interval, "fluid_type", ""))
+    interpretation = str(getattr(interval, "interpretation", "") or "").strip()
+
+    public_id = str(interval_id or "").strip() or "Интервал"
+    st.subheader(f"{fluid_marker} {public_id}: {top:g}–{base:g} м")
+
+    metric_columns = st.columns(4)
+    metric_columns[0].metric("Верх", f"{top:g} м")
+    metric_columns[1].metric("Низ", f"{base:g} м")
+    metric_columns[2].metric("Мощность", f"{thickness:g} м")
+    metric_columns[3].metric("Достоверность", f"{confidence_score}%")
+
+    st.caption(f"Вероятный флюид: {fluid_label}.")
+    if interpretation:
+        st.write(interpretation)
+
+    context_parts = [value for value in (str(project_label).strip(), str(source_label).strip()) if value]
+    if context_parts:
+        st.caption(" · ".join(context_parts))
+
+
 def _adaptive_tablet_height(depth_range: tuple[float, float], view_mode: str, base_height: int) -> int:
     span = max(0.1, abs(float(depth_range[1]) - float(depth_range[0])))
     if view_mode == "detail":

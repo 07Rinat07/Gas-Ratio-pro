@@ -1,3 +1,8 @@
+# Current status
+
+**Version:** v221.1 stable bugfix  
+**Status:** selected interval header runtime failure fixed.
+
 ## Current increment: v221 — Stable Release
 
 Status: **STABLE — AUTOMATED RELEASE GATES PASSED**
