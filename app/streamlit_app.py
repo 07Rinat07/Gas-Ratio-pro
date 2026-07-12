@@ -7533,6 +7533,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
     selected_depth_value = None if pd.isna(selected_depth_value) else float(selected_depth_value)
     pixler_interval_frame = calculated_df
     pixler_interval_label = "Весь рассчитанный интервал"
+    pixler_fluid_label = "Не определён"
     try:
         detected_intervals = detect_hydrocarbon_intervals(calculated_df)
         for detected_interval in detected_intervals.intervals:
@@ -7541,6 +7542,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
                 pixler_interval_frame = calculated_df.loc[
                     depth_numeric.between(detected_interval.top, detected_interval.base, inclusive="both")
                 ]
+                pixler_fluid_label = str(detected_interval.fluid_type)
                 pixler_interval_label = (
                     f"{detected_interval.top:g}–{detected_interval.base:g} м · "
                     f"{detected_interval.fluid_type} · {detected_interval.confidence_score}%"
@@ -7557,6 +7559,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
             interval_frame=pixler_interval_frame,
             interval_label=pixler_interval_label,
             selected_depth=selected_depth_value,
+            fluid_label=pixler_fluid_label,
         ),
         width="stretch",
     )
@@ -7567,6 +7570,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
             interval_frame=pixler_interval_frame,
             interval_label=pixler_interval_label,
             selected_depth=selected_depth_value,
+            fluid_label=pixler_fluid_label,
         ),
         width="stretch",
     )
@@ -7626,6 +7630,27 @@ def _select_x_range(label: str, key_prefix: str) -> tuple[float, float] | None:
         st.warning(f"Для {label} X min и X max совпадают. Используется автомасштаб.")
         return None
     return (min(float(min_value), float(max_value)), max(float(min_value), float(max_value)))
+
+
+def _select_positive_y_range(label: str, key_prefix: str) -> tuple[float, float] | None:
+    """Manual positive Y range for logarithmic engineering plots."""
+
+    auto_scale = st.checkbox(f"Автомасштаб Y: {label}", value=True, key=f"{key_prefix}_y_auto")
+    if auto_scale:
+        return None
+    left, right = st.columns(2)
+    min_value = left.number_input(
+        f"Y min: {label}", min_value=0.000001, value=0.01, step=0.01,
+        format="%.6f", key=f"{key_prefix}_y_min",
+    )
+    max_value = right.number_input(
+        f"Y max: {label}", min_value=0.000001, value=1000.0, step=1.0,
+        format="%.6f", key=f"{key_prefix}_y_max",
+    )
+    if float(min_value) >= float(max_value):
+        st.warning(f"Для {label} Y min должен быть меньше Y max. Используется автомасштаб.")
+        return None
+    return float(min_value), float(max_value)
 
 
 def _filter_interpretation_tracks(tracks: tuple[str, ...]) -> tuple[str, ...]:
@@ -8009,6 +8034,13 @@ def _apply_interpretation_graph_settings_to_session(settings: InterpretationGrap
     _set_interpretation_x_range_state("interpretation_gas", settings.gas_x_range)
     _set_interpretation_x_range_state("interpretation_ratio", settings.ratio_x_range)
     _set_interpretation_x_range_state("interpretation_pixler", settings.pixler_x_range)
+    controller.update_values({
+        "interpretation_pixler_palette_y_auto": settings.pixler_palette_y_range is None,
+        **({
+            "interpretation_pixler_palette_y_min": float(settings.pixler_palette_y_range[0]),
+            "interpretation_pixler_palette_y_max": float(settings.pixler_palette_y_range[1]),
+        } if settings.pixler_palette_y_range is not None else {}),
+    })
     for column, x_range in settings.tablet_x_ranges.items():
         _set_tablet_x_range_state(column, x_range)
 
@@ -8104,16 +8136,23 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     else:
         min_depth = float(valid_depth.min())
         max_depth = float(valid_depth.max())
+        st.caption(f"Фактическая глубина LAS: {min_depth:g}–{max_depth:g} м. Пустой диапазон от 0 не добавляется.")
         mode = st.radio(
-            "Диапазон глубины",
+            "Ось Y / диапазон глубины",
             options=("Весь интервал", "Ручной интервал"),
             horizontal=True,
             key="interpretation_depth_range_mode",
         )
         if mode == "Ручной интервал":
             top_col, bottom_col = st.columns(2)
-            top_depth = top_col.number_input("Верх, м", value=min_depth, step=0.1, key="interpretation_top_depth")
-            bottom_depth = bottom_col.number_input("Низ, м", value=max_depth, step=0.1, key="interpretation_bottom_depth")
+            top_depth = top_col.number_input(
+                "Верх, м", min_value=min_depth, max_value=max_depth, value=min_depth, step=0.1,
+                key="interpretation_top_depth",
+            )
+            bottom_depth = bottom_col.number_input(
+                "Низ, м", min_value=min_depth, max_value=max_depth, value=max_depth, step=0.1,
+                key="interpretation_bottom_depth",
+            )
         else:
             top_depth = min_depth
             bottom_depth = max_depth
@@ -8137,7 +8176,8 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     with st.expander("Ручной масштаб X", expanded=False):
         gas_x_range = _select_x_range("C1-C5", "interpretation_gas")
         ratio_x_range = _select_x_range("Wh/Bh/Ch", "interpretation_ratio")
-        pixler_x_range = _select_x_range("Pixler ratios", "interpretation_pixler")
+        pixler_x_range = _select_x_range("Pixler ratios по глубине", "interpretation_pixler")
+        pixler_palette_y_range = _select_positive_y_range("Pixler crossplot", "interpretation_pixler_palette")
 
     tablet_columns: tuple[str, ...] = ()
     tablet_x_ranges: dict[str, tuple[float, float]] = {}
@@ -8157,6 +8197,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         gas_x_range=gas_x_range,
         ratio_x_range=ratio_x_range,
         pixler_x_range=pixler_x_range,
+        pixler_palette_y_range=pixler_palette_y_range,
         tablet_tracks=tablet_columns,
         tablet_x_ranges=tablet_x_ranges,
         tablet_colors=tablet_colors,
@@ -8260,6 +8301,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     gas_x_range = render_settings.gas_x_range
     ratio_x_range = render_settings.ratio_x_range
     pixler_x_range = render_settings.pixler_x_range
+    pixler_palette_y_range = render_settings.pixler_palette_y_range
     tablet_columns = tuple(render_settings.tablet_tracks)
     tablet_x_ranges = dict(render_settings.tablet_x_ranges)
     tablet_colors = dict(render_settings.tablet_colors)
@@ -8533,6 +8575,32 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                     index=0,
                     key=f"presentation_export_format_{active_project.id}",
                 )
+                print_mode = st.radio(
+                    "Интервал печати",
+                    options=("Текущий интервал графиков", "Выбрать отдельно"),
+                    horizontal=True,
+                    key=f"presentation_print_depth_mode_{active_project.id}",
+                )
+                if print_mode == "Выбрать отдельно":
+                    print_left, print_right = st.columns(2)
+                    print_top = print_left.number_input(
+                        "Печать от, м",
+                        min_value=float(depth_range[0]),
+                        max_value=float(depth_range[1]),
+                        value=float(depth_range[0]),
+                        step=0.1,
+                        key=f"presentation_print_top_{active_project.id}",
+                    )
+                    print_bottom = print_right.number_input(
+                        "Печать до, м",
+                        min_value=float(depth_range[0]),
+                        max_value=float(depth_range[1]),
+                        value=float(depth_range[1]),
+                        step=0.1,
+                        key=f"presentation_print_bottom_{active_project.id}",
+                    )
+                else:
+                    print_top, print_bottom = depth_range
                 prepare_export = st.form_submit_button(
                     "Подготовить выбранный формат",
                     width="stretch",
@@ -8544,12 +8612,22 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
 
             if prepare_export:
                 generation_started = perf_counter()
+                print_depth_range = (
+                    min(float(print_top), float(print_bottom)),
+                    max(float(print_top), float(print_bottom)),
+                )
+                print_df = _filter_by_depth_range(
+                    calculated_df, print_depth_range[0], print_depth_range[1]
+                )
+                if print_df.empty:
+                    st.error("В выбранном интервале печати нет данных.")
+                    return
                 logger.info(
                     "presentation_export_started project_id=%s profile=%s format=%s rows=%d",
                     safe_log_value(active_project.id),
                     safe_log_value(selected_profile.id),
                     safe_log_value(selected_format.id),
-                    len(filtered_df),
+                    len(print_df),
                 )
                 try:
                     export_progress = st.empty()
@@ -8566,10 +8644,10 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                         include_figures=True,
                     )
                     presentation_payload = build_hydrocarbon_report_payload(
-                        filtered_df,
+                        print_df,
                         source_label=str(source_label),
                         project_label=f"{active_project.name} ({active_project.id})",
-                        depth_label=_range_label(depth_range, unit="м"),
+                        depth_label=_range_label(print_depth_range, unit="м"),
                         report_profile=presentation_state.profile,
                         include_plot=True,
                     )

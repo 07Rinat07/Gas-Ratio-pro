@@ -123,6 +123,8 @@ def build_pixler_palette(
     interval_frame: pd.DataFrame | None = None,
     interval_label: str = "Выбранный интервал",
     selected_depth: float | None = None,
+    y_range: tuple[float, float] | None = None,
+    fluid_label: str | None = None,
 ):
     labels = [label for _, label in PIXLER_RATIOS]
     summary = analyze_pixler_interval(interval_frame, row, zones=zones)
@@ -186,7 +188,23 @@ def build_pixler_palette(
         height=500,
         hovermode="closest",
     )
-    fig.update_yaxes(title="Отношение компонентов (логарифмическая шкала)", type="log", gridcolor="rgba(120,120,120,0.20)", zeroline=False)
+    yaxis_options = {
+        "title": "Отношение компонентов (логарифмическая шкала)",
+        "type": "log",
+        "gridcolor": "rgba(120,120,120,0.20)",
+        "zeroline": False,
+    }
+    if y_range is not None and y_range[0] > 0 and y_range[1] > y_range[0]:
+        yaxis_options["range"] = [math.log10(y_range[0]), math.log10(y_range[1])]
+    fig.update_yaxes(**yaxis_options)
+    if fluid_label:
+        fig.add_annotation(
+            x=0.99, y=1.13, xref="paper", yref="paper",
+            text=f"<b>Вероятный флюид: {fluid_label}</b>",
+            showarrow=False, xanchor="right",
+            bgcolor="rgba(15,23,42,0.82)", bordercolor="rgba(255,255,255,0.25)",
+            font={"size": 13},
+        )
     fig.update_xaxes(title="Pixler ratios", tickfont={"size": 13})
 
     if summary.valid_measurements == 0 and all(value is None for value in summary.selected_values):

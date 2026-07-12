@@ -27,6 +27,7 @@ class InterpretationGraphSettings:
     gas_x_range: tuple[float, float] | None = None
     ratio_x_range: tuple[float, float] | None = None
     pixler_x_range: tuple[float, float] | None = None
+    pixler_palette_y_range: tuple[float, float] | None = None
     tablet_tracks: tuple[str, ...] = ()
     tablet_x_ranges: dict[str, tuple[float, float]] = field(default_factory=dict)
     tablet_colors: dict[str, str] = field(default_factory=dict)
@@ -187,6 +188,7 @@ def settings_to_dict(settings: InterpretationGraphSettings) -> dict[str, Any]:
         "gas_x_range": _range_to_list(settings.gas_x_range),
         "ratio_x_range": _range_to_list(settings.ratio_x_range),
         "pixler_x_range": _range_to_list(settings.pixler_x_range),
+        "pixler_palette_y_range": _range_to_list(settings.pixler_palette_y_range),
         "tablet_tracks": list(settings.tablet_tracks),
         "tablet_x_ranges": _ranges_to_dict(settings.tablet_x_ranges),
         "tablet_colors": dict(settings.tablet_colors),
@@ -213,6 +215,7 @@ def settings_from_dict(raw: object) -> InterpretationGraphSettings:
         gas_x_range=_range_from_raw(payload.get("gas_x_range")),
         ratio_x_range=_range_from_raw(payload.get("ratio_x_range")),
         pixler_x_range=_range_from_raw(payload.get("pixler_x_range")),
+        pixler_palette_y_range=_range_from_raw(payload.get("pixler_palette_y_range")),
         tablet_tracks=tuple(str(track) for track in payload.get("tablet_tracks", ()) if str(track)),
         tablet_x_ranges=_ranges_from_raw(payload.get("tablet_x_ranges")),
         tablet_colors=_colors_from_raw(payload.get("tablet_colors")),

@@ -584,3 +584,11 @@ The stage is complete only when an engineer can select an interval and obtain sy
 - [x] Depth Panel 2.0 engineering tracks: separate Reservoir Type, Confidence and Recommendations tracks driven by the common interval model.
 
 - [x] Depth Panel readability hotfix: removed repeated Depth titles, suppressed overlapping HC labels and confidence text, reduced full-width boundaries, and moved recommendation detail to hover-only QC markers.
+
+### Axis, depth and print controls
+- [x] Use factual LAS top/base as the default Y range; never introduce an empty 0..top-depth segment.
+- [x] Keep manual depth-from/depth-to controls for the interpretation workspace.
+- [x] Add persisted manual Y limits for the Pixler logarithmic crossplot.
+- [x] Add an independent depth-from/depth-to interval for PDF/DOCX report generation.
+- [ ] Extend the reusable manual X/Y axis contract to correlation and remaining project charts.
+- [ ] Add print presets for current interval, selected reservoir and full well.

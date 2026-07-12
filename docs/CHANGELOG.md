@@ -1771,3 +1771,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added 0–100% confidence bars and decision-level labels for every interpreted interval.
 - Added one concise engineer-facing verification action per interval, sourced from the common interpretation explanation/rule model.
 - Preserved shared depth alignment, top/base boundaries, selected-depth marker and backward compatibility when no intervals are detected.
+
+### Changed
+- Depth charts and the well-log tablet now use the actual LAS top and base instead of rounded automatic depth limits.
+- Added independent depth interval selection for professional PDF/DOCX export.
+- Added manual logarithmic Y limits and a visible probable-fluid badge to Pixler.
+- Added a visible probable-fluid badge to the ternary plot.

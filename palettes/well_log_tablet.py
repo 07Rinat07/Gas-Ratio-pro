@@ -845,12 +845,17 @@ def build_well_log_tablet(
     if visible_track_count == 0:
         return _empty_tablet_figure("В выбранных параметрах нет числовых значений", height=height)
 
-    yaxis_options = {"title": "Depth", "autorange": "reversed"}
-    if depth_range is not None:
+    # Force the factual LAS bounds. This removes the empty 0..top-depth area
+    # that Plotly may introduce when it chooses rounded automatic ticks.
+    if depth_range is None:
+        top_depth = float(depth.min())
+        bottom_depth = float(depth.max())
+    else:
         top_depth, bottom_depth = depth_range
-        yaxis_options["range"] = [bottom_depth, top_depth]
-        yaxis_options["autorange"] = False
-    fig.update_yaxes(**yaxis_options)
+    fig.update_yaxes(
+        range=[float(bottom_depth), float(top_depth)],
+        autorange=False,
+    )
     # Shared y-axes otherwise repeat the word "Depth" inside every track.
     for subplot_col in range(1, len(titles) + 1):
         fig.update_yaxes(title_text="", row=1, col=subplot_col)

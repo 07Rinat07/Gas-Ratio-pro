@@ -113,11 +113,18 @@ def _build_depth_tracks(
     if x_range is not None:
         fig.update_xaxes(range=list(x_range))
 
-    yaxis_options = {"title": "Depth", "autorange": "reversed"}
-    if depth_range is not None:
+    # Always use the factual LAS depth extent. Plotly's automatic padding can
+    # otherwise round a 47 m top to 0 m and create a large empty area.
+    if depth_range is None:
+        top_depth = float(depth.min())
+        bottom_depth = float(depth.max())
+    else:
         top_depth, bottom_depth = depth_range
-        yaxis_options["range"] = [bottom_depth, top_depth]
-        yaxis_options["autorange"] = False
+    yaxis_options = {
+        "title": "Глубина, м",
+        "range": [float(bottom_depth), float(top_depth)],
+        "autorange": False,
+    }
     fig.update_yaxes(**yaxis_options)
     return fig
 
@@ -223,10 +230,16 @@ def build_depth_interpretation_track(
         tickvals=list(category_index.values()),
         ticktext=list(category_index.keys()),
     )
-    yaxis_options = {"title": "Depth", "autorange": "reversed"}
-    if depth_range is not None:
+    # Always use the factual LAS depth extent. Plotly's automatic padding can
+    # otherwise round the first measured depth to 0 m.
+    if depth_range is None:
+        top_depth = float(plot_df["_plot_depth"].min())
+        bottom_depth = float(plot_df["_plot_depth"].max())
+    else:
         top_depth, bottom_depth = depth_range
-        yaxis_options["range"] = [bottom_depth, top_depth]
-        yaxis_options["autorange"] = False
-    fig.update_yaxes(**yaxis_options)
+    fig.update_yaxes(
+        title="Глубина, м",
+        range=[float(bottom_depth), float(top_depth)],
+        autorange=False,
+    )
     return fig

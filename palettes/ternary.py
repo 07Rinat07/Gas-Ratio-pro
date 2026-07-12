@@ -187,6 +187,7 @@ def build_ternary_palette(
     interval_frame: pd.DataFrame | None = None,
     interval_label: str = "Выбранный интервал",
     selected_depth: float | None = None,
+    fluid_label: str | None = None,
 ):
     summary = analyze_ternary_interval(interval_frame, row, regions=regions)
     numeric = _normalized_frame(interval_frame)
@@ -299,4 +300,12 @@ def build_ternary_palette(
             }]
         ),
     )
+    if fluid_label:
+        fig.add_annotation(
+            x=0.98, y=1.08, xref="paper", yref="paper",
+            text=f"<b>Вероятный флюид: {fluid_label}</b>",
+            showarrow=False, xanchor="right",
+            bgcolor="rgba(15,23,42,0.82)", bordercolor="rgba(255,255,255,0.25)",
+            font={"size": 13},
+        )
     return fig

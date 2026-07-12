@@ -271,3 +271,9 @@ The live panel review exposed severe annotation collisions when 115 short interv
 - preserves detailed interval information without making the plot unreadable.
 
 Next: synchronize the selected interval between the register, Pixler, ternary, Depth Panel and interval passport.
+
+## Interpretation axis and print controls
+- Depth plots and the professional tablet now use the factual LAS depth extent by default.
+- The empty visual range from 0 m to the first measured LAS depth has been removed.
+- Professional export supports an independent print interval.
+- Pixler supports a persisted manual logarithmic Y range.
