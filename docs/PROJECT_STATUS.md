@@ -240,3 +240,4 @@ Completed in the current increment:
 
 ## Interpretation 2.0 — current increment
 Pixler 2.0 foundation is active: the chart renders the interval measurement cloud, median profile, selected-depth marker, configurable zones and a concise methodological conclusion. Zone limits remain explicitly provisional until corporate calibration is supplied.
+- Ternary 2.0 interval foundation implemented: interval cloud, median center, selected-depth marker, data-completeness assessment and region-support summary are available; region boundaries remain draft until corporate validation.

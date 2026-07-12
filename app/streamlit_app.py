@@ -7560,7 +7560,13 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         width="stretch",
     )
     right.plotly_chart(
-        build_ternary_palette(selected_row, regions=palette_config.ternary_regions),
+        build_ternary_palette(
+            selected_row,
+            regions=palette_config.ternary_regions,
+            interval_frame=pixler_interval_frame,
+            interval_label=pixler_interval_label,
+            selected_depth=selected_depth_value,
+        ),
         width="stretch",
     )
 

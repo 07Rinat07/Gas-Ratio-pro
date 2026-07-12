@@ -1743,3 +1743,4 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Replaced the single-row Pixler line with an interval-aware measurement cloud.
 - Added interval median, selected-depth marker, zone support calculation and engineer-facing conclusion.
 - Connected the selected depth to the detected hydrocarbon interval when available.
+- Added interval-aware Ternary 2.0 with normalized measurement cloud, median center, selected-depth marker, configured regions, completeness metrics and an engineering conclusion.

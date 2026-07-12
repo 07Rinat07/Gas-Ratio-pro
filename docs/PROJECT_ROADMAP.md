@@ -577,3 +577,4 @@ The stage is complete only when an engineer can select an interval and obtain sy
 - [x] Overlay configurable interpretation zones and an engineer-facing conclusion.
 - [ ] Validate zone limits against approved corporate methodology and field calibration.
 - [ ] Add interval selector synchronization with the reservoir register and passport.
+- [x] Ternary 2.0 interval foundation: cloud of valid interval measurements, normalized median center, selected-depth marker, configured methodological regions, completeness assessment and engineering conclusion.
