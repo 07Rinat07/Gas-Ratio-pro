@@ -1,3 +1,16 @@
+# Latest implementation — Repeat Export Revision Preflight
+
+Status: COMPLETED
+
+Implemented:
+- export history schema upgraded to v3 with a project-data revision fingerprint;
+- active export data revision is derived from project id, source signature and calculation revision;
+- history UI marks current, stale and legacy entries before repeat export;
+- stale entries show an advisory warning and require a new render;
+- v1/v2 history files remain backward-compatible.
+
+Next priority: one-click confirmed re-render from a stale history entry.
+
 # Latest implementation — Full-Fidelity Repeat Export
 
 Status: COMPLETED

@@ -1,3 +1,16 @@
+# Latest increment — Repeat Export Revision Preflight
+
+Status: COMPLETED
+
+Implemented:
+- export history schema v3 stores a lightweight project-data revision fingerprint;
+- repeat-export history compares the historical fingerprint with the active project revision;
+- current, stale and legacy/unknown history entries are distinguished explicitly;
+- stale configurations remain reusable but warn that a fresh render is required;
+- legacy v1/v2 history remains readable with safe unknown-revision behavior.
+
+Next priority: add an explicit one-click re-render action for stale history entries with a preflight confirmation summary.
+
 # Latest increment — Full-Fidelity Repeat Export
 
 Status: COMPLETED

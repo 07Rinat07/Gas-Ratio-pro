@@ -7,14 +7,18 @@ and full engineering payloads are intentionally excluded.
 """
 
 from dataclasses import dataclass
+from hashlib import sha256
 from datetime import datetime, timezone
 import json
 from pathlib import Path
 import re
 from typing import Any, Iterable, Mapping, Sequence
 
-EXPORT_HISTORY_SCHEMA = "gas-ratio-pro/export-history/v2"
-LEGACY_EXPORT_HISTORY_SCHEMAS = frozenset({"gas-ratio-pro/export-history/v1"})
+EXPORT_HISTORY_SCHEMA = "gas-ratio-pro/export-history/v3"
+LEGACY_EXPORT_HISTORY_SCHEMAS = frozenset({
+    "gas-ratio-pro/export-history/v1",
+    "gas-ratio-pro/export-history/v2",
+})
 _ALLOWED_SECTIONS = frozenset({"plots", "visualizations", "results", "conclusion"})
 _SAFE_ID = re.compile(r"[^A-Za-z0-9._-]+")
 
@@ -38,6 +42,8 @@ class ExportHistoryEntry:
     include_technical_appendix: bool = True
     show_page_chrome: bool = True
     print_mode: str = "Выбрать отдельно"
+    data_revision: str = ""
+    project_updated_at: str = ""
     created_at: str = ""
 
     def normalized(self) -> "ExportHistoryEntry":
@@ -72,6 +78,8 @@ class ExportHistoryEntry:
             include_technical_appendix=bool(self.include_technical_appendix),
             show_page_chrome=bool(self.show_page_chrome),
             print_mode=str(self.print_mode or "Выбрать отдельно").strip(),
+            data_revision=str(self.data_revision or "").strip(),
+            project_updated_at=str(self.project_updated_at or "").strip(),
             created_at=self.created_at or datetime.now(timezone.utc).isoformat(),
         )
 
@@ -97,6 +105,8 @@ class ExportHistoryEntry:
                 "show_page_chrome": value.show_page_chrome,
             },
             "print_mode": value.print_mode,
+            "data_revision": value.data_revision,
+            "project_updated_at": value.project_updated_at,
             "created_at": value.created_at,
         }
 
@@ -123,6 +133,8 @@ class ExportHistoryEntry:
             include_technical_appendix=bool(report.get("include_technical_appendix", True)),
             show_page_chrome=bool(report.get("show_page_chrome", True)),
             print_mode=str(payload.get("print_mode", "Выбрать отдельно")),
+            data_revision=str(payload.get("data_revision", "")),
+            project_updated_at=str(payload.get("project_updated_at", "")),
             created_at=str(payload.get("created_at", "")),
         ).normalized()
 
@@ -144,6 +156,83 @@ class ExportHistoryEntry:
             "show_page_chrome": value.show_page_chrome,
             "print_mode": value.print_mode,
         }
+
+
+@dataclass(frozen=True)
+class ExportRevisionComparison:
+    """Result of comparing historical export data with the active project data."""
+
+    status: str
+    message: str
+
+    @property
+    def stale(self) -> bool:
+        return self.status == "stale"
+
+    @property
+    def comparable(self) -> bool:
+        return self.status in {"current", "stale"}
+
+
+def build_export_data_revision(
+    *,
+    project_id: str,
+    source_signature: str,
+    calculation_revision: int,
+) -> str:
+    """Build a lightweight revision fingerprint without hashing dataframe payloads."""
+
+    payload = "|".join(
+        (
+            str(project_id or "").strip(),
+            str(source_signature or "").strip(),
+            str(max(0, int(calculation_revision))),
+        )
+    )
+    if not payload.replace("|", ""):
+        return ""
+    return sha256(payload.encode("utf-8")).hexdigest()
+
+
+def compare_export_data_revision(
+    entry: ExportHistoryEntry,
+    *,
+    current_revision: str,
+    current_project_updated_at: str = "",
+) -> ExportRevisionComparison:
+    """Compare a history entry with the active project revision.
+
+    Legacy entries without a revision are reported as unknown instead of being
+    treated as current. A stale result is advisory: the user may still restore
+    the old configuration, but the file must be rendered again.
+    """
+
+    historical = entry.normalized()
+    current = str(current_revision or "").strip()
+    if not historical.data_revision:
+        return ExportRevisionComparison(
+            status="unknown",
+            message="Для этой старой записи ревизия данных не сохранена.",
+        )
+    if not current:
+        return ExportRevisionComparison(
+            status="unknown",
+            message="Текущую ревизию данных определить не удалось.",
+        )
+    if historical.data_revision == current:
+        return ExportRevisionComparison(
+            status="current",
+            message="Конфигурация создана для текущей ревизии данных.",
+        )
+    changed_at = str(current_project_updated_at or "").strip()
+    suffix = f" Проект обновлён: {changed_at}." if changed_at else ""
+    return ExportRevisionComparison(
+        status="stale",
+        message=(
+            "Данные проекта изменились после этого экспорта. Настройки можно "
+            "восстановить, но отчёт необходимо сформировать заново." + suffix
+        ),
+    )
 
 @dataclass(frozen=True)
 class ExportHistoryFilter:

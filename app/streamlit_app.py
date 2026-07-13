@@ -356,6 +356,8 @@ from reports.export_history import (
     ExportHistoryEntry,
     ExportHistoryFilter,
     ExportHistoryRepository,
+    build_export_data_revision,
+    compare_export_data_revision,
     filter_export_history,
 )
 from reports.export_las import export_las_bytes
@@ -2843,6 +2845,12 @@ def _render_static_export_controls(
             type="primary",
             key=f"{key_prefix}_prepare_static_export",
         )
+        current_data_revision = build_export_data_revision(
+            project_id=str(active_project.id),
+            source_signature=current_export_request.source_signature,
+            calculation_revision=current_export_request.calculation_revision,
+        )
+
         if prepare_export:
             started = perf_counter()
             progress = st.empty()
@@ -9587,6 +9595,8 @@ def _render_professional_export_panel(
                                 include_technical_appendix=report_design.include_technical_appendix,
                                 show_page_chrome=report_design.show_page_chrome,
                                 print_mode=str(print_mode),
+                                data_revision=current_data_revision,
+                                project_updated_at=str(active_project.updated_at or ""),
                             )
                         )
                     except (OSError, ValueError, TypeError):
@@ -9707,13 +9717,27 @@ def _render_professional_export_panel(
                 for history_index, history_item in enumerate(filtered_history[:10]):
                     created_label = history_item.created_at.replace("T", " ")[:19]
                     cache_label = " · кэш" if history_item.cache_hit else ""
+                    revision_comparison = compare_export_data_revision(
+                        history_item,
+                        current_revision=current_data_revision,
+                        current_project_updated_at=str(active_project.updated_at or ""),
+                    )
+                    revision_label = {
+                        "current": " · данные актуальны",
+                        "stale": " · данные изменены",
+                        "unknown": " · ревизия неизвестна",
+                    }.get(revision_comparison.status, "")
                     history_info, history_action = st.columns([4, 1])
                     history_info.markdown(
                         f"**{history_item.format_label}** · `{history_item.file_name}`  \n"
                         f"{created_label} UTC · {history_item.depth_top:g}–{history_item.depth_bottom:g} м · "
-                        f"{history_item.size_bytes / 1024:.1f} КБ{cache_label}  \n"
+                        f"{history_item.size_bytes / 1024:.1f} КБ{cache_label}{revision_label}  \n"
                         f"Режим: `{history_item.report_mode_id}` · шаблон: `{history_item.template_id}`"
                     )
+                    if revision_comparison.stale:
+                        history_info.warning(revision_comparison.message)
+                    elif revision_comparison.status == "unknown":
+                        history_info.caption(revision_comparison.message)
                     if history_action.button(
                         "Повторить",
                         key=f"export_history_repeat_{active_project.id}_{history_index}_{history_item.request_signature[:10]}",

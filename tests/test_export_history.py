@@ -183,3 +183,93 @@ def test_streamlit_repeat_restores_complete_report_configuration() -> None:
     assert 'pending_repeat.get("sections"' in source
     assert "report_mode_id=report_design.mode_id" in source
     assert "template_id=report_design.template_id" in source
+
+
+def test_history_v3_round_trip_preserves_project_data_revision(tmp_path: Path) -> None:
+    from reports.export_history import build_export_data_revision
+
+    revision = build_export_data_revision(
+        project_id="project/alpha",
+        source_signature="las-sha-123",
+        calculation_revision=7,
+    )
+    repository = ExportHistoryRepository(tmp_path)
+    repository.record(
+        ExportHistoryEntry(
+            project_id="project/alpha",
+            file_name="revision.pdf",
+            format_id="pdf",
+            format_label="PDF",
+            profile_id="engineering",
+            depth_top=1000.0,
+            depth_bottom=1100.0,
+            size_bytes=500,
+            data_revision=revision,
+            project_updated_at="2026-07-13T12:00:00+00:00",
+        )
+    )
+
+    restored = repository.load("project/alpha")[0]
+    assert restored.data_revision == revision
+    assert restored.project_updated_at == "2026-07-13T12:00:00+00:00"
+
+
+def test_export_revision_comparison_reports_current_stale_and_legacy_unknown() -> None:
+    from reports.export_history import (
+        build_export_data_revision,
+        compare_export_data_revision,
+    )
+
+    current = build_export_data_revision(
+        project_id="alpha",
+        source_signature="source-a",
+        calculation_revision=2,
+    )
+    same = ExportHistoryEntry(
+        project_id="alpha",
+        file_name="same.pdf",
+        format_id="pdf",
+        format_label="PDF",
+        profile_id="engineering",
+        depth_top=1,
+        depth_bottom=2,
+        size_bytes=10,
+        data_revision=current,
+    )
+    old = ExportHistoryEntry(
+        project_id="alpha",
+        file_name="old.pdf",
+        format_id="pdf",
+        format_label="PDF",
+        profile_id="engineering",
+        depth_top=1,
+        depth_bottom=2,
+        size_bytes=10,
+        data_revision=build_export_data_revision(
+            project_id="alpha",
+            source_signature="source-a",
+            calculation_revision=1,
+        ),
+    )
+    legacy = ExportHistoryEntry(
+        project_id="alpha",
+        file_name="legacy.pdf",
+        format_id="pdf",
+        format_label="PDF",
+        profile_id="engineering",
+        depth_top=1,
+        depth_bottom=2,
+        size_bytes=10,
+    )
+
+    assert compare_export_data_revision(same, current_revision=current).status == "current"
+    assert compare_export_data_revision(old, current_revision=current).stale is True
+    assert compare_export_data_revision(legacy, current_revision=current).status == "unknown"
+
+
+def test_streamlit_history_surfaces_stale_revision_warning() -> None:
+    source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
+    assert "build_export_data_revision(" in source
+    assert "compare_export_data_revision(" in source
+    assert "Данные проекта изменились" in Path("reports/export_history.py").read_text(encoding="utf-8")
+    assert "data_revision=current_data_revision" in source
