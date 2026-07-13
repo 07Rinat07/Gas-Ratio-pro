@@ -948,3 +948,9 @@ Release candidate Definition of Done:
 ## Следующий приоритет
 - оглавление и PDF-закладки;
 - пользовательский выбор режима отчёта: краткий, стандартный, полный инженерный.
+
+
+## Завершено в v222.14
+- Discoverable Professional Export UI.
+- Full-well atlas scope.
+- Four-stage export progress and user guidance.

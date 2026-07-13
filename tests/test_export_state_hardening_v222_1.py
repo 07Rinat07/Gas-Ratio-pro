@@ -87,7 +87,7 @@ def test_export_context_signature_invalidates_model_cache() -> None:
 
     def render(model, frame, request):
         return ExportArtifact(
-            content=model["context"].encode() or b"empty",
+            content=b"%PDF-1.7\n" + (model["context"].encode() or b"empty"),
             file_name="report.pdf",
             mime_type=request.mime_type,
             format_id=request.format_id,
@@ -110,7 +110,7 @@ def test_export_context_signature_invalidates_model_cache() -> None:
 
     assert calls["model"] == 2
     assert metrics["model_cache_hit"] is False
-    assert artifact.content == b"ranking-conservative"
+    assert artifact.content.endswith(b"ranking-conservative")
 
 
 def test_lru_eviction_removes_stale_registry_entries() -> None:

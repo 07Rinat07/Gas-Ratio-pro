@@ -8940,15 +8940,26 @@ def _render_professional_export_panel(
     versions that support fragments, so the surrounding Plotly charts are not
     serialized and sent to the browser again.
     """
-    with st.expander("Профессиональный экспорт отчета", expanded=False):
+    with st.expander("🖨️ ПЕЧАТЬ И ПРОФЕССИОНАЛЬНЫЙ ЭКСПОРТ", expanded=True):
+        st.markdown("### Подготовка PDF, DOCX, PNG, SVG или XLSX")
+        st.info(
+            "Здесь настраивается печать отчёта. Для полного отчёта по скважине "
+            "выберите режим «Вся скважина и все УВ-интервалы». "
+            "После запуска приложение покажет текущий этап подготовки файла."
+        )
+        st.caption("Шаги: профиль → формат → область печати → подготовить → скачать.")
         profile_options = report_profile_options()
         format_options = export_format_options()
         export_cache_key = f"presentation_export_artifact_{active_project.id}"
         export_error_key = f"presentation_export_error_{active_project.id}"
 
-        print_mode_options = ["Текущий интервал графиков", "Выбрать отдельно"]
+        print_mode_options = [
+            "Вся скважина и все УВ-интервалы",
+            "Текущий интервал графиков",
+            "Выбрать отдельно",
+        ]
         if selected_interval is not None:
-            print_mode_options.insert(0, "Выбранный пласт")
+            print_mode_options.insert(1, "Выбранный пласт")
         full_print_min = float(valid_depth.min()) if not valid_depth.empty else float(depth_range[0])
         full_print_max = float(valid_depth.max()) if not valid_depth.empty else float(depth_range[1])
         default_print_top = (
@@ -8988,6 +8999,10 @@ def _render_professional_export_panel(
                 options=[option.label for option in format_options],
                 index=0,
                 key=form_keys["format"],
+                help=(
+                    "PDF — готовый документ для печати; DOCX — редактируемый отчёт; "
+                    "PNG/SVG — отдельный планшет; XLSX — инженерные таблицы."
+                ),
             )
             print_mode = st.radio(
                 "Интервал печати",
@@ -8995,11 +9010,18 @@ def _render_professional_export_panel(
                 horizontal=True,
                 key=form_keys["print_mode"],
                 help=(
-                    "Выбранный пласт использует общий selected_reservoir_interval_id. "
-                    "PDF и DOCX формируются только по его фактическим границам."
+                    "«Вся скважина и все УВ-интервалы» создаёт обзор и атлас детальных страниц. "
+                    "«Выбранный пласт» формирует один увеличенный интервал. "
+                    "«Текущий интервал графиков» повторяет текущий экранный диапазон."
                 ),
             )
-            if print_mode == "Выбранный пласт" and selected_interval is not None:
+            if print_mode == "Вся скважина и все УВ-интервалы":
+                print_top, print_bottom = full_print_min, full_print_max
+                st.success(
+                    f"Полный отчёт по скважине: {print_top:g}–{print_bottom:g} м. "
+                    "Будут добавлены обзорный планшет и детальные страницы по УВ-интервалам."
+                )
+            elif print_mode == "Выбранный пласт" and selected_interval is not None:
                 print_top, print_bottom = _selected_interval_print_range(
                     selected_interval,
                     depth_range,
@@ -9029,9 +9051,10 @@ def _render_professional_export_panel(
             else:
                 print_top, print_bottom = depth_range
             prepare_export = st.form_submit_button(
-                "Подготовить выбранный формат",
+                "🖨️ ПОДГОТОВИТЬ ФАЙЛ ДЛЯ ПЕЧАТИ И СКАЧИВАНИЯ",
                 width="stretch",
                 type="primary",
+                help="Запускает подготовку выбранного отчёта. Ниже появится статус каждого этапа.",
             )
 
         selected_profile = next((option for option in profile_options if option.label == selected_profile_label), profile_options[0])
@@ -9058,7 +9081,7 @@ def _render_professional_export_panel(
             context_signature=hashlib.sha256(
                 (
                     f"ranking={export_state.get('active_reservoir_ranking_profile', '')}|"
-                    f"interval={selected_interval_id or ''}"
+                    f"interval={selected_interval_id or ''}|scope={print_mode}"
                 ).encode("utf-8")
             ).hexdigest(),
         )
@@ -9073,10 +9096,11 @@ def _render_professional_export_panel(
                 st.error("В выбранном интервале печати нет данных.")
             else:
                 export_progress = st.empty()
+                export_progress_bar = st.progress(5, text="Проверка настроек экспорта…")
                 _set_inline_operation_status(
                     export_progress,
                     "Экспорт",
-                    f"Формируется {selected_format.label}.",
+                    f"Шаг 1 из 4: проверяется диапазон и профиль {selected_profile.label}.",
                 )
                 request = current_export_request
                 logger.info(
@@ -9088,6 +9112,12 @@ def _render_professional_export_panel(
                 )
 
                 def _build_export_model(frame, export_request):
+                    export_progress_bar.progress(30, text="Шаг 2 из 4: строится модель отчёта и атлас интервалов…")
+                    _set_inline_operation_status(
+                        export_progress,
+                        "Экспорт",
+                        "Шаг 2 из 4: формируются обзорный планшет, интервалы и таблицы.",
+                    )
                     # The model cache is intentionally format-neutral.  Never cache
                     # PresentationExportUiState together with the model: otherwise a
                     # later DOCX request can reuse the PDF state (or vice versa) and
@@ -9106,6 +9136,12 @@ def _render_professional_export_panel(
                     return payload.presentation_model
 
                 def _render_export_artifact(presentation_model, frame, export_request):
+                    export_progress_bar.progress(70, text=f"Шаг 3 из 4: создаётся файл {export_request.format_label}…")
+                    _set_inline_operation_status(
+                        export_progress,
+                        "Экспорт",
+                        f"Шаг 3 из 4: выполняется рендеринг {export_request.format_label}.",
+                    )
                     # Export state is request-specific and must be rebuilt for every
                     # format even when the shared PresentationModel comes from cache.
                     presentation_state = build_presentation_export_ui_state(
@@ -9182,11 +9218,12 @@ def _render_professional_export_panel(
                         "depth_bottom": print_depth_range[1],
                     }
                     _application_state_controller().state.pop(export_error_key, None)
+                    export_progress_bar.progress(100, text="Шаг 4 из 4: файл готов к скачиванию.")
                     _set_inline_operation_status(
                         export_progress,
                         "Экспорт",
                         (
-                            f"{selected_format.label} подготовлен"
+                            f"Шаг 4 из 4: {selected_format.label} подготовлен"
                             + (" из кэша." if export_artifact.cache_hit else ".")
                         ),
                         state="success",
@@ -9203,6 +9240,7 @@ def _render_professional_export_panel(
                     )
                 except ExportControllerError as exc:
                     failure = exc.failure
+                    export_progress_bar.progress(100, text="Подготовка файла завершилась ошибкой.")
                     _set_inline_operation_status(
                         export_progress,
                         "Экспорт",
@@ -9233,7 +9271,7 @@ def _render_professional_export_panel(
         )
         if cached_matches_controls:
             st.download_button(
-                f"Скачать {cached_export.get('format_label', 'отчет')}",
+                f"⬇️ СКАЧАТЬ ГОТОВЫЙ {cached_export.get('format_label', 'ОТЧЁТ')}",
                 data=cached_export.get("content", b""),
                 file_name=str(cached_export.get("file_name", "professional_report.bin")),
                 mime=str(cached_export.get("mime_type", "application/octet-stream")),
@@ -9254,7 +9292,7 @@ def _render_professional_export_panel(
                 "профилю, формату или диапазону глубин. Подготовьте файл заново."
             )
         else:
-            st.info("Выберите профиль и формат, затем нажмите «Подготовить выбранный формат».")
+            st.info("Файл ещё не подготовлен. Выберите настройки выше и нажмите большую синюю кнопку подготовки.")
 
         cached_error = _application_state_controller().state.get(export_error_key)
         if isinstance(cached_error, dict):
@@ -9433,6 +9471,37 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     manual_height = st.slider("Базовая высота графиков", min_value=420, max_value=1100, value=650, step=10, key="interpretation_chart_height")
     height = _adaptive_tablet_height(depth_range, view_mode, int(manual_height)) if adaptive_height and depth_range is not None else int(manual_height)
     st.caption(f"Рабочая высота планшета: {height}px.")
+
+    # Export is intentionally placed before the heavy graph controls and figures.
+    # Users must see the print action immediately instead of searching at the
+    # bottom of a long interpretation page.
+    state_controller = _application_state_controller()
+    revision_snapshot = revision_controller_from_state(state_controller.state).snapshot
+    dataframe_runtime_cache = state_controller.get_value("dataframe_runtime_cache")
+    if not isinstance(dataframe_runtime_cache, DataframeRuntimeCache):
+        dataframe_runtime_cache = DataframeRuntimeCache(max_samples=8)
+        state_controller.set_value("dataframe_runtime_cache", dataframe_runtime_cache)
+    calculated_signature = dataframe_runtime_cache.signature(
+        calculated_df,
+        revision=revision_snapshot.calculation,
+        builder=dataframe_signature,
+    )
+    if depth_range is not None and not valid_depth.empty:
+        _render_professional_export_panel(
+            logger,
+            active_project,
+            calculated_df=calculated_df,
+            valid_depth=valid_depth,
+            depth_range=depth_range,
+            selected_interval=selected_interval,
+            selected_interval_id=selected_interval_id,
+            source_label=source_label,
+            calculated_signature=calculated_signature,
+            revision_snapshot=revision_snapshot,
+            height=int(height),
+        )
+
+    st.markdown("### Настройка экранных графиков")
     selected_tracks = st.multiselect(
         "Графики",
         options=INTERPRETATION_TRACK_OPTIONS,
@@ -9488,17 +9557,6 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     )
     _render_interpretation_graph_settings_saver(active_project, current_settings, logger)
 
-    state_controller = _application_state_controller()
-    revision_snapshot = revision_controller_from_state(state_controller.state).snapshot
-    dataframe_runtime_cache = state_controller.get_value("dataframe_runtime_cache")
-    if not isinstance(dataframe_runtime_cache, DataframeRuntimeCache):
-        dataframe_runtime_cache = DataframeRuntimeCache(max_samples=8)
-        state_controller.set_value("dataframe_runtime_cache", dataframe_runtime_cache)
-    calculated_signature = dataframe_runtime_cache.signature(
-        calculated_df,
-        revision=revision_snapshot.calculation,
-        builder=dataframe_signature,
-    )
     build_clicked = st.button(
         "Построить графики и планшет",
         type="primary",
@@ -9942,21 +10000,6 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         if not zone_table.empty:
             st.subheader("Таблица интерпретационных зон планшета")
             st.dataframe(zone_table, width="stretch")
-
-    if figures:
-        _render_professional_export_panel(
-            logger,
-            active_project,
-            calculated_df=calculated_df,
-            valid_depth=valid_depth,
-            depth_range=depth_range,
-            selected_interval=selected_interval,
-            selected_interval_id=selected_interval_id,
-            source_label=source_label,
-            calculated_signature=calculated_signature,
-            revision_snapshot=revision_snapshot,
-            height=int(height),
-        )
 
     st.subheader("Инженерная сводка УВ-интервалов")
     st.caption(
