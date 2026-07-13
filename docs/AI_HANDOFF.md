@@ -1,3 +1,29 @@
+# Latest implementation — Document-Model Page Estimate Refinement and Format Readiness
+
+
+
+Status: COMPLETED
+
+
+
+Implemented:
+
+- page estimation can consume an existing EngineeringDocument without recalculating engineering data;
+
+- table-row, plot, visualization and notice counts refine component page ranges;
+
+- target-format diagnostics distinguish PDF and DOCX limitations;
+
+- Professional Export structure preview forwards the currently selected format;
+
+- legacy callers remain compatible because document and target_format are optional.
+
+
+
+Next priority: connect the preview to the preflight-built document model and expand capability diagnostics to all export formats.
+
+
+
 # Latest increment — Report Structure Page Estimate and Export Readiness
 
 Status: COMPLETED

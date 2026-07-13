@@ -9296,7 +9296,13 @@ def _render_professional_export_panel(
                 include_technical_appendix=bool(include_technical_design),
                 show_page_chrome=bool(show_page_chrome_design),
             )
-            structure_preview = build_report_structure_preview(preview_design)
+            structure_preview = build_report_structure_preview(
+                preview_design,
+                target_format=next(
+                    (option.id for option in format_options if option.label == selected_format_label),
+                    format_options[0].id,
+                ),
+            )
             with st.expander("Предпросмотр структуры отчёта", expanded=True):
                 st.caption(
                     f"{structure_preview.mode_label} · {structure_preview.template_label} · "

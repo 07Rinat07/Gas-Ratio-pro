@@ -112,6 +112,18 @@ class ReportPageEstimate:
 
 
 @dataclass(frozen=True)
+class ReportDocumentCounts:
+    """Lightweight block counts from an already assembled document model."""
+
+    sections: int = 0
+    tables: int = 0
+    table_rows: int = 0
+    plots: int = 0
+    visualizations: int = 0
+    notices: int = 0
+
+
+@dataclass(frozen=True)
 class ReportReadinessDiagnostic:
     """Human-readable export-readiness diagnostic for the preview UI."""
 
@@ -419,7 +431,34 @@ _SECTION_PREVIEW = {
 }
 
 
-def build_report_structure_preview(design: ReportDesign | None = None) -> ReportStructurePreview:
+def _document_counts(document: EngineeringDocument | None) -> ReportDocumentCounts | None:
+    """Count renderer-neutral blocks without rebuilding engineering content."""
+    if document is None:
+        return None
+    tables = table_rows = plots = visualizations = notices = 0
+    for section in document.sections:
+        for block in section.blocks:
+            if isinstance(block, DocumentTable):
+                tables += 1
+                table_rows += len(block.rows)
+            elif isinstance(block, DocumentPlot):
+                plots += 1
+            elif isinstance(block, DocumentVisualizationPreview):
+                visualizations += 1
+            elif isinstance(block, DocumentNotice):
+                notices += 1
+    return ReportDocumentCounts(
+        sections=len(document.sections), tables=tables, table_rows=table_rows,
+        plots=plots, visualizations=visualizations, notices=notices,
+    )
+
+
+def build_report_structure_preview(
+    design: ReportDesign | None = None,
+    *,
+    document: EngineeringDocument | None = None,
+    target_format: str | None = None,
+) -> ReportStructurePreview:
     """Resolve report composition without building plots, tables or binary files.
 
     The function is intentionally lightweight and safe to call after every UI
@@ -475,6 +514,27 @@ def build_report_structure_preview(design: ReportDesign | None = None) -> Report
     if include_technical:
         page_estimates.append(ReportPageEstimate("technical_appendix", "Техническое приложение", 2, 6))
 
+    counts = _document_counts(document)
+    if counts is not None:
+        refined: list[ReportPageEstimate] = []
+        for item in page_estimates:
+            min_pages, max_pages = item.min_pages, item.max_pages
+            if item.id == "plots" and item.enabled:
+                min_pages = max(1, (counts.plots + 1) // 2) if counts.plots else 1
+                max_pages = max(min_pages, counts.plots or 1)
+            elif item.id == "visualizations" and item.enabled:
+                min_pages = max(1, counts.visualizations)
+                max_pages = max(min_pages, counts.visualizations * 2 or 1)
+            elif item.id == "results" and item.enabled:
+                row_pages = (counts.table_rows + 34) // 35
+                min_pages = max(1, counts.tables, row_pages)
+                max_pages = max(min_pages, counts.tables + (counts.table_rows + 19) // 20)
+            elif item.id == "conclusion" and item.enabled:
+                min_pages = 1
+                max_pages = max(1, min(3, counts.notices + 1))
+            refined.append(ReportPageEstimate(item.id, item.label, min_pages, max_pages, item.enabled))
+        page_estimates = refined
+
     enabled_estimates = tuple(item for item in page_estimates if item.enabled)
     estimated_min_pages = sum(item.min_pages for item in enabled_estimates)
     estimated_max_pages = sum(item.max_pages for item in enabled_estimates)
@@ -503,6 +563,29 @@ def build_report_structure_preview(design: ReportDesign | None = None) -> Report
         diagnostics.append(ReportReadinessDiagnostic(
             "navigation.bookmarks_only", "info",
             "PDF-закладки включены без печатного оглавления."
+        ))
+
+    normalized_format = str(target_format or "").strip().lower().lstrip(".")
+    if normalized_format == "docx" and include_bookmarks:
+        diagnostics.append(ReportReadinessDiagnostic(
+            "format.docx.bookmarks_ignored", "warning",
+            "PDF-закладки не применяются к DOCX; в документе сохранится только печатное оглавление."
+        ))
+    if normalized_format == "pdf" and not page_chrome:
+        diagnostics.append(ReportReadinessDiagnostic(
+            "format.pdf.no_page_chrome", "warning",
+            "PDF формируется без колонтитулов и нумерации страниц."
+        ))
+    if normalized_format in {"pdf", "docx"} and counts is not None and counts.tables == 0:
+        diagnostics.append(ReportReadinessDiagnostic(
+            f"format.{normalized_format}.no_tables", "info",
+            "В собранной модели документа отсутствуют табличные блоки."
+        ))
+    if counts is not None:
+        diagnostics.append(ReportReadinessDiagnostic(
+            "estimate.document_counts", "success",
+            f"Оценка уточнена по модели документа: разделов {counts.sections}, таблиц {counts.tables}, "
+            f"строк {counts.table_rows}, графиков {counts.plots}, планшетов {counts.visualizations}."
         ))
 
     return ReportStructurePreview(
@@ -542,6 +625,7 @@ __all__ = [
     "ReportDesignResult",
     "ReportPreviewItem",
     "ReportPageEstimate",
+    "ReportDocumentCounts",
     "ReportReadinessDiagnostic",
     "ReportStructurePreview",
     "ReportSectionId",

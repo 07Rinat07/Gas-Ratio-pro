@@ -1,3 +1,39 @@
+# Latest increment — Document-Model Page Estimate Refinement and Format Readiness
+
+
+
+Status: COMPLETED
+
+
+
+Implemented:
+
+- optional refinement of page estimates from an already assembled EngineeringDocument;
+
+- renderer-neutral counts for sections, tables, table rows, plots, visualization previews and notices;
+
+- PDF-specific readiness warning when page chrome is disabled;
+
+- DOCX-specific readiness warning when PDF bookmarks cannot be applied;
+
+- Streamlit preview now passes the selected target format into readiness diagnostics;
+
+- backward-compatible fallback to heuristic estimates when no document model is available.
+
+
+
+Validation:
+
+- `python -m py_compile reports/report_designer.py app/streamlit_app.py`;
+
+- `34 passed` in focused report designer/export wizard regression tests.
+
+
+
+Next priority: expose live document-model counts after preflight assembly and add renderer capability diagnostics for bundle/PNG/SVG/XLSX exports.
+
+
+
 # Latest increment — Report Structure Page Estimate and Export Readiness
 
 Status: COMPLETED
