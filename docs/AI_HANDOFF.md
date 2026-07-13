@@ -1,3 +1,16 @@
+# Latest implementation — Confirmed Stale Export Rebuild
+
+Status: COMPLETED
+
+Implemented:
+- stale export-history entries use a dedicated confirmation preflight;
+- the confirmation summarizes the exact historical export request before reuse;
+- confirmation restores the complete configuration and triggers a fresh render against current project data;
+- cancellation is side-effect free;
+- focused and extended reporting regression tests pass.
+
+Next priority: cancellable long-running export execution with recoverable progress state.
+
 # Latest implementation — Repeat Export Revision Preflight
 
 Status: COMPLETED

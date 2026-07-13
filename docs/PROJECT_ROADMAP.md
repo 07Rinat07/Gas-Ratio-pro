@@ -1,3 +1,16 @@
+# Latest increment — Confirmed Stale Export Rebuild
+
+Status: COMPLETED
+
+Implemented:
+- stale history entries now open an explicit rebuild confirmation summary;
+- confirmation shows file, format, profile, depth range, report mode and template;
+- confirmed rebuild restores the historical configuration and automatically starts a fresh render;
+- cancel leaves the active export configuration unchanged;
+- current and legacy entries preserve the existing repeat behavior.
+
+Next priority: add cancellable background export execution and progress recovery for long PDF/DOCX renders.
+
 # Latest increment — Repeat Export Revision Preflight
 
 Status: COMPLETED

@@ -357,6 +357,7 @@ from reports.export_history import (
     ExportHistoryFilter,
     ExportHistoryRepository,
     build_export_data_revision,
+    build_repeat_export_confirmation,
     compare_export_data_revision,
     filter_export_history,
 )
@@ -9014,6 +9015,34 @@ def _render_professional_export_panel(
         draft_repository = ExportWizardDraftRepository(ROOT_DIR / "data" / "projects")
         history_repository = ExportHistoryRepository(ROOT_DIR / "data" / "projects")
         repeat_pending_key = f"export_history_repeat_pending_{active_project.id}"
+        repeat_confirm_key = f"export_history_repeat_confirm_{active_project.id}"
+        repeat_autorun_key = f"export_history_repeat_autorun_{active_project.id}"
+        pending_confirmation = export_state.get(repeat_confirm_key)
+        if isinstance(pending_confirmation, dict):
+            st.warning(str(pending_confirmation.get("title", "Подтвердите повторный экспорт")))
+            for confirmation_line in pending_confirmation.get("lines", ()):
+                st.caption(str(confirmation_line))
+            confirm_left, confirm_right = st.columns(2)
+            if confirm_left.button(
+                "✅ Подтвердить и пересобрать",
+                key=f"export_history_confirm_rebuild_{active_project.id}",
+                type="primary",
+                width="stretch",
+            ):
+                export_state[repeat_pending_key] = dict(pending_confirmation.get("payload", {}))
+                export_state[repeat_autorun_key] = True
+                export_state.pop(repeat_confirm_key, None)
+                _request_ui_refresh_and_rerun("export_history_confirm_rebuild")
+                return
+            if confirm_right.button(
+                "Отмена",
+                key=f"export_history_cancel_rebuild_{active_project.id}",
+                width="stretch",
+            ):
+                export_state.pop(repeat_confirm_key, None)
+                _request_ui_refresh_and_rerun("export_history_cancel_rebuild")
+                return
+
         pending_repeat = export_state.pop(repeat_pending_key, None)
         if isinstance(pending_repeat, dict):
             profile_label_by_id = {item.id: item.label for item in profile_options}
@@ -9431,6 +9460,8 @@ def _render_professional_export_panel(
             calculation_revision=current_export_request.calculation_revision,
         )
 
+        prepare_export = bool(prepare_export or export_state.pop(repeat_autorun_key, False))
+
         if prepare_export:
             generation_started = perf_counter()
             print_depth_range = current_print_depth_range
@@ -9737,14 +9768,26 @@ def _render_professional_export_panel(
                         history_info.warning(revision_comparison.message)
                     elif revision_comparison.status == "unknown":
                         history_info.caption(revision_comparison.message)
+                    action_label = "Пересобрать" if revision_comparison.stale else "Повторить"
                     if history_action.button(
-                        "Повторить",
+                        action_label,
                         key=f"export_history_repeat_{active_project.id}_{history_index}_{history_item.request_signature[:10]}",
-                        help="Восстановить формат, профиль, диапазон и полную конфигурацию отчёта.",
+                        help="Проверить и восстановить полную конфигурацию отчёта перед новым рендерингом.",
                         width="stretch",
                     ):
-                        export_state[repeat_pending_key] = history_item.repeat_payload()
-                        _request_ui_refresh_and_rerun("export_history_repeat")
+                        if revision_comparison.stale:
+                            confirmation = build_repeat_export_confirmation(
+                                history_item, comparison=revision_comparison
+                            )
+                            export_state[repeat_confirm_key] = {
+                                "title": confirmation.title,
+                                "lines": confirmation.lines,
+                                "payload": history_item.repeat_payload(),
+                            }
+                            _request_ui_refresh_and_rerun("export_history_repeat_confirmation")
+                        else:
+                            export_state[repeat_pending_key] = history_item.repeat_payload()
+                            _request_ui_refresh_and_rerun("export_history_repeat")
                         return
         st.caption("Экспорт использует единый выбранный диапазон глубин и согласованные инженерные данные.")
 

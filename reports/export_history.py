@@ -159,6 +159,36 @@ class ExportHistoryEntry:
 
 
 @dataclass(frozen=True)
+class RepeatExportConfirmation:
+    """Human-readable confirmation for rebuilding a historical export."""
+
+    title: str
+    lines: tuple[str, ...]
+    stale: bool
+
+
+def build_repeat_export_confirmation(
+    entry: ExportHistoryEntry,
+    *,
+    comparison: "ExportRevisionComparison",
+) -> RepeatExportConfirmation:
+    """Build a safe preflight summary before a historical export is rebuilt."""
+
+    value = entry.normalized()
+    title = "Пересобрать отчёт по сохранённой конфигурации?"
+    lines = (
+        f"Файл: {value.file_name}",
+        f"Формат: {value.format_label or value.format_id.upper()}",
+        f"Профиль: {value.profile_id}",
+        f"Диапазон: {value.depth_top:g}–{value.depth_bottom:g} м",
+        f"Режим: {value.report_mode_id}",
+        f"Шаблон: {value.template_id}",
+        comparison.message,
+    )
+    return RepeatExportConfirmation(title=title, lines=lines, stale=comparison.stale)
+
+
+@dataclass(frozen=True)
 class ExportRevisionComparison:
     """Result of comparing historical export data with the active project data."""
 

@@ -273,3 +273,44 @@ def test_streamlit_history_surfaces_stale_revision_warning() -> None:
     assert "compare_export_data_revision(" in source
     assert "Данные проекта изменились" in Path("reports/export_history.py").read_text(encoding="utf-8")
     assert "data_revision=current_data_revision" in source
+
+
+def test_stale_repeat_confirmation_summarizes_safe_rebuild_request() -> None:
+    from reports.export_history import (
+        ExportRevisionComparison,
+        build_repeat_export_confirmation,
+    )
+
+    entry = ExportHistoryEntry(
+        project_id="alpha",
+        file_name="engineering.pdf",
+        format_id="pdf",
+        format_label="PDF",
+        profile_id="engineering",
+        depth_top=1200.0,
+        depth_bottom=1100.0,
+        size_bytes=42,
+        report_mode_id="full_engineering",
+        template_id="engineering",
+    )
+    confirmation = build_repeat_export_confirmation(
+        entry,
+        comparison=ExportRevisionComparison(
+            status="stale",
+            message="Данные проекта изменились.",
+        ),
+    )
+
+    assert confirmation.stale is True
+    assert "Пересобрать" in confirmation.title
+    assert "Диапазон: 1100–1200 м" in confirmation.lines
+    assert confirmation.lines[-1] == "Данные проекта изменились."
+
+
+def test_streamlit_stale_repeat_requires_confirmation_and_auto_renders() -> None:
+    source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
+    assert "export_history_repeat_confirm_" in source
+    assert "Подтвердить и пересобрать" in source
+    assert "export_history_repeat_autorun_" in source
+    assert "build_repeat_export_confirmation(" in source
+    assert 'action_label = "Пересобрать" if revision_comparison.stale else "Повторить"' in source
