@@ -19,6 +19,31 @@ from core.event_bus import ApplicationEvent, ApplicationEventBus
 ShellSnapshotFactory = Callable[[], dict[str, Any]]
 
 
+def _snapshot_state_for_rollback(state: MutableMapping[str, Any]) -> dict[str, Any]:
+    """Build a rollback snapshot without requiring every runtime object to be pickleable.
+
+    Streamlit session state may legitimately contain live services such as
+    ``ThreadPoolExecutor`` instances.  Those objects own locks and
+    ``queue.SimpleQueue`` values, so ``deepcopy(dict(state))`` raises
+    ``TypeError`` before a command can run.  Snapshot each top-level value
+    independently: copy normal data deeply, but retain the original reference
+    for runtime-only values that reject copying.
+
+    The dispatcher only mutates shell/navigation keys.  Preserving a live
+    service by reference is therefore safer than blocking all navigation, while
+    ordinary nested dictionaries and lists still receive full rollback
+    semantics.
+    """
+
+    snapshot: dict[str, Any] = {}
+    for key, value in dict(state).items():
+        try:
+            snapshot[key] = deepcopy(value)
+        except (TypeError, AttributeError, RecursionError):
+            snapshot[key] = value
+    return snapshot
+
+
 @dataclass(frozen=True, slots=True)
 class WorkbenchDispatchStep:
     """One command in an atomic Workbench shell dispatch."""
@@ -90,7 +115,7 @@ class WorkbenchShellDispatcher:
         if not normalized_steps:
             raise ValueError("Workbench shell dispatch requires at least one command.")
 
-        before = deepcopy(dict(self.state))
+        before = _snapshot_state_for_rollback(self.state)
         results: list[CommandExecutionResult] = []
         dispatch_id = uuid4().hex
         try:

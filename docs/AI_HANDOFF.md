@@ -579,3 +579,7 @@ Implemented `PdfPreviewPageJumpValidation` and `validate_pdf_preview_page_jump()
 ## Последнее исправление: Professional Export runtime
 
 Критический сбой `UnboundLocalError: print_top` устранён: блок предпросмотра структуры перенесён после вычисления интервала печати. Для keyed-виджетов значения по умолчанию передаются только при отсутствии ключа в Session State. Не возвращать построение preview signature выше блока `print_mode`.
+
+## Workbench runtime-state deepcopy fix
+
+`core/workbench_dispatcher.py` uses a per-key rollback snapshot. Do not restore the former `deepcopy(dict(self.state))`: Streamlit state may contain live background-export services backed by `ThreadPoolExecutor`/`queue.SimpleQueue`, which are not pickleable. Copyable values retain deep rollback semantics; runtime services are preserved by reference.

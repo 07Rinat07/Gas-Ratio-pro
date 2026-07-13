@@ -95,3 +95,54 @@ def test_renderer_shell_event_is_serializable_and_contains_no_runtime_services()
     assert "DataFrame" not in text
     assert "WorkbenchShellDispatcher object" not in text
     assert "WorkbenchCommandRegistry object" not in text
+
+
+def test_dispatch_accepts_unpickleable_runtime_services_in_state():
+    from queue import SimpleQueue
+
+    state = {"runtime_queue": SimpleQueue(), "stable": {"value": 1}}
+    registry = WorkbenchCommandRegistry(state)
+
+    def mutate(_payload):
+        state["selected"] = "reports"
+
+    registry.register(WorkbenchCommand("test.select", "Select"), mutate)
+    dispatcher = WorkbenchShellDispatcher(state, registry, lambda: {"selected": state.get("selected")})
+
+    result = dispatcher.dispatch("test.runtime-safe", (WorkbenchDispatchStep("test.select", {}),))
+
+    assert result.shell_state == {"selected": "reports"}
+    assert isinstance(state["runtime_queue"], SimpleQueue)
+    assert state["selected"] == "reports"
+
+
+def test_dispatch_rolls_back_copyable_state_while_preserving_runtime_service_reference():
+    from queue import SimpleQueue
+
+    runtime_queue = SimpleQueue()
+    state = {"runtime_queue": runtime_queue, "stable": {"value": 1}}
+    registry = WorkbenchCommandRegistry(state)
+
+    def mutate(_payload):
+        state["stable"]["value"] = 2
+        state["temporary"] = True
+
+    def fail(_payload):
+        raise RuntimeError("forced failure")
+
+    registry.register(WorkbenchCommand("test.mutate.runtime", "Mutate"), mutate)
+    registry.register(WorkbenchCommand("test.fail.runtime", "Fail"), fail)
+    dispatcher = WorkbenchShellDispatcher(state, registry, lambda: {})
+
+    with pytest.raises(RuntimeError, match="forced failure"):
+        dispatcher.dispatch(
+            "test.runtime-rollback",
+            (
+                WorkbenchDispatchStep("test.mutate.runtime", {}),
+                WorkbenchDispatchStep("test.fail.runtime", {}),
+            ),
+        )
+
+    assert state["runtime_queue"] is runtime_queue
+    assert state["stable"] == {"value": 1}
+    assert "temporary" not in state

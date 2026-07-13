@@ -1539,3 +1539,9 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 ### Runtime hardening — Professional Export
 
 Исправлен порядок вычисления диапазона печати перед построением сигнатуры предпросмотра и устранены конфликты значений Streamlit Session State с параметрами виджетов.
+
+## Runtime stability update
+
+- [x] Make Workbench navigation tolerant of non-pickleable background runtime services in application state.
+- [x] Preserve deep rollback for ordinary mutable shell state.
+- [x] Cover `queue.SimpleQueue` navigation and rollback scenarios with regression tests.

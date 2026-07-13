@@ -60,3 +60,11 @@ Next recommended increment: Modern Workspace shell foundation — Project Explor
 - Устранён `UnboundLocalError` для `print_top` и `print_bottom`.
 - Виджеты Report Designer больше не задают одновременно значение через Session State и параметр `index`/`value`/`default`.
 - Добавлены регрессионные тесты порядка вычислений и наличия кнопки отправки формы.
+
+## Исправление снимка состояния Workbench с runtime-объектами
+
+- Диспетчер Workbench больше не выполняет единый `deepcopy()` всего Session State.
+- Значения состояния копируются по одному; неподлежащее копированию runtime-состояние сохраняется по ссылке.
+- Навигация не падает, если в Session State присутствует `BackgroundExportManager` с `ThreadPoolExecutor` и `queue.SimpleQueue`.
+- Для обычных словарей и списков сохранён глубокий rollback при ошибке команды.
+- Добавлены регрессионные тесты успешной навигации и отката при наличии непиклируемой очереди.
