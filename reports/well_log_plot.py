@@ -224,7 +224,7 @@ def build_professional_well_log_plot(
         rows=1,
         cols=len(column_titles),
         shared_yaxes=True,
-        horizontal_spacing=0.006,
+        horizontal_spacing=0.0025,
         column_widths=widths,
         subplot_titles=column_titles,
     )
@@ -323,7 +323,7 @@ def build_professional_well_log_plot(
                     "text": _interval_label(interval, index),
                     "showarrow": False,
                     "font": {"size": 11, "color": "#172033"},
-                    "bgcolor": "rgba(255,255,255,0.82)",
+                    "bgcolor": "rgba(255,255,255,0.90)",
                     "bordercolor": color,
                     "borderwidth": 1,
                 }
@@ -339,14 +339,18 @@ def build_professional_well_log_plot(
         legend={
             "orientation": "h", "yanchor": "bottom", "y": 1.035,
             "xanchor": "left", "x": 0.04, "font": {"size": 10},
-            "bgcolor": "rgba(255,255,255,0.82)",
+            "bgcolor": "rgba(255,255,255,0.90)",
         },
-        plot_bgcolor="#f4f8f4",
+        plot_bgcolor="#f5f8f5",
+        paper_bgcolor="#ffffff",
+        hovermode="y unified",
     )
     # A professional well-log uses one common depth scale, not a repeated
     # "Глубина, м" title inside every track.
     for subplot_col in range(1, len(column_titles) + 1):
         fig.update_yaxes(title_text="", row=1, col=subplot_col)
     fig.update_yaxes(title_text=DEPTH_AXIS_TITLE, row=1, col=1)
+    fig.update_yaxes(showgrid=True, gridcolor="rgba(70,90,100,0.18)", minor={"showgrid": True, "gridcolor": "rgba(70,90,100,0.08)", "griddash": "dot"})
+    fig.update_xaxes(showgrid=True, gridcolor="rgba(70,90,100,0.12)")
     normalize_trace_style(fig)
     return WellLogPlotResult(fig, plotted_columns, summary, len(visible_intervals))

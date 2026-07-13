@@ -541,3 +541,7 @@ Workspace performance audit is active. Plot construction and frontend dispatch a
 
 ### v222.6
 Выполнена коммерческая визуальная доработка планшета и исправлен DOCX-контракт имени файла.
+
+
+### v222.7
+Статус: stable visual polish. Экранный планшет получил ограниченный overlay budget, единое инженерное полотно, minor-grid, unified hover и акцент приоритетного интервала. Полный реестр интервалов не сокращается и остаётся в таблицах и отчётах.

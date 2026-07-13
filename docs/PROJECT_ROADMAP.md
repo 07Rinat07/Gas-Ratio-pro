@@ -902,3 +902,10 @@ Release candidate Definition of Done:
 
 ### v222.6 — Commercial Tablet Visual Pass
 Статус: выполнено. Единое полотно, общая легенда, одна шкала глубины, приоритетный интервал и DOCX hotfix.
+
+
+### v222.7 — Engineering Visualization Polish
+- ограничение browser overlay payload без потери полного инженерного реестра;
+- единое полотно и инженерная major/minor grid;
+- приоритетный интервал с явным визуальным статусом;
+- уменьшение межтрековых разрывов печатного планшета.

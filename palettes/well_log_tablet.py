@@ -730,6 +730,50 @@ def _select_non_overlapping_intervals(
 
     return label_ids, marker_ids, selected_id
 
+MAX_SCREEN_INTERVAL_OVERLAYS = 36
+
+
+def _prioritized_visible_intervals(
+    intervals: Sequence[ReservoirIntervalOverlay],
+    *,
+    visible_top: float,
+    visible_bottom: float,
+    selected_depth: float | None,
+    limit: int = MAX_SCREEN_INTERVAL_OVERLAYS,
+) -> tuple[ReservoirIntervalOverlay, ...]:
+    """Return a bounded, deterministic set of intervals for browser rendering.
+
+    A full LAS interpretation can contain more than one hundred very thin zones.
+    Sending every rectangle, boundary and annotation to Plotly makes the browser
+    layout expensive and visually noisy.  The screen tablet therefore keeps the
+    strongest intervals plus the interval containing the selected depth.  The
+    complete interval registry remains available in tables and exports.
+    """
+
+    visible = [
+        interval for interval in intervals
+        if max(float(interval.top_depth), float(interval.bottom_depth)) >= visible_top
+        and min(float(interval.top_depth), float(interval.bottom_depth)) <= visible_bottom
+    ]
+    selected_id = None
+    if selected_depth is not None:
+        for interval in visible:
+            if min(interval.top_depth, interval.bottom_depth) <= selected_depth <= max(interval.top_depth, interval.bottom_depth):
+                selected_id = interval.interval_id
+                break
+    ranked = sorted(
+        visible,
+        key=lambda item: (
+            item.interval_id == selected_id,
+            int(item.confidence_score),
+            float(item.thickness),
+        ),
+        reverse=True,
+    )
+    bounded = ranked[: max(1, int(limit))]
+    return tuple(sorted(bounded, key=lambda item: min(item.top_depth, item.bottom_depth)))
+
+
 def build_well_log_tablet(
     df: pd.DataFrame,
     tracks: Sequence[TabletTrackConfig],
@@ -866,11 +910,12 @@ def build_well_log_tablet(
     shapes = []
     annotations = []
     recommendation_points: list[dict[str, object]] = []
-    visible_reservoir_intervals = [
-        interval for interval in reservoir_intervals
-        if max(float(interval.top_depth), float(interval.bottom_depth)) >= visible_top
-        and min(float(interval.top_depth), float(interval.bottom_depth)) <= visible_bottom
-    ]
+    visible_reservoir_intervals = list(_prioritized_visible_intervals(
+        reservoir_intervals,
+        visible_top=visible_top,
+        visible_bottom=visible_bottom,
+        selected_depth=selected_depth,
+    ))
     priority_interval_id = max(
         visible_reservoir_intervals,
         key=lambda interval: (float(interval.confidence_score), float(interval.thickness)),
@@ -911,7 +956,7 @@ def build_well_log_tablet(
             }
         )
 
-    for interval in reservoir_intervals:
+    for interval in visible_reservoir_intervals:
         top_depth = min(float(interval.top_depth), float(interval.bottom_depth))
         bottom_depth = max(float(interval.top_depth), float(interval.bottom_depth))
         if bottom_depth < visible_top or top_depth > visible_bottom:
@@ -973,7 +1018,7 @@ def build_well_log_tablet(
                         "yref": "y",
                         "y": midpoint,
                         "text": (
-                            f"<b>{interval.interval_id}</b><br>"
+                            f"<b>{interval.interval_id}</b>{'<br><b>ПРИОРИТЕТ A</b>' if is_priority else ''}<br>"
                             f"{top_depth:g}–{bottom_depth:g} м<br>"
                             f"{fluid_label} · {interval.confidence_score}%"
                         ),
@@ -1162,6 +1207,9 @@ def build_well_log_tablet(
         margin={"l": 104, "r": 112, "t": 196, "b": 72}, showlegend=True,
     )
     fig.update_layout(
+        plot_bgcolor="#0b1220",
+        paper_bgcolor="#0b1220",
+        hovermode="y unified",
         legend={
             "orientation": "h", "yanchor": "bottom", "y": 1.125,
             "xanchor": "left", "x": 0.0, "font": {"size": 10},
@@ -1193,6 +1241,12 @@ def build_well_log_tablet(
                 annotation.bordercolor = "rgba(148,163,184,0.35)"
                 annotation.borderwidth = 1
                 annotation.borderpad = 3
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor="rgba(148,163,184,0.24)",
+        minor={"showgrid": True, "gridcolor": "rgba(148,163,184,0.10)", "griddash": "dot"},
+    )
+    fig.update_xaxes(showgrid=True, gridcolor="rgba(148,163,184,0.14)")
     normalize_trace_style(fig)
     return fig
 
