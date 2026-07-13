@@ -8965,6 +8965,26 @@ def _render_professional_export_panel(
                 )
 
                 def _build_export_model(frame, export_request):
+                    # The model cache is intentionally format-neutral.  Never cache
+                    # PresentationExportUiState together with the model: otherwise a
+                    # later DOCX request can reuse the PDF state (or vice versa) and
+                    # produce correctly named but internally wrong bytes.
+                    payload = build_hydrocarbon_report_payload(
+                        frame,
+                        source_label=export_request.source_label,
+                        project_label=f"{export_request.project_name} ({export_request.project_id})",
+                        depth_label=_range_label(export_request.normalized_depth_range, unit="м"),
+                        report_profile=export_request.profile_id,
+                        include_plot=True,
+                        ranking_profile=_application_state_controller().state.get("active_reservoir_ranking_profile"),
+                    )
+                    if payload.presentation_model is None:
+                        raise RuntimeError("PresentationModel не был сформирован.")
+                    return payload.presentation_model
+
+                def _render_export_artifact(presentation_model, frame, export_request):
+                    # Export state is request-specific and must be rebuilt for every
+                    # format even when the shared PresentationModel comes from cache.
                     presentation_state = build_presentation_export_ui_state(
                         profile=export_request.profile_id,
                         export_format=export_request.format_id,
@@ -8976,21 +8996,6 @@ def _render_professional_export_panel(
                         ),
                         include_figures=True,
                     )
-                    payload = build_hydrocarbon_report_payload(
-                        frame,
-                        source_label=export_request.source_label,
-                        project_label=f"{export_request.project_name} ({export_request.project_id})",
-                        depth_label=_range_label(export_request.normalized_depth_range, unit="м"),
-                        report_profile=presentation_state.profile,
-                        include_plot=True,
-                        ranking_profile=_application_state_controller().state.get("active_reservoir_ranking_profile"),
-                    )
-                    if payload.presentation_model is None:
-                        raise RuntimeError("PresentationModel не был сформирован.")
-                    return (payload.presentation_model, presentation_state)
-
-                def _render_export_artifact(model_bundle, frame, export_request):
-                    presentation_model, presentation_state = model_bundle
                     if export_request.format_id == "xlsx":
                         content = export_xlsx_bytes(
                             frame,

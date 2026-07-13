@@ -545,3 +545,6 @@ Workspace performance audit is active. Plot construction and frontend dispatch a
 
 ### v222.7
 Статус: stable visual polish. Экранный планшет получил ограниченный overlay budget, единое инженерное полотно, minor-grid, unified hover и акцент приоритетного интервала. Полный реестр интервалов не сокращается и остаётся в таблицах и отчётах.
+
+Current build: v222.8 stable. Export format isolation and printable tablet clarity fixes are complete.
+

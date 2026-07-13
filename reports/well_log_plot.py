@@ -219,7 +219,7 @@ def build_professional_well_log_plot(
         fig.update_layout(title=cfg.title, height=cfg.height, annotations=[{"text": "Нет числовых треков для планшета", "showarrow": False}])
         return WellLogPlotResult(fig, plotted_columns, summary, len(intervals))
 
-    widths = ([0.18] if cfg.show_interval_track else []) + [1.0] * len(plotted_columns)
+    widths = ([0.34] if cfg.show_interval_track else []) + [1.0] * len(plotted_columns)
     fig = make_subplots(
         rows=1,
         cols=len(column_titles),
@@ -256,7 +256,7 @@ def build_professional_well_log_plot(
                 y=depth,
                 mode="lines",
                 name=column,
-                line={"width": THEME.line_width},
+                line={"width": max(float(THEME.line_width), 2.2)},
                 connectgaps=False,
                 hovertemplate=engineering_hover(column),
                 showlegend=True,
@@ -299,20 +299,42 @@ def build_professional_well_log_plot(
         fill = str(style.get("fill", "rgba(127,127,127,0.14)"))
         color = str(style.get("color", "#7f7f7f"))
         is_priority = interval is priority_interval
-        shapes.append(
-            {
-                "type": "rect",
-                "xref": "paper",
-                "x0": 0,
-                "x1": 1,
-                "yref": "y",
-                "y0": interval_top,
-                "y1": interval_base,
-                "fillcolor": fill,
-                "line": {"color": "#f6c344" if is_priority else color, "width": 2.4 if is_priority else 0.8},
+        interval_span = max(interval_base - interval_top, 0.0)
+        plotted_span = max(bottom_depth - top_depth, 1e-9)
+        covers_most_of_plot = interval_span / plotted_span >= 0.70
+        # A full-depth selected interval previously washed the entire printed
+        # tablet in pale green, hiding curves and making the fluid type unclear.
+        # Keep the categorical colour in the dedicated interval track and use
+        # only boundary lines across analytical tracks for very large intervals.
+        if not covers_most_of_plot:
+            shapes.append(
+                {
+                    "type": "rect", "xref": "paper", "x0": 0, "x1": 1,
+                    "yref": "y", "y0": interval_top, "y1": interval_base,
+                    "fillcolor": fill,
+                    "line": {"color": "#f6c344" if is_priority else color, "width": 2.4 if is_priority else 0.8},
+                    "layer": "below",
+                }
+            )
+        else:
+            for boundary in (interval_top, interval_base):
+                shapes.append({
+                    "type": "line", "xref": "paper", "x0": 0, "x1": 1,
+                    "yref": "y", "y0": boundary, "y1": boundary,
+                    "line": {"color": "#f6c344" if is_priority else color, "width": 2.4},
+                    "layer": "above",
+                })
+        if cfg.show_interval_track:
+            # Strong categorical stripe makes OIL/GAS/COND immediately visible
+            # in PDF/PNG even when the interval occupies the whole depth range.
+            shapes.append({
+                "type": "rect", "xref": "x", "x0": 0.05, "x1": 0.95,
+                "yref": "y", "y0": interval_top, "y1": interval_base,
+                "fillcolor": color,
+                "opacity": 0.32,
+                "line": {"color": "#f6c344" if is_priority else color, "width": 2.0},
                 "layer": "below",
-            }
-        )
+            })
         if cfg.show_interval_track:
             annotations.append(
                 {
@@ -322,10 +344,11 @@ def build_professional_well_log_plot(
                     "y": (interval_top + interval_base) / 2,
                     "text": _interval_label(interval, index),
                     "showarrow": False,
-                    "font": {"size": 11, "color": "#172033"},
-                    "bgcolor": "rgba(255,255,255,0.90)",
+                    "font": {"size": 13, "color": "#101827"},
+                    "bgcolor": "rgba(255,255,255,0.98)",
                     "bordercolor": color,
-                    "borderwidth": 1,
+                    "borderwidth": 1.5,
+                    "borderpad": 4,
                 }
             )
 
@@ -339,9 +362,9 @@ def build_professional_well_log_plot(
         legend={
             "orientation": "h", "yanchor": "bottom", "y": 1.035,
             "xanchor": "left", "x": 0.04, "font": {"size": 10},
-            "bgcolor": "rgba(255,255,255,0.90)",
+            "bgcolor": "rgba(255,255,255,0.98)",
         },
-        plot_bgcolor="#f5f8f5",
+        plot_bgcolor="#ffffff",
         paper_bgcolor="#ffffff",
         hovermode="y unified",
     )

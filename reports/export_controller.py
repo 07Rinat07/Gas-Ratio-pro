@@ -278,12 +278,30 @@ class ExportController:
             raise ValueError(
                 "Renderer вернул файл, не соответствующий запросу: " + ", ".join(mismatches) + "."
             )
+        # Validate the binary container as well as metadata.  Renaming PDF bytes
+        # to .docx (or a DOCX ZIP container to .pdf) creates a deceptively valid
+        # download that fails only when the user opens it.
+        content = bytes(artifact.content)
+        signature_ok = True
+        if request.format_id == "pdf":
+            signature_ok = content.startswith(b"%PDF-")
+        elif request.format_id == "docx":
+            signature_ok = content.startswith(b"PK\x03\x04") and b"[Content_Types].xml" in content[:65536]
+        elif request.format_id == "png":
+            signature_ok = content.startswith(b"\x89PNG\r\n\x1a\n")
+        elif request.format_id == "svg":
+            signature_ok = content.lstrip().startswith((b"<svg", b"<?xml"))
+        elif request.format_id == "xlsx":
+            signature_ok = content.startswith(b"PK\x03\x04")
+        if not signature_ok:
+            raise ValueError("Renderer вернул бинарные данные другого формата.")
+
         normalized_file_name = artifact.file_name.strip()
         if actual_extension != expected_extension:
             stem = normalized_file_name.rsplit(".", 1)[0] if "." in normalized_file_name else normalized_file_name
             normalized_file_name = f"{stem}.{expected_extension}"
         return ExportArtifact(
-            content=bytes(artifact.content),
+            content=content,
             file_name=normalized_file_name,
             mime_type=artifact.mime_type,
             format_id=artifact.format_id,

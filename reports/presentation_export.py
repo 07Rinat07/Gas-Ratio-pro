@@ -506,6 +506,10 @@ def export_presentation_pdf_package(
         or PresentationPdfOptions(
             include_figures=options.include_figures,
             include_technical_appendix=options.include_technical_appendix,
+            # Engineering reports contain wide ranking/passport tables and are
+            # materially more readable on landscape A4.  Client reports remain
+            # compact portrait documents.
+            orientation="landscape" if model.metadata.report_profile == "engineering" else "portrait",
             title=model.metadata.title,
         ),
     )

@@ -72,8 +72,14 @@ def test_docx_suffix_is_normalized_centrally() -> None:
         depth_top=1.0, depth_bottom=2.0, source_signature="sig",
         calculation_revision=1, presentation_revision=1, figure_height=800,
     )
+    from io import BytesIO
+    from zipfile import ZipFile
+    buffer = BytesIO()
+    with ZipFile(buffer, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types/>")
+        archive.writestr("word/document.xml", "<document/>")
     artifact = ExportArtifact(
-        content=b"PK-test", file_name="report", mime_type=request.mime_type,
+        content=buffer.getvalue(), file_name="report", mime_type=request.mime_type,
         format_id="docx", format_label="DOCX", profile_id="engineering",
     )
     normalized = ExportController._validate_artifact_contract(artifact, request)

@@ -2142,3 +2142,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Экранный планшет ограничивает число одновременно отображаемых УВ-зон, сохраняя полный реестр в таблицах и отчётах.
 - Добавлены единое полотно, minor-grid, unified hover и явный акцент «ПРИОРИТЕТ A».
 - Уменьшены межтрековые разрывы в печатном планшете и унифицирована инженерная сетка.
+## v222.8 — Export format isolation and print clarity
+- Fixed cross-format model-cache contamination that could return PDF bytes as DOCX or DOCX bytes as PDF.
+- Added binary signature validation for PDF, DOCX, PNG, SVG and XLSX artifacts.
+- Engineering PDF now defaults to landscape A4 for wide technical tables.
+- Printable well-log tablet no longer washes the full canvas when one interval spans most of the selected range.
+- Added a stronger interval track, larger labels and clearer OIL/GAS/COND indication.
+
