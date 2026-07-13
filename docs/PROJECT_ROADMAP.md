@@ -844,3 +844,8 @@ Release candidate Definition of Done:
 - enforce Plot Cache byte and entry limits;
 - collect frontend dispatch timing and payload-size diagnostics;
 - prepare performance acceptance gates for v222 stable.
+
+### v222-rc11 — Workspace Performance Audit
+- Aggregate runtime diagnostic events into release-gate summaries.
+- Detect critical render duration, failed stages and oversized frontend payloads.
+- Remove avoidable full-frame copies from the interpretation workflow.

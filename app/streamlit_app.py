@@ -224,6 +224,7 @@ from palettes.config import load_palette_config
 from palettes.plot_engine import PLOTLY_SCREEN_CONFIG, downsample_frame_for_screen
 from palettes.plot_cache import PlotCache
 from core.runtime_diagnostics import RuntimeDiagnostics
+from core.performance_audit import evaluate_performance
 from core.render_queue import RenderQueue, RenderTask
 from core.lazy_workspace import LazyWorkspaceRegistry, WorkspaceRoute
 from palettes.depth_tracks import (
@@ -9207,7 +9208,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
 
     if valid_depth.empty:
         st.warning("В расчетной таблице нет числовой глубины. Графики будут построены по техническому индексу.")
-        filtered_df = calculated_df.copy()
+        filtered_df = calculated_df
         depth_range = None
         saved_depth_range = None
     else:
@@ -9423,7 +9424,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         # this point onward the renderer, report metadata and export helpers all
         # require a concrete iterable range, so resolve it once and keep the full
         # dataframe unchanged.
-        filtered_df = calculated_df.copy()
+        filtered_df = calculated_df
         depth_range = _effective_depth_range(filtered_df, None)
     else:
         depth_range = _effective_depth_range(calculated_df, render_settings.depth_range)
@@ -9644,6 +9645,17 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             item_count=1,
             memory_bytes=payload_size,
         )
+
+    performance_summary = evaluate_performance(runtime_diagnostics.snapshot())
+    critical_stages = tuple(item.stage for item in performance_summary if item.status == "critical")
+    warning_stages = tuple(item.stage for item in performance_summary if item.status == "warning")
+    logger.info(
+        "workspace_performance_audit critical=%s warning=%s plot_cache_hit=%s figure_count=%d",
+        ",".join(critical_stages) or "none",
+        ",".join(warning_stages) or "none",
+        plot_cache_hit,
+        len(figures),
+    )
     if tablet_figure is not None:
         _render_static_export_controls(
             tablet_figure,

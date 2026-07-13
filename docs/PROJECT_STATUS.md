@@ -494,3 +494,6 @@ Plotly figures are now serialized once per Plot Cache miss. Repeated workspace r
 ## v222-rc10 status
 
 Render resilience and cache memory guardrails are implemented. Individual Plotly builder failures are isolated, successful plots remain available, and the bounded Plot Cache now respects a serialized byte budget in addition to its LRU entry limit.
+
+### v222-rc11 status
+Workspace performance audit is active. Plot construction and frontend dispatch are evaluated against explicit budgets; full-range rendering no longer copies the calculated DataFrame unnecessarily.

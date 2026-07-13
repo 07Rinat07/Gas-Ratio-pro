@@ -2067,3 +2067,8 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Render Queue gained resilient batch execution: one failed plot no longer removes the remaining engineering graphs.
 - Frontend Plotly dispatch duration and payload size are recorded in runtime diagnostics.
 - Added regression tests for memory eviction, oversize rejection and partial plot failure recovery.
+
+## v222-rc11 — Workspace Performance Audit
+- Added explicit performance budgets for plot construction and frontend dispatch.
+- Added compact stage summaries with cache, payload and failure metrics.
+- Removed an unnecessary full DataFrame copy for full-depth interpretation rendering.
