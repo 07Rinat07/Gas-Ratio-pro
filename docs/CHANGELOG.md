@@ -2098,3 +2098,12 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added p95 duration metrics and an aggregate workspace performance gate.
 - Prevented stale slow events from previous reruns from contaminating current diagnostics.
 - Added regression tests for cycle isolation and gate aggregation.
+
+## v222.2 — Export Contract Synchronization
+
+- Добавлена строгая проверка соответствия готового файла исходному запросу экспорта.
+- Профиль, формат, MIME-тип и расширение renderer-артефакта теперь обязаны совпадать с настройками пользователя.
+- Подготовленный файл помечается устаревшим после изменения профиля, формата или диапазона глубин.
+- XLSX получил отдельный лист `Параметры отчёта` с профилем, диапазоном, проектом и выбранным интервалом.
+- Таблица XLSX получила закреплённую строку заголовков, автофильтр и адаптивную ширину колонок.
+- Build identity обновлён до `v222.2`.

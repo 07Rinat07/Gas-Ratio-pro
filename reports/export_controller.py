@@ -30,6 +30,33 @@ class ExportRequest:
     def normalized_depth_range(self) -> tuple[float, float]:
         return (min(self.depth_top, self.depth_bottom), max(self.depth_top, self.depth_bottom))
 
+    @property
+    def selection_signature(self) -> str:
+        """Stable signature of every user-visible export choice.
+
+        The signature is stored together with the prepared artifact.  The UI can
+        therefore detect that a profile, format or depth range has changed and
+        avoid offering a stale file as if it matched the current controls.
+        """
+        top, bottom = self.normalized_depth_range
+        payload = "|".join(
+            (
+                self.project_id,
+                self.source_signature,
+                str(self.calculation_revision),
+                str(self.presentation_revision),
+                self.profile_id,
+                self.format_id,
+                self.extension.lower().lstrip("."),
+                self.mime_type.lower(),
+                f"{top:.6f}",
+                f"{bottom:.6f}",
+                str(self.figure_height),
+                self.context_signature,
+            )
+        )
+        return sha256(payload.encode("utf-8")).hexdigest()
+
     def validate(self) -> None:
         required = {
             "project_id": self.project_id,
@@ -58,6 +85,7 @@ class ExportArtifact:
     format_id: str
     format_label: str
     profile_id: str
+    request_signature: str = ""
     cache_hit: bool = False
 
     def validate(self) -> None:
@@ -229,6 +257,36 @@ class ExportController:
             evicted.append(key)
         return tuple(evicted)
 
+    @staticmethod
+    def _validate_artifact_contract(artifact: ExportArtifact, request: ExportRequest) -> ExportArtifact:
+        """Validate renderer output against the original export request."""
+        artifact.validate()
+        expected_extension = request.extension.lower().lstrip(".")
+        actual_extension = artifact.file_name.rsplit(".", 1)[-1].lower() if "." in artifact.file_name else ""
+        mismatches: list[str] = []
+        if artifact.format_id != request.format_id:
+            mismatches.append("format_id")
+        if artifact.profile_id != request.profile_id:
+            mismatches.append("profile_id")
+        if artifact.mime_type.lower() != request.mime_type.lower():
+            mismatches.append("mime_type")
+        if actual_extension != expected_extension:
+            mismatches.append("extension")
+        if mismatches:
+            raise ValueError(
+                "Renderer вернул файл, не соответствующий запросу: " + ", ".join(mismatches) + "."
+            )
+        return ExportArtifact(
+            content=bytes(artifact.content),
+            file_name=artifact.file_name,
+            mime_type=artifact.mime_type,
+            format_id=artifact.format_id,
+            format_label=artifact.format_label,
+            profile_id=artifact.profile_id,
+            request_signature=request.selection_signature,
+            cache_hit=artifact.cache_hit,
+        )
+
     def prepare(
         self,
         request: ExportRequest,
@@ -266,6 +324,7 @@ class ExportController:
                         format_id=cached_artifact.format_id,
                         format_label=cached_artifact.format_label,
                         profile_id=cached_artifact.profile_id,
+                        request_signature=cached_artifact.request_signature,
                         cache_hit=True,
                     ),
                     {"model_cache_hit": True, "artifact_cache_hit": True, "duration_ms": 0.0},
@@ -292,7 +351,7 @@ class ExportController:
 
             try:
                 artifact = render_artifact(model, frame, request)
-                artifact.validate()
+                artifact = self._validate_artifact_contract(artifact, request)
             except ExportControllerError:
                 raise
             except Exception as exc:

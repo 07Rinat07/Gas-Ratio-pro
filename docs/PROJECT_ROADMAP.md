@@ -874,3 +874,10 @@ Release candidate Definition of Done:
 - Aggregate runtime diagnostic events into release-gate summaries.
 - Detect critical render duration, failed stages and oversized frontend payloads.
 - Remove avoidable full-frame copies from the interpretation workflow.
+
+## v222.2 — Export Contract Synchronization — завершено
+
+- строгий контракт запроса и готового файла;
+- обнаружение устаревшего подготовленного артефакта;
+- синхронизация профиля и диапазона в XLSX;
+- регрессионные тесты PDF/DOCX/XLSX-контрактов.

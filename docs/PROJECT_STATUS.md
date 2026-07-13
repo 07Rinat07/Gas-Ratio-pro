@@ -506,3 +506,11 @@ Render resilience and cache memory guardrails are implemented. Individual Plotly
 
 ### v222-rc12 status
 Workspace performance audit is active. Plot construction and frontend dispatch are evaluated against explicit budgets; full-range rendering no longer copies the calculated DataFrame unnecessarily.
+
+## v222.2 — Export Contract Synchronization
+
+Статус: реализовано.
+
+- Renderer-артефакты проверяются на соответствие профилю, формату, MIME-типу и расширению запроса.
+- UI не предлагает ранее подготовленный файл после изменения текущих настроек экспорта.
+- XLSX содержит явные параметры отчёта и отфильтрованные инженерные данные.

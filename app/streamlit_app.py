@@ -8904,13 +8904,36 @@ def _render_professional_export_panel(
 
         selected_profile = next((option for option in profile_options if option.label == selected_profile_label), profile_options[0])
         selected_format = next((option for option in format_options if option.label == selected_format_label), format_options[0])
+        current_print_depth_range = (
+            min(float(print_top), float(print_bottom)),
+            max(float(print_top), float(print_bottom)),
+        )
+        current_export_request = ExportRequest(
+            project_id=str(active_project.id),
+            project_name=str(active_project.name),
+            source_label=str(source_label),
+            profile_id=str(selected_profile.id),
+            format_id=str(selected_format.id),
+            format_label=str(selected_format.label),
+            extension=str(selected_format.extension),
+            mime_type=str(selected_format.mime_type),
+            depth_top=float(current_print_depth_range[0]),
+            depth_bottom=float(current_print_depth_range[1]),
+            source_signature=str(calculated_signature),
+            calculation_revision=int(revision_snapshot.calculation),
+            presentation_revision=int(revision_snapshot.presentation),
+            figure_height=max(int(height), 1000),
+            context_signature=hashlib.sha256(
+                (
+                    f"ranking={export_state.get('active_reservoir_ranking_profile', '')}|"
+                    f"interval={selected_interval_id or ''}"
+                ).encode("utf-8")
+            ).hexdigest(),
+        )
 
         if prepare_export:
             generation_started = perf_counter()
-            print_depth_range = (
-                min(float(print_top), float(print_bottom)),
-                max(float(print_top), float(print_bottom)),
-            )
+            print_depth_range = current_print_depth_range
             print_df = _filter_by_depth_range(
                 calculated_df, print_depth_range[0], print_depth_range[1]
             )
@@ -8923,28 +8946,7 @@ def _render_professional_export_panel(
                     "Экспорт",
                     f"Формируется {selected_format.label}.",
                 )
-                request = ExportRequest(
-                    project_id=str(active_project.id),
-                    project_name=str(active_project.name),
-                    source_label=str(source_label),
-                    profile_id=str(selected_profile.id),
-                    format_id=str(selected_format.id),
-                    format_label=str(selected_format.label),
-                    extension=str(selected_format.extension),
-                    mime_type=str(selected_format.mime_type),
-                    depth_top=float(print_depth_range[0]),
-                    depth_bottom=float(print_depth_range[1]),
-                    source_signature=str(calculated_signature),
-                    calculation_revision=int(revision_snapshot.calculation),
-                    presentation_revision=int(revision_snapshot.presentation),
-                    figure_height=max(int(height), 1000),
-                    context_signature=hashlib.sha256(
-                        (
-                            f"ranking={export_state.get('active_reservoir_ranking_profile', '')}|"
-                            f"interval={selected_interval_id or ''}"
-                        ).encode("utf-8")
-                    ).hexdigest(),
-                )
+                request = current_export_request
                 logger.info(
                     "presentation_export_started project_id=%s profile=%s format=%s rows=%d",
                     safe_log_value(active_project.id),
@@ -8981,7 +8983,20 @@ def _render_professional_export_panel(
                 def _render_export_artifact(model_bundle, frame, export_request):
                     presentation_model, presentation_state = model_bundle
                     if export_request.format_id == "xlsx":
-                        content = export_xlsx_bytes(frame, sheet_name="engineering_data")
+                        content = export_xlsx_bytes(
+                            frame,
+                            sheet_name="Инженерные данные",
+                            metadata={
+                                "Проект": export_request.project_name,
+                                "Источник": export_request.source_label,
+                                "Профиль отчёта": selected_profile.label,
+                                "Формат": export_request.format_label,
+                                "Глубина от, м": f"{export_request.normalized_depth_range[0]:g}",
+                                "Глубина до, м": f"{export_request.normalized_depth_range[1]:g}",
+                                "Строк данных": len(frame),
+                                "Выбранный интервал": selected_interval_id or "Не выбран",
+                            },
+                        )
                         file_name = f"{presentation_state.base_name}.xlsx"
                     elif export_request.format_id in {"png", "svg"}:
                         report_figures = presentation_model.figures
@@ -9025,6 +9040,9 @@ def _render_professional_export_panel(
                         "format_id": export_artifact.format_id,
                         "format_label": export_artifact.format_label,
                         "profile_id": export_artifact.profile_id,
+                        "request_signature": export_artifact.request_signature,
+                        "depth_top": print_depth_range[0],
+                        "depth_bottom": print_depth_range[1],
                     }
                     _application_state_controller().state.pop(export_error_key, None)
                     _set_inline_operation_status(
@@ -9072,18 +9090,31 @@ def _render_professional_export_panel(
                     )
 
         cached_export = _application_state_controller().state.get(export_cache_key)
-        if isinstance(cached_export, dict):
+        cached_matches_controls = (
+            isinstance(cached_export, dict)
+            and cached_export.get("request_signature") == current_export_request.selection_signature
+        )
+        if cached_matches_controls:
             st.download_button(
                 f"Скачать {cached_export.get('format_label', 'отчет')}",
                 data=cached_export.get("content", b""),
                 file_name=str(cached_export.get("file_name", "professional_report.bin")),
                 mime=str(cached_export.get("mime_type", "application/octet-stream")),
                 width="stretch",
-                key=f"presentation_download_{active_project.id}_{cached_export.get('format_id', 'cached')}",
+                key=(
+                    f"presentation_download_{active_project.id}_"
+                    f"{cached_export.get('format_id', 'cached')}_"
+                    f"{str(cached_export.get('request_signature', ''))[:12]}"
+                ),
             )
             st.caption(
-                f"Подготовлен формат: {cached_export.get('format_label', '—')}. "
-                "Для другого формата выберите его выше и нажмите «Подготовить выбранный формат»."
+                f"Подготовлен формат: {cached_export.get('format_label', '—')}; "
+                f"диапазон {cached_export.get('depth_top', '—')}–{cached_export.get('depth_bottom', '—')} м."
+            )
+        elif isinstance(cached_export, dict):
+            st.warning(
+                "Настройки экспорта изменены. Ранее подготовленный файл относится к другому "
+                "профилю, формату или диапазону глубин. Подготовьте файл заново."
             )
         else:
             st.info("Выберите профиль и формат, затем нажмите «Подготовить выбранный формат».")
