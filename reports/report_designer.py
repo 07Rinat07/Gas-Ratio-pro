@@ -133,6 +133,16 @@ class ReportReadinessDiagnostic:
 
 
 @dataclass(frozen=True)
+class ReportFormatCapability:
+    """One renderer capability exposed before binary export starts."""
+
+    id: str
+    label: str
+    supported: bool
+    detail: str
+
+
+@dataclass(frozen=True)
 class ReportStructurePreview:
     """Resolved report composition for UI review before rendering."""
 
@@ -152,6 +162,7 @@ class ReportStructurePreview:
     estimated_min_pages: int = 0
     estimated_max_pages: int = 0
     diagnostics: tuple[ReportReadinessDiagnostic, ...] = ()
+    format_capabilities: tuple[ReportFormatCapability, ...] = ()
     issues: tuple[ReportDesignIssue, ...] = ()
 
     @property
@@ -566,6 +577,63 @@ def build_report_structure_preview(
         ))
 
     normalized_format = str(target_format or "").strip().lower().lstrip(".")
+    format_capabilities: list[ReportFormatCapability] = []
+    capability_matrix = {
+        "pdf": (
+            ("paged_document", "Многостраничный документ", True, "Поддерживается промышленная PDF-пагинация."),
+            ("table_of_contents", "Печатное оглавление", include_toc, "Формируется с фактическими номерами страниц." if include_toc else "Отключено настройками отчёта."),
+            ("bookmarks", "PDF-закладки", include_bookmarks, "Добавляются в outline PDF." if include_bookmarks else "Отключены настройками отчёта."),
+            ("editable_content", "Редактируемое содержимое", False, "PDF предназначен для распространения и печати, а не редактирования."),
+        ),
+        "docx": (
+            ("paged_document", "Многостраничный документ", True, "Поддерживается редактируемый DOCX-документ."),
+            ("table_of_contents", "Печатное оглавление", include_toc, "Добавляется поле оглавления DOCX." if include_toc else "Отключено настройками отчёта."),
+            ("bookmarks", "PDF-закладки", False, "PDF outline не поддерживается форматом DOCX."),
+            ("editable_content", "Редактируемое содержимое", True, "Текст и таблицы доступны для последующего редактирования."),
+        ),
+        "bundle": (
+            ("paged_document", "PDF и DOCX в одном пакете", True, "ZIP-пакет содержит оба профессиональных документа."),
+            ("table_of_contents", "Печатное оглавление", include_toc, "Применяется к PDF и DOCX." if include_toc else "Отключено настройками отчёта."),
+            ("bookmarks", "PDF-закладки", include_bookmarks, "Применяются только к PDF внутри пакета." if include_bookmarks else "Отключены настройками отчёта."),
+            ("editable_content", "Редактируемая версия", True, "DOCX включён в состав пакета."),
+        ),
+        "png": (
+            ("paged_document", "Многостраничный документ", False, "PNG экспортирует отдельное растровое изображение."),
+            ("table_of_contents", "Оглавление", False, "Не поддерживается статическим изображением."),
+            ("bookmarks", "Закладки", False, "Не поддерживаются статическим изображением."),
+            ("editable_content", "Редактируемое содержимое", False, "Результат является растровым изображением."),
+        ),
+        "svg": (
+            ("paged_document", "Многостраничный документ", False, "SVG экспортирует отдельную векторную визуализацию."),
+            ("table_of_contents", "Оглавление", False, "Не поддерживается отдельной SVG-визуализацией."),
+            ("bookmarks", "Закладки", False, "Не поддерживаются отдельной SVG-визуализацией."),
+            ("editable_content", "Векторное содержимое", True, "Геометрия может редактироваться в совместимом редакторе."),
+        ),
+        "xlsx": (
+            ("paged_document", "Многостраничный документ", False, "XLSX является табличным экспортом, а не отчётом с пагинацией."),
+            ("table_of_contents", "Оглавление", False, "Не применяется к табличному экспорту."),
+            ("bookmarks", "Закладки", False, "Не применяются к табличному экспорту."),
+            ("editable_content", "Редактируемые таблицы", True, "Данные доступны для анализа и редактирования в электронных таблицах."),
+        ),
+    }
+    for capability_id, label, supported, detail in capability_matrix.get(normalized_format, ()):
+        format_capabilities.append(ReportFormatCapability(capability_id, label, supported, detail))
+
+    if normalized_format and normalized_format not in capability_matrix:
+        diagnostics.append(ReportReadinessDiagnostic(
+            "format.unknown", "warning",
+            f"Для формата {normalized_format.upper()} не зарегистрирован профиль возможностей renderer-а."
+        ))
+    if normalized_format == "bundle" and include_bookmarks:
+        diagnostics.append(ReportReadinessDiagnostic(
+            "format.bundle.bookmarks_pdf_only", "info",
+            "PDF-закладки будут добавлены только в PDF-файл внутри ZIP-пакета."
+        ))
+    if normalized_format in {"png", "svg", "xlsx"}:
+        diagnostics.append(ReportReadinessDiagnostic(
+            f"format.{normalized_format}.specialized_export", "info",
+            "Выбран специализированный экспорт: настройки пагинации профессионального отчёта к нему не применяются."
+        ))
     if normalized_format == "docx" and include_bookmarks:
         diagnostics.append(ReportReadinessDiagnostic(
             "format.docx.bookmarks_ignored", "warning",
@@ -605,6 +673,7 @@ def build_report_structure_preview(
         estimated_min_pages=estimated_min_pages,
         estimated_max_pages=estimated_max_pages,
         diagnostics=tuple(diagnostics),
+        format_capabilities=tuple(format_capabilities),
         issues=issues,
     )
 
@@ -626,6 +695,7 @@ __all__ = [
     "ReportPreviewItem",
     "ReportPageEstimate",
     "ReportDocumentCounts",
+    "ReportFormatCapability",
     "ReportReadinessDiagnostic",
     "ReportStructurePreview",
     "ReportSectionId",

@@ -9341,6 +9341,11 @@ def _render_professional_export_panel(
                             else f"{estimate.min_pages}–{estimate.max_pages}"
                         )
                         st.caption(f"{state} {estimate.label}: {page_range} стр.")
+                if structure_preview.format_capabilities:
+                    with st.expander("Возможности выбранного формата", expanded=False):
+                        for capability in structure_preview.format_capabilities:
+                            state = "✅" if capability.supported else "—"
+                            st.caption(f"{state} **{capability.label}** — {capability.detail}")
                 for diagnostic in structure_preview.diagnostics:
                     if diagnostic.level == "error":
                         st.error(diagnostic.message)

@@ -1,3 +1,21 @@
+# Latest increment — Renderer Capability Diagnostics
+
+Status: COMPLETED
+
+Implemented:
+- renderer-neutral capability profiles for PDF, DOCX, ZIP bundle, PNG, SVG and XLSX;
+- explicit support state for pagination, table of contents, bookmarks and editable content;
+- bundle-specific notice that outline bookmarks apply only to the PDF member;
+- specialized-export diagnostics for PNG/SVG/XLSX where report pagination settings do not apply;
+- safe warning for unknown future formats;
+- Streamlit capability panel in the live report-structure preview.
+
+Validation:
+- `python -m py_compile reports/report_designer.py app/streamlit_app.py`;
+- `52 passed` in focused Report Designer, Export Wizard and presentation UI tests.
+
+Next priority: connect the preview to the preflight-built EngineeringDocument so live block counts appear after document assembly without duplicate engineering calculations.
+
 # Latest increment — Document-Model Page Estimate Refinement and Format Readiness
 
 

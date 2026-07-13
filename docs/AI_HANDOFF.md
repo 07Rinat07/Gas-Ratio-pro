@@ -1,3 +1,21 @@
+# Latest implementation — Renderer Capability Diagnostics
+
+Status: COMPLETED
+
+Implemented:
+- `ReportFormatCapability` and renderer-neutral capability matrices in `reports/report_designer.py`;
+- capability reporting for PDF, DOCX, bundle, PNG, SVG and XLSX;
+- bundle bookmark scope diagnostics and specialized static/tabular export notices;
+- unknown-format fallback that preserves preview readiness while exposing a warning;
+- Streamlit expander showing supported and unsupported features before rendering.
+
+Validation:
+- syntax compilation passed for the modified modules;
+- `52 passed` in focused report/export regression coverage;
+- `logs/app.log` is not present in the supplied archive.
+
+Next priority: reuse the preflight-built EngineeringDocument in the structure preview and surface live document counts without rebuilding engineering content.
+
 # Latest implementation — Document-Model Page Estimate Refinement and Format Readiness
 
 

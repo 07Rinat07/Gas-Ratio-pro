@@ -18,3 +18,9 @@ def test_streamlit_export_panel_renders_structure_preview():
     assert "structure_preview.sections" in source
     assert "structure_preview.include_table_of_contents" in source
     assert "structure_preview.include_pdf_bookmarks" in source
+
+
+def test_streamlit_preview_renders_format_capabilities():
+    source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
+    assert "Возможности выбранного формата" in source
+    assert "structure_preview.format_capabilities" in source

@@ -168,3 +168,37 @@ def test_pdf_readiness_warns_when_page_chrome_is_disabled():
     )
 
     assert any(item.code == "format.pdf.no_page_chrome" for item in preview.diagnostics)
+
+
+def test_bundle_capability_profile_explains_pdf_only_bookmarks():
+    preview = build_report_structure_preview(
+        ReportDesign(mode_id="standard"),
+        document=_sample_document(),
+        target_format="bundle",
+    )
+
+    capabilities = {item.id: item for item in preview.format_capabilities}
+    assert capabilities["paged_document"].supported is True
+    assert capabilities["editable_content"].supported is True
+    assert capabilities["bookmarks"].supported is True
+    assert "только к PDF" in capabilities["bookmarks"].detail
+    assert any(item.code == "format.bundle.bookmarks_pdf_only" for item in preview.diagnostics)
+
+
+def test_specialized_export_capability_profiles_are_renderer_specific():
+    png = build_report_structure_preview(ReportDesign(mode_id="standard"), target_format="png")
+    svg = build_report_structure_preview(ReportDesign(mode_id="standard"), target_format="svg")
+    xlsx = build_report_structure_preview(ReportDesign(mode_id="standard"), target_format="xlsx")
+
+    assert {item.id: item.supported for item in png.format_capabilities}["editable_content"] is False
+    assert {item.id: item.supported for item in svg.format_capabilities}["editable_content"] is True
+    assert {item.id: item.supported for item in xlsx.format_capabilities}["paged_document"] is False
+    assert any(item.code == "format.png.specialized_export" for item in png.diagnostics)
+
+
+def test_unknown_format_is_reported_without_breaking_preview():
+    preview = build_report_structure_preview(ReportDesign(mode_id="standard"), target_format="future")
+
+    assert preview.ready is True
+    assert preview.format_capabilities == ()
+    assert any(item.code == "format.unknown" for item in preview.diagnostics)
