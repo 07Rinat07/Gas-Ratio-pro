@@ -1,3 +1,14 @@
+## Current increment: Unified Tooltip and Operation Feedback Layer — COMPLETED
+
+Implemented:
+- added a framework-neutral tooltip registry for Professional Export controls;
+- added validated operation progress contracts with monotonic stages;
+- connected Report Designer controls to centralized help text;
+- connected export preparation to the shared progress plan;
+- added tooltip coverage and progress-sequence tests.
+
+Next: extend tooltip coverage to remaining high-priority engineering controls and unify chart themes.
+
 ## Current increment: Professional Report Designer UI Integration — COMPLETED
 
 Implemented:

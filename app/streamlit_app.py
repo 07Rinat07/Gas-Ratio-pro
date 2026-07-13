@@ -85,6 +85,7 @@ from core.workbench_runtime_diagnostics import record_render_audit
 from core.workbench_context import WorkbenchSelectionService
 from core.application_state import ApplicationStateController
 from core.models import CalculationConfig, STANDARD_FIELDS
+from ui.ux_feedback import REPORT_EXPORT_PROGRESS, tooltip
 from core.presentation_runtime import (
     AppliedCorrelationState,
     AppliedExportState,
@@ -8994,17 +8995,14 @@ def _render_professional_export_panel(
                 options=[option.label for option in profile_options],
                 index=0,
                 key=form_keys["profile"],
-                help="Отчёт для заказчика содержит краткие выводы без технических приложений; инженерный отчёт включает расширенные расчётные материалы.",
+                help=tooltip("report.profile"),
             )
             selected_format_label = st.selectbox(
                 "Формат экспорта",
                 options=[option.label for option in format_options],
                 index=0,
                 key=form_keys["format"],
-                help=(
-                    "PDF — готовый документ для печати; DOCX — редактируемый отчёт; "
-                    "PNG/SVG — отдельный планшет; XLSX — инженерные таблицы."
-                ),
+                help=tooltip("report.format"),
             )
             designer_templates = report_templates()
             template_by_label = {item.label: item for item in designer_templates}
@@ -9013,7 +9011,7 @@ def _render_professional_export_panel(
                 options=tuple(template_by_label),
                 index=0,
                 key=f"report_designer_template_{active_project.id}",
-                help="Engineering — полный технический отчёт; Corporate — компактная передача заказчику; Minimal — краткое заключение.",
+                help=tooltip("report.template"),
             )
             selected_template = template_by_label[selected_template_label]
             report_title = st.text_input(
@@ -9032,27 +9030,26 @@ def _render_professional_export_panel(
                 options=tuple(section_labels.values()),
                 default=tuple(section_labels[item] for item in selected_template.default_sections),
                 key=f"report_designer_sections_{active_project.id}_{selected_template.id}",
+                help=tooltip("report.sections"),
             )
             include_technical_design = st.checkbox(
                 "Техническое приложение",
                 value=selected_template.include_technical_appendix,
                 key=f"report_designer_technical_{active_project.id}",
+                help=tooltip("report.technical_appendix"),
             )
             show_page_chrome_design = st.checkbox(
                 "Служебные колонтитулы и нумерация",
                 value=selected_template.show_page_chrome,
                 key=f"report_designer_chrome_{active_project.id}",
+                help=tooltip("report.page_chrome"),
             )
             print_mode = st.radio(
                 "Интервал печати",
                 options=tuple(print_mode_options),
                 horizontal=True,
                 key=form_keys["print_mode"],
-                help=(
-                    "«Вся скважина и все УВ-интервалы» создаёт обзор и атлас детальных страниц. "
-                    "«Выбранный пласт» формирует один увеличенный интервал. "
-                    "«Текущий интервал графиков» повторяет текущий экранный диапазон."
-                ),
+                help=tooltip("report.print_scope"),
             )
             if print_mode == "Вся скважина и все УВ-интервалы":
                 print_top, print_bottom = full_print_min, full_print_max
@@ -9093,7 +9090,7 @@ def _render_professional_export_panel(
                 "🖨️ ПОДГОТОВИТЬ ФАЙЛ ДЛЯ ПЕЧАТИ И СКАЧИВАНИЯ",
                 width="stretch",
                 type="primary",
-                help="Запускает подготовку выбранного отчёта. Ниже появится статус каждого этапа.",
+                help=tooltip("report.prepare"),
             )
 
         selected_profile = next((option for option in profile_options if option.label == selected_profile_label), profile_options[0])
@@ -9152,7 +9149,8 @@ def _render_professional_export_panel(
                 st.error("В выбранном интервале печати нет данных.")
             else:
                 export_progress = st.empty()
-                export_progress_bar = st.progress(5, text="Проверка настроек экспорта…")
+                initial_stage = REPORT_EXPORT_PROGRESS.stage("validate")
+                export_progress_bar = st.progress(initial_stage.percent, text=initial_stage.message)
                 _set_inline_operation_status(
                     export_progress,
                     "Экспорт",
@@ -9168,7 +9166,8 @@ def _render_professional_export_panel(
                 )
 
                 def _build_export_model(frame, export_request):
-                    export_progress_bar.progress(30, text="Шаг 2 из 4: строится модель отчёта и атлас интервалов…")
+                    model_stage = REPORT_EXPORT_PROGRESS.stage("model")
+                    export_progress_bar.progress(model_stage.percent, text=model_stage.message)
                     _set_inline_operation_status(
                         export_progress,
                         "Экспорт",
@@ -9192,7 +9191,11 @@ def _render_professional_export_panel(
                     return payload.presentation_model
 
                 def _render_export_artifact(presentation_model, frame, export_request):
-                    export_progress_bar.progress(70, text=f"Шаг 3 из 4: создаётся файл {export_request.format_label}…")
+                    render_stage = REPORT_EXPORT_PROGRESS.stage("render")
+                    export_progress_bar.progress(
+                        render_stage.percent,
+                        text=f"{render_stage.message[:-1]} {export_request.format_label}…",
+                    )
                     _set_inline_operation_status(
                         export_progress,
                         "Экспорт",

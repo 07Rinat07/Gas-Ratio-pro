@@ -1,3 +1,15 @@
+# Latest increment — Unified Tooltip and Operation Feedback Layer
+
+Status: COMPLETED
+
+Implemented:
+- centralized tooltip registry in `ui/ux_feedback.py`;
+- validated progress plan for professional report export;
+- Report Designer UI uses shared tooltip keys instead of duplicated text;
+- progress stages are deterministic and covered by tests.
+
+Next priority: expand tooltip coverage and start unified chart theme integration.
+
 # GAS RATIO PRO — AI HANDOFF
 
 ## Текущее состояние
