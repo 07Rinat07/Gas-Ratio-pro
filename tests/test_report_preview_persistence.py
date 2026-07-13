@@ -63,6 +63,59 @@ def test_streamlit_integrates_project_persistence():
     source = open("app/streamlit_app.py", encoding="utf-8").read()
 
     assert "ReportPreviewCountsRepository(ROOT_DIR / \"data\" / \"projects\")" in source
-    assert "preview_counts_repository.load(str(active_project.id))" in source
+    assert "preview_counts_repository.load_with_recovery(str(active_project.id))" in source
     assert "preview_counts_repository.save(" in source
     assert "preview_counts_repository.delete(str(active_project.id))" in source
+
+
+def test_repository_keeps_previous_valid_snapshot_as_backup(tmp_path):
+    repository = ReportPreviewCountsRepository(tmp_path)
+    repository.save("project-1", _snapshot("first"))
+    repository.save("project-1", _snapshot("second"))
+
+    backup = repository.backup_path_for("project-1")
+    assert backup.exists()
+    assert json.loads(backup.read_text(encoding="utf-8"))["signature"] == "first"
+    assert repository.load("project-1")["signature"] == "second"
+
+
+def test_repository_recovers_corrupt_primary_from_backup(tmp_path):
+    repository = ReportPreviewCountsRepository(tmp_path)
+    repository.save("project-1", _snapshot("first"))
+    repository.save("project-1", _snapshot("second"))
+    repository.path_for("project-1").write_text("{broken", encoding="utf-8")
+
+    result = repository.load_with_recovery("project-1")
+
+    assert result.recovered is True
+    assert result.source == "backup"
+    assert result.payload["signature"] == "first"
+    assert repository.load("project-1")["signature"] == "first"
+    assert result.quarantined
+
+
+def test_repository_quarantines_primary_and_backup_when_both_are_invalid(tmp_path):
+    repository = ReportPreviewCountsRepository(tmp_path)
+    primary = repository.path_for("project-1")
+    backup = repository.backup_path_for("project-1")
+    primary.parent.mkdir(parents=True)
+    primary.write_text("not-json", encoding="utf-8")
+    backup.write_text("[]", encoding="utf-8")
+
+    result = repository.load_with_recovery("project-1")
+
+    assert result.payload is None
+    assert result.source == "quarantined"
+    assert len(result.quarantined) == 2
+    assert not primary.exists()
+    assert not backup.exists()
+
+
+def test_repository_delete_removes_primary_and_backup(tmp_path):
+    repository = ReportPreviewCountsRepository(tmp_path)
+    repository.save("project-1", _snapshot("first"))
+    repository.save("project-1", _snapshot("second"))
+
+    assert repository.delete("project-1") is True
+    assert not repository.path_for("project-1").exists()
+    assert not repository.backup_path_for("project-1").exists()

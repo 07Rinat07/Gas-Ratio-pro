@@ -1429,3 +1429,21 @@ Release candidate Definition of Done:
 - [x] Restore it after application restart without persisting the full `EngineeringDocument`.
 - [x] Revalidate the restored snapshot against the current design/data signature before reuse.
 - [x] Remove persisted preview metadata when export settings are reset.
+
+# Latest increment — Report Preview Persistence Recovery
+
+Status: COMPLETED
+
+Implemented:
+- one-generation backup for each project report-preview count snapshot;
+- automatic recovery when the primary JSON file is truncated, malformed or invalid;
+- quarantine of unrecoverable primary and backup metadata instead of repeated startup failures;
+- atomic restoration of a valid backup to the primary location;
+- Streamlit warning and structured logging when recovery or quarantine occurs;
+- reset removes both primary and backup metadata.
+
+Validation:
+- `python -m py_compile reports/report_preview_persistence.py app/streamlit_app.py`;
+- `48 passed` in focused persistence and report-preview regression tests.
+
+Next priority: add bounded retention and cleanup for quarantined metadata files plus project-storage diagnostics.

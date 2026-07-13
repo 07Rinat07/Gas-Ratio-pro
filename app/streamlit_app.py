@@ -9171,11 +9171,20 @@ def _render_professional_export_panel(
             export_state[draft_key] = True
 
         preview_counts_restore_key = f"report_preview_counts_restored_{active_project.id}"
+        preview_counts_recovery_notice_key = f"report_preview_counts_recovery_notice_{active_project.id}"
         if not export_state.get(preview_counts_restore_key):
             try:
-                persisted_preview_counts = preview_counts_repository.load(str(active_project.id))
-                if persisted_preview_counts is not None:
-                    export_state[report_preview_counts_key] = persisted_preview_counts
+                preview_counts_load = preview_counts_repository.load_with_recovery(str(active_project.id))
+                if preview_counts_load.payload is not None:
+                    export_state[report_preview_counts_key] = preview_counts_load.payload
+                if preview_counts_load.recovered or preview_counts_load.source == "quarantined":
+                    export_state[preview_counts_recovery_notice_key] = preview_counts_load.message
+                    logger.warning(
+                        "report_preview_counts_recovery project_id=%s source=%s quarantined=%s",
+                        safe_log_value(active_project.id),
+                        safe_log_value(preview_counts_load.source),
+                        safe_log_value(len(preview_counts_load.quarantined)),
+                    )
             except (OSError, ValueError, TypeError, json.JSONDecodeError):
                 logger.exception(
                     "report_preview_counts_restore_failed project_id=%s",
@@ -9214,6 +9223,7 @@ def _render_professional_export_panel(
                 export_error_key,
                 report_preview_counts_key,
                 preview_counts_restore_key,
+                preview_counts_recovery_notice_key,
                 form_keys["profile"],
                 form_keys["format"],
                 form_keys["print_mode"],
@@ -9351,6 +9361,9 @@ def _render_professional_export_panel(
                 target_format=preview_target_format,
             )
             with st.expander("Предпросмотр структуры отчёта", expanded=True):
+                preview_recovery_notice = export_state.pop(preview_counts_recovery_notice_key, None)
+                if preview_recovery_notice:
+                    st.warning(str(preview_recovery_notice))
                 st.caption(
                     f"{structure_preview.mode_label} · {structure_preview.template_label} · "
                     f"{structure_preview.paper_size} · поля {structure_preview.margin_mm} мм"

@@ -496,3 +496,17 @@ accepts a valid schema snapshot. Streamlit restores the raw snapshot once per
 project/session; `resolve_report_document_counts_snapshot()` still performs the
 context-signature check before the counts affect page estimates. Resetting the
 export wizard deletes both session and project-persisted preview metadata.
+
+# Latest implementation — Report Preview Persistence Recovery
+
+Status: COMPLETED
+
+Implemented:
+- durable primary/backup storage for compact report-preview count snapshots;
+- automatic fallback to the previous valid snapshot after primary corruption;
+- damaged files are renamed with a `.corrupt-<UTC timestamp>` suffix;
+- unrecoverable metadata is ignored safely and the UI falls back to heuristic page estimates;
+- recovery is visible in Streamlit and recorded in application logs;
+- repository API remains backward compatible through `load()` while exposing `load_with_recovery()` diagnostics.
+
+Next priority: bounded quarantine retention and storage-health reporting.
