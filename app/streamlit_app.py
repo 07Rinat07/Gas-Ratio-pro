@@ -222,6 +222,7 @@ from core.hydrocarbon_intervals import detect_hydrocarbon_intervals
 from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
 from palettes.plot_engine import PLOTLY_SCREEN_CONFIG, downsample_frame_for_screen
+from palettes.plot_cache import PlotCache
 from palettes.depth_tracks import (
     build_depth_gas_tracks,
     build_depth_interpretation_track,
@@ -2609,6 +2610,7 @@ def _store_interpretation_dataset(calculated_df: pd.DataFrame, source_label: str
         }
     )
     controller.state.pop("interpretation_figure_cache", None)
+    controller.state.pop("interpretation_plot_cache", None)
     configure_logging().info(
         "active_calculation_committed project_id=%s rows=%d revision=%d source=%s",
         safe_log_value(active_project_id),
@@ -9330,6 +9332,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         revisions = revision_controller_from_state(_application_state_controller().state)
         persist_revisions(_application_state_controller().state, revisions.bump_presentation())
         _application_state_controller().state.pop("interpretation_figure_cache", None)
+        _application_state_controller().state.pop("interpretation_plot_cache", None)
         logger.info(
             "interpretation_presentation_committed signature=%s calculation_revision=%d tracks=%s",
             safe_log_value(calculated_signature[:12]),
@@ -9364,6 +9367,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         revisions = revision_controller_from_state(_application_state_controller().state)
         persist_revisions(_application_state_controller().state, revisions.bump_presentation())
         _application_state_controller().state.pop("interpretation_figure_cache", None)
+        _application_state_controller().state.pop("interpretation_plot_cache", None)
         logger.info(
             "interpretation_presentation_auto_committed signature=%s calculation_revision=%d tracks=%s",
             safe_log_value(calculated_signature[:12]),
@@ -9438,11 +9442,19 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         tuple(sorted((str(key), repr(value)) for key, value in applied_presentation.settings.items())),
         len(screen_filtered_df),
     )
-    cached_figure_set = _application_state_controller().state.get("interpretation_figure_cache")
-    if isinstance(cached_figure_set, dict) and cached_figure_set.get("key") == figure_cache_key:
-        figures = list(cached_figure_set.get("figures", ()))
-        tablet_figure = cached_figure_set.get("tablet_figure")
-        logger.info("interpretation_figure_cache_hit rows=%d figure_count=%d", len(filtered_df), len(figures))
+    state = _application_state_controller().state
+    plot_cache = state.get("interpretation_plot_cache")
+    if not isinstance(plot_cache, PlotCache):
+        plot_cache = PlotCache(max_entries=4)
+        state["interpretation_plot_cache"] = plot_cache
+    cached_bundle = plot_cache.get(figure_cache_key)
+    if cached_bundle is not None:
+        figures = list(cached_bundle.figures)
+        tablet_figure = cached_bundle.tablet_figure
+        logger.info(
+            "interpretation_plot_cache_hit rows=%d figure_count=%d cache_entries=%d",
+            len(filtered_df), len(figures), len(plot_cache),
+        )
     else:
         render_status = st.empty()
         _set_inline_operation_status(
@@ -9491,11 +9503,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 height=max(int(height), 760),
             )
             figures.append(tablet_figure)
-        _application_state_controller().state["interpretation_figure_cache"] = {
-            "key": figure_cache_key,
-            "figures": tuple(figures),
-            "tablet_figure": tablet_figure,
-        }
+        plot_cache.put(figure_cache_key, figures, tablet_figure=tablet_figure)
         render_duration_ms = (perf_counter() - render_started) * 1000.0
         logger.info(
             "interpretation_figure_cache_miss rows=%d figure_count=%d duration_ms=%.2f",
@@ -9512,8 +9520,14 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
 
     if not figures:
         st.warning("Выберите хотя бы один график.")
-    for figure in figures:
-        st.plotly_chart(figure, width="stretch", config=PLOTLY_SCREEN_CONFIG)
+    stable_plot_token = hashlib.sha1(repr(figure_cache_key).encode("utf-8")).hexdigest()[:12]
+    for figure_index, figure in enumerate(figures):
+        st.plotly_chart(
+            figure,
+            width="stretch",
+            config=PLOTLY_SCREEN_CONFIG,
+            key=f"interpretation_plot_{stable_plot_token}_{figure_index}",
+        )
     if tablet_figure is not None:
         _render_static_export_controls(
             tablet_figure,

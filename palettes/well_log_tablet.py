@@ -762,16 +762,21 @@ def build_well_log_tablet(
         selected_depth=selected_depth,
     )
     engineering_tracks_enabled = bool(reservoir_intervals)
-    engineering_titles = ["Тип пласта", "Достоверность", "QC / действия"] if engineering_tracks_enabled else []
+    engineering_titles = ["Тип\nпласта", "Достовер-\nность", "QC /\nдействия"] if engineering_tracks_enabled else []
     titles = engineering_titles + [_track_title(track, plot_df[track.column]) for track in selected_tracks]
     # Engineering columns need enough width for a compact identity, a confidence bar
     # and a QC marker. Long recommendations are intentionally moved to hover text.
-    widths = ([1.05, 0.90, 0.88] if engineering_tracks_enabled else []) + [1.0] * len(selected_tracks)
+    engineering_widths = [1.22, 1.02, 1.02] if engineering_tracks_enabled else []
+    # Keep analytical tracks readable when many curves are selected. The
+    # engineering tracks receive fixed extra width, while curve tracks share
+    # the remaining space evenly.
+    curve_width = 1.10 if len(selected_tracks) <= 6 else (1.0 if len(selected_tracks) <= 10 else 0.92)
+    widths = engineering_widths + [curve_width] * len(selected_tracks)
     fig = make_subplots(
         rows=1,
         cols=len(titles),
         shared_yaxes=True,
-        horizontal_spacing=0.012,
+        horizontal_spacing=0.008 if len(titles) >= 10 else 0.012,
         subplot_titles=titles,
         column_widths=widths,
     )
@@ -1131,7 +1136,7 @@ def build_well_log_tablet(
 
     apply_engineering_layout(
         fig, title="Интерпретационный планшет", height=height,
-        margin={"l": 96, "r": 104, "t": 154, "b": 68}, showlegend=False,
+        margin={"l": 104, "r": 112, "t": 176, "b": 72}, showlegend=False,
     )
     fig.update_layout(shapes=shapes, annotations=list(fig.layout.annotations) + annotations)
     # Subplot titles are generated as annotations. Narrow engineering tracks
@@ -1145,7 +1150,7 @@ def build_well_log_tablet(
                 "size": 9 if is_engineering_title else 11,
                 "color": "#f8fafc",
             }
-            annotation.y = 1.075 if is_engineering_title else 1.055
+            annotation.y = 1.105 if is_engineering_title else 1.070
             annotation.yanchor = "bottom"
             annotation.align = "center"
             if is_engineering_title:
@@ -1153,6 +1158,10 @@ def build_well_log_tablet(
                     "Тип<br>пласта" if index == 0
                     else ("Достовер-<br>ность" if index == 1 else "QC /<br>действия")
                 )
+                annotation.bgcolor = "rgba(11,18,32,0.92)"
+                annotation.bordercolor = "rgba(148,163,184,0.35)"
+                annotation.borderwidth = 1
+                annotation.borderpad = 3
     normalize_trace_style(fig)
     return fig
 

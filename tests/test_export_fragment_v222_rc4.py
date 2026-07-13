@@ -14,7 +14,7 @@ def test_interpretation_workspace_calls_isolated_export_panel() -> None:
     assert "_render_professional_export_panel(" in APP
     assert 'with st.expander("Профессиональный экспорт отчета"' in APP
     # The heavy panel must no longer be nested directly below the chart loop.
-    chart_loop = APP.index("for figure in figures:")
+    chart_loop = APP.index("for figure_index, figure in enumerate(figures):")
     helper_call = APP.index("_render_professional_export_panel(", chart_loop)
     summary = APP.index('st.subheader("Инженерная сводка УВ-интервалов")', helper_call)
     assert chart_loop < helper_call < summary
