@@ -1,3 +1,16 @@
+# Latest implementation — Export History Filtering and Repeat Action
+
+Status: COMPLETED
+
+Implemented:
+- search plus format/profile filtering for project export history;
+- repeat action restores profile, format and custom depth interval;
+- pending-state application avoids modifying Streamlit widget keys after instantiation;
+- metadata-only history remains bounded and project-scoped;
+- focused and extended reporting regression tests pass.
+
+Next priority: store report mode/template metadata for full-fidelity repeat export.
+
 # Latest implementation — Export Draft Reset and Successful Export History
 
 Status: COMPLETED

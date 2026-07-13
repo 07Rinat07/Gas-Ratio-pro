@@ -354,7 +354,9 @@ from reports.export_wizard_persistence import (
 )
 from reports.export_history import (
     ExportHistoryEntry,
+    ExportHistoryFilter,
     ExportHistoryRepository,
+    filter_export_history,
 )
 from reports.export_las import export_las_bytes
 from reports.export_xlsx import export_xlsx_bytes
@@ -9009,6 +9011,22 @@ def _render_professional_export_panel(
         template_by_label = {item.label: item for item in designer_templates}
         draft_repository = ExportWizardDraftRepository(ROOT_DIR / "data" / "projects")
         history_repository = ExportHistoryRepository(ROOT_DIR / "data" / "projects")
+        repeat_pending_key = f"export_history_repeat_pending_{active_project.id}"
+        pending_repeat = st.session_state.pop(repeat_pending_key, None)
+        if isinstance(pending_repeat, dict):
+            profile_label_by_id = {item.id: item.label for item in profile_options}
+            format_label_by_id = {item.id: item.label for item in format_options}
+            repeated_profile = profile_label_by_id.get(str(pending_repeat.get("profile_id", "")))
+            repeated_format = format_label_by_id.get(str(pending_repeat.get("format_id", "")))
+            if repeated_profile:
+                st.session_state[form_keys["profile"]] = repeated_profile
+            if repeated_format:
+                st.session_state[form_keys["format"]] = repeated_format
+            st.session_state[form_keys["print_mode"]] = "Выбрать отдельно"
+            st.session_state[form_keys["top"]] = float(pending_repeat.get("depth_top", default_print_top))
+            st.session_state[form_keys["bottom"]] = float(pending_repeat.get("depth_bottom", default_print_bottom))
+            st.session_state.pop(export_cache_key, None)
+            st.session_state.pop(export_error_key, None)
         draft_key = f"export_wizard_draft_restored_{active_project.id}"
         if not st.session_state.get(draft_key):
             try:
@@ -9620,14 +9638,53 @@ def _render_professional_export_panel(
             export_history = ()
         if export_history:
             with st.expander("История успешных экспортов", expanded=False):
-                for history_item in export_history[:5]:
+                history_search = st.text_input(
+                    "Поиск в истории",
+                    key=f"export_history_search_{active_project.id}",
+                    placeholder="Имя файла, формат или профиль",
+                )
+                history_filter_left, history_filter_right = st.columns(2)
+                history_formats = ("Все форматы", *sorted({item.format_id for item in export_history}))
+                history_profiles = ("Все профили", *sorted({item.profile_id for item in export_history}))
+                history_format = history_filter_left.selectbox(
+                    "Формат", history_formats, key=f"export_history_format_{active_project.id}"
+                )
+                history_profile = history_filter_right.selectbox(
+                    "Профиль", history_profiles, key=f"export_history_profile_{active_project.id}"
+                )
+                filtered_history = filter_export_history(
+                    export_history,
+                    ExportHistoryFilter(
+                        search=history_search,
+                        format_id="" if history_format == "Все форматы" else history_format,
+                        profile_id="" if history_profile == "Все профили" else history_profile,
+                    ),
+                )
+                if not filtered_history:
+                    st.info("По выбранным фильтрам экспортов не найдено.")
+                for history_index, history_item in enumerate(filtered_history[:10]):
                     created_label = history_item.created_at.replace("T", " ")[:19]
                     cache_label = " · кэш" if history_item.cache_hit else ""
-                    st.markdown(
+                    history_info, history_action = st.columns([4, 1])
+                    history_info.markdown(
                         f"**{history_item.format_label}** · `{history_item.file_name}`  \n"
                         f"{created_label} UTC · {history_item.depth_top:g}–{history_item.depth_bottom:g} м · "
                         f"{history_item.size_bytes / 1024:.1f} КБ{cache_label}"
                     )
+                    if history_action.button(
+                        "Повторить",
+                        key=f"export_history_repeat_{active_project.id}_{history_index}_{history_item.request_signature[:10]}",
+                        help="Восстановить формат, профиль и диапазон глубин этого экспорта.",
+                        width="stretch",
+                    ):
+                        st.session_state[repeat_pending_key] = {
+                            "profile_id": history_item.profile_id,
+                            "format_id": history_item.format_id,
+                            "depth_top": history_item.depth_top,
+                            "depth_bottom": history_item.depth_bottom,
+                        }
+                        _request_ui_refresh_and_rerun("export_history_repeat")
+                        return
         st.caption("Экспорт использует единый выбранный диапазон глубин и согласованные инженерные данные.")
 
 def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> None:

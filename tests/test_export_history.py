@@ -89,3 +89,33 @@ def test_streamlit_panel_records_history_and_exposes_reset_controls() -> None:
     assert "history_repository.record(" in source
     assert "Сбросить настройки" in source
     assert "Очистить историю" in source
+
+
+def test_history_filter_matches_search_format_and_profile() -> None:
+    from reports.export_history import ExportHistoryFilter, filter_export_history
+
+    entries = (
+        _entry(index=1),
+        ExportHistoryEntry(
+            project_id="project/alpha",
+            file_name="summary.docx",
+            format_id="docx",
+            format_label="DOCX",
+            profile_id="summary",
+            depth_top=100.0,
+            depth_bottom=200.0,
+            size_bytes=200,
+        ),
+    )
+
+    assert [item.file_name for item in filter_export_history(entries, ExportHistoryFilter(search="SUMMARY"))] == ["summary.docx"]
+    assert [item.file_name for item in filter_export_history(entries, ExportHistoryFilter(format_id="PDF"))] == ["report_1.pdf"]
+    assert [item.file_name for item in filter_export_history(entries, ExportHistoryFilter(profile_id="summary"))] == ["summary.docx"]
+
+
+def test_streamlit_panel_exposes_history_filters_and_repeat_action() -> None:
+    source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
+    assert "filter_export_history(" in source
+    assert "Поиск в истории" in source
+    assert '"Повторить"' in source
+    assert "export_history_repeat_pending_" in source

@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import re
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 EXPORT_HISTORY_SCHEMA = "gas-ratio-pro/export-history/v1"
 _SAFE_ID = re.compile(r"[^A-Za-z0-9._-]+")
@@ -89,6 +89,50 @@ class ExportHistoryEntry:
             cache_hit=bool(payload.get("cache_hit", False)),
             created_at=str(payload.get("created_at", "")),
         ).normalized()
+
+
+@dataclass(frozen=True)
+class ExportHistoryFilter:
+    """Renderer-neutral filters for the compact export history."""
+
+    search: str = ""
+    format_id: str = ""
+    profile_id: str = ""
+
+    def normalized(self) -> "ExportHistoryFilter":
+        return ExportHistoryFilter(
+            search=str(self.search or "").strip().casefold(),
+            format_id=str(self.format_id or "").strip().lower(),
+            profile_id=str(self.profile_id or "").strip().lower(),
+        )
+
+
+def filter_export_history(
+    entries: Iterable[ExportHistoryEntry],
+    filters: ExportHistoryFilter | None = None,
+) -> tuple[ExportHistoryEntry, ...]:
+    """Return history entries matching text, format and profile filters.
+
+    The function does not mutate repository state and is safe to reuse from
+    Streamlit, desktop or CLI shells.
+    """
+
+    value = (filters or ExportHistoryFilter()).normalized()
+    result: list[ExportHistoryEntry] = []
+    for raw_entry in entries:
+        entry = raw_entry.normalized()
+        if value.format_id and entry.format_id != value.format_id:
+            continue
+        if value.profile_id and entry.profile_id != value.profile_id:
+            continue
+        if value.search:
+            haystack = " ".join(
+                (entry.file_name, entry.format_label, entry.profile_id, entry.created_at)
+            ).casefold()
+            if value.search not in haystack:
+                continue
+        result.append(entry)
+    return tuple(result)
 
 
 class ExportHistoryRepository:

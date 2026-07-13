@@ -1,3 +1,14 @@
+## Current increment: Export History Filtering and Repeat Action — COMPLETED
+
+Implemented:
+- added renderer-neutral search, format and profile filters for successful export history;
+- added a Repeat action that restores the previous profile, format and depth range;
+- applies repeated settings through a pending state before Streamlit widgets are created;
+- preserves project isolation and does not restore binaries or engineering payloads;
+- added regression tests for filtering and Streamlit integration.
+
+Next priority: persist the complete report-design configuration in future history entries for full-fidelity repeat export.
+
 ## Current increment: Export Draft Reset and Successful Export History — COMPLETED
 
 Implemented:
