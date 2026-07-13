@@ -38,3 +38,11 @@ Next recommended increment: Modern Workspace shell foundation — Project Explor
 - Added explicit cleanup of the current project's in-memory PDF thumbnail cache.
 - Preserved actual page numbers for both PyMuPDF and `pdftoppm` backends.
 - Next step: add previous/next page navigation and optional bounded DPI selection.
+
+## PDF Preview navigation and bounded DPI
+
+- Added previous/next navigation that moves by the selected bounded page group.
+- Added optional raster quality control with fixed safe values: 72, 90, 110, 144 and 180 DPI.
+- DPI participates in the preview cache signature, so quality changes cannot reuse stale thumbnails.
+- Navigation clamps to the first and last valid page group when the exact PDF page count is known.
+- Next step: add direct page-jump validation feedback and an optional lightweight preview prefetch for the adjacent page group.

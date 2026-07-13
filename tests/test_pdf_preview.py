@@ -4,7 +4,12 @@ from io import BytesIO
 
 import pytest
 
-from reports.pdf_preview import build_pdf_preview, build_pdf_preview_signature
+from reports.pdf_preview import (
+    bounded_pdf_preview_start_page,
+    build_pdf_preview,
+    build_pdf_preview_signature,
+    shift_pdf_preview_window,
+)
 
 
 def _sample_pdf(page_count: int = 3) -> bytes:
@@ -103,3 +108,19 @@ def test_pdf_preview_signature_is_bound_to_start_page() -> None:
     second = build_pdf_preview_signature(payload, start_page=2, page_limit=2)
 
     assert first != second
+
+
+def test_pdf_preview_signature_is_bound_to_dpi() -> None:
+    payload = _sample_pdf(2)
+    assert build_pdf_preview_signature(payload, dpi=90) != build_pdf_preview_signature(payload, dpi=144)
+
+
+def test_shift_pdf_preview_window_moves_by_bounded_page_group() -> None:
+    assert shift_pdf_preview_window(1, direction=1, page_limit=5, total_pages=12) == 6
+    assert shift_pdf_preview_window(6, direction=-1, page_limit=5, total_pages=12) == 1
+    assert shift_pdf_preview_window(11, direction=1, page_limit=5, total_pages=12) == 11
+
+
+def test_bounded_pdf_preview_start_page_clamps_to_last_window() -> None:
+    assert bounded_pdf_preview_start_page(99, total_pages=12, page_limit=5) == 11
+    assert bounded_pdf_preview_start_page(0, total_pages=12, page_limit=5) == 1

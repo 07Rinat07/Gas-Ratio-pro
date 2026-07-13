@@ -1519,3 +1519,13 @@ Next priority: add bounded retention and cleanup for quarantined metadata files 
 - changing the visual one/two-column layout still reuses the same raster cache.
 
 Next priority: add keyboard-friendly page navigation and optional DPI control without allowing unbounded raster workloads.
+
+### Implemented: PDF Preview navigation and bounded DPI
+
+- Added keyboard-friendly previous/next page-group navigation in the Professional Export panel.
+- Added a bounded DPI selector with fixed safe values from 72 to 180 DPI.
+- Preview cache signatures already bind DPI and now receive the selected UI value.
+- Renderer-neutral page-window helpers clamp navigation to valid first/last groups.
+- No planning Markdown files were created at repository root.
+
+Next priority: direct page-jump feedback and optional bounded adjacent-window prefetch without unbounded raster work.

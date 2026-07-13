@@ -352,6 +352,8 @@ from reports.pdf_preview import (
     PdfPreviewUnavailableError,
     build_pdf_preview,
     build_pdf_preview_signature,
+    bounded_pdf_preview_start_page,
+    shift_pdf_preview_window,
 )
 from reports.export_wizard import (
     ExportWizardCapabilities,
@@ -10094,13 +10096,14 @@ def _render_professional_export_panel(
 
             if str(cached_export.get("format_id", "")).lower() == "pdf":
                 with st.expander("Предпросмотр страниц PDF", expanded=False):
-                    preview_start_control, preview_controls, preview_layout_control, preview_action = st.columns([1, 2, 2, 1])
+                    preview_start_control, preview_controls, preview_dpi_control, preview_layout_control = st.columns([1, 2, 2, 2])
+                    preview_start_key = f"pdf_preview_start_page_{active_project.id}"
                     preview_start_page = preview_start_control.number_input(
                         "С первой страницы",
                         min_value=1,
                         value=1,
                         step=1,
-                        key=f"pdf_preview_start_page_{active_project.id}",
+                        key=preview_start_key,
                     )
                     preview_page_limit = preview_controls.select_slider(
                         "Количество страниц",
@@ -10108,13 +10111,18 @@ def _render_professional_export_panel(
                         value=5,
                         key=f"pdf_preview_page_limit_{active_project.id}",
                     )
+                    preview_dpi = preview_dpi_control.select_slider(
+                        "Качество, DPI",
+                        options=(72, 90, 110, 144, 180),
+                        value=110,
+                        key=f"pdf_preview_dpi_{active_project.id}",
+                    )
                     preview_layout = preview_layout_control.selectbox(
                         "Расположение",
                         options=("Одна колонка", "Две колонки"),
                         index=1,
                         key=f"pdf_preview_layout_{active_project.id}",
                     )
-                    preview_dpi = 110
                     pdf_payload = cached_export.get("content", b"")
                     expected_preview_signature = None
                     try:
@@ -10134,6 +10142,37 @@ def _render_professional_export_panel(
                         and cached_pdf_preview.get("signature") == expected_preview_signature
                         and isinstance(cached_pdf_preview.get("result"), PdfPreviewResult)
                     )
+                    known_total_pages = 0
+                    if isinstance(cached_pdf_preview, dict) and isinstance(cached_pdf_preview.get("result"), PdfPreviewResult):
+                        known_total_pages = int(cached_pdf_preview["result"].total_pages)
+
+                    navigation_previous, navigation_next, preview_action = st.columns([1, 1, 2])
+                    if navigation_previous.button(
+                        "← Предыдущие",
+                        key=f"pdf_preview_previous_{active_project.id}",
+                        width="stretch",
+                        disabled=int(preview_start_page) <= 1,
+                    ):
+                        export_state[preview_start_key] = shift_pdf_preview_window(
+                            int(preview_start_page),
+                            direction=-1,
+                            page_limit=int(preview_page_limit),
+                            total_pages=known_total_pages,
+                        )
+                        _refresh_ui("pdf_preview_previous")
+                    if navigation_next.button(
+                        "Следующие →",
+                        key=f"pdf_preview_next_{active_project.id}",
+                        width="stretch",
+                        disabled=(known_total_pages > 0 and int(preview_start_page) + int(preview_page_limit) > known_total_pages),
+                    ):
+                        export_state[preview_start_key] = shift_pdf_preview_window(
+                            int(preview_start_page),
+                            direction=1,
+                            page_limit=int(preview_page_limit),
+                            total_pages=known_total_pages,
+                        )
+                        _refresh_ui("pdf_preview_next")
                     if preview_action.button(
                         "Создать предпросмотр",
                         key=f"build_pdf_preview_{active_project.id}",

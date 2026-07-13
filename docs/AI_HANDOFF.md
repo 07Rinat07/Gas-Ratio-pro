@@ -567,3 +567,7 @@ The PDF preview UI now supports one-column and two-column layouts. `PdfPreviewRe
 ## Latest increment: selective PDF page range and cache cleanup
 
 `build_pdf_preview()` and `build_pdf_preview_signature()` now accept `start_page`. The value is normalized to at least page 1 and is included in the cache digest. Both raster backends render a bounded range and return actual PDF page numbers. The Streamlit Professional Export panel contains the `С первой страницы` control and the explicit `Очистить кэш предпросмотра` action. Cache cleanup removes only `presentation_pdf_preview_<project_id>` from application state and does not touch the exported PDF or project data. Keep all planning documentation under `docs/`.
+
+## Latest increment: PDF Preview navigation and bounded DPI
+
+The PDF preview panel now exposes `← Предыдущие` and `Следующие →` controls. Navigation advances by the currently selected page limit and is clamped through `shift_pdf_preview_window()`. Raster quality is selected from 72/90/110/144/180 DPI; the chosen DPI is passed to both `build_pdf_preview_signature()` and `build_pdf_preview()`. Keep all planning documentation under `docs/` and do not add Markdown files at repository root.

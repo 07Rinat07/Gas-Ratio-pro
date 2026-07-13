@@ -60,6 +60,51 @@ def _bounded_start_page(value: int) -> int:
     return max(1, number)
 
 
+
+
+def bounded_pdf_preview_start_page(
+    value: int,
+    *,
+    total_pages: int = 0,
+    page_limit: int = 5,
+) -> int:
+    """Normalize a preview start page to a valid bounded window.
+
+    When the exact page count is known, the start page is clamped so the
+    selected window never begins past the last useful page group.  For an
+    unknown page count, only the lower bound is enforced.
+    """
+
+    safe_start = _bounded_start_page(value)
+    safe_limit = _bounded_page_limit(page_limit)
+    try:
+        known_total = max(0, int(total_pages))
+    except (TypeError, ValueError):
+        known_total = 0
+    if known_total <= 0:
+        return safe_start
+    last_window_start = max(1, ((known_total - 1) // safe_limit) * safe_limit + 1)
+    return min(safe_start, last_window_start)
+
+
+def shift_pdf_preview_window(
+    current_start: int,
+    *,
+    direction: int,
+    page_limit: int = 5,
+    total_pages: int = 0,
+) -> int:
+    """Move a bounded preview window backward or forward by one page group."""
+
+    safe_limit = _bounded_page_limit(page_limit)
+    safe_current = bounded_pdf_preview_start_page(
+        current_start, total_pages=total_pages, page_limit=safe_limit
+    )
+    step = -safe_limit if int(direction) < 0 else safe_limit
+    return bounded_pdf_preview_start_page(
+        safe_current + step, total_pages=total_pages, page_limit=safe_limit
+    )
+
 def _bounded_dpi(value: int) -> int:
     try:
         number = int(value)
@@ -241,4 +286,6 @@ __all__ = [
     "PdfPreviewUnavailableError",
     "build_pdf_preview",
     "build_pdf_preview_signature",
+    "bounded_pdf_preview_start_page",
+    "shift_pdf_preview_window",
 ]
