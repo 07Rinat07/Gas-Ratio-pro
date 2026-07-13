@@ -1,3 +1,11 @@
+## v222.3 — Engineering UX & Visibility Stabilization — COMPLETED
+
+- strengthen screen curve and marker visibility;
+- preserve Plotly viewport state across stable reruns;
+- prevent hydrocarbon zones from obscuring analytical curves;
+- improve tablet zone-label contrast;
+- verify behavior with focused UI regression tests.
+
 ## v222.1 — Field Acceptance Bugfix Cycle
 
 Current priority:

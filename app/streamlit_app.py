@@ -221,7 +221,7 @@ from las_editor.depth_grid import (
 from core.hydrocarbon_intervals import detect_hydrocarbon_intervals
 from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
-from palettes.plot_engine import PLOTLY_SCREEN_CONFIG, downsample_frame_for_screen
+from palettes.plot_engine import PLOTLY_SCREEN_CONFIG, downsample_frame_for_screen, enhance_screen_visibility
 from palettes.plot_cache import PlotCache
 from core.runtime_diagnostics import RuntimeDiagnostics
 from core.performance_audit import build_workspace_performance_gate, evaluate_performance
@@ -9594,7 +9594,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
 
         render_batch = render_queue.execute_resilient(render_tasks)
         task_results = render_batch.completed
-        figures = [result.value for result in task_results]
+        figures = [enhance_screen_visibility(result.value) for result in task_results]
         for result in task_results:
             runtime_diagnostics.record(
                 stage=f"plot_task:{result.task_id}",

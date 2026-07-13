@@ -1,3 +1,12 @@
+## v222.3 — Engineering UX & Visibility Stabilization
+
+- Added a final browser-facing visibility profile for all Plotly figures.
+- Increased minimum curve width and marker size and added contrast marker outlines.
+- Added stable `uirevision` and dark hover labels to preserve zoom and improve readability.
+- Reduced hydrocarbon-zone opacity so curves remain visible through interval overlays.
+- Reworked tablet zone labels to use dark contrast boxes instead of light boxes with light text.
+- Added regression coverage for curve visibility, markers, zone layering and tablet annotations.
+
 ## v222.1 — Professional Export State Hardening
 
 - Normalized persisted Professional Export profile, format, range mode and depth values before Streamlit widgets are created.

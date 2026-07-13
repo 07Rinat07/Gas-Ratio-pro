@@ -878,7 +878,7 @@ def build_well_log_tablet(
                 "y0": top_depth,
                 "y1": bottom_depth,
                 "fillcolor": zone.color or "#ffd966",
-                "opacity": 0.18,
+                "opacity": 0.11,
                 "line": {"width": 0},
                 "layer": "below",
             }
@@ -892,7 +892,10 @@ def build_well_log_tablet(
                 "text": str(zone.label),
                 "showarrow": False,
                 "font": {"color": THEME.text_color, "size": 12},
-                "bgcolor": "rgba(255,255,255,0.75)",
+                "bgcolor": "rgba(15,23,42,0.88)",
+                "bordercolor": "rgba(148,163,184,0.55)",
+                "borderwidth": 1,
+                "borderpad": 3,
             }
         )
 
@@ -922,7 +925,7 @@ def build_well_log_tablet(
                 "y0": top_depth,
                 "y1": bottom_depth,
                 "fillcolor": color,
-                "opacity": 0.36 if is_selected else 0.16,
+                "opacity": 0.27 if is_selected else 0.10,
                 "line": {"color": "#ffffff" if is_selected else color, "width": 3.0 if is_selected else 1.15},
                 "layer": "below",
             }

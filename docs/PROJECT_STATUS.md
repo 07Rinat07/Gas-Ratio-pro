@@ -1,3 +1,14 @@
+## Current increment: v222.3 — Engineering UX & Visibility Stabilization
+
+Status: **STABLE BUGFIX**
+
+Implemented:
+- unified browser visibility pass for Plotly curves and markers;
+- persistent zoom state through Plotly `uirevision`;
+- reduced hydrocarbon-zone opacity to keep curves visible;
+- dark contrast labels for tablet zones;
+- regression tests for engineering graph readability.
+
 ## Current increment: v222.1 — Professional Export State Hardening
 
 Status: **BUGFIX CANDIDATE**

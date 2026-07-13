@@ -14,8 +14,8 @@ class EngineeringPlotTheme:
     title_size: int = 18
     axis_title_size: int = 13
     tick_size: int = 11
-    line_width: float = 2.15
-    marker_size: int = 9
+    line_width: float = 2.4
+    marker_size: int = 10
     grid_color: str = "rgba(148, 163, 184, 0.34)"
     text_color: str = "#e5edf8"
     paper_color: str = "#0b1220"
@@ -86,6 +86,7 @@ def apply_engineering_layout(
         "paper_bgcolor": THEME.paper_color,
         "plot_bgcolor": THEME.plot_color,
         "hovermode": hovermode,
+        "uirevision": "gas-ratio-pro-engineering-view",
         "margin": dict(margin or {
             "l": THEME.margin_left,
             "r": THEME.margin_right,
@@ -166,6 +167,46 @@ def normalize_trace_style(fig: go.Figure) -> go.Figure:
                 trace.marker.size = THEME.marker_size
     return fig
 
+
+
+def enhance_screen_visibility(fig: go.Figure) -> go.Figure:
+    """Apply a final browser-facing visibility pass without changing semantics.
+
+    Individual plot builders keep control over colors and analytical meaning,
+    while this pass guarantees that curves and markers remain readable on the
+    dark engineering surface.  Filled traces are intentionally left unchanged
+    so hydrocarbon zones do not become visually dominant.
+    """
+    if not isinstance(fig, go.Figure):
+        return fig
+    for trace in fig.data:
+        mode = str(getattr(trace, "mode", "") or "")
+        if "lines" in mode and getattr(trace, "line", None) is not None:
+            width = getattr(trace.line, "width", None)
+            if width is None or float(width) < THEME.line_width:
+                trace.line.width = THEME.line_width
+            opacity = getattr(trace, "opacity", None)
+            if opacity is None or float(opacity) < 0.88:
+                trace.opacity = 0.96
+        if "markers" in mode and getattr(trace, "marker", None) is not None:
+            size = getattr(trace.marker, "size", None)
+            if size is None or (isinstance(size, (int, float)) and float(size) < THEME.marker_size):
+                trace.marker.size = THEME.marker_size
+            marker_line = getattr(trace.marker, "line", None)
+            if marker_line is not None:
+                if getattr(marker_line, "width", None) is None or float(marker_line.width or 0) < 1.2:
+                    marker_line.width = 1.2
+                if not getattr(marker_line, "color", None):
+                    marker_line.color = "rgba(255,255,255,0.88)"
+    fig.update_layout(
+        uirevision="gas-ratio-pro-engineering-view",
+        hoverlabel={
+            "bgcolor": "#111827",
+            "bordercolor": "#64748b",
+            "font": {"color": "#f8fafc", "family": THEME.font_family, "size": 12},
+        },
+    )
+    return fig
 
 def prepare_figure_for_export(fig: go.Figure, *, width: int, height: int) -> go.Figure:
     """Return a light, print-safe copy without mutating the dark screen figure."""
