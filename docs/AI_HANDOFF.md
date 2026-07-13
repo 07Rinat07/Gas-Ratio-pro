@@ -575,3 +575,7 @@ The PDF preview panel now exposes `← Предыдущие` and `Следующ
 ## Latest increment: PDF Preview direct page-jump validation
 
 Implemented `PdfPreviewPageJumpValidation` and `validate_pdf_preview_page_jump()` in `reports/pdf_preview.py`. The Professional Export UI resolves a normalized `effective_preview_start` after the exact page count becomes known, displays adjustment feedback, and uses the normalized value for signature generation, rendering, and previous/next navigation. Keep all project documentation under `docs/`; do not add new root-level Markdown files.
+
+## Последнее исправление: Professional Export runtime
+
+Критический сбой `UnboundLocalError: print_top` устранён: блок предпросмотра структуры перенесён после вычисления интервала печати. Для keyed-виджетов значения по умолчанию передаются только при отсутствии ключа в Session State. Не возвращать построение preview signature выше блока `print_mode`.

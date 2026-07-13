@@ -9267,40 +9267,52 @@ def _render_professional_export_panel(
         # before widgets are created so a new LAS cannot leave stale out-of-
         # range depth values in Streamlit session state.
         with st.form(key=f"presentation_export_form_{active_project.id}", clear_on_submit=False):
+            profile_widget_kwargs = {"index": 0} if form_keys["profile"] not in export_state else {}
             selected_profile_label = st.selectbox(
                 "Профиль отчета",
                 options=[option.label for option in profile_options],
-                index=0,
                 key=form_keys["profile"],
                 help=tooltip("report.profile"),
+                **profile_widget_kwargs,
             )
+            format_widget_kwargs = {"index": 0} if form_keys["format"] not in export_state else {}
             selected_format_label = st.selectbox(
                 "Формат экспорта",
                 options=[option.label for option in format_options],
-                index=0,
                 key=form_keys["format"],
                 help=tooltip("report.format"),
+                **format_widget_kwargs,
             )
+            mode_widget_key = f"report_designer_mode_{active_project.id}"
+            mode_widget_kwargs = {"index": 2} if mode_widget_key not in export_state else {}
             selected_mode_label = st.selectbox(
                 "Режим отчёта",
                 options=tuple(mode_by_label),
-                index=2,
-                key=f"report_designer_mode_{active_project.id}",
+                key=mode_widget_key,
                 help="Краткий — только ключевые результаты; стандартный — основные графики и выводы; полный инженерный — весь комплект разделов и приложений.",
+                **mode_widget_kwargs,
             )
             selected_mode = mode_by_label[selected_mode_label]
+            template_widget_key = f"report_designer_template_{active_project.id}"
+            template_widget_kwargs = {"index": 0} if template_widget_key not in export_state else {}
             selected_template_label = st.selectbox(
                 "Шаблон оформления",
                 options=tuple(template_by_label),
-                index=0,
-                key=f"report_designer_template_{active_project.id}",
+                key=template_widget_key,
                 help=tooltip("report.template"),
+                **template_widget_kwargs,
             )
             selected_template = template_by_label[selected_template_label]
+            title_widget_key = f"report_designer_title_{active_project.id}"
+            title_widget_kwargs = (
+                {"value": "Gas Ratio Professional Report"}
+                if title_widget_key not in export_state
+                else {}
+            )
             report_title = st.text_input(
                 "Заголовок отчёта",
-                value="Gas Ratio Professional Report",
-                key=f"report_designer_title_{active_project.id}",
+                key=title_widget_key,
+                **title_widget_kwargs,
             )
             section_labels = {
                 "plots": "Инженерные графики",
@@ -9308,25 +9320,96 @@ def _render_professional_export_panel(
                 "results": "Расчётные результаты",
                 "conclusion": "Заключение и ограничения",
             }
+            sections_widget_key = f"report_designer_sections_{active_project.id}_{selected_template.id}"
+            sections_widget_kwargs = (
+                {"default": tuple(section_labels[item] for item in selected_template.default_sections)}
+                if sections_widget_key not in export_state
+                else {}
+            )
             selected_section_labels = st.multiselect(
                 "Разделы отчёта",
                 options=tuple(section_labels.values()),
-                default=tuple(section_labels[item] for item in selected_template.default_sections),
-                key=f"report_designer_sections_{active_project.id}_{selected_template.id}",
+                key=sections_widget_key,
                 help=tooltip("report.sections"),
+                **sections_widget_kwargs,
+            )
+            technical_widget_key = f"report_designer_technical_{active_project.id}"
+            technical_widget_kwargs = (
+                {"value": selected_template.include_technical_appendix}
+                if technical_widget_key not in export_state
+                else {}
             )
             include_technical_design = st.checkbox(
                 "Техническое приложение",
-                value=selected_template.include_technical_appendix,
-                key=f"report_designer_technical_{active_project.id}",
+                key=technical_widget_key,
                 help=tooltip("report.technical_appendix"),
+                **technical_widget_kwargs,
+            )
+            chrome_widget_key = f"report_designer_chrome_{active_project.id}"
+            chrome_widget_kwargs = (
+                {"value": selected_template.show_page_chrome}
+                if chrome_widget_key not in export_state
+                else {}
             )
             show_page_chrome_design = st.checkbox(
                 "Служебные колонтитулы и нумерация",
-                value=selected_template.show_page_chrome,
-                key=f"report_designer_chrome_{active_project.id}",
+                key=chrome_widget_key,
                 help=tooltip("report.page_chrome"),
+                **chrome_widget_kwargs,
             )
+
+            print_mode = st.radio(
+                "Интервал печати",
+                options=tuple(print_mode_options),
+                horizontal=True,
+                key=form_keys["print_mode"],
+                help=tooltip("report.print_scope"),
+            )
+            if print_mode == "Вся скважина и все УВ-интервалы":
+                print_top, print_bottom = full_print_min, full_print_max
+                st.success(
+                    f"Полный отчёт по скважине: {print_top:g}–{print_bottom:g} м. "
+                    "Будут добавлены обзорный планшет и детальные страницы по УВ-интервалам."
+                )
+            elif print_mode == "Выбранный пласт" and selected_interval is not None:
+                print_top, print_bottom = _selected_interval_print_range(
+                    selected_interval,
+                    depth_range,
+                )
+                st.caption(
+                    f"Будет напечатан {selected_interval_id}: "
+                    f"{print_top:g}–{print_bottom:g} м."
+                )
+            elif print_mode == "Выбрать отдельно":
+                print_left, print_right = st.columns(2)
+                top_widget_kwargs = (
+                    {"value": float(normalized_form["top"])}
+                    if form_keys["top"] not in export_state
+                    else {}
+                )
+                print_top = print_left.number_input(
+                    "Печать от, м",
+                    min_value=full_print_min,
+                    max_value=full_print_max,
+                    step=0.1,
+                    key=form_keys["top"],
+                    **top_widget_kwargs,
+                )
+                bottom_widget_kwargs = (
+                    {"value": float(normalized_form["bottom"])}
+                    if form_keys["bottom"] not in export_state
+                    else {}
+                )
+                print_bottom = print_right.number_input(
+                    "Печать до, м",
+                    min_value=full_print_min,
+                    max_value=full_print_max,
+                    step=0.1,
+                    key=form_keys["bottom"],
+                    **bottom_widget_kwargs,
+                )
+            else:
+                print_top, print_bottom = depth_range
 
             section_id_by_label_preview = {
                 "Инженерные графики": "plots",
@@ -9469,49 +9552,6 @@ def _render_professional_export_panel(
                         st.info(diagnostic.message)
                 for preview_issue in structure_preview.issues:
                     st.error(preview_issue.message) if preview_issue.blocking else st.warning(preview_issue.message)
-
-            print_mode = st.radio(
-                "Интервал печати",
-                options=tuple(print_mode_options),
-                horizontal=True,
-                key=form_keys["print_mode"],
-                help=tooltip("report.print_scope"),
-            )
-            if print_mode == "Вся скважина и все УВ-интервалы":
-                print_top, print_bottom = full_print_min, full_print_max
-                st.success(
-                    f"Полный отчёт по скважине: {print_top:g}–{print_bottom:g} м. "
-                    "Будут добавлены обзорный планшет и детальные страницы по УВ-интервалам."
-                )
-            elif print_mode == "Выбранный пласт" and selected_interval is not None:
-                print_top, print_bottom = _selected_interval_print_range(
-                    selected_interval,
-                    depth_range,
-                )
-                st.caption(
-                    f"Будет напечатан {selected_interval_id}: "
-                    f"{print_top:g}–{print_bottom:g} м."
-                )
-            elif print_mode == "Выбрать отдельно":
-                print_left, print_right = st.columns(2)
-                print_top = print_left.number_input(
-                    "Печать от, м",
-                    min_value=full_print_min,
-                    max_value=full_print_max,
-                    value=float(normalized_form["top"]),
-                    step=0.1,
-                    key=form_keys["top"],
-                )
-                print_bottom = print_right.number_input(
-                    "Печать до, м",
-                    min_value=full_print_min,
-                    max_value=full_print_max,
-                    value=float(normalized_form["bottom"]),
-                    step=0.1,
-                    key=form_keys["bottom"],
-                )
-            else:
-                print_top, print_bottom = depth_range
 
             wizard_capabilities = ExportWizardCapabilities(
                 report_formats=tuple(option.id for option in format_options),

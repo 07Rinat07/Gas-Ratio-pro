@@ -1535,3 +1535,7 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - Completed bounded direct page-jump validation and user feedback.
 - Cache keys and rendering now use the same normalized start page.
 - Planned next: opt-in prefetch of the next bounded page range.
+
+### Runtime hardening — Professional Export
+
+Исправлен порядок вычисления диапазона печати перед построением сигнатуры предпросмотра и устранены конфликты значений Streamlit Session State с параметрами виджетов.

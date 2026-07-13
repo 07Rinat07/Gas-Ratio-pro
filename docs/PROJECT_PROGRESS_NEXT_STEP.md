@@ -53,3 +53,10 @@ Next recommended increment: Modern Workspace shell foundation — Project Explor
 - Page numbers below 1 and beyond the known document end are normalized safely.
 - The UI now explains when a requested page was adjusted and uses the normalized page consistently for cache signatures, rendering and navigation.
 - Next step: add optional adjacent-range prefetch without increasing default rendering cost.
+
+## Исправление runtime-сбоя панели экспорта
+
+- Диапазон печати теперь вычисляется до формирования сигнатуры предпросмотра.
+- Устранён `UnboundLocalError` для `print_top` и `print_bottom`.
+- Виджеты Report Designer больше не задают одновременно значение через Session State и параметр `index`/`value`/`default`.
+- Добавлены регрессионные тесты порядка вычислений и наличия кнопки отправки формы.
