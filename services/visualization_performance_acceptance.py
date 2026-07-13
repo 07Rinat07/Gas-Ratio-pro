@@ -91,13 +91,52 @@ class VisualizationBenchmarkReport:
     def passed(self) -> bool:
         return bool(self.results) and all(result.passed for result in self.results)
 
+    @property
+    def issue_count(self) -> int:
+        return sum(len(result.issues) for result in self.results)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "schema": "visualization.performance.acceptance",
-            "version": "1.0",
+            "version": "1.1",
             "passed": self.passed,
+            "case_count": len(self.results),
+            "issue_count": self.issue_count,
             "results": [result.to_dict() for result in self.results],
         }
+
+    def to_markdown(self) -> str:
+        """Render a compact CI/release summary without external dependencies."""
+        status = "PASS" if self.passed else "FAIL"
+        lines = [
+            "## Large-LAS performance gates",
+            "",
+            f"**Status:** {status}  ",
+            f"**Cases:** {len(self.results)}  ",
+            f"**Issues:** {self.issue_count}",
+            "",
+            "| Case | Cold, s | Warm, s | Peak, MiB | Reduction | Warm cache | Result |",
+            "|---|---:|---:|---:|---:|:---:|:---:|",
+        ]
+        for result in self.results:
+            result_status = "PASS" if result.passed else "FAIL"
+            lines.append(
+                "| {name} | {cold:.3f} | {warm:.3f} | {peak:.1f} | {reduction:.1%} | {cache} | {status} |".format(
+                    name=result.case.name,
+                    cold=result.cold_seconds,
+                    warm=result.warm_seconds,
+                    peak=result.peak_bytes / (1024 * 1024),
+                    reduction=result.reduction_ratio,
+                    cache="yes" if result.warm_cache_hit else "no",
+                    status=result_status,
+                )
+            )
+        failed = [result for result in self.results if result.issues]
+        if failed:
+            lines.extend(["", "### Failed gates", ""] )
+            for result in failed:
+                lines.append(f"- `{result.case.name}`: {', '.join(result.issues)}")
+        return "\n".join(lines) + "\n"
 
 
 def build_large_las_payload(case: VisualizationBenchmarkCase) -> dict[str, Any]:

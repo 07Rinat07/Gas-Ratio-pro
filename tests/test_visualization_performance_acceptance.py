@@ -69,3 +69,33 @@ def test_small_real_benchmark_uses_cache_and_reduces_geometry() -> None:
     assert result.source_points == 6000
     assert 0 < result.render_points < result.source_points
     assert result.to_dict()["passed"] is True
+
+
+def test_report_markdown_contains_ci_summary_and_failed_gates() -> None:
+    from services.visualization_performance_acceptance import VisualizationBenchmarkReport
+
+    failed = evaluate_performance_result(
+        case=VisualizationBenchmarkCase("ci-failed", point_count=100),
+        gate=VisualizationPerformanceGate(max_cold_seconds=0.1),
+        cold_seconds=0.2,
+        warm_seconds=0.01,
+        peak_bytes=1024,
+        cold_profile={
+            "source_point_count": 400,
+            "render_point_count": 40,
+            "reduction_ratio": 0.9,
+            "cache_hit": False,
+        },
+        warm_profile={"cache_hit": True},
+    )
+    report = VisualizationBenchmarkReport((failed,))
+
+    payload = report.to_dict()
+    markdown = report.to_markdown()
+
+    assert payload["version"] == "1.1"
+    assert payload["case_count"] == 1
+    assert payload["issue_count"] == 1
+    assert "Large-LAS performance gates" in markdown
+    assert "ci-failed" in markdown
+    assert "cold_pipeline_time_exceeded" in markdown

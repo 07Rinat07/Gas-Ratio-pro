@@ -1,0 +1,60 @@
+name: Large LAS performance gates
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "services/visualization_*.py"
+      - "scripts/run_large_las_benchmark.py"
+      - "tests/test_visualization_performance*.py"
+      - ".github/workflows/large-las-performance.yml"
+  push:
+    branches: [main, master]
+    paths:
+      - "services/visualization_*.py"
+      - "scripts/run_large_las_benchmark.py"
+      - "tests/test_visualization_performance*.py"
+
+permissions:
+  contents: read
+
+jobs:
+  performance-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONHASHSEED: "0"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install project dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+
+      - name: Run performance contract tests
+        run: python -m pytest -q tests/test_visualization_performance.py tests/test_visualization_performance_acceptance.py
+
+      - name: Run large LAS benchmark
+        run: >-
+          python scripts/run_large_las_benchmark.py
+          --points 25000 100000
+          --curves 4
+          --output artifacts/large-las-performance.json
+          --summary-output artifacts/large-las-performance.md
+          --github-summary
+
+      - name: Upload benchmark reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: large-las-performance-report
+          path: artifacts/large-las-performance.*
+          if-no-files-found: error
+          retention-days: 30
