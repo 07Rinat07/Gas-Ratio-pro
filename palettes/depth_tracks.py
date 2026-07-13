@@ -83,6 +83,15 @@ def _add_curve_legend(fig: go.Figure, columns: Sequence[str]) -> None:
 
 
 def _add_interval_overlays(fig: go.Figure, intervals: Sequence[object], selected_interval_id: str = "") -> None:
+    """Add lightweight interval context without flooding Plotly with shapes.
+
+    A full well can contain more than one hundred interpreted intervals.  Three
+    separate shapes per interval on every chart caused thousands of frontend
+    objects and could freeze Streamlit before the first figure was displayed.
+    Normal intervals therefore use one rectangle only; explicit top/base lines
+    are reserved for the selected interval.
+    """
+
     shown: set[str] = set()
     for interval in intervals or ():
         fluid = str(getattr(interval, "fluid_type", "unknown") or "unknown").lower()
@@ -91,10 +100,17 @@ def _add_interval_overlays(fig: go.Figure, intervals: Sequence[object], selected
         bottom = max(float(getattr(interval, "top_depth", 0.0)), float(getattr(interval, "bottom_depth", 0.0)))
         interval_id = str(getattr(interval, "interval_id", "") or "")
         selected = interval_id == selected_interval_id
-        fig.add_hrect(y0=top, y1=bottom, fillcolor=color, opacity=0.16 if selected else 0.07,
-                      line={"color": color, "width": 2.2 if selected else 0.8}, layer="below")
-        fig.add_hline(y=top, line={"color": color, "width": 1.7, "dash": "solid"})
-        fig.add_hline(y=bottom, line={"color": color, "width": 1.7, "dash": "solid"})
+        fig.add_hrect(
+            y0=top,
+            y1=bottom,
+            fillcolor=color,
+            opacity=0.18 if selected else 0.055,
+            line={"color": color, "width": 2.4 if selected else 0.45},
+            layer="below",
+        )
+        if selected:
+            fig.add_hline(y=top, line={"color": color, "width": 2.2, "dash": "solid"})
+            fig.add_hline(y=bottom, line={"color": color, "width": 2.2, "dash": "solid"})
         if fluid not in shown:
             fig.add_trace(go.Scatter(x=[None], y=[None], mode="markers", name=label,
                                      marker={"size": 10, "symbol": "square", "color": color,
@@ -116,7 +132,7 @@ def _build_depth_tracks(df, columns, title, x_title, *, depth_range=None, x_rang
         if column not in plot_df.columns or plot_df[column].isna().all():
             continue
         active_columns.append(column)
-        fig.add_trace(go.Scatter(
+        fig.add_trace(go.Scattergl(
             x=pd.to_numeric(plot_df[column], errors="coerce"), y=depth, mode="lines", showlegend=False,
             name=CURVE_LABELS.get(column, column),
             line={"width": 2.6, "color": CURVE_COLORS.get(column)}, connectgaps=False,

@@ -1,3 +1,13 @@
+## Current increment: v222.11 — Interpretation Freeze Hotfix
+
+Status: **STABLE HOTFIX**
+
+Implemented:
+- selected-interval-first depth focus;
+- bounded interval overlays for every depth chart;
+- lightweight Plotly shape generation;
+- WebGL curve rendering for dense depth tracks.
+
 ## Current increment: v222.9 — Interval-Focused Tablet and Visual Legends
 
 Status: **STABLE BUGFIX**

@@ -1,3 +1,10 @@
+## v222.11 — Interpretation Freeze Hotfix
+- Selected interval now controls the initial tablet viewport instead of the full envelope of every interpreted interval.
+- Depth charts receive at most 24 visible interval overlays; the selected interval is always preserved.
+- Ordinary overlays use one lightweight rectangle instead of three Plotly shapes.
+- Gas-component curves use WebGL traces to reduce browser rendering cost.
+- Added regression tests for viewport focus, overlay limits and shape count.
+
 ## v222.9 — Interval-Focused Tablet and Visual Legends
 
 - Focused the engineering tablet on interpreted oil, gas, condensate, mixed and water intervals instead of empty well sections.

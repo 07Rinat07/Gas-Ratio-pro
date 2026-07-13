@@ -7928,17 +7928,24 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
     st.subheader("Графики по глубине")
     workspace_overlays = tuple(pair[0] for pair in interval_pairs)
     workspace_full_range = _effective_depth_range(calculated_df, None)
+    selected_workspace_interval_id = (
+        str(selected_reservoir_overlay.interval_id) if selected_reservoir_overlay is not None else ""
+    )
     workspace_focus_range = _tablet_informative_depth_range(
         workspace_overlays,
         workspace_full_range,
         selected_depth=selected_depth_value,
+        selected_interval_id=selected_workspace_interval_id,
     )
     workspace_plot_frame = _filter_by_depth_range(
         calculated_df, workspace_focus_range[0], workspace_focus_range[1]
     )
     screen_plot_df = downsample_frame_for_screen(workspace_plot_frame)
-    selected_workspace_interval_id = (
-        str(selected_reservoir_overlay.interval_id) if selected_reservoir_overlay is not None else ""
+    workspace_visible_overlays = _visible_interval_overlays(
+        workspace_overlays,
+        workspace_focus_range,
+        selected_interval_id=selected_workspace_interval_id,
+        limit=24,
     )
     st.caption(
         f"Показан инженерно значимый диапазон: {workspace_focus_range[0]:.1f}–{workspace_focus_range[1]:.1f} м. "
@@ -7947,7 +7954,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
     tab_gas, tab_ratios, tab_pixler = st.tabs(["C1–C5", "Wh / Bh / Ch", "Pixler"])
     common_depth_kwargs = {
         "depth_range": workspace_focus_range,
-        "reservoir_intervals": workspace_overlays,
+        "reservoir_intervals": workspace_visible_overlays,
         "selected_interval_id": selected_workspace_interval_id,
     }
     tab_gas.plotly_chart(build_depth_gas_tracks(screen_plot_df, **common_depth_kwargs), width="stretch", config=PLOTLY_SCREEN_CONFIG)
@@ -8539,6 +8546,7 @@ def _tablet_informative_depth_range(
     fallback_range: tuple[float, float],
     *,
     selected_depth: float | None = None,
+    selected_interval_id: str = "",
     padding_fraction: float = 0.035,
     minimum_padding_m: float = 8.0,
 ) -> tuple[float, float]:
@@ -8556,6 +8564,20 @@ def _tablet_informative_depth_range(
         "", "unknown", "uncertain", "no_data", "insufficient_data",
         "insufficient", "dry", "none", "not_interpreted",
     }
+    # A selected interval is the primary engineering context.  Focusing it
+    # avoids compressing a 10–20 m target inside a 700 m envelope merely
+    # because many unrelated intervals exist elsewhere in the well.
+    selected_interval = next(
+        (item for item in overlays if str(getattr(item, "interval_id", "")) == str(selected_interval_id or "")),
+        None,
+    )
+    if selected_interval is not None:
+        top = max(lower_bound, min(float(selected_interval.top_depth), float(selected_interval.bottom_depth)))
+        bottom = min(upper_bound, max(float(selected_interval.top_depth), float(selected_interval.bottom_depth)))
+        span = max(bottom - top, 0.0)
+        padding = max(float(minimum_padding_m), span * 0.35)
+        return (max(lower_bound, top - padding), min(upper_bound, bottom + padding))
+
     meaningful = []
     for interval in overlays:
         fluid = str(getattr(interval, "fluid_type", "") or "").strip().lower()
@@ -8579,6 +8601,37 @@ def _tablet_informative_depth_range(
     span = max(bottom - top, 0.0)
     padding = max(float(minimum_padding_m), span * float(padding_fraction))
     return (max(lower_bound, top - padding), min(upper_bound, bottom + padding))
+
+def _visible_interval_overlays(
+    overlays: Sequence[ReservoirIntervalOverlay],
+    depth_range: tuple[float, float],
+    *,
+    selected_interval_id: str = "",
+    limit: int = 24,
+) -> tuple[ReservoirIntervalOverlay, ...]:
+    """Return a bounded set of intervals intersecting the active viewport.
+
+    Plotly shapes are expensive in the browser.  The selected interval is
+    always retained, while the remaining entries are ranked by confidence and
+    thickness.
+    """
+
+    top, bottom = sorted((float(depth_range[0]), float(depth_range[1])))
+    candidates = [
+        item for item in overlays
+        if max(float(item.top_depth), float(item.bottom_depth)) >= top
+        and min(float(item.top_depth), float(item.bottom_depth)) <= bottom
+    ]
+    candidates.sort(
+        key=lambda item: (
+            str(getattr(item, "interval_id", "")) == str(selected_interval_id or ""),
+            int(getattr(item, "confidence_score", 0) or 0),
+            float(getattr(item, "thickness", 0.0) or 0.0),
+        ),
+        reverse=True,
+    )
+    return tuple(candidates[: max(1, int(limit))])
+
 
 def _adaptive_tablet_height(depth_range: tuple[float, float], view_mode: str, base_height: int) -> int:
     span = max(0.1, abs(float(depth_range[1]) - float(depth_range[0])))
@@ -9594,10 +9647,18 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     selected_tablet_depth = selected_interval_depth
     if selected_tablet_depth is None and tablet_markers:
         selected_tablet_depth = float(tablet_markers[0].depth)
+    selected_interval_id = str(render_settings.selected_interval_id or "")
     tablet_depth_range = _tablet_informative_depth_range(
         reservoir_overlays,
         depth_range,
         selected_depth=selected_tablet_depth,
+        selected_interval_id=selected_interval_id,
+    )
+    visible_reservoir_overlays = _visible_interval_overlays(
+        reservoir_overlays,
+        tablet_depth_range,
+        selected_interval_id=selected_interval_id,
+        limit=24,
     )
     tablet_source_df = _filter_by_depth_range(
         calculated_df,
@@ -9612,7 +9673,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         sampler=downsample_frame_for_screen,
     )
     logger.info(
-        "interpretation_tablet_focus applied_top=%.2f applied_bottom=%.2f tablet_top=%.2f tablet_bottom=%.2f full_rows=%d tablet_rows=%d interval_count=%d",
+        "interpretation_tablet_focus applied_top=%.2f applied_bottom=%.2f tablet_top=%.2f tablet_bottom=%.2f full_rows=%d tablet_rows=%d interval_count=%d visible_intervals=%d",
         float(depth_range[0]),
         float(depth_range[1]),
         float(tablet_depth_range[0]),
@@ -9620,6 +9681,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         len(filtered_df),
         len(tablet_screen_df),
         len(reservoir_overlays),
+        len(visible_reservoir_overlays),
     )
 
     # Plotly construction is expensive. The cache key now depends only on the
@@ -9689,8 +9751,8 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 "depth-interpretation",
                 lambda: build_depth_interpretation_track(
                     tablet_screen_df, depth_range=tablet_depth_range, height=height,
-                    reservoir_intervals=reservoir_overlays,
-                    selected_interval_id=str(render_settings.selected_interval_id or ""),
+                    reservoir_intervals=visible_reservoir_overlays,
+                    selected_interval_id=selected_interval_id,
                 ),
             ))
         if "C1-C5" in selected_tracks:
@@ -9698,8 +9760,8 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 "depth-gases",
                 lambda: build_depth_gas_tracks(
                     tablet_screen_df, depth_range=tablet_depth_range, x_range=gas_x_range, height=height,
-                    reservoir_intervals=reservoir_overlays,
-                    selected_interval_id=str(render_settings.selected_interval_id or ""),
+                    reservoir_intervals=visible_reservoir_overlays,
+                    selected_interval_id=selected_interval_id,
                 ),
             ))
         if "Wh/Bh/Ch" in selected_tracks:
@@ -9707,8 +9769,8 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 "depth-ratios",
                 lambda: build_depth_ratio_tracks(
                     tablet_screen_df, depth_range=tablet_depth_range, x_range=ratio_x_range, height=height,
-                    reservoir_intervals=reservoir_overlays,
-                    selected_interval_id=str(render_settings.selected_interval_id or ""),
+                    reservoir_intervals=visible_reservoir_overlays,
+                    selected_interval_id=selected_interval_id,
                 ),
             ))
         if "Pixler ratios" in selected_tracks:
@@ -9716,8 +9778,8 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 "depth-pixler",
                 lambda: build_depth_pixler_tracks(
                     tablet_screen_df, depth_range=tablet_depth_range, x_range=pixler_x_range, height=height,
-                    reservoir_intervals=reservoir_overlays,
-                    selected_interval_id=str(render_settings.selected_interval_id or ""),
+                    reservoir_intervals=visible_reservoir_overlays,
+                    selected_interval_id=selected_interval_id,
                 ),
             ))
         if TABLET_TRACK_OPTION in selected_tracks and tablet_columns:
@@ -9737,7 +9799,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                     depth_range=tablet_depth_range,
                     markers=tablet_markers,
                     zones=tablet_zones,
-                    reservoir_intervals=reservoir_overlays,
+                    reservoir_intervals=visible_reservoir_overlays,
                     selected_depth=selected_tablet_depth,
                     height=max(int(height), 760),
                 ),
