@@ -334,6 +334,8 @@ from reports.presentation_ui import (
     export_format_options,
     report_profile_options,
 )
+from reports.report_designer import ReportDesign, report_templates
+from reports.report_designer_export import build_designed_report_artifact
 from reports.export_las import export_las_bytes
 from reports.export_xlsx import export_xlsx_bytes
 from reports.export_controller import (
@@ -9004,6 +9006,43 @@ def _render_professional_export_panel(
                     "PNG/SVG — отдельный планшет; XLSX — инженерные таблицы."
                 ),
             )
+            designer_templates = report_templates()
+            template_by_label = {item.label: item for item in designer_templates}
+            selected_template_label = st.selectbox(
+                "Шаблон оформления",
+                options=tuple(template_by_label),
+                index=0,
+                key=f"report_designer_template_{active_project.id}",
+                help="Engineering — полный технический отчёт; Corporate — компактная передача заказчику; Minimal — краткое заключение.",
+            )
+            selected_template = template_by_label[selected_template_label]
+            report_title = st.text_input(
+                "Заголовок отчёта",
+                value="Gas Ratio Professional Report",
+                key=f"report_designer_title_{active_project.id}",
+            )
+            section_labels = {
+                "plots": "Инженерные графики",
+                "visualizations": "Планшеты и визуализации",
+                "results": "Расчётные результаты",
+                "conclusion": "Заключение и ограничения",
+            }
+            selected_section_labels = st.multiselect(
+                "Разделы отчёта",
+                options=tuple(section_labels.values()),
+                default=tuple(section_labels[item] for item in selected_template.default_sections),
+                key=f"report_designer_sections_{active_project.id}_{selected_template.id}",
+            )
+            include_technical_design = st.checkbox(
+                "Техническое приложение",
+                value=selected_template.include_technical_appendix,
+                key=f"report_designer_technical_{active_project.id}",
+            )
+            show_page_chrome_design = st.checkbox(
+                "Служебные колонтитулы и нумерация",
+                value=selected_template.show_page_chrome,
+                key=f"report_designer_chrome_{active_project.id}",
+            )
             print_mode = st.radio(
                 "Интервал печати",
                 options=tuple(print_mode_options),
@@ -9059,6 +9098,20 @@ def _render_professional_export_panel(
 
         selected_profile = next((option for option in profile_options if option.label == selected_profile_label), profile_options[0])
         selected_format = next((option for option in format_options if option.label == selected_format_label), format_options[0])
+        section_id_by_label = {
+            "Инженерные графики": "plots",
+            "Планшеты и визуализации": "visualizations",
+            "Расчётные результаты": "results",
+            "Заключение и ограничения": "conclusion",
+        }
+        report_design = ReportDesign(
+            template_id=selected_template.id,
+            title=str(report_title or "").strip(),
+            document_code=f"GRP-{str(active_project.id).upper()[:16]}",
+            sections=tuple(section_id_by_label[label] for label in selected_section_labels),
+            include_technical_appendix=bool(include_technical_design),
+            show_page_chrome=bool(show_page_chrome_design),
+        )
         current_print_depth_range = (
             min(float(print_top), float(print_bottom)),
             max(float(print_top), float(print_bottom)),
@@ -9081,7 +9134,10 @@ def _render_professional_export_panel(
             context_signature=hashlib.sha256(
                 (
                     f"ranking={export_state.get('active_reservoir_ranking_profile', '')}|"
-                    f"interval={selected_interval_id or ''}|scope={print_mode}"
+                    f"interval={selected_interval_id or ''}|scope={print_mode}|"
+                    f"template={report_design.template_id}|title={report_design.title}|"
+                    f"sections={','.join(report_design.sections)}|technical={report_design.include_technical_appendix}|"
+                    f"chrome={report_design.show_page_chrome}"
                 ).encode("utf-8")
             ).hexdigest(),
         )
@@ -9186,7 +9242,12 @@ def _render_professional_export_panel(
                         )
                         file_name = f"{presentation_state.base_name}.{export_request.extension}"
                     else:
-                        rendered = build_ui_export_artifact(presentation_model, presentation_state)
+                        rendered = build_designed_report_artifact(
+                            presentation_model,
+                            design=report_design,
+                            export_format=export_request.format_id,
+                            base_name=presentation_state.base_name,
+                        )
                         content = rendered.content
                         file_name = rendered.file_name
                     return ControlledExportArtifact(

@@ -12,29 +12,28 @@
 - Industrial PDF Layout;
 - Professional Export Wizard;
 - preflight-проверка экспорта;
-- Professional Report Designer foundation.
+- Professional Report Designer foundation;
+- Streamlit Report Designer integration;
+- designed PDF/DOCX/bundle export with cache-safe settings.
 
 ## Последний реализованный инкремент
 
-Professional Report Designer:
+Professional Report Designer UI Integration:
 
-- renderer-neutral модель дизайна отчета;
-- шаблоны Engineering, Corporate и Minimal;
-- выбор состава и порядка разделов;
-- настройка заголовка, подзаголовка, кода документа, классификации и footer;
-- синхронные параметры PDF и DOCX;
-- preflight-проверка конфигурации;
-- тестовое покрытие.
+- шаблоны Engineering, Corporate и Minimal подключены к Streamlit;
+- добавлены настройки заголовка, состава разделов, технического приложения и колонтитулов;
+- PDF, DOCX и bundle строятся из одного designed EngineeringDocument;
+- параметры дизайна включены в сигнатуру export cache;
+- PNG, SVG и XLSX сохранены как отдельные специализированные каналы;
+- добавлены интеграционные тесты.
 
 ## Следующий этап
 
-1. Streamlit UI для Report Designer.
-2. Интерактивный preview структуры отчета.
-3. Интеграция Report Designer с Export Wizard.
-4. Tooltip для всех элементов.
-5. Индикаторы выполнения операций.
-6. Унификация графиков.
-7. Оптимизация производительности.
+1. Интерактивный preview структуры отчета.
+2. Единый tooltip/help layer для Report Designer и Export Wizard.
+3. Индикаторы выполнения операций.
+4. Унификация графиков.
+5. Оптимизация производительности.
 
 ## Архитектурные правила
 

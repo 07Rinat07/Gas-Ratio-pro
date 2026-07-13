@@ -1,3 +1,14 @@
+## Current increment: Professional Report Designer UI Integration — COMPLETED
+
+Implemented:
+- connected Engineering, Corporate and Minimal templates to the Streamlit export panel;
+- added report title, section composition, technical appendix and page-chrome controls;
+- routed PDF, DOCX and bundle exports through one designed EngineeringDocument;
+- included design parameters in export cache invalidation;
+- preserved PNG, SVG and XLSX specialized export channels.
+
+Next: interactive report structure preview and unified tooltip/help layer.
+
 ## Current increment: v222.12 — Professional Report Visualization Renderer
 
 Status: **STABLE BUGFIX CANDIDATE**
