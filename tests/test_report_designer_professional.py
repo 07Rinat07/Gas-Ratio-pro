@@ -238,3 +238,73 @@ def test_document_counts_signature_changes_with_render_context():
         design, target_format="pdf", depth_top=100.0, depth_bottom=200.0,
         source_signature="source-b", calculation_revision=3, presentation_revision=5,
     )
+
+
+def test_document_counts_snapshot_round_trip_and_state_diagnostics():
+    from reports.report_designer import (
+        ReportDocumentCounts,
+        build_report_document_counts_snapshot,
+        resolve_report_document_counts_snapshot,
+    )
+
+    counts = ReportDocumentCounts(sections=4, tables=2, table_rows=19, plots=3)
+    payload = build_report_document_counts_snapshot(
+        counts,
+        signature="sig-a",
+        generated_at="2026-07-13T18:00:00+00:00",
+    )
+
+    current = resolve_report_document_counts_snapshot(payload, expected_signature="sig-a")
+    assert current.state == "current"
+    assert current.counts == counts
+    assert "2026-07-13" in current.message
+
+    stale = resolve_report_document_counts_snapshot(payload, expected_signature="sig-b")
+    assert stale.state == "stale"
+    assert stale.counts is None
+
+
+def test_document_counts_snapshot_rejects_invalid_legacy_and_unsupported_payloads():
+    from reports.report_designer import resolve_report_document_counts_snapshot
+
+    missing = resolve_report_document_counts_snapshot(None, expected_signature="sig")
+    assert missing.state == "missing"
+
+    legacy = resolve_report_document_counts_snapshot(
+        {"counts": {"sections": 2}}, expected_signature="sig"
+    )
+    assert legacy.state == "legacy"
+
+    unsupported = resolve_report_document_counts_snapshot(
+        {"schema": 999, "signature": "sig", "counts": {}}, expected_signature="sig"
+    )
+    assert unsupported.state == "unsupported"
+
+    invalid = resolve_report_document_counts_snapshot(
+        {"schema": 1, "signature": "sig", "counts": "broken"}, expected_signature="sig"
+    )
+    assert invalid.state == "invalid"
+
+
+def test_document_counts_snapshot_normalizes_non_negative_integer_values():
+    from reports.report_designer import resolve_report_document_counts_snapshot
+
+    resolved = resolve_report_document_counts_snapshot(
+        {
+            "schema": 1,
+            "signature": "sig",
+            "counts": {
+                "sections": "3",
+                "tables": -4,
+                "table_rows": 12.9,
+                "plots": 1,
+            },
+        },
+        expected_signature="sig",
+    )
+
+    assert resolved.state == "current"
+    assert resolved.counts is not None
+    assert resolved.counts.sections == 3
+    assert resolved.counts.tables == 0
+    assert resolved.counts.table_rows == 12

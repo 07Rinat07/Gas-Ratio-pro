@@ -38,6 +38,6 @@ def test_streamlit_persists_actual_report_document_counts_for_preview():
 def test_streamlit_hides_persisted_counts_when_preview_signature_is_stale():
     source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
     assert "build_report_document_counts_signature" in source
-    assert 'saved_preview_payload.get("signature") == preview_counts_signature' in source
-    assert '"signature": build_report_document_counts_signature(' in source
-    assert '"counts": {' in source
+    assert 'resolve_report_document_counts_snapshot(' in source
+    assert 'expected_signature=preview_counts_signature' in source
+    assert 'build_report_document_counts_snapshot(' in source

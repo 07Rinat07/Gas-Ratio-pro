@@ -9,9 +9,10 @@ by the selected design before PDF/DOCX renderers consume it.
 """
 
 from dataclasses import asdict, dataclass, replace
+from datetime import datetime, timezone
 import hashlib
 import json
-from typing import Literal
+from typing import Literal, Mapping
 
 from reports.document_model import (
     DocumentNotice,
@@ -156,6 +157,90 @@ def build_report_document_counts_signature(
     }
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+
+
+REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA = 1
+
+
+@dataclass(frozen=True)
+class ReportDocumentCountsSnapshotResolution:
+    """Validation result for persisted document-count metadata."""
+
+    state: str
+    counts: ReportDocumentCounts | None
+    message: str
+
+
+def build_report_document_counts_snapshot(
+    counts: ReportDocumentCounts,
+    *,
+    signature: str,
+    generated_at: str | None = None,
+) -> dict[str, object]:
+    """Create a schema-versioned, JSON-safe snapshot for session persistence."""
+    timestamp = generated_at or datetime.now(timezone.utc).isoformat()
+    return {
+        "schema": REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA,
+        "signature": str(signature or "").strip(),
+        "generated_at": str(timestamp).strip(),
+        "counts": asdict(counts),
+    }
+
+
+def resolve_report_document_counts_snapshot(
+    payload: object,
+    *,
+    expected_signature: str,
+) -> ReportDocumentCountsSnapshotResolution:
+    """Validate persisted counts and explain why they can or cannot be reused."""
+    if payload is None:
+        return ReportDocumentCountsSnapshotResolution(
+            "missing", None, "Фактический состав появится после успешной подготовки отчёта."
+        )
+    if not isinstance(payload, Mapping):
+        return ReportDocumentCountsSnapshotResolution(
+            "invalid", None, "Сохранённый снимок состава повреждён и был проигнорирован."
+        )
+    schema = payload.get("schema", REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA)
+    try:
+        schema_value = int(schema)
+    except (TypeError, ValueError):
+        schema_value = -1
+    if schema_value != REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA:
+        return ReportDocumentCountsSnapshotResolution(
+            "unsupported", None, "Версия сохранённого снимка состава не поддерживается."
+        )
+    signature = str(payload.get("signature") or "").strip()
+    if not signature:
+        return ReportDocumentCountsSnapshotResolution(
+            "legacy", None, "Старый снимок без контекстной сигнатуры безопасно проигнорирован."
+        )
+    if signature != str(expected_signature or "").strip():
+        return ReportDocumentCountsSnapshotResolution(
+            "stale", None, "Параметры отчёта изменились; фактический состав будет обновлён после нового экспорта."
+        )
+    raw_counts = payload.get("counts")
+    if not isinstance(raw_counts, Mapping):
+        return ReportDocumentCountsSnapshotResolution(
+            "invalid", None, "В сохранённом снимке отсутствуют корректные числовые показатели."
+        )
+    try:
+        normalized = {
+            field: max(0, int(raw_counts.get(field, 0)))
+            for field in ("sections", "tables", "table_rows", "plots", "visualizations", "notices")
+        }
+        counts = ReportDocumentCounts(**normalized)
+    except (TypeError, ValueError, OverflowError):
+        return ReportDocumentCountsSnapshotResolution(
+            "invalid", None, "Числовые показатели сохранённого снимка некорректны."
+        )
+    generated_at = str(payload.get("generated_at") or "").strip()
+    suffix = f" Снимок: {generated_at}." if generated_at else ""
+    return ReportDocumentCountsSnapshotResolution(
+        "current", counts, "Используется фактический состав последней подготовленной модели." + suffix
+    )
 
 
 @dataclass(frozen=True)
@@ -731,6 +816,10 @@ __all__ = [
     "ReportPreviewItem",
     "ReportPageEstimate",
     "ReportDocumentCounts",
+    "ReportDocumentCountsSnapshotResolution",
+    "REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA",
+    "build_report_document_counts_snapshot",
+    "resolve_report_document_counts_snapshot",
     "report_document_counts",
     "build_report_document_counts_signature",
     "ReportFormatCapability",

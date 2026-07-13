@@ -339,6 +339,8 @@ from reports.report_designer import (
     ReportDesign,
     ReportDocumentCounts,
     build_report_document_counts_signature,
+    build_report_document_counts_snapshot,
+    resolve_report_document_counts_snapshot,
     build_report_structure_preview,
     report_modes,
     report_templates,
@@ -9314,16 +9316,11 @@ def _render_professional_export_panel(
                 presentation_revision=int(revision_snapshot.presentation),
             )
             saved_preview_payload = export_state.get(report_preview_counts_key)
-            saved_preview_counts = None
-            if (
-                isinstance(saved_preview_payload, dict)
-                and saved_preview_payload.get("signature") == preview_counts_signature
-                and isinstance(saved_preview_payload.get("counts"), dict)
-            ):
-                try:
-                    saved_preview_counts = ReportDocumentCounts(**saved_preview_payload["counts"])
-                except (TypeError, ValueError):
-                    saved_preview_counts = None
+            preview_counts_resolution = resolve_report_document_counts_snapshot(
+                saved_preview_payload,
+                expected_signature=preview_counts_signature,
+            )
+            saved_preview_counts = preview_counts_resolution.counts
 
             structure_preview = build_report_structure_preview(
                 preview_design,
@@ -9336,6 +9333,10 @@ def _render_professional_export_panel(
                     f"{structure_preview.paper_size} · поля {structure_preview.margin_mm} мм"
                 )
                 st.markdown(f"**{structure_preview.title}**")
+                if preview_counts_resolution.state == "current":
+                    st.caption(preview_counts_resolution.message)
+                elif preview_counts_resolution.state in {"stale", "legacy", "unsupported", "invalid"}:
+                    st.info(preview_counts_resolution.message)
                 for preview_index, preview_item in enumerate(structure_preview.sections, start=1):
                     status_mark = "✅" if preview_item.enabled else "⏸️"
                     st.markdown(
@@ -9926,8 +9927,9 @@ def _render_professional_export_panel(
                 export_artifact = completed.artifact
                 export_metrics = dict(completed.metrics)
                 if isinstance(completed.report_document_counts, ReportDocumentCounts):
-                    export_state[report_preview_counts_key] = {
-                        "signature": build_report_document_counts_signature(
+                    export_state[report_preview_counts_key] = build_report_document_counts_snapshot(
+                        completed.report_document_counts,
+                        signature=build_report_document_counts_signature(
                             report_design,
                             target_format=selected_format.id,
                             depth_top=current_print_depth_range[0],
@@ -9936,15 +9938,7 @@ def _render_professional_export_panel(
                             calculation_revision=current_export_request.calculation_revision,
                             presentation_revision=current_export_request.presentation_revision,
                         ),
-                        "counts": {
-                            "sections": completed.report_document_counts.sections,
-                            "tables": completed.report_document_counts.tables,
-                            "table_rows": completed.report_document_counts.table_rows,
-                            "plots": completed.report_document_counts.plots,
-                            "visualizations": completed.report_document_counts.visualizations,
-                            "notices": completed.report_document_counts.notices,
-                        },
-                    }
+                    )
                 export_state[export_cache_key] = {
                     "content": export_artifact.content,
                     "file_name": export_artifact.file_name,

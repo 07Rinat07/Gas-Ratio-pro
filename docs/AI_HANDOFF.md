@@ -1,3 +1,21 @@
+# Latest implementation — Report Preview Snapshot Validation Diagnostics
+
+Status: COMPLETED
+
+Implemented:
+- `build_report_document_counts_snapshot()` creates a JSON-safe schema-v1 payload with signature, timestamp and counts;
+- `resolve_report_document_counts_snapshot()` validates compatibility and returns a renderer-neutral resolution state;
+- stale, legacy, unsupported and corrupt snapshots are ignored with an explicit UI explanation;
+- current snapshots are normalized to non-negative integer counters before use;
+- Streamlit now stores and reads counts through the shared validation API instead of directly inspecting dictionaries.
+
+Validation:
+- syntax compilation passed;
+- `78 passed` in focused reporting/export regression coverage;
+- no runtime application log was available in the supplied archive.
+
+Next priority: project-scoped durable persistence for the compact snapshot metadata.
+
 # Latest implementation — Renderer Capability Diagnostics
 
 Status: COMPLETED

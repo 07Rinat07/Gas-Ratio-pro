@@ -1,3 +1,22 @@
+# Latest increment — Report Preview Snapshot Validation Diagnostics
+
+Status: COMPLETED
+
+Implemented:
+- schema-versioned persistence for actual EngineeringDocument block counts;
+- explicit snapshot states: missing, current, stale, legacy, unsupported and invalid;
+- safe normalization of persisted numeric counters;
+- visible Streamlit diagnostics when saved counts cannot be reused;
+- generated-at metadata for the current factual-count snapshot;
+- backward-safe rejection of legacy and malformed session payloads.
+
+Validation:
+- `python -m py_compile reports/report_designer.py app/streamlit_app.py`;
+- `78 passed` in focused Report Designer, Export Wizard and Background Export tests;
+- `logs/app.log` is not present in the supplied project archive.
+
+Next priority: persist the validated counts snapshot outside process-local session state so it can survive application restarts without storing EngineeringDocument payloads.
+
 # Latest increment — Renderer Capability Diagnostics
 
 Status: COMPLETED
