@@ -197,3 +197,44 @@ def test_explicit_document_takes_precedence_over_persisted_counts():
     diagnostic = next(item for item in preview.diagnostics if item.code == "estimate.document_counts")
     assert "таблиц 1" in diagnostic.message
     assert "строк 1" in diagnostic.message
+
+
+def test_document_counts_signature_changes_with_render_context():
+    from reports.report_designer import build_report_document_counts_signature
+
+    design = ReportDesign(title="Отчёт", sections=("plots", "results"))
+    base = build_report_document_counts_signature(
+        design,
+        target_format="pdf",
+        depth_top=100.0,
+        depth_bottom=200.0,
+        source_signature="source-a",
+        calculation_revision=3,
+        presentation_revision=5,
+    )
+    assert base == build_report_document_counts_signature(
+        design,
+        target_format="PDF",
+        depth_top=200.0,
+        depth_bottom=100.0,
+        source_signature="source-a",
+        calculation_revision=3,
+        presentation_revision=5,
+    )
+    assert base != build_report_document_counts_signature(
+        design, target_format="docx", depth_top=100.0, depth_bottom=200.0,
+        source_signature="source-a", calculation_revision=3, presentation_revision=5,
+    )
+    assert base != build_report_document_counts_signature(
+        design, target_format="pdf", depth_top=101.0, depth_bottom=200.0,
+        source_signature="source-a", calculation_revision=3, presentation_revision=5,
+    )
+    assert base != build_report_document_counts_signature(
+        ReportDesign(title="Другой отчёт", sections=("plots", "results")),
+        target_format="pdf", depth_top=100.0, depth_bottom=200.0,
+        source_signature="source-a", calculation_revision=3, presentation_revision=5,
+    )
+    assert base != build_report_document_counts_signature(
+        design, target_format="pdf", depth_top=100.0, depth_bottom=200.0,
+        source_signature="source-b", calculation_revision=3, presentation_revision=5,
+    )

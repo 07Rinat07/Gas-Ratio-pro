@@ -8,7 +8,9 @@ never recalculates gas ratios, intervals or interpretation results.  A single
 by the selected design before PDF/DOCX renderers consume it.
 """
 
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
+import hashlib
+import json
 from typing import Literal
 
 from reports.document_model import (
@@ -121,6 +123,39 @@ class ReportDocumentCounts:
     plots: int = 0
     visualizations: int = 0
     notices: int = 0
+
+
+
+
+def build_report_document_counts_signature(
+    design: ReportDesign,
+    *,
+    target_format: str,
+    depth_top: float,
+    depth_bottom: float,
+    source_signature: str = "",
+    calculation_revision: int = 0,
+    presentation_revision: int = 0,
+) -> str:
+    """Build a stable context signature for persisted document counts.
+
+    Counts are valid only for the exact resolved design, output format, depth
+    interval and source/revision context that produced the document model.
+    """
+    resolved = resolve_report_design(design)
+    top, bottom = sorted((float(depth_top), float(depth_bottom)))
+    payload = {
+        "schema": 1,
+        "design": asdict(resolved),
+        "target_format": str(target_format or "").strip().lower().lstrip("."),
+        "depth_top": top,
+        "depth_bottom": bottom,
+        "source_signature": str(source_signature or "").strip(),
+        "calculation_revision": int(calculation_revision),
+        "presentation_revision": int(presentation_revision),
+    }
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -697,6 +732,7 @@ __all__ = [
     "ReportPageEstimate",
     "ReportDocumentCounts",
     "report_document_counts",
+    "build_report_document_counts_signature",
     "ReportFormatCapability",
     "ReportReadinessDiagnostic",
     "ReportStructurePreview",

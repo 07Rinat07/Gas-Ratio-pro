@@ -451,3 +451,21 @@ Validation:
 - `logs/app.log` is not present in the supplied archive.
 
 Next priority: bind persisted counts to the export request/design signature and suppress stale counts after control changes, then implement PDF page thumbnails.
+
+# Latest implementation — Signature-bound Report Preview Counts
+
+Status: COMPLETED
+
+Implemented:
+- public `build_report_document_counts_signature()` helper with canonical resolved design serialization;
+- persisted count snapshots now store `{signature, counts}` instead of unscoped counters;
+- preview reuses counts only when design, target format, normalized depth range, source signature and calculation/presentation revisions match;
+- stale and legacy snapshots are ignored without breaking the export form;
+- completion writes the signature from the exact request/design context that produced the artifact.
+
+Validation:
+- syntax compilation for report designer and Streamlit application;
+- focused report designer, structure-preview, export and Streamlit integration tests pass;
+- `logs/app.log` is not present in the supplied archive.
+
+Next priority: add timestamp/source metadata to the count snapshot, then implement PDF page thumbnails.

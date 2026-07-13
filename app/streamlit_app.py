@@ -338,6 +338,7 @@ from reports.presentation_ui import (
 from reports.report_designer import (
     ReportDesign,
     ReportDocumentCounts,
+    build_report_document_counts_signature,
     build_report_structure_preview,
     report_modes,
     report_templates,
@@ -9299,22 +9300,35 @@ def _render_professional_export_panel(
                 include_technical_appendix=bool(include_technical_design),
                 show_page_chrome=bool(show_page_chrome_design),
             )
-            saved_preview_counts = export_state.get(report_preview_counts_key)
-            if isinstance(saved_preview_counts, dict):
+            preview_target_format = next(
+                (option.id for option in format_options if option.label == selected_format_label),
+                format_options[0].id,
+            )
+            preview_counts_signature = build_report_document_counts_signature(
+                preview_design,
+                target_format=preview_target_format,
+                depth_top=float(print_top),
+                depth_bottom=float(print_bottom),
+                source_signature=str(calculated_signature),
+                calculation_revision=int(revision_snapshot.calculation),
+                presentation_revision=int(revision_snapshot.presentation),
+            )
+            saved_preview_payload = export_state.get(report_preview_counts_key)
+            saved_preview_counts = None
+            if (
+                isinstance(saved_preview_payload, dict)
+                and saved_preview_payload.get("signature") == preview_counts_signature
+                and isinstance(saved_preview_payload.get("counts"), dict)
+            ):
                 try:
-                    saved_preview_counts = ReportDocumentCounts(**saved_preview_counts)
+                    saved_preview_counts = ReportDocumentCounts(**saved_preview_payload["counts"])
                 except (TypeError, ValueError):
                     saved_preview_counts = None
-            if not isinstance(saved_preview_counts, ReportDocumentCounts):
-                saved_preview_counts = None
 
             structure_preview = build_report_structure_preview(
                 preview_design,
                 document_counts=saved_preview_counts,
-                target_format=next(
-                    (option.id for option in format_options if option.label == selected_format_label),
-                    format_options[0].id,
-                ),
+                target_format=preview_target_format,
             )
             with st.expander("Предпросмотр структуры отчёта", expanded=True):
                 st.caption(
@@ -9913,12 +9927,23 @@ def _render_professional_export_panel(
                 export_metrics = dict(completed.metrics)
                 if isinstance(completed.report_document_counts, ReportDocumentCounts):
                     export_state[report_preview_counts_key] = {
-                        "sections": completed.report_document_counts.sections,
-                        "tables": completed.report_document_counts.tables,
-                        "table_rows": completed.report_document_counts.table_rows,
-                        "plots": completed.report_document_counts.plots,
-                        "visualizations": completed.report_document_counts.visualizations,
-                        "notices": completed.report_document_counts.notices,
+                        "signature": build_report_document_counts_signature(
+                            report_design,
+                            target_format=selected_format.id,
+                            depth_top=current_print_depth_range[0],
+                            depth_bottom=current_print_depth_range[1],
+                            source_signature=current_export_request.source_signature,
+                            calculation_revision=current_export_request.calculation_revision,
+                            presentation_revision=current_export_request.presentation_revision,
+                        ),
+                        "counts": {
+                            "sections": completed.report_document_counts.sections,
+                            "tables": completed.report_document_counts.tables,
+                            "table_rows": completed.report_document_counts.table_rows,
+                            "plots": completed.report_document_counts.plots,
+                            "visualizations": completed.report_document_counts.visualizations,
+                            "notices": completed.report_document_counts.notices,
+                        },
                     }
                 export_state[export_cache_key] = {
                     "content": export_artifact.content,
