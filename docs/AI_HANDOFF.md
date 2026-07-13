@@ -1,3 +1,11 @@
+# Latest increment — Report Structure Page Estimate and Export Readiness
+
+Status: COMPLETED
+
+The report structure preview now exposes a lightweight estimated page range and a component breakdown. Estimates are based only on resolved design composition and remain safe for every Streamlit rerun. Readiness diagnostics identify blocking design errors, disabled graphical sections and reports large enough to benefit from background export.
+
+Next priority: refine estimates with prepared EngineeringDocument counts while keeping the preview renderer-neutral.
+
 # Latest implementation — Background Export Runtime Performance Summary
 
 Status: COMPLETED

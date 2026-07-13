@@ -1,3 +1,20 @@
+# Latest increment — Report Structure Page Estimate and Export Readiness
+
+Status: COMPLETED
+
+Implemented:
+- renderer-neutral page composition estimates for cover, TOC, report sections and technical appendix;
+- min/max page range without rendering plots, tables, PDF or DOCX binaries;
+- export-readiness diagnostics for blocking configuration, disabled sections and large reports;
+- Streamlit presentation of estimated volume and per-component page contribution;
+- regression tests for standard, disabled-figure and blocked-design scenarios.
+
+Validation:
+- `python -m py_compile reports/report_designer.py app/streamlit_app.py`;
+- focused report preview and export integration tests.
+
+Next priority: use real document-model counts to refine page estimates and add PDF/DOCX-specific readiness diagnostics.
+
 # Latest increment — Background Export Runtime Performance Summary
 
 Status: COMPLETED

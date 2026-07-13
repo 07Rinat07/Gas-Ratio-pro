@@ -9321,6 +9321,29 @@ def _render_professional_export_panel(
                 st.caption(
                     "Дополнительно: " + (", ".join(preview_flags) if preview_flags else "не включено")
                 )
+                st.metric(
+                    "Оценочный объём",
+                    f"{structure_preview.estimated_min_pages}–{structure_preview.estimated_max_pages} стр.",
+                    help="Диапазон рассчитан по составу разделов без построения бинарного PDF/DOCX.",
+                )
+                with st.expander("Оценка состава страниц", expanded=False):
+                    for estimate in structure_preview.page_estimates:
+                        state = "✅" if estimate.enabled else "⏸️"
+                        page_range = (
+                            str(estimate.min_pages)
+                            if estimate.min_pages == estimate.max_pages
+                            else f"{estimate.min_pages}–{estimate.max_pages}"
+                        )
+                        st.caption(f"{state} {estimate.label}: {page_range} стр.")
+                for diagnostic in structure_preview.diagnostics:
+                    if diagnostic.level == "error":
+                        st.error(diagnostic.message)
+                    elif diagnostic.level == "warning":
+                        st.warning(diagnostic.message)
+                    elif diagnostic.level == "success":
+                        st.success(diagnostic.message)
+                    else:
+                        st.info(diagnostic.message)
                 for preview_issue in structure_preview.issues:
                     st.error(preview_issue.message) if preview_issue.blocking else st.warning(preview_issue.message)
 

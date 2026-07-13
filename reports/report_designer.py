@@ -101,6 +101,26 @@ class ReportPreviewItem:
 
 
 @dataclass(frozen=True)
+class ReportPageEstimate:
+    """Estimated page contribution of one report component."""
+
+    id: str
+    label: str
+    min_pages: int
+    max_pages: int
+    enabled: bool = True
+
+
+@dataclass(frozen=True)
+class ReportReadinessDiagnostic:
+    """Human-readable export-readiness diagnostic for the preview UI."""
+
+    code: str
+    level: str
+    message: str
+
+
+@dataclass(frozen=True)
 class ReportStructurePreview:
     """Resolved report composition for UI review before rendering."""
 
@@ -116,6 +136,10 @@ class ReportStructurePreview:
     paper_size: str
     orientation: str
     margin_mm: int
+    page_estimates: tuple[ReportPageEstimate, ...] = ()
+    estimated_min_pages: int = 0
+    estimated_max_pages: int = 0
+    diagnostics: tuple[ReportReadinessDiagnostic, ...] = ()
     issues: tuple[ReportDesignIssue, ...] = ()
 
     @property
@@ -379,6 +403,14 @@ def build_designed_report(model: PresentationModel, design: ReportDesign | None 
 
 
 
+_SECTION_PAGE_ESTIMATES = {
+    "plots": (2, 6),
+    "visualizations": (2, 8),
+    "results": (1, 4),
+    "conclusion": (1, 2),
+}
+
+
 _SECTION_PREVIEW = {
     "plots": ("Инженерные графики", "Кривые, газовые отношения и глубинные графики."),
     "visualizations": ("Планшеты и визуализации", "Интерпретационные планшеты и графические приложения."),
@@ -430,6 +462,49 @@ def build_report_structure_preview(design: ReportDesign | None = None) -> Report
         if section_id in _SECTION_PREVIEW
     )
 
+    page_estimates: list[ReportPageEstimate] = [
+        ReportPageEstimate("cover", "Титульная страница", 1, 1),
+    ]
+    if include_toc:
+        page_estimates.append(ReportPageEstimate("toc", "Оглавление", 1, 2))
+    for item in preview_sections:
+        min_pages, max_pages = _SECTION_PAGE_ESTIMATES[item.id]
+        page_estimates.append(
+            ReportPageEstimate(item.id, item.label, min_pages, max_pages, item.enabled)
+        )
+    if include_technical:
+        page_estimates.append(ReportPageEstimate("technical_appendix", "Техническое приложение", 2, 6))
+
+    enabled_estimates = tuple(item for item in page_estimates if item.enabled)
+    estimated_min_pages = sum(item.min_pages for item in enabled_estimates)
+    estimated_max_pages = sum(item.max_pages for item in enabled_estimates)
+
+    diagnostics: list[ReportReadinessDiagnostic] = []
+    if any(issue.blocking for issue in issues):
+        diagnostics.append(ReportReadinessDiagnostic(
+            "design.blocked", "error", "Экспорт заблокирован: исправьте обязательные параметры отчёта."
+        ))
+    else:
+        diagnostics.append(ReportReadinessDiagnostic(
+            "design.ready", "success", "Структура отчёта готова к формированию PDF/DOCX."
+        ))
+    disabled_sections = tuple(item.label for item in preview_sections if not item.enabled)
+    if disabled_sections:
+        diagnostics.append(ReportReadinessDiagnostic(
+            "sections.disabled", "warning",
+            "Отключены разделы без графического содержимого: " + ", ".join(disabled_sections) + "."
+        ))
+    if estimated_max_pages >= 15:
+        diagnostics.append(ReportReadinessDiagnostic(
+            "pages.large", "info",
+            "Ожидается объёмный отчёт; фоновый экспорт рекомендуется для стабильной работы интерфейса."
+        ))
+    if include_bookmarks and not include_toc:
+        diagnostics.append(ReportReadinessDiagnostic(
+            "navigation.bookmarks_only", "info",
+            "PDF-закладки включены без печатного оглавления."
+        ))
+
     return ReportStructurePreview(
         mode_label=mode.label,
         template_label=template.label,
@@ -443,6 +518,10 @@ def build_report_structure_preview(design: ReportDesign | None = None) -> Report
         paper_size=str(resolved.paper_size or template.paper_size).strip().upper(),
         orientation=str(resolved.orientation or template.orientation).strip().lower(),
         margin_mm=template.margin_mm if resolved.margin_mm is None else int(resolved.margin_mm),
+        page_estimates=tuple(page_estimates),
+        estimated_min_pages=estimated_min_pages,
+        estimated_max_pages=estimated_max_pages,
+        diagnostics=tuple(diagnostics),
         issues=issues,
     )
 
@@ -462,6 +541,8 @@ __all__ = [
     "ReportDesignIssue",
     "ReportDesignResult",
     "ReportPreviewItem",
+    "ReportPageEstimate",
+    "ReportReadinessDiagnostic",
     "ReportStructurePreview",
     "ReportSectionId",
     "ReportTemplate",

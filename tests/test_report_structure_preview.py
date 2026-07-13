@@ -61,3 +61,39 @@ def test_preview_marks_figure_sections_disabled_when_figures_are_off():
         "visualizations": False,
         "results": True,
     }
+
+
+def test_preview_estimates_page_composition_without_rendering():
+    preview = build_report_structure_preview(ReportDesign(mode_id="standard"))
+
+    assert preview.estimated_min_pages > 0
+    assert preview.estimated_max_pages >= preview.estimated_min_pages
+    estimates = {item.id: item for item in preview.page_estimates}
+    assert estimates["cover"].min_pages == 1
+    assert estimates["toc"].enabled is True
+    assert estimates["plots"].max_pages >= estimates["plots"].min_pages
+    assert any(item.code == "design.ready" for item in preview.diagnostics)
+
+
+def test_preview_excludes_disabled_figure_sections_from_page_total():
+    preview = build_report_structure_preview(
+        ReportDesign(
+            mode_id="custom",
+            sections=("plots", "results"),
+            include_figures=False,
+            include_table_of_contents=False,
+            include_technical_appendix=False,
+        )
+    )
+
+    estimates = {item.id: item for item in preview.page_estimates}
+    assert estimates["plots"].enabled is False
+    assert preview.estimated_min_pages == 2  # cover + results
+    assert any(item.code == "sections.disabled" for item in preview.diagnostics)
+
+
+def test_blocking_design_issue_is_reflected_in_readiness_diagnostics():
+    preview = build_report_structure_preview(ReportDesign(mode_id="custom", title="", sections=()))
+
+    assert preview.ready is False
+    assert any(item.level == "error" and item.code == "design.blocked" for item in preview.diagnostics)
