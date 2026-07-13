@@ -335,7 +335,7 @@ from reports.presentation_ui import (
     export_format_options,
     report_profile_options,
 )
-from reports.report_designer import ReportDesign, report_templates
+from reports.report_designer import ReportDesign, report_modes, report_templates
 from reports.report_designer_export import build_designed_report_artifact
 from reports.export_las import export_las_bytes
 from reports.export_xlsx import export_xlsx_bytes
@@ -9004,6 +9004,16 @@ def _render_professional_export_panel(
                 key=form_keys["format"],
                 help=tooltip("report.format"),
             )
+            designer_modes = report_modes()
+            mode_by_label = {item.label: item for item in designer_modes}
+            selected_mode_label = st.selectbox(
+                "Режим отчёта",
+                options=tuple(mode_by_label),
+                index=2,
+                key=f"report_designer_mode_{active_project.id}",
+                help="Краткий — только ключевые результаты; стандартный — основные графики и выводы; полный инженерный — весь комплект разделов и приложений.",
+            )
+            selected_mode = mode_by_label[selected_mode_label]
             designer_templates = report_templates()
             template_by_label = {item.label: item for item in designer_templates}
             selected_template_label = st.selectbox(
@@ -9102,6 +9112,7 @@ def _render_professional_export_panel(
             "Заключение и ограничения": "conclusion",
         }
         report_design = ReportDesign(
+            mode_id=selected_mode.id,
             template_id=selected_template.id,
             title=str(report_title or "").strip(),
             document_code=f"GRP-{str(active_project.id).upper()[:16]}",
@@ -9132,7 +9143,7 @@ def _render_professional_export_panel(
                 (
                     f"ranking={export_state.get('active_reservoir_ranking_profile', '')}|"
                     f"interval={selected_interval_id or ''}|scope={print_mode}|"
-                    f"template={report_design.template_id}|title={report_design.title}|"
+                    f"mode={report_design.mode_id}|template={report_design.template_id}|title={report_design.title}|"
                     f"sections={','.join(report_design.sections)}|technical={report_design.include_technical_appendix}|"
                     f"chrome={report_design.show_page_chrome}"
                 ).encode("utf-8")

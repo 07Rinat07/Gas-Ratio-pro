@@ -4,8 +4,11 @@ from reports.document_model import DocumentNotice, DocumentPlot, DocumentTable
 from reports.report_designer import (
     ReportDesign,
     build_designed_report,
+    report_mode_by_id,
+    report_modes,
     report_template_by_id,
     report_templates,
+    resolve_report_design,
     validate_report_design,
 )
 
@@ -99,3 +102,38 @@ def test_designer_builds_synchronized_renderer_options():
     assert result.pdf_options.margin_mm == result.docx_options.margin_mm == 18
     assert result.pdf_options.document_code == "GRP-WA-01"
     assert result.pdf_options.classification == "INTERNAL"
+
+
+def test_report_modes_are_stable_and_have_safe_fallback():
+    assert tuple(item.id for item in report_modes()) == (
+        "custom", "brief", "standard", "full_engineering"
+    )
+    assert report_mode_by_id("unknown").id == "custom"
+
+
+def test_standard_mode_resolves_to_compact_corporate_report():
+    resolved = resolve_report_design(
+        ReportDesign(mode_id="standard", template_id="engineering", sections=("visualizations",))
+    )
+    assert resolved.template_id == "corporate"
+    assert resolved.sections == ("plots", "results", "conclusion")
+    assert resolved.include_figures is True
+    assert resolved.include_technical_appendix is False
+
+
+def test_full_engineering_mode_enables_all_sections_and_appendix():
+    result = build_designed_report(_Model(), ReportDesign(mode_id="full_engineering", title="Full"))
+    assert result.ready
+    assert result.design.template_id == "engineering"
+    assert result.design.sections == ("plots", "visualizations", "results", "conclusion")
+    assert result.pdf_options is not None
+    assert result.pdf_options.include_technical_appendix is True
+
+
+def test_brief_mode_disables_figures_and_technical_appendix():
+    result = build_designed_report(_Model(), ReportDesign(mode_id="brief", title="Brief"))
+    assert result.ready
+    assert result.design.template_id == "minimal"
+    assert result.pdf_options is not None
+    assert result.pdf_options.include_figures is False
+    assert result.pdf_options.include_technical_appendix is False

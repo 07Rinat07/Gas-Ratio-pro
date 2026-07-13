@@ -1,3 +1,11 @@
+## Latest implementation — Report Output Modes
+
+- Added user-selectable Brief, Standard and Full Engineering report modes.
+- Added Custom mode for manual template and section control.
+- Report modes resolve through the existing renderer-neutral Report Designer.
+- Export cache signatures now include the selected report mode.
+- Next priority: table of contents and PDF bookmarks.
+
 ## Latest implementation — Export Performance and Memory Guard
 
 - ExportController now limits artifact cache by count and actual binary payload size.

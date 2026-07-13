@@ -24,6 +24,7 @@ from reports.presentation_model import PresentationModel
 from reports.presentation_pdf import PresentationPdfOptions
 
 ReportTemplateId = Literal["engineering", "corporate", "minimal"]
+ReportModeId = Literal["custom", "brief", "standard", "full_engineering"]
 ReportSectionId = Literal["plots", "visualizations", "results", "conclusion"]
 
 
@@ -42,9 +43,22 @@ class ReportTemplate:
 
 
 @dataclass(frozen=True)
+class ReportMode:
+    id: ReportModeId
+    label: str
+    description: str
+    template_id: ReportTemplateId
+    sections: tuple[ReportSectionId, ...]
+    include_figures: bool
+    include_technical_appendix: bool
+    show_page_chrome: bool
+
+
+@dataclass(frozen=True)
 class ReportDesign:
     """User-selected professional report composition."""
 
+    mode_id: ReportModeId = "custom"
     template_id: ReportTemplateId = "engineering"
     title: str = "Gas Ratio Professional Report"
     subtitle: str = "Инженерное заключение по вероятным УВ-интервалам"
@@ -113,6 +127,74 @@ _TEMPLATES: tuple[ReportTemplate, ...] = (
 )
 
 
+_REPORT_MODES: tuple[ReportMode, ...] = (
+    ReportMode(
+        id="custom",
+        label="По шаблону",
+        description="Ручная настройка шаблона, разделов и приложений.",
+        template_id="engineering",
+        sections=(),
+        include_figures=True,
+        include_technical_appendix=True,
+        show_page_chrome=True,
+    ),
+    ReportMode(
+        id="brief",
+        label="Краткий",
+        description="Ключевые результаты и заключение без графических приложений.",
+        template_id="minimal",
+        sections=("results", "conclusion"),
+        include_figures=False,
+        include_technical_appendix=False,
+        show_page_chrome=False,
+    ),
+    ReportMode(
+        id="standard",
+        label="Стандартный",
+        description="Основные инженерные графики, результаты и заключение.",
+        template_id="corporate",
+        sections=("plots", "results", "conclusion"),
+        include_figures=True,
+        include_technical_appendix=False,
+        show_page_chrome=True,
+    ),
+    ReportMode(
+        id="full_engineering",
+        label="Полный инженерный",
+        description="Полный комплект графиков, планшетов, результатов и технических приложений.",
+        template_id="engineering",
+        sections=("plots", "visualizations", "results", "conclusion"),
+        include_figures=True,
+        include_technical_appendix=True,
+        show_page_chrome=True,
+    ),
+)
+
+
+def report_modes() -> tuple[ReportMode, ...]:
+    return _REPORT_MODES
+
+
+def report_mode_by_id(mode_id: str | None) -> ReportMode:
+    normalized = str(mode_id or "custom").strip().lower()
+    return next((item for item in _REPORT_MODES if item.id == normalized), _REPORT_MODES[0])
+
+
+def resolve_report_design(design: ReportDesign) -> ReportDesign:
+    """Apply a predefined report mode while preserving user metadata fields."""
+
+    mode = report_mode_by_id(design.mode_id)
+    if mode.id == "custom":
+        return design
+    return replace(
+        design,
+        template_id=mode.template_id,
+        sections=mode.sections,
+        include_figures=mode.include_figures,
+        include_technical_appendix=mode.include_technical_appendix,
+        show_page_chrome=mode.show_page_chrome,
+    )
+
 def report_templates() -> tuple[ReportTemplate, ...]:
     return _TEMPLATES
 
@@ -140,6 +222,7 @@ def _clean_text(value: str, fallback: str) -> str:
 
 
 def validate_report_design(design: ReportDesign) -> tuple[ReportDesignIssue, ...]:
+    design = resolve_report_design(design)
     issues: list[ReportDesignIssue] = []
     template = report_template_by_id(design.template_id)
     sections = design.sections or template.default_sections
@@ -161,7 +244,7 @@ def validate_report_design(design: ReportDesign) -> tuple[ReportDesignIssue, ...
 def build_designed_report(model: PresentationModel, design: ReportDesign | None = None) -> ReportDesignResult:
     """Build a customized document and synchronized PDF/DOCX options."""
 
-    design = design or ReportDesign()
+    design = resolve_report_design(design or ReportDesign())
     issues = validate_report_design(design)
     if any(issue.blocking for issue in issues):
         return ReportDesignResult(design, None, None, None, issues)
@@ -235,13 +318,18 @@ def require_designed_report(model: PresentationModel, design: ReportDesign | Non
 
 __all__ = [
     "ReportDesign",
+    "ReportMode",
+    "ReportModeId",
     "ReportDesignIssue",
     "ReportDesignResult",
     "ReportSectionId",
     "ReportTemplate",
     "ReportTemplateId",
     "build_designed_report",
+    "report_mode_by_id",
+    "report_modes",
     "report_template_by_id",
+    "resolve_report_design",
     "report_templates",
     "require_designed_report",
     "validate_report_design",

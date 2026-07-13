@@ -1,3 +1,14 @@
+## Current increment: Report Output Modes — COMPLETED
+
+Implemented:
+- added Brief, Standard and Full Engineering report modes;
+- preserved manual template composition through the Custom mode;
+- synchronized mode selection with Report Designer sections, figures, technical appendix and page chrome;
+- included report mode in export cache invalidation;
+- added regression tests for mode resolution and Streamlit integration.
+
+Next: table of contents and PDF bookmarks.
+
 ## Current increment: Export Performance and Memory Guard — COMPLETED
 
 Implemented:
