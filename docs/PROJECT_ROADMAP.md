@@ -1496,3 +1496,9 @@ Next priority: add bounded retention and cleanup for quarantined metadata files 
 - Temporary source and page files are isolated outside project `data/` and removed automatically.
 - Next step: connect the service to the Report Designer UI and cache previews by report signature.
 
+
+### Implemented: PDF Preview UI integration
+
+- On-demand bounded thumbnails for completed PDF exports.
+- Session cache bound to artifact content and export request signature.
+- Safe fallback when PyMuPDF/pdftoppm is unavailable.

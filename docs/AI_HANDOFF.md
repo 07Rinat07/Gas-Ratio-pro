@@ -555,3 +555,7 @@ Keep all plans, handoff notes, roadmaps, and progress documents in `docs/`. Do n
 - Temporary source and page files are isolated outside project `data/` and removed automatically.
 - Next step: connect the service to the Report Designer UI and cache previews by report signature.
 
+
+## Latest increment: PDF Preview UI integration
+
+The Professional Export panel now imports `reports.pdf_preview` and renders on-demand thumbnails only for a completed PDF whose request signature still matches the current controls. Cache key: `presentation_pdf_preview_<project_id>`. The cached payload stores `{signature, result}` and is invalidated on export completion and settings reset. Do not create planning Markdown files in the repository root; keep them under `docs/`.

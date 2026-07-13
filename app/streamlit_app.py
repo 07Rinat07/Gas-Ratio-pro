@@ -347,6 +347,12 @@ from reports.report_designer import (
 )
 from reports.report_designer_export import build_designed_report_artifact
 from reports.report_preview_persistence import ReportPreviewCountsRepository
+from reports.pdf_preview import (
+    PdfPreviewResult,
+    PdfPreviewUnavailableError,
+    build_pdf_preview,
+    build_pdf_preview_signature,
+)
 from reports.export_wizard import (
     ExportWizardCapabilities,
     ExportWizardState,
@@ -9010,6 +9016,7 @@ def _render_professional_export_panel(
         export_cache_key = f"presentation_export_artifact_{active_project.id}"
         export_error_key = f"presentation_export_error_{active_project.id}"
         report_preview_counts_key = f"presentation_report_document_counts_{active_project.id}"
+        pdf_preview_cache_key = f"presentation_pdf_preview_{active_project.id}"
 
         print_mode_options = [
             "Вся скважина и все УВ-интервалы",
@@ -9222,6 +9229,7 @@ def _render_professional_export_panel(
                 export_cache_key,
                 export_error_key,
                 report_preview_counts_key,
+                pdf_preview_cache_key,
                 preview_counts_restore_key,
                 preview_counts_recovery_notice_key,
                 form_keys["profile"],
@@ -10012,6 +10020,7 @@ def _render_professional_export_panel(
                             "report_preview_counts_persist_failed project_id=%s",
                             safe_log_value(active_project.id),
                         )
+                export_state.pop(pdf_preview_cache_key, None)
                 export_state[export_cache_key] = {
                     "content": export_artifact.content,
                     "file_name": export_artifact.file_name,
@@ -10082,6 +10091,90 @@ def _render_professional_export_panel(
                 f"Подготовлен формат: {cached_export.get('format_label', '—')}; "
                 f"диапазон {cached_export.get('depth_top', '—')}–{cached_export.get('depth_bottom', '—')} м."
             )
+
+            if str(cached_export.get("format_id", "")).lower() == "pdf":
+                with st.expander("Предпросмотр страниц PDF", expanded=False):
+                    preview_controls, preview_action = st.columns([2, 1])
+                    preview_page_limit = preview_controls.select_slider(
+                        "Количество страниц",
+                        options=(1, 2, 3, 4, 5, 8, 12),
+                        value=5,
+                        key=f"pdf_preview_page_limit_{active_project.id}",
+                    )
+                    preview_dpi = 110
+                    pdf_payload = cached_export.get("content", b"")
+                    expected_preview_signature = None
+                    try:
+                        expected_preview_signature = build_pdf_preview_signature(
+                            pdf_payload,
+                            request_signature=str(cached_export.get("request_signature", "")),
+                            page_limit=int(preview_page_limit),
+                            dpi=preview_dpi,
+                        )
+                    except (TypeError, ValueError):
+                        st.error("Готовый PDF повреждён или недоступен для предпросмотра.")
+
+                    cached_pdf_preview = export_state.get(pdf_preview_cache_key)
+                    preview_matches = (
+                        isinstance(cached_pdf_preview, dict)
+                        and cached_pdf_preview.get("signature") == expected_preview_signature
+                        and isinstance(cached_pdf_preview.get("result"), PdfPreviewResult)
+                    )
+                    if preview_action.button(
+                        "Создать предпросмотр",
+                        key=f"build_pdf_preview_{active_project.id}",
+                        width="stretch",
+                        disabled=expected_preview_signature is None,
+                    ):
+                        try:
+                            preview_result = build_pdf_preview(
+                                pdf_payload,
+                                page_limit=int(preview_page_limit),
+                                dpi=preview_dpi,
+                            )
+                            export_state[pdf_preview_cache_key] = {
+                                "signature": expected_preview_signature,
+                                "result": preview_result,
+                            }
+                            cached_pdf_preview = export_state[pdf_preview_cache_key]
+                            preview_matches = True
+                            logger.info(
+                                "pdf_preview_built project_id=%s pages=%d total=%d backend=%s",
+                                safe_log_value(active_project.id),
+                                preview_result.rendered_pages,
+                                preview_result.total_pages,
+                                safe_log_value(preview_result.backend),
+                            )
+                        except (PdfPreviewUnavailableError, ValueError, OSError) as exc:
+                            logger.warning(
+                                "pdf_preview_failed project_id=%s error=%s",
+                                safe_log_value(active_project.id),
+                                safe_log_value(exc),
+                            )
+                            st.warning(
+                                "Предпросмотр PDF недоступен в текущем окружении. "
+                                "Готовый файл всё равно можно скачать."
+                            )
+
+                    if preview_matches:
+                        preview_result = cached_pdf_preview["result"]
+                        st.caption(
+                            f"Показано страниц: {preview_result.rendered_pages} из "
+                            f"{preview_result.total_pages}; backend: {preview_result.backend}."
+                        )
+                        if preview_result.truncated:
+                            st.info("Предпросмотр ограничен выбранным количеством страниц.")
+                        for page in preview_result.pages:
+                            st.image(
+                                page.image_png,
+                                caption=f"Страница {page.page_number}",
+                                width="stretch",
+                            )
+                    else:
+                        st.caption(
+                            "Миниатюры создаются только по запросу и кэшируются до изменения "
+                            "PDF, параметров экспорта или лимита страниц."
+                        )
         elif isinstance(cached_export, dict):
             st.warning(
                 "Настройки экспорта изменены. Ранее подготовленный файл относится к другому "

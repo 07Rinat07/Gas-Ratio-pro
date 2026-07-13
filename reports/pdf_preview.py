@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
+import hashlib
 import shutil
 import subprocess
 import tempfile
@@ -142,6 +143,36 @@ def _render_with_pdftoppm(pdf_bytes: bytes, *, page_limit: int, dpi: int) -> Pdf
         )
 
 
+
+def build_pdf_preview_signature(
+    pdf_content: bytes | bytearray | memoryview,
+    *,
+    request_signature: str = "",
+    page_limit: int = 5,
+    dpi: int = 110,
+) -> str:
+    """Return a stable cache signature for a rendered PDF preview.
+
+    The digest binds the preview to both the actual PDF bytes and the current
+    export request.  This prevents stale thumbnails from surviving a report
+    rebuild that happens to reuse the same UI controls.
+    """
+
+    payload = bytes(pdf_content)
+    if not payload.startswith(b"%PDF-"):
+        raise ValueError("pdf_content must contain a valid PDF payload")
+    safe_limit = _bounded_page_limit(page_limit)
+    safe_dpi = _bounded_dpi(dpi)
+    digest = hashlib.sha256()
+    digest.update(payload)
+    digest.update(b"\0")
+    digest.update(str(request_signature or "").encode("utf-8"))
+    digest.update(b"\0")
+    digest.update(str(safe_limit).encode("ascii"))
+    digest.update(b"\0")
+    digest.update(str(safe_dpi).encode("ascii"))
+    return digest.hexdigest()
+
 def build_pdf_preview(
     pdf_content: bytes | bytearray | memoryview,
     *,
@@ -175,4 +206,5 @@ __all__ = [
     "PdfPreviewResult",
     "PdfPreviewUnavailableError",
     "build_pdf_preview",
+    "build_pdf_preview_signature",
 ]

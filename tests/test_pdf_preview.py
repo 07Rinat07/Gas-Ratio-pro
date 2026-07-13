@@ -4,7 +4,7 @@ from io import BytesIO
 
 import pytest
 
-from reports.pdf_preview import build_pdf_preview
+from reports.pdf_preview import build_pdf_preview, build_pdf_preview_signature
 
 
 def _sample_pdf(page_count: int = 3) -> bytes:
@@ -47,3 +47,26 @@ def test_build_pdf_preview_rejects_non_pdf_payload() -> None:
 def test_build_pdf_preview_clamps_page_limit() -> None:
     result = build_pdf_preview(_sample_pdf(2), page_limit=0)
     assert result.rendered_pages == 1
+
+
+def test_pdf_preview_signature_is_stable_and_parameter_bound() -> None:
+    payload = _sample_pdf(2)
+    first = build_pdf_preview_signature(
+        payload, request_signature="request-a", page_limit=5, dpi=110
+    )
+    second = build_pdf_preview_signature(
+        payload, request_signature="request-a", page_limit=5, dpi=110
+    )
+
+    assert first == second
+    assert first != build_pdf_preview_signature(
+        payload, request_signature="request-b", page_limit=5, dpi=110
+    )
+    assert first != build_pdf_preview_signature(
+        payload, request_signature="request-a", page_limit=2, dpi=110
+    )
+
+
+def test_pdf_preview_signature_rejects_non_pdf_payload() -> None:
+    with pytest.raises(ValueError, match="valid PDF"):
+        build_pdf_preview_signature(b"not-a-pdf")
