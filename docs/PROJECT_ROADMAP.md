@@ -1,3 +1,14 @@
+## Current increment: Export Wizard Draft Persistence — COMPLETED
+
+Implemented:
+- added project-scoped persistence for unfinished Professional Export Wizard settings;
+- restores profile, format, report mode, template, title, sections, print scope and depth range;
+- uses schema-versioned JSON and atomic file replacement;
+- excludes engineering dataframes, rendered binaries and credentials from persisted drafts;
+- added corruption, cross-project and round-trip regression tests.
+
+Next priority: explicit reset/clear-draft action and last successful export history.
+
 ## Current increment: Visual Export Wizard Review — COMPLETED
 
 Implemented:

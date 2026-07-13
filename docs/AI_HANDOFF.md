@@ -1,3 +1,16 @@
+# Latest implementation — Export Wizard Draft Persistence
+
+Status: COMPLETED
+
+Implemented:
+- project-scoped unfinished export draft repository;
+- automatic restore into Streamlit session state on first panel render;
+- automatic save of profile, format, report design and print range;
+- schema validation, atomic writes and project-boundary protection;
+- no raw engineering payload or rendered artifact persistence.
+
+Next priority: reset/clear draft control and compact history of successful exports.
+
 # Latest implementation — Visual Export Wizard Review
 
 Status: COMPLETED

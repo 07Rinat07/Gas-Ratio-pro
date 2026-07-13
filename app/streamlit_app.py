@@ -348,6 +348,10 @@ from reports.export_wizard import (
     ExportWizardStep,
     build_export_wizard_review,
 )
+from reports.export_wizard_persistence import (
+    ExportWizardDraft,
+    ExportWizardDraftRepository,
+)
 from reports.export_las import export_las_bytes
 from reports.export_xlsx import export_xlsx_bytes
 from reports.export_controller import (
@@ -8995,6 +8999,47 @@ def _render_professional_export_panel(
             default_bottom=default_print_bottom,
         )
         form_keys = normalized_form["keys"]
+        designer_modes = report_modes()
+        mode_by_label = {item.label: item for item in designer_modes}
+        designer_templates = report_templates()
+        template_by_label = {item.label: item for item in designer_templates}
+        draft_repository = ExportWizardDraftRepository(ROOT_DIR / "data" / "projects")
+        draft_key = f"export_wizard_draft_restored_{active_project.id}"
+        if not st.session_state.get(draft_key):
+            try:
+                saved_draft = draft_repository.load(str(active_project.id))
+            except (OSError, ValueError, TypeError):
+                logger.exception("export_wizard_draft_restore_failed project_id=%s", safe_log_value(active_project.id))
+                saved_draft = None
+            if saved_draft is not None:
+                profile_label_by_id = {item.id: item.label for item in profile_options}
+                format_label_by_id = {item.id: item.label for item in format_options}
+                mode_label_by_id = {item.id: item.label for item in designer_modes}
+                template_label_by_id = {item.id: item.label for item in designer_templates}
+                st.session_state.setdefault(form_keys["profile"], profile_label_by_id.get(saved_draft.wizard.profile, profile_options[0].label))
+                st.session_state.setdefault(form_keys["format"], format_label_by_id.get(saved_draft.wizard.export_format, format_options[0].label))
+                st.session_state.setdefault(form_keys["print_mode"], saved_draft.print_mode)
+                if saved_draft.depth_top is not None:
+                    st.session_state.setdefault(form_keys["top"], float(saved_draft.depth_top))
+                if saved_draft.depth_bottom is not None:
+                    st.session_state.setdefault(form_keys["bottom"], float(saved_draft.depth_bottom))
+                st.session_state.setdefault(f"report_designer_mode_{active_project.id}", mode_label_by_id.get(saved_draft.report_mode_id, designer_modes[0].label))
+                st.session_state.setdefault(f"report_designer_template_{active_project.id}", template_label_by_id.get(saved_draft.template_id, designer_templates[0].label))
+                st.session_state.setdefault(f"report_designer_title_{active_project.id}", saved_draft.report_title)
+                st.session_state.setdefault(f"report_designer_technical_{active_project.id}", saved_draft.include_technical_appendix)
+                st.session_state.setdefault(f"report_designer_chrome_{active_project.id}", saved_draft.show_page_chrome)
+                restored_template = next((item for item in designer_templates if item.id == saved_draft.template_id), designer_templates[0])
+                section_labels_restore = {
+                    "plots": "Инженерные графики",
+                    "visualizations": "Планшеты и визуализации",
+                    "results": "Расчётные результаты",
+                    "conclusion": "Заключение и ограничения",
+                }
+                st.session_state.setdefault(
+                    f"report_designer_sections_{active_project.id}_{restored_template.id}",
+                    [section_labels_restore[item] for item in saved_draft.sections if item in section_labels_restore],
+                )
+            st.session_state[draft_key] = True
 
         # A form batches profile/format changes and starts the costly renderer
         # only after explicit confirmation. Persisted values are normalized
@@ -9015,8 +9060,6 @@ def _render_professional_export_panel(
                 key=form_keys["format"],
                 help=tooltip("report.format"),
             )
-            designer_modes = report_modes()
-            mode_by_label = {item.label: item for item in designer_modes}
             selected_mode_label = st.selectbox(
                 "Режим отчёта",
                 options=tuple(mode_by_label),
@@ -9025,8 +9068,6 @@ def _render_professional_export_panel(
                 help="Краткий — только ключевые результаты; стандартный — основные графики и выводы; полный инженерный — весь комплект разделов и приложений.",
             )
             selected_mode = mode_by_label[selected_mode_label]
-            designer_templates = report_templates()
-            template_by_label = {item.label: item for item in designer_templates}
             selected_template_label = st.selectbox(
                 "Шаблон оформления",
                 options=tuple(template_by_label),
@@ -9231,6 +9272,25 @@ def _render_professional_export_panel(
             min(float(print_top), float(print_bottom)),
             max(float(print_top), float(print_bottom)),
         )
+        try:
+            draft_repository.save(
+                ExportWizardDraft(
+                    project_id=str(active_project.id),
+                    wizard=wizard_state,
+                    report_mode_id=report_design.mode_id,
+                    template_id=report_design.template_id,
+                    report_title=report_design.title,
+                    sections=report_design.sections,
+                    include_technical_appendix=report_design.include_technical_appendix,
+                    show_page_chrome=report_design.show_page_chrome,
+                    print_mode=str(print_mode),
+                    depth_top=float(current_print_depth_range[0]),
+                    depth_bottom=float(current_print_depth_range[1]),
+                )
+            )
+        except (OSError, ValueError, TypeError):
+            logger.exception("export_wizard_draft_save_failed project_id=%s", safe_log_value(active_project.id))
+
         current_export_request = ExportRequest(
             project_id=str(active_project.id),
             project_name=str(active_project.name),
