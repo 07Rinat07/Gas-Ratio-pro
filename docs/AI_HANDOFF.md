@@ -1,3 +1,17 @@
+# Latest implementation — Recoverable Background Export Foundation
+
+Status: COMPLETED
+
+Implemented:
+- added `reports/background_export.py` with a single-worker background queue;
+- added metadata-only recoverable snapshots and orphan detection after restart;
+- added cooperative cancellation and monotonic progress callbacks;
+- added duplicate request protection and bounded snapshot retention;
+- extended `ExportController.prepare()` with optional progress/cancellation hooks;
+- synchronous export behavior remains backward compatible.
+
+Next priority: Streamlit polling UI, Cancel action and completed-artifact handoff.
+
 # Latest implementation — Confirmed Stale Export Rebuild
 
 Status: COMPLETED

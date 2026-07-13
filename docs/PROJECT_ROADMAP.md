@@ -1,3 +1,17 @@
+# Latest increment — Recoverable Background Export Foundation
+
+Status: COMPLETED
+
+Implemented:
+- process-local background export queue with bounded metadata snapshots;
+- monotonic progress reporting and cooperative cancellation checkpoints;
+- duplicate active-request protection per project and request signature;
+- interrupted jobs are recovered as orphaned after application restart;
+- binary artifacts remain in the existing bounded cache and are never persisted in job metadata;
+- ExportController exposes optional progress and cancellation callbacks without breaking synchronous callers.
+
+Next priority: connect the background manager to the Streamlit Professional Export panel with polling, Cancel and result handoff.
+
 # Latest increment — Confirmed Stale Export Rebuild
 
 Status: COMPLETED

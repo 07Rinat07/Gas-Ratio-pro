@@ -340,7 +340,16 @@ class ExportController:
         frame: Any,
         build_model: Callable[[Any, ExportRequest], Any],
         render_artifact: Callable[[Any, Any, ExportRequest], ExportArtifact],
+        on_progress: Callable[[int, str], None] | None = None,
+        check_cancelled: Callable[[], None] | None = None,
     ) -> tuple[ExportArtifact, dict[str, float | bool]]:
+        def _progress(value: int, message: str) -> None:
+            if check_cancelled is not None:
+                check_cancelled()
+            if on_progress is not None:
+                on_progress(max(0, min(100, int(value))), message)
+
+        _progress(2, "Проверка параметров экспорта.")
         try:
             request.validate()
         except Exception as exc:
@@ -360,6 +369,7 @@ class ExportController:
             self._state[self.INFLIGHT_KEY] = inflight
 
         if artifact_key in artifact_cache:
+            _progress(95, "Используется готовый файл из кэша.")
             cached_artifact = self._touch(artifact_cache, artifact_key)
             if isinstance(cached_artifact, ExportArtifact):
                 return (
@@ -382,11 +392,13 @@ class ExportController:
         inflight.add(artifact_key)
         started = perf_counter()
         try:
+            _progress(10, "Подготовка модели отчёта.")
             model_cache_hit = model_key in model_cache
             if model_cache_hit:
                 model = self._touch(model_cache, model_key)
             else:
                 try:
+                    _progress(20, "Формируется инженерная модель отчёта.")
                     model = build_model(frame, request)
                 except Exception as exc:
                     raise self._failure("build_model", exc) from exc
@@ -395,8 +407,16 @@ class ExportController:
                 for evicted_key in self._trim(model_cache, self.MODEL_CACHE_LIMIT):
                     registry.pop(evicted_key, None)
 
+            _progress(55, f"Формируется файл {request.format_label}.")
             try:
                 artifact = render_artifact(model, frame, request)
+            except ExportControllerError:
+                raise
+            except Exception as exc:
+                raise self._failure(f"render_{request.format_id}", exc) from exc
+
+            _progress(90, "Проверяется формат готового файла.")
+            try:
                 artifact = self._validate_artifact_contract(artifact, request)
             except ExportControllerError:
                 raise
@@ -405,6 +425,7 @@ class ExportController:
 
             artifact_cache[artifact_key] = artifact
             registry[artifact_key] = request.project_id
+            _progress(100, "Экспорт завершён.")
             for evicted_key in self._trim_artifacts(artifact_cache):
                 registry.pop(evicted_key, None)
             return (
