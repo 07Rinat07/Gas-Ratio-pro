@@ -835,3 +835,12 @@ Release candidate Definition of Done:
 - Reuse stable content fingerprints across reruns.
 - Avoid repeated Python-side figure serialization.
 - Keep original figures for static export and reports.
+
+
+## v222-rc10 — Render Resilience and Memory Guardrails
+
+- isolate individual plot-builder failures;
+- preserve successful graphs when one renderer fails;
+- enforce Plot Cache byte and entry limits;
+- collect frontend dispatch timing and payload-size diagnostics;
+- prepare performance acceptance gates for v222 stable.

@@ -2057,3 +2057,13 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added stable content fingerprints for Plotly component keys.
 - Preserved original figures for PDF, DOCX, PNG and SVG workflows.
 - Added regression tests for serialization reuse and LRU eviction.
+
+
+## v222-rc10 — Render Resilience and Memory Guardrails
+
+- Plot Cache now enforces both entry-count and serialized-memory budgets.
+- Oversized browser payloads are returned for the current render but are not retained in session cache.
+- Plot serialization errors are counted and isolated instead of crashing the workspace.
+- Render Queue gained resilient batch execution: one failed plot no longer removes the remaining engineering graphs.
+- Frontend Plotly dispatch duration and payload size are recorded in runtime diagnostics.
+- Added regression tests for memory eviction, oversize rejection and partial plot failure recovery.

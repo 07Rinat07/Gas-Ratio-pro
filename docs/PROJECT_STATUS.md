@@ -489,3 +489,8 @@ Lazy workspace dispatch and sequential Plotly construction are implemented. Inac
 ## v222-rc9 status
 
 Plotly figures are now serialized once per Plot Cache miss. Repeated workspace reruns reuse JSON-compatible payloads and stable content fingerprints while original figures remain available for export.
+
+
+## v222-rc10 status
+
+Render resilience and cache memory guardrails are implemented. Individual Plotly builder failures are isolated, successful plots remain available, and the bounded Plot Cache now respects a serialized byte budget in addition to its LRU entry limit.

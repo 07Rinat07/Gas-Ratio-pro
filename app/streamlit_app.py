@@ -9457,10 +9457,12 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         state_controller.set_value("runtime_diagnostics", runtime_diagnostics)
     cache_lookup_started = perf_counter()
     cached_bundle = plot_cache.get(figure_cache_key)
+    plot_cache_hit = cached_bundle is not None
     if cached_bundle is not None:
         figures = list(cached_bundle.figures)
         screen_plot_payloads = list(cached_bundle.screen_payloads)
         screen_plot_fingerprints = list(cached_bundle.fingerprints)
+        screen_plot_sizes = list(cached_bundle.serialized_sizes)
         tablet_figure = cached_bundle.tablet_figure
         cache_stats = plot_cache.stats()
         lookup_duration_ms = (perf_counter() - cache_lookup_started) * 1000.0
@@ -9487,6 +9489,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         figures = []
         screen_plot_payloads = []
         screen_plot_fingerprints = []
+        screen_plot_sizes = []
         tablet_figure = None
         render_queue = state_controller.get_value("interpretation_render_queue")
         if not isinstance(render_queue, RenderQueue):
@@ -9545,7 +9548,8 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 ),
             ))
 
-        task_results = render_queue.execute(render_tasks)
+        render_batch = render_queue.execute_resilient(render_tasks)
+        task_results = render_batch.completed
         figures = [result.value for result in task_results]
         for result in task_results:
             runtime_diagnostics.record(
@@ -9555,11 +9559,34 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 renderer=result.renderer,
                 item_count=1,
             )
+        for failure in render_batch.failed:
+            runtime_diagnostics.record(
+                stage=f"plot_task:{failure.task_id}",
+                duration_ms=failure.duration_ms,
+                status="failed",
+                cache_status="miss",
+                renderer=failure.renderer,
+                item_count=0,
+            )
+            logger.error(
+                "plot_task_failed task_id=%s exception=%s message=%s duration_ms=%.2f",
+                safe_log_value(failure.task_id),
+                safe_log_value(failure.exception_type),
+                safe_log_value(failure.message),
+                failure.duration_ms,
+            )
+        if render_batch.failed:
+            failed_labels = ", ".join(failure.task_id for failure in render_batch.failed)
+            st.warning(
+                "Не удалось построить отдельные графики: " + failed_labels
+                + ". Остальные результаты остаются доступными."
+            )
         tablet_result = next((result for result in task_results if result.task_id == "engineering-tablet"), None)
         tablet_figure = tablet_result.value if tablet_result is not None else None
         cached_bundle = plot_cache.put(figure_cache_key, figures, tablet_figure=tablet_figure)
         screen_plot_payloads = list(cached_bundle.screen_payloads)
         screen_plot_fingerprints = list(cached_bundle.fingerprints)
+        screen_plot_sizes = list(cached_bundle.serialized_sizes)
         render_duration_ms = (perf_counter() - render_started) * 1000.0
         cache_stats = plot_cache.stats()
         runtime_diagnostics.record(
@@ -9600,11 +9627,22 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             if figure_index < len(screen_plot_fingerprints)
             else str(figure_index)
         )
+        frontend_dispatch_started = perf_counter()
         st.plotly_chart(
             render_value,
             width="stretch",
             config=PLOTLY_SCREEN_CONFIG,
             key=f"interpretation_plot_{stable_plot_token}_{fingerprint}",
+        )
+        frontend_dispatch_ms = (perf_counter() - frontend_dispatch_started) * 1000.0
+        payload_size = screen_plot_sizes[figure_index] if figure_index < len(screen_plot_sizes) else 0
+        runtime_diagnostics.record(
+            stage="plot_frontend_dispatch",
+            duration_ms=frontend_dispatch_ms,
+            cache_status="hit" if plot_cache_hit else "miss",
+            renderer="streamlit-plotly",
+            item_count=1,
+            memory_bytes=payload_size,
         )
     if tablet_figure is not None:
         _render_static_export_controls(

@@ -1,9 +1,8 @@
 """Deterministic render queue for expensive workspace components.
 
-The queue is intentionally framework-neutral. It serializes expensive builders,
-deduplicates task identifiers within one render cycle and records compact timing
-metadata without retaining rendered payloads after the caller stores them in its
-own bounded cache.
+The queue is framework-neutral. It serializes expensive builders, deduplicates
+identifiers within one render cycle and can isolate a failed plot task so the
+remaining engineering workspace stays available.
 """
 from __future__ import annotations
 
@@ -27,6 +26,21 @@ class RenderTaskResult:
     renderer: str
 
 
+@dataclass(frozen=True, slots=True)
+class RenderTaskFailure:
+    task_id: str
+    duration_ms: float
+    renderer: str
+    exception_type: str
+    message: str
+
+
+@dataclass(frozen=True, slots=True)
+class RenderBatchResult:
+    completed: tuple[RenderTaskResult, ...]
+    failed: tuple[RenderTaskFailure, ...]
+
+
 class RenderQueue:
     """Run unique render tasks sequentially and expose bounded statistics."""
 
@@ -39,7 +53,7 @@ class RenderQueue:
         self._failed = 0
         self._duplicates = 0
 
-    def execute(self, tasks: Iterable[RenderTask]) -> tuple[RenderTaskResult, ...]:
+    def _unique_tasks(self, tasks: Iterable[RenderTask]) -> list[RenderTask]:
         unique: list[RenderTask] = []
         seen: set[str] = set()
         for task in tasks:
@@ -53,9 +67,14 @@ class RenderQueue:
             unique.append(task)
             if len(unique) >= self.max_tasks:
                 break
+        return unique
+
+    def execute_resilient(self, tasks: Iterable[RenderTask]) -> RenderBatchResult:
+        """Execute all unique tasks and isolate individual builder failures."""
 
         results: list[RenderTaskResult] = []
-        for task in unique:
+        failures: list[RenderTaskFailure] = []
+        for task in self._unique_tasks(tasks):
             task_id = str(task.task_id)
             if task_id in self._running:
                 self._duplicates += 1
@@ -64,15 +83,38 @@ class RenderQueue:
             started = perf_counter()
             try:
                 value = task.builder()
-            except Exception:
+            except Exception as exc:  # task boundary; caller receives structured failure
+                duration_ms = (perf_counter() - started) * 1000.0
                 self._failed += 1
-                raise
+                failures.append(
+                    RenderTaskFailure(
+                        task_id=task_id,
+                        duration_ms=duration_ms,
+                        renderer=str(task.renderer),
+                        exception_type=type(exc).__name__,
+                        message=str(exc),
+                    )
+                )
+            else:
+                duration_ms = (perf_counter() - started) * 1000.0
+                self._completed += 1
+                results.append(RenderTaskResult(task_id, value, duration_ms, str(task.renderer)))
             finally:
                 self._running.discard(task_id)
-            duration_ms = (perf_counter() - started) * 1000.0
-            self._completed += 1
-            results.append(RenderTaskResult(task_id, value, duration_ms, str(task.renderer)))
-        return tuple(results)
+        return RenderBatchResult(tuple(results), tuple(failures))
+
+    def execute(self, tasks: Iterable[RenderTask]) -> tuple[RenderTaskResult, ...]:
+        """Backward-compatible strict execution.
+
+        The first task failure is raised after the queue releases its running
+        marker. New workspace code should prefer :meth:`execute_resilient`.
+        """
+
+        batch = self.execute_resilient(tasks)
+        if batch.failed:
+            failure = batch.failed[0]
+            raise RuntimeError(f"{failure.task_id}: {failure.exception_type}: {failure.message}")
+        return batch.completed
 
     def stats(self) -> dict[str, int]:
         return {
