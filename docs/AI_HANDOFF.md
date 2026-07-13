@@ -1,3 +1,11 @@
+## Latest implementation — Export Performance and Memory Guard
+
+- ExportController now limits artifact cache by count and actual binary payload size.
+- Default artifact memory budget: 64 MiB per application session.
+- Oversized artifacts are returned to the user but are not retained in cache.
+- cache_metrics() exposes model entries, artifact entries and retained bytes.
+- Next priority: large-LAS rendering benchmarks and selective dataframe downsampling.
+
 # Latest implementation increment — Unified Chart Theme Engine
 
 Completed:

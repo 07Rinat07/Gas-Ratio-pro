@@ -1,3 +1,13 @@
+## Current increment: Export Performance and Memory Guard — COMPLETED
+
+Implemented:
+- bounded professional export artifact cache by both entry count and retained bytes;
+- prevented oversized PDF/DOCX/PNG artifacts from remaining in session memory;
+- added lightweight cache metrics for diagnostics and performance audits;
+- preserved existing model reuse, project-aware invalidation and LRU behavior.
+
+Next: large-LAS rendering benchmarks and selective dataframe downsampling.
+
 ## Current increment: Unified Chart Theme Engine — COMPLETED
 
 Implemented:

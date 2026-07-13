@@ -170,3 +170,53 @@ def test_export_controller_clears_only_requested_project() -> None:
     registry = state["presentation_export_cache_registry_v222"]
     assert "p1" not in registry.values()
     assert "p2" in registry.values()
+
+
+def test_export_controller_bounds_artifact_cache_by_bytes(monkeypatch) -> None:
+    state = {}
+    controller = ExportController(state)
+    monkeypatch.setattr(ExportController, "ARTIFACT_CACHE_MAX_BYTES", 10)
+
+    def render(model, frame, request):
+        return ExportArtifact(
+            b"12345678",
+            f"x.{request.extension}",
+            request.mime_type,
+            request.format_id,
+            request.format_label,
+            request.profile_id,
+        )
+
+    controller.prepare(_request("fmt1"), frame=[1], build_model=lambda *_: object(), render_artifact=render)
+    controller.prepare(_request("fmt2"), frame=[1], build_model=lambda *_: object(), render_artifact=render)
+
+    metrics = controller.cache_metrics()
+    assert metrics["artifact_entries"] == 1
+    assert metrics["artifact_bytes"] == 8
+    assert metrics["artifact_max_bytes"] == 10
+
+
+def test_export_controller_rejects_oversize_artifact_from_cache(monkeypatch) -> None:
+    state = {}
+    controller = ExportController(state)
+    monkeypatch.setattr(ExportController, "ARTIFACT_CACHE_MAX_BYTES", 4)
+    calls = {"render": 0}
+
+    def render(model, frame, request):
+        calls["render"] += 1
+        return ExportArtifact(
+            b"12345678",
+            f"x.{request.extension}",
+            request.mime_type,
+            request.format_id,
+            request.format_label,
+            request.profile_id,
+        )
+
+    first, _ = controller.prepare(_request("fmt1"), frame=[1], build_model=lambda *_: object(), render_artifact=render)
+    second, metrics = controller.prepare(_request("fmt1"), frame=[1], build_model=lambda *_: object(), render_artifact=render)
+
+    assert first.content == second.content
+    assert calls["render"] == 2
+    assert metrics["artifact_cache_hit"] is False
+    assert controller.cache_metrics()["artifact_entries"] == 0

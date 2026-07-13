@@ -194,6 +194,7 @@ class ExportController:
     INFLIGHT_KEY = "presentation_export_inflight_v222"
     MODEL_CACHE_LIMIT = 8
     ARTIFACT_CACHE_LIMIT = 16
+    ARTIFACT_CACHE_MAX_BYTES = 64 * 1024 * 1024
 
     def __init__(self, state: MutableMapping[str, Any]) -> None:
         self._state = state
@@ -245,14 +246,35 @@ class ExportController:
 
     @staticmethod
     def _trim(cache: OrderedDict[str, Any], limit: int) -> tuple[str, ...]:
-        """Trim an LRU cache and return the evicted keys.
-
-        Returning keys lets the controller keep the project ownership registry
-        consistent with the bounded caches instead of accumulating stale hash
-        entries during long engineering sessions.
-        """
+        """Trim an LRU cache and return the evicted keys."""
         evicted: list[str] = []
         while len(cache) > limit:
+            key, _ = cache.popitem(last=False)
+            evicted.append(key)
+        return tuple(evicted)
+
+    @staticmethod
+    def _artifact_cache_bytes(cache: OrderedDict[str, Any]) -> int:
+        """Return retained binary payload size without serializing artifacts."""
+        total = 0
+        for value in cache.values():
+            if isinstance(value, ExportArtifact):
+                total += len(value.content)
+        return total
+
+    @classmethod
+    def _trim_artifacts(cls, cache: OrderedDict[str, Any]) -> tuple[str, ...]:
+        """Bound artifact cache by entry count and actual retained bytes.
+
+        Entry-only limits are unsafe for PDF/DOCX/PNG workloads because one
+        high-resolution artifact can be much larger than many ordinary files.
+        The newest artifact is kept only when it fits the configured budget.
+        """
+        evicted: list[str] = []
+        while cache and (
+            len(cache) > cls.ARTIFACT_CACHE_LIMIT
+            or cls._artifact_cache_bytes(cache) > cls.ARTIFACT_CACHE_MAX_BYTES
+        ):
             key, _ = cache.popitem(last=False)
             evicted.append(key)
         return tuple(evicted)
@@ -383,7 +405,7 @@ class ExportController:
 
             artifact_cache[artifact_key] = artifact
             registry[artifact_key] = request.project_id
-            for evicted_key in self._trim(artifact_cache, self.ARTIFACT_CACHE_LIMIT):
+            for evicted_key in self._trim_artifacts(artifact_cache):
                 registry.pop(evicted_key, None)
             return (
                 artifact,
@@ -414,3 +436,25 @@ class ExportController:
         model_cache = self._state.get(self.MODEL_CACHE_KEY, {})
         artifact_cache = self._state.get(self.ARTIFACT_CACHE_KEY, {})
         return (len(model_cache), len(artifact_cache))
+
+    def cache_metrics(self) -> dict[str, int]:
+        """Expose lightweight diagnostics for UI and performance audits."""
+        model_cache = self._state.get(self.MODEL_CACHE_KEY, {})
+        artifact_cache = self._state.get(self.ARTIFACT_CACHE_KEY, {})
+        artifact_bytes = (
+            self._artifact_cache_bytes(artifact_cache)
+            if isinstance(artifact_cache, OrderedDict)
+            else sum(
+                len(value.content)
+                for value in artifact_cache.values()
+                if isinstance(value, ExportArtifact)
+            )
+            if isinstance(artifact_cache, dict)
+            else 0
+        )
+        return {
+            "model_entries": len(model_cache) if isinstance(model_cache, dict) else 0,
+            "artifact_entries": len(artifact_cache) if isinstance(artifact_cache, dict) else 0,
+            "artifact_bytes": artifact_bytes,
+            "artifact_max_bytes": self.ARTIFACT_CACHE_MAX_BYTES,
+        }
