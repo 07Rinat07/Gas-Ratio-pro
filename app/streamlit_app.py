@@ -346,6 +346,7 @@ from reports.report_designer import (
     report_templates,
 )
 from reports.report_designer_export import build_designed_report_artifact
+from reports.report_preview_persistence import ReportPreviewCountsRepository
 from reports.export_wizard import (
     ExportWizardCapabilities,
     ExportWizardState,
@@ -9051,6 +9052,7 @@ def _render_professional_export_panel(
         template_by_label = {item.label: item for item in designer_templates}
         draft_repository = ExportWizardDraftRepository(ROOT_DIR / "data" / "projects")
         history_repository = ExportHistoryRepository(ROOT_DIR / "data" / "projects")
+        preview_counts_repository = ReportPreviewCountsRepository(ROOT_DIR / "data" / "projects")
         repeat_pending_key = f"export_history_repeat_pending_{active_project.id}"
         repeat_confirm_key = f"export_history_repeat_confirm_{active_project.id}"
         repeat_autorun_key = f"export_history_repeat_autorun_{active_project.id}"
@@ -9168,6 +9170,19 @@ def _render_professional_export_panel(
                 )
             export_state[draft_key] = True
 
+        preview_counts_restore_key = f"report_preview_counts_restored_{active_project.id}"
+        if not export_state.get(preview_counts_restore_key):
+            try:
+                persisted_preview_counts = preview_counts_repository.load(str(active_project.id))
+                if persisted_preview_counts is not None:
+                    export_state[report_preview_counts_key] = persisted_preview_counts
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                logger.exception(
+                    "report_preview_counts_restore_failed project_id=%s",
+                    safe_log_value(active_project.id),
+                )
+            export_state[preview_counts_restore_key] = True
+
         draft_controls_left, draft_controls_right = st.columns(2)
         reset_draft = draft_controls_left.button(
             "↺ Сбросить настройки",
@@ -9186,11 +9201,19 @@ def _render_professional_export_panel(
                 draft_repository.delete(str(active_project.id))
             except (OSError, ValueError):
                 logger.exception("export_wizard_draft_delete_failed project_id=%s", safe_log_value(active_project.id))
+            try:
+                preview_counts_repository.delete(str(active_project.id))
+            except (OSError, ValueError):
+                logger.exception(
+                    "report_preview_counts_delete_failed project_id=%s",
+                    safe_log_value(active_project.id),
+                )
             reset_keys = {
                 draft_key,
                 export_cache_key,
                 export_error_key,
                 report_preview_counts_key,
+                preview_counts_restore_key,
                 form_keys["profile"],
                 form_keys["format"],
                 form_keys["print_mode"],
@@ -9927,7 +9950,7 @@ def _render_professional_export_panel(
                 export_artifact = completed.artifact
                 export_metrics = dict(completed.metrics)
                 if isinstance(completed.report_document_counts, ReportDocumentCounts):
-                    export_state[report_preview_counts_key] = build_report_document_counts_snapshot(
+                    report_counts_snapshot = build_report_document_counts_snapshot(
                         completed.report_document_counts,
                         signature=build_report_document_counts_signature(
                             report_design,
@@ -9939,6 +9962,17 @@ def _render_professional_export_panel(
                             presentation_revision=current_export_request.presentation_revision,
                         ),
                     )
+                    export_state[report_preview_counts_key] = report_counts_snapshot
+                    try:
+                        preview_counts_repository.save(
+                            str(active_project.id),
+                            report_counts_snapshot,
+                        )
+                    except (OSError, ValueError, TypeError):
+                        logger.exception(
+                            "report_preview_counts_persist_failed project_id=%s",
+                            safe_log_value(active_project.id),
+                        )
                 export_state[export_cache_key] = {
                     "content": export_artifact.content,
                     "file_name": export_artifact.file_name,

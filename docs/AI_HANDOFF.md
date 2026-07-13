@@ -487,3 +487,12 @@ Validation:
 - `logs/app.log` is not present in the supplied archive.
 
 Next priority: add timestamp/source metadata to the count snapshot, then implement PDF page thumbnails.
+
+## Persisted report preview counts
+The last successful report's compact count snapshot is now stored at
+`data/projects/<project_id>/report_preview_counts.json` through
+`ReportPreviewCountsRepository`. The repository performs atomic writes and only
+accepts a valid schema snapshot. Streamlit restores the raw snapshot once per
+project/session; `resolve_report_document_counts_snapshot()` still performs the
+context-signature check before the counts affect page estimates. Resetting the
+export wizard deletes both session and project-persisted preview metadata.

@@ -1423,3 +1423,9 @@ Release candidate Definition of Done:
 - добавить отметку времени и источник фактической оценки в preview;
 - реализовать PDF Preview с миниатюрами страниц;
 - выполнить ручную acceptance-проверку на большом LAS.
+
+### Increment: persisted report-preview document counts
+- [x] Store the compact, schema-versioned report document-count snapshot per project.
+- [x] Restore it after application restart without persisting the full `EngineeringDocument`.
+- [x] Revalidate the restored snapshot against the current design/data signature before reuse.
+- [x] Remove persisted preview metadata when export settings are reset.
