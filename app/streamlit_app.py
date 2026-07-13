@@ -342,6 +342,12 @@ from reports.report_designer import (
     report_templates,
 )
 from reports.report_designer_export import build_designed_report_artifact
+from reports.export_wizard import (
+    ExportWizardCapabilities,
+    ExportWizardState,
+    ExportWizardStep,
+    build_export_wizard_review,
+)
 from reports.export_las import export_las_bytes
 from reports.export_xlsx import export_xlsx_bytes
 from reports.export_controller import (
@@ -9148,10 +9154,59 @@ def _render_professional_export_panel(
                 )
             else:
                 print_top, print_bottom = depth_range
+
+            wizard_capabilities = ExportWizardCapabilities(
+                report_formats=tuple(option.id for option in format_options),
+            )
+            wizard_state = ExportWizardState(
+                step=ExportWizardStep.REVIEW,
+                source_label=str(source_label),
+                project_label=str(active_project.name),
+                profile=selected_profile_label and next(
+                    option.id for option in profile_options if option.label == selected_profile_label
+                ),
+                export_format=selected_format_label and next(
+                    option.id for option in format_options if option.label == selected_format_label
+                ),
+                include_figures=True,
+                output_dir=ROOT_DIR / "artifacts" / "presentation_exports",
+                base_name_parts=(
+                    str(active_project.name),
+                    str(source_label),
+                    "professional_report",
+                ),
+            )
+            wizard_review = build_export_wizard_review(
+                wizard_state,
+                capabilities=wizard_capabilities,
+            )
+            st.markdown("#### Проверка перед формированием")
+            wizard_columns = st.columns(len(wizard_review.steps))
+            for wizard_column, wizard_step in zip(wizard_columns, wizard_review.steps):
+                marker = "✅" if wizard_step.completed else ("➡️" if wizard_step.active else "○")
+                wizard_column.markdown(f"**{marker} {wizard_step.number}. {wizard_step.label}**")
+                wizard_column.caption(wizard_step.description)
+            st.progress(1.0 if wizard_review.ready else 0.8)
+            review_left, review_right = st.columns(2)
+            review_left.markdown(
+                f"**Источник:** {wizard_review.source_label}  \n"
+                f"**Проект:** {wizard_review.project_label}  \n"
+                f"**Профиль:** {wizard_review.profile_label}"
+            )
+            review_right.markdown(
+                f"**Формат:** {wizard_review.format_label}  \n"
+                f"**Файл:** `{wizard_review.file_name}`  \n"
+                f"**Диапазон:** {min(float(print_top), float(print_bottom)):g}–"
+                f"{max(float(print_top), float(print_bottom)):g} м"
+            )
+            for wizard_issue in wizard_review.issues:
+                st.error(wizard_issue.message) if wizard_issue.blocking else st.warning(wizard_issue.message)
+
             prepare_export = st.form_submit_button(
                 "🖨️ ПОДГОТОВИТЬ ФАЙЛ ДЛЯ ПЕЧАТИ И СКАЧИВАНИЯ",
                 width="stretch",
                 type="primary",
+                disabled=not wizard_review.ready,
                 help=tooltip("report.prepare"),
             )
 

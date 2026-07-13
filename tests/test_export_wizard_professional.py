@@ -66,3 +66,66 @@ def test_report_artifact_rejects_wrong_format_instead_of_returning_zip(tmp_path:
 
     with pytest.raises(ValueError, match="not supported by the professional report renderer"):
         build_ui_export_artifact(object(), state)  # validation happens before model access
+
+
+def test_wizard_step_views_expose_completed_review_path(tmp_path: Path) -> None:
+    from reports.export_wizard import build_export_wizard_steps
+
+    state = ExportWizardState(
+        step=ExportWizardStep.REVIEW,
+        source_label="Well A.las",
+        project_label="North Block",
+        profile="engineering",
+        export_format="pdf",
+        output_dir=tmp_path,
+    )
+
+    steps = build_export_wizard_steps(state)
+
+    assert [step.number for step in steps] == [1, 2, 3, 4, 5]
+    assert [step.label for step in steps] == ["Источник", "Состав", "Формат", "Назначение", "Проверка"]
+    assert all(step.completed for step in steps)
+    assert steps[-1].active is True
+    assert all(step.available for step in steps)
+
+
+def test_wizard_step_views_lock_following_steps_when_source_is_missing(tmp_path: Path) -> None:
+    from reports.export_wizard import build_export_wizard_steps
+
+    steps = build_export_wizard_steps(ExportWizardState(output_dir=tmp_path))
+
+    assert steps[0].available is True
+    assert steps[0].completed is False
+    assert steps[1].available is False
+    assert steps[-1].completed is False
+
+
+def test_wizard_review_contains_final_file_and_preflight_state(tmp_path: Path) -> None:
+    from reports.export_wizard import build_export_wizard_review
+
+    review = build_export_wizard_review(
+        ExportWizardState(
+            step=ExportWizardStep.REVIEW,
+            source_label="Well A.las",
+            project_label="North Block",
+            profile="engineering",
+            export_format="docx",
+            output_dir=tmp_path,
+            base_name_parts=("North Block", "Well A", "professional report"),
+        )
+    )
+
+    assert review.ready is True
+    assert review.profile_label == "Инженерный отчет"
+    assert review.format_label == "DOCX"
+    assert review.file_name == "North_Block_Well_A_professional_report.docx"
+    assert review.destination == str(tmp_path)
+    assert review.issues == ()
+
+
+def test_streamlit_export_panel_renders_wizard_review() -> None:
+    app_source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
+
+    assert "build_export_wizard_review" in app_source
+    assert "Проверка перед формированием" in app_source
+    assert "disabled=not wizard_review.ready" in app_source

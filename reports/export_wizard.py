@@ -19,6 +19,7 @@ from reports.presentation_ui import (
     ReportProfile,
     build_presentation_export_ui_state,
     export_format_by_id,
+    profile_by_id,
 )
 
 
@@ -67,6 +68,49 @@ class ExportWizardState:
 
     def previous_step(self) -> "ExportWizardState":
         return self.with_step(max(int(self.step) - 1, int(ExportWizardStep.SOURCE)))
+
+
+
+
+@dataclass(frozen=True)
+class ExportWizardStepView:
+    """Renderer-neutral presentation state for one wizard step."""
+
+    step: ExportWizardStep
+    label: str
+    description: str
+    active: bool
+    completed: bool
+    available: bool
+
+    @property
+    def number(self) -> int:
+        return int(self.step)
+
+
+@dataclass(frozen=True)
+class ExportWizardReview:
+    """Final, human-readable review assembled before binary rendering."""
+
+    source_label: str
+    project_label: str
+    profile_label: str
+    format_label: str
+    destination: str
+    file_name: str
+    include_figures: bool
+    ready: bool
+    issues: tuple[ExportWizardIssue, ...]
+    steps: tuple[ExportWizardStepView, ...]
+
+
+_STEP_COPY: tuple[tuple[ExportWizardStep, str, str], ...] = (
+    (ExportWizardStep.SOURCE, "Источник", "Проект и инженерные данные"),
+    (ExportWizardStep.CONTENT, "Состав", "Режим, шаблон и разделы"),
+    (ExportWizardStep.FORMAT, "Формат", "PDF, DOCX или пакет"),
+    (ExportWizardStep.DESTINATION, "Назначение", "Имя и каталог файла"),
+    (ExportWizardStep.REVIEW, "Проверка", "Итог перед формированием"),
+)
 
 
 @dataclass(frozen=True)
@@ -144,3 +188,70 @@ def require_export_ready(
         raise ValueError(f"Export wizard is not ready: {details}")
     assert result.ui_state is not None
     return result.ui_state
+
+def build_export_wizard_steps(
+    state: ExportWizardState,
+    *,
+    capabilities: ExportWizardCapabilities | None = None,
+) -> tuple[ExportWizardStepView, ...]:
+    """Build deterministic step navigation without Streamlit dependencies."""
+
+    capabilities = capabilities or ExportWizardCapabilities()
+    source_complete = bool(str(state.source_label or "").strip())
+    content_complete = bool(str(state.profile or "").strip())
+    format_complete = capabilities.supports(export_format_by_id(state.export_format).id)
+    output_dir = Path(state.output_dir)
+    destination_complete = not (output_dir.exists() and not output_dir.is_dir())
+    completion = {
+        ExportWizardStep.SOURCE: source_complete,
+        ExportWizardStep.CONTENT: content_complete,
+        ExportWizardStep.FORMAT: format_complete,
+        ExportWizardStep.DESTINATION: destination_complete,
+        ExportWizardStep.REVIEW: source_complete and content_complete and format_complete and destination_complete,
+    }
+
+    rows: list[ExportWizardStepView] = []
+    prior_complete = True
+    for step, label, description in _STEP_COPY:
+        available = step is ExportWizardStep.SOURCE or prior_complete
+        rows.append(
+            ExportWizardStepView(
+                step=step,
+                label=label,
+                description=description,
+                active=step is state.step,
+                completed=completion[step],
+                available=available,
+            )
+        )
+        prior_complete = prior_complete and completion[step]
+    return tuple(rows)
+
+
+def build_export_wizard_review(
+    state: ExportWizardState,
+    *,
+    capabilities: ExportWizardCapabilities | None = None,
+) -> ExportWizardReview:
+    """Return the final review screen model used by UI shells and tests."""
+
+    preflight = validate_export_wizard(state, capabilities=capabilities)
+    profile = profile_by_id(state.profile)
+    export_format = export_format_by_id(state.export_format)
+    ui_state = preflight.ui_state
+    file_name = ""
+    if ui_state is not None:
+        file_name = f"{ui_state.base_name}.{export_format.extension}"
+    return ExportWizardReview(
+        source_label=str(state.source_label or "").strip(),
+        project_label=str(state.project_label or "").strip(),
+        profile_label=profile.label,
+        format_label=export_format.label,
+        destination=str(Path(state.output_dir)),
+        file_name=file_name,
+        include_figures=bool(state.include_figures),
+        ready=preflight.ready,
+        issues=preflight.issues,
+        steps=build_export_wizard_steps(state, capabilities=capabilities),
+    )
+

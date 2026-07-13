@@ -1,3 +1,16 @@
+# Latest implementation — Visual Export Wizard Review
+
+Status: COMPLETED
+
+Implemented:
+- renderer-neutral five-step navigation model for the professional export workflow;
+- final review contract with source, project, profile, format, destination and file name;
+- Streamlit step indicator and review screen before binary rendering;
+- submit button is disabled when preflight has a blocking issue;
+- focused and extended reporting regression tests pass.
+
+Next priority: project-scoped persistence and recovery of unfinished Export Wizard settings.
+
 # Latest implementation — Interactive Report Structure Preview
 
 Status: COMPLETED

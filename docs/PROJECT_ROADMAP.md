@@ -1,3 +1,14 @@
+## Current increment: Visual Export Wizard Review — COMPLETED
+
+Implemented:
+- added renderer-neutral step presentation for Source, Content, Format, Destination and Review;
+- added a final human-readable export review model with preflight status and target file name;
+- integrated the five-step review into the Streamlit professional export form;
+- blocked export submission when the final preflight contains a blocking issue;
+- added regression tests for completed, locked and invalid wizard paths.
+
+Next: persist the Export Wizard draft per project and restore unfinished export settings safely.
+
 ## Current increment: Interactive Report Structure Preview — COMPLETED
 
 Implemented:
