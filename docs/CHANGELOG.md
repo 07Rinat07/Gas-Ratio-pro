@@ -1,3 +1,11 @@
+## v222.1 — Professional Export State Hardening
+
+- Normalized persisted Professional Export profile, format, range mode and depth values before Streamlit widgets are created.
+- Clamped stale depth values after LAS or active-interval changes to prevent first-open widget failures.
+- Added engineering-context signatures to export model cache keys so ranking and selected-interval changes cannot return stale reports.
+- Removed stale ownership entries when bounded export caches evict old artifacts.
+- Added regression tests for invalid widget state, non-finite depths, cache invalidation and registry cleanup.
+
 # Changelog
 
 ## v222 — Stable release

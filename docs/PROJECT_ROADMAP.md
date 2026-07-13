@@ -1,3 +1,11 @@
+## v222.1 — Field Acceptance Bugfix Cycle
+
+Current priority:
+1. harden Professional Export state across LAS/range/profile changes;
+2. preserve correct report cache invalidation for engineering context changes;
+3. continue field acceptance and fix only confirmed runtime defects;
+4. do not add new scientific methods before acceptance closure.
+
 # GAS RATIO PRO — Active Roadmap
 
 ## v222 Stable — Final Regression and Packaging

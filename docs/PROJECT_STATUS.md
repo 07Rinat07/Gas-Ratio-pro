@@ -1,3 +1,15 @@
+## Current increment: v222.1 — Professional Export State Hardening
+
+Status: **BUGFIX CANDIDATE**
+
+Implemented:
+- pre-render normalization of dynamic Professional Export widget state;
+- depth-bound clamping after LAS and interval changes;
+- context-aware report-model cache invalidation;
+- consistent cache ownership registry cleanup after LRU eviction.
+
+Validation: focused export, plot, fragment and README-policy regression gates passed.
+
 # Current status
 
 **Version:** v222 stable  

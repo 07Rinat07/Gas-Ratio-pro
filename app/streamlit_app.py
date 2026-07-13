@@ -339,6 +339,7 @@ from reports.export_controller import (
     ExportController,
     ExportControllerError,
     ExportRequest,
+    normalize_export_form_state,
 )
 from las_editor.las_creation_wizard import (
     DEFAULT_CURVE_LIBRARY,
@@ -8813,45 +8814,59 @@ def _render_professional_export_panel(
         export_cache_key = f"presentation_export_artifact_{active_project.id}"
         export_error_key = f"presentation_export_error_{active_project.id}"
 
-        # Streamlit normally reruns the complete report on every selectbox
-        # change. A form batches profile/format changes and starts the costly
-        # renderer only after explicit confirmation.
+        print_mode_options = ["Текущий интервал графиков", "Выбрать отдельно"]
+        if selected_interval is not None:
+            print_mode_options.insert(0, "Выбранный пласт")
+        full_print_min = float(valid_depth.min()) if not valid_depth.empty else float(depth_range[0])
+        full_print_max = float(valid_depth.max()) if not valid_depth.empty else float(depth_range[1])
+        default_print_top = (
+            float(selected_interval.top) if selected_interval is not None else float(depth_range[0])
+        )
+        default_print_bottom = (
+            float(selected_interval.base) if selected_interval is not None else float(depth_range[1])
+        )
+        export_state = _application_state_controller().state
+        normalized_form = normalize_export_form_state(
+            export_state,
+            project_id=str(active_project.id),
+            profile_labels=tuple(option.label for option in profile_options),
+            format_labels=tuple(option.label for option in format_options),
+            print_modes=tuple(print_mode_options),
+            depth_min=full_print_min,
+            depth_max=full_print_max,
+            default_top=default_print_top,
+            default_bottom=default_print_bottom,
+        )
+        form_keys = normalized_form["keys"]
+
+        # A form batches profile/format changes and starts the costly renderer
+        # only after explicit confirmation. Persisted values are normalized
+        # before widgets are created so a new LAS cannot leave stale out-of-
+        # range depth values in Streamlit session state.
         with st.form(key=f"presentation_export_form_{active_project.id}", clear_on_submit=False):
             selected_profile_label = st.selectbox(
                 "Профиль отчета",
                 options=[option.label for option in profile_options],
                 index=0,
-                key=f"presentation_report_profile_{active_project.id}",
+                key=form_keys["profile"],
                 help="Отчёт для заказчика содержит краткие выводы без технических приложений; инженерный отчёт включает расширенные расчётные материалы.",
             )
             selected_format_label = st.selectbox(
                 "Формат экспорта",
                 options=[option.label for option in format_options],
                 index=0,
-                key=f"presentation_export_format_{active_project.id}",
+                key=form_keys["format"],
             )
-            print_mode_options = ["Текущий интервал графиков", "Выбрать отдельно"]
-            if selected_interval is not None:
-                print_mode_options.insert(0, "Выбранный пласт")
-            print_mode_key = f"presentation_print_depth_mode_{active_project.id}"
-            export_state = _application_state_controller().state
-            stored_print_mode = export_state.get(print_mode_key)
-            if stored_print_mode not in print_mode_options:
-                export_state[print_mode_key] = (
-                    "Выбранный пласт" if selected_interval is not None else "Текущий интервал графиков"
-                )
             print_mode = st.radio(
                 "Интервал печати",
                 options=tuple(print_mode_options),
                 horizontal=True,
-                key=print_mode_key,
+                key=form_keys["print_mode"],
                 help=(
                     "Выбранный пласт использует общий selected_reservoir_interval_id. "
                     "PDF и DOCX формируются только по его фактическим границам."
                 ),
             )
-            full_print_min = float(valid_depth.min()) if not valid_depth.empty else float(depth_range[0])
-            full_print_max = float(valid_depth.max()) if not valid_depth.empty else float(depth_range[1])
             if print_mode == "Выбранный пласт" and selected_interval is not None:
                 print_top, print_bottom = _selected_interval_print_range(
                     selected_interval,
@@ -8862,32 +8877,22 @@ def _render_professional_export_panel(
                     f"{print_top:g}–{print_bottom:g} м."
                 )
             elif print_mode == "Выбрать отдельно":
-                default_print_top = (
-                    float(selected_interval.top)
-                    if selected_interval is not None
-                    else float(depth_range[0])
-                )
-                default_print_bottom = (
-                    float(selected_interval.base)
-                    if selected_interval is not None
-                    else float(depth_range[1])
-                )
                 print_left, print_right = st.columns(2)
                 print_top = print_left.number_input(
                     "Печать от, м",
                     min_value=full_print_min,
                     max_value=full_print_max,
-                    value=max(full_print_min, min(full_print_max, default_print_top)),
+                    value=float(normalized_form["top"]),
                     step=0.1,
-                    key=f"presentation_print_top_{active_project.id}",
+                    key=form_keys["top"],
                 )
                 print_bottom = print_right.number_input(
                     "Печать до, м",
                     min_value=full_print_min,
                     max_value=full_print_max,
-                    value=max(full_print_min, min(full_print_max, default_print_bottom)),
+                    value=float(normalized_form["bottom"]),
                     step=0.1,
-                    key=f"presentation_print_bottom_{active_project.id}",
+                    key=form_keys["bottom"],
                 )
             else:
                 print_top, print_bottom = depth_range
@@ -8933,6 +8938,12 @@ def _render_professional_export_panel(
                     calculation_revision=int(revision_snapshot.calculation),
                     presentation_revision=int(revision_snapshot.presentation),
                     figure_height=max(int(height), 1000),
+                    context_signature=hashlib.sha256(
+                        (
+                            f"ranking={export_state.get('active_reservoir_ranking_profile', '')}|"
+                            f"interval={selected_interval_id or ''}"
+                        ).encode("utf-8")
+                    ).hexdigest(),
                 )
                 logger.info(
                     "presentation_export_started project_id=%s profile=%s format=%s rows=%d",

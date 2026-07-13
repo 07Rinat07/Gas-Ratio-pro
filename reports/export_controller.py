@@ -24,6 +24,7 @@ class ExportRequest:
     calculation_revision: int
     presentation_revision: int
     figure_height: int
+    context_signature: str = ""
 
     @property
     def normalized_depth_range(self) -> tuple[float, float]:
@@ -82,6 +83,75 @@ class ExportControllerError(RuntimeError):
         self.failure = failure
 
 
+def normalize_export_form_state(
+    state: MutableMapping[str, Any],
+    *,
+    project_id: str,
+    profile_labels: tuple[str, ...],
+    format_labels: tuple[str, ...],
+    print_modes: tuple[str, ...],
+    depth_min: float,
+    depth_max: float,
+    default_top: float,
+    default_bottom: float,
+) -> dict[str, Any]:
+    """Normalize persisted Professional Export widget values before rendering.
+
+    Streamlit keeps widget values across reruns. After loading another LAS or
+    changing the active interval, persisted depth values may fall outside the
+    new widget bounds and cause the first render of the export panel to fail.
+    This helper validates every dynamic field before the widgets are created.
+    """
+    low = min(float(depth_min), float(depth_max))
+    high = max(float(depth_min), float(depth_max))
+
+    def _choice(key: str, options: tuple[str, ...], fallback: str) -> str:
+        value = state.get(key)
+        if value not in options:
+            value = fallback
+            state[key] = value
+        return str(value)
+
+    def _bounded_number(key: str, fallback: float) -> float:
+        value = state.get(key, fallback)
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            value = float(fallback)
+        if not isfinite(value):
+            value = float(fallback)
+        value = max(low, min(high, value))
+        state[key] = value
+        return value
+
+    profile_key = f"presentation_report_profile_{project_id}"
+    format_key = f"presentation_export_format_{project_id}"
+    mode_key = f"presentation_print_depth_mode_{project_id}"
+    top_key = f"presentation_print_top_{project_id}"
+    bottom_key = f"presentation_print_bottom_{project_id}"
+
+    profile = _choice(profile_key, profile_labels, profile_labels[0])
+    export_format = _choice(format_key, format_labels, format_labels[0])
+    print_mode = _choice(mode_key, print_modes, print_modes[0])
+    top = _bounded_number(top_key, default_top)
+    bottom = _bounded_number(bottom_key, default_bottom)
+
+    return {
+        "profile": profile,
+        "format": export_format,
+        "print_mode": print_mode,
+        "top": top,
+        "bottom": bottom,
+        "keys": {
+            "profile": profile_key,
+            "format": format_key,
+            "print_mode": mode_key,
+            "top": top_key,
+            "bottom": bottom_key,
+        },
+    }
+
+
 class ExportController:
     """Renderer-neutral, transactional export orchestration.
 
@@ -111,6 +181,7 @@ class ExportController:
                 request.profile_id,
                 f"{top:.6f}",
                 f"{bottom:.6f}",
+                request.context_signature,
             )
         )
         return sha256(payload.encode("utf-8")).hexdigest()
@@ -145,9 +216,18 @@ class ExportController:
         return value
 
     @staticmethod
-    def _trim(cache: OrderedDict[str, Any], limit: int) -> None:
+    def _trim(cache: OrderedDict[str, Any], limit: int) -> tuple[str, ...]:
+        """Trim an LRU cache and return the evicted keys.
+
+        Returning keys lets the controller keep the project ownership registry
+        consistent with the bounded caches instead of accumulating stale hash
+        entries during long engineering sessions.
+        """
+        evicted: list[str] = []
         while len(cache) > limit:
-            cache.popitem(last=False)
+            key, _ = cache.popitem(last=False)
+            evicted.append(key)
+        return tuple(evicted)
 
     def prepare(
         self,
@@ -207,7 +287,8 @@ class ExportController:
                     raise self._failure("build_model", exc) from exc
                 model_cache[model_key] = model
                 registry[model_key] = request.project_id
-                self._trim(model_cache, self.MODEL_CACHE_LIMIT)
+                for evicted_key in self._trim(model_cache, self.MODEL_CACHE_LIMIT):
+                    registry.pop(evicted_key, None)
 
             try:
                 artifact = render_artifact(model, frame, request)
@@ -219,7 +300,8 @@ class ExportController:
 
             artifact_cache[artifact_key] = artifact
             registry[artifact_key] = request.project_id
-            self._trim(artifact_cache, self.ARTIFACT_CACHE_LIMIT)
+            for evicted_key in self._trim(artifact_cache, self.ARTIFACT_CACHE_LIMIT):
+                registry.pop(evicted_key, None)
             return (
                 artifact,
                 {
