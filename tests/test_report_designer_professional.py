@@ -137,3 +137,15 @@ def test_brief_mode_disables_figures_and_technical_appendix():
     assert result.pdf_options is not None
     assert result.pdf_options.include_figures is False
     assert result.pdf_options.include_technical_appendix is False
+
+
+def test_report_modes_control_toc_and_pdf_bookmarks():
+    brief = build_designed_report(_Model(), ReportDesign(mode_id="brief", title="Brief"))
+    full = build_designed_report(_Model(), ReportDesign(mode_id="full_engineering", title="Full"))
+
+    assert brief.pdf_options is not None
+    assert brief.pdf_options.include_table_of_contents is False
+    assert brief.pdf_options.include_pdf_bookmarks is False
+    assert full.pdf_options is not None
+    assert full.pdf_options.include_table_of_contents is True
+    assert full.pdf_options.include_pdf_bookmarks is True

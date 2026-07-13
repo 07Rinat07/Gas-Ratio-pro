@@ -1,3 +1,16 @@
+# Latest implementation — PDF Table of Contents and Bookmarks
+
+Status: COMPLETED
+
+Implemented:
+- multi-pass PDF table of contents with resolved page numbers;
+- PDF outline bookmarks for report title and engineering headings;
+- automatic navigation policy for Brief, Standard and Full Engineering modes;
+- renderer-only implementation without repeated engineering calculations;
+- regression coverage using real PDF parsing.
+
+Next priority: interactive report structure preview in Export Wizard.
+
 ## Latest implementation — Report Output Modes
 
 - Added user-selectable Brief, Standard and Full Engineering report modes.

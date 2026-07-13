@@ -150,3 +150,56 @@ def test_pdf_page_chrome_can_be_disabled() -> None:
     )
 
     assert result.content.startswith(b"%PDF")
+
+
+def _outline_titles(items):
+    titles = []
+    for item in items:
+        if isinstance(item, list):
+            titles.extend(_outline_titles(item))
+        else:
+            title = getattr(item, "title", None) or item.get("/Title", "")
+            titles.append(str(title))
+    return titles
+
+
+def test_pdf_renderer_builds_table_of_contents_and_bookmarks() -> None:
+    from io import BytesIO
+    from pypdf import PdfReader
+
+    result = render_engineering_document_pdf(
+        _document(),
+        options=PresentationPdfOptions(
+            include_figures=False,
+            include_table_of_contents=True,
+            include_pdf_bookmarks=True,
+        ),
+    )
+    reader = PdfReader(BytesIO(result.content))
+    text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    titles = _outline_titles(reader.outline)
+
+    assert "Оглавление" in text
+    assert "Интервалы" in text
+    assert titles[0] == "Газовый отчет"
+    assert "Интервалы" in titles
+    assert len(reader.pages) >= 3
+
+
+def test_pdf_renderer_can_disable_toc_and_bookmarks() -> None:
+    from io import BytesIO
+    from pypdf import PdfReader
+
+    result = render_engineering_document_pdf(
+        _document(),
+        options=PresentationPdfOptions(
+            include_figures=False,
+            include_table_of_contents=False,
+            include_pdf_bookmarks=False,
+        ),
+    )
+    reader = PdfReader(BytesIO(result.content))
+    text = "\n".join(page.extract_text() or "" for page in reader.pages)
+
+    assert "Оглавление" not in text
+    assert reader.outline == []

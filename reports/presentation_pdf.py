@@ -16,14 +16,18 @@ try:
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.platypus import (
+        BaseDocTemplate,
+        Frame,
         Image,
         PageBreak,
+        PageTemplate,
         Paragraph,
         SimpleDocTemplate,
         Spacer,
         Table,
         TableStyle,
     )
+    from reportlab.platypus.tableofcontents import TableOfContents
     REPORTLAB_AVAILABLE = True
 except ModuleNotFoundError:  # pragma: no cover - depends on user environment
     colors = None
@@ -32,7 +36,8 @@ except ModuleNotFoundError:  # pragma: no cover - depends on user environment
     ParagraphStyle = getSampleStyleSheet = None
     mm = 1
     pdfmetrics = TTFont = None
-    Image = PageBreak = Paragraph = SimpleDocTemplate = Spacer = Table = TableStyle = None
+    BaseDocTemplate = Frame = Image = PageBreak = PageTemplate = Paragraph = SimpleDocTemplate = Spacer = Table = TableStyle = None
+    TableOfContents = None
     REPORTLAB_AVAILABLE = False
 
 from reports.document_model import (
@@ -66,6 +71,8 @@ class PresentationPdfOptions:
     document_code: str = "GRP-REPORT"
     footer_text: str = "Gas Ratio Pro · Engineering report"
     classification: str = "ENGINEERING USE"
+    include_table_of_contents: bool = True
+    include_pdf_bookmarks: bool = True
 
 
 @dataclass(frozen=True)
@@ -243,6 +250,85 @@ def _build_page_decorator(
 
     return decorate
 
+
+
+class _EngineeringPdfDocTemplate(BaseDocTemplate):
+    """ReportLab document template with deterministic TOC and PDF outlines."""
+
+    def __init__(
+        self,
+        *args,
+        on_first_page=None,
+        on_later_pages=None,
+        include_pdf_bookmarks: bool = True,
+        **kwargs,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self._heading_counter = 0
+        self._include_pdf_bookmarks = bool(include_pdf_bookmarks)
+        frame = Frame(
+            self.leftMargin,
+            self.bottomMargin,
+            self.width,
+            self.height,
+            id="report-body",
+        )
+        self.addPageTemplates(
+            [
+                PageTemplate(
+                    id="report-first",
+                    frames=frame,
+                    onPage=on_first_page or (lambda canvas, doc: None),
+                    pagesize=self.pagesize,
+                    autoNextPageTemplate="report-later",
+                ),
+                PageTemplate(
+                    id="report-later",
+                    frames=frame,
+                    onPage=on_later_pages or (lambda canvas, doc: None),
+                    pagesize=self.pagesize,
+                ),
+            ]
+        )
+
+    def beforeDocument(self) -> None:  # noqa: N802 - ReportLab API
+        self._heading_counter = 0
+
+    def afterFlowable(self, flowable) -> None:  # noqa: N802 - ReportLab API
+        if not isinstance(flowable, Paragraph):
+            return
+        style_name = getattr(getattr(flowable, "style", None), "name", "")
+        if style_name not in {"GasRatioTitle", "GasRatioHeading2"}:
+            return
+        text = flowable.getPlainText().strip()
+        if not text:
+            return
+        is_title = style_name == "GasRatioTitle"
+        level = 0 if is_title else 1
+        key = f"grp-heading-{self._heading_counter}"
+        self._heading_counter += 1
+        self.canv.bookmarkPage(key)
+        if self._include_pdf_bookmarks:
+            self.canv.addOutlineEntry(text, key, level=level, closed=False)
+        if not is_title and text != "Оглавление":
+            self.notify("TOCEntry", (0, text, self.page, key))
+
+
+def _table_of_contents(styles: dict[str, ParagraphStyle]) -> object:
+    toc = TableOfContents()
+    toc.levelStyles = [
+        ParagraphStyle(
+            "GasRatioTocLevel1",
+            parent=styles["body"],
+            fontName=styles["body"].fontName,
+            fontSize=9,
+            leading=12,
+            leftIndent=0,
+            firstLineIndent=0,
+            spaceBefore=2,
+        )
+    ]
+    return toc
 
 def _styles() -> dict[str, ParagraphStyle]:
     regular, bold = _register_fonts()
@@ -614,7 +700,17 @@ def render_engineering_document_pdf(
     # content margin, but never allow flowables to overlap controlled-document
     # metadata or the physical page number.
     vertical_margin = max(margin, 18 * mm) if opts.show_page_chrome else margin
-    doc = SimpleDocTemplate(
+    decorator = None
+    if opts.show_page_chrome:
+        regular_font, bold_font = _register_fonts()
+        decorator = _build_page_decorator(
+            options=opts,
+            document_title=document.metadata.title or opts.title,
+            page_size=page_size,
+            regular_font=regular_font,
+            bold_font=bold_font,
+        )
+    doc = _EngineeringPdfDocTemplate(
         buffer,
         pagesize=page_size,
         leftMargin=margin,
@@ -625,6 +721,9 @@ def render_engineering_document_pdf(
         author="Gas Ratio Pro",
         subject="Gas-ratio engineering interpretation report",
         keywords="gas ratio, LAS, mud gas, engineering report",
+        on_first_page=decorator,
+        on_later_pages=decorator,
+        include_pdf_bookmarks=opts.include_pdf_bookmarks,
     )
 
     story: list[object] = []
@@ -638,6 +737,15 @@ def render_engineering_document_pdf(
         story.append(_paragraph(note, styles["small"]))
     if document.metadata.notes:
         story.append(Spacer(1, 8))
+
+    if opts.include_table_of_contents and document.sections:
+        story.extend([
+            PageBreak(),
+            _paragraph("Оглавление", styles["h2"]),
+            Spacer(1, 4),
+            _table_of_contents(styles),
+            PageBreak(),
+        ])
 
     for index, section in enumerate(document.sections):
         if section.page_break_before and story:
@@ -657,18 +765,10 @@ def render_engineering_document_pdf(
     if not story:
         story.append(_paragraph("Gas Ratio Pro report", styles["body"]))
 
-    build_kwargs: dict[str, object] = {}
-    if opts.show_page_chrome:
-        regular_font, bold_font = _register_fonts()
-        decorator = _build_page_decorator(
-            options=opts,
-            document_title=document.metadata.title or opts.title,
-            page_size=page_size,
-            regular_font=regular_font,
-            bold_font=bold_font,
-        )
-        build_kwargs = {"onFirstPage": decorator, "onLaterPages": decorator}
-    doc.build(story, **build_kwargs)
+    if opts.include_table_of_contents:
+        doc.multiBuild(story)
+    else:
+        doc.build(story)
     return PresentationPdfResult(
         content=buffer.getvalue(),
         profile=document.metadata.profile,

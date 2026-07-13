@@ -40,6 +40,8 @@ class ReportTemplate:
     orientation: str = "portrait"
     margin_mm: int = 12
     show_page_chrome: bool = True
+    include_table_of_contents: bool = True
+    include_pdf_bookmarks: bool = True
 
 
 @dataclass(frozen=True)
@@ -52,6 +54,8 @@ class ReportMode:
     include_figures: bool
     include_technical_appendix: bool
     show_page_chrome: bool
+    include_table_of_contents: bool
+    include_pdf_bookmarks: bool
 
 
 @dataclass(frozen=True)
@@ -69,6 +73,8 @@ class ReportDesign:
     include_figures: bool | None = None
     include_technical_appendix: bool | None = None
     show_page_chrome: bool | None = None
+    include_table_of_contents: bool | None = None
+    include_pdf_bookmarks: bool | None = None
     paper_size: str = ""
     orientation: str = ""
     margin_mm: int | None = None
@@ -123,6 +129,8 @@ _TEMPLATES: tuple[ReportTemplate, ...] = (
         include_figures=False,
         margin_mm=16,
         show_page_chrome=False,
+        include_table_of_contents=False,
+        include_pdf_bookmarks=False,
     ),
 )
 
@@ -137,6 +145,8 @@ _REPORT_MODES: tuple[ReportMode, ...] = (
         include_figures=True,
         include_technical_appendix=True,
         show_page_chrome=True,
+        include_table_of_contents=True,
+        include_pdf_bookmarks=True,
     ),
     ReportMode(
         id="brief",
@@ -147,6 +157,8 @@ _REPORT_MODES: tuple[ReportMode, ...] = (
         include_figures=False,
         include_technical_appendix=False,
         show_page_chrome=False,
+        include_table_of_contents=False,
+        include_pdf_bookmarks=False,
     ),
     ReportMode(
         id="standard",
@@ -157,6 +169,8 @@ _REPORT_MODES: tuple[ReportMode, ...] = (
         include_figures=True,
         include_technical_appendix=False,
         show_page_chrome=True,
+        include_table_of_contents=True,
+        include_pdf_bookmarks=True,
     ),
     ReportMode(
         id="full_engineering",
@@ -167,6 +181,8 @@ _REPORT_MODES: tuple[ReportMode, ...] = (
         include_figures=True,
         include_technical_appendix=True,
         show_page_chrome=True,
+        include_table_of_contents=True,
+        include_pdf_bookmarks=True,
     ),
 )
 
@@ -193,6 +209,8 @@ def resolve_report_design(design: ReportDesign) -> ReportDesign:
         include_figures=mode.include_figures,
         include_technical_appendix=mode.include_technical_appendix,
         show_page_chrome=mode.show_page_chrome,
+        include_table_of_contents=mode.include_table_of_contents,
+        include_pdf_bookmarks=mode.include_pdf_bookmarks,
     )
 
 def report_templates() -> tuple[ReportTemplate, ...]:
@@ -284,6 +302,16 @@ def build_designed_report(model: PresentationModel, design: ReportDesign | None 
     orientation = str(design.orientation or template.orientation).strip().lower()
     margin_mm = template.margin_mm if design.margin_mm is None else int(design.margin_mm)
     page_chrome = template.show_page_chrome if design.show_page_chrome is None else bool(design.show_page_chrome)
+    include_toc = (
+        template.include_table_of_contents
+        if design.include_table_of_contents is None
+        else bool(design.include_table_of_contents)
+    )
+    include_bookmarks = (
+        template.include_pdf_bookmarks
+        if design.include_pdf_bookmarks is None
+        else bool(design.include_pdf_bookmarks)
+    )
 
     pdf_options = PresentationPdfOptions(
         include_figures=include_figures,
@@ -296,6 +324,8 @@ def build_designed_report(model: PresentationModel, design: ReportDesign | None 
         document_code=_clean_text(design.document_code, "GRP-REPORT"),
         footer_text=_clean_text(design.footer_text, "Gas Ratio Pro · Engineering report"),
         classification=_clean_text(design.classification, "ENGINEERING USE"),
+        include_table_of_contents=include_toc,
+        include_pdf_bookmarks=include_bookmarks,
     )
     docx_options = PresentationDocxOptions(
         include_figures=include_figures,
