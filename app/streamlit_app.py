@@ -8773,6 +8773,312 @@ def _render_selected_interval_passport(
         tab_decision.info(passport.readiness_label)
 
 
+
+def _streamlit_fragment(function):
+    """Use fragment reruns when supported, keeping compatibility with older Streamlit."""
+    fragment = getattr(st, "fragment", None)
+    return fragment(function) if callable(fragment) else function
+
+
+@_streamlit_fragment
+def _render_professional_export_panel(
+    logger,
+    active_project: ProjectRecord,
+    *,
+    calculated_df: pd.DataFrame,
+    valid_depth: pd.Series,
+    depth_range: tuple[float, float],
+    selected_interval: object | None,
+    selected_interval_id: str | None,
+    source_label: str,
+    calculated_signature: str,
+    revision_snapshot,
+    height: int,
+) -> None:
+    """Render Professional Export as an isolated fragment.
+
+    Widget changes and artifact preparation rerun only this panel on Streamlit
+    versions that support fragments, so the surrounding Plotly charts are not
+    serialized and sent to the browser again.
+    """
+    with st.expander("Профессиональный экспорт отчета", expanded=False):
+        profile_options = report_profile_options()
+        format_options = export_format_options()
+        export_cache_key = f"presentation_export_artifact_{active_project.id}"
+        export_error_key = f"presentation_export_error_{active_project.id}"
+
+        # Streamlit normally reruns the complete report on every selectbox
+        # change. A form batches profile/format changes and starts the costly
+        # renderer only after explicit confirmation.
+        with st.form(key=f"presentation_export_form_{active_project.id}", clear_on_submit=False):
+            selected_profile_label = st.selectbox(
+                "Профиль отчета",
+                options=[option.label for option in profile_options],
+                index=0,
+                key=f"presentation_report_profile_{active_project.id}",
+                help="Отчёт для заказчика содержит краткие выводы без технических приложений; инженерный отчёт включает расширенные расчётные материалы.",
+            )
+            selected_format_label = st.selectbox(
+                "Формат экспорта",
+                options=[option.label for option in format_options],
+                index=0,
+                key=f"presentation_export_format_{active_project.id}",
+            )
+            print_mode_options = ["Текущий интервал графиков", "Выбрать отдельно"]
+            if selected_interval is not None:
+                print_mode_options.insert(0, "Выбранный пласт")
+            print_mode_key = f"presentation_print_depth_mode_{active_project.id}"
+            export_state = _application_state_controller().state
+            stored_print_mode = export_state.get(print_mode_key)
+            if stored_print_mode not in print_mode_options:
+                export_state[print_mode_key] = (
+                    "Выбранный пласт" if selected_interval is not None else "Текущий интервал графиков"
+                )
+            print_mode = st.radio(
+                "Интервал печати",
+                options=tuple(print_mode_options),
+                horizontal=True,
+                key=print_mode_key,
+                help=(
+                    "Выбранный пласт использует общий selected_reservoir_interval_id. "
+                    "PDF и DOCX формируются только по его фактическим границам."
+                ),
+            )
+            full_print_min = float(valid_depth.min()) if not valid_depth.empty else float(depth_range[0])
+            full_print_max = float(valid_depth.max()) if not valid_depth.empty else float(depth_range[1])
+            if print_mode == "Выбранный пласт" and selected_interval is not None:
+                print_top, print_bottom = _selected_interval_print_range(
+                    selected_interval,
+                    depth_range,
+                )
+                st.caption(
+                    f"Будет напечатан {selected_interval_id}: "
+                    f"{print_top:g}–{print_bottom:g} м."
+                )
+            elif print_mode == "Выбрать отдельно":
+                default_print_top = (
+                    float(selected_interval.top)
+                    if selected_interval is not None
+                    else float(depth_range[0])
+                )
+                default_print_bottom = (
+                    float(selected_interval.base)
+                    if selected_interval is not None
+                    else float(depth_range[1])
+                )
+                print_left, print_right = st.columns(2)
+                print_top = print_left.number_input(
+                    "Печать от, м",
+                    min_value=full_print_min,
+                    max_value=full_print_max,
+                    value=max(full_print_min, min(full_print_max, default_print_top)),
+                    step=0.1,
+                    key=f"presentation_print_top_{active_project.id}",
+                )
+                print_bottom = print_right.number_input(
+                    "Печать до, м",
+                    min_value=full_print_min,
+                    max_value=full_print_max,
+                    value=max(full_print_min, min(full_print_max, default_print_bottom)),
+                    step=0.1,
+                    key=f"presentation_print_bottom_{active_project.id}",
+                )
+            else:
+                print_top, print_bottom = depth_range
+            prepare_export = st.form_submit_button(
+                "Подготовить выбранный формат",
+                width="stretch",
+                type="primary",
+            )
+
+        selected_profile = next((option for option in profile_options if option.label == selected_profile_label), profile_options[0])
+        selected_format = next((option for option in format_options if option.label == selected_format_label), format_options[0])
+
+        if prepare_export:
+            generation_started = perf_counter()
+            print_depth_range = (
+                min(float(print_top), float(print_bottom)),
+                max(float(print_top), float(print_bottom)),
+            )
+            print_df = _filter_by_depth_range(
+                calculated_df, print_depth_range[0], print_depth_range[1]
+            )
+            if print_df.empty:
+                st.error("В выбранном интервале печати нет данных.")
+            else:
+                export_progress = st.empty()
+                _set_inline_operation_status(
+                    export_progress,
+                    "Экспорт",
+                    f"Формируется {selected_format.label}.",
+                )
+                request = ExportRequest(
+                    project_id=str(active_project.id),
+                    project_name=str(active_project.name),
+                    source_label=str(source_label),
+                    profile_id=str(selected_profile.id),
+                    format_id=str(selected_format.id),
+                    format_label=str(selected_format.label),
+                    extension=str(selected_format.extension),
+                    mime_type=str(selected_format.mime_type),
+                    depth_top=float(print_depth_range[0]),
+                    depth_bottom=float(print_depth_range[1]),
+                    source_signature=str(calculated_signature),
+                    calculation_revision=int(revision_snapshot.calculation),
+                    presentation_revision=int(revision_snapshot.presentation),
+                    figure_height=max(int(height), 1000),
+                )
+                logger.info(
+                    "presentation_export_started project_id=%s profile=%s format=%s rows=%d",
+                    safe_log_value(active_project.id),
+                    safe_log_value(selected_profile.id),
+                    safe_log_value(selected_format.id),
+                    len(print_df),
+                )
+
+                def _build_export_model(frame, export_request):
+                    presentation_state = build_presentation_export_ui_state(
+                        profile=export_request.profile_id,
+                        export_format=export_request.format_id,
+                        output_dir=ROOT_DIR / "artifacts" / "presentation_exports",
+                        base_name_parts=(
+                            export_request.project_name,
+                            export_request.source_label,
+                            "professional_report",
+                        ),
+                        include_figures=True,
+                    )
+                    payload = build_hydrocarbon_report_payload(
+                        frame,
+                        source_label=export_request.source_label,
+                        project_label=f"{export_request.project_name} ({export_request.project_id})",
+                        depth_label=_range_label(export_request.normalized_depth_range, unit="м"),
+                        report_profile=presentation_state.profile,
+                        include_plot=True,
+                        ranking_profile=_application_state_controller().state.get("active_reservoir_ranking_profile"),
+                    )
+                    if payload.presentation_model is None:
+                        raise RuntimeError("PresentationModel не был сформирован.")
+                    return (payload.presentation_model, presentation_state)
+
+                def _render_export_artifact(model_bundle, frame, export_request):
+                    presentation_model, presentation_state = model_bundle
+                    if export_request.format_id == "xlsx":
+                        content = export_xlsx_bytes(frame, sheet_name="engineering_data")
+                        file_name = f"{presentation_state.base_name}.xlsx"
+                    elif export_request.format_id in {"png", "svg"}:
+                        report_figures = presentation_model.figures
+                        if not report_figures:
+                            raise RuntimeError("Инженерный график не был сформирован для экспорта.")
+                        content = export_plotly_static_bytes(
+                            report_figures[0],
+                            StaticExportOptions(
+                                format=export_request.format_id,
+                                width=1800,
+                                height=export_request.figure_height,
+                                scale=2.0,
+                            ),
+                        )
+                        file_name = f"{presentation_state.base_name}.{export_request.extension}"
+                    else:
+                        rendered = build_ui_export_artifact(presentation_model, presentation_state)
+                        content = rendered.content
+                        file_name = rendered.file_name
+                    return ControlledExportArtifact(
+                        content=content,
+                        file_name=file_name,
+                        mime_type=export_request.mime_type,
+                        format_id=export_request.format_id,
+                        format_label=export_request.format_label,
+                        profile_id=export_request.profile_id,
+                    )
+
+                try:
+                    controller = ExportController(_application_state_controller().state)
+                    export_artifact, export_metrics = controller.prepare(
+                        request,
+                        frame=print_df,
+                        build_model=_build_export_model,
+                        render_artifact=_render_export_artifact,
+                    )
+                    _application_state_controller().state[export_cache_key] = {
+                        "content": export_artifact.content,
+                        "file_name": export_artifact.file_name,
+                        "mime_type": export_artifact.mime_type,
+                        "format_id": export_artifact.format_id,
+                        "format_label": export_artifact.format_label,
+                        "profile_id": export_artifact.profile_id,
+                    }
+                    _application_state_controller().state.pop(export_error_key, None)
+                    _set_inline_operation_status(
+                        export_progress,
+                        "Экспорт",
+                        (
+                            f"{selected_format.label} подготовлен"
+                            + (" из кэша." if export_artifact.cache_hit else ".")
+                        ),
+                        state="success",
+                    )
+                    logger.info(
+                        "presentation_export_completed project_id=%s profile=%s format=%s bytes=%d duration_ms=%.2f model_cache_hit=%s artifact_cache_hit=%s",
+                        safe_log_value(active_project.id),
+                        safe_log_value(selected_profile.id),
+                        safe_log_value(selected_format.id),
+                        len(export_artifact.content),
+                        float(export_metrics.get("duration_ms", 0.0)),
+                        export_metrics.get("model_cache_hit"),
+                        export_metrics.get("artifact_cache_hit"),
+                    )
+                except ExportControllerError as exc:
+                    failure = exc.failure
+                    _set_inline_operation_status(
+                        export_progress,
+                        "Экспорт",
+                        f"Не удалось подготовить отчет. Код: {failure.error_id}.",
+                        state="error",
+                    )
+                    _application_state_controller().state[export_error_key] = {
+                        "id": failure.error_id,
+                        "stage": failure.stage,
+                        "type": failure.exception_type,
+                        "message": failure.message,
+                    }
+                    logger.exception(
+                        "presentation_export_failed error_id=%s stage=%s exception_type=%s project_id=%s profile=%s format=%s duration_ms=%.2f",
+                        failure.error_id,
+                        failure.stage,
+                        failure.exception_type,
+                        safe_log_value(active_project.id),
+                        safe_log_value(selected_profile.id),
+                        safe_log_value(selected_format.id),
+                        (perf_counter() - generation_started) * 1000.0,
+                    )
+
+        cached_export = _application_state_controller().state.get(export_cache_key)
+        if isinstance(cached_export, dict):
+            st.download_button(
+                f"Скачать {cached_export.get('format_label', 'отчет')}",
+                data=cached_export.get("content", b""),
+                file_name=str(cached_export.get("file_name", "professional_report.bin")),
+                mime=str(cached_export.get("mime_type", "application/octet-stream")),
+                width="stretch",
+                key=f"presentation_download_{active_project.id}_{cached_export.get('format_id', 'cached')}",
+            )
+            st.caption(
+                f"Подготовлен формат: {cached_export.get('format_label', '—')}. "
+                "Для другого формата выберите его выше и нажмите «Подготовить выбранный формат»."
+            )
+        else:
+            st.info("Выберите профиль и формат, затем нажмите «Подготовить выбранный формат».")
+
+        cached_error = _application_state_controller().state.get(export_error_key)
+        if isinstance(cached_error, dict):
+            st.error(
+                f"Не удалось сформировать экспорт. Код ошибки: {cached_error.get('id', '—')}. "
+                "Подробности записаны в logs/app.log."
+            )
+        st.caption("Экспорт использует единый выбранный диапазон глубин и согласованные инженерные данные.")
+
 def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> None:
     st.subheader("Интерпретационные графики")
     # The interpretation workspace is a standalone route and must not rely on
@@ -9236,283 +9542,19 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             st.dataframe(zone_table, width="stretch")
 
     if figures:
-        with st.expander("Профессиональный экспорт отчета", expanded=False):
-            profile_options = report_profile_options()
-            format_options = export_format_options()
-            export_cache_key = f"presentation_export_artifact_{active_project.id}"
-            export_error_key = f"presentation_export_error_{active_project.id}"
-
-            # Streamlit normally reruns the complete report on every selectbox
-            # change. A form batches profile/format changes and starts the costly
-            # renderer only after explicit confirmation.
-            with st.form(key=f"presentation_export_form_{active_project.id}", clear_on_submit=False):
-                selected_profile_label = st.selectbox(
-                    "Профиль отчета",
-                    options=[option.label for option in profile_options],
-                    index=0,
-                    key=f"presentation_report_profile_{active_project.id}",
-                    help="Отчёт для заказчика содержит краткие выводы без технических приложений; инженерный отчёт включает расширенные расчётные материалы.",
-                )
-                selected_format_label = st.selectbox(
-                    "Формат экспорта",
-                    options=[option.label for option in format_options],
-                    index=0,
-                    key=f"presentation_export_format_{active_project.id}",
-                )
-                print_mode_options = ["Текущий интервал графиков", "Выбрать отдельно"]
-                if selected_interval is not None:
-                    print_mode_options.insert(0, "Выбранный пласт")
-                print_mode_key = f"presentation_print_depth_mode_{active_project.id}"
-                export_state = _application_state_controller().state
-                stored_print_mode = export_state.get(print_mode_key)
-                if stored_print_mode not in print_mode_options:
-                    export_state[print_mode_key] = (
-                        "Выбранный пласт" if selected_interval is not None else "Текущий интервал графиков"
-                    )
-                print_mode = st.radio(
-                    "Интервал печати",
-                    options=tuple(print_mode_options),
-                    horizontal=True,
-                    key=print_mode_key,
-                    help=(
-                        "Выбранный пласт использует общий selected_reservoir_interval_id. "
-                        "PDF и DOCX формируются только по его фактическим границам."
-                    ),
-                )
-                full_print_min = float(valid_depth.min()) if not valid_depth.empty else float(depth_range[0])
-                full_print_max = float(valid_depth.max()) if not valid_depth.empty else float(depth_range[1])
-                if print_mode == "Выбранный пласт" and selected_interval is not None:
-                    print_top, print_bottom = _selected_interval_print_range(
-                        selected_interval,
-                        depth_range,
-                    )
-                    st.caption(
-                        f"Будет напечатан {selected_interval_id}: "
-                        f"{print_top:g}–{print_bottom:g} м."
-                    )
-                elif print_mode == "Выбрать отдельно":
-                    default_print_top = (
-                        float(selected_interval.top)
-                        if selected_interval is not None
-                        else float(depth_range[0])
-                    )
-                    default_print_bottom = (
-                        float(selected_interval.base)
-                        if selected_interval is not None
-                        else float(depth_range[1])
-                    )
-                    print_left, print_right = st.columns(2)
-                    print_top = print_left.number_input(
-                        "Печать от, м",
-                        min_value=full_print_min,
-                        max_value=full_print_max,
-                        value=max(full_print_min, min(full_print_max, default_print_top)),
-                        step=0.1,
-                        key=f"presentation_print_top_{active_project.id}",
-                    )
-                    print_bottom = print_right.number_input(
-                        "Печать до, м",
-                        min_value=full_print_min,
-                        max_value=full_print_max,
-                        value=max(full_print_min, min(full_print_max, default_print_bottom)),
-                        step=0.1,
-                        key=f"presentation_print_bottom_{active_project.id}",
-                    )
-                else:
-                    print_top, print_bottom = depth_range
-                prepare_export = st.form_submit_button(
-                    "Подготовить выбранный формат",
-                    width="stretch",
-                    type="primary",
-                )
-
-            selected_profile = next((option for option in profile_options if option.label == selected_profile_label), profile_options[0])
-            selected_format = next((option for option in format_options if option.label == selected_format_label), format_options[0])
-
-            if prepare_export:
-                generation_started = perf_counter()
-                print_depth_range = (
-                    min(float(print_top), float(print_bottom)),
-                    max(float(print_top), float(print_bottom)),
-                )
-                print_df = _filter_by_depth_range(
-                    calculated_df, print_depth_range[0], print_depth_range[1]
-                )
-                if print_df.empty:
-                    st.error("В выбранном интервале печати нет данных.")
-                else:
-                    export_progress = st.empty()
-                    _set_inline_operation_status(
-                        export_progress,
-                        "Экспорт",
-                        f"Формируется {selected_format.label}.",
-                    )
-                    request = ExportRequest(
-                        project_id=str(active_project.id),
-                        project_name=str(active_project.name),
-                        source_label=str(source_label),
-                        profile_id=str(selected_profile.id),
-                        format_id=str(selected_format.id),
-                        format_label=str(selected_format.label),
-                        extension=str(selected_format.extension),
-                        mime_type=str(selected_format.mime_type),
-                        depth_top=float(print_depth_range[0]),
-                        depth_bottom=float(print_depth_range[1]),
-                        source_signature=str(calculated_signature),
-                        calculation_revision=int(revision_snapshot.calculation),
-                        presentation_revision=int(revision_snapshot.presentation),
-                        figure_height=max(int(height), 1000),
-                    )
-                    logger.info(
-                        "presentation_export_started project_id=%s profile=%s format=%s rows=%d",
-                        safe_log_value(active_project.id),
-                        safe_log_value(selected_profile.id),
-                        safe_log_value(selected_format.id),
-                        len(print_df),
-                    )
-
-                    def _build_export_model(frame, export_request):
-                        presentation_state = build_presentation_export_ui_state(
-                            profile=export_request.profile_id,
-                            export_format=export_request.format_id,
-                            output_dir=ROOT_DIR / "artifacts" / "presentation_exports",
-                            base_name_parts=(
-                                export_request.project_name,
-                                export_request.source_label,
-                                "professional_report",
-                            ),
-                            include_figures=True,
-                        )
-                        payload = build_hydrocarbon_report_payload(
-                            frame,
-                            source_label=export_request.source_label,
-                            project_label=f"{export_request.project_name} ({export_request.project_id})",
-                            depth_label=_range_label(export_request.normalized_depth_range, unit="м"),
-                            report_profile=presentation_state.profile,
-                            include_plot=True,
-                            ranking_profile=_application_state_controller().state.get("active_reservoir_ranking_profile"),
-                        )
-                        if payload.presentation_model is None:
-                            raise RuntimeError("PresentationModel не был сформирован.")
-                        return (payload.presentation_model, presentation_state)
-
-                    def _render_export_artifact(model_bundle, frame, export_request):
-                        presentation_model, presentation_state = model_bundle
-                        if export_request.format_id == "xlsx":
-                            content = export_xlsx_bytes(frame, sheet_name="engineering_data")
-                            file_name = f"{presentation_state.base_name}.xlsx"
-                        elif export_request.format_id in {"png", "svg"}:
-                            report_figures = presentation_model.figures
-                            if not report_figures:
-                                raise RuntimeError("Инженерный график не был сформирован для экспорта.")
-                            content = export_plotly_static_bytes(
-                                report_figures[0],
-                                StaticExportOptions(
-                                    format=export_request.format_id,
-                                    width=1800,
-                                    height=export_request.figure_height,
-                                    scale=2.0,
-                                ),
-                            )
-                            file_name = f"{presentation_state.base_name}.{export_request.extension}"
-                        else:
-                            rendered = build_ui_export_artifact(presentation_model, presentation_state)
-                            content = rendered.content
-                            file_name = rendered.file_name
-                        return ControlledExportArtifact(
-                            content=content,
-                            file_name=file_name,
-                            mime_type=export_request.mime_type,
-                            format_id=export_request.format_id,
-                            format_label=export_request.format_label,
-                            profile_id=export_request.profile_id,
-                        )
-
-                    try:
-                        controller = ExportController(_application_state_controller().state)
-                        export_artifact, export_metrics = controller.prepare(
-                            request,
-                            frame=print_df,
-                            build_model=_build_export_model,
-                            render_artifact=_render_export_artifact,
-                        )
-                        _application_state_controller().state[export_cache_key] = {
-                            "content": export_artifact.content,
-                            "file_name": export_artifact.file_name,
-                            "mime_type": export_artifact.mime_type,
-                            "format_id": export_artifact.format_id,
-                            "format_label": export_artifact.format_label,
-                            "profile_id": export_artifact.profile_id,
-                        }
-                        _application_state_controller().state.pop(export_error_key, None)
-                        _set_inline_operation_status(
-                            export_progress,
-                            "Экспорт",
-                            (
-                                f"{selected_format.label} подготовлен"
-                                + (" из кэша." if export_artifact.cache_hit else ".")
-                            ),
-                            state="success",
-                        )
-                        logger.info(
-                            "presentation_export_completed project_id=%s profile=%s format=%s bytes=%d duration_ms=%.2f model_cache_hit=%s artifact_cache_hit=%s",
-                            safe_log_value(active_project.id),
-                            safe_log_value(selected_profile.id),
-                            safe_log_value(selected_format.id),
-                            len(export_artifact.content),
-                            float(export_metrics.get("duration_ms", 0.0)),
-                            export_metrics.get("model_cache_hit"),
-                            export_metrics.get("artifact_cache_hit"),
-                        )
-                    except ExportControllerError as exc:
-                        failure = exc.failure
-                        _set_inline_operation_status(
-                            export_progress,
-                            "Экспорт",
-                            f"Не удалось подготовить отчет. Код: {failure.error_id}.",
-                            state="error",
-                        )
-                        _application_state_controller().state[export_error_key] = {
-                            "id": failure.error_id,
-                            "stage": failure.stage,
-                            "type": failure.exception_type,
-                            "message": failure.message,
-                        }
-                        logger.exception(
-                            "presentation_export_failed error_id=%s stage=%s exception_type=%s project_id=%s profile=%s format=%s duration_ms=%.2f",
-                            failure.error_id,
-                            failure.stage,
-                            failure.exception_type,
-                            safe_log_value(active_project.id),
-                            safe_log_value(selected_profile.id),
-                            safe_log_value(selected_format.id),
-                            (perf_counter() - generation_started) * 1000.0,
-                        )
-
-            cached_export = _application_state_controller().state.get(export_cache_key)
-            if isinstance(cached_export, dict):
-                st.download_button(
-                    f"Скачать {cached_export.get('format_label', 'отчет')}",
-                    data=cached_export.get("content", b""),
-                    file_name=str(cached_export.get("file_name", "professional_report.bin")),
-                    mime=str(cached_export.get("mime_type", "application/octet-stream")),
-                    width="stretch",
-                    key=f"presentation_download_{active_project.id}_{cached_export.get('format_id', 'cached')}",
-                )
-                st.caption(
-                    f"Подготовлен формат: {cached_export.get('format_label', '—')}. "
-                    "Для другого формата выберите его выше и нажмите «Подготовить выбранный формат»."
-                )
-            else:
-                st.info("Выберите профиль и формат, затем нажмите «Подготовить выбранный формат».")
-
-            cached_error = _application_state_controller().state.get(export_error_key)
-            if isinstance(cached_error, dict):
-                st.error(
-                    f"Не удалось сформировать экспорт. Код ошибки: {cached_error.get('id', '—')}. "
-                    "Подробности записаны в logs/app.log."
-                )
-            st.caption("Экспорт использует единый выбранный диапазон глубин и согласованные инженерные данные.")
+        _render_professional_export_panel(
+            logger,
+            active_project,
+            calculated_df=calculated_df,
+            valid_depth=valid_depth,
+            depth_range=depth_range,
+            selected_interval=selected_interval,
+            selected_interval_id=selected_interval_id,
+            source_label=source_label,
+            calculated_signature=calculated_signature,
+            revision_snapshot=revision_snapshot,
+            height=int(height),
+        )
 
     st.subheader("Инженерная сводка УВ-интервалов")
     st.caption(

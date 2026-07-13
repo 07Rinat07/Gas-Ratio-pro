@@ -2008,3 +2008,12 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Реализована проектная очистка экспортных кэшей.
 - Build identity обновлён до `v222-rc3`.
 - README.md не изменялся.
+
+
+## v222-rc4 — Isolated Professional Export panel
+
+- Professional Export перенесён в отдельный Streamlit fragment.
+- Настройки и submit экспорта теперь перезапускают только панель экспорта.
+- Устранена повторная перерисовка Pixler, ternary, depth-графиков и планшета после подготовки файла.
+- Требование Streamlit обновлено до `>=1.37.0`.
+- Build identity обновлён до `v222-rc4`.
