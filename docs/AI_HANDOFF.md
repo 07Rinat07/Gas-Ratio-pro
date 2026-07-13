@@ -431,3 +431,23 @@ Validation:
 - `logs/app.log` was not present in the supplied archive.
 
 Next priority: runtime performance summary UI, then interactive report-structure preview.
+
+# Latest implementation — Actual EngineeringDocument Counts in Preview
+
+Status: COMPLETED
+
+Implemented:
+- public renderer-neutral `report_document_counts()` aggregation;
+- `build_report_structure_preview(..., document_counts=...)` for lightweight persisted counts;
+- designed PDF/DOCX/bundle artifacts expose the counts from the exact document they rendered;
+- background export returns counts to the Streamlit UI thread without mutating session state from the worker;
+- the UI persists and displays actual section/table/row/plot/visualization counts on subsequent reruns;
+- reset clears the persisted count snapshot;
+- an explicit document overrides persisted counts.
+
+Validation:
+- syntax compilation for report designer, export adapter, background UI and Streamlit application;
+- focused report designer/export/Streamlit tests pass;
+- `logs/app.log` is not present in the supplied archive.
+
+Next priority: bind persisted counts to the export request/design signature and suppress stale counts after control changes, then implement PDF page thumbnails.

@@ -337,6 +337,7 @@ from reports.presentation_ui import (
 )
 from reports.report_designer import (
     ReportDesign,
+    ReportDocumentCounts,
     build_report_structure_preview,
     report_modes,
     report_templates,
@@ -9004,6 +9005,7 @@ def _render_professional_export_panel(
         format_options = export_format_options()
         export_cache_key = f"presentation_export_artifact_{active_project.id}"
         export_error_key = f"presentation_export_error_{active_project.id}"
+        report_preview_counts_key = f"presentation_report_document_counts_{active_project.id}"
 
         print_mode_options = [
             "Вся скважина и все УВ-интервалы",
@@ -9185,6 +9187,7 @@ def _render_professional_export_panel(
                 draft_key,
                 export_cache_key,
                 export_error_key,
+                report_preview_counts_key,
                 form_keys["profile"],
                 form_keys["format"],
                 form_keys["print_mode"],
@@ -9296,8 +9299,18 @@ def _render_professional_export_panel(
                 include_technical_appendix=bool(include_technical_design),
                 show_page_chrome=bool(show_page_chrome_design),
             )
+            saved_preview_counts = export_state.get(report_preview_counts_key)
+            if isinstance(saved_preview_counts, dict):
+                try:
+                    saved_preview_counts = ReportDocumentCounts(**saved_preview_counts)
+                except (TypeError, ValueError):
+                    saved_preview_counts = None
+            if not isinstance(saved_preview_counts, ReportDocumentCounts):
+                saved_preview_counts = None
+
             structure_preview = build_report_structure_preview(
                 preview_design,
+                document_counts=saved_preview_counts,
                 target_format=next(
                     (option.id for option in format_options if option.label == selected_format_label),
                     format_options[0].id,
@@ -9330,8 +9343,19 @@ def _render_professional_export_panel(
                 st.metric(
                     "Оценочный объём",
                     f"{structure_preview.estimated_min_pages}–{structure_preview.estimated_max_pages} стр.",
-                    help="Диапазон рассчитан по составу разделов без построения бинарного PDF/DOCX.",
+                    help=(
+                        "Диапазон уточнён по последней собранной модели документа."
+                        if saved_preview_counts is not None
+                        else "Диапазон рассчитан по составу разделов без построения бинарного PDF/DOCX."
+                    ),
                 )
+                if saved_preview_counts is not None:
+                    st.caption(
+                        "Фактический состав последней подготовленной модели: "
+                        f"разделов {saved_preview_counts.sections}, таблиц {saved_preview_counts.tables}, "
+                        f"строк {saved_preview_counts.table_rows}, графиков {saved_preview_counts.plots}, "
+                        f"планшетов {saved_preview_counts.visualizations}."
+                    )
                 with st.expander("Оценка состава страниц", expanded=False):
                     for estimate in structure_preview.page_estimates:
                         state = "✅" if estimate.enabled else "⏸️"
@@ -9546,6 +9570,8 @@ def _render_professional_export_panel(
                 frame_snapshot = print_df.copy(deep=False)
 
                 def _background_work(report, check_cancelled):
+                    report_document_counts = None
+
                     def _build_export_model(frame, export_request):
                         check_cancelled()
                         payload = build_hydrocarbon_report_payload(
@@ -9615,6 +9641,8 @@ def _render_professional_export_panel(
                             )
                             content = rendered.content
                             file_name = rendered.file_name
+                            nonlocal report_document_counts
+                            report_document_counts = rendered.document_counts
                         check_cancelled()
                         return ControlledExportArtifact(
                             content=content,
@@ -9634,7 +9662,11 @@ def _render_professional_export_panel(
                         on_progress=report,
                         check_cancelled=check_cancelled,
                     )
-                    return BackgroundExportResult(artifact=artifact, metrics=metrics)
+                    return BackgroundExportResult(
+                        artifact=artifact,
+                        metrics=metrics,
+                        report_document_counts=report_document_counts,
+                    )
 
                 try:
                     retry_context = export_state.pop(background_retry_context_key, {})
@@ -9879,6 +9911,15 @@ def _render_professional_export_panel(
                     raise RuntimeError("Фоновый экспорт вернул неподдерживаемый тип результата.")
                 export_artifact = completed.artifact
                 export_metrics = dict(completed.metrics)
+                if isinstance(completed.report_document_counts, ReportDocumentCounts):
+                    export_state[report_preview_counts_key] = {
+                        "sections": completed.report_document_counts.sections,
+                        "tables": completed.report_document_counts.tables,
+                        "table_rows": completed.report_document_counts.table_rows,
+                        "plots": completed.report_document_counts.plots,
+                        "visualizations": completed.report_document_counts.visualizations,
+                        "notices": completed.report_document_counts.notices,
+                    }
                 export_state[export_cache_key] = {
                     "content": export_artifact.content,
                     "file_name": export_artifact.file_name,

@@ -12,6 +12,7 @@ class BackgroundExportResult:
 
     artifact: Any
     metrics: Mapping[str, Any]
+    report_document_counts: Any | None = None
 
 
 @dataclass(frozen=True, slots=True)

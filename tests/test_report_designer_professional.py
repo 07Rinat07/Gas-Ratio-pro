@@ -149,3 +149,51 @@ def test_report_modes_control_toc_and_pdf_bookmarks():
     assert full.pdf_options is not None
     assert full.pdf_options.include_table_of_contents is True
     assert full.pdf_options.include_pdf_bookmarks is True
+
+
+def test_structure_preview_accepts_persisted_document_counts_without_document():
+    from reports.report_designer import ReportDocumentCounts, build_report_structure_preview
+
+    preview = build_report_structure_preview(
+        ReportDesign(
+            template_id="engineering",
+            sections=("plots", "results", "conclusion"),
+            include_technical_appendix=False,
+        ),
+        document_counts=ReportDocumentCounts(
+            sections=5,
+            tables=3,
+            table_rows=81,
+            plots=4,
+            visualizations=0,
+            notices=2,
+        ),
+        target_format="pdf",
+    )
+
+    estimates = {item.id: item for item in preview.page_estimates}
+    assert estimates["plots"].min_pages == 2
+    assert estimates["plots"].max_pages == 4
+    assert estimates["results"].min_pages == 3
+    assert estimates["results"].max_pages == 8
+    assert any(item.code == "estimate.document_counts" for item in preview.diagnostics)
+
+
+def test_explicit_document_takes_precedence_over_persisted_counts():
+    from reports.document_model import DocumentMetadata, DocumentSection, EngineeringDocument
+    from reports.report_designer import ReportDocumentCounts, build_report_structure_preview
+
+    document = EngineeringDocument(
+        metadata=DocumentMetadata(title="Actual"),
+        sections=(DocumentSection("Results", (DocumentTable("T", ("A",), (("1",),)),)),),
+    )
+    preview = build_report_structure_preview(
+        ReportDesign(template_id="minimal", sections=("results",)),
+        document=document,
+        document_counts=ReportDocumentCounts(tables=99, table_rows=9999),
+        target_format="docx",
+    )
+
+    diagnostic = next(item for item in preview.diagnostics if item.code == "estimate.document_counts")
+    assert "таблиц 1" in diagnostic.message
+    assert "строк 1" in diagnostic.message

@@ -61,3 +61,19 @@ def test_designer_export_rejects_visualization_channel():
             export_format="png",
             base_name="report",
         )
+
+
+def test_designed_artifact_exposes_renderer_neutral_document_counts(monkeypatch):
+    from reports.report_designer import ReportDesign
+    from reports.report_designer_export import build_designed_report_artifact
+
+    artifact = build_designed_report_artifact(
+        _Model(),
+        design=ReportDesign(template_id="minimal", sections=("results", "conclusion")),
+        export_format="docx",
+        base_name="counted-report",
+    )
+
+    assert artifact.document_counts is not None
+    assert artifact.document_counts.sections >= 0
+    assert artifact.document_counts.tables >= 0

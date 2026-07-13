@@ -442,7 +442,7 @@ _SECTION_PREVIEW = {
 }
 
 
-def _document_counts(document: EngineeringDocument | None) -> ReportDocumentCounts | None:
+def report_document_counts(document: EngineeringDocument | None) -> ReportDocumentCounts | None:
     """Count renderer-neutral blocks without rebuilding engineering content."""
     if document is None:
         return None
@@ -468,6 +468,7 @@ def build_report_structure_preview(
     design: ReportDesign | None = None,
     *,
     document: EngineeringDocument | None = None,
+    document_counts: ReportDocumentCounts | None = None,
     target_format: str | None = None,
 ) -> ReportStructurePreview:
     """Resolve report composition without building plots, tables or binary files.
@@ -525,7 +526,7 @@ def build_report_structure_preview(
     if include_technical:
         page_estimates.append(ReportPageEstimate("technical_appendix", "Техническое приложение", 2, 6))
 
-    counts = _document_counts(document)
+    counts = report_document_counts(document) if document is not None else document_counts
     if counts is not None:
         refined: list[ReportPageEstimate] = []
         for item in page_estimates:
@@ -695,6 +696,7 @@ __all__ = [
     "ReportPreviewItem",
     "ReportPageEstimate",
     "ReportDocumentCounts",
+    "report_document_counts",
     "ReportFormatCapability",
     "ReportReadinessDiagnostic",
     "ReportStructurePreview",

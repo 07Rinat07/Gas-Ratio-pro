@@ -12,7 +12,12 @@ from reports.presentation_docx import render_engineering_document_docx
 from reports.presentation_model import PresentationModel
 from reports.presentation_pdf import render_engineering_document_pdf
 from reports.presentation_ui import ExportFormat, export_format_by_id
-from reports.report_designer import ReportDesign, require_designed_report
+from reports.report_designer import (
+    ReportDesign,
+    ReportDocumentCounts,
+    report_document_counts,
+    require_designed_report,
+)
 from reports.presentation_export import safe_export_basename
 
 
@@ -24,6 +29,7 @@ class DesignedReportArtifact:
     export_format: ExportFormat
     template_id: str
     manifest_names: tuple[str, ...] = ()
+    document_counts: ReportDocumentCounts | None = None
 
 
 def build_designed_report_artifact(
@@ -75,6 +81,7 @@ def build_designed_report_artifact(
             mime_type=normalized_format.mime_type,
             export_format="pdf",
             template_id=design.template_id,
+            document_counts=report_document_counts(result.document),
         )
 
     if normalized_format.id == "docx":
@@ -91,6 +98,7 @@ def build_designed_report_artifact(
             mime_type=normalized_format.mime_type,
             export_format="docx",
             template_id=design.template_id,
+            document_counts=report_document_counts(result.document),
         )
 
     pdf = render_engineering_document_pdf(
@@ -122,6 +130,7 @@ def build_designed_report_artifact(
         export_format="bundle",
         template_id=design.template_id,
         manifest_names=(pdf_name, docx_name),
+        document_counts=report_document_counts(result.document),
     )
 
 

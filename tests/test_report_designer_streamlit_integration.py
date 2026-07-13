@@ -24,3 +24,12 @@ def test_streamlit_preview_renders_format_capabilities():
     source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
     assert "Возможности выбранного формата" in source
     assert "structure_preview.format_capabilities" in source
+
+
+def test_streamlit_persists_actual_report_document_counts_for_preview():
+    source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
+
+    assert "presentation_report_document_counts_" in source
+    assert "document_counts=saved_preview_counts" in source
+    assert "Фактический состав последней подготовленной модели" in source
+    assert "report_document_counts=report_document_counts" in source
