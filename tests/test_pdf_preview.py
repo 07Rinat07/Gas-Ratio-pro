@@ -80,3 +80,26 @@ def test_build_pdf_preview_reports_runtime_metrics() -> None:
     assert result.source_size_bytes == len(payload)
     assert result.image_size_bytes == sum(len(page.image_png) for page in result.pages)
     assert result.average_page_size_bytes > 0
+
+
+def test_build_pdf_preview_supports_selective_page_range() -> None:
+    result = build_pdf_preview(_sample_pdf(6), start_page=3, page_limit=2, dpi=90)
+
+    assert result.rendered_pages == 2
+    assert [page.page_number for page in result.pages] == [3, 4]
+    assert result.truncated is True
+
+
+def test_build_pdf_preview_clamps_start_page_to_first_page() -> None:
+    result = build_pdf_preview(_sample_pdf(2), start_page=0, page_limit=1)
+
+    assert [page.page_number for page in result.pages] == [1]
+
+
+def test_pdf_preview_signature_is_bound_to_start_page() -> None:
+    payload = _sample_pdf(4)
+
+    first = build_pdf_preview_signature(payload, start_page=1, page_limit=2)
+    second = build_pdf_preview_signature(payload, start_page=2, page_limit=2)
+
+    assert first != second

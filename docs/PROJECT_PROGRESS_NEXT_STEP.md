@@ -30,3 +30,11 @@ Next recommended increment: Modern Workspace shell foundation — Project Explor
 - Added measured render duration, source PDF size, total thumbnail size and average thumbnail size.
 - Layout selection does not invalidate the raster cache because it changes presentation only.
 - Next step: add selective page-range preview and explicit preview-cache cleanup.
+
+## Selective PDF page-range preview and cache cleanup
+
+- Added selection of the first page for a bounded preview range.
+- Included the starting page in the preview cache signature to prevent stale page sets.
+- Added explicit cleanup of the current project's in-memory PDF thumbnail cache.
+- Preserved actual page numbers for both PyMuPDF and `pdftoppm` backends.
+- Next step: add previous/next page navigation and optional bounded DPI selection.

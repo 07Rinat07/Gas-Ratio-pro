@@ -13,3 +13,7 @@ def test_professional_export_panel_contains_pdf_preview_controls() -> None:
     assert '"Две колонки"' in source
     assert 'render_duration_seconds' in source
     assert 'image_size_bytes' in source
+    assert '"С первой страницы"' in source
+    assert 'start_page=int(preview_start_page)' in source
+    assert '"Очистить кэш предпросмотра"' in source
+    assert 'pdf_preview_cache_cleared' in source

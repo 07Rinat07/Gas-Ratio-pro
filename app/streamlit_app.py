@@ -10094,7 +10094,14 @@ def _render_professional_export_panel(
 
             if str(cached_export.get("format_id", "")).lower() == "pdf":
                 with st.expander("Предпросмотр страниц PDF", expanded=False):
-                    preview_controls, preview_layout_control, preview_action = st.columns([2, 2, 1])
+                    preview_start_control, preview_controls, preview_layout_control, preview_action = st.columns([1, 2, 2, 1])
+                    preview_start_page = preview_start_control.number_input(
+                        "С первой страницы",
+                        min_value=1,
+                        value=1,
+                        step=1,
+                        key=f"pdf_preview_start_page_{active_project.id}",
+                    )
                     preview_page_limit = preview_controls.select_slider(
                         "Количество страниц",
                         options=(1, 2, 3, 4, 5, 8, 12),
@@ -10115,6 +10122,7 @@ def _render_professional_export_panel(
                             pdf_payload,
                             request_signature=str(cached_export.get("request_signature", "")),
                             page_limit=int(preview_page_limit),
+                            start_page=int(preview_start_page),
                             dpi=preview_dpi,
                         )
                     except (TypeError, ValueError):
@@ -10136,6 +10144,7 @@ def _render_professional_export_panel(
                             preview_result = build_pdf_preview(
                                 pdf_payload,
                                 page_limit=int(preview_page_limit),
+                                start_page=int(preview_start_page),
                                 dpi=preview_dpi,
                             )
                             export_state[pdf_preview_cache_key] = {
@@ -10161,6 +10170,21 @@ def _render_professional_export_panel(
                                 "Предпросмотр PDF недоступен в текущем окружении. "
                                 "Готовый файл всё равно можно скачать."
                             )
+
+                    if isinstance(cached_pdf_preview, dict):
+                        if st.button(
+                            "Очистить кэш предпросмотра",
+                            key=f"clear_pdf_preview_{active_project.id}",
+                            width="stretch",
+                        ):
+                            export_state.pop(pdf_preview_cache_key, None)
+                            cached_pdf_preview = None
+                            preview_matches = False
+                            logger.info(
+                                "pdf_preview_cache_cleared project_id=%s",
+                                safe_log_value(active_project.id),
+                            )
+                            st.success("Кэш миниатюр PDF очищен.")
 
                     if preview_matches:
                         preview_result = cached_pdf_preview["result"]
@@ -10203,7 +10227,7 @@ def _render_professional_export_panel(
                     else:
                         st.caption(
                             "Миниатюры создаются только по запросу и кэшируются до изменения "
-                            "PDF, параметров экспорта или лимита страниц."
+                            "PDF, параметров экспорта, начальной страницы или лимита страниц."
                         )
         elif isinstance(cached_export, dict):
             st.warning(

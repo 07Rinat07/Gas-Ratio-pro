@@ -51,6 +51,15 @@ def _bounded_page_limit(value: int, *, maximum: int = 12) -> int:
     return max(1, min(number, maximum))
 
 
+
+def _bounded_start_page(value: int) -> int:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        number = 1
+    return max(1, number)
+
+
 def _bounded_dpi(value: int) -> int:
     try:
         number = int(value)
@@ -59,7 +68,7 @@ def _bounded_dpi(value: int) -> int:
     return max(72, min(number, 180))
 
 
-def _render_with_pymupdf(pdf_bytes: bytes, *, page_limit: int, dpi: int) -> PdfPreviewResult:
+def _render_with_pymupdf(pdf_bytes: bytes, *, start_page: int, page_limit: int, dpi: int) -> PdfPreviewResult:
     try:
         import fitz  # type: ignore
     except ModuleNotFoundError as exc:  # pragma: no cover - environment dependent
@@ -71,7 +80,9 @@ def _render_with_pymupdf(pdf_bytes: bytes, *, page_limit: int, dpi: int) -> PdfP
         scale = float(dpi) / 72.0
         matrix = fitz.Matrix(scale, scale)
         pages: list[PdfPreviewPage] = []
-        for index in range(min(total_pages, page_limit)):
+        start_index = min(max(start_page - 1, 0), total_pages)
+        stop_index = min(total_pages, start_index + page_limit)
+        for index in range(start_index, stop_index):
             pixmap = document.load_page(index).get_pixmap(matrix=matrix, alpha=False)
             pages.append(
                 PdfPreviewPage(
@@ -86,7 +97,7 @@ def _render_with_pymupdf(pdf_bytes: bytes, *, page_limit: int, dpi: int) -> PdfP
             total_pages=total_pages,
             rendered_pages=len(pages),
             backend="pymupdf",
-            truncated=total_pages > len(pages),
+            truncated=start_index > 0 or stop_index < total_pages,
         )
     finally:
         document.close()
@@ -101,7 +112,7 @@ def _png_dimensions(payload: bytes) -> tuple[int, int]:
         return int(image.width), int(image.height)
 
 
-def _render_with_pdftoppm(pdf_bytes: bytes, *, page_limit: int, dpi: int) -> PdfPreviewResult:
+def _render_with_pdftoppm(pdf_bytes: bytes, *, start_page: int, page_limit: int, dpi: int) -> PdfPreviewResult:
     executable = shutil.which("pdftoppm")
     if not executable:
         raise PdfPreviewUnavailableError("pdftoppm is not available")
@@ -118,9 +129,9 @@ def _render_with_pdftoppm(pdf_bytes: bytes, *, page_limit: int, dpi: int) -> Pdf
                 "-r",
                 str(dpi),
                 "-f",
-                "1",
+                str(start_page),
                 "-l",
-                str(page_limit),
+                str(start_page + page_limit - 1),
                 str(pdf_path),
                 str(output_prefix),
             ],
@@ -135,7 +146,7 @@ def _render_with_pdftoppm(pdf_bytes: bytes, *, page_limit: int, dpi: int) -> Pdf
 
         files = sorted(root.glob("page-*.png"))
         pages: list[PdfPreviewPage] = []
-        for index, path in enumerate(files, start=1):
+        for index, path in enumerate(files, start=start_page):
             payload = path.read_bytes()
             width, height = _png_dimensions(payload)
             pages.append(PdfPreviewPage(index, payload, width, height))
@@ -146,10 +157,10 @@ def _render_with_pdftoppm(pdf_bytes: bytes, *, page_limit: int, dpi: int) -> Pdf
         rendered = len(pages)
         return PdfPreviewResult(
             pages=tuple(pages),
-            total_pages=rendered,
+            total_pages=(start_page + rendered - 1) if rendered else 0,
             rendered_pages=rendered,
             backend="pdftoppm",
-            truncated=rendered >= page_limit,
+            truncated=start_page > 1 or rendered >= page_limit,
         )
 
 
@@ -159,6 +170,7 @@ def build_pdf_preview_signature(
     *,
     request_signature: str = "",
     page_limit: int = 5,
+    start_page: int = 1,
     dpi: int = 110,
 ) -> str:
     """Return a stable cache signature for a rendered PDF preview.
@@ -172,6 +184,7 @@ def build_pdf_preview_signature(
     if not payload.startswith(b"%PDF-"):
         raise ValueError("pdf_content must contain a valid PDF payload")
     safe_limit = _bounded_page_limit(page_limit)
+    safe_start = _bounded_start_page(start_page)
     safe_dpi = _bounded_dpi(dpi)
     digest = hashlib.sha256()
     digest.update(payload)
@@ -180,6 +193,8 @@ def build_pdf_preview_signature(
     digest.update(b"\0")
     digest.update(str(safe_limit).encode("ascii"))
     digest.update(b"\0")
+    digest.update(str(safe_start).encode("ascii"))
+    digest.update(b"\0")
     digest.update(str(safe_dpi).encode("ascii"))
     return digest.hexdigest()
 
@@ -187,6 +202,7 @@ def build_pdf_preview(
     pdf_content: bytes | bytearray | memoryview,
     *,
     page_limit: int = 5,
+    start_page: int = 1,
     dpi: int = 110,
 ) -> PdfPreviewResult:
     """Rasterize a bounded number of PDF pages entirely in temporary storage.
@@ -201,12 +217,13 @@ def build_pdf_preview(
         raise ValueError("pdf_content must contain a valid PDF payload")
 
     safe_limit = _bounded_page_limit(page_limit)
+    safe_start = _bounded_start_page(start_page)
     safe_dpi = _bounded_dpi(dpi)
     errors: list[str] = []
     started_at = perf_counter()
     for renderer in (_render_with_pymupdf, _render_with_pdftoppm):
         try:
-            result = renderer(payload, page_limit=safe_limit, dpi=safe_dpi)
+            result = renderer(payload, start_page=safe_start, page_limit=safe_limit, dpi=safe_dpi)
             return replace(
                 result,
                 render_duration_seconds=max(0.0, perf_counter() - started_at),

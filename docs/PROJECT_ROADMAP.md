@@ -1509,3 +1509,13 @@ Next priority: add bounded retention and cleanup for quarantined metadata files 
 - preview result records actual rendering time and memory footprint;
 - the UI displays page count, backend, PDF size, thumbnail size and average page thumbnail size;
 - layout changes reuse the same raster cache.
+
+### Implemented: selective PDF page-range preview and cache cleanup
+
+- PDF preview can start from an explicitly selected page while keeping the bounded page-count limit;
+- preview cache signatures now include the selected starting page;
+- PyMuPDF and `pdftoppm` backends preserve the real page numbers in thumbnail captions;
+- the Professional Export panel exposes an explicit project-scoped preview-cache cleanup action;
+- changing the visual one/two-column layout still reuses the same raster cache.
+
+Next priority: add keyboard-friendly page navigation and optional DPI control without allowing unbounded raster workloads.

@@ -563,3 +563,7 @@ The Professional Export panel now imports `reports.pdf_preview` and renders on-d
 ## Latest increment: PDF Preview compact layout and metrics
 
 The PDF preview UI now supports one-column and two-column layouts. `PdfPreviewResult` carries render duration, source byte size, total PNG byte size and computed average page size. Keep the layout outside the preview signature because it does not change raster output. All planning documentation remains under `docs/`.
+
+## Latest increment: selective PDF page range and cache cleanup
+
+`build_pdf_preview()` and `build_pdf_preview_signature()` now accept `start_page`. The value is normalized to at least page 1 and is included in the cache digest. Both raster backends render a bounded range and return actual PDF page numbers. The Streamlit Professional Export panel contains the `С первой страницы` control and the explicit `Очистить кэш предпросмотра` action. Cache cleanup removes only `presentation_pdf_preview_<project_id>` from application state and does not touch the exported PDF or project data. Keep all planning documentation under `docs/`.
