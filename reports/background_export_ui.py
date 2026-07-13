@@ -213,6 +213,46 @@ def filter_recent_background_job_history(
     )
 
 
+
+def sort_recent_background_job_history(
+    items: tuple[BackgroundExportHistoryItem, ...],
+    *,
+    sort_by: str = "updated_desc",
+) -> tuple[BackgroundExportHistoryItem, ...]:
+    """Return a deterministically sorted copy of recent export history.
+
+    Supported modes are ``updated_desc``/``updated_asc``,
+    ``duration_desc``/``duration_asc`` and ``size_desc``/``size_asc``.
+    Unknown values safely fall back to newest-first ordering. Stable
+    secondary keys keep Streamlit reruns visually deterministic.
+    """
+    mode = str(sort_by or "updated_desc").strip().lower()
+    supported = {
+        "updated_desc",
+        "updated_asc",
+        "duration_desc",
+        "duration_asc",
+        "size_desc",
+        "size_asc",
+    }
+    if mode not in supported:
+        mode = "updated_desc"
+
+    field, direction = mode.rsplit("_", 1)
+    reverse = direction == "desc"
+
+    def primary(item: BackgroundExportHistoryItem) -> float:
+        if field == "duration":
+            return float(item.duration_seconds)
+        if field == "size":
+            return float(item.artifact_size_bytes)
+        return float(item.updated_at)
+
+    # First establish deterministic newest-first tie ordering, then rely on
+    # Python's stable sort for the selected primary metric.
+    deterministic = sorted(items, key=lambda item: (item.updated_at, item.job_id), reverse=True)
+    return tuple(sorted(deterministic, key=primary, reverse=reverse))
+
 def format_export_duration(seconds: float) -> str:
     """Format a job duration for compact Russian-language history metadata."""
     total_seconds = max(0, int(round(float(seconds))))

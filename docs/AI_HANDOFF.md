@@ -343,3 +343,21 @@ Validation:
 - `logs/app.log` is not present in the supplied project archive.
 
 Next priority: runtime performance summary UI, then optional history sorting by time/duration/size.
+
+# Latest implementation — Background Export History Sorting
+
+Status: COMPLETED
+
+Implemented:
+- post-filter sorting of recent background-export history by update time, duration and artifact size;
+- ascending and descending modes for every supported metric;
+- deterministic stable tie ordering across Streamlit reruns;
+- safe fallback to newest-first for unknown or stale persisted sort values;
+- project-scoped Streamlit sort selector and focused regression coverage.
+
+Validation:
+- `python -m py_compile reports/background_export.py reports/background_export_ui.py app/streamlit_app.py`;
+- `34 passed` in focused background-export and Streamlit integration tests;
+- `logs/app.log` was not present in the supplied archive.
+
+Next priority: runtime performance summary UI, then interactive report-structure preview.

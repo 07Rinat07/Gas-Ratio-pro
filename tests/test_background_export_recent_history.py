@@ -148,3 +148,51 @@ def test_duration_and_artifact_size_formatters_are_compact_and_safe():
     assert format_artifact_size(-1) == "0 Б"
     assert format_artifact_size(1024) == "1.0 КиБ"
     assert format_artifact_size(2 * 1024 * 1024) == "2.0 МиБ"
+
+
+def test_history_sort_supports_time_duration_and_size_with_stable_ties():
+    from dataclasses import replace
+    from reports.background_export_ui import sort_recent_background_job_history
+
+    items = build_recent_background_job_history((
+        replace(
+            _snapshot("new-small", ExportJobStatus.COMPLETED, updated_at=30),
+            duration_seconds=2,
+            artifact_size_bytes=100,
+        ),
+        replace(
+            _snapshot("old-large", ExportJobStatus.COMPLETED, updated_at=10),
+            duration_seconds=8,
+            artifact_size_bytes=5000,
+        ),
+        replace(
+            _snapshot("mid-medium", ExportJobStatus.COMPLETED, updated_at=20),
+            duration_seconds=5,
+            artifact_size_bytes=1000,
+        ),
+    ))
+
+    assert [item.job_id for item in sort_recent_background_job_history(items)] == [
+        "new-small", "mid-medium", "old-large"
+    ]
+    assert [item.job_id for item in sort_recent_background_job_history(items, sort_by="updated_asc")] == [
+        "old-large", "mid-medium", "new-small"
+    ]
+    assert [item.job_id for item in sort_recent_background_job_history(items, sort_by="duration_desc")] == [
+        "old-large", "mid-medium", "new-small"
+    ]
+    assert [item.job_id for item in sort_recent_background_job_history(items, sort_by="size_asc")] == [
+        "new-small", "mid-medium", "old-large"
+    ]
+
+
+def test_history_sort_unknown_mode_falls_back_to_newest_first():
+    from reports.background_export_ui import sort_recent_background_job_history
+
+    items = build_recent_background_job_history((
+        _snapshot("older", ExportJobStatus.FAILED, updated_at=1),
+        _snapshot("newer", ExportJobStatus.FAILED, updated_at=2),
+    ))
+
+    sorted_items = sort_recent_background_job_history(items, sort_by="unsupported")
+    assert [item.job_id for item in sorted_items] == ["newer", "older"]

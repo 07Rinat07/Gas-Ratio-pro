@@ -59,3 +59,12 @@ def test_background_history_exposes_status_and_format_filters() -> None:
     assert '"Формат"' in body
     assert "filter_recent_background_job_history(" in body
     assert "export_format=str(selected_format.id)" in body
+
+
+def test_background_history_exposes_sorting_controls() -> None:
+    body = _professional_export_body()
+    assert '"Сортировка"' in body
+    assert '"Сначала новые": "updated_desc"' in body
+    assert '"Дольше выполнялись": "duration_desc"' in body
+    assert '"Сначала большие файлы": "size_desc"' in body
+    assert "sort_recent_background_job_history(" in body

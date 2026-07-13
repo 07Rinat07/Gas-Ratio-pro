@@ -378,6 +378,7 @@ from reports.background_export_ui import (
     filter_recent_background_job_history,
     format_artifact_size,
     format_export_duration,
+    sort_recent_background_job_history,
     latest_relevant_job,
     retry_diagnostic_reason,
 )
@@ -9684,7 +9685,7 @@ def _render_professional_export_panel(
         )
         if recent_job_history:
             with st.expander("Последние фоновые экспорты", expanded=False):
-                filter_left, filter_right = st.columns(2)
+                filter_left, filter_right, sort_column = st.columns([2, 2, 2])
                 status_label_to_value = {
                     "Выполняется": "running",
                     "Завершён": "completed",
@@ -9709,10 +9710,27 @@ def _render_professional_export_panel(
                     key=f"background_export_history_format_filter_{active_project.id}",
                     placeholder="Все форматы",
                 )
+                sort_label_to_value = {
+                    "Сначала новые": "updated_desc",
+                    "Сначала старые": "updated_asc",
+                    "Дольше выполнялись": "duration_desc",
+                    "Быстрее выполнялись": "duration_asc",
+                    "Сначала большие файлы": "size_desc",
+                    "Сначала меньшие файлы": "size_asc",
+                }
+                selected_sort_label = sort_column.selectbox(
+                    "Сортировка",
+                    options=tuple(sort_label_to_value),
+                    key=f"background_export_history_sort_{active_project.id}",
+                )
                 filtered_job_history = filter_recent_background_job_history(
                     recent_job_history,
                     statuses=tuple(status_label_to_value[label] for label in selected_status_labels),
                     formats=tuple(selected_history_formats),
+                )
+                filtered_job_history = sort_recent_background_job_history(
+                    filtered_job_history,
+                    sort_by=sort_label_to_value[selected_sort_label],
                 )
                 cleanup_candidates = tuple(
                     item for item in filtered_job_history if item.dismissible
