@@ -58,3 +58,18 @@ def test_background_manager_persists_retry_metadata():
     assert snapshot.retry_of_job_id == "old-job"
     assert snapshot.retry_reason == "old export failed"
     manager.shutdown(wait=True)
+
+
+def test_history_cleanup_protects_unclaimed_completed_artifact():
+    completed = _snapshot("ready", ExportJobStatus.COMPLETED, updated_at=3)
+    failed = _snapshot("failed", ExportJobStatus.FAILED, updated_at=2)
+
+    items = build_recent_background_job_history(
+        (completed, failed),
+        artifact_availability={"ready": True, "failed": False},
+    )
+
+    assert items[0].terminal is True
+    assert items[0].dismissible is False
+    assert items[1].terminal is True
+    assert items[1].dismissible is True

@@ -291,3 +291,22 @@ Validation:
 - `logs/app.log` is not present in the supplied project archive.
 
 Next priority: manual large-LAS cancel/retry acceptance test and terminal-job cleanup controls.
+
+# Latest implementation — Terminal Background Export History Cleanup
+
+Status: COMPLETED
+
+Implemented:
+- individual removal controls for terminal records in the recent background-export history;
+- project-scoped bulk cleanup through `BackgroundExportManager.dismiss_terminal()`;
+- preservation of completed jobs whose process-local result has not yet been handed to the UI;
+- active jobs remain non-dismissible;
+- null-safe completed-result handoff when no job matches the current export request signature;
+- regression coverage for project scoping, result preservation, explicit destructive cleanup and Streamlit controls.
+
+Validation:
+- `python -m py_compile reports/background_export.py reports/background_export_ui.py app/streamlit_app.py`;
+- `29 passed` in focused background-export and dashboard regression tests;
+- `logs/app.log` is not present in the supplied project archive.
+
+Next priority: manual large-LAS cancel/retry/cleanup acceptance test and runtime performance summary UI.

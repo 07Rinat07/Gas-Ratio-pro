@@ -42,3 +42,12 @@ def test_terminal_background_job_can_be_retried_with_current_wizard_state() -> N
     assert "status_view.retryable" in body
     assert "export_state[repeat_autorun_key] = True" in body
     assert 'artifact_available=background_manager.result_available(relevant_job.id)' in body
+
+
+def test_background_history_exposes_individual_and_bulk_cleanup_controls() -> None:
+    body = _professional_export_body()
+    assert '"Очистить завершённые записи"' in body
+    assert '"Удалить"' in body
+    assert "background_manager.dismiss_terminal(" in body
+    assert "preserve_available_results=True" in body
+    assert "relevant_job is not None" in body

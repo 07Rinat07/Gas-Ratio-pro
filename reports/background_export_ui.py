@@ -122,6 +122,8 @@ class BackgroundExportHistoryItem:
     progress: int
     retryable: bool
     retry_reason: str
+    terminal: bool
+    dismissible: bool
     updated_at: float
 
 
@@ -164,6 +166,11 @@ def build_recent_background_job_history(
                 progress=view.progress,
                 retryable=view.retryable,
                 retry_reason=snapshot.retry_reason,
+                terminal=snapshot.terminal,
+                dismissible=(
+                    snapshot.terminal
+                    and not (snapshot.status is ExportJobStatus.COMPLETED and available is True)
+                ),
                 updated_at=snapshot.updated_at,
             )
         )

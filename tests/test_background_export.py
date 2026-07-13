@@ -211,3 +211,60 @@ def test_active_job_cannot_be_dismissed():
     release.set()
     _wait(manager, created.id)
     manager.shutdown()
+
+
+def test_bulk_terminal_cleanup_is_project_scoped_and_preserves_live_results():
+    state = {}
+    manager = BackgroundExportManager(state)
+
+    completed_live = manager.submit(
+        project_id="p1",
+        request_signature="sig-live",
+        work=lambda report, check: b"artifact",
+    )
+    _wait(manager, completed_live.id)
+
+    completed_consumed = manager.submit(
+        project_id="p1",
+        request_signature="sig-consumed",
+        work=lambda report, check: b"consumed",
+    )
+    _wait(manager, completed_consumed.id)
+    assert manager.pop_result(completed_consumed.id) == b"consumed"
+
+    other_project = manager.submit(
+        project_id="p2",
+        request_signature="sig-other",
+        work=lambda report, check: b"other",
+    )
+    _wait(manager, other_project.id)
+    manager.pop_result(other_project.id)
+
+    removed = manager.dismiss_terminal(project_id="p1", preserve_available_results=True)
+
+    assert removed == 1
+    assert manager.snapshot(completed_live.id).status is ExportJobStatus.COMPLETED
+    with pytest.raises(KeyError):
+        manager.snapshot(completed_consumed.id)
+    assert manager.snapshot(other_project.id).project_id == "p2"
+    manager.shutdown()
+
+
+def test_bulk_terminal_cleanup_can_discard_available_results_when_explicit():
+    state = {}
+    manager = BackgroundExportManager(state)
+    completed = manager.submit(
+        project_id="p1",
+        request_signature="sig-live",
+        work=lambda report, check: b"artifact",
+    )
+    _wait(manager, completed.id)
+
+    assert manager.dismiss_terminal(
+        project_id="p1",
+        preserve_available_results=False,
+    ) == 1
+    with pytest.raises(KeyError):
+        manager.snapshot(completed.id)
+    assert manager.result_available(completed.id) is False
+    manager.shutdown()

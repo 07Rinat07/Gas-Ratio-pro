@@ -9680,19 +9680,56 @@ def _render_professional_export_panel(
         )
         if recent_job_history:
             with st.expander("Последние фоновые экспорты", expanded=False):
+                cleanup_candidates = tuple(
+                    item for item in recent_job_history if item.dismissible
+                )
+                if cleanup_candidates and st.button(
+                    "Очистить завершённые записи",
+                    key=f"background_export_cleanup_terminal_{active_project.id}",
+                    help=(
+                        "Удаляет завершённые записи истории проекта. "
+                        "Готовый файл, ещё не переданный в интерфейс, сохраняется."
+                    ),
+                    width="stretch",
+                ):
+                    removed_count = background_manager.dismiss_terminal(
+                        project_id=str(active_project.id),
+                        preserve_available_results=True,
+                    )
+                    if removed_count:
+                        st.toast(f"Удалено записей: {removed_count}")
+                    _request_ui_refresh_and_rerun("background_export_cleanup_terminal")
+                    return
+
                 for history_item in recent_job_history:
+                    history_content, history_action = st.columns([5, 1])
                     retry_note = (
                         f"  \nПричина повтора: {history_item.retry_reason}"
                         if history_item.retry_reason
                         else ""
                     )
-                    st.markdown(
+                    history_content.markdown(
                         f"**{history_item.title}** · {history_item.progress}%  \n"
                         f"{history_item.detail}{retry_note}"
                     )
+                    if history_item.dismissible and history_action.button(
+                        "Удалить",
+                        key=(
+                            f"background_export_dismiss_history_"
+                            f"{active_project.id}_{history_item.job_id}"
+                        ),
+                        help="Удалить эту завершённую запись из истории.",
+                        width="stretch",
+                    ):
+                        background_manager.dismiss(history_item.job_id)
+                        _request_ui_refresh_and_rerun("background_export_dismiss_history")
+                        return
+                    if history_item.terminal and not history_item.dismissible:
+                        history_action.caption("Файл готов")
 
             if (
-                relevant_job.status is ExportJobStatus.COMPLETED
+                relevant_job is not None
+                and relevant_job.status is ExportJobStatus.COMPLETED
                 and background_manager.result_available(relevant_job.id)
             ):
                 completed = background_manager.pop_result(relevant_job.id)

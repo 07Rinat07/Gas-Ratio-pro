@@ -331,5 +331,34 @@ class BackgroundExportManager:
             self._futures.pop(job_id, None)
             self._cancel_events.pop(job_id, None)
 
+    def dismiss_terminal(
+        self,
+        *,
+        project_id: str | None = None,
+        preserve_available_results: bool = True,
+    ) -> int:
+        """Remove terminal snapshots in scope and return the number removed.
+
+        By default, completed jobs whose process-local artifact has not yet been
+        handed to the UI are preserved. This prevents a bulk history cleanup
+        from silently discarding a newly generated downloadable file.
+        """
+        with self._lock:
+            removable: list[str] = []
+            for snapshot in self.list(project_id=project_id):
+                if not snapshot.terminal:
+                    continue
+                if preserve_available_results and snapshot.id in self._results:
+                    continue
+                removable.append(snapshot.id)
+
+            store = self._store()
+            for job_id in removable:
+                store.pop(job_id, None)
+                self._results.pop(job_id, None)
+                self._futures.pop(job_id, None)
+                self._cancel_events.pop(job_id, None)
+            return len(removable)
+
     def shutdown(self, *, wait: bool = False) -> None:
         self._executor.shutdown(wait=wait, cancel_futures=True)
