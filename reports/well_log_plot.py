@@ -51,7 +51,7 @@ class WellLogPlotConfig:
     track_columns: tuple[str, ...] = DEFAULT_TRACK_COLUMNS
     max_points_per_track: int = 2500
     height: int = 850
-    title: str = "Professional well-log interpretation tablet"
+    title: str = "Профессиональный планшет интерпретации"
     show_interval_track: bool = True
     auto_crop_to_active_data: bool = True
     max_interval_overlays: int = 12
@@ -132,7 +132,7 @@ def downsample_depth_frame(
 def _interval_label(interval: HydrocarbonInterval, index: int) -> str:
     fluid = FLUID_PLOT_LABELS.get(interval.fluid_type, str(interval.fluid_type or "HC").upper())
     confidence = f"{interval.confidence_score}%" if interval.confidence_score else str(interval.confidence or "")
-    return f"HC-{index:03d}<br>{fluid}<br>{confidence}"
+    return f"HC-{index:03d}<br>{float(interval.top):g}–{float(interval.base):g} м<br>{fluid} · {confidence}"
 
 
 def _interval_style(fluid_type: str) -> Mapping[str, str]:
@@ -224,7 +224,7 @@ def build_professional_well_log_plot(
         rows=1,
         cols=len(column_titles),
         shared_yaxes=True,
-        horizontal_spacing=0.018,
+        horizontal_spacing=0.006,
         column_widths=widths,
         subplot_titles=column_titles,
     )
@@ -259,7 +259,7 @@ def build_professional_well_log_plot(
                 line={"width": THEME.line_width},
                 connectgaps=False,
                 hovertemplate=engineering_hover(column),
-                showlegend=False,
+                showlegend=True,
             ),
             row=1,
             col=col_index,
@@ -286,6 +286,11 @@ def build_professional_well_log_plot(
         key=lambda interval: (float(getattr(interval, "confidence_score", 0) or 0), abs(float(interval.base) - float(interval.top))),
         reverse=True,
     )[: max(1, int(cfg.max_interval_overlays))]
+    priority_interval = max(
+        visible_intervals,
+        key=lambda interval: (float(getattr(interval, "confidence_score", 0) or 0), abs(float(interval.base) - float(interval.top))),
+        default=None,
+    )
     visible_intervals = sorted(visible_intervals, key=lambda interval: min(float(interval.top), float(interval.base)))
     for index, interval in enumerate(visible_intervals, start=1):
         interval_top = min(float(interval.top), float(interval.base))
@@ -293,6 +298,7 @@ def build_professional_well_log_plot(
         style = _interval_style(interval.fluid_type)
         fill = str(style.get("fill", "rgba(127,127,127,0.14)"))
         color = str(style.get("color", "#7f7f7f"))
+        is_priority = interval is priority_interval
         shapes.append(
             {
                 "type": "rect",
@@ -303,7 +309,7 @@ def build_professional_well_log_plot(
                 "y0": interval_top,
                 "y1": interval_base,
                 "fillcolor": fill,
-                "line": {"color": color, "width": 0.8},
+                "line": {"color": "#f6c344" if is_priority else color, "width": 2.4 if is_priority else 0.8},
                 "layer": "below",
             }
         )
@@ -325,8 +331,22 @@ def build_professional_well_log_plot(
 
     apply_engineering_layout(
         fig, title=cfg.title, height=cfg.height,
-        margin={"l": 64, "r": 28, "t": 76, "b": 42}, showlegend=False,
+        margin={"l": 64, "r": 28, "t": 108, "b": 42}, showlegend=True,
     )
-    fig.update_layout(shapes=shapes, annotations=annotations)
+    fig.update_layout(
+        shapes=shapes,
+        annotations=annotations,
+        legend={
+            "orientation": "h", "yanchor": "bottom", "y": 1.035,
+            "xanchor": "left", "x": 0.04, "font": {"size": 10},
+            "bgcolor": "rgba(255,255,255,0.82)",
+        },
+        plot_bgcolor="#f4f8f4",
+    )
+    # A professional well-log uses one common depth scale, not a repeated
+    # "Глубина, м" title inside every track.
+    for subplot_col in range(1, len(column_titles) + 1):
+        fig.update_yaxes(title_text="", row=1, col=subplot_col)
+    fig.update_yaxes(title_text=DEPTH_AXIS_TITLE, row=1, col=1)
     normalize_trace_style(fig)
     return WellLogPlotResult(fig, plotted_columns, summary, len(visible_intervals))

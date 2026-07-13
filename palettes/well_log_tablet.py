@@ -776,7 +776,7 @@ def build_well_log_tablet(
         rows=1,
         cols=len(titles),
         shared_yaxes=True,
-        horizontal_spacing=0.008 if len(titles) >= 10 else 0.012,
+        horizontal_spacing=0.004 if len(titles) >= 10 else 0.007,
         subplot_titles=titles,
         column_widths=widths,
     )
@@ -834,6 +834,7 @@ def build_well_log_tablet(
                 fill=fill,
                 fillcolor=_hex_to_rgba(color, 0.24),
                 hovertemplate=f"{track.label or track.column}: %{{x:.4g}}<br>Глубина: %{{y:.2f}} м<extra></extra>",
+                showlegend=True,
             ),
             row=1,
             col=subplot_col,
@@ -865,6 +866,17 @@ def build_well_log_tablet(
     shapes = []
     annotations = []
     recommendation_points: list[dict[str, object]] = []
+    visible_reservoir_intervals = [
+        interval for interval in reservoir_intervals
+        if max(float(interval.top_depth), float(interval.bottom_depth)) >= visible_top
+        and min(float(interval.top_depth), float(interval.bottom_depth)) <= visible_bottom
+    ]
+    priority_interval_id = max(
+        visible_reservoir_intervals,
+        key=lambda interval: (float(interval.confidence_score), float(interval.thickness)),
+        default=None,
+    )
+    priority_interval_id = priority_interval_id.interval_id if priority_interval_id is not None else None
     for zone in zones:
         top_depth = min(float(zone.top_depth), float(zone.bottom_depth))
         bottom_depth = max(float(zone.top_depth), float(zone.bottom_depth))
@@ -908,6 +920,7 @@ def build_well_log_tablet(
             str(interval.fluid_type).lower(), FLUID_INTERVAL_STYLES["uncertain"]
         )
         is_selected = interval.interval_id == selected_interval_id
+        is_priority = interval.interval_id == priority_interval_id
         show_label = interval.interval_id in label_interval_ids
         show_marker = interval.interval_id in marker_interval_ids
         midpoint = (top_depth + bottom_depth) / 2.0
@@ -925,8 +938,11 @@ def build_well_log_tablet(
                 "y0": top_depth,
                 "y1": bottom_depth,
                 "fillcolor": color,
-                "opacity": 0.27 if is_selected else 0.10,
-                "line": {"color": "#ffffff" if is_selected else color, "width": 3.0 if is_selected else 1.15},
+                "opacity": 0.27 if is_selected else (0.16 if is_priority else 0.10),
+                "line": {
+                    "color": "#ffffff" if is_selected else ("#f6c344" if is_priority else color),
+                    "width": 3.0 if is_selected else (2.4 if is_priority else 1.15),
+                },
                 "layer": "below",
             }
         )
@@ -956,7 +972,11 @@ def build_well_log_tablet(
                         "x": 0.5,
                         "yref": "y",
                         "y": midpoint,
-                        "text": f"<b>{interval.interval_id}</b><br>{fluid_label}<br>{interval.thickness:g} м",
+                        "text": (
+                            f"<b>{interval.interval_id}</b><br>"
+                            f"{top_depth:g}–{bottom_depth:g} м<br>"
+                            f"{fluid_label} · {interval.confidence_score}%"
+                        ),
                         "showarrow": False,
                         "align": "center",
                         "font": {"color": "#ffffff", "size": 10 if is_selected else 9},
@@ -1139,7 +1159,15 @@ def build_well_log_tablet(
 
     apply_engineering_layout(
         fig, title="Интерпретационный планшет", height=height,
-        margin={"l": 104, "r": 112, "t": 176, "b": 72}, showlegend=False,
+        margin={"l": 104, "r": 112, "t": 196, "b": 72}, showlegend=True,
+    )
+    fig.update_layout(
+        legend={
+            "orientation": "h", "yanchor": "bottom", "y": 1.125,
+            "xanchor": "left", "x": 0.0, "font": {"size": 10},
+            "bgcolor": "rgba(11,18,32,0.82)",
+            "bordercolor": "rgba(148,163,184,0.35)", "borderwidth": 1,
+        }
     )
     fig.update_layout(shapes=shapes, annotations=list(fig.layout.annotations) + annotations)
     # Subplot titles are generated as annotations. Narrow engineering tracks

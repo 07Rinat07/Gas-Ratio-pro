@@ -270,15 +270,21 @@ class ExportController:
             mismatches.append("profile_id")
         if artifact.mime_type.lower() != request.mime_type.lower():
             mismatches.append("mime_type")
-        if actual_extension != expected_extension:
-            mismatches.append("extension")
+        # The renderer contract owns format/profile/MIME.  The download name is
+        # normalized centrally because legacy DOCX renderers may return a safe
+        # basename without a suffix even though their bytes and MIME are valid.
+        # Rejecting such a file caused repeatable first-use DOCX failures.
         if mismatches:
             raise ValueError(
                 "Renderer вернул файл, не соответствующий запросу: " + ", ".join(mismatches) + "."
             )
+        normalized_file_name = artifact.file_name.strip()
+        if actual_extension != expected_extension:
+            stem = normalized_file_name.rsplit(".", 1)[0] if "." in normalized_file_name else normalized_file_name
+            normalized_file_name = f"{stem}.{expected_extension}"
         return ExportArtifact(
             content=bytes(artifact.content),
-            file_name=artifact.file_name,
+            file_name=normalized_file_name,
             mime_type=artifact.mime_type,
             format_id=artifact.format_id,
             format_label=artifact.format_label,
