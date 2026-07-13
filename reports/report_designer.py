@@ -88,6 +88,45 @@ class ReportDesignIssue:
     blocking: bool = True
 
 
+
+
+@dataclass(frozen=True)
+class ReportPreviewItem:
+    """One renderer-neutral item shown in the report structure preview."""
+
+    id: str
+    label: str
+    description: str
+    enabled: bool = True
+
+
+@dataclass(frozen=True)
+class ReportStructurePreview:
+    """Resolved report composition for UI review before rendering."""
+
+    mode_label: str
+    template_label: str
+    title: str
+    sections: tuple[ReportPreviewItem, ...]
+    include_figures: bool
+    include_technical_appendix: bool
+    show_page_chrome: bool
+    include_table_of_contents: bool
+    include_pdf_bookmarks: bool
+    paper_size: str
+    orientation: str
+    margin_mm: int
+    issues: tuple[ReportDesignIssue, ...] = ()
+
+    @property
+    def ready(self) -> bool:
+        return bool(self.sections) and not any(issue.blocking for issue in self.issues)
+
+    @property
+    def enabled_section_count(self) -> int:
+        return sum(1 for item in self.sections if item.enabled)
+
+
 @dataclass(frozen=True)
 class ReportDesignResult:
     design: ReportDesign
@@ -338,6 +377,76 @@ def build_designed_report(model: PresentationModel, design: ReportDesign | None 
     return ReportDesignResult(design, document, pdf_options, docx_options, issues)
 
 
+
+
+_SECTION_PREVIEW = {
+    "plots": ("Инженерные графики", "Кривые, газовые отношения и глубинные графики."),
+    "visualizations": ("Планшеты и визуализации", "Интерпретационные планшеты и графические приложения."),
+    "results": ("Расчётные результаты", "Таблицы коэффициентов, интервалов и итоговых показателей."),
+    "conclusion": ("Заключение и ограничения", "Инженерные выводы, ограничения метода и примечания."),
+}
+
+
+def build_report_structure_preview(design: ReportDesign | None = None) -> ReportStructurePreview:
+    """Resolve report composition without building plots, tables or binary files.
+
+    The function is intentionally lightweight and safe to call after every UI
+    control change.  It mirrors the exact template/mode resolution used by the
+    render pipeline, so the preview cannot drift from the exported document.
+    """
+
+    resolved = resolve_report_design(design or ReportDesign())
+    template = report_template_by_id(resolved.template_id)
+    mode = report_mode_by_id(resolved.mode_id)
+    sections = resolved.sections or template.default_sections
+    issues = validate_report_design(resolved)
+
+    include_figures = template.include_figures if resolved.include_figures is None else bool(resolved.include_figures)
+    include_technical = (
+        template.include_technical_appendix
+        if resolved.include_technical_appendix is None
+        else bool(resolved.include_technical_appendix)
+    )
+    page_chrome = template.show_page_chrome if resolved.show_page_chrome is None else bool(resolved.show_page_chrome)
+    include_toc = (
+        template.include_table_of_contents
+        if resolved.include_table_of_contents is None
+        else bool(resolved.include_table_of_contents)
+    )
+    include_bookmarks = (
+        template.include_pdf_bookmarks
+        if resolved.include_pdf_bookmarks is None
+        else bool(resolved.include_pdf_bookmarks)
+    )
+
+    preview_sections = tuple(
+        ReportPreviewItem(
+            id=section_id,
+            label=_SECTION_PREVIEW[section_id][0],
+            description=_SECTION_PREVIEW[section_id][1],
+            enabled=(section_id not in {"plots", "visualizations"} or include_figures),
+        )
+        for section_id in sections
+        if section_id in _SECTION_PREVIEW
+    )
+
+    return ReportStructurePreview(
+        mode_label=mode.label,
+        template_label=template.label,
+        title=_clean_text(resolved.title, "Gas Ratio Professional Report"),
+        sections=preview_sections,
+        include_figures=include_figures,
+        include_technical_appendix=include_technical,
+        show_page_chrome=page_chrome,
+        include_table_of_contents=include_toc,
+        include_pdf_bookmarks=include_bookmarks,
+        paper_size=str(resolved.paper_size or template.paper_size).strip().upper(),
+        orientation=str(resolved.orientation or template.orientation).strip().lower(),
+        margin_mm=template.margin_mm if resolved.margin_mm is None else int(resolved.margin_mm),
+        issues=issues,
+    )
+
+
 def require_designed_report(model: PresentationModel, design: ReportDesign | None = None) -> ReportDesignResult:
     result = build_designed_report(model, design)
     if not result.ready:
@@ -352,10 +461,13 @@ __all__ = [
     "ReportModeId",
     "ReportDesignIssue",
     "ReportDesignResult",
+    "ReportPreviewItem",
+    "ReportStructurePreview",
     "ReportSectionId",
     "ReportTemplate",
     "ReportTemplateId",
     "build_designed_report",
+    "build_report_structure_preview",
     "report_mode_by_id",
     "report_modes",
     "report_template_by_id",

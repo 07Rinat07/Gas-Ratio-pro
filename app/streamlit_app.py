@@ -335,7 +335,12 @@ from reports.presentation_ui import (
     export_format_options,
     report_profile_options,
 )
-from reports.report_designer import ReportDesign, report_modes, report_templates
+from reports.report_designer import (
+    ReportDesign,
+    build_report_structure_preview,
+    report_modes,
+    report_templates,
+)
 from reports.report_designer_export import build_designed_report_artifact
 from reports.export_las import export_las_bytes
 from reports.export_xlsx import export_xlsx_bytes
@@ -9054,6 +9059,53 @@ def _render_professional_export_panel(
                 key=f"report_designer_chrome_{active_project.id}",
                 help=tooltip("report.page_chrome"),
             )
+
+            section_id_by_label_preview = {
+                "Инженерные графики": "plots",
+                "Планшеты и визуализации": "visualizations",
+                "Расчётные результаты": "results",
+                "Заключение и ограничения": "conclusion",
+            }
+            preview_design = ReportDesign(
+                mode_id=selected_mode.id,
+                template_id=selected_template.id,
+                title=str(report_title or "").strip(),
+                document_code=f"GRP-{str(active_project.id).upper()[:16]}",
+                sections=tuple(
+                    section_id_by_label_preview[label]
+                    for label in selected_section_labels
+                ),
+                include_technical_appendix=bool(include_technical_design),
+                show_page_chrome=bool(show_page_chrome_design),
+            )
+            structure_preview = build_report_structure_preview(preview_design)
+            with st.expander("Предпросмотр структуры отчёта", expanded=True):
+                st.caption(
+                    f"{structure_preview.mode_label} · {structure_preview.template_label} · "
+                    f"{structure_preview.paper_size} · поля {structure_preview.margin_mm} мм"
+                )
+                st.markdown(f"**{structure_preview.title}**")
+                for preview_index, preview_item in enumerate(structure_preview.sections, start=1):
+                    status_mark = "✅" if preview_item.enabled else "⏸️"
+                    st.markdown(
+                        f"{preview_index}. {status_mark} **{preview_item.label}** — "
+                        f"{preview_item.description}"
+                    )
+                preview_flags = []
+                if structure_preview.include_table_of_contents:
+                    preview_flags.append("оглавление")
+                if structure_preview.include_pdf_bookmarks:
+                    preview_flags.append("PDF-закладки")
+                if structure_preview.include_technical_appendix:
+                    preview_flags.append("техническое приложение")
+                if structure_preview.show_page_chrome:
+                    preview_flags.append("колонтитулы и нумерация")
+                st.caption(
+                    "Дополнительно: " + (", ".join(preview_flags) if preview_flags else "не включено")
+                )
+                for preview_issue in structure_preview.issues:
+                    st.error(preview_issue.message) if preview_issue.blocking else st.warning(preview_issue.message)
+
             print_mode = st.radio(
                 "Интервал печати",
                 options=tuple(print_mode_options),

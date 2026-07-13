@@ -1,3 +1,14 @@
+## Current increment: Interactive Report Structure Preview — COMPLETED
+
+Implemented:
+- added a renderer-neutral report structure preview contract;
+- preview resolves the same report mode and template settings as PDF/DOCX export;
+- added live Streamlit review of section order, navigation, appendices and page chrome;
+- preview validation runs without plots, tables or binary rendering;
+- added regression tests for Brief, Standard and Custom configurations.
+
+Next: complete the visual Export Wizard step navigation and final review screen.
+
 ## Current increment: Report Output Modes — COMPLETED
 
 Implemented:
