@@ -4,9 +4,9 @@ from pathlib import Path
 
 
 def test_v199_runtime_identity():
-    assert BUILD_VERSION == "v221"
+    assert BUILD_VERSION == "v222"
     assert BUILD_CHANNEL == "stable"
-    assert runtime_build_info().version == "v221"
+    assert runtime_build_info().version == "v222"
 
 
 def test_v199_css_has_professional_regions_and_readable_controls():

@@ -1,27 +1,24 @@
 # Current status
 
-**Version:** v221.1 stable bugfix  
-**Status:** selected interval header runtime failure fixed.
+**Version:** v222 stable  
+**Status:** STABLE — automated release gates passed.
 
-## Current increment: v221 — Stable Release
-
-Status: **STABLE — AUTOMATED RELEASE GATES PASSED**
+## Current increment: v222 — Engineering UI, Export and Rendering Stabilization
 
 Implemented:
-- promoted runtime build identity from v221-rc2 to v221 / stable;
-- synchronized the Windows launcher with the stable build identity;
-- retained PDF, DOCX, PNG, SVG and XLSX as user-facing export formats;
-- retained the internal HTML compatibility renderer only for automated regression coverage; it is not exposed in the user interface;
-- removed the stale root progress document that conflicted with documentation governance;
-- preserved the user's local README, branding assets and additional documentation;
-- prepared the stable archive for manual acceptance testing.
+- transactional and isolated Professional Export panel;
+- bounded export, plot and serialization caches;
+- lazy workspace dispatch and sequential render queue;
+- resilient partial graph rendering;
+- current-cycle performance audit and memory guardrails;
+- improved Plotly contrast, tablet layout and report table sizing;
+- stable build identity promoted to v222 / stable.
 
-Release validation:
-- full automated suite executed in deterministic segments;
-- Python compilation gate executed for application, core, reports, projects and palettes;
-- release archive generated without caches and local virtual environments.
-
-Next: **manual acceptance and targeted v221.1 bugfixes based on field feedback**.
+Release gate:
+- full suite executed in eight deterministic segments;
+- 2048 tests passed, 0 failed;
+- Python compilation and README policy gates passed;
+- clean stable archive prepared for field acceptance.
 
 ## Current increment: v221-rc2 — Full Regression Closure
 
@@ -495,5 +492,5 @@ Plotly figures are now serialized once per Plot Cache miss. Repeated workspace r
 
 Render resilience and cache memory guardrails are implemented. Individual Plotly builder failures are isolated, successful plots remain available, and the bounded Plot Cache now respects a serialized byte budget in addition to its LRU entry limit.
 
-### v222-rc11 status
+### v222-rc12 status
 Workspace performance audit is active. Plot construction and frontend dispatch are evaluated against explicit budgets; full-range rendering no longer copies the calculated DataFrame unnecessarily.

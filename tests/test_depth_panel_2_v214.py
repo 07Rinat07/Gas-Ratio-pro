@@ -108,7 +108,7 @@ def test_depth_panel_adds_confidence_and_recommendation_tracks() -> None:
     )
 
     subplot_titles = [str(annotation.text) for annotation in figure.layout.annotations[:4]]
-    assert subplot_titles[:3] == ["Тип пласта", "Достоверность", "Рекомендации"]
+    assert subplot_titles[:3] == ["Тип<br>пласта", "Достовер-<br>ность", "QC /<br>действия"]
     texts = [str(annotation.text) for annotation in figure.layout.annotations]
     assert any("82%" in text for text in texts)
     assert any(shape.type == "rect" and shape.xref == "x2" for shape in figure.layout.shapes)

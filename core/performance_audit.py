@@ -35,12 +35,21 @@ class StagePerformanceSummary:
     stage: str
     samples: int
     average_ms: float
+    p95_ms: float
     maximum_ms: float
     cache_hits: int
     cache_misses: int
     failed: int
     maximum_payload_bytes: int
     status: str
+
+
+@dataclass(frozen=True, slots=True)
+class WorkspacePerformanceGate:
+    status: str
+    measured_stages: int
+    warning_stages: tuple[str, ...]
+    critical_stages: tuple[str, ...]
 
 
 DEFAULT_PERFORMANCE_BUDGETS: tuple[PerformanceBudget, ...] = (
@@ -71,6 +80,7 @@ def evaluate_performance(
                     stage=budget.stage,
                     samples=0,
                     average_ms=0.0,
+                    p95_ms=0.0,
                     maximum_ms=0.0,
                     cache_hits=0,
                     cache_misses=0,
@@ -81,8 +91,11 @@ def evaluate_performance(
             )
             continue
 
-        average_ms = fmean(event.duration_ms for event in matching)
-        maximum_ms = max(event.duration_ms for event in matching)
+        durations = sorted(event.duration_ms for event in matching)
+        average_ms = fmean(durations)
+        p95_index = max(0, min(len(durations) - 1, int((len(durations) - 1) * 0.95)))
+        p95_ms = durations[p95_index]
+        maximum_ms = durations[-1]
         maximum_payload = max(event.memory_bytes for event in matching)
         failed = sum(1 for event in matching if event.status != "success")
         cache_hits = sum(1 for event in matching if event.cache_status == "hit")
@@ -101,6 +114,7 @@ def evaluate_performance(
                 stage=budget.stage,
                 samples=len(matching),
                 average_ms=round(average_ms, 2),
+                p95_ms=round(p95_ms, 2),
                 maximum_ms=round(maximum_ms, 2),
                 cache_hits=cache_hits,
                 cache_misses=cache_misses,
@@ -110,3 +124,23 @@ def evaluate_performance(
             )
         )
     return tuple(results)
+
+
+def build_workspace_performance_gate(
+    summaries: Iterable[StagePerformanceSummary],
+) -> WorkspacePerformanceGate:
+    """Collapse stage summaries into one release-gate style status."""
+
+    items = tuple(summaries)
+    critical = tuple(item.stage for item in items if item.status == "critical")
+    warning = tuple(item.stage for item in items if item.status == "warning")
+    measured = sum(1 for item in items if item.status != "not-measured")
+    status = "critical" if critical else "warning" if warning else "ok"
+    if measured == 0:
+        status = "not-measured"
+    return WorkspacePerformanceGate(
+        status=status,
+        measured_stages=measured,
+        warning_stages=warning,
+        critical_stages=critical,
+    )

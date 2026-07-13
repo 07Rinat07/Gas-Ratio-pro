@@ -10,7 +10,7 @@ def test_workbench_exposes_correlation_route_in_production_sources() -> None:
     app = Path('app/streamlit_app.py').read_text(encoding='utf-8')
     assert '("Correlation", "nav.correlation")' in renderer
     assert WorkbenchNavigationRouter().by_navigation("nav.correlation").workspace == "correlation"
-    assert '"nav.correlation": ("las-correlation"' in app
+    assert '"nav.correlation": WorkspaceRoute("nav.correlation", "las-correlation"' in app
     assert 'multi-well-uploader' in app
 
 

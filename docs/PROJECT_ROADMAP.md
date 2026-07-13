@@ -1,3 +1,20 @@
+# GAS RATIO PRO — Active Roadmap
+
+## v222 Stable — Final Regression and Packaging
+
+Status: **COMPLETED**
+
+Required gates:
+1. Execute all 2048 tests in deterministic segments.
+2. Resolve only confirmed regressions or stale release contracts.
+3. Compile application, core, reports, projects and palettes.
+4. Verify Professional Export first-run, format switching and cache reuse.
+5. Verify Plot Cache memory limits, lazy workspace rendering and partial renderer recovery.
+6. Preserve README.md unchanged.
+7. Package a clean stable archive without caches, logs or virtual environments.
+
+Next: field acceptance and targeted v222.1 bugfixes only. No new scientific methods are authorized before acceptance closure.
+
 ## v218 — Print & Export 2.0 (completed)
 
 - Removed HTML as a user-download format from reports and calculation comparison.
@@ -845,7 +862,7 @@ Release candidate Definition of Done:
 - collect frontend dispatch timing and payload-size diagnostics;
 - prepare performance acceptance gates for v222 stable.
 
-### v222-rc11 — Workspace Performance Audit
+### v222-rc12 — Workspace Performance Audit
 - Aggregate runtime diagnostic events into release-gate summaries.
 - Detect critical render duration, failed stages and oversized frontend payloads.
 - Remove avoidable full-frame copies from the interpretation workflow.

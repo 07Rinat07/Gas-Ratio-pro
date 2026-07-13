@@ -32,7 +32,7 @@ class FakeStreamlit:
 
 
 def test_v201_build_identity():
-    assert BUILD_VERSION == "v221"
+    assert BUILD_VERSION == "v222"
     assert BUILD_CHANNEL == "stable"
 
 

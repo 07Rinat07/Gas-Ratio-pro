@@ -224,7 +224,7 @@ from palettes.config import load_palette_config
 from palettes.plot_engine import PLOTLY_SCREEN_CONFIG, downsample_frame_for_screen
 from palettes.plot_cache import PlotCache
 from core.runtime_diagnostics import RuntimeDiagnostics
-from core.performance_audit import evaluate_performance
+from core.performance_audit import build_workspace_performance_gate, evaluate_performance
 from core.render_queue import RenderQueue, RenderTask
 from core.lazy_workspace import LazyWorkspaceRegistry, WorkspaceRoute
 from palettes.depth_tracks import (
@@ -9456,6 +9456,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     if not isinstance(runtime_diagnostics, RuntimeDiagnostics):
         runtime_diagnostics = RuntimeDiagnostics(max_events=64)
         state_controller.set_value("runtime_diagnostics", runtime_diagnostics)
+    performance_cycle_marker = runtime_diagnostics.mark()
     cache_lookup_started = perf_counter()
     cached_bundle = plot_cache.get(figure_cache_key)
     plot_cache_hit = cached_bundle is not None
@@ -9646,11 +9647,15 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             memory_bytes=payload_size,
         )
 
-    performance_summary = evaluate_performance(runtime_diagnostics.snapshot())
-    critical_stages = tuple(item.stage for item in performance_summary if item.status == "critical")
-    warning_stages = tuple(item.stage for item in performance_summary if item.status == "warning")
+    performance_summary = evaluate_performance(
+        runtime_diagnostics.snapshot_since(performance_cycle_marker)
+    )
+    performance_gate = build_workspace_performance_gate(performance_summary)
+    critical_stages = performance_gate.critical_stages
+    warning_stages = performance_gate.warning_stages
     logger.info(
-        "workspace_performance_audit critical=%s warning=%s plot_cache_hit=%s figure_count=%d",
+        "workspace_performance_audit status=%s critical=%s warning=%s plot_cache_hit=%s figure_count=%d",
+        performance_gate.status,
         ",".join(critical_stages) or "none",
         ",".join(warning_stages) or "none",
         plot_cache_hit,

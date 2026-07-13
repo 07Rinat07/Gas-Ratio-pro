@@ -72,6 +72,21 @@ class RuntimeDiagnostics:
     def snapshot(self) -> tuple[RuntimeDiagnosticEvent, ...]:
         return tuple(self._events)
 
+    def mark(self) -> float:
+        """Return a wall-clock marker for isolating one render cycle."""
+
+        return time()
+
+    def snapshot_since(self, marker: float) -> tuple[RuntimeDiagnosticEvent, ...]:
+        """Return only events recorded at or after ``marker``.
+
+        This prevents stale slow events from previous Streamlit reruns from
+        contaminating the current workspace performance assessment.
+        """
+
+        threshold = float(marker)
+        return tuple(event for event in self._events if event.timestamp >= threshold)
+
     def clear(self) -> None:
         self._events.clear()
 

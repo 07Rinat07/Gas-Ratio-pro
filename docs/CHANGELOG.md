@@ -1,3 +1,14 @@
+# Changelog
+
+## v222 — Stable release
+
+- promoted build identity to v222 / stable;
+- finalized transactional Professional Export and fragment isolation;
+- finalized bounded Plot Cache, serialization cache and render queue resilience;
+- added lazy workspace rendering and current-cycle performance gates;
+- improved plot contrast, tablet header layout and PDF/DOCX table sizing;
+- synchronized stale release tests with the current public contract.
+
 ## v221.2 — Plot Contrast & Interactive Performance Hotfix
 
 - Switched browser Plotly figures to a dark engineering theme with explicit high-contrast axes, labels, legends and grid lines.
@@ -2072,3 +2083,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added explicit performance budgets for plot construction and frontend dispatch.
 - Added compact stage summaries with cache, payload and failure metrics.
 - Removed an unnecessary full DataFrame copy for full-depth interpretation rendering.
+
+
+## v222-rc12 — Current-Cycle Performance Gate
+- Isolated workspace performance evaluation to the active Streamlit render cycle.
+- Added p95 duration metrics and an aggregate workspace performance gate.
+- Prevented stale slow events from previous reruns from contaminating current diagnostics.
+- Added regression tests for cycle isolation and gate aggregation.

@@ -20,5 +20,5 @@ def test_workbench_menu_and_project_tree_use_real_buttons():
 
 def test_reports_route_uses_dedicated_workflow():
     source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
-    assert '"nav.reports": ("report-workflow", lambda project: _render_workbench_reports' in source
+    assert '"nav.reports": WorkspaceRoute("nav.reports", "report-workflow", lambda project: _render_workbench_reports' in source
     assert 'Открыть Data Workspace' in source
