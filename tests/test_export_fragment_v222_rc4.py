@@ -6,8 +6,9 @@ REQUIREMENTS = (ROOT / "requirements.txt").read_text(encoding="utf-8")
 
 
 def test_professional_export_panel_is_a_streamlit_fragment() -> None:
-    assert "@_streamlit_fragment\ndef _render_professional_export_panel(" in APP
+    assert '@_streamlit_fragment(run_every="2s")\ndef _render_professional_export_panel(' in APP
     assert 'fragment = getattr(st, "fragment", None)' in APP
+    assert 'fragment(run_every=run_every)(target)' in APP
 
 
 def test_interpretation_workspace_calls_isolated_export_panel() -> None:

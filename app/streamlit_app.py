@@ -8946,13 +8946,20 @@ def _render_selected_interval_passport(
 
 
 
-def _streamlit_fragment(function):
+def _streamlit_fragment(function=None, *, run_every: str | None = None):
     """Use fragment reruns when supported, keeping compatibility with older Streamlit."""
-    fragment = getattr(st, "fragment", None)
-    return fragment(function) if callable(fragment) else function
+    def decorate(target):
+        fragment = getattr(st, "fragment", None)
+        if not callable(fragment):
+            return target
+        if run_every is None:
+            return fragment(target)
+        return fragment(run_every=run_every)(target)
+
+    return decorate(function) if function is not None else decorate
 
 
-@_streamlit_fragment
+@_streamlit_fragment(run_every="2s")
 def _render_professional_export_panel(
     logger,
     active_project: ProjectRecord,
@@ -9556,6 +9563,8 @@ def _render_professional_export_panel(
                                 design=report_design,
                                 export_format=export_request.format_id,
                                 base_name=presentation_state.base_name,
+                                on_progress=report,
+                                check_cancelled=check_cancelled,
                             )
                             content = rendered.content
                             file_name = rendered.file_name
@@ -9624,13 +9633,8 @@ def _render_professional_export_panel(
                 background_manager.cancel(relevant_job.id)
                 _request_ui_refresh_and_rerun("background_export_cancel")
                 return
-            if not relevant_job.terminal and job_right.button(
-                "Обновить прогресс",
-                key=f"background_export_refresh_{active_project.id}_{relevant_job.id}",
-                width="stretch",
-            ):
-                _request_ui_refresh_and_rerun("background_export_poll")
-                return
+            if not relevant_job.terminal:
+                job_right.caption("Прогресс обновляется автоматически каждые 2 секунды.")
 
             if (
                 relevant_job.status is ExportJobStatus.COMPLETED

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Sequence
+from typing import Sequence, Callable
 
 try:
     from docx import Document
@@ -344,9 +344,21 @@ def render_engineering_document_docx(
     document: EngineeringDocument,
     *,
     options: PresentationDocxOptions | None = None,
+    on_progress: Callable[[int, str], None] | None = None,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> PresentationDocxResult:
     """Render a renderer-neutral EngineeringDocument into DOCX bytes."""
 
+    def _check() -> None:
+        if check_cancelled is not None:
+            check_cancelled()
+
+    def _progress(value: int, message: str) -> None:
+        if on_progress is not None:
+            on_progress(value, message)
+        _check()
+
+    _progress(2, "Инициализация DOCX")
     opts = options or PresentationDocxOptions()
     ensure_docx_available()
     doc = Document()
@@ -360,12 +372,15 @@ def render_engineering_document_docx(
     for note in document.metadata.notes:
         _add_paragraph(doc, note)
 
+    section_total = max(1, len(document.sections))
     for section_index, section in enumerate(document.sections):
+        _progress(10 + int((section_index / section_total) * 70), f"DOCX: раздел {section_index + 1} из {section_total}")
         if section.page_break_before and section_index > 0:
             doc.add_page_break()
         if section.title and (section_index > 0 or section.title not in {"Инженерные разделы отчета", "Разделы экспертного отчета"}):
             _add_paragraph(doc, section.title, style="Heading 1")
         for block in section.blocks:
+            _check()
             if isinstance(block, DocumentTable):
                 _add_document_table(doc, block)
             elif isinstance(block, DocumentNotice):
@@ -375,8 +390,10 @@ def render_engineering_document_docx(
             elif isinstance(block, DocumentVisualizationPreview):
                 _add_visualization_preview_placeholder(doc, block)
 
+    _progress(84, "Сохранение DOCX")
     buffer = BytesIO()
     doc.save(buffer)
+    _progress(98, "DOCX сформирован")
     return PresentationDocxResult(
         content=buffer.getvalue(),
         profile=document.metadata.profile,

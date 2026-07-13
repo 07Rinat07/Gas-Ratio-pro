@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
+from typing import Callable
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from reports.presentation_docx import render_engineering_document_docx
@@ -31,9 +32,21 @@ def build_designed_report_artifact(
     design: ReportDesign,
     export_format: str,
     base_name: str,
+    on_progress: Callable[[int, str], None] | None = None,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> DesignedReportArtifact:
     """Render PDF, DOCX or a synchronized bundle from one designed document."""
 
+    def _check() -> None:
+        if check_cancelled is not None:
+            check_cancelled()
+
+    def _progress(value: int, message: str) -> None:
+        if on_progress is not None:
+            on_progress(value, message)
+        _check()
+
+    _progress(5, "Проверка конфигурации отчёта")
     normalized_format = export_format_by_id(export_format)
     if normalized_format.id not in {"pdf", "docx", "bundle"}:
         raise ValueError(
@@ -42,13 +55,20 @@ def build_designed_report_artifact(
         )
 
     result = require_designed_report(model, design)
+    _progress(12, "Подготовка структуры отчёта")
     assert result.document is not None
     assert result.pdf_options is not None
     assert result.docx_options is not None
     safe_name = safe_export_basename(base_name, fallback="gas-ratio-professional-report")
 
     if normalized_format.id == "pdf":
-        rendered = render_engineering_document_pdf(result.document, options=result.pdf_options)
+        rendered = render_engineering_document_pdf(
+            result.document,
+            options=result.pdf_options,
+            on_progress=lambda value, message: _progress(12 + int(value * 0.82), message),
+            check_cancelled=_check,
+        )
+        _progress(98, "Финализация PDF")
         return DesignedReportArtifact(
             content=rendered.content,
             file_name=f"{safe_name}.pdf",
@@ -58,7 +78,13 @@ def build_designed_report_artifact(
         )
 
     if normalized_format.id == "docx":
-        rendered = render_engineering_document_docx(result.document, options=result.docx_options)
+        rendered = render_engineering_document_docx(
+            result.document,
+            options=result.docx_options,
+            on_progress=lambda value, message: _progress(12 + int(value * 0.82), message),
+            check_cancelled=_check,
+        )
+        _progress(98, "Финализация DOCX")
         return DesignedReportArtifact(
             content=rendered.content,
             file_name=f"{safe_name}.docx",
@@ -67,14 +93,28 @@ def build_designed_report_artifact(
             template_id=design.template_id,
         )
 
-    pdf = render_engineering_document_pdf(result.document, options=result.pdf_options)
-    docx = render_engineering_document_docx(result.document, options=result.docx_options)
+    pdf = render_engineering_document_pdf(
+        result.document,
+        options=result.pdf_options,
+        on_progress=lambda value, message: _progress(12 + int(value * 0.38), f"PDF: {message}"),
+        check_cancelled=_check,
+    )
+    _progress(52, "PDF готов, подготовка DOCX")
+    docx = render_engineering_document_docx(
+        result.document,
+        options=result.docx_options,
+        on_progress=lambda value, message: _progress(52 + int(value * 0.38), f"DOCX: {message}"),
+        check_cancelled=_check,
+    )
+    _progress(92, "Упаковка комплекта отчётов")
     pdf_name = f"{safe_name}.pdf"
     docx_name = f"{safe_name}.docx"
     buffer = BytesIO()
+    _check()
     with ZipFile(buffer, "w", compression=ZIP_DEFLATED) as archive:
         archive.writestr(pdf_name, pdf.content)
         archive.writestr(docx_name, docx.content)
+    _progress(98, "Комплект отчётов готов")
     return DesignedReportArtifact(
         content=buffer.getvalue(),
         file_name=f"{safe_name}.zip",

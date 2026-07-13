@@ -1,3 +1,16 @@
+# Latest implementation — Automatic Export Polling and Cancellable Report Rendering
+
+Status: COMPLETED
+
+Implemented:
+- Professional Export uses an isolated Streamlit fragment with a two-second refresh interval;
+- active job progress updates without a manual refresh button;
+- PDF/DOCX/bundle rendering accepts optional progress and cooperative cancellation callbacks;
+- cancellation is checked between report sections and document blocks;
+- progress remains monotonic through the existing BackgroundExportManager.
+
+Next priority: validate cancellation against large field datasets and add slow-job diagnostics.
+
 # Latest implementation — Streamlit Background Export Integration
 
 Status: COMPLETED

@@ -1,3 +1,17 @@
+# Latest increment — Automatic Background Export Polling and Cooperative Renderer Cancellation
+
+Status: COMPLETED
+
+Implemented:
+- Professional Export fragment now refreshes automatically every two seconds;
+- manual progress refresh is no longer required while a background job is active;
+- Report Designer PDF, DOCX and bundle renderers expose progress and cancellation callbacks;
+- cancellation checkpoints run while report sections and blocks are assembled;
+- bundle export reports separate PDF, DOCX and packaging phases;
+- synchronous callers remain backward compatible because callbacks are optional.
+
+Next priority: field acceptance of cancellation with large real-world PDF/DOCX reports and timeout/slow-job diagnostics.
+
 # Latest increment — Streamlit Background Export Integration
 
 Status: COMPLETED

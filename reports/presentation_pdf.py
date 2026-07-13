@@ -5,7 +5,7 @@ from io import BytesIO
 from pathlib import Path
 import os
 import sys
-from typing import Sequence
+from typing import Sequence, Callable
 
 try:
     from reportlab.lib import colors
@@ -682,6 +682,8 @@ def render_engineering_document_pdf(
     document: EngineeringDocument,
     *,
     options: PresentationPdfOptions | None = None,
+    on_progress: Callable[[int, str], None] | None = None,
+    check_cancelled: Callable[[], None] | None = None,
 ) -> PresentationPdfResult:
     """Render a renderer-neutral EngineeringDocument into PDF bytes.
 
@@ -690,6 +692,16 @@ def render_engineering_document_pdf(
     never rebuilds report content from lower-level hydrocarbon calculations.
     """
 
+    def _check() -> None:
+        if check_cancelled is not None:
+            check_cancelled()
+
+    def _progress(value: int, message: str) -> None:
+        if on_progress is not None:
+            on_progress(value, message)
+        _check()
+
+    _progress(2, "Инициализация PDF")
     ensure_reportlab_available()
     opts = options or PresentationPdfOptions()
     styles = _styles()
@@ -747,12 +759,15 @@ def render_engineering_document_pdf(
             PageBreak(),
         ])
 
+    section_total = max(1, len(document.sections))
     for index, section in enumerate(document.sections):
+        _progress(10 + int((index / section_total) * 68), f"PDF: раздел {index + 1} из {section_total}")
         if section.page_break_before and story:
             story.append(PageBreak())
         if section.title and (index > 0 or section.title not in {"Ключевые результаты", "Инженерные результаты и расчетные приложения"}):
             story.append(_paragraph(section.title, styles["h2"]))
         for block in section.blocks:
+            _check()
             if isinstance(block, DocumentTable):
                 story.extend(_document_table(block, styles))
             elif isinstance(block, DocumentNotice):
@@ -765,10 +780,12 @@ def render_engineering_document_pdf(
     if not story:
         story.append(_paragraph("Gas Ratio Pro report", styles["body"]))
 
+    _progress(82, "Компоновка страниц PDF")
     if opts.include_table_of_contents:
         doc.multiBuild(story)
     else:
         doc.build(story)
+    _progress(98, "PDF сформирован")
     return PresentationPdfResult(
         content=buffer.getvalue(),
         profile=document.metadata.profile,
