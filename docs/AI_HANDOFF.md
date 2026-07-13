@@ -197,3 +197,7 @@ Implemented:
 - regression tests for gate evaluation and real pipeline behavior.
 
 Next priority: CI integration and runtime performance summary UI.
+
+## 2026-07-13 runtime hotfix
+
+Fixed the interpretation workspace crash `NameError: active_project is not defined` in the PNG/PDF/SVG controls. Static export no longer depends on workspace-local variables. `current_data_revision` is now built in the professional report export scope where export history consumes it. Direct Streamlit session-state access introduced by export persistence was replaced with the application state boundary. Regression test: `tests/test_static_export_scope_regression_v222_15.py`.

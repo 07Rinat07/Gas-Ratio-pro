@@ -1131,3 +1131,11 @@ Release candidate Definition of Done:
 - интерактивный preview структуры отчёта перед экспортом;
 - отображение состава разделов и навигации в Export Wizard;
 - проверка длинных отчётов и стабильности пагинации.
+
+## Runtime stabilization — static export scope hotfix
+
+- [x] Remove invalid `active_project` capture from `_render_static_export_controls`.
+- [x] Remove invalid `current_export_request` capture from the static Plotly exporter.
+- [x] Build export data revision in the professional report request scope.
+- [x] Route Export Wizard persistence through `ApplicationStateController` state.
+- [x] Add regression coverage for interpretation workspace static export rendering.

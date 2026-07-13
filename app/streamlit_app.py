@@ -2845,12 +2845,6 @@ def _render_static_export_controls(
             type="primary",
             key=f"{key_prefix}_prepare_static_export",
         )
-        current_data_revision = build_export_data_revision(
-            project_id=str(active_project.id),
-            source_signature=current_export_request.source_signature,
-            calculation_revision=current_export_request.calculation_revision,
-        )
-
         if prepare_export:
             started = perf_counter()
             progress = st.empty()
@@ -9020,33 +9014,33 @@ def _render_professional_export_panel(
         draft_repository = ExportWizardDraftRepository(ROOT_DIR / "data" / "projects")
         history_repository = ExportHistoryRepository(ROOT_DIR / "data" / "projects")
         repeat_pending_key = f"export_history_repeat_pending_{active_project.id}"
-        pending_repeat = st.session_state.pop(repeat_pending_key, None)
+        pending_repeat = export_state.pop(repeat_pending_key, None)
         if isinstance(pending_repeat, dict):
             profile_label_by_id = {item.id: item.label for item in profile_options}
             format_label_by_id = {item.id: item.label for item in format_options}
             repeated_profile = profile_label_by_id.get(str(pending_repeat.get("profile_id", "")))
             repeated_format = format_label_by_id.get(str(pending_repeat.get("format_id", "")))
             if repeated_profile:
-                st.session_state[form_keys["profile"]] = repeated_profile
+                export_state[form_keys["profile"]] = repeated_profile
             if repeated_format:
-                st.session_state[form_keys["format"]] = repeated_format
+                export_state[form_keys["format"]] = repeated_format
             mode_label_by_id = {item.id: item.label for item in designer_modes}
             template_label_by_id = {item.id: item.label for item in designer_templates}
             repeated_mode_id = str(pending_repeat.get("report_mode_id", "full_engineering"))
             repeated_template_id = str(pending_repeat.get("template_id", "engineering"))
-            st.session_state[f"report_designer_mode_{active_project.id}"] = mode_label_by_id.get(
+            export_state[f"report_designer_mode_{active_project.id}"] = mode_label_by_id.get(
                 repeated_mode_id, designer_modes[0].label
             )
-            st.session_state[f"report_designer_template_{active_project.id}"] = template_label_by_id.get(
+            export_state[f"report_designer_template_{active_project.id}"] = template_label_by_id.get(
                 repeated_template_id, designer_templates[0].label
             )
-            st.session_state[f"report_designer_title_{active_project.id}"] = str(
+            export_state[f"report_designer_title_{active_project.id}"] = str(
                 pending_repeat.get("report_title", "Gas Ratio Professional Report")
             )
-            st.session_state[f"report_designer_technical_{active_project.id}"] = bool(
+            export_state[f"report_designer_technical_{active_project.id}"] = bool(
                 pending_repeat.get("include_technical_appendix", True)
             )
-            st.session_state[f"report_designer_chrome_{active_project.id}"] = bool(
+            export_state[f"report_designer_chrome_{active_project.id}"] = bool(
                 pending_repeat.get("show_page_chrome", True)
             )
             repeated_sections = tuple(
@@ -9059,19 +9053,19 @@ def _render_professional_export_panel(
                 "results": "Расчётные результаты",
                 "conclusion": "Заключение и ограничения",
             }
-            st.session_state[f"report_designer_sections_{active_project.id}_{repeated_template_id}"] = [
+            export_state[f"report_designer_sections_{active_project.id}_{repeated_template_id}"] = [
                 section_labels_repeat[item] for item in repeated_sections
             ]
             repeated_print_mode = str(pending_repeat.get("print_mode", "Выбрать отдельно"))
-            st.session_state[form_keys["print_mode"]] = (
+            export_state[form_keys["print_mode"]] = (
                 repeated_print_mode if repeated_print_mode in print_mode_options else "Выбрать отдельно"
             )
-            st.session_state[form_keys["top"]] = float(pending_repeat.get("depth_top", default_print_top))
-            st.session_state[form_keys["bottom"]] = float(pending_repeat.get("depth_bottom", default_print_bottom))
-            st.session_state.pop(export_cache_key, None)
-            st.session_state.pop(export_error_key, None)
+            export_state[form_keys["top"]] = float(pending_repeat.get("depth_top", default_print_top))
+            export_state[form_keys["bottom"]] = float(pending_repeat.get("depth_bottom", default_print_bottom))
+            export_state.pop(export_cache_key, None)
+            export_state.pop(export_error_key, None)
         draft_key = f"export_wizard_draft_restored_{active_project.id}"
-        if not st.session_state.get(draft_key):
+        if not export_state.get(draft_key):
             try:
                 saved_draft = draft_repository.load(str(active_project.id))
             except (OSError, ValueError, TypeError):
@@ -9082,18 +9076,18 @@ def _render_professional_export_panel(
                 format_label_by_id = {item.id: item.label for item in format_options}
                 mode_label_by_id = {item.id: item.label for item in designer_modes}
                 template_label_by_id = {item.id: item.label for item in designer_templates}
-                st.session_state.setdefault(form_keys["profile"], profile_label_by_id.get(saved_draft.wizard.profile, profile_options[0].label))
-                st.session_state.setdefault(form_keys["format"], format_label_by_id.get(saved_draft.wizard.export_format, format_options[0].label))
-                st.session_state.setdefault(form_keys["print_mode"], saved_draft.print_mode)
+                export_state.setdefault(form_keys["profile"], profile_label_by_id.get(saved_draft.wizard.profile, profile_options[0].label))
+                export_state.setdefault(form_keys["format"], format_label_by_id.get(saved_draft.wizard.export_format, format_options[0].label))
+                export_state.setdefault(form_keys["print_mode"], saved_draft.print_mode)
                 if saved_draft.depth_top is not None:
-                    st.session_state.setdefault(form_keys["top"], float(saved_draft.depth_top))
+                    export_state.setdefault(form_keys["top"], float(saved_draft.depth_top))
                 if saved_draft.depth_bottom is not None:
-                    st.session_state.setdefault(form_keys["bottom"], float(saved_draft.depth_bottom))
-                st.session_state.setdefault(f"report_designer_mode_{active_project.id}", mode_label_by_id.get(saved_draft.report_mode_id, designer_modes[0].label))
-                st.session_state.setdefault(f"report_designer_template_{active_project.id}", template_label_by_id.get(saved_draft.template_id, designer_templates[0].label))
-                st.session_state.setdefault(f"report_designer_title_{active_project.id}", saved_draft.report_title)
-                st.session_state.setdefault(f"report_designer_technical_{active_project.id}", saved_draft.include_technical_appendix)
-                st.session_state.setdefault(f"report_designer_chrome_{active_project.id}", saved_draft.show_page_chrome)
+                    export_state.setdefault(form_keys["bottom"], float(saved_draft.depth_bottom))
+                export_state.setdefault(f"report_designer_mode_{active_project.id}", mode_label_by_id.get(saved_draft.report_mode_id, designer_modes[0].label))
+                export_state.setdefault(f"report_designer_template_{active_project.id}", template_label_by_id.get(saved_draft.template_id, designer_templates[0].label))
+                export_state.setdefault(f"report_designer_title_{active_project.id}", saved_draft.report_title)
+                export_state.setdefault(f"report_designer_technical_{active_project.id}", saved_draft.include_technical_appendix)
+                export_state.setdefault(f"report_designer_chrome_{active_project.id}", saved_draft.show_page_chrome)
                 restored_template = next((item for item in designer_templates if item.id == saved_draft.template_id), designer_templates[0])
                 section_labels_restore = {
                     "plots": "Инженерные графики",
@@ -9101,11 +9095,11 @@ def _render_professional_export_panel(
                     "results": "Расчётные результаты",
                     "conclusion": "Заключение и ограничения",
                 }
-                st.session_state.setdefault(
+                export_state.setdefault(
                     f"report_designer_sections_{active_project.id}_{restored_template.id}",
                     [section_labels_restore[item] for item in saved_draft.sections if item in section_labels_restore],
                 )
-            st.session_state[draft_key] = True
+            export_state[draft_key] = True
 
         draft_controls_left, draft_controls_right = st.columns(2)
         reset_draft = draft_controls_left.button(
@@ -9145,7 +9139,7 @@ def _render_professional_export_panel(
                 for template in designer_templates
             )
             for reset_key in reset_keys:
-                st.session_state.pop(reset_key, None)
+                export_state.pop(reset_key, None)
             _request_ui_refresh_and_rerun("export_wizard_reset")
             return
         if clear_history:
@@ -9430,6 +9424,11 @@ def _render_professional_export_panel(
                     f"chrome={report_design.show_page_chrome}"
                 ).encode("utf-8")
             ).hexdigest(),
+        )
+        current_data_revision = build_export_data_revision(
+            project_id=str(active_project.id),
+            source_signature=current_export_request.source_signature,
+            calculation_revision=current_export_request.calculation_revision,
         )
 
         if prepare_export:
@@ -9744,7 +9743,7 @@ def _render_professional_export_panel(
                         help="Восстановить формат, профиль, диапазон и полную конфигурацию отчёта.",
                         width="stretch",
                     ):
-                        st.session_state[repeat_pending_key] = history_item.repeat_payload()
+                        export_state[repeat_pending_key] = history_item.repeat_payload()
                         _request_ui_refresh_and_rerun("export_history_repeat")
                         return
         st.caption("Экспорт использует единый выбранный диапазон глубин и согласованные инженерные данные.")
