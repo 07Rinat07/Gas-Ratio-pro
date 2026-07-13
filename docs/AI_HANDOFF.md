@@ -546,3 +546,12 @@ Next priority: PDF page-thumbnail preview, then an explicit quarantine-cleanup c
 ## Repository hygiene rule
 
 Keep all plans, handoff notes, roadmaps, and progress documents in `docs/`. Do not create additional Markdown planning files at repository root. The checked-in `data/` tree must contain only bootstrap placeholders and an empty recent-projects registry; never bundle a developer's local project state.
+
+
+## Manual report-preview quarantine cleanup
+
+- Added a project-scoped **Очистить карантин** control to Report Preview storage diagnostics.
+- The action is visible only when quarantined metadata exists.
+- Cleanup preserves `report_preview_counts.json` and its `.bak` file.
+- Success and failure paths are logged; the UI refreshes storage-health counters after cleanup.
+- Planning and handoff documentation remains under `docs/`; no new root-level Markdown files are created.

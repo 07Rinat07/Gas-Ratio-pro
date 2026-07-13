@@ -1487,3 +1487,12 @@ Next priority: add bounded retention and cleanup for quarantined metadata files 
 - Project documentation is kept under `docs/`; no planning Markdown files are created at repository root.
 - Generated local project state was removed from the distributable archive.
 - Safe disposable-data cleanup is available through `core.data_cleanup.DataCleanupService` and preserves `data/projects` by default.
+
+
+## Manual report-preview quarantine cleanup
+
+- Added a project-scoped **Очистить карантин** control to Report Preview storage diagnostics.
+- The action is visible only when quarantined metadata exists.
+- Cleanup preserves `report_preview_counts.json` and its `.bak` file.
+- Success and failure paths are logged; the UI refreshes storage-health counters after cleanup.
+- Planning and handoff documentation remains under `docs/`; no new root-level Markdown files are created.
