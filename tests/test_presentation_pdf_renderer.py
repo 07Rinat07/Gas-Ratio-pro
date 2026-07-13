@@ -96,3 +96,57 @@ def test_export_presentation_pdf_package_writes_manifest(tmp_path: Path) -> None
 
 def test_pdf_export_reuses_safe_basename() -> None:
     assert safe_export_basename("../well/report") == "well_report"
+
+class _CanvasProbe:
+    def __init__(self) -> None:
+        self.page_number = 3
+        self.strings: list[str] = []
+
+    def __getattr__(self, name):
+        if name in {"saveState", "restoreState", "setAuthor", "setTitle", "setSubject", "setKeywords", "setStrokeColor", "setLineWidth", "line", "setFillColor", "setFont"}:
+            return lambda *args, **kwargs: None
+        if name in {"drawString", "drawCentredString", "drawRightString"}:
+            return lambda *args, **kwargs: self.strings.append(str(args[-1]))
+        raise AttributeError(name)
+
+    def getPageNumber(self) -> int:
+        return self.page_number
+
+
+class _DocProbe:
+    leftMargin = 36
+    rightMargin = 36
+
+
+def test_pdf_page_decorator_draws_controlled_document_identity() -> None:
+    from reports.presentation_pdf import _build_page_decorator
+
+    canvas = _CanvasProbe()
+    callback = _build_page_decorator(
+        options=PresentationPdfOptions(
+            document_code="GRP-WELL-A1",
+            footer_text="Approved engineering output",
+            classification="INTERNAL",
+        ),
+        document_title="Well A-1 Gas Ratio Report",
+        page_size=(595.0, 842.0),
+        regular_font="Helvetica",
+        bold_font="Helvetica-Bold",
+    )
+
+    callback(canvas, _DocProbe())
+
+    assert "Well A-1 Gas Ratio Report" in canvas.strings
+    assert "GRP-WELL-A1" in canvas.strings
+    assert "Approved engineering output" in canvas.strings
+    assert "INTERNAL" in canvas.strings
+    assert "Page 3" in canvas.strings
+
+
+def test_pdf_page_chrome_can_be_disabled() -> None:
+    result = render_engineering_document_pdf(
+        _document(),
+        options=PresentationPdfOptions(include_figures=False, show_page_chrome=False),
+    )
+
+    assert result.content.startswith(b"%PDF")

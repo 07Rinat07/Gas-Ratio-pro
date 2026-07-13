@@ -62,6 +62,10 @@ class PresentationPdfOptions:
     orientation: str = "portrait"
     margin_mm: int = 12
     title: str = "Gas Ratio Professional Report"
+    show_page_chrome: bool = True
+    document_code: str = "GRP-REPORT"
+    footer_text: str = "Gas Ratio Pro · Engineering report"
+    classification: str = "ENGINEERING USE"
 
 
 @dataclass(frozen=True)
@@ -180,6 +184,64 @@ def _page_size(options: PresentationPdfOptions):
 
 def _clean_text(value: object) -> str:
     return str(value if value is not None else "").strip()
+
+
+def _single_line(value: object, *, fallback: str = "", max_length: int = 96) -> str:
+    """Normalize user-controlled page chrome text to one printable line."""
+
+    text = " ".join(_clean_text(value).split()) or fallback
+    return text[:max_length]
+
+
+def _build_page_decorator(
+    *,
+    options: PresentationPdfOptions,
+    document_title: str,
+    page_size: tuple[float, float],
+    regular_font: str,
+    bold_font: str,
+):
+    """Create a deterministic ReportLab callback for industrial page chrome.
+
+    The callback draws directly on the canvas and does not participate in the
+    Platypus flow.  Header/footer geometry is therefore stable even when a long
+    table is split across several pages.
+    """
+
+    width, height = page_size
+    title = _single_line(document_title, fallback=options.title, max_length=72)
+    document_code = _single_line(options.document_code, fallback="GRP-REPORT", max_length=32)
+    footer_text = _single_line(options.footer_text, fallback="Gas Ratio Pro", max_length=72)
+    classification = _single_line(options.classification, fallback="ENGINEERING USE", max_length=28)
+
+    def decorate(canvas, doc) -> None:
+        canvas.saveState()
+        canvas.setAuthor("Gas Ratio Pro")
+        canvas.setTitle(title)
+        canvas.setSubject("Gas-ratio engineering interpretation report")
+        canvas.setKeywords("gas ratio, LAS, mud gas, engineering report")
+
+        # Header: document identity on the left, controlled document code on the right.
+        canvas.setStrokeColor(colors.HexColor("#9aa8ba"))
+        canvas.setLineWidth(0.45)
+        canvas.line(doc.leftMargin, height - 13 * mm, width - doc.rightMargin, height - 13 * mm)
+        canvas.setFillColor(colors.HexColor("#26364d"))
+        canvas.setFont(bold_font, 7.5)
+        canvas.drawString(doc.leftMargin, height - 9.5 * mm, title)
+        canvas.setFont(regular_font, 7.2)
+        canvas.drawRightString(width - doc.rightMargin, height - 9.5 * mm, document_code)
+
+        # Footer: classification, product identity and physical page number.
+        canvas.line(doc.leftMargin, 12 * mm, width - doc.rightMargin, 12 * mm)
+        canvas.setFillColor(colors.HexColor("#4b5870"))
+        canvas.setFont(bold_font, 6.8)
+        canvas.drawString(doc.leftMargin, 8 * mm, classification)
+        canvas.setFont(regular_font, 6.8)
+        canvas.drawCentredString(width / 2.0, 8 * mm, footer_text)
+        canvas.drawRightString(width - doc.rightMargin, 8 * mm, f"Page {canvas.getPageNumber()}")
+        canvas.restoreState()
+
+    return decorate
 
 
 def _styles() -> dict[str, ParagraphStyle]:
@@ -547,15 +609,22 @@ def render_engineering_document_pdf(
     styles = _styles()
     buffer = BytesIO()
     margin = _safe_margin_mm(opts.margin_mm) * mm
+    page_size = _page_size(opts)
+    # Page chrome occupies fixed header/footer bands. Preserve the requested
+    # content margin, but never allow flowables to overlap controlled-document
+    # metadata or the physical page number.
+    vertical_margin = max(margin, 18 * mm) if opts.show_page_chrome else margin
     doc = SimpleDocTemplate(
         buffer,
-        pagesize=_page_size(opts),
+        pagesize=page_size,
         leftMargin=margin,
         rightMargin=margin,
-        topMargin=margin,
-        bottomMargin=margin,
+        topMargin=vertical_margin,
+        bottomMargin=vertical_margin,
         title=document.metadata.title or opts.title,
         author="Gas Ratio Pro",
+        subject="Gas-ratio engineering interpretation report",
+        keywords="gas ratio, LAS, mud gas, engineering report",
     )
 
     story: list[object] = []
@@ -588,7 +657,18 @@ def render_engineering_document_pdf(
     if not story:
         story.append(_paragraph("Gas Ratio Pro report", styles["body"]))
 
-    doc.build(story)
+    build_kwargs: dict[str, object] = {}
+    if opts.show_page_chrome:
+        regular_font, bold_font = _register_fonts()
+        decorator = _build_page_decorator(
+            options=opts,
+            document_title=document.metadata.title or opts.title,
+            page_size=page_size,
+            regular_font=regular_font,
+            bold_font=bold_font,
+        )
+        build_kwargs = {"onFirstPage": decorator, "onLaterPages": decorator}
+    doc.build(story, **build_kwargs)
     return PresentationPdfResult(
         content=buffer.getvalue(),
         profile=document.metadata.profile,
@@ -601,6 +681,7 @@ __all__ = [
     "PresentationPdfOptions",
     "PresentationPdfResult",
     "REPORTLAB_AVAILABLE",
+    "_build_page_decorator",
     "_font_candidates",
     "ensure_reportlab_available",
     "build_presentation_pdf_report",
