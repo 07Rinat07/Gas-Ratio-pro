@@ -224,6 +224,8 @@ from palettes.config import load_palette_config
 from palettes.plot_engine import PLOTLY_SCREEN_CONFIG, downsample_frame_for_screen
 from palettes.plot_cache import PlotCache
 from core.runtime_diagnostics import RuntimeDiagnostics
+from core.render_queue import RenderQueue, RenderTask
+from core.lazy_workspace import LazyWorkspaceRegistry, WorkspaceRoute
 from palettes.depth_tracks import (
     build_depth_gas_tracks,
     build_depth_interpretation_track,
@@ -9482,14 +9484,32 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         render_started = perf_counter()
         figures = []
         tablet_figure = None
+        render_queue = state_controller.get_value("interpretation_render_queue")
+        if not isinstance(render_queue, RenderQueue):
+            render_queue = RenderQueue(max_tasks=12)
+            state_controller.set_value("interpretation_render_queue", render_queue)
+
+        render_tasks: list[RenderTask] = []
         if "Интерпретация" in selected_tracks:
-            figures.append(build_depth_interpretation_track(screen_filtered_df, depth_range=depth_range, height=height))
+            render_tasks.append(RenderTask(
+                "depth-interpretation",
+                lambda: build_depth_interpretation_track(screen_filtered_df, depth_range=depth_range, height=height),
+            ))
         if "C1-C5" in selected_tracks:
-            figures.append(build_depth_gas_tracks(screen_filtered_df, depth_range=depth_range, x_range=gas_x_range, height=height))
+            render_tasks.append(RenderTask(
+                "depth-gases",
+                lambda: build_depth_gas_tracks(screen_filtered_df, depth_range=depth_range, x_range=gas_x_range, height=height),
+            ))
         if "Wh/Bh/Ch" in selected_tracks:
-            figures.append(build_depth_ratio_tracks(screen_filtered_df, depth_range=depth_range, x_range=ratio_x_range, height=height))
+            render_tasks.append(RenderTask(
+                "depth-ratios",
+                lambda: build_depth_ratio_tracks(screen_filtered_df, depth_range=depth_range, x_range=ratio_x_range, height=height),
+            ))
         if "Pixler ratios" in selected_tracks:
-            figures.append(build_depth_pixler_tracks(screen_filtered_df, depth_range=depth_range, x_range=pixler_x_range, height=height))
+            render_tasks.append(RenderTask(
+                "depth-pixler",
+                lambda: build_depth_pixler_tracks(screen_filtered_df, depth_range=depth_range, x_range=pixler_x_range, height=height),
+            ))
         if TABLET_TRACK_OPTION in selected_tracks and tablet_columns:
             tablet_tracks = normalize_track_configs(
                 tablet_columns,
@@ -9499,8 +9519,6 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 fill=tablet_fill,
                 fill_modes=tablet_fill_modes,
             )
-            # Use the full-well interval model so IDs stay stable between overview,
-            # detail mode, Pixler, ternary and reports. Filtering affects only display.
             reservoir_overlays = tuple(
                 overlay for overlay in all_reservoir_overlays
                 if float(overlay.thickness) >= float(render_settings.tablet_min_interval_thickness)
@@ -9509,17 +9527,32 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             selected_tablet_depth = selected_interval_depth
             if selected_tablet_depth is None and tablet_markers:
                 selected_tablet_depth = float(tablet_markers[0].depth)
-            tablet_figure = build_well_log_tablet(
-                screen_filtered_df,
-                tablet_tracks,
-                depth_range=depth_range,
-                markers=tablet_markers,
-                zones=tablet_zones,
-                reservoir_intervals=reservoir_overlays,
-                selected_depth=selected_tablet_depth,
-                height=max(int(height), 760),
+            render_tasks.append(RenderTask(
+                "engineering-tablet",
+                lambda: build_well_log_tablet(
+                    screen_filtered_df,
+                    tablet_tracks,
+                    depth_range=depth_range,
+                    markers=tablet_markers,
+                    zones=tablet_zones,
+                    reservoir_intervals=reservoir_overlays,
+                    selected_depth=selected_tablet_depth,
+                    height=max(int(height), 760),
+                ),
+            ))
+
+        task_results = render_queue.execute(render_tasks)
+        figures = [result.value for result in task_results]
+        for result in task_results:
+            runtime_diagnostics.record(
+                stage=f"plot_task:{result.task_id}",
+                duration_ms=result.duration_ms,
+                cache_status="miss",
+                renderer=result.renderer,
+                item_count=1,
             )
-            figures.append(tablet_figure)
+        tablet_result = next((result for result in task_results if result.task_id == "engineering-tablet"), None)
+        tablet_figure = tablet_result.value if tablet_result is not None else None
         plot_cache.put(figure_cache_key, figures, tablet_figure=tablet_figure)
         render_duration_ms = (perf_counter() - render_started) * 1000.0
         cache_stats = plot_cache.stats()
@@ -13448,17 +13481,17 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
     clean_id = str(navigation_id or "").strip()
     logger = configure_logging()
     state = _application_state_controller().state
-    routes = {
-        "nav.dashboard": ("dashboard", lambda project: _render_start_tab(project)),
-        "nav.data": ("data-workspace", lambda project: _render_workspace(logger, project)),
-        "nav.las_workspace": ("las-workflows", lambda project: _render_workbench_las_workspace(logger, project)),
-        "nav.correlation": ("las-correlation", lambda project: _render_las_correlation_tab(logger, project)),
-        "nav.interpretation": ("interpretation-graphs", lambda project: _render_interpretation_graphs_tab(logger, project)),
-        "nav.reports": ("report-workflow", lambda project: _render_workbench_reports(logger, project)),
-        "nav.exports": ("project-exports", lambda project: _render_project_exports_panel(project, logger)),
-        "nav.documentation": ("documentation-center", lambda _project: _render_documentation_tab()),
-    }
-    route = routes.get(clean_id)
+    registry = LazyWorkspaceRegistry({
+        "nav.dashboard": WorkspaceRoute("nav.dashboard", "dashboard", lambda project: _render_start_tab(project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.dashboard", ())),
+        "nav.data": WorkspaceRoute("nav.data", "data-workspace", lambda project: _render_workspace(logger, project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.data", ())),
+        "nav.las_workspace": WorkspaceRoute("nav.las_workspace", "las-workflows", lambda project: _render_workbench_las_workspace(logger, project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.las_workspace", ())),
+        "nav.correlation": WorkspaceRoute("nav.correlation", "las-correlation", lambda project: _render_las_correlation_tab(logger, project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.correlation", ())),
+        "nav.interpretation": WorkspaceRoute("nav.interpretation", "interpretation-graphs", lambda project: _render_interpretation_graphs_tab(logger, project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.interpretation", ())),
+        "nav.reports": WorkspaceRoute("nav.reports", "report-workflow", lambda project: _render_workbench_reports(logger, project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.reports", ())),
+        "nav.exports": WorkspaceRoute("nav.exports", "project-exports", lambda project: _render_project_exports_panel(project, logger), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.exports", ())),
+        "nav.documentation": WorkspaceRoute("nav.documentation", "documentation-center", lambda _project: _render_documentation_tab(), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.documentation", ())),
+    })
+    route = registry.resolve(clean_id)
     if route is None:
         record_render_audit(
             state, route_id=clean_id, renderer="unresolved", provider="none",
@@ -13466,8 +13499,8 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
         )
         return False
 
-    provider, renderer = route
-    expected = WORKBENCH_ROUTE_EXPECTED_CONTROLS.get(clean_id, ())
+    provider, renderer = route.provider, route.renderer
+    expected = route.expected_controls
     started = perf_counter()
     record_render_audit(
         state, route_id=clean_id, renderer=getattr(renderer, "__name__", "route-renderer"),

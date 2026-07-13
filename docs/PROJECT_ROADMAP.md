@@ -820,3 +820,11 @@ Release candidate Definition of Done:
 - Plot render metrics in logs.
 
 Следующий подэтап: v222-rc8 — Lazy Workspace Rendering and Render Queue.
+
+## v222-rc8 — Lazy Workspace Rendering and Render Queue
+
+- Lazy route resolution for the active workspace only.
+- Sequential render queue for expensive Plotly builders.
+- Duplicate task suppression within a render cycle.
+- Per-task runtime diagnostics and bounded cache integration.
+- Stable Plotly component keys retained for frontend reuse.

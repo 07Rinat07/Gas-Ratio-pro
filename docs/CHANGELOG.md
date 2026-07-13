@@ -2041,3 +2041,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added bounded runtime diagnostics for stage duration, cache status, renderer and memory estimate.
 - Added observable Plot Cache metrics: hits, misses, puts, evictions and estimated serialized size.
 - Integrated plot-cache diagnostics into interpretation rendering logs.
+
+## v222-rc8 — Lazy Workspace Rendering and Render Queue
+
+- Added a lazy workspace route registry so only the active production workspace is resolved and invoked.
+- Added a deterministic render queue for expensive Plotly builders with task deduplication and per-task timing diagnostics.
+- Integrated queued construction for interpretation, gas, ratio, Pixler and engineering tablet figures.
+- Preserved bounded Plot Cache reuse and stable frontend component keys.
+- Updated runtime build identity to v222-rc8.
