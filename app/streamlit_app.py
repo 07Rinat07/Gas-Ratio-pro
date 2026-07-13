@@ -9022,7 +9022,42 @@ def _render_professional_export_panel(
                 st.session_state[form_keys["profile"]] = repeated_profile
             if repeated_format:
                 st.session_state[form_keys["format"]] = repeated_format
-            st.session_state[form_keys["print_mode"]] = "Выбрать отдельно"
+            mode_label_by_id = {item.id: item.label for item in designer_modes}
+            template_label_by_id = {item.id: item.label for item in designer_templates}
+            repeated_mode_id = str(pending_repeat.get("report_mode_id", "full_engineering"))
+            repeated_template_id = str(pending_repeat.get("template_id", "engineering"))
+            st.session_state[f"report_designer_mode_{active_project.id}"] = mode_label_by_id.get(
+                repeated_mode_id, designer_modes[0].label
+            )
+            st.session_state[f"report_designer_template_{active_project.id}"] = template_label_by_id.get(
+                repeated_template_id, designer_templates[0].label
+            )
+            st.session_state[f"report_designer_title_{active_project.id}"] = str(
+                pending_repeat.get("report_title", "Gas Ratio Professional Report")
+            )
+            st.session_state[f"report_designer_technical_{active_project.id}"] = bool(
+                pending_repeat.get("include_technical_appendix", True)
+            )
+            st.session_state[f"report_designer_chrome_{active_project.id}"] = bool(
+                pending_repeat.get("show_page_chrome", True)
+            )
+            repeated_sections = tuple(
+                item for item in pending_repeat.get("sections", ())
+                if item in {"plots", "visualizations", "results", "conclusion"}
+            )
+            section_labels_repeat = {
+                "plots": "Инженерные графики",
+                "visualizations": "Планшеты и визуализации",
+                "results": "Расчётные результаты",
+                "conclusion": "Заключение и ограничения",
+            }
+            st.session_state[f"report_designer_sections_{active_project.id}_{repeated_template_id}"] = [
+                section_labels_repeat[item] for item in repeated_sections
+            ]
+            repeated_print_mode = str(pending_repeat.get("print_mode", "Выбрать отдельно"))
+            st.session_state[form_keys["print_mode"]] = (
+                repeated_print_mode if repeated_print_mode in print_mode_options else "Выбрать отдельно"
+            )
             st.session_state[form_keys["top"]] = float(pending_repeat.get("depth_top", default_print_top))
             st.session_state[form_keys["bottom"]] = float(pending_repeat.get("depth_bottom", default_print_bottom))
             st.session_state.pop(export_cache_key, None)
@@ -9545,6 +9580,13 @@ def _render_professional_export_panel(
                                 size_bytes=len(export_artifact.content),
                                 request_signature=export_artifact.request_signature,
                                 cache_hit=bool(export_artifact.cache_hit),
+                                report_mode_id=report_design.mode_id,
+                                template_id=report_design.template_id,
+                                report_title=report_design.title,
+                                sections=report_design.sections,
+                                include_technical_appendix=report_design.include_technical_appendix,
+                                show_page_chrome=report_design.show_page_chrome,
+                                print_mode=str(print_mode),
                             )
                         )
                     except (OSError, ValueError, TypeError):
@@ -9669,20 +9711,16 @@ def _render_professional_export_panel(
                     history_info.markdown(
                         f"**{history_item.format_label}** · `{history_item.file_name}`  \n"
                         f"{created_label} UTC · {history_item.depth_top:g}–{history_item.depth_bottom:g} м · "
-                        f"{history_item.size_bytes / 1024:.1f} КБ{cache_label}"
+                        f"{history_item.size_bytes / 1024:.1f} КБ{cache_label}  \n"
+                        f"Режим: `{history_item.report_mode_id}` · шаблон: `{history_item.template_id}`"
                     )
                     if history_action.button(
                         "Повторить",
                         key=f"export_history_repeat_{active_project.id}_{history_index}_{history_item.request_signature[:10]}",
-                        help="Восстановить формат, профиль и диапазон глубин этого экспорта.",
+                        help="Восстановить формат, профиль, диапазон и полную конфигурацию отчёта.",
                         width="stretch",
                     ):
-                        st.session_state[repeat_pending_key] = {
-                            "profile_id": history_item.profile_id,
-                            "format_id": history_item.format_id,
-                            "depth_top": history_item.depth_top,
-                            "depth_bottom": history_item.depth_bottom,
-                        }
+                        st.session_state[repeat_pending_key] = history_item.repeat_payload()
                         _request_ui_refresh_and_rerun("export_history_repeat")
                         return
         st.caption("Экспорт использует единый выбранный диапазон глубин и согласованные инженерные данные.")

@@ -13,7 +13,9 @@ from pathlib import Path
 import re
 from typing import Any, Iterable, Mapping, Sequence
 
-EXPORT_HISTORY_SCHEMA = "gas-ratio-pro/export-history/v1"
+EXPORT_HISTORY_SCHEMA = "gas-ratio-pro/export-history/v2"
+LEGACY_EXPORT_HISTORY_SCHEMAS = frozenset({"gas-ratio-pro/export-history/v1"})
+_ALLOWED_SECTIONS = frozenset({"plots", "visualizations", "results", "conclusion"})
 _SAFE_ID = re.compile(r"[^A-Za-z0-9._-]+")
 
 
@@ -29,6 +31,13 @@ class ExportHistoryEntry:
     size_bytes: int
     request_signature: str = ""
     cache_hit: bool = False
+    report_mode_id: str = "full_engineering"
+    template_id: str = "engineering"
+    report_title: str = "Gas Ratio Professional Report"
+    sections: tuple[str, ...] = ("plots", "visualizations", "results", "conclusion")
+    include_technical_appendix: bool = True
+    show_page_chrome: bool = True
+    print_mode: str = "Выбрать отдельно"
     created_at: str = ""
 
     def normalized(self) -> "ExportHistoryEntry":
@@ -44,6 +53,7 @@ class ExportHistoryEntry:
             raise ValueError("depth range must be finite")
         if top > bottom:
             top, bottom = bottom, top
+        sections = tuple(item for item in self.sections if item in _ALLOWED_SECTIONS)
         return ExportHistoryEntry(
             project_id=project_id,
             file_name=file_name,
@@ -55,6 +65,13 @@ class ExportHistoryEntry:
             size_bytes=max(0, int(self.size_bytes)),
             request_signature=str(self.request_signature or "").strip(),
             cache_hit=bool(self.cache_hit),
+            report_mode_id=str(self.report_mode_id or "full_engineering").strip(),
+            template_id=str(self.template_id or "engineering").strip(),
+            report_title=str(self.report_title or "").strip() or "Gas Ratio Professional Report",
+            sections=sections,
+            include_technical_appendix=bool(self.include_technical_appendix),
+            show_page_chrome=bool(self.show_page_chrome),
+            print_mode=str(self.print_mode or "Выбрать отдельно").strip(),
             created_at=self.created_at or datetime.now(timezone.utc).isoformat(),
         )
 
@@ -71,11 +88,23 @@ class ExportHistoryEntry:
             "size_bytes": value.size_bytes,
             "request_signature": value.request_signature,
             "cache_hit": value.cache_hit,
+            "report": {
+                "mode_id": value.report_mode_id,
+                "template_id": value.template_id,
+                "title": value.report_title,
+                "sections": list(value.sections),
+                "include_technical_appendix": value.include_technical_appendix,
+                "show_page_chrome": value.show_page_chrome,
+            },
+            "print_mode": value.print_mode,
             "created_at": value.created_at,
         }
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "ExportHistoryEntry":
+        report = payload.get("report", {})
+        if not isinstance(report, Mapping):
+            report = {}
         return cls(
             project_id=str(payload.get("project_id", "")),
             file_name=str(payload.get("file_name", "")),
@@ -87,9 +116,34 @@ class ExportHistoryEntry:
             size_bytes=int(payload.get("size_bytes", 0)),
             request_signature=str(payload.get("request_signature", "")),
             cache_hit=bool(payload.get("cache_hit", False)),
+            report_mode_id=str(report.get("mode_id", "full_engineering")),
+            template_id=str(report.get("template_id", "engineering")),
+            report_title=str(report.get("title", "Gas Ratio Professional Report")),
+            sections=tuple(str(item) for item in report.get("sections", ("plots", "visualizations", "results", "conclusion"))),
+            include_technical_appendix=bool(report.get("include_technical_appendix", True)),
+            show_page_chrome=bool(report.get("show_page_chrome", True)),
+            print_mode=str(payload.get("print_mode", "Выбрать отдельно")),
             created_at=str(payload.get("created_at", "")),
         ).normalized()
 
+
+    def repeat_payload(self) -> dict[str, Any]:
+        """Return the complete safe configuration required to repeat this export."""
+
+        value = self.normalized()
+        return {
+            "profile_id": value.profile_id,
+            "format_id": value.format_id,
+            "depth_top": value.depth_top,
+            "depth_bottom": value.depth_bottom,
+            "report_mode_id": value.report_mode_id,
+            "template_id": value.template_id,
+            "report_title": value.report_title,
+            "sections": list(value.sections),
+            "include_technical_appendix": value.include_technical_appendix,
+            "show_page_chrome": value.show_page_chrome,
+            "print_mode": value.print_mode,
+        }
 
 @dataclass(frozen=True)
 class ExportHistoryFilter:
@@ -127,7 +181,7 @@ def filter_export_history(
             continue
         if value.search:
             haystack = " ".join(
-                (entry.file_name, entry.format_label, entry.profile_id, entry.created_at)
+                (entry.file_name, entry.format_label, entry.profile_id, entry.report_mode_id, entry.template_id, entry.report_title, entry.created_at)
             ).casefold()
             if value.search not in haystack:
                 continue
@@ -151,7 +205,8 @@ class ExportHistoryRepository:
         if not target.exists():
             return ()
         payload = json.loads(target.read_text(encoding="utf-8"))
-        if not isinstance(payload, Mapping) or payload.get("schema") != EXPORT_HISTORY_SCHEMA:
+        schema = payload.get("schema") if isinstance(payload, Mapping) else None
+        if not isinstance(payload, Mapping) or schema not in ({EXPORT_HISTORY_SCHEMA} | LEGACY_EXPORT_HISTORY_SCHEMAS):
             raise ValueError("unsupported export history schema")
         raw_entries = payload.get("entries", ())
         if not isinstance(raw_entries, Sequence) or isinstance(raw_entries, (str, bytes, bytearray)):

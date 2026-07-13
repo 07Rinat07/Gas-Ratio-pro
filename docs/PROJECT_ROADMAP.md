@@ -1,3 +1,15 @@
+# Latest increment — Full-Fidelity Repeat Export
+
+Status: COMPLETED
+
+Implemented:
+- export history schema v2 stores report mode, template, title, sections, technical appendix, page chrome and print mode;
+- repeat action restores the complete report-design configuration together with profile, format and depth range;
+- legacy v1 history remains readable with safe defaults;
+- history remains metadata-only, bounded and project-scoped.
+
+Next priority: add repeat-export preflight comparison and warn when the current project data revision differs from the historical export.
+
 ## Current increment: Export History Filtering and Repeat Action — COMPLETED
 
 Implemented:

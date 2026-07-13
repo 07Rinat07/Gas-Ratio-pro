@@ -119,3 +119,67 @@ def test_streamlit_panel_exposes_history_filters_and_repeat_action() -> None:
     assert "Поиск в истории" in source
     assert '"Повторить"' in source
     assert "export_history_repeat_pending_" in source
+
+
+def test_history_round_trip_preserves_full_report_design(tmp_path: Path) -> None:
+    repository = ExportHistoryRepository(tmp_path)
+    repository.record(
+        ExportHistoryEntry(
+            project_id="project/alpha",
+            file_name="custom.pdf",
+            format_id="pdf",
+            format_label="PDF",
+            profile_id="engineering",
+            depth_top=1500.0,
+            depth_bottom=1750.0,
+            size_bytes=4096,
+            report_mode_id="custom",
+            template_id="corporate",
+            report_title="Field A Engineering Review",
+            sections=("plots", "results"),
+            include_technical_appendix=False,
+            show_page_chrome=False,
+            print_mode="Выбрать отдельно",
+        )
+    )
+
+    restored = repository.load("project/alpha")[0]
+    assert restored.report_mode_id == "custom"
+    assert restored.template_id == "corporate"
+    assert restored.report_title == "Field A Engineering Review"
+    assert restored.sections == ("plots", "results")
+    assert restored.include_technical_appendix is False
+    assert restored.show_page_chrome is False
+    assert restored.repeat_payload()["report_title"] == "Field A Engineering Review"
+
+
+def test_history_loads_legacy_v1_entries_with_safe_report_defaults(tmp_path: Path) -> None:
+    repository = ExportHistoryRepository(tmp_path)
+    target = repository.path_for("project/alpha")
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        json.dumps(
+            {
+                "schema": "gas-ratio-pro/export-history/v1",
+                "project_id": "project/alpha",
+                "entries": [_entry().to_dict() | {"report": None}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    restored = repository.load("project/alpha")[0]
+    assert restored.report_mode_id == "full_engineering"
+    assert restored.template_id == "engineering"
+    assert restored.sections == ("plots", "visualizations", "results", "conclusion")
+
+
+def test_streamlit_repeat_restores_complete_report_configuration() -> None:
+    source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
+    assert "history_item.repeat_payload()" in source
+    assert 'pending_repeat.get("report_mode_id"' in source
+    assert 'pending_repeat.get("template_id"' in source
+    assert 'pending_repeat.get("report_title"' in source
+    assert 'pending_repeat.get("sections"' in source
+    assert "report_mode_id=report_design.mode_id" in source
+    assert "template_id=report_design.template_id" in source
