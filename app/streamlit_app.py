@@ -352,6 +352,10 @@ from reports.export_wizard_persistence import (
     ExportWizardDraft,
     ExportWizardDraftRepository,
 )
+from reports.export_history import (
+    ExportHistoryEntry,
+    ExportHistoryRepository,
+)
 from reports.export_las import export_las_bytes
 from reports.export_xlsx import export_xlsx_bytes
 from reports.export_controller import (
@@ -9004,6 +9008,7 @@ def _render_professional_export_panel(
         designer_templates = report_templates()
         template_by_label = {item.label: item for item in designer_templates}
         draft_repository = ExportWizardDraftRepository(ROOT_DIR / "data" / "projects")
+        history_repository = ExportHistoryRepository(ROOT_DIR / "data" / "projects")
         draft_key = f"export_wizard_draft_restored_{active_project.id}"
         if not st.session_state.get(draft_key):
             try:
@@ -9040,6 +9045,55 @@ def _render_professional_export_panel(
                     [section_labels_restore[item] for item in saved_draft.sections if item in section_labels_restore],
                 )
             st.session_state[draft_key] = True
+
+        draft_controls_left, draft_controls_right = st.columns(2)
+        reset_draft = draft_controls_left.button(
+            "↺ Сбросить настройки",
+            key=f"export_wizard_reset_{active_project.id}",
+            help="Удаляет сохранённый черновик экспорта этого проекта и возвращает значения по умолчанию.",
+            width="stretch",
+        )
+        clear_history = draft_controls_right.button(
+            "🗑 Очистить историю",
+            key=f"export_history_clear_{active_project.id}",
+            help="Удаляет только компактную историю успешных экспортов. Готовые файлы и инженерные данные не затрагиваются.",
+            width="stretch",
+        )
+        if reset_draft:
+            try:
+                draft_repository.delete(str(active_project.id))
+            except (OSError, ValueError):
+                logger.exception("export_wizard_draft_delete_failed project_id=%s", safe_log_value(active_project.id))
+            reset_keys = {
+                draft_key,
+                export_cache_key,
+                export_error_key,
+                form_keys["profile"],
+                form_keys["format"],
+                form_keys["print_mode"],
+                form_keys["top"],
+                form_keys["bottom"],
+                f"report_designer_mode_{active_project.id}",
+                f"report_designer_template_{active_project.id}",
+                f"report_designer_title_{active_project.id}",
+                f"report_designer_technical_{active_project.id}",
+                f"report_designer_chrome_{active_project.id}",
+            }
+            reset_keys.update(
+                f"report_designer_sections_{active_project.id}_{template.id}"
+                for template in designer_templates
+            )
+            for reset_key in reset_keys:
+                st.session_state.pop(reset_key, None)
+            _request_ui_refresh_and_rerun("export_wizard_reset")
+            return
+        if clear_history:
+            try:
+                history_repository.clear(str(active_project.id))
+            except (OSError, ValueError):
+                logger.exception("export_history_clear_failed project_id=%s", safe_log_value(active_project.id))
+            _request_ui_refresh_and_rerun("export_history_clear")
+            return
 
         # A form batches profile/format changes and starts the costly renderer
         # only after explicit confirmation. Persisted values are normalized
@@ -9460,6 +9514,23 @@ def _render_professional_export_panel(
                         "depth_bottom": print_depth_range[1],
                     }
                     _application_state_controller().state.pop(export_error_key, None)
+                    try:
+                        history_repository.record(
+                            ExportHistoryEntry(
+                                project_id=str(active_project.id),
+                                file_name=export_artifact.file_name,
+                                format_id=export_artifact.format_id,
+                                format_label=export_artifact.format_label,
+                                profile_id=export_artifact.profile_id,
+                                depth_top=float(print_depth_range[0]),
+                                depth_bottom=float(print_depth_range[1]),
+                                size_bytes=len(export_artifact.content),
+                                request_signature=export_artifact.request_signature,
+                                cache_hit=bool(export_artifact.cache_hit),
+                            )
+                        )
+                    except (OSError, ValueError, TypeError):
+                        logger.exception("export_history_record_failed project_id=%s", safe_log_value(active_project.id))
                     export_progress_bar.progress(100, text="Шаг 4 из 4: файл готов к скачиванию.")
                     _set_inline_operation_status(
                         export_progress,
@@ -9542,6 +9613,21 @@ def _render_professional_export_panel(
                 f"Не удалось сформировать экспорт. Код ошибки: {cached_error.get('id', '—')}. "
                 "Подробности записаны в logs/app.log."
             )
+        try:
+            export_history = history_repository.load(str(active_project.id))
+        except (OSError, ValueError, TypeError):
+            logger.exception("export_history_load_failed project_id=%s", safe_log_value(active_project.id))
+            export_history = ()
+        if export_history:
+            with st.expander("История успешных экспортов", expanded=False):
+                for history_item in export_history[:5]:
+                    created_label = history_item.created_at.replace("T", " ")[:19]
+                    cache_label = " · кэш" if history_item.cache_hit else ""
+                    st.markdown(
+                        f"**{history_item.format_label}** · `{history_item.file_name}`  \n"
+                        f"{created_label} UTC · {history_item.depth_top:g}–{history_item.depth_bottom:g} м · "
+                        f"{history_item.size_bytes / 1024:.1f} КБ{cache_label}"
+                    )
         st.caption("Экспорт использует единый выбранный диапазон глубин и согласованные инженерные данные.")
 
 def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> None:

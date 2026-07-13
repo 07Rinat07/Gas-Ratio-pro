@@ -1,3 +1,16 @@
+# Latest implementation — Export Draft Reset and Successful Export History
+
+Status: COMPLETED
+
+Implemented:
+- explicit reset of project-scoped Export Wizard draft and related UI state;
+- compact bounded history for successful exports;
+- atomic metadata-only persistence without binaries, dataframes or credentials;
+- separate history clear action and Streamlit history preview;
+- regression tests for normalization, retention, deduplication and project isolation.
+
+Next priority: history filtering and repeat-export action from a previous successful configuration.
+
 # Latest implementation — Export Wizard Draft Persistence
 
 Status: COMPLETED

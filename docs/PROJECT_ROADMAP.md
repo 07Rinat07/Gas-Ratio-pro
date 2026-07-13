@@ -1,3 +1,14 @@
+## Current increment: Export Draft Reset and Successful Export History — COMPLETED
+
+Implemented:
+- added an explicit project-scoped reset action for saved Export Wizard settings;
+- added compact metadata-only history of successful exports;
+- history stores format, profile, depth range, file name, size, timestamp and cache status;
+- added bounded retention, atomic JSON writes, deduplication and project-boundary validation;
+- added a separate history clear action without deleting engineering data or rendered files.
+
+Next priority: history filtering and repeat-export action based on stored metadata.
+
 ## Current increment: Export Wizard Draft Persistence — COMPLETED
 
 Implemented:
