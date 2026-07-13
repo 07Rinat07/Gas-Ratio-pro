@@ -9364,6 +9364,32 @@ def _render_professional_export_panel(
                 preview_recovery_notice = export_state.pop(preview_counts_recovery_notice_key, None)
                 if preview_recovery_notice:
                     st.warning(str(preview_recovery_notice))
+                try:
+                    preview_storage_health = preview_counts_repository.storage_health(str(active_project.id))
+                except (OSError, ValueError):
+                    preview_storage_health = None
+                    logger.exception(
+                        "report_preview_counts_health_failed project_id=%s",
+                        safe_log_value(active_project.id),
+                    )
+                if preview_storage_health is not None:
+                    health_icon = {
+                        "healthy": "✅",
+                        "recoverable": "⚠️",
+                        "degraded": "❌",
+                        "quarantined": "⚠️",
+                        "empty": "ℹ️",
+                    }.get(preview_storage_health.status, "ℹ️")
+                    with st.expander("Состояние хранилища предпросмотра", expanded=False):
+                        st.markdown(f"{health_icon} **{preview_storage_health.message}**")
+                        st.caption(
+                            "Основной файл: "
+                            + ("корректен" if preview_storage_health.primary_valid else "отсутствует или повреждён")
+                            + " · Резервная копия: "
+                            + ("корректна" if preview_storage_health.backup_valid else "отсутствует или повреждена")
+                            + f" · Карантин: {preview_storage_health.quarantine_count}"
+                            + f" · Объём: {preview_storage_health.total_bytes} Б"
+                        )
                 st.caption(
                     f"{structure_preview.mode_label} · {structure_preview.template_label} · "
                     f"{structure_preview.paper_size} · поля {structure_preview.margin_mm} мм"

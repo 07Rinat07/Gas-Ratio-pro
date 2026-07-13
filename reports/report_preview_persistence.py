@@ -24,6 +24,21 @@ _DEFAULT_MAX_QUARANTINE_FILES = 3
 
 
 @dataclass(frozen=True)
+class ReportPreviewCountsStorageHealth:
+    """Read-only health summary for one project's preview metadata storage."""
+
+    status: str
+    primary_exists: bool = False
+    primary_valid: bool = False
+    backup_exists: bool = False
+    backup_valid: bool = False
+    quarantine_count: int = 0
+    quarantine_bytes: int = 0
+    total_bytes: int = 0
+    message: str = ""
+
+
+@dataclass(frozen=True)
 class ReportPreviewCountsMaintenanceResult:
     """Result of bounded quarantine-file maintenance for one project."""
 
@@ -167,6 +182,63 @@ class ReportPreviewCountsRepository:
     def load(self, project_id: str) -> dict[str, Any] | None:
         """Backward-compatible load with automatic recovery."""
         return self.load_with_recovery(project_id).payload
+
+    def storage_health(self, project_id: str) -> ReportPreviewCountsStorageHealth:
+        """Inspect metadata files without changing or recovering them."""
+        target = self.path_for(project_id)
+        backup = self.backup_path_for(project_id)
+        quarantined = self.quarantine_paths(project_id)
+
+        def inspect(path: Path) -> tuple[bool, bool, int]:
+            if not path.exists():
+                return False, False, 0
+            try:
+                size = path.stat().st_size
+            except OSError:
+                size = 0
+            try:
+                self._read_validated_file(path)
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                return True, False, size
+            return True, True, size
+
+        primary_exists, primary_valid, primary_bytes = inspect(target)
+        backup_exists, backup_valid, backup_bytes = inspect(backup)
+        quarantine_bytes = 0
+        for path in quarantined:
+            try:
+                quarantine_bytes += path.stat().st_size
+            except OSError:
+                continue
+
+        if primary_valid:
+            status = "healthy"
+            message = "Основной снимок корректен."
+        elif primary_exists and backup_valid:
+            status = "recoverable"
+            message = "Основной снимок повреждён, доступна корректная резервная копия."
+        elif primary_exists or backup_exists:
+            status = "degraded"
+            message = "Метаданные предпросмотра повреждены и требуют восстановления или очистки."
+        elif quarantined:
+            status = "quarantined"
+            message = "Активного снимка нет; обнаружены изолированные повреждённые файлы."
+        else:
+            status = "empty"
+            message = "Снимок предпросмотра ещё не сохранён."
+
+        return ReportPreviewCountsStorageHealth(
+            status=status,
+            primary_exists=primary_exists,
+            primary_valid=primary_valid,
+            backup_exists=backup_exists,
+            backup_valid=backup_valid,
+            quarantine_count=len(quarantined),
+            quarantine_bytes=quarantine_bytes,
+            total_bytes=primary_bytes + backup_bytes + quarantine_bytes,
+            message=message,
+        )
+
 
     def _quarantine_existing(self, paths: tuple[Path, ...]) -> tuple[str, ...]:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")

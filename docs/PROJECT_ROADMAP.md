@@ -1466,3 +1466,18 @@ Validation:
 - `48 passed` in focused persistence and report-preview regression tests.
 
 Next priority: add bounded retention and cleanup for quarantined metadata files plus project-storage diagnostics.
+
+## Завершено — Report Preview Storage Health Diagnostics
+
+- добавлена read-only диагностика проектного хранилища снимков предпросмотра;
+- контролируются наличие и валидность основного файла и резервной копии;
+- отображаются количество quarantine-файлов и занимаемый ими объём;
+- состояния `healthy`, `recoverable`, `degraded`, `quarantined` и `empty` не изменяют файлы при проверке;
+- диагностический блок добавлен в предпросмотр структуры отчёта;
+- добавлены unit- и Streamlit integration-тесты.
+
+### Следующий приоритет
+
+- реализовать PDF Preview с миниатюрами страниц;
+- добавить ручную очистку quarantine-файлов из диагностического блока;
+- выполнить acceptance-проверку на большом LAS-файле.

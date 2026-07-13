@@ -528,3 +528,17 @@ Implemented:
 - repository API remains backward compatible through `load()` while exposing `load_with_recovery()` diagnostics.
 
 Next priority: bounded quarantine retention and storage-health reporting.
+
+# Latest implementation — Report Preview Storage Health Diagnostics
+
+Status: COMPLETED
+
+Implemented:
+- read-only `storage_health(project_id)` inspection for preview metadata;
+- primary/backup existence and schema validity reporting;
+- quarantine count, quarantine bytes and total storage usage;
+- explicit healthy/recoverable/degraded/quarantined/empty states;
+- Streamlit diagnostics expander without triggering recovery or mutation;
+- focused repository and UI integration coverage.
+
+Next priority: PDF page-thumbnail preview, then an explicit quarantine-cleanup control in diagnostics.

@@ -177,3 +177,61 @@ def test_repository_delete_can_include_quarantine(tmp_path):
     assert repository.delete("project-1", include_quarantine=True) is True
     assert repository.quarantine_paths("project-1") == ()
     assert not repository.path_for("project-1").exists()
+
+
+def test_repository_storage_health_reports_empty_project(tmp_path):
+    repository = ReportPreviewCountsRepository(tmp_path)
+
+    health = repository.storage_health("project-1")
+
+    assert health.status == "empty"
+    assert health.primary_exists is False
+    assert health.backup_exists is False
+    assert health.quarantine_count == 0
+    assert health.total_bytes == 0
+
+
+def test_repository_storage_health_reports_valid_primary_and_backup(tmp_path):
+    repository = ReportPreviewCountsRepository(tmp_path)
+    repository.save("project-1", _snapshot("first"))
+    repository.save("project-1", _snapshot("second"))
+
+    health = repository.storage_health("project-1")
+
+    assert health.status == "healthy"
+    assert health.primary_valid is True
+    assert health.backup_valid is True
+    assert health.total_bytes > 0
+
+
+def test_repository_storage_health_reports_recoverable_primary(tmp_path):
+    repository = ReportPreviewCountsRepository(tmp_path)
+    repository.save("project-1", _snapshot("first"))
+    repository.save("project-1", _snapshot("second"))
+    repository.path_for("project-1").write_text("{broken", encoding="utf-8")
+
+    health = repository.storage_health("project-1")
+
+    assert health.status == "recoverable"
+    assert health.primary_exists is True
+    assert health.primary_valid is False
+    assert health.backup_valid is True
+
+
+def test_repository_storage_health_includes_quarantine_usage(tmp_path):
+    repository = ReportPreviewCountsRepository(tmp_path)
+    paths = _write_quarantine_files(repository, "project-1", 2)
+
+    health = repository.storage_health("project-1")
+
+    assert health.status == "quarantined"
+    assert health.quarantine_count == 2
+    assert health.quarantine_bytes == sum(path.stat().st_size for path in paths)
+    assert health.total_bytes == health.quarantine_bytes
+
+
+def test_streamlit_shows_report_preview_storage_health():
+    source = open("app/streamlit_app.py", encoding="utf-8").read()
+
+    assert "preview_counts_repository.storage_health(str(active_project.id))" in source
+    assert "Состояние хранилища предпросмотра" in source
