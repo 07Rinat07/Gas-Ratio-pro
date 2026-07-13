@@ -9390,37 +9390,6 @@ def _render_professional_export_panel(
                             + f" · Карантин: {preview_storage_health.quarantine_count}"
                             + f" · Объём: {preview_storage_health.total_bytes} Б"
                         )
-                        if preview_storage_health.quarantine_count > 0:
-                            cleanup_key = f"report_preview_quarantine_cleanup_{active_project.id}"
-                            if st.button(
-                                "Очистить карантин",
-                                key=cleanup_key,
-                                help=(
-                                    "Удалить только изолированные повреждённые снимки предпросмотра "
-                                    "текущего проекта. Основной файл и резервная копия сохранятся."
-                                ),
-                            ):
-                                try:
-                                    removed_quarantine = preview_counts_repository.purge_quarantine(
-                                        str(active_project.id)
-                                    )
-                                except OSError as exc:
-                                    logger.exception(
-                                        "report_preview_quarantine_cleanup_failed project_id=%s",
-                                        safe_log_value(active_project.id),
-                                    )
-                                    st.error(f"Не удалось очистить карантин: {exc}")
-                                else:
-                                    logger.info(
-                                        "report_preview_quarantine_cleaned project_id=%s removed=%s",
-                                        safe_log_value(active_project.id),
-                                        safe_log_value(len(removed_quarantine)),
-                                    )
-                                    st.success(
-                                        "Карантин очищен. Удалено файлов: "
-                                        f"{len(removed_quarantine)}."
-                                    )
-                                    st.rerun()
                 st.caption(
                     f"{structure_preview.mode_label} · {structure_preview.template_label} · "
                     f"{structure_preview.paper_size} · поля {structure_preview.margin_mm} мм"

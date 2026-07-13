@@ -1,7 +1,16 @@
 # Next Step
 
-Completed: project-scoped manual cleanup for quarantined report-preview metadata.
+Completed in v37: Workspace Session Manager for Modern UI.
 
-The Report Preview storage diagnostics now exposes an **Очистить карантин** action only when quarantined files exist. The action removes only `.corrupt-*` metadata for the active project, preserves the primary snapshot and backup, logs the actual result, and reruns the UI to refresh storage health.
+The application can now capture, save, load and restore a lightweight workspace session: active project, well, LAS, workspace, selected intervals, active report, active plot, recent exports and window layout.
 
-Next recommended increment: bounded PDF page-thumbnail preview with a strict page limit, cache signature binding, and a safe fallback when the optional PDF rasterizer is unavailable.
+Next recommended increment: Modern Workspace shell foundation — Project Explorer, central workspace area, toolbar/status boundary and integration points for session restore/reset/export actions.
+
+## PDF Preview foundation
+
+- Added bounded raster preview generation for already-rendered PDF artifacts.
+- The service prefers PyMuPDF and falls back to local `pdftoppm`.
+- Preview rendering is limited to 1–12 pages and 72–180 DPI.
+- Temporary source and page files are isolated outside project `data/` and removed automatically.
+- Next step: connect the service to the Report Designer UI and cache previews by report signature.
+

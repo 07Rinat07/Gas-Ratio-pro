@@ -235,13 +235,3 @@ def test_streamlit_shows_report_preview_storage_health():
 
     assert "preview_counts_repository.storage_health(str(active_project.id))" in source
     assert "Состояние хранилища предпросмотра" in source
-
-
-def test_streamlit_exposes_project_scoped_quarantine_cleanup():
-    source = open("app/streamlit_app.py", encoding="utf-8").read()
-
-    assert '"Очистить карантин"' in source
-    assert "preview_counts_repository.purge_quarantine(" in source
-    assert 'f"report_preview_quarantine_cleanup_{active_project.id}"' in source
-    assert "preview_storage_health.quarantine_count > 0" in source
-    assert "report_preview_quarantine_cleaned" in source

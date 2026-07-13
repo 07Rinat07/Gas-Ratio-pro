@@ -1,0 +1,49 @@
+from __future__ import annotations
+
+from io import BytesIO
+
+import pytest
+
+from reports.pdf_preview import build_pdf_preview
+
+
+def _sample_pdf(page_count: int = 3) -> bytes:
+    reportlab = pytest.importorskip("reportlab")
+    from reportlab.pdfgen import canvas
+
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer)
+    for page in range(page_count):
+        pdf.drawString(72, 760, f"Preview page {page + 1}")
+        pdf.showPage()
+    pdf.save()
+    return buffer.getvalue()
+
+
+def test_build_pdf_preview_is_bounded_and_returns_png_pages() -> None:
+    result = build_pdf_preview(_sample_pdf(4), page_limit=2, dpi=90)
+
+    assert result.rendered_pages == 2
+    assert result.total_pages >= 2
+    assert result.truncated is True
+    assert [page.page_number for page in result.pages] == [1, 2]
+    assert all(page.image_png.startswith(b"\x89PNG\r\n\x1a\n") for page in result.pages)
+    assert all(page.width > 0 and page.height > 0 for page in result.pages)
+
+
+def test_build_pdf_preview_reports_complete_document() -> None:
+    result = build_pdf_preview(_sample_pdf(1), page_limit=5)
+
+    assert result.rendered_pages == 1
+    assert result.total_pages == 1
+    assert result.truncated is False
+
+
+def test_build_pdf_preview_rejects_non_pdf_payload() -> None:
+    with pytest.raises(ValueError, match="valid PDF"):
+        build_pdf_preview(b"not-a-pdf")
+
+
+def test_build_pdf_preview_clamps_page_limit() -> None:
+    result = build_pdf_preview(_sample_pdf(2), page_limit=0)
+    assert result.rendered_pages == 1
