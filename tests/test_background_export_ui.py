@@ -55,3 +55,25 @@ def test_latest_relevant_job_returns_none_for_unrelated_signature():
         request_signature="sig",
     )
     assert selected is None
+
+
+def test_completed_job_without_process_local_artifact_is_retryable():
+    snapshot = _snapshot("job-5", ExportJobStatus.COMPLETED, progress=100)
+
+    view = build_background_export_status_view(snapshot, artifact_available=False)
+
+    assert view.level == "warning"
+    assert view.downloadable is False
+    assert view.retryable is True
+    assert "перезапуска" in view.detail
+
+
+def test_failed_cancelled_and_orphaned_jobs_are_retryable():
+    for status in (
+        ExportJobStatus.FAILED,
+        ExportJobStatus.CANCELLED,
+        ExportJobStatus.ORPHANED,
+    ):
+        view = build_background_export_status_view(_snapshot("job-6", status, progress=40))
+        assert view.retryable is True
+        assert view.cancellable is False

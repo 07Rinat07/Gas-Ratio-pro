@@ -253,3 +253,22 @@ Next priority: CI integration and runtime performance summary UI.
 ## 2026-07-13 runtime hotfix
 
 Fixed the interpretation workspace crash `NameError: active_project is not defined` in the PNG/PDF/SVG controls. Static export no longer depends on workspace-local variables. `current_data_revision` is now built in the professional report export scope where export history consumes it. Direct Streamlit session-state access introduced by export persistence was replaced with the application state boundary. Regression test: `tests/test_static_export_scope_regression_v222_15.py`.
+
+# Latest implementation — Recoverable Background Export Retry
+
+Status: COMPLETED
+
+Implemented:
+- completed background jobs now distinguish between a live process-local artifact and metadata restored after restart;
+- unavailable completed artifacts are shown as recoverable instead of downloadable;
+- failed, cancelled, orphaned and artifact-lost jobs expose a one-click retry action;
+- retry dismisses only the terminal snapshot and reuses the current validated Export Wizard state;
+- active-job cancellation and duplicate-signature protection remain unchanged;
+- focused and extended reporting regression tests pass.
+
+Validation:
+- `python -m py_compile reports/background_export_ui.py app/streamlit_app.py`;
+- `65 passed` in the extended reporting/background-export regression set;
+- `logs/app.log` was not present in the supplied archive, so no runtime log errors were available for review.
+
+Next priority: bounded recent-background-jobs UI with retry diagnostics and manual large-LAS acceptance testing.

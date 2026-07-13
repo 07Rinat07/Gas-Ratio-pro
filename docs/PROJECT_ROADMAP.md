@@ -1193,3 +1193,18 @@ Release candidate Definition of Done:
 - [x] Build export data revision in the professional report request scope.
 - [x] Route Export Wizard persistence through `ApplicationStateController` state.
 - [x] Add regression coverage for interpretation workspace static export rendering.
+
+## Завершено — Recoverable Background Export Retry
+
+- завершённые задания без process-local артефакта корректно распознаются после перезапуска приложения;
+- интерфейс больше не показывает недоступный бинарный файл как готовый к скачиванию;
+- для failed, cancelled, orphaned и потерянных completed-результатов добавлен безопасный повторный запуск;
+- повтор использует текущие проверенные параметры Export Wizard и создаёт новую задачу;
+- старый terminal snapshot удаляется перед повтором, активные задания по-прежнему защищены от удаления;
+- регрессионные тесты покрывают доступность артефакта, retryable-состояния и Streamlit-интеграцию.
+
+### Следующий приоритет
+
+- сохранить краткую диагностическую причину повторного запуска в истории заданий;
+- добавить ограниченный список последних фоновых экспортов в UI;
+- провести ручную acceptance-проверку отмены и повторного запуска на большом LAS.

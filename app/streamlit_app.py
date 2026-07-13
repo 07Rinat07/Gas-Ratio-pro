@@ -9613,7 +9613,10 @@ def _render_professional_export_panel(
             request_signature=current_export_request.selection_signature,
         )
         if relevant_job is not None:
-            status_view = build_background_export_status_view(relevant_job)
+            status_view = build_background_export_status_view(
+                relevant_job,
+                artifact_available=background_manager.result_available(relevant_job.id),
+            )
             st.progress(status_view.progress / 100.0, text=status_view.detail or status_view.title)
             if status_view.level == "error":
                 st.error(f"{status_view.title}: {status_view.detail}")
@@ -9633,8 +9636,20 @@ def _render_professional_export_panel(
                 background_manager.cancel(relevant_job.id)
                 _request_ui_refresh_and_rerun("background_export_cancel")
                 return
+            if status_view.retryable and job_left.button(
+                "Повторить экспорт",
+                key=f"background_export_retry_{active_project.id}_{relevant_job.id}",
+                type="primary",
+                width="stretch",
+            ):
+                background_manager.dismiss(relevant_job.id)
+                export_state[repeat_autorun_key] = True
+                _request_ui_refresh_and_rerun("background_export_retry")
+                return
             if not relevant_job.terminal:
                 job_right.caption("Прогресс обновляется автоматически каждые 2 секунды.")
+            elif status_view.retryable:
+                job_right.caption("Повтор использует текущие параметры мастера экспорта.")
 
             if (
                 relevant_job.status is ExportJobStatus.COMPLETED

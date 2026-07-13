@@ -34,3 +34,11 @@ def test_worker_does_not_call_streamlit_rendering_api() -> None:
     assert "st.progress(" not in worker
     assert "st.empty(" not in worker
     assert "st.download_button(" not in worker
+
+
+def test_terminal_background_job_can_be_retried_with_current_wizard_state() -> None:
+    body = _professional_export_body()
+    assert '"Повторить экспорт"' in body
+    assert "status_view.retryable" in body
+    assert "export_state[repeat_autorun_key] = True" in body
+    assert 'artifact_available=background_manager.result_available(relevant_job.id)' in body
