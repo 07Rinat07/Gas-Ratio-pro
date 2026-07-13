@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from hashlib import sha256
+import json
 from typing import Any, Mapping
 
 import plotly.graph_objects as go
@@ -28,6 +30,125 @@ class EngineeringPlotTheme:
 
 
 THEME = EngineeringPlotTheme()
+
+
+CHART_THEME_PROFILES: Mapping[str, EngineeringPlotTheme] = {
+    "screen": THEME,
+    "print": EngineeringPlotTheme(
+        template="plotly_white",
+        font_family=THEME.font_family,
+        font_size=12,
+        title_size=18,
+        axis_title_size=13,
+        tick_size=11,
+        line_width=2.6,
+        marker_size=10,
+        grid_color="rgba(71,85,105,0.18)",
+        text_color="#172033",
+        paper_color="#ffffff",
+        plot_color="#ffffff",
+        axis_color="#334155",
+        margin_left=72,
+        margin_right=28,
+        margin_top=76,
+        margin_bottom=64,
+    ),
+    "presentation": EngineeringPlotTheme(
+        template="plotly_white",
+        font_family=THEME.font_family,
+        font_size=14,
+        title_size=22,
+        axis_title_size=15,
+        tick_size=13,
+        line_width=3.2,
+        marker_size=12,
+        grid_color="rgba(71,85,105,0.16)",
+        text_color="#172033",
+        paper_color="#ffffff",
+        plot_color="#ffffff",
+        axis_color="#334155",
+        margin_left=82,
+        margin_right=34,
+        margin_top=88,
+        margin_bottom=72,
+    ),
+}
+
+
+def get_chart_theme(profile: str = "screen") -> EngineeringPlotTheme:
+    """Return a validated immutable chart theme profile."""
+    normalized = str(profile or "screen").strip().lower()
+    try:
+        return CHART_THEME_PROFILES[normalized]
+    except KeyError as exc:
+        supported = ", ".join(sorted(CHART_THEME_PROFILES))
+        raise ValueError(f"Unknown chart theme profile '{profile}'. Supported: {supported}.") from exc
+
+
+def chart_theme_signature(profile: str = "screen") -> str:
+    """Stable signature for cache invalidation after visual-style changes."""
+    payload = json.dumps(asdict(get_chart_theme(profile)), sort_keys=True, separators=(",", ":"))
+    return sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def apply_chart_theme(
+    fig: go.Figure,
+    *,
+    profile: str = "screen",
+    width: int | None = None,
+    height: int | None = None,
+    preserve_legend_position: bool = False,
+) -> go.Figure:
+    """Apply one visual contract to screen, print or presentation figures.
+
+    The function changes presentation only. Trace data, axis ranges and domain
+    semantics remain untouched.
+    """
+    if not isinstance(fig, go.Figure):
+        return fig
+    theme = get_chart_theme(profile)
+    legend = dict(LEGEND_HORIZONTAL)
+    legend.update({
+        "font": {"size": theme.tick_size, "color": theme.text_color},
+        "bgcolor": "rgba(11,18,32,0.88)" if profile == "screen" else "rgba(255,255,255,0.90)",
+        "bordercolor": "rgba(148,163,184,0.28)" if profile == "screen" else "rgba(71,85,105,0.22)",
+    })
+    layout: dict[str, Any] = {
+        "template": theme.template,
+        "paper_bgcolor": theme.paper_color,
+        "plot_bgcolor": theme.plot_color,
+        "font": {"family": theme.font_family, "size": theme.font_size, "color": theme.text_color},
+        "margin": {
+            "l": theme.margin_left, "r": theme.margin_right,
+            "t": theme.margin_top, "b": theme.margin_bottom,
+        },
+        "uirevision": f"gas-ratio-pro-{profile}-theme",
+    }
+    if width is not None:
+        layout["width"] = max(320, int(width))
+    if height is not None:
+        layout["height"] = int(height)
+    if not preserve_legend_position:
+        layout["legend"] = legend
+    fig.update_layout(**layout)
+    fig.update_xaxes(
+        title_font={"size": theme.axis_title_size}, tickfont={"size": theme.tick_size},
+        color=theme.axis_color, linecolor=theme.axis_color, tickcolor=theme.axis_color,
+        gridcolor=theme.grid_color, zeroline=False, automargin=True,
+    )
+    fig.update_yaxes(
+        title_font={"size": theme.axis_title_size}, tickfont={"size": theme.tick_size},
+        color=theme.axis_color, linecolor=theme.axis_color, tickcolor=theme.axis_color,
+        gridcolor=theme.grid_color, zeroline=False, automargin=True,
+    )
+    if getattr(fig.layout, "ternary", None):
+        fig.update_layout(ternary={
+            "bgcolor": theme.plot_color,
+            "aaxis": {"color": theme.axis_color, "gridcolor": theme.grid_color, "linecolor": theme.axis_color},
+            "baxis": {"color": theme.axis_color, "gridcolor": theme.grid_color, "linecolor": theme.axis_color},
+            "caxis": {"color": theme.axis_color, "gridcolor": theme.grid_color, "linecolor": theme.axis_color},
+        })
+    return normalize_trace_style(fig, theme=theme)
 
 ENGINEERING_COLORS: Mapping[str, str] = {
     "primary": "#38bdf8",
@@ -152,19 +273,19 @@ def apply_depth_axis(
     return fig
 
 
-def normalize_trace_style(fig: go.Figure) -> go.Figure:
+def normalize_trace_style(fig: go.Figure, *, theme: EngineeringPlotTheme = THEME) -> go.Figure:
     """Apply common widths and marker sizes without overriding explicit semantics."""
     for trace in fig.data:
         if hasattr(trace, "line") and trace.line is not None:
             current_width = getattr(trace.line, "width", None)
-            if current_width is None or float(current_width) < THEME.line_width:
-                trace.line.width = THEME.line_width
+            if current_width is None or float(current_width) < theme.line_width:
+                trace.line.width = theme.line_width
         if hasattr(trace, "marker") and trace.marker is not None:
             current_size = getattr(trace.marker, "size", None)
             if current_size is None:
-                trace.marker.size = THEME.marker_size
-            elif isinstance(current_size, (int, float)) and float(current_size) < THEME.marker_size:
-                trace.marker.size = THEME.marker_size
+                trace.marker.size = theme.marker_size
+            elif isinstance(current_size, (int, float)) and float(current_size) < theme.marker_size:
+                trace.marker.size = theme.marker_size
     return fig
 
 
@@ -208,40 +329,23 @@ def enhance_screen_visibility(fig: go.Figure) -> go.Figure:
     )
     return fig
 
-def prepare_figure_for_export(fig: go.Figure, *, width: int, height: int) -> go.Figure:
-    """Return a light, print-safe copy without mutating the dark screen figure."""
+def prepare_figure_for_export(
+    fig: go.Figure,
+    *,
+    width: int,
+    height: int,
+    profile: str = "print",
+) -> go.Figure:
+    """Return a print-safe themed copy without mutating the screen figure."""
     if not isinstance(fig, go.Figure):
         return fig
     exported = go.Figure(fig)
-    exported.update_layout(
-        template="plotly_white",
-        width=max(320, int(width)),
-        height=int(height),
-        paper_bgcolor="#ffffff",
-        plot_bgcolor="#ffffff",
-        font={"family": THEME.font_family, "size": THEME.font_size, "color": "#172033"},
-        legend={**dict(LEGEND_HORIZONTAL), "font": {"size": THEME.tick_size, "color": "#172033"}, "bgcolor": "rgba(255,255,255,0.90)", "bordercolor": "rgba(71,85,105,0.22)"},
-    )
-    exported.update_xaxes(
-        color="#334155", linecolor="#64748b", tickcolor="#64748b",
-        gridcolor="rgba(71,85,105,0.18)", zeroline=False, automargin=True,
-    )
-    exported.update_yaxes(
-        color="#334155", linecolor="#64748b", tickcolor="#64748b",
-        gridcolor="rgba(71,85,105,0.18)", zeroline=False, automargin=True,
-    )
-    # Ternary axes do not inherit x/y axis styling.
-    if getattr(exported.layout, "ternary", None):
-        exported.update_layout(ternary={
-            "bgcolor": "#ffffff",
-            "aaxis": {"color": "#334155", "gridcolor": "rgba(71,85,105,0.25)", "linecolor": "#64748b"},
-            "baxis": {"color": "#334155", "gridcolor": "rgba(71,85,105,0.25)", "linecolor": "#64748b"},
-            "caxis": {"color": "#334155", "gridcolor": "rgba(71,85,105,0.25)", "linecolor": "#64748b"},
-        })
+    apply_chart_theme(exported, profile=profile, width=width, height=height)
+    theme = get_chart_theme(profile)
     if getattr(exported.layout, "annotations", None):
         for annotation in exported.layout.annotations:
-            annotation.font = {**(annotation.font.to_plotly_json() if annotation.font else {}), "color": "#172033"}
-    normalize_trace_style(exported)
+            current = annotation.font.to_plotly_json() if annotation.font else {}
+            annotation.font = {**current, "color": theme.text_color, "family": theme.font_family}
     return exported
 
 

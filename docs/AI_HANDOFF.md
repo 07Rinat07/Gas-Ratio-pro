@@ -1,3 +1,14 @@
+# Latest implementation increment — Unified Chart Theme Engine
+
+Completed:
+- centralized Plotly visual profiles for screen, print and presentation;
+- standardized typography, grids, axes, margins, legend surfaces, line widths and markers;
+- added deterministic theme signatures for renderer/export cache invalidation;
+- kept scientific data and axis ranges unchanged during visual styling;
+- added regression tests for profile selection, immutability and export behavior.
+
+Next priority: optimize large-LAS visualization and export performance.
+
 # Latest increment — Unified Tooltip and Operation Feedback Layer
 
 Status: COMPLETED

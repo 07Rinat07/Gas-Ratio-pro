@@ -45,10 +45,10 @@ def test_professional_well_log_plot_adds_interval_track_and_zones() -> None:
     assert result.plotted_columns == ("c1", "wh")
     assert result.interval_count == 1
     assert len(result.figure.data) == 3  # interval placeholder + two curves
-    assert len(result.figure.layout.shapes) == 1
+    assert len(result.figure.layout.shapes) == 2  # analytical zone + categorical interval stripe
     annotation_text = " ".join(str(item.text) for item in result.figure.layout.annotations if getattr(item, "text", None))
     assert "HC-001" in annotation_text
-    assert "GAS" in annotation_text
+    assert "Газ" in annotation_text
     assert "92%" in annotation_text
 
 

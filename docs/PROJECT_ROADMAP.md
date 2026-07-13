@@ -1,3 +1,14 @@
+## Current increment: Unified Chart Theme Engine — COMPLETED
+
+Implemented:
+- added shared screen, print and presentation Plotly theme profiles;
+- added one immutable visual contract for fonts, axes, grids, margins, lines and markers;
+- added stable theme signatures for cache invalidation;
+- preserved trace data, engineering semantics and axis ranges while applying themes;
+- routed static export through the shared print-safe theme engine.
+
+Next: performance optimization for large LAS visualization and export workloads.
+
 ## Current increment: Unified Tooltip and Operation Feedback Layer — COMPLETED
 
 Implemented:
