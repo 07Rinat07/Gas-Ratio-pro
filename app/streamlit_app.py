@@ -354,6 +354,7 @@ from reports.pdf_preview import (
     build_pdf_preview_signature,
     bounded_pdf_preview_start_page,
     shift_pdf_preview_window,
+    validate_pdf_preview_page_jump,
 )
 from reports.export_wizard import (
     ExportWizardCapabilities,
@@ -10124,37 +10125,52 @@ def _render_professional_export_panel(
                         key=f"pdf_preview_layout_{active_project.id}",
                     )
                     pdf_payload = cached_export.get("content", b"")
+                    cached_pdf_preview = export_state.get(pdf_preview_cache_key)
+                    known_total_pages = 0
+                    if isinstance(cached_pdf_preview, dict) and isinstance(cached_pdf_preview.get("result"), PdfPreviewResult):
+                        known_total_pages = int(cached_pdf_preview["result"].total_pages)
+
+                    page_jump_validation = validate_pdf_preview_page_jump(
+                        int(preview_start_page),
+                        total_pages=known_total_pages,
+                        page_limit=int(preview_page_limit),
+                    )
+                    effective_preview_start = page_jump_validation.normalized_page
+                    if page_jump_validation.adjusted:
+                        st.warning(page_jump_validation.message)
+                    elif known_total_pages > 0:
+                        st.caption(
+                            f"Доступно страниц: {known_total_pages}. "
+                            f"Текущий диапазон начинается со страницы {effective_preview_start}."
+                        )
+
                     expected_preview_signature = None
                     try:
                         expected_preview_signature = build_pdf_preview_signature(
                             pdf_payload,
                             request_signature=str(cached_export.get("request_signature", "")),
                             page_limit=int(preview_page_limit),
-                            start_page=int(preview_start_page),
+                            start_page=effective_preview_start,
                             dpi=preview_dpi,
                         )
                     except (TypeError, ValueError):
                         st.error("Готовый PDF повреждён или недоступен для предпросмотра.")
 
-                    cached_pdf_preview = export_state.get(pdf_preview_cache_key)
                     preview_matches = (
                         isinstance(cached_pdf_preview, dict)
                         and cached_pdf_preview.get("signature") == expected_preview_signature
                         and isinstance(cached_pdf_preview.get("result"), PdfPreviewResult)
                     )
-                    known_total_pages = 0
-                    if isinstance(cached_pdf_preview, dict) and isinstance(cached_pdf_preview.get("result"), PdfPreviewResult):
-                        known_total_pages = int(cached_pdf_preview["result"].total_pages)
 
                     navigation_previous, navigation_next, preview_action = st.columns([1, 1, 2])
                     if navigation_previous.button(
                         "← Предыдущие",
                         key=f"pdf_preview_previous_{active_project.id}",
                         width="stretch",
-                        disabled=int(preview_start_page) <= 1,
+                        disabled=effective_preview_start <= 1,
                     ):
                         export_state[preview_start_key] = shift_pdf_preview_window(
-                            int(preview_start_page),
+                            effective_preview_start,
                             direction=-1,
                             page_limit=int(preview_page_limit),
                             total_pages=known_total_pages,
@@ -10164,10 +10180,10 @@ def _render_professional_export_panel(
                         "Следующие →",
                         key=f"pdf_preview_next_{active_project.id}",
                         width="stretch",
-                        disabled=(known_total_pages > 0 and int(preview_start_page) + int(preview_page_limit) > known_total_pages),
+                        disabled=(known_total_pages > 0 and effective_preview_start + int(preview_page_limit) > known_total_pages),
                     ):
                         export_state[preview_start_key] = shift_pdf_preview_window(
-                            int(preview_start_page),
+                            effective_preview_start,
                             direction=1,
                             page_limit=int(preview_page_limit),
                             total_pages=known_total_pages,
@@ -10183,7 +10199,7 @@ def _render_professional_export_panel(
                             preview_result = build_pdf_preview(
                                 pdf_payload,
                                 page_limit=int(preview_page_limit),
-                                start_page=int(preview_start_page),
+                                start_page=effective_preview_start,
                                 dpi=preview_dpi,
                             )
                             export_state[pdf_preview_cache_key] = {

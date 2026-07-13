@@ -9,6 +9,7 @@ from reports.pdf_preview import (
     build_pdf_preview,
     build_pdf_preview_signature,
     shift_pdf_preview_window,
+    validate_pdf_preview_page_jump,
 )
 
 
@@ -124,3 +125,28 @@ def test_shift_pdf_preview_window_moves_by_bounded_page_group() -> None:
 def test_bounded_pdf_preview_start_page_clamps_to_last_window() -> None:
     assert bounded_pdf_preview_start_page(99, total_pages=12, page_limit=5) == 11
     assert bounded_pdf_preview_start_page(0, total_pages=12, page_limit=5) == 1
+
+
+def test_validate_pdf_preview_page_jump_accepts_valid_page() -> None:
+    result = validate_pdf_preview_page_jump(6, total_pages=12, page_limit=5)
+
+    assert result.adjusted is False
+    assert result.code == "valid"
+    assert result.normalized_page == 6
+
+
+def test_validate_pdf_preview_page_jump_clamps_past_document_end() -> None:
+    result = validate_pdf_preview_page_jump(99, total_pages=12, page_limit=5)
+
+    assert result.adjusted is True
+    assert result.code == "past_document_end"
+    assert result.normalized_page == 11
+    assert "12" in result.message
+
+
+def test_validate_pdf_preview_page_jump_handles_invalid_lower_bound() -> None:
+    result = validate_pdf_preview_page_jump(0, total_pages=12, page_limit=5)
+
+    assert result.adjusted is True
+    assert result.code == "below_minimum"
+    assert result.normalized_page == 1

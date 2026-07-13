@@ -571,3 +571,7 @@ The PDF preview UI now supports one-column and two-column layouts. `PdfPreviewRe
 ## Latest increment: PDF Preview navigation and bounded DPI
 
 The PDF preview panel now exposes `← Предыдущие` and `Следующие →` controls. Navigation advances by the currently selected page limit and is clamped through `shift_pdf_preview_window()`. Raster quality is selected from 72/90/110/144/180 DPI; the chosen DPI is passed to both `build_pdf_preview_signature()` and `build_pdf_preview()`. Keep all planning documentation under `docs/` and do not add Markdown files at repository root.
+
+## Latest increment: PDF Preview direct page-jump validation
+
+Implemented `PdfPreviewPageJumpValidation` and `validate_pdf_preview_page_jump()` in `reports/pdf_preview.py`. The Professional Export UI resolves a normalized `effective_preview_start` after the exact page count becomes known, displays adjustment feedback, and uses the normalized value for signature generation, rendering, and previous/next navigation. Keep all project documentation under `docs/`; do not add new root-level Markdown files.

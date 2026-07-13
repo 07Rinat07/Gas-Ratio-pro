@@ -39,6 +39,15 @@ class PdfPreviewResult:
         return int(round(self.image_size_bytes / self.rendered_pages))
 
 
+@dataclass(frozen=True)
+class PdfPreviewPageJumpValidation:
+    requested_page: int
+    normalized_page: int
+    adjusted: bool
+    code: str
+    message: str
+
+
 class PdfPreviewUnavailableError(RuntimeError):
     """Raised when no supported local PDF rasterizer is available."""
 
@@ -86,6 +95,70 @@ def bounded_pdf_preview_start_page(
     last_window_start = max(1, ((known_total - 1) // safe_limit) * safe_limit + 1)
     return min(safe_start, last_window_start)
 
+
+
+
+def validate_pdf_preview_page_jump(
+    value: int,
+    *,
+    total_pages: int = 0,
+    page_limit: int = 5,
+) -> PdfPreviewPageJumpValidation:
+    """Validate a direct page jump and explain any normalization.
+
+    The function is UI-independent and never raises for user-entered values.
+    When the exact page count is unknown, only the lower bound is enforced.
+    """
+
+    try:
+        requested = int(value)
+    except (TypeError, ValueError):
+        requested = 1
+    normalized = bounded_pdf_preview_start_page(
+        requested, total_pages=total_pages, page_limit=page_limit
+    )
+    try:
+        known_total = max(0, int(total_pages))
+    except (TypeError, ValueError):
+        known_total = 0
+
+    if requested < 1:
+        return PdfPreviewPageJumpValidation(
+            requested_page=requested,
+            normalized_page=normalized,
+            adjusted=True,
+            code="below_minimum",
+            message="Номер страницы должен быть не меньше 1; выбран первый диапазон.",
+        )
+    if known_total > 0 and requested > known_total:
+        return PdfPreviewPageJumpValidation(
+            requested_page=requested,
+            normalized_page=normalized,
+            adjusted=True,
+            code="past_document_end",
+            message=(
+                f"В документе {known_total} стр.; показан последний доступный "
+                f"диапазон с страницы {normalized}."
+            ),
+        )
+    if normalized != requested:
+        return PdfPreviewPageJumpValidation(
+            requested_page=requested,
+            normalized_page=normalized,
+            adjusted=True,
+            code="window_clamped",
+            message=(
+                f"Начальная страница скорректирована до {normalized}, чтобы диапазон "
+                "не начинался после последней группы страниц."
+            ),
+        )
+    return PdfPreviewPageJumpValidation(
+        requested_page=requested,
+        normalized_page=normalized,
+        adjusted=False,
+        code="valid",
+        message=f"Диапазон начинается со страницы {normalized}.",
+    )
 
 def shift_pdf_preview_window(
     current_start: int,
@@ -282,10 +355,12 @@ def build_pdf_preview(
 
 __all__ = [
     "PdfPreviewPage",
+    "PdfPreviewPageJumpValidation",
     "PdfPreviewResult",
     "PdfPreviewUnavailableError",
     "build_pdf_preview",
     "build_pdf_preview_signature",
     "bounded_pdf_preview_start_page",
     "shift_pdf_preview_window",
+    "validate_pdf_preview_page_jump",
 ]

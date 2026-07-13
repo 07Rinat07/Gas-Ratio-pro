@@ -46,3 +46,10 @@ Next recommended increment: Modern Workspace shell foundation — Project Explor
 - DPI participates in the preview cache signature, so quality changes cannot reuse stale thumbnails.
 - Navigation clamps to the first and last valid page group when the exact PDF page count is known.
 - Next step: add direct page-jump validation feedback and an optional lightweight preview prefetch for the adjacent page group.
+
+## PDF Preview direct page-jump validation
+
+- Added renderer-neutral validation for direct page jumps.
+- Page numbers below 1 and beyond the known document end are normalized safely.
+- The UI now explains when a requested page was adjusted and uses the normalized page consistently for cache signatures, rendering and navigation.
+- Next step: add optional adjacent-range prefetch without increasing default rendering cost.

@@ -1529,3 +1529,9 @@ Next priority: add keyboard-friendly page navigation and optional DPI control wi
 - No planning Markdown files were created at repository root.
 
 Next priority: direct page-jump feedback and optional bounded adjacent-window prefetch without unbounded raster work.
+
+### PDF Preview: direct page-jump validation
+
+- Completed bounded direct page-jump validation and user feedback.
+- Cache keys and rendering now use the same normalized start page.
+- Planned next: opt-in prefetch of the next bounded page range.
