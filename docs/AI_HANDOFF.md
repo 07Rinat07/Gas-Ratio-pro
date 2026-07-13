@@ -559,3 +559,7 @@ Keep all plans, handoff notes, roadmaps, and progress documents in `docs/`. Do n
 ## Latest increment: PDF Preview UI integration
 
 The Professional Export panel now imports `reports.pdf_preview` and renders on-demand thumbnails only for a completed PDF whose request signature still matches the current controls. Cache key: `presentation_pdf_preview_<project_id>`. The cached payload stores `{signature, result}` and is invalidated on export completion and settings reset. Do not create planning Markdown files in the repository root; keep them under `docs/`.
+
+## Latest increment: PDF Preview compact layout and metrics
+
+The PDF preview UI now supports one-column and two-column layouts. `PdfPreviewResult` carries render duration, source byte size, total PNG byte size and computed average page size. Keep the layout outside the preview signature because it does not change raster output. All planning documentation remains under `docs/`.

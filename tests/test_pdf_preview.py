@@ -70,3 +70,13 @@ def test_pdf_preview_signature_is_stable_and_parameter_bound() -> None:
 def test_pdf_preview_signature_rejects_non_pdf_payload() -> None:
     with pytest.raises(ValueError, match="valid PDF"):
         build_pdf_preview_signature(b"not-a-pdf")
+
+
+def test_build_pdf_preview_reports_runtime_metrics() -> None:
+    payload = _sample_pdf(3)
+    result = build_pdf_preview(payload, page_limit=2, dpi=90)
+
+    assert result.render_duration_seconds >= 0.0
+    assert result.source_size_bytes == len(payload)
+    assert result.image_size_bytes == sum(len(page.image_png) for page in result.pages)
+    assert result.average_page_size_bytes > 0

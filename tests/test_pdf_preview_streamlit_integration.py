@@ -10,3 +10,6 @@ def test_professional_export_panel_contains_pdf_preview_controls() -> None:
     assert 'presentation_pdf_preview_' in source
     assert 'build_pdf_preview_signature(' in source
     assert 'build_pdf_preview(' in source
+    assert '"Две колонки"' in source
+    assert 'render_duration_seconds' in source
+    assert 'image_size_bytes' in source

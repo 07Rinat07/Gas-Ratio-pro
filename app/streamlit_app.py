@@ -10094,12 +10094,18 @@ def _render_professional_export_panel(
 
             if str(cached_export.get("format_id", "")).lower() == "pdf":
                 with st.expander("Предпросмотр страниц PDF", expanded=False):
-                    preview_controls, preview_action = st.columns([2, 1])
+                    preview_controls, preview_layout_control, preview_action = st.columns([2, 2, 1])
                     preview_page_limit = preview_controls.select_slider(
                         "Количество страниц",
                         options=(1, 2, 3, 4, 5, 8, 12),
                         value=5,
                         key=f"pdf_preview_page_limit_{active_project.id}",
+                    )
+                    preview_layout = preview_layout_control.selectbox(
+                        "Расположение",
+                        options=("Одна колонка", "Две колонки"),
+                        index=1,
+                        key=f"pdf_preview_layout_{active_project.id}",
                     )
                     preview_dpi = 110
                     pdf_payload = cached_export.get("content", b"")
@@ -10158,18 +10164,42 @@ def _render_professional_export_panel(
 
                     if preview_matches:
                         preview_result = cached_pdf_preview["result"]
+                        metric_columns = st.columns(4)
+                        metric_columns[0].metric(
+                            "Страницы",
+                            f"{preview_result.rendered_pages}/{preview_result.total_pages}",
+                        )
+                        metric_columns[1].metric(
+                            "Время",
+                            f"{preview_result.render_duration_seconds:.2f} с",
+                        )
+                        metric_columns[2].metric(
+                            "Миниатюры",
+                            f"{preview_result.image_size_bytes / 1024:.1f} КиБ",
+                        )
+                        metric_columns[3].metric("Backend", preview_result.backend)
                         st.caption(
-                            f"Показано страниц: {preview_result.rendered_pages} из "
-                            f"{preview_result.total_pages}; backend: {preview_result.backend}."
+                            f"Исходный PDF: {preview_result.source_size_bytes / 1024:.1f} КиБ; "
+                            f"средняя миниатюра: {preview_result.average_page_size_bytes / 1024:.1f} КиБ."
                         )
                         if preview_result.truncated:
                             st.info("Предпросмотр ограничен выбранным количеством страниц.")
-                        for page in preview_result.pages:
-                            st.image(
-                                page.image_png,
-                                caption=f"Страница {page.page_number}",
-                                width="stretch",
-                            )
+                        if preview_layout == "Две колонки":
+                            preview_columns = st.columns(2)
+                            for index, page in enumerate(preview_result.pages):
+                                with preview_columns[index % 2]:
+                                    st.image(
+                                        page.image_png,
+                                        caption=f"Страница {page.page_number}",
+                                        width="stretch",
+                                    )
+                        else:
+                            for page in preview_result.pages:
+                                st.image(
+                                    page.image_png,
+                                    caption=f"Страница {page.page_number}",
+                                    width="stretch",
+                                )
                     else:
                         st.caption(
                             "Миниатюры создаются только по запросу и кэшируются до изменения "

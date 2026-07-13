@@ -2,13 +2,14 @@ from __future__ import annotations
 
 """Safe, bounded raster previews for already-rendered PDF artifacts."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from io import BytesIO
 from pathlib import Path
 import hashlib
 import shutil
 import subprocess
 import tempfile
+from time import perf_counter
 from typing import Iterable
 
 
@@ -27,6 +28,15 @@ class PdfPreviewResult:
     rendered_pages: int
     backend: str
     truncated: bool
+    render_duration_seconds: float = 0.0
+    source_size_bytes: int = 0
+    image_size_bytes: int = 0
+
+    @property
+    def average_page_size_bytes(self) -> int:
+        if self.rendered_pages <= 0:
+            return 0
+        return int(round(self.image_size_bytes / self.rendered_pages))
 
 
 class PdfPreviewUnavailableError(RuntimeError):
@@ -193,9 +203,16 @@ def build_pdf_preview(
     safe_limit = _bounded_page_limit(page_limit)
     safe_dpi = _bounded_dpi(dpi)
     errors: list[str] = []
+    started_at = perf_counter()
     for renderer in (_render_with_pymupdf, _render_with_pdftoppm):
         try:
-            return renderer(payload, page_limit=safe_limit, dpi=safe_dpi)
+            result = renderer(payload, page_limit=safe_limit, dpi=safe_dpi)
+            return replace(
+                result,
+                render_duration_seconds=max(0.0, perf_counter() - started_at),
+                source_size_bytes=len(payload),
+                image_size_bytes=sum(len(page.image_png) for page in result.pages),
+            )
         except PdfPreviewUnavailableError as exc:
             errors.append(str(exc))
     raise PdfPreviewUnavailableError("; ".join(errors) or "No PDF preview backend is available")

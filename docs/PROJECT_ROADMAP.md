@@ -1502,3 +1502,10 @@ Next priority: add bounded retention and cleanup for quarantined metadata files 
 - On-demand bounded thumbnails for completed PDF exports.
 - Session cache bound to artifact content and export request signature.
 - Safe fallback when PyMuPDF/pdftoppm is unavailable.
+
+### Implemented: PDF Preview compact layout and performance metrics
+
+- PDF thumbnails can be displayed in one or two columns;
+- preview result records actual rendering time and memory footprint;
+- the UI displays page count, backend, PDF size, thumbnail size and average page thumbnail size;
+- layout changes reuse the same raster cache.

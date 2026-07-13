@@ -23,3 +23,10 @@ Next recommended increment: Modern Workspace shell foundation — Project Explor
 - Cache is invalidated when a new export artifact is completed or export settings are reset.
 - The UI keeps download available when no local rasterizer is installed.
 - Next step: add an optional compact two-column thumbnail layout and preview performance metrics.
+
+## PDF Preview compact layout and metrics
+
+- Added optional one-column and compact two-column thumbnail layouts.
+- Added measured render duration, source PDF size, total thumbnail size and average thumbnail size.
+- Layout selection does not invalidate the raster cache because it changes presentation only.
+- Next step: add selective page-range preview and explicit preview-cache cleanup.
