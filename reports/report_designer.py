@@ -1,0 +1,248 @@
+from __future__ import annotations
+
+"""Professional Report Designer for renderer-neutral engineering reports.
+
+The designer changes only document composition and presentation options.  It
+never recalculates gas ratios, intervals or interpretation results.  A single
+``PresentationModel`` is converted to ``EngineeringDocument`` and then shaped
+by the selected design before PDF/DOCX renderers consume it.
+"""
+
+from dataclasses import dataclass, replace
+from typing import Literal
+
+from reports.document_model import (
+    DocumentNotice,
+    DocumentPlot,
+    DocumentTable,
+    DocumentVisualizationPreview,
+    EngineeringDocument,
+    build_engineering_document,
+)
+from reports.presentation_docx import PresentationDocxOptions
+from reports.presentation_model import PresentationModel
+from reports.presentation_pdf import PresentationPdfOptions
+
+ReportTemplateId = Literal["engineering", "corporate", "minimal"]
+ReportSectionId = Literal["plots", "visualizations", "results", "conclusion"]
+
+
+@dataclass(frozen=True)
+class ReportTemplate:
+    id: ReportTemplateId
+    label: str
+    description: str
+    default_sections: tuple[ReportSectionId, ...]
+    include_technical_appendix: bool
+    include_figures: bool
+    paper_size: str = "A4"
+    orientation: str = "portrait"
+    margin_mm: int = 12
+    show_page_chrome: bool = True
+
+
+@dataclass(frozen=True)
+class ReportDesign:
+    """User-selected professional report composition."""
+
+    template_id: ReportTemplateId = "engineering"
+    title: str = "Gas Ratio Professional Report"
+    subtitle: str = "Инженерное заключение по вероятным УВ-интервалам"
+    document_code: str = "GRP-REPORT"
+    classification: str = "ENGINEERING USE"
+    footer_text: str = "Gas Ratio Pro · Engineering report"
+    sections: tuple[ReportSectionId, ...] = ()
+    include_figures: bool | None = None
+    include_technical_appendix: bool | None = None
+    show_page_chrome: bool | None = None
+    paper_size: str = ""
+    orientation: str = ""
+    margin_mm: int | None = None
+
+
+@dataclass(frozen=True)
+class ReportDesignIssue:
+    code: str
+    message: str
+    field: str
+    blocking: bool = True
+
+
+@dataclass(frozen=True)
+class ReportDesignResult:
+    design: ReportDesign
+    document: EngineeringDocument | None
+    pdf_options: PresentationPdfOptions | None
+    docx_options: PresentationDocxOptions | None
+    issues: tuple[ReportDesignIssue, ...] = ()
+
+    @property
+    def ready(self) -> bool:
+        return self.document is not None and not any(issue.blocking for issue in self.issues)
+
+
+_TEMPLATES: tuple[ReportTemplate, ...] = (
+    ReportTemplate(
+        id="engineering",
+        label="Engineering",
+        description="Полный инженерный отчет с планшетами, результатами и техническими приложениями.",
+        default_sections=("plots", "visualizations", "results", "conclusion"),
+        include_technical_appendix=True,
+        include_figures=True,
+        margin_mm=12,
+    ),
+    ReportTemplate(
+        id="corporate",
+        label="Corporate",
+        description="Отчет для согласования и передачи заказчику с компактным составом разделов.",
+        default_sections=("plots", "results", "conclusion"),
+        include_technical_appendix=False,
+        include_figures=True,
+        margin_mm=14,
+    ),
+    ReportTemplate(
+        id="minimal",
+        label="Minimal",
+        description="Краткое заключение с ключевыми результатами без графических приложений.",
+        default_sections=("results", "conclusion"),
+        include_technical_appendix=False,
+        include_figures=False,
+        margin_mm=16,
+        show_page_chrome=False,
+    ),
+)
+
+
+def report_templates() -> tuple[ReportTemplate, ...]:
+    return _TEMPLATES
+
+
+def report_template_by_id(template_id: str | None) -> ReportTemplate:
+    normalized = str(template_id or "engineering").strip().lower()
+    return next((item for item in _TEMPLATES if item.id == normalized), _TEMPLATES[0])
+
+
+def _section_id(section) -> ReportSectionId:
+    if any(isinstance(block, DocumentPlot) for block in section.blocks):
+        return "plots"
+    if any(isinstance(block, DocumentVisualizationPreview) for block in section.blocks):
+        return "visualizations"
+    if any(isinstance(block, DocumentTable) for block in section.blocks):
+        return "results"
+    if any(isinstance(block, DocumentNotice) for block in section.blocks):
+        return "conclusion"
+    return "conclusion"
+
+
+def _clean_text(value: str, fallback: str) -> str:
+    text = str(value or "").strip()
+    return text or fallback
+
+
+def validate_report_design(design: ReportDesign) -> tuple[ReportDesignIssue, ...]:
+    issues: list[ReportDesignIssue] = []
+    template = report_template_by_id(design.template_id)
+    sections = design.sections or template.default_sections
+
+    if not str(design.title or "").strip():
+        issues.append(ReportDesignIssue("title.required", "Не задан заголовок отчета.", "title"))
+    if not sections:
+        issues.append(ReportDesignIssue("sections.required", "Не выбран ни один раздел отчета.", "sections"))
+    if len(set(sections)) != len(sections):
+        issues.append(ReportDesignIssue("sections.duplicate", "Разделы отчета не должны повторяться.", "sections"))
+    unknown = tuple(section for section in sections if section not in {"plots", "visualizations", "results", "conclusion"})
+    if unknown:
+        issues.append(ReportDesignIssue("sections.unknown", f"Неизвестные разделы: {', '.join(unknown)}.", "sections"))
+    if design.margin_mm is not None and not 8 <= int(design.margin_mm) <= 40:
+        issues.append(ReportDesignIssue("margin.invalid", "Поля должны быть от 8 до 40 мм.", "margin_mm"))
+    return tuple(issues)
+
+
+def build_designed_report(model: PresentationModel, design: ReportDesign | None = None) -> ReportDesignResult:
+    """Build a customized document and synchronized PDF/DOCX options."""
+
+    design = design or ReportDesign()
+    issues = validate_report_design(design)
+    if any(issue.blocking for issue in issues):
+        return ReportDesignResult(design, None, None, None, issues)
+
+    template = report_template_by_id(design.template_id)
+    include_figures = template.include_figures if design.include_figures is None else bool(design.include_figures)
+    include_technical = (
+        template.include_technical_appendix
+        if design.include_technical_appendix is None
+        else bool(design.include_technical_appendix)
+    )
+    selected_sections = design.sections or template.default_sections
+
+    source = build_engineering_document(
+        model,
+        include_figures=include_figures,
+        include_technical_appendix=include_technical,
+    )
+    grouped = {section_id: [] for section_id in ("plots", "visualizations", "results", "conclusion")}
+    for section in source.sections:
+        grouped[_section_id(section)].append(section)
+
+    ordered_sections = []
+    for section_id in selected_sections:
+        ordered_sections.extend(grouped.get(section_id, ()))
+
+    title = _clean_text(design.title, source.metadata.title)
+    subtitle = _clean_text(design.subtitle, source.metadata.subtitle)
+    document = replace(
+        source,
+        metadata=replace(source.metadata, title=title, subtitle=subtitle),
+        sections=tuple(ordered_sections),
+        schema="gas-ratio-pro/document/designed/v1",
+    )
+
+    paper_size = str(design.paper_size or template.paper_size).strip().upper()
+    orientation = str(design.orientation or template.orientation).strip().lower()
+    margin_mm = template.margin_mm if design.margin_mm is None else int(design.margin_mm)
+    page_chrome = template.show_page_chrome if design.show_page_chrome is None else bool(design.show_page_chrome)
+
+    pdf_options = PresentationPdfOptions(
+        include_figures=include_figures,
+        include_technical_appendix=include_technical,
+        paper_size=paper_size,
+        orientation=orientation,
+        margin_mm=margin_mm,
+        title=title,
+        show_page_chrome=page_chrome,
+        document_code=_clean_text(design.document_code, "GRP-REPORT"),
+        footer_text=_clean_text(design.footer_text, "Gas Ratio Pro · Engineering report"),
+        classification=_clean_text(design.classification, "ENGINEERING USE"),
+    )
+    docx_options = PresentationDocxOptions(
+        include_figures=include_figures,
+        include_technical_appendix=include_technical,
+        paper_size=paper_size,
+        orientation=orientation,
+        margin_mm=margin_mm,
+        title=title,
+    )
+    return ReportDesignResult(design, document, pdf_options, docx_options, issues)
+
+
+def require_designed_report(model: PresentationModel, design: ReportDesign | None = None) -> ReportDesignResult:
+    result = build_designed_report(model, design)
+    if not result.ready:
+        message = "; ".join(issue.message for issue in result.issues if issue.blocking)
+        raise ValueError(f"Report designer is not ready: {message}")
+    return result
+
+
+__all__ = [
+    "ReportDesign",
+    "ReportDesignIssue",
+    "ReportDesignResult",
+    "ReportSectionId",
+    "ReportTemplate",
+    "ReportTemplateId",
+    "build_designed_report",
+    "report_template_by_id",
+    "report_templates",
+    "require_designed_report",
+    "validate_report_design",
+]

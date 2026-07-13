@@ -250,6 +250,17 @@ def build_ui_export_artifact(
     options = export_options_from_ui_state(state)
     format_option = export_format_by_id(state.export_format)
 
+    # PNG/SVG/XLSX are valid product export channels, but they are not
+    # professional report renderers.  Previously they silently fell through to
+    # the bundle branch and returned a ZIP with PDF/DOCX under the wrong MIME
+    # type.  Fail explicitly so the UI can route these formats to their proper
+    # visualization/table exporters.
+    if state.export_format not in {"pdf", "docx", "bundle"}:
+        raise ValueError(
+            f"Export format {state.export_format!r} is not supported by the "
+            "professional report renderer; use the visualization or table exporter."
+        )
+
     if state.export_format == "pdf":
         result = export_presentation_pdf_package(model, options=options)
         return PresentationUiExportArtifact(

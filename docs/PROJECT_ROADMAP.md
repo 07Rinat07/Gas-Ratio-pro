@@ -954,3 +954,24 @@ Release candidate Definition of Done:
 - Discoverable Professional Export UI.
 - Full-well atlas scope.
 - Four-stage export progress and user guidance.
+
+---
+
+## Reporting modernization — current increment
+
+### Completed
+
+- Industrial PDF page chrome and metadata.
+- Professional Export Wizard state machine and preflight validation.
+- Professional Report Designer foundation.
+- Engineering, Corporate and Minimal report templates.
+- Renderer-neutral section filtering and ordering.
+- Synchronized PDF/DOCX presentation options.
+
+### Next
+
+1. Connect Report Designer to Streamlit UI.
+2. Add live report structure preview.
+3. Connect approved design state to Export Wizard execution.
+4. Add operation progress indicators and tooltips.
+5. Unify engineering chart theme and export quality.
