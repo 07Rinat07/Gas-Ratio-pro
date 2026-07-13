@@ -9211,7 +9211,7 @@ def _render_professional_export_panel(
             except (OSError, ValueError):
                 logger.exception("export_wizard_draft_delete_failed project_id=%s", safe_log_value(active_project.id))
             try:
-                preview_counts_repository.delete(str(active_project.id))
+                preview_counts_repository.delete(str(active_project.id), include_quarantine=True)
             except (OSError, ValueError):
                 logger.exception(
                     "report_preview_counts_delete_failed project_id=%s",

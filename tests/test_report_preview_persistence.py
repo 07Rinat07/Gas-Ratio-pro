@@ -65,7 +65,7 @@ def test_streamlit_integrates_project_persistence():
     assert "ReportPreviewCountsRepository(ROOT_DIR / \"data\" / \"projects\")" in source
     assert "preview_counts_repository.load_with_recovery(str(active_project.id))" in source
     assert "preview_counts_repository.save(" in source
-    assert "preview_counts_repository.delete(str(active_project.id))" in source
+    assert "preview_counts_repository.delete(str(active_project.id), include_quarantine=True)" in source
 
 
 def test_repository_keeps_previous_valid_snapshot_as_backup(tmp_path):
@@ -119,3 +119,61 @@ def test_repository_delete_removes_primary_and_backup(tmp_path):
     assert repository.delete("project-1") is True
     assert not repository.path_for("project-1").exists()
     assert not repository.backup_path_for("project-1").exists()
+
+
+def _write_quarantine_files(repository, project_id: str, count: int):
+    directory = repository.path_for(project_id).parent
+    directory.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for index in range(count):
+        path = directory / f"report_preview_counts.json.corrupt-20260714T00000000000{index}Z"
+        path.write_text(f"broken-{index}", encoding="utf-8")
+        # Deterministic ordering independent from filesystem timestamp resolution.
+        path.touch()
+        paths.append(path)
+    return paths
+
+
+def test_repository_quarantine_retention_is_bounded(tmp_path):
+    repository = ReportPreviewCountsRepository(tmp_path, max_quarantine_files=2)
+    paths = _write_quarantine_files(repository, "project-1", 5)
+
+    result = repository.maintain_quarantine("project-1")
+
+    assert len(result.kept) == 2
+    assert len(result.removed) == 3
+    assert len(repository.quarantine_paths("project-1")) == 2
+    assert all(not path.exists() for path in paths[:3])
+
+
+def test_repository_can_disable_quarantine_retention(tmp_path):
+    repository = ReportPreviewCountsRepository(tmp_path, max_quarantine_files=0)
+    _write_quarantine_files(repository, "project-1", 3)
+
+    result = repository.maintain_quarantine("project-1")
+
+    assert result.kept == ()
+    assert len(result.removed) == 3
+    assert repository.quarantine_paths("project-1") == ()
+
+
+def test_repository_purge_quarantine_is_project_scoped(tmp_path):
+    repository = ReportPreviewCountsRepository(tmp_path)
+    _write_quarantine_files(repository, "project-1", 2)
+    _write_quarantine_files(repository, "project-2", 1)
+
+    removed = repository.purge_quarantine("project-1")
+
+    assert len(removed) == 2
+    assert repository.quarantine_paths("project-1") == ()
+    assert len(repository.quarantine_paths("project-2")) == 1
+
+
+def test_repository_delete_can_include_quarantine(tmp_path):
+    repository = ReportPreviewCountsRepository(tmp_path)
+    repository.save("project-1", _snapshot())
+    _write_quarantine_files(repository, "project-1", 2)
+
+    assert repository.delete("project-1", include_quarantine=True) is True
+    assert repository.quarantine_paths("project-1") == ()
+    assert not repository.path_for("project-1").exists()

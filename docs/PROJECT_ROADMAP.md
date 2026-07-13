@@ -1,3 +1,22 @@
+# Latest increment — Bounded Report Preview Quarantine Maintenance
+
+Status: COMPLETED
+
+Implemented:
+- bounded retention for quarantined report-preview snapshot files;
+- deterministic newest-first quarantine discovery per project;
+- automatic pruning during normal load and recovery paths;
+- explicit project-scoped quarantine purge API;
+- full reset now removes primary, backup and quarantined preview metadata;
+- regression coverage for retention limits, disabled retention and project isolation.
+
+Validation:
+- `python -m py_compile reports/report_preview_persistence.py reports/report_designer.py app/streamlit_app.py`;
+- `104 passed` in focused Report Designer, Export Wizard and Background Export tests;
+- `logs/app.log` is not present in the supplied project archive.
+
+Next priority: expose non-sensitive persistence health metrics in diagnostics and add migration support for future snapshot schema revisions.
+
 # Latest increment — Report Preview Snapshot Validation Diagnostics
 
 Status: COMPLETED

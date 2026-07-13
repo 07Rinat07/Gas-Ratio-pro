@@ -1,3 +1,21 @@
+# Latest implementation — Bounded Report Preview Quarantine Maintenance
+
+Status: COMPLETED
+
+Implemented:
+- `ReportPreviewCountsMaintenanceResult`;
+- configurable `max_quarantine_files` retention, defaulting to three files per project;
+- `quarantine_paths()`, `maintain_quarantine()` and `purge_quarantine()` APIs;
+- pruning on primary load, missing-state load and recovery paths;
+- optional quarantine removal from `delete(..., include_quarantine=True)`;
+- Streamlit reset removes all preview persistence artifacts.
+
+Validation:
+- syntax compilation passed;
+- `104 passed` in focused reporting/background-export coverage.
+
+Next priority: persistence health diagnostics and forward-compatible snapshot migrations.
+
 # Latest implementation — Report Preview Snapshot Validation Diagnostics
 
 Status: COMPLETED
