@@ -304,5 +304,22 @@ class BackgroundExportManager:
                 raise RuntimeError("Результат фонового экспорта недоступен после перезапуска приложения.")
             return self._results.pop(job_id)
 
+
+    def result_available(self, job_id: str) -> bool:
+        """Return whether a completed process-local result can be handed off."""
+        with self._lock:
+            return job_id in self._results
+
+    def dismiss(self, job_id: str) -> None:
+        """Remove a terminal job snapshot and any unclaimed process-local result."""
+        with self._lock:
+            snapshot = self._read(job_id)
+            if not snapshot.terminal:
+                raise RuntimeError("Выполняющуюся задачу нельзя удалить из очереди.")
+            self._store().pop(job_id, None)
+            self._results.pop(job_id, None)
+            self._futures.pop(job_id, None)
+            self._cancel_events.pop(job_id, None)
+
     def shutdown(self, *, wait: bool = False) -> None:
         self._executor.shutdown(wait=wait, cancel_futures=True)

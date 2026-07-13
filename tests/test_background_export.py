@@ -173,3 +173,41 @@ def test_export_controller_reports_background_stages_and_honours_cancellation():
         )
 
     assert any(value == 20 for value, _ in progress)
+
+
+def test_completed_result_can_be_detected_and_terminal_job_dismissed():
+    state = {}
+    manager = BackgroundExportManager(state)
+
+    created = manager.submit(
+        project_id="p1",
+        request_signature="sig-result",
+        work=lambda report, check_cancelled: "artifact",
+    )
+    done = _wait(manager, created.id)
+
+    assert done.status is ExportJobStatus.COMPLETED
+    assert manager.result_available(created.id) is True
+    assert manager.pop_result(created.id) == "artifact"
+    assert manager.result_available(created.id) is False
+    manager.dismiss(created.id)
+    with pytest.raises(KeyError):
+        manager.snapshot(created.id)
+    manager.shutdown()
+
+
+def test_active_job_cannot_be_dismissed():
+    state = {}
+    manager = BackgroundExportManager(state)
+    release = Event()
+
+    created = manager.submit(
+        project_id="p1",
+        request_signature="sig-active",
+        work=lambda report, check_cancelled: release.wait(1.0),
+    )
+    with pytest.raises(RuntimeError, match="нельзя удалить"):
+        manager.dismiss(created.id)
+    release.set()
+    _wait(manager, created.id)
+    manager.shutdown()

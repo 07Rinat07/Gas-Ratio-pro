@@ -370,6 +370,12 @@ from reports.export_controller import (
     ExportRequest,
     normalize_export_form_state,
 )
+from reports.background_export import BackgroundExportManager, ExportJobStatus
+from reports.background_export_ui import (
+    BackgroundExportResult,
+    build_background_export_status_view,
+    latest_relevant_job,
+)
 from las_editor.las_creation_wizard import (
     DEFAULT_CURVE_LIBRARY,
     build_las_creation_wizard_draft,
@@ -8996,6 +9002,13 @@ def _render_professional_export_panel(
             float(selected_interval.base) if selected_interval is not None else float(depth_range[1])
         )
         export_state = _application_state_controller().state
+        background_state_key = f"background_export_metadata_{active_project.id}"
+        background_manager_key = f"background_export_manager_{active_project.id}"
+        background_state = export_state.setdefault(background_state_key, {})
+        background_manager = export_state.get(background_manager_key)
+        if not isinstance(background_manager, BackgroundExportManager):
+            background_manager = BackgroundExportManager(background_state, max_workers=1)
+            export_state[background_manager_key] = background_manager
         normalized_form = normalize_export_form_state(
             export_state,
             project_id=str(active_project.id),
@@ -9463,7 +9476,6 @@ def _render_professional_export_panel(
         prepare_export = bool(prepare_export or export_state.pop(repeat_autorun_key, False))
 
         if prepare_export:
-            generation_started = perf_counter()
             print_depth_range = current_print_depth_range
             print_df = _filter_by_depth_range(
                 calculated_df, print_depth_range[0], print_depth_range[1]
@@ -9471,211 +9483,211 @@ def _render_professional_export_panel(
             if print_df.empty:
                 st.error("В выбранном интервале печати нет данных.")
             else:
-                export_progress = st.empty()
-                initial_stage = REPORT_EXPORT_PROGRESS.stage("validate")
-                export_progress_bar = st.progress(initial_stage.percent, text=initial_stage.message)
-                _set_inline_operation_status(
-                    export_progress,
-                    "Экспорт",
-                    f"Шаг 1 из 4: проверяется диапазон и профиль {selected_profile.label}.",
-                )
                 request = current_export_request
-                logger.info(
-                    "presentation_export_started project_id=%s profile=%s format=%s rows=%d",
-                    safe_log_value(active_project.id),
-                    safe_log_value(selected_profile.id),
-                    safe_log_value(selected_format.id),
-                    len(print_df),
-                )
+                ranking_profile_snapshot = export_state.get("active_reservoir_ranking_profile")
+                selected_profile_label_snapshot = selected_profile.label
+                selected_interval_id_snapshot = selected_interval_id or ""
+                controller_cache_key = f"background_export_controller_cache_{active_project.id}"
+                controller_cache = export_state.setdefault(controller_cache_key, {})
+                frame_snapshot = print_df.copy(deep=False)
 
-                def _build_export_model(frame, export_request):
-                    model_stage = REPORT_EXPORT_PROGRESS.stage("model")
-                    export_progress_bar.progress(model_stage.percent, text=model_stage.message)
-                    _set_inline_operation_status(
-                        export_progress,
-                        "Экспорт",
-                        "Шаг 2 из 4: формируются обзорный планшет, интервалы и таблицы.",
-                    )
-                    # The model cache is intentionally format-neutral.  Never cache
-                    # PresentationExportUiState together with the model: otherwise a
-                    # later DOCX request can reuse the PDF state (or vice versa) and
-                    # produce correctly named but internally wrong bytes.
-                    payload = build_hydrocarbon_report_payload(
-                        frame,
-                        source_label=export_request.source_label,
-                        project_label=f"{export_request.project_name} ({export_request.project_id})",
-                        depth_label=_range_label(export_request.normalized_depth_range, unit="м"),
-                        report_profile=export_request.profile_id,
-                        include_plot=True,
-                        ranking_profile=_application_state_controller().state.get("active_reservoir_ranking_profile"),
-                    )
-                    if payload.presentation_model is None:
-                        raise RuntimeError("PresentationModel не был сформирован.")
-                    return payload.presentation_model
-
-                def _render_export_artifact(presentation_model, frame, export_request):
-                    render_stage = REPORT_EXPORT_PROGRESS.stage("render")
-                    export_progress_bar.progress(
-                        render_stage.percent,
-                        text=f"{render_stage.message[:-1]} {export_request.format_label}…",
-                    )
-                    _set_inline_operation_status(
-                        export_progress,
-                        "Экспорт",
-                        f"Шаг 3 из 4: выполняется рендеринг {export_request.format_label}.",
-                    )
-                    # Export state is request-specific and must be rebuilt for every
-                    # format even when the shared PresentationModel comes from cache.
-                    presentation_state = build_presentation_export_ui_state(
-                        profile=export_request.profile_id,
-                        export_format=export_request.format_id,
-                        output_dir=ROOT_DIR / "artifacts" / "presentation_exports",
-                        base_name_parts=(
-                            export_request.project_name,
-                            export_request.source_label,
-                            "professional_report",
-                        ),
-                        include_figures=True,
-                    )
-                    if export_request.format_id == "xlsx":
-                        content = export_xlsx_bytes(
+                def _background_work(report, check_cancelled):
+                    def _build_export_model(frame, export_request):
+                        check_cancelled()
+                        payload = build_hydrocarbon_report_payload(
                             frame,
-                            sheet_name="Инженерные данные",
-                            metadata={
-                                "Проект": export_request.project_name,
-                                "Источник": export_request.source_label,
-                                "Профиль отчёта": selected_profile.label,
-                                "Формат": export_request.format_label,
-                                "Глубина от, м": f"{export_request.normalized_depth_range[0]:g}",
-                                "Глубина до, м": f"{export_request.normalized_depth_range[1]:g}",
-                                "Строк данных": len(frame),
-                                "Выбранный интервал": selected_interval_id or "Не выбран",
-                            },
+                            source_label=export_request.source_label,
+                            project_label=f"{export_request.project_name} ({export_request.project_id})",
+                            depth_label=_range_label(export_request.normalized_depth_range, unit="м"),
+                            report_profile=export_request.profile_id,
+                            include_plot=True,
+                            ranking_profile=ranking_profile_snapshot,
                         )
-                        file_name = f"{presentation_state.base_name}.xlsx"
-                    elif export_request.format_id in {"png", "svg"}:
-                        report_figures = presentation_model.figures
-                        if not report_figures:
-                            raise RuntimeError("Инженерный график не был сформирован для экспорта.")
-                        content = export_plotly_static_bytes(
-                            report_figures[0],
-                            StaticExportOptions(
-                                format=export_request.format_id,
-                                width=1800,
-                                height=export_request.figure_height,
-                                scale=2.0,
-                            ),
-                        )
-                        file_name = f"{presentation_state.base_name}.{export_request.extension}"
-                    else:
-                        rendered = build_designed_report_artifact(
-                            presentation_model,
-                            design=report_design,
-                            export_format=export_request.format_id,
-                            base_name=presentation_state.base_name,
-                        )
-                        content = rendered.content
-                        file_name = rendered.file_name
-                    return ControlledExportArtifact(
-                        content=content,
-                        file_name=file_name,
-                        mime_type=export_request.mime_type,
-                        format_id=export_request.format_id,
-                        format_label=export_request.format_label,
-                        profile_id=export_request.profile_id,
-                    )
+                        if payload.presentation_model is None:
+                            raise RuntimeError("PresentationModel не был сформирован.")
+                        return payload.presentation_model
 
-                try:
-                    controller = ExportController(_application_state_controller().state)
-                    export_artifact, export_metrics = controller.prepare(
+                    def _render_export_artifact(presentation_model, frame, export_request):
+                        check_cancelled()
+                        presentation_state = build_presentation_export_ui_state(
+                            profile=export_request.profile_id,
+                            export_format=export_request.format_id,
+                            output_dir=ROOT_DIR / "artifacts" / "presentation_exports",
+                            base_name_parts=(
+                                export_request.project_name,
+                                export_request.source_label,
+                                "professional_report",
+                            ),
+                            include_figures=True,
+                        )
+                        if export_request.format_id == "xlsx":
+                            content = export_xlsx_bytes(
+                                frame,
+                                sheet_name="Инженерные данные",
+                                metadata={
+                                    "Проект": export_request.project_name,
+                                    "Источник": export_request.source_label,
+                                    "Профиль отчёта": selected_profile_label_snapshot,
+                                    "Формат": export_request.format_label,
+                                    "Глубина от, м": f"{export_request.normalized_depth_range[0]:g}",
+                                    "Глубина до, м": f"{export_request.normalized_depth_range[1]:g}",
+                                    "Строк данных": len(frame),
+                                    "Выбранный интервал": selected_interval_id_snapshot or "Не выбран",
+                                },
+                            )
+                            file_name = f"{presentation_state.base_name}.xlsx"
+                        elif export_request.format_id in {"png", "svg"}:
+                            report_figures = presentation_model.figures
+                            if not report_figures:
+                                raise RuntimeError("Инженерный график не был сформирован для экспорта.")
+                            content = export_plotly_static_bytes(
+                                report_figures[0],
+                                StaticExportOptions(
+                                    format=export_request.format_id,
+                                    width=1800,
+                                    height=export_request.figure_height,
+                                    scale=2.0,
+                                ),
+                            )
+                            file_name = f"{presentation_state.base_name}.{export_request.extension}"
+                        else:
+                            rendered = build_designed_report_artifact(
+                                presentation_model,
+                                design=report_design,
+                                export_format=export_request.format_id,
+                                base_name=presentation_state.base_name,
+                            )
+                            content = rendered.content
+                            file_name = rendered.file_name
+                        check_cancelled()
+                        return ControlledExportArtifact(
+                            content=content,
+                            file_name=file_name,
+                            mime_type=export_request.mime_type,
+                            format_id=export_request.format_id,
+                            format_label=export_request.format_label,
+                            profile_id=export_request.profile_id,
+                        )
+
+                    controller = ExportController(controller_cache)
+                    artifact, metrics = controller.prepare(
                         request,
-                        frame=print_df,
+                        frame=frame_snapshot,
                         build_model=_build_export_model,
                         render_artifact=_render_export_artifact,
+                        on_progress=report,
+                        check_cancelled=check_cancelled,
                     )
-                    _application_state_controller().state[export_cache_key] = {
-                        "content": export_artifact.content,
-                        "file_name": export_artifact.file_name,
-                        "mime_type": export_artifact.mime_type,
-                        "format_id": export_artifact.format_id,
-                        "format_label": export_artifact.format_label,
-                        "profile_id": export_artifact.profile_id,
-                        "request_signature": export_artifact.request_signature,
-                        "depth_top": print_depth_range[0],
-                        "depth_bottom": print_depth_range[1],
-                    }
-                    _application_state_controller().state.pop(export_error_key, None)
-                    try:
-                        history_repository.record(
-                            ExportHistoryEntry(
-                                project_id=str(active_project.id),
-                                file_name=export_artifact.file_name,
-                                format_id=export_artifact.format_id,
-                                format_label=export_artifact.format_label,
-                                profile_id=export_artifact.profile_id,
-                                depth_top=float(print_depth_range[0]),
-                                depth_bottom=float(print_depth_range[1]),
-                                size_bytes=len(export_artifact.content),
-                                request_signature=export_artifact.request_signature,
-                                cache_hit=bool(export_artifact.cache_hit),
-                                report_mode_id=report_design.mode_id,
-                                template_id=report_design.template_id,
-                                report_title=report_design.title,
-                                sections=report_design.sections,
-                                include_technical_appendix=report_design.include_technical_appendix,
-                                show_page_chrome=report_design.show_page_chrome,
-                                print_mode=str(print_mode),
-                                data_revision=current_data_revision,
-                                project_updated_at=str(active_project.updated_at or ""),
-                            )
-                        )
-                    except (OSError, ValueError, TypeError):
-                        logger.exception("export_history_record_failed project_id=%s", safe_log_value(active_project.id))
-                    export_progress_bar.progress(100, text="Шаг 4 из 4: файл готов к скачиванию.")
-                    _set_inline_operation_status(
-                        export_progress,
-                        "Экспорт",
-                        (
-                            f"Шаг 4 из 4: {selected_format.label} подготовлен"
-                            + (" из кэша." if export_artifact.cache_hit else ".")
-                        ),
-                        state="success",
+                    return BackgroundExportResult(artifact=artifact, metrics=metrics)
+
+                try:
+                    created_job = background_manager.submit(
+                        project_id=str(active_project.id),
+                        request_signature=current_export_request.selection_signature,
+                        work=_background_work,
                     )
+                    export_state.pop(export_error_key, None)
                     logger.info(
-                        "presentation_export_completed project_id=%s profile=%s format=%s bytes=%d duration_ms=%.2f model_cache_hit=%s artifact_cache_hit=%s",
+                        "background_export_submitted project_id=%s job_id=%s profile=%s format=%s rows=%d",
                         safe_log_value(active_project.id),
+                        safe_log_value(created_job.id),
                         safe_log_value(selected_profile.id),
                         safe_log_value(selected_format.id),
-                        len(export_artifact.content),
-                        float(export_metrics.get("duration_ms", 0.0)),
-                        export_metrics.get("model_cache_hit"),
-                        export_metrics.get("artifact_cache_hit"),
+                        len(frame_snapshot),
                     )
-                except ExportControllerError as exc:
-                    failure = exc.failure
-                    export_progress_bar.progress(100, text="Подготовка файла завершилась ошибкой.")
-                    _set_inline_operation_status(
-                        export_progress,
-                        "Экспорт",
-                        f"Не удалось подготовить отчет. Код: {failure.error_id}.",
-                        state="error",
+                except RuntimeError as exc:
+                    st.warning(str(exc))
+
+        project_jobs = background_manager.list(project_id=str(active_project.id))
+        relevant_job = latest_relevant_job(
+            project_jobs,
+            request_signature=current_export_request.selection_signature,
+        )
+        if relevant_job is not None:
+            status_view = build_background_export_status_view(relevant_job)
+            st.progress(status_view.progress / 100.0, text=status_view.detail or status_view.title)
+            if status_view.level == "error":
+                st.error(f"{status_view.title}: {status_view.detail}")
+            elif status_view.level == "warning":
+                st.warning(f"{status_view.title}: {status_view.detail}")
+            elif status_view.level == "success":
+                st.success(status_view.title)
+            else:
+                st.info(status_view.title)
+
+            job_left, job_right = st.columns(2)
+            if status_view.cancellable and job_left.button(
+                "Отменить экспорт",
+                key=f"background_export_cancel_{active_project.id}_{relevant_job.id}",
+                width="stretch",
+            ):
+                background_manager.cancel(relevant_job.id)
+                _request_ui_refresh_and_rerun("background_export_cancel")
+                return
+            if not relevant_job.terminal and job_right.button(
+                "Обновить прогресс",
+                key=f"background_export_refresh_{active_project.id}_{relevant_job.id}",
+                width="stretch",
+            ):
+                _request_ui_refresh_and_rerun("background_export_poll")
+                return
+
+            if (
+                relevant_job.status is ExportJobStatus.COMPLETED
+                and background_manager.result_available(relevant_job.id)
+            ):
+                completed = background_manager.pop_result(relevant_job.id)
+                if not isinstance(completed, BackgroundExportResult):
+                    raise RuntimeError("Фоновый экспорт вернул неподдерживаемый тип результата.")
+                export_artifact = completed.artifact
+                export_metrics = dict(completed.metrics)
+                export_state[export_cache_key] = {
+                    "content": export_artifact.content,
+                    "file_name": export_artifact.file_name,
+                    "mime_type": export_artifact.mime_type,
+                    "format_id": export_artifact.format_id,
+                    "format_label": export_artifact.format_label,
+                    "profile_id": export_artifact.profile_id,
+                    "request_signature": export_artifact.request_signature,
+                    "depth_top": current_print_depth_range[0],
+                    "depth_bottom": current_print_depth_range[1],
+                }
+                export_state.pop(export_error_key, None)
+                try:
+                    history_repository.record(
+                        ExportHistoryEntry(
+                            project_id=str(active_project.id),
+                            file_name=export_artifact.file_name,
+                            format_id=export_artifact.format_id,
+                            format_label=export_artifact.format_label,
+                            profile_id=export_artifact.profile_id,
+                            depth_top=float(current_print_depth_range[0]),
+                            depth_bottom=float(current_print_depth_range[1]),
+                            size_bytes=len(export_artifact.content),
+                            request_signature=export_artifact.request_signature,
+                            cache_hit=bool(export_artifact.cache_hit),
+                            report_mode_id=report_design.mode_id,
+                            template_id=report_design.template_id,
+                            report_title=report_design.title,
+                            sections=report_design.sections,
+                            include_technical_appendix=report_design.include_technical_appendix,
+                            show_page_chrome=report_design.show_page_chrome,
+                            print_mode=str(print_mode),
+                            data_revision=current_data_revision,
+                            project_updated_at=str(active_project.updated_at or ""),
+                        )
                     )
-                    _application_state_controller().state[export_error_key] = {
-                        "id": failure.error_id,
-                        "stage": failure.stage,
-                        "type": failure.exception_type,
-                        "message": failure.message,
-                    }
-                    logger.exception(
-                        "presentation_export_failed error_id=%s stage=%s exception_type=%s project_id=%s profile=%s format=%s duration_ms=%.2f",
-                        failure.error_id,
-                        failure.stage,
-                        failure.exception_type,
-                        safe_log_value(active_project.id),
-                        safe_log_value(selected_profile.id),
-                        safe_log_value(selected_format.id),
-                        (perf_counter() - generation_started) * 1000.0,
-                    )
+                except (OSError, ValueError, TypeError):
+                    logger.exception("export_history_record_failed project_id=%s", safe_log_value(active_project.id))
+                logger.info(
+                    "background_export_completed project_id=%s job_id=%s format=%s bytes=%d duration_ms=%.2f",
+                    safe_log_value(active_project.id),
+                    safe_log_value(relevant_job.id),
+                    safe_log_value(export_artifact.format_id),
+                    len(export_artifact.content),
+                    float(export_metrics.get("duration_ms", 0.0)),
+                )
+                background_manager.dismiss(relevant_job.id)
 
         cached_export = _application_state_controller().state.get(export_cache_key)
         cached_matches_controls = (

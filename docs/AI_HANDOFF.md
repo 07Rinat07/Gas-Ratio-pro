@@ -1,3 +1,15 @@
+# Latest implementation — Streamlit Background Export Integration
+
+Status: COMPLETED
+
+Implemented:
+- connected the recoverable background export manager to Professional Export;
+- added project-scoped queue state, progress display, manual polling and Cancel;
+- completed artifacts are transferred to the existing download cache and metadata-only history;
+- background workers receive immutable request/configuration snapshots and never render Streamlit UI.
+
+Next priority: automatic active-job polling and field acceptance for cancellation/recovery.
+
 # Latest implementation — Recoverable Background Export Foundation
 
 Status: COMPLETED

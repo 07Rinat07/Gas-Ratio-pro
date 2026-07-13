@@ -1,3 +1,16 @@
+# Latest increment — Streamlit Background Export Integration
+
+Status: COMPLETED
+
+Implemented:
+- Professional Export submits long-running renders to BackgroundExportManager;
+- progress and cancellation are surfaced in the isolated Streamlit export panel;
+- completed artifacts are handed back to the bounded download cache and export history on the UI thread;
+- worker code does not call Streamlit rendering APIs;
+- duplicate requests remain blocked by project and request signature.
+
+Next priority: automatic fragment polling while a job is active and field validation of cancellation during large PDF/DOCX renders.
+
 # Latest increment — Recoverable Background Export Foundation
 
 Status: COMPLETED
