@@ -1018,3 +1018,11 @@ Release candidate Definition of Done:
 3. Connect approved design state to Export Wizard execution.
 4. Add operation progress indicators and tooltips.
 5. Unify engineering chart theme and export quality.
+
+## Завершено — Large-LAS Performance Acceptance Gates
+
+- добавлен воспроизводимый synthetic LAS benchmark для renderer-neutral pipeline;
+- введены release gates по cold/warm latency, peak memory, cache hit и geometry reduction;
+- добавлен JSON-отчет для локального запуска и CI;
+- инженерные расчеты и исходные данные не изменяются;
+- следующий приоритет: подключить benchmark report к CI и вывести performance summary в runtime diagnostics.

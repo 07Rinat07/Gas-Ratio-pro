@@ -73,3 +73,16 @@ Professional Report Designer UI Integration:
 - Не ухудшать производительность.
 - Не ломать существующие export contracts.
 - PDF должен выглядеть как промышленный инженерный отчет.
+
+# Latest increment — Large-LAS Performance Acceptance Gates
+
+Status: COMPLETED
+
+Implemented:
+- deterministic large-LAS benchmark payloads;
+- cold/warm visualization pipeline measurements;
+- acceptance gates for latency, memory, cache reuse and downsampling reduction;
+- JSON CLI report via `scripts/run_large_las_benchmark.py`;
+- regression tests for gate evaluation and real pipeline behavior.
+
+Next priority: CI integration and runtime performance summary UI.
