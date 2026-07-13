@@ -81,6 +81,81 @@ class WellLogPlotConfig:
     show_interval_track: bool = True
     auto_crop_to_active_data: bool = True
     max_interval_overlays: int = 12
+    crop_top: float | None = None
+    crop_base: float | None = None
+    crop_padding_m: float | None = None
+    report_kind: str = "overview"
+    report_title: str = ""
+    report_group_index: int = 0
+
+
+
+@dataclass(frozen=True)
+class ReportIntervalGroup:
+    """Depth-clustered interval group used for detailed report pages."""
+
+    index: int
+    intervals: tuple[HydrocarbonInterval, ...]
+    top: float
+    base: float
+    score: float
+
+
+def _interval_score(interval: HydrocarbonInterval) -> float:
+    confidence = float(getattr(interval, "confidence_score", 0) or 0)
+    thickness = abs(float(interval.base) - float(interval.top))
+    fluid_weight = {"oil": 10.0, "gas": 9.0, "condensate": 8.0, "gas_oil": 7.0, "oil_gas": 7.0}.get(str(interval.fluid_type), 3.0)
+    return confidence + min(thickness, 50.0) * 0.5 + fluid_weight
+
+
+def group_intervals_for_report(
+    intervals: Sequence[HydrocarbonInterval],
+    *,
+    max_groups: int = 15,
+    merge_gap_m: float = 12.0,
+    max_group_span_m: float = 120.0,
+) -> tuple[ReportIntervalGroup, ...]:
+    """Cluster nearby productive intervals into printable detail pages.
+
+    The selection is deterministic.  Nearby intervals share one page, while
+    distant intervals get their own enlarged tablet.  When the report contains
+    more groups than allowed, the most significant groups are retained and then
+    restored to depth order.
+    """
+    productive = [i for i in intervals if abs(float(i.base) - float(i.top)) > 0]
+    productive.sort(key=lambda i: min(float(i.top), float(i.base)))
+    raw: list[list[HydrocarbonInterval]] = []
+    for interval in productive:
+        top = min(float(interval.top), float(interval.base))
+        base = max(float(interval.top), float(interval.base))
+        if not raw:
+            raw.append([interval]); continue
+        prev_top = min(min(float(i.top), float(i.base)) for i in raw[-1])
+        prev_base = max(max(float(i.top), float(i.base)) for i in raw[-1])
+        if top - prev_base <= merge_gap_m and max(base, prev_base) - prev_top <= max_group_span_m:
+            raw[-1].append(interval)
+        else:
+            raw.append([interval])
+    groups=[]
+    for idx, items in enumerate(raw, start=1):
+        top=min(min(float(i.top), float(i.base)) for i in items)
+        base=max(max(float(i.top), float(i.base)) for i in items)
+        groups.append(ReportIntervalGroup(idx, tuple(items), top, base, sum(_interval_score(i) for i in items)))
+    if len(groups) > max_groups:
+        groups=sorted(groups, key=lambda g: g.score, reverse=True)[:max_groups]
+        groups=sorted(groups, key=lambda g: g.top)
+    return tuple(ReportIntervalGroup(idx, g.intervals, g.top, g.base, g.score) for idx, g in enumerate(groups, start=1))
+
+
+def adaptive_detail_padding(top: float, base: float) -> float:
+    thickness=max(abs(float(base)-float(top)), 0.1)
+    if thickness < 2.0:
+        return 2.0
+    if thickness < 10.0:
+        return 5.0
+    if thickness < 35.0:
+        return 10.0
+    return min(25.0, max(12.0, thickness * 0.25))
 
 
 @dataclass(frozen=True)
@@ -207,7 +282,14 @@ def build_professional_well_log_plot(
     # Curve-only detection can be fooled by tiny non-zero noise near the top of a
     # LAS file, leaving most of the page empty.  Positive-thickness interpreted
     # intervals are the authoritative print range; active curves are the fallback.
-    if cfg.auto_crop_to_active_data:
+    if cfg.crop_top is not None and cfg.crop_base is not None:
+        crop_top = min(float(cfg.crop_top), float(cfg.crop_base))
+        crop_bottom = max(float(cfg.crop_top), float(cfg.crop_base))
+        pad = float(cfg.crop_padding_m if cfg.crop_padding_m is not None else adaptive_detail_padding(crop_top, crop_bottom))
+        cropped = prepared.loc[prepared[cfg.depth_column].between(crop_top - pad, crop_bottom + pad)].copy()
+        if not cropped.empty:
+            prepared = cropped.reset_index(drop=True)
+    elif cfg.auto_crop_to_active_data:
         positive_intervals = [
             interval for interval in intervals
             if abs(float(interval.base) - float(interval.top)) > 0
@@ -412,6 +494,21 @@ def build_professional_well_log_plot(
             {"symbol": "★", "label": "Приоритет", "description": "Наиболее перспективный интервал"},
         ],
         "depth_range": {"top": top_depth, "base": bottom_depth},
+        "report_kind": cfg.report_kind,
+        "report_title": cfg.report_title or cfg.title,
+        "group_index": int(cfg.report_group_index or 0),
+        "intervals": [
+            {
+                "id": f"HC-{idx:03d}",
+                "top": min(float(interval.top), float(interval.base)),
+                "base": max(float(interval.top), float(interval.base)),
+                "thickness": abs(float(interval.base) - float(interval.top)),
+                "fluid": FLUID_PLOT_LABELS.get(str(interval.fluid_type), str(interval.fluid_type)),
+                "confidence": float(getattr(interval, "confidence_score", 0) or 0),
+                "color": FLUID_PRINT_SPECS.get(str(interval.fluid_type), {}).get("color", str(_interval_style(str(interval.fluid_type)).get("color", "#64748b"))),
+            }
+            for idx, interval in enumerate(visible_intervals, start=1)
+        ],
     }
 
     apply_engineering_layout(

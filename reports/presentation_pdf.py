@@ -430,6 +430,34 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
             ),
             Spacer(1, 5),
         ])
+    intervals = list(legend.get("intervals", []) or [])
+    if str(legend.get("report_kind", "")) == "detail" and intervals:
+        card_rows = [[
+            _paragraph("Интервал", styles["table_header"]),
+            _paragraph("Глубина, м", styles["table_header"]),
+            _paragraph("Мощность, м", styles["table_header"]),
+            _paragraph("Флюид", styles["table_header"]),
+            _paragraph("Достоверность", styles["table_header"]),
+        ]]
+        for item in intervals:
+            card_rows.append([
+                _paragraph(str(item.get("id", "")), styles["table_cell"]),
+                _paragraph(f"{float(item.get('top', 0)):g}–{float(item.get('base', 0)):g}", styles["table_cell"]),
+                _paragraph(f"{float(item.get('thickness', 0)):g}", styles["table_cell"]),
+                _paragraph(str(item.get("fluid", "")), styles["table_cell"]),
+                _paragraph(f"{float(item.get('confidence', 0)):g}%", styles["table_cell"]),
+            ])
+        card = Table(card_rows, colWidths=[24*mm, 34*mm, 28*mm, 42*mm, 32*mm], hAlign="LEFT")
+        card.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#eaf0f7")),
+            ("GRID", (0,0), (-1,-1), 0.5, colors.HexColor("#cbd5e1")),
+            ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+            ("LEFTPADDING", (0,0), (-1,-1), 4),
+            ("RIGHTPADDING", (0,0), (-1,-1), 4),
+            ("TOPPADDING", (0,0), (-1,-1), 3),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+        ]))
+        items.extend([card, Spacer(1, 6)])
     items.extend(_legend_table_pdf("Кривые", list(legend.get("curves", []) or []), styles))
     items.extend(_legend_table_pdf("Интервалы", list(legend.get("fluids", []) or []), styles))
     items.extend(_legend_table_pdf("Маркеры", list(legend.get("markers", []) or []), styles, marker_mode=True))

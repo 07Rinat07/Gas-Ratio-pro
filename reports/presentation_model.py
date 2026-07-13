@@ -9,7 +9,10 @@ from core.hydrocarbon_intervals import HydrocarbonInterval, HydrocarbonIntervalR
 from reports.executive_summary import ExecutiveSummary
 from reports.export_html import HtmlReportTable
 from reports.interval_cards import IntervalReportCard
-from reports.well_log_plot import WellLogPlotConfig, WellLogPlotResult, build_professional_well_log_plot
+from reports.well_log_plot import (
+    WellLogPlotConfig, WellLogPlotResult, build_professional_well_log_plot,
+    group_intervals_for_report, adaptive_detail_padding, FLUID_PLOT_LABELS,
+)
 
 
 @dataclass(frozen=True)
@@ -58,6 +61,7 @@ class PresentationModel:
     engineering_tables: tuple[HtmlReportTable, ...] = ()
     technical_tables: tuple[HtmlReportTable, ...] = ()
     well_log_plot: WellLogPlotResult | None = None
+    detail_well_log_plots: tuple[WellLogPlotResult, ...] = ()
     visualization_payloads: tuple[Mapping[str, Any], ...] = ()
     metadata: PresentationMetadata = PresentationMetadata()
     schema: str = "gas-ratio-pro/presentation/model/v1"
@@ -68,9 +72,11 @@ class PresentationModel:
 
     @property
     def figures(self) -> tuple[object, ...]:
-        if self.well_log_plot is None:
-            return ()
-        return (self.well_log_plot.figure,)
+        figures: list[object] = []
+        if self.well_log_plot is not None:
+            figures.append(self.well_log_plot.figure)
+        figures.extend(item.figure for item in self.detail_well_log_plots)
+        return tuple(figures)
 
     @property
     def visualization_previews(self) -> tuple[Mapping[str, Any], ...]:
@@ -126,9 +132,37 @@ def build_presentation_model(
     clean_technical_tables = tuple(table for table in technical_tables if table is not None)
 
     plot_result: WellLogPlotResult | None = None
+    detail_results: list[WellLogPlotResult] = []
     if include_plot and source_df is not None and not source_df.empty:
         cfg = plot_config or WellLogPlotConfig(depth_column=depth_column)
-        plot_result = build_professional_well_log_plot(source_df, result.intervals, config=cfg)
+        overview_cfg = WellLogPlotConfig(
+            depth_column=cfg.depth_column, track_columns=cfg.track_columns,
+            max_points_per_track=cfg.max_points_per_track, height=cfg.height,
+            title=cfg.title, show_interval_track=cfg.show_interval_track,
+            auto_crop_to_active_data=cfg.auto_crop_to_active_data,
+            max_interval_overlays=cfg.max_interval_overlays,
+            report_kind="overview", report_title="Обзорный планшет скважины",
+        )
+        plot_result = build_professional_well_log_plot(source_df, result.intervals, config=overview_cfg)
+
+        profile = str((metadata or PresentationMetadata()).report_profile or "engineering").lower()
+        max_groups = 5 if profile in {"client", "customer"} else (30 if profile == "expert" else 15)
+        groups = group_intervals_for_report(result.intervals, max_groups=max_groups) if len(result.intervals) > 1 else ()
+        for group in groups:
+            fluids = ", ".join(dict.fromkeys(FLUID_PLOT_LABELS.get(str(i.fluid_type), str(i.fluid_type)) for i in group.intervals))
+            detail_cfg = WellLogPlotConfig(
+                depth_column=cfg.depth_column, track_columns=cfg.track_columns,
+                max_points_per_track=min(cfg.max_points_per_track, 1400), height=max(cfg.height, 900),
+                title=f"Детальный планшет {group.index}: {group.top:g}–{group.base:g} м",
+                show_interval_track=True, auto_crop_to_active_data=False,
+                max_interval_overlays=max(4, len(group.intervals) + 1),
+                crop_top=group.top, crop_base=group.base,
+                crop_padding_m=adaptive_detail_padding(group.top, group.base),
+                report_kind="detail",
+                report_title=f"Интервал {group.index}: {group.top:g}–{group.base:g} м · {fluids}",
+                report_group_index=group.index,
+            )
+            detail_results.append(build_professional_well_log_plot(source_df, group.intervals, config=detail_cfg))
 
     return PresentationModel(
         result=result,
@@ -137,6 +171,7 @@ def build_presentation_model(
         engineering_tables=clean_engineering_tables,
         technical_tables=clean_technical_tables,
         well_log_plot=plot_result,
+        detail_well_log_plots=tuple(detail_results),
         visualization_payloads=tuple(dict(payload) for payload in visualization_payloads),
         metadata=metadata or PresentationMetadata(),
     )

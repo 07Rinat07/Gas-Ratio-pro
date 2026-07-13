@@ -269,23 +269,31 @@ def build_engineering_document(
     # metadata.  Previously dozens of table pages pushed the well-log plot to
     # the end of the PDF, making the report look like a raw table dump.
     if include_figures:
-        plot_blocks = tuple(
-            DocumentPlot(title="Профессиональный планшет интерпретации", figure=figure)
-            for figure in model.figures
-        )
+        def _plot_meta(figure: object) -> dict[str, object]:
+            try:
+                meta = dict(getattr(getattr(figure, "layout", None), "meta", {}) or {})
+                return dict(meta.get("gas_ratio_report_legend", {}) or {})
+            except Exception:
+                return {}
+
+        for figure_index, figure in enumerate(model.figures):
+            meta = _plot_meta(figure)
+            title = str(meta.get("report_title") or "Профессиональный планшет интерпретации")
+            kind = str(meta.get("report_kind") or "overview")
+            sections.append(
+                DocumentSection(
+                    title="",
+                    blocks=(DocumentPlot(title=title, figure=figure),),
+                    page_break_before=bool(sections) and kind == "detail",
+                )
+            )
+
         preview_blocks = tuple(
             DocumentVisualizationPreview(title="LAS visualization preview", preview=preview)
             for preview in model.visualization_previews
         )
-        combined_blocks = plot_blocks + preview_blocks
-        if combined_blocks:
-            sections.append(
-                DocumentSection(
-                    title="",
-                    blocks=combined_blocks,
-                    page_break_before=False,
-                )
-            )
+        if preview_blocks:
+            sections.append(DocumentSection(title="", blocks=preview_blocks, page_break_before=False))
 
     if tables:
         sections.append(

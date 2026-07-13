@@ -290,6 +290,30 @@ def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
             f"{float(depth_range.get('top', 0)):g}–{float(depth_range.get('base', 0)):g} м. "
             "Цветные зоны обозначают вероятный тип флюида; маркеры показывают кровлю, подошву и приоритетный интервал.",
         )
+    intervals = list(legend.get("intervals", []) or [])
+    if str(legend.get("report_kind", "")) == "detail" and intervals:
+        table = doc.add_table(rows=1, cols=5)
+        table.style = "Table Grid"
+        headers = ("Интервал", "Глубина, м", "Мощность, м", "Флюид", "Достоверность")
+        for idx, value in enumerate(headers):
+            table.rows[0].cells[idx].text = value
+            for run in table.rows[0].cells[idx].paragraphs[0].runs:
+                run.bold = True
+                run.font.size = Pt(8)
+        for item in intervals:
+            cells = table.add_row().cells
+            values = (
+                str(item.get("id", "")),
+                f"{float(item.get('top', 0)):g}–{float(item.get('base', 0)):g}",
+                f"{float(item.get('thickness', 0)):g}",
+                str(item.get("fluid", "")),
+                f"{float(item.get('confidence', 0)):g}%",
+            )
+            for idx, value in enumerate(values):
+                cells[idx].text = value
+                for run in cells[idx].paragraphs[0].runs:
+                    run.font.size = Pt(8)
+        doc.add_paragraph()
     _add_report_legend_table(doc, "Кривые", list(legend.get("curves", []) or []))
     _add_report_legend_table(doc, "Интервалы и типы флюида", list(legend.get("fluids", []) or []))
     _add_report_legend_table(doc, "Маркеры интервалов", list(legend.get("markers", []) or []))
