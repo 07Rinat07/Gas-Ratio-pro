@@ -111,3 +111,60 @@ def latest_relevant_job(
         if not snapshot.terminal:
             return snapshot
     return matching[0] if matching else None
+
+
+@dataclass(frozen=True, slots=True)
+class BackgroundExportHistoryItem:
+    job_id: str
+    title: str
+    detail: str
+    level: str
+    progress: int
+    retryable: bool
+    retry_reason: str
+    updated_at: float
+
+
+def retry_diagnostic_reason(
+    snapshot: ExportJobSnapshot,
+    *,
+    artifact_available: bool | None = None,
+) -> str:
+    """Return a compact, persistence-safe reason for retrying a terminal job."""
+    if snapshot.status is ExportJobStatus.FAILED:
+        return snapshot.error or "Предыдущий экспорт завершился ошибкой."
+    if snapshot.status is ExportJobStatus.CANCELLED:
+        return "Предыдущий экспорт был отменён пользователем."
+    if snapshot.status is ExportJobStatus.ORPHANED:
+        return "Предыдущий экспорт был прерван перезапуском приложения."
+    if snapshot.status is ExportJobStatus.COMPLETED and artifact_available is False:
+        return "Файл завершённого экспорта утрачен после перезапуска приложения."
+    return "Повторный запуск фонового экспорта."
+
+
+def build_recent_background_job_history(
+    snapshots: tuple[ExportJobSnapshot, ...],
+    *,
+    artifact_availability: Mapping[str, bool] | None = None,
+    limit: int = 5,
+) -> tuple[BackgroundExportHistoryItem, ...]:
+    """Build a bounded newest-first history suitable for compact UI rendering."""
+    availability = artifact_availability or {}
+    bounded = snapshots[: max(0, int(limit))]
+    items: list[BackgroundExportHistoryItem] = []
+    for snapshot in bounded:
+        available = availability.get(snapshot.id)
+        view = build_background_export_status_view(snapshot, artifact_available=available)
+        items.append(
+            BackgroundExportHistoryItem(
+                job_id=snapshot.id,
+                title=view.title,
+                detail=view.detail,
+                level=view.level,
+                progress=view.progress,
+                retryable=view.retryable,
+                retry_reason=snapshot.retry_reason,
+                updated_at=snapshot.updated_at,
+            )
+        )
+    return tuple(items)

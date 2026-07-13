@@ -272,3 +272,22 @@ Validation:
 - `logs/app.log` was not present in the supplied archive, so no runtime log errors were available for review.
 
 Next priority: bounded recent-background-jobs UI with retry diagnostics and manual large-LAS acceptance testing.
+
+# Latest implementation — Bounded Background Export History and Retry Diagnostics
+
+Status: COMPLETED
+
+Implemented:
+- compact newest-first UI for the five latest project-scoped background export jobs;
+- persisted `retry_of_job_id` and `retry_reason` metadata on replacement jobs;
+- retry diagnostics for failed, cancelled, orphaned and completed-with-lost-artifact jobs;
+- safe Streamlit fragment compatibility fallback for mocked/older runtimes;
+- focused background-export and Streamlit regression coverage.
+
+Validation:
+- `python -m py_compile reports/background_export.py reports/background_export_ui.py app/streamlit_app.py`;
+- `78 passed` in focused background-export, dashboard-shell and Streamlit compatibility tests;
+- full test suite was started but did not finish within 240 seconds and showed unrelated failures before timeout, so no full-suite pass is claimed;
+- `logs/app.log` is not present in the supplied project archive.
+
+Next priority: manual large-LAS cancel/retry acceptance test and terminal-job cleanup controls.

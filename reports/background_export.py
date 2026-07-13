@@ -31,6 +31,8 @@ class ExportJobSnapshot:
     updated_at: float
     result_key: str = ""
     error: str = ""
+    retry_of_job_id: str = ""
+    retry_reason: str = ""
 
     @property
     def terminal(self) -> bool:
@@ -53,6 +55,8 @@ class ExportJobSnapshot:
             "updated_at": self.updated_at,
             "result_key": self.result_key,
             "error": self.error,
+            "retry_of_job_id": self.retry_of_job_id,
+            "retry_reason": self.retry_reason,
         }
 
     @classmethod
@@ -69,6 +73,8 @@ class ExportJobSnapshot:
             updated_at=float(payload.get("updated_at", now)),
             result_key=str(payload.get("result_key") or ""),
             error=str(payload.get("error") or ""),
+            retry_of_job_id=str(payload.get("retry_of_job_id") or ""),
+            retry_reason=str(payload.get("retry_reason") or ""),
         )
 
 
@@ -164,6 +170,8 @@ class BackgroundExportManager:
         project_id: str,
         request_signature: str,
         work: ExportWork,
+        retry_of_job_id: str = "",
+        retry_reason: str = "",
     ) -> ExportJobSnapshot:
         if not request_signature.strip():
             raise ValueError("request_signature must not be empty")
@@ -185,6 +193,8 @@ class BackgroundExportManager:
                 message="Экспорт поставлен в очередь.",
                 created_at=now,
                 updated_at=now,
+                retry_of_job_id=str(retry_of_job_id),
+                retry_reason=str(retry_reason),
             )
             cancel_event = Event()
             self._cancel_events[snapshot.id] = cancel_event

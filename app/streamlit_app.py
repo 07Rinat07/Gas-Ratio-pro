@@ -374,7 +374,9 @@ from reports.background_export import BackgroundExportManager, ExportJobStatus
 from reports.background_export_ui import (
     BackgroundExportResult,
     build_background_export_status_view,
+    build_recent_background_job_history,
     latest_relevant_job,
+    retry_diagnostic_reason,
 )
 from las_editor.las_creation_wizard import (
     DEFAULT_CURVE_LIBRARY,
@@ -8953,8 +8955,13 @@ def _streamlit_fragment(function=None, *, run_every: str | None = None):
         if not callable(fragment):
             return target
         if run_every is None:
-            return fragment(target)
-        return fragment(run_every=run_every)(target)
+            decorated = fragment(target)
+        else:
+            fragment_decorator = fragment(run_every=run_every)
+            if not callable(fragment_decorator):
+                return target
+            decorated = fragment_decorator(target)
+        return decorated if callable(decorated) else target
 
     return decorate(function) if function is not None else decorate
 
@@ -9037,6 +9044,7 @@ def _render_professional_export_panel(
         repeat_pending_key = f"export_history_repeat_pending_{active_project.id}"
         repeat_confirm_key = f"export_history_repeat_confirm_{active_project.id}"
         repeat_autorun_key = f"export_history_repeat_autorun_{active_project.id}"
+        background_retry_context_key = f"background_export_retry_context_{active_project.id}"
         pending_confirmation = export_state.get(repeat_confirm_key)
         if isinstance(pending_confirmation, dict):
             st.warning(str(pending_confirmation.get("title", "Подтвердите повторный экспорт")))
@@ -9590,10 +9598,15 @@ def _render_professional_export_panel(
                     return BackgroundExportResult(artifact=artifact, metrics=metrics)
 
                 try:
+                    retry_context = export_state.pop(background_retry_context_key, {})
+                    if not isinstance(retry_context, dict):
+                        retry_context = {}
                     created_job = background_manager.submit(
                         project_id=str(active_project.id),
                         request_signature=current_export_request.selection_signature,
                         work=_background_work,
+                        retry_of_job_id=str(retry_context.get("job_id", "")),
+                        retry_reason=str(retry_context.get("reason", "")),
                     )
                     export_state.pop(export_error_key, None)
                     logger.info(
@@ -9642,6 +9655,13 @@ def _render_professional_export_panel(
                 type="primary",
                 width="stretch",
             ):
+                export_state[background_retry_context_key] = {
+                    "job_id": relevant_job.id,
+                    "reason": retry_diagnostic_reason(
+                        relevant_job,
+                        artifact_available=background_manager.result_available(relevant_job.id),
+                    ),
+                }
                 background_manager.dismiss(relevant_job.id)
                 export_state[repeat_autorun_key] = True
                 _request_ui_refresh_and_rerun("background_export_retry")
@@ -9650,6 +9670,26 @@ def _render_professional_export_panel(
                 job_right.caption("Прогресс обновляется автоматически каждые 2 секунды.")
             elif status_view.retryable:
                 job_right.caption("Повтор использует текущие параметры мастера экспорта.")
+
+        recent_job_history = build_recent_background_job_history(
+            project_jobs,
+            artifact_availability={
+                item.id: background_manager.result_available(item.id) for item in project_jobs
+            },
+            limit=5,
+        )
+        if recent_job_history:
+            with st.expander("Последние фоновые экспорты", expanded=False):
+                for history_item in recent_job_history:
+                    retry_note = (
+                        f"  \nПричина повтора: {history_item.retry_reason}"
+                        if history_item.retry_reason
+                        else ""
+                    )
+                    st.markdown(
+                        f"**{history_item.title}** · {history_item.progress}%  \n"
+                        f"{history_item.detail}{retry_note}"
+                    )
 
             if (
                 relevant_job.status is ExportJobStatus.COMPLETED
