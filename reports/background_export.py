@@ -34,6 +34,8 @@ class ExportJobSnapshot:
     retry_of_job_id: str = ""
     retry_reason: str = ""
     export_format: str = ""
+    duration_seconds: float = 0.0
+    artifact_size_bytes: int = 0
 
     @property
     def terminal(self) -> bool:
@@ -59,6 +61,8 @@ class ExportJobSnapshot:
             "retry_of_job_id": self.retry_of_job_id,
             "retry_reason": self.retry_reason,
             "export_format": self.export_format,
+            "duration_seconds": self.duration_seconds,
+            "artifact_size_bytes": self.artifact_size_bytes,
         }
 
     @classmethod
@@ -78,6 +82,8 @@ class ExportJobSnapshot:
             retry_of_job_id=str(payload.get("retry_of_job_id") or ""),
             retry_reason=str(payload.get("retry_reason") or ""),
             export_format=str(payload.get("export_format") or ""),
+            duration_seconds=max(0.0, float(payload.get("duration_seconds", 0.0))),
+            artifact_size_bytes=max(0, int(payload.get("artifact_size_bytes", 0))),
         )
 
 
@@ -87,6 +93,37 @@ class ExportCancelled(RuntimeError):
 
 ProgressCallback = Callable[[int, str], None]
 ExportWork = Callable[[ProgressCallback, Callable[[], None]], Any]
+
+
+def _result_size_bytes(result: Any) -> int:
+    """Best-effort size extraction for process-local export results.
+
+    The manager stays renderer-neutral: it recognizes common binary containers
+    and recursively inspects ``artifact``/``content`` fields without importing
+    report-specific classes. Unknown result types safely report zero bytes.
+    """
+    if result is None:
+        return 0
+    if isinstance(result, (bytes, bytearray, memoryview)):
+        return len(result)
+    if isinstance(result, str):
+        return len(result.encode("utf-8"))
+    if isinstance(result, MutableMapping):
+        for key in ("artifact", "content", "data", "payload"):
+            if key in result:
+                size = _result_size_bytes(result[key])
+                if size:
+                    return size
+        return 0
+    for attribute in ("artifact", "content", "data", "payload"):
+        try:
+            nested = getattr(result, attribute)
+        except (AttributeError, TypeError):
+            continue
+        size = _result_size_bytes(nested)
+        if size:
+            return size
+    return 0
 
 
 class BackgroundExportManager:
@@ -135,11 +172,13 @@ class BackgroundExportManager:
                 ExportJobStatus.RUNNING,
                 ExportJobStatus.CANCELLING,
             }:
+                now = time()
                 snapshot = replace(
                     snapshot,
                     status=ExportJobStatus.ORPHANED,
                     message="Предыдущая фоновая операция была прервана перезапуском приложения.",
-                    updated_at=time(),
+                    updated_at=now,
+                    duration_seconds=max(0.0, now - snapshot.created_at),
                 )
                 store[job_id] = snapshot.to_dict()
         self._trim_store()
@@ -234,23 +273,27 @@ class BackgroundExportManager:
         except ExportCancelled as exc:
             with self._lock:
                 current = self._read(job_id)
-                self._write(replace(current, status=ExportJobStatus.CANCELLED, message=str(exc), updated_at=time()))
+                now = time()
+                self._write(replace(current, status=ExportJobStatus.CANCELLED, message=str(exc), updated_at=now, duration_seconds=max(0.0, now - current.created_at)))
         except Exception as exc:  # worker boundary: persist safe diagnostic metadata
             with self._lock:
                 current = self._read(job_id)
+                now = time()
                 self._write(
                     replace(
                         current,
                         status=ExportJobStatus.FAILED,
                         message="Экспорт завершился ошибкой.",
                         error=f"{type(exc).__name__}: {exc}",
-                        updated_at=time(),
+                        updated_at=now,
+                        duration_seconds=max(0.0, now - current.created_at),
                     )
                 )
         else:
             with self._lock:
                 self._results[job_id] = result
                 current = self._read(job_id)
+                now = time()
                 self._write(
                     replace(
                         current,
@@ -258,7 +301,9 @@ class BackgroundExportManager:
                         progress=100,
                         message="Экспорт завершён.",
                         result_key=job_id,
-                        updated_at=time(),
+                        updated_at=now,
+                        duration_seconds=max(0.0, now - current.created_at),
+                        artifact_size_bytes=_result_size_bytes(result),
                     )
                 )
         finally:
@@ -275,11 +320,13 @@ class BackgroundExportManager:
                 event.set()
             future = self._futures.get(job_id)
             if future is not None and future.cancel():
+                now = time()
                 snapshot = replace(
                     snapshot,
                     status=ExportJobStatus.CANCELLED,
                     message="Экспорт отменён до запуска.",
-                    updated_at=time(),
+                    updated_at=now,
+                    duration_seconds=max(0.0, now - snapshot.created_at),
                 )
             else:
                 snapshot = replace(

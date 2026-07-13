@@ -376,6 +376,8 @@ from reports.background_export_ui import (
     build_background_export_status_view,
     build_recent_background_job_history,
     filter_recent_background_job_history,
+    format_artifact_size,
+    format_export_duration,
     latest_relevant_job,
     retry_diagnostic_reason,
 )
@@ -9743,9 +9745,19 @@ def _render_professional_export_panel(
                         if history_item.retry_reason
                         else ""
                     )
+                    history_metadata = [
+                        f"Длительность: {format_export_duration(history_item.duration_seconds)}"
+                    ]
+                    if history_item.artifact_size_bytes > 0:
+                        history_metadata.append(
+                            f"Размер: {format_artifact_size(history_item.artifact_size_bytes)}"
+                        )
+                    if history_item.export_format:
+                        history_metadata.append(history_item.export_format.upper())
                     history_content.markdown(
                         f"**{history_item.title}** · {history_item.progress}%  \n"
-                        f"{history_item.detail}{retry_note}"
+                        f"{history_item.detail}{retry_note}  \n"
+                        f"{' · '.join(history_metadata)}"
                     )
                     if history_item.dismissible and history_action.button(
                         "Удалить",

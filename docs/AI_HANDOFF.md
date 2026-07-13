@@ -324,3 +324,22 @@ Implemented:
 - focused unit and Streamlit integration tests pass.
 
 Next priority: expose job duration and artifact size, then connect runtime performance summary to diagnostics.
+
+# Latest implementation — Background Export Duration and Artifact Size
+
+Status: COMPLETED
+
+Implemented:
+- persisted terminal job duration in `ExportJobSnapshot`;
+- persisted completed artifact size with renderer-neutral recursive size extraction;
+- compact Russian duration and binary-size formatting for recent export history;
+- duration, artifact size and export format are displayed together in the Streamlit history UI;
+- backward-compatible loading of snapshots created before these metadata fields existed;
+- focused unit and Streamlit regression coverage.
+
+Validation:
+- `python -m py_compile reports/background_export.py reports/background_export_ui.py app/streamlit_app.py`;
+- `49 passed` in the focused background-export and export-history regression set;
+- `logs/app.log` is not present in the supplied project archive.
+
+Next priority: runtime performance summary UI, then optional history sorting by time/duration/size.

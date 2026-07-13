@@ -127,6 +127,8 @@ class BackgroundExportHistoryItem:
     updated_at: float
     status: ExportJobStatus
     export_format: str
+    duration_seconds: float
+    artifact_size_bytes: int
 
 
 def retry_diagnostic_reason(
@@ -176,6 +178,12 @@ def build_recent_background_job_history(
                 updated_at=snapshot.updated_at,
                 status=snapshot.status,
                 export_format=snapshot.export_format,
+                duration_seconds=max(
+                    0.0,
+                    snapshot.duration_seconds
+                    or (snapshot.updated_at - snapshot.created_at),
+                ),
+                artifact_size_bytes=max(0, snapshot.artifact_size_bytes),
             )
         )
     return tuple(items)
@@ -203,3 +211,31 @@ def filter_recent_background_job_history(
         if (not normalized_statuses or item.status.value in normalized_statuses)
         and (not normalized_formats or item.export_format.strip().lower() in normalized_formats)
     )
+
+
+def format_export_duration(seconds: float) -> str:
+    """Format a job duration for compact Russian-language history metadata."""
+    total_seconds = max(0, int(round(float(seconds))))
+    if total_seconds < 60:
+        return f"{total_seconds} с"
+    minutes, remainder = divmod(total_seconds, 60)
+    if minutes < 60:
+        return f"{minutes} мин {remainder:02d} с"
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours} ч {minutes:02d} мин"
+
+
+def format_artifact_size(size_bytes: int) -> str:
+    """Format a non-negative artifact size using compact binary units."""
+    size = max(0, int(size_bytes))
+    units = ("Б", "КиБ", "МиБ", "ГиБ")
+    value = float(size)
+    unit = units[0]
+    for candidate in units:
+        unit = candidate
+        if value < 1024.0 or candidate == units[-1]:
+            break
+        value /= 1024.0
+    if unit == "Б":
+        return f"{int(value)} {unit}"
+    return f"{value:.1f} {unit}"

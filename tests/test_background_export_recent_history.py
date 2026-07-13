@@ -94,3 +94,57 @@ def test_history_filter_supports_status_and_format_without_reordering():
 
     assert [item.job_id for item in filtered] == ["pdf-fail"]
     assert filter_recent_background_job_history(items) == items
+
+
+def test_completed_job_persists_duration_and_artifact_size():
+    from reports.background_export import BackgroundExportManager
+
+    state = {}
+    manager = BackgroundExportManager(state)
+    job = manager.submit(
+        project_id="p1",
+        request_signature="sized-result",
+        export_format="pdf",
+        work=lambda report, check: b"engineering-report",
+    )
+    manager.shutdown(wait=True)
+
+    snapshot = manager.snapshot(job.id)
+    assert snapshot.status is ExportJobStatus.COMPLETED
+    assert snapshot.duration_seconds >= 0.0
+    assert snapshot.artifact_size_bytes == len(b"engineering-report")
+
+    restored = ExportJobSnapshot.from_dict(snapshot.to_dict())
+    assert restored.duration_seconds == snapshot.duration_seconds
+    assert restored.artifact_size_bytes == snapshot.artifact_size_bytes
+
+
+def test_history_exposes_duration_and_artifact_size_with_backward_compatibility():
+    from dataclasses import replace
+
+    current = replace(
+        _snapshot("sized", ExportJobStatus.COMPLETED, updated_at=12),
+        created_at=2,
+        duration_seconds=7.5,
+        artifact_size_bytes=2 * 1024 * 1024,
+    )
+    legacy = _snapshot("legacy", ExportJobStatus.FAILED, updated_at=8)
+
+    items = build_recent_background_job_history((current, legacy))
+
+    assert items[0].duration_seconds == 7.5
+    assert items[0].artifact_size_bytes == 2 * 1024 * 1024
+    assert items[1].duration_seconds == 1.0
+    assert items[1].artifact_size_bytes == 0
+
+
+def test_duration_and_artifact_size_formatters_are_compact_and_safe():
+    from reports.background_export_ui import format_artifact_size, format_export_duration
+
+    assert format_export_duration(-1) == "0 с"
+    assert format_export_duration(59.4) == "59 с"
+    assert format_export_duration(61) == "1 мин 01 с"
+    assert format_export_duration(3661) == "1 ч 01 мин"
+    assert format_artifact_size(-1) == "0 Б"
+    assert format_artifact_size(1024) == "1.0 КиБ"
+    assert format_artifact_size(2 * 1024 * 1024) == "2.0 МиБ"
