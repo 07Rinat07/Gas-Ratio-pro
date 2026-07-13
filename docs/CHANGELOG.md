@@ -2049,3 +2049,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Integrated queued construction for interpretation, gas, ratio, Pixler and engineering tablet figures.
 - Preserved bounded Plot Cache reuse and stable frontend component keys.
 - Updated runtime build identity to v222-rc8.
+
+## v222-rc9 — Plot Serialization Cache
+
+- Added one-time Plotly serialization inside the bounded Plot Cache.
+- Reused pre-serialized browser payloads on Streamlit reruns.
+- Added stable content fingerprints for Plotly component keys.
+- Preserved original figures for PDF, DOCX, PNG and SVG workflows.
+- Added regression tests for serialization reuse and LRU eviction.

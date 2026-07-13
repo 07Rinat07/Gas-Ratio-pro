@@ -9459,6 +9459,8 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     cached_bundle = plot_cache.get(figure_cache_key)
     if cached_bundle is not None:
         figures = list(cached_bundle.figures)
+        screen_plot_payloads = list(cached_bundle.screen_payloads)
+        screen_plot_fingerprints = list(cached_bundle.fingerprints)
         tablet_figure = cached_bundle.tablet_figure
         cache_stats = plot_cache.stats()
         lookup_duration_ms = (perf_counter() - cache_lookup_started) * 1000.0
@@ -9483,6 +9485,8 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         )
         render_started = perf_counter()
         figures = []
+        screen_plot_payloads = []
+        screen_plot_fingerprints = []
         tablet_figure = None
         render_queue = state_controller.get_value("interpretation_render_queue")
         if not isinstance(render_queue, RenderQueue):
@@ -9553,7 +9557,9 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             )
         tablet_result = next((result for result in task_results if result.task_id == "engineering-tablet"), None)
         tablet_figure = tablet_result.value if tablet_result is not None else None
-        plot_cache.put(figure_cache_key, figures, tablet_figure=tablet_figure)
+        cached_bundle = plot_cache.put(figure_cache_key, figures, tablet_figure=tablet_figure)
+        screen_plot_payloads = list(cached_bundle.screen_payloads)
+        screen_plot_fingerprints = list(cached_bundle.fingerprints)
         render_duration_ms = (perf_counter() - render_started) * 1000.0
         cache_stats = plot_cache.stats()
         runtime_diagnostics.record(
@@ -9584,11 +9590,21 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         st.warning("Выберите хотя бы один график.")
     stable_plot_token = hashlib.sha1(repr(figure_cache_key).encode("utf-8")).hexdigest()[:12]
     for figure_index, figure in enumerate(figures):
+        render_value = (
+            screen_plot_payloads[figure_index]
+            if figure_index < len(screen_plot_payloads)
+            else figure
+        )
+        fingerprint = (
+            screen_plot_fingerprints[figure_index]
+            if figure_index < len(screen_plot_fingerprints)
+            else str(figure_index)
+        )
         st.plotly_chart(
-            figure,
+            render_value,
             width="stretch",
             config=PLOTLY_SCREEN_CONFIG,
-            key=f"interpretation_plot_{stable_plot_token}_{figure_index}",
+            key=f"interpretation_plot_{stable_plot_token}_{fingerprint}",
         )
     if tablet_figure is not None:
         _render_static_export_controls(

@@ -485,3 +485,7 @@ Engineering Workspace Refactoring реализован: Plot Cache 2.0 огра�
 ## v222-rc8 status
 
 Lazy workspace dispatch and sequential Plotly construction are implemented. Inactive routes are not invoked, duplicate render tasks are suppressed within a render cycle, and each expensive plot task records timing diagnostics. Release candidate validation is in progress.
+
+## v222-rc9 status
+
+Plotly figures are now serialized once per Plot Cache miss. Repeated workspace reruns reuse JSON-compatible payloads and stable content fingerprints while original figures remain available for export.

@@ -828,3 +828,10 @@ Release candidate Definition of Done:
 - Duplicate task suppression within a render cycle.
 - Per-task runtime diagnostics and bounded cache integration.
 - Stable Plotly component keys retained for frontend reuse.
+
+## v222-rc9 — Plot Serialization Cache
+
+- Cache normalized Plotly browser payloads.
+- Reuse stable content fingerprints across reruns.
+- Avoid repeated Python-side figure serialization.
+- Keep original figures for static export and reports.
