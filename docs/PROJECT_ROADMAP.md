@@ -1,4 +1,4 @@
-## v222.4 — Streamlit Rerun Coordination — COMPLETED
+## v222.5 — Streamlit Rerun Coordination — COMPLETED
 
 - centralize full-app rerun requests;
 - suppress duplicate reruns inside one render cycle;

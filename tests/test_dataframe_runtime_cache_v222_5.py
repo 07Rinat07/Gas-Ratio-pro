@@ -1,0 +1,90 @@
+from __future__ import annotations
+
+import pandas as pd
+
+from core.dataframe_runtime_cache import DataframeRuntimeCache
+from core.presentation_runtime import dataframe_signature
+from palettes.plot_engine import downsample_frame_for_screen
+
+
+def _frame(rows: int = 5000) -> pd.DataFrame:
+    return pd.DataFrame({"depth": range(rows), "c1": range(rows)})
+
+
+def test_signature_is_computed_once_per_committed_revision() -> None:
+    frame = _frame(20)
+    cache = DataframeRuntimeCache()
+    calls = 0
+
+    def builder(value: pd.DataFrame) -> str:
+        nonlocal calls
+        calls += 1
+        return dataframe_signature(value)
+
+    first = cache.signature(frame, revision=3, builder=builder)
+    second = cache.signature(frame, revision=3, builder=builder)
+
+    assert first == second
+    assert calls == 1
+    assert cache.stats().signature_hits == 1
+    assert cache.stats().signature_misses == 1
+
+
+def test_revision_change_invalidates_signature_and_samples() -> None:
+    frame = _frame()
+    cache = DataframeRuntimeCache()
+    sig1 = cache.signature(frame, revision=1, builder=dataframe_signature)
+    cache.screen_sample(
+        frame,
+        source_signature=sig1,
+        depth_range=(0.0, 4999.0),
+        max_rows=100,
+        sampler=downsample_frame_for_screen,
+    )
+    assert cache.stats().sample_entries == 1
+
+    cache.signature(frame, revision=2, builder=dataframe_signature)
+    assert cache.stats().sample_entries == 0
+
+
+def test_screen_sample_is_reused_for_same_range() -> None:
+    frame = _frame()
+    cache = DataframeRuntimeCache(max_samples=2)
+    signature = cache.signature(frame, revision=1, builder=dataframe_signature)
+
+    first = cache.screen_sample(
+        frame,
+        source_signature=signature,
+        depth_range=(0.0, 4999.0),
+        max_rows=200,
+        sampler=downsample_frame_for_screen,
+    )
+    second = cache.screen_sample(
+        frame,
+        source_signature=signature,
+        depth_range=(0.0, 4999.0),
+        max_rows=200,
+        sampler=downsample_frame_for_screen,
+    )
+
+    assert first is second
+    assert len(first) <= 202
+    assert cache.stats().sample_hits == 1
+    assert cache.stats().sample_misses == 1
+
+
+def test_sample_cache_is_bounded() -> None:
+    frame = _frame()
+    cache = DataframeRuntimeCache(max_samples=2)
+    signature = cache.signature(frame, revision=1, builder=dataframe_signature)
+    for index in range(3):
+        cache.screen_sample(
+            frame.iloc[index * 100 :],
+            source_signature=signature,
+            depth_range=(float(index), 4999.0),
+            max_rows=100,
+            sampler=downsample_frame_for_screen,
+        )
+    stats = cache.stats()
+    assert stats.sample_entries == 2
+    assert stats.evictions == 1

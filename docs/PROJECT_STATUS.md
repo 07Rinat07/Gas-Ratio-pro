@@ -1,4 +1,4 @@
-## Current increment: v222.4 — Streamlit Rerun Coordination
+## Current increment: v222.5 — Streamlit Rerun Coordination
 
 Status: **STABLE BUGFIX**
 

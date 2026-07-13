@@ -225,6 +225,7 @@ from palettes.plot_engine import PLOTLY_SCREEN_CONFIG, downsample_frame_for_scre
 from palettes.plot_cache import PlotCache
 from core.runtime_diagnostics import RuntimeDiagnostics
 from core.rerun_coordinator import begin_rerun_cycle, request_rerun
+from core.dataframe_runtime_cache import DataframeRuntimeCache
 from core.performance_audit import build_workspace_performance_gate, evaluate_performance
 from core.render_queue import RenderQueue, RenderTask
 from core.lazy_workspace import LazyWorkspaceRegistry, WorkspaceRoute
@@ -2617,6 +2618,7 @@ def _store_interpretation_dataset(calculated_df: pd.DataFrame, source_label: str
     )
     controller.state.pop("interpretation_figure_cache", None)
     controller.state.pop("interpretation_plot_cache", None)
+    controller.state.pop("dataframe_runtime_cache", None)
     configure_logging().info(
         "active_calculation_committed project_id=%s rows=%d revision=%d source=%s",
         safe_log_value(active_project_id),
@@ -9358,8 +9360,17 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     )
     _render_interpretation_graph_settings_saver(active_project, current_settings, logger)
 
-    calculated_signature = dataframe_signature(calculated_df)
-    revision_snapshot = revision_controller_from_state(_application_state_controller().state).snapshot
+    state_controller = _application_state_controller()
+    revision_snapshot = revision_controller_from_state(state_controller.state).snapshot
+    dataframe_runtime_cache = state_controller.get_value("dataframe_runtime_cache")
+    if not isinstance(dataframe_runtime_cache, DataframeRuntimeCache):
+        dataframe_runtime_cache = DataframeRuntimeCache(max_samples=8)
+        state_controller.set_value("dataframe_runtime_cache", dataframe_runtime_cache)
+    calculated_signature = dataframe_runtime_cache.signature(
+        calculated_df,
+        revision=revision_snapshot.calculation,
+        builder=dataframe_signature,
+    )
     build_clicked = st.button(
         "Построить графики и планшет",
         type="primary",
@@ -9481,9 +9492,22 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     if filtered_df.empty:
         st.error("В примененном диапазоне глубин нет строк. Измените настройки и повторно постройте графики.")
         return
-    screen_filtered_df = downsample_frame_for_screen(filtered_df)
+    screen_filtered_df = dataframe_runtime_cache.screen_sample(
+        filtered_df,
+        source_signature=calculated_signature,
+        depth_range=depth_range,
+        max_rows=2200,
+        sampler=downsample_frame_for_screen,
+    )
+    dataframe_cache_stats = dataframe_runtime_cache.stats()
     if len(screen_filtered_df) < len(filtered_df):
-        logger.info("interpretation_screen_downsample full_rows=%d screen_rows=%d", len(filtered_df), len(screen_filtered_df))
+        logger.info(
+            "interpretation_screen_downsample full_rows=%d screen_rows=%d sample_hits=%d sample_misses=%d",
+            len(filtered_df),
+            len(screen_filtered_df),
+            dataframe_cache_stats.sample_hits,
+            dataframe_cache_stats.sample_misses,
+        )
     if render_settings.tablet_adaptive_height and depth_range is not None:
         height = _adaptive_tablet_height(depth_range, render_settings.tablet_view_mode, height)
 
@@ -9495,7 +9519,6 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         tuple(sorted((str(key), repr(value)) for key, value in applied_presentation.settings.items())),
         len(screen_filtered_df),
     )
-    state_controller = _application_state_controller()
     state = state_controller.state
     plot_cache = state_controller.get_value("interpretation_plot_cache")
     if not isinstance(plot_cache, PlotCache):

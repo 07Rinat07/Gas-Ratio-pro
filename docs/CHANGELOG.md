@@ -1,3 +1,10 @@
+## v222.5 — Dataframe Runtime Cache
+
+- Added a bounded runtime cache for calculation signatures and browser-facing dataframe samples.
+- Reused deterministic screen samples across Streamlit reruns and depth-range revisits.
+- Invalidated derived dataframe state only when the committed calculation revision changes.
+- Added cache hit/miss and eviction diagnostics for large LAS rendering.
+
 ## v222.4 — Streamlit Rerun Coordination
 
 - Added one state-backed rerun coordinator for full-app refreshes.
