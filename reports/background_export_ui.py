@@ -253,6 +253,56 @@ def sort_recent_background_job_history(
     deterministic = sorted(items, key=lambda item: (item.updated_at, item.job_id), reverse=True)
     return tuple(sorted(deterministic, key=primary, reverse=reverse))
 
+
+@dataclass(frozen=True, slots=True)
+class BackgroundExportPerformanceSummary:
+    total_jobs: int
+    active_jobs: int
+    completed_jobs: int
+    failed_jobs: int
+    cancelled_jobs: int
+    orphaned_jobs: int
+    success_rate_percent: float
+    average_duration_seconds: float
+    average_artifact_size_bytes: int
+
+
+def build_background_export_performance_summary(
+    items: tuple[BackgroundExportHistoryItem, ...],
+) -> BackgroundExportPerformanceSummary:
+    """Aggregate lightweight runtime metrics from visible export history.
+
+    The function is renderer-neutral and deliberately uses only persisted
+    snapshot metadata. Active jobs are excluded from success-rate, duration and
+    artifact-size averages because their final values are not known yet.
+    """
+    total_jobs = len(items)
+    completed = tuple(item for item in items if item.status is ExportJobStatus.COMPLETED)
+    failed = tuple(item for item in items if item.status is ExportJobStatus.FAILED)
+    cancelled = tuple(item for item in items if item.status is ExportJobStatus.CANCELLED)
+    orphaned = tuple(item for item in items if item.status is ExportJobStatus.ORPHANED)
+    terminal_count = len(completed) + len(failed) + len(cancelled) + len(orphaned)
+    duration_samples = tuple(
+        item.duration_seconds for item in items
+        if item.terminal and item.duration_seconds >= 0.0
+    )
+    size_samples = tuple(
+        item.artifact_size_bytes for item in completed
+        if item.artifact_size_bytes > 0
+    )
+    return BackgroundExportPerformanceSummary(
+        total_jobs=total_jobs,
+        active_jobs=total_jobs - terminal_count,
+        completed_jobs=len(completed),
+        failed_jobs=len(failed),
+        cancelled_jobs=len(cancelled),
+        orphaned_jobs=len(orphaned),
+        success_rate_percent=(100.0 * len(completed) / terminal_count) if terminal_count else 0.0,
+        average_duration_seconds=(sum(duration_samples) / len(duration_samples)) if duration_samples else 0.0,
+        average_artifact_size_bytes=(int(round(sum(size_samples) / len(size_samples))) if size_samples else 0),
+    )
+
+
 def format_export_duration(seconds: float) -> str:
     """Format a job duration for compact Russian-language history metadata."""
     total_seconds = max(0, int(round(float(seconds))))

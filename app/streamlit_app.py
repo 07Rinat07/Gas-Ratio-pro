@@ -373,6 +373,7 @@ from reports.export_controller import (
 from reports.background_export import BackgroundExportManager, ExportJobStatus
 from reports.background_export_ui import (
     BackgroundExportResult,
+    build_background_export_performance_summary,
     build_background_export_status_view,
     build_recent_background_job_history,
     filter_recent_background_job_history,
@@ -9685,6 +9686,48 @@ def _render_professional_export_panel(
         )
         if recent_job_history:
             with st.expander("Последние фоновые экспорты", expanded=False):
+                performance_summary = build_background_export_performance_summary(
+                    recent_job_history
+                )
+                perf_total, perf_success, perf_duration, perf_size = st.columns(4)
+                perf_total.metric(
+                    "Заданий",
+                    performance_summary.total_jobs,
+                    delta=(
+                        f"активных: {performance_summary.active_jobs}"
+                        if performance_summary.active_jobs
+                        else None
+                    ),
+                )
+                perf_success.metric(
+                    "Успешность",
+                    f"{performance_summary.success_rate_percent:.0f}%",
+                    delta=f"готово: {performance_summary.completed_jobs}",
+                )
+                perf_duration.metric(
+                    "Среднее время",
+                    format_export_duration(performance_summary.average_duration_seconds),
+                )
+                perf_size.metric(
+                    "Средний файл",
+                    (
+                        format_artifact_size(performance_summary.average_artifact_size_bytes)
+                        if performance_summary.average_artifact_size_bytes > 0
+                        else "—"
+                    ),
+                )
+                if (
+                    performance_summary.failed_jobs
+                    or performance_summary.cancelled_jobs
+                    or performance_summary.orphaned_jobs
+                ):
+                    st.caption(
+                        "Незавершённые: "
+                        f"ошибки — {performance_summary.failed_jobs}, "
+                        f"отменены — {performance_summary.cancelled_jobs}, "
+                        f"прерваны — {performance_summary.orphaned_jobs}."
+                    )
+
                 filter_left, filter_right, sort_column = st.columns([2, 2, 2])
                 status_label_to_value = {
                     "Выполняется": "running",

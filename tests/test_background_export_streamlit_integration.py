@@ -68,3 +68,13 @@ def test_background_history_exposes_sorting_controls() -> None:
     assert '"Дольше выполнялись": "duration_desc"' in body
     assert '"Сначала большие файлы": "size_desc"' in body
     assert "sort_recent_background_job_history(" in body
+
+
+def test_background_export_history_shows_runtime_performance_summary():
+    from pathlib import Path
+
+    source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
+    assert "build_background_export_performance_summary" in source
+    assert '"Успешность"' in source
+    assert '"Среднее время"' in source
+    assert '"Средний файл"' in source

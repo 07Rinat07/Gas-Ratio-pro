@@ -1,3 +1,23 @@
+# Latest increment — Background Export Runtime Performance Summary
+
+Status: COMPLETED
+
+Implemented:
+- project-scoped runtime summary for the five most recent background export jobs;
+- total and active job counters;
+- terminal-job success rate;
+- average terminal duration and average completed artifact size;
+- explicit failed/cancelled/orphaned counters;
+- renderer-neutral aggregation based only on persisted snapshot metadata;
+- focused unit and Streamlit integration coverage.
+
+Validation:
+- `python -m py_compile reports/background_export.py reports/background_export_ui.py app/streamlit_app.py`;
+- `37 passed` in the focused background-export regression set;
+- `logs/app.log` is not present in the supplied project archive.
+
+Next priority: extend the report-structure preview with estimated page composition and export-readiness diagnostics.
+
 # Latest increment — Automatic Background Export Polling and Cooperative Renderer Cancellation
 
 Status: COMPLETED

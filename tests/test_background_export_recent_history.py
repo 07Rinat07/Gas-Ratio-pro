@@ -196,3 +196,56 @@ def test_history_sort_unknown_mode_falls_back_to_newest_first():
 
     sorted_items = sort_recent_background_job_history(items, sort_by="unsupported")
     assert [item.job_id for item in sorted_items] == ["newer", "older"]
+
+
+def test_performance_summary_aggregates_terminal_jobs_only():
+    from dataclasses import replace
+    from reports.background_export_ui import build_background_export_performance_summary
+
+    items = build_recent_background_job_history((
+        replace(
+            _snapshot("ok-1", ExportJobStatus.COMPLETED, updated_at=10),
+            created_at=5,
+            duration_seconds=5,
+            artifact_size_bytes=1024,
+        ),
+        replace(
+            _snapshot("ok-2", ExportJobStatus.COMPLETED, updated_at=20),
+            created_at=10,
+            duration_seconds=10,
+            artifact_size_bytes=3072,
+        ),
+        replace(
+            _snapshot("failed", ExportJobStatus.FAILED, updated_at=30),
+            created_at=15,
+            duration_seconds=15,
+        ),
+        _snapshot("running", ExportJobStatus.RUNNING, updated_at=40),
+    ))
+
+    summary = build_background_export_performance_summary(items)
+
+    assert summary.total_jobs == 4
+    assert summary.active_jobs == 1
+    assert summary.completed_jobs == 2
+    assert summary.failed_jobs == 1
+    assert summary.success_rate_percent == 200 / 3
+    assert summary.average_duration_seconds == 10
+    assert summary.average_artifact_size_bytes == 2048
+
+
+def test_performance_summary_is_safe_for_empty_or_active_only_history():
+    from reports.background_export_ui import build_background_export_performance_summary
+
+    empty = build_background_export_performance_summary(())
+    active = build_background_export_performance_summary(
+        build_recent_background_job_history((
+            _snapshot("running", ExportJobStatus.RUNNING, updated_at=2),
+        ))
+    )
+
+    assert empty.total_jobs == 0
+    assert empty.success_rate_percent == 0.0
+    assert empty.average_duration_seconds == 0.0
+    assert active.active_jobs == 1
+    assert active.success_rate_percent == 0.0

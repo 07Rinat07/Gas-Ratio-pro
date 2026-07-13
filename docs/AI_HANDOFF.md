@@ -1,3 +1,21 @@
+# Latest implementation — Background Export Runtime Performance Summary
+
+Status: COMPLETED
+
+Implemented:
+- `BackgroundExportPerformanceSummary` and renderer-neutral aggregation in `reports/background_export_ui.py`;
+- terminal-only success-rate and duration calculations;
+- completed-artifact-only average size calculation;
+- four compact Streamlit metrics plus explicit non-success counters;
+- safe empty-history and active-only behavior.
+
+Validation:
+- syntax compilation passed;
+- `37 passed` in focused background-export tests;
+- no `logs/app.log` was available in the supplied archive.
+
+Next priority: estimated report page composition and export-readiness diagnostics in the existing structure preview.
+
 # Latest implementation — Automatic Export Polling and Cancellable Report Rendering
 
 Status: COMPLETED
