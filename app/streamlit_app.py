@@ -8510,6 +8510,54 @@ def _render_selected_interval_header(
         st.caption(" · ".join(context_parts))
 
 
+
+
+def _tablet_informative_depth_range(
+    overlays: Sequence[ReservoirIntervalOverlay],
+    fallback_range: tuple[float, float],
+    *,
+    selected_depth: float | None = None,
+    padding_fraction: float = 0.035,
+    minimum_padding_m: float = 8.0,
+) -> tuple[float, float]:
+    """Return the useful depth envelope for the engineering tablet.
+
+    The tablet is an interpretation product, not a raw full-well viewer.  Empty
+    depth above and below classified intervals only compresses the curves.  The
+    viewport therefore follows all meaningful interpreted intervals and adds a
+    small geological context margin.  The original applied depth range remains
+    the hard boundary.
+    """
+
+    lower_bound, upper_bound = sorted((float(fallback_range[0]), float(fallback_range[1])))
+    ignored = {
+        "", "unknown", "uncertain", "no_data", "insufficient_data",
+        "insufficient", "dry", "none", "not_interpreted",
+    }
+    meaningful = []
+    for interval in overlays:
+        fluid = str(getattr(interval, "fluid_type", "") or "").strip().lower()
+        if fluid in ignored:
+            continue
+        top = min(float(interval.top_depth), float(interval.bottom_depth))
+        bottom = max(float(interval.top_depth), float(interval.bottom_depth))
+        if bottom < lower_bound or top > upper_bound:
+            continue
+        meaningful.append((max(top, lower_bound), min(bottom, upper_bound)))
+
+    if not meaningful:
+        if selected_depth is None:
+            return (lower_bound, upper_bound)
+        centre = min(max(float(selected_depth), lower_bound), upper_bound)
+        half_window = max(minimum_padding_m * 2.0, (upper_bound - lower_bound) * 0.04)
+        return (max(lower_bound, centre - half_window), min(upper_bound, centre + half_window))
+
+    top = min(item[0] for item in meaningful)
+    bottom = max(item[1] for item in meaningful)
+    span = max(bottom - top, 0.0)
+    padding = max(float(minimum_padding_m), span * float(padding_fraction))
+    return (max(lower_bound, top - padding), min(upper_bound, bottom + padding))
+
 def _adaptive_tablet_height(depth_range: tuple[float, float], view_mode: str, base_height: int) -> int:
     span = max(0.1, abs(float(depth_range[1]) - float(depth_range[0])))
     if view_mode == "detail":
@@ -9516,6 +9564,42 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     if render_settings.tablet_adaptive_height and depth_range is not None:
         height = _adaptive_tablet_height(depth_range, render_settings.tablet_view_mode, height)
 
+    reservoir_overlays = tuple(
+        overlay for overlay in all_reservoir_overlays
+        if float(overlay.thickness) >= float(render_settings.tablet_min_interval_thickness)
+        or overlay.interval_id == str(render_settings.selected_interval_id)
+    )
+    selected_tablet_depth = selected_interval_depth
+    if selected_tablet_depth is None and tablet_markers:
+        selected_tablet_depth = float(tablet_markers[0].depth)
+    tablet_depth_range = _tablet_informative_depth_range(
+        reservoir_overlays,
+        depth_range,
+        selected_depth=selected_tablet_depth,
+    )
+    tablet_source_df = _filter_by_depth_range(
+        calculated_df,
+        tablet_depth_range[0],
+        tablet_depth_range[1],
+    )
+    tablet_screen_df = dataframe_runtime_cache.screen_sample(
+        tablet_source_df,
+        source_signature=f"{calculated_signature}:tablet",
+        depth_range=tablet_depth_range,
+        max_rows=2200,
+        sampler=downsample_frame_for_screen,
+    )
+    logger.info(
+        "interpretation_tablet_focus applied_top=%.2f applied_bottom=%.2f tablet_top=%.2f tablet_bottom=%.2f full_rows=%d tablet_rows=%d interval_count=%d",
+        float(depth_range[0]),
+        float(depth_range[1]),
+        float(tablet_depth_range[0]),
+        float(tablet_depth_range[1]),
+        len(filtered_df),
+        len(tablet_screen_df),
+        len(reservoir_overlays),
+    )
+
     # Plotly construction is expensive. The cache key now depends only on the
     # applied presentation snapshot, never on mutable widget drafts.
     figure_cache_key = (
@@ -9523,6 +9607,8 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         int(applied_presentation.calculation_revision),
         tuple(sorted((str(key), repr(value)) for key, value in applied_presentation.settings.items())),
         len(screen_filtered_df),
+        tuple(round(float(value), 4) for value in tablet_depth_range),
+        len(tablet_screen_df),
     )
     state = state_controller.state
     plot_cache = state_controller.get_value("interpretation_plot_cache")
@@ -9605,20 +9691,12 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 fill=tablet_fill,
                 fill_modes=tablet_fill_modes,
             )
-            reservoir_overlays = tuple(
-                overlay for overlay in all_reservoir_overlays
-                if float(overlay.thickness) >= float(render_settings.tablet_min_interval_thickness)
-                or overlay.interval_id == str(render_settings.selected_interval_id)
-            )
-            selected_tablet_depth = selected_interval_depth
-            if selected_tablet_depth is None and tablet_markers:
-                selected_tablet_depth = float(tablet_markers[0].depth)
             render_tasks.append(RenderTask(
                 "engineering-tablet",
                 lambda: build_well_log_tablet(
-                    screen_filtered_df,
+                    tablet_screen_df,
                     tablet_tracks,
-                    depth_range=depth_range,
+                    depth_range=tablet_depth_range,
                     markers=tablet_markers,
                     zones=tablet_zones,
                     reservoir_intervals=reservoir_overlays,

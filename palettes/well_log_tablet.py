@@ -878,7 +878,7 @@ def build_well_log_tablet(
                 fill=fill,
                 fillcolor=_hex_to_rgba(color, 0.24),
                 hovertemplate=f"{track.label or track.column}: %{{x:.4g}}<br>Глубина: %{{y:.2f}} м<extra></extra>",
-                showlegend=True,
+                showlegend=False,
             ),
             row=1,
             col=subplot_col,
@@ -910,6 +910,7 @@ def build_well_log_tablet(
     shapes = []
     annotations = []
     recommendation_points: list[dict[str, object]] = []
+    boundary_marker_points: list[dict[str, object]] = []
     visible_reservoir_intervals = list(_prioritized_visible_intervals(
         reservoir_intervals,
         visible_top=visible_top,
@@ -1105,6 +1106,24 @@ def build_well_log_tablet(
                     }
                 )
 
+        # Explicit top/base symbols make the interval boundaries readable even
+        # when the band is narrow.  They are placed in the interval track and
+        # use the same fluid colour as the highlighted depth band.
+        boundary_marker_points.extend((
+            {
+                "depth": top_depth,
+                "symbol": "triangle-down",
+                "color": color,
+                "hover": f"<b>{interval.interval_id}</b><br>Кровля: {top_depth:g} м<br>{fluid_label}",
+            },
+            {
+                "depth": bottom_depth,
+                "symbol": "triangle-up",
+                "color": color,
+                "hover": f"<b>{interval.interval_id}</b><br>Подошва: {bottom_depth:g} м<br>{fluid_label}",
+            },
+        ))
+
         # Draw top/base boundaries only for the selected interval and intervals
         # that are large enough to carry a permanent label.
         if is_selected or show_label:
@@ -1125,6 +1144,27 @@ def build_well_log_tablet(
                         },
                     }
                 )
+
+    if engineering_tracks_enabled and boundary_marker_points:
+        fig.add_trace(
+            go.Scatter(
+                x=[0.5] * len(boundary_marker_points),
+                y=[point["depth"] for point in boundary_marker_points],
+                mode="markers",
+                marker={
+                    "size": 11,
+                    "symbol": [point["symbol"] for point in boundary_marker_points],
+                    "color": [point["color"] for point in boundary_marker_points],
+                    "line": {"color": "#ffffff", "width": 1.4},
+                },
+                customdata=[point["hover"] for point in boundary_marker_points],
+                hovertemplate="%{customdata}<extra></extra>",
+                showlegend=False,
+                name="Границы интервалов",
+            ),
+            row=1,
+            col=1,
+        )
 
     if engineering_tracks_enabled and recommendation_points:
         fig.add_trace(
@@ -1202,6 +1242,55 @@ def build_well_log_tablet(
             }
         )
 
+    # The legend is built from compact, marker-bearing entries instead of the
+    # full data traces.  This keeps the header understandable and gives every
+    # curve/fluid a clear name, colour and symbol.
+    legend_col = track_offset + 1
+    for index, track in enumerate(selected_tracks, start=1):
+        color = track.color or DEFAULT_TABLET_COLORS[(index - 1) % len(DEFAULT_TABLET_COLORS)]
+        fig.add_trace(
+            go.Scatter(
+                x=[None],
+                y=[None],
+                mode="lines+markers",
+                name=_track_title(track, plot_df[track.column]),
+                line={"color": color, "width": 2.6},
+                marker={"color": color, "size": 8, "symbol": "circle"},
+                legendgroup="curves",
+                legendgrouptitle_text="Кривые",
+                hoverinfo="skip",
+                showlegend=True,
+            ),
+            row=1,
+            col=legend_col,
+        )
+
+    present_fluids = []
+    seen_fluids: set[str] = set()
+    for interval in visible_reservoir_intervals:
+        fluid_key = str(interval.fluid_type).lower()
+        if fluid_key in seen_fluids:
+            continue
+        seen_fluids.add(fluid_key)
+        present_fluids.append(fluid_key)
+    for fluid_key in present_fluids:
+        color, fluid_label = FLUID_INTERVAL_STYLES.get(fluid_key, FLUID_INTERVAL_STYLES["uncertain"])
+        fig.add_trace(
+            go.Scatter(
+                x=[None],
+                y=[None],
+                mode="markers",
+                name=fluid_label,
+                marker={"color": color, "size": 10, "symbol": "square", "line": {"color": "#ffffff", "width": 1}},
+                legendgroup="fluids",
+                legendgrouptitle_text="Интервалы",
+                hoverinfo="skip",
+                showlegend=True,
+            ),
+            row=1,
+            col=legend_col,
+        )
+
     apply_engineering_layout(
         fig, title="Интерпретационный планшет", height=height,
         margin={"l": 104, "r": 112, "t": 196, "b": 72}, showlegend=True,
@@ -1211,8 +1300,8 @@ def build_well_log_tablet(
         paper_bgcolor="#0b1220",
         hovermode="y unified",
         legend={
-            "orientation": "h", "yanchor": "bottom", "y": 1.125,
-            "xanchor": "left", "x": 0.0, "font": {"size": 10},
+            "orientation": "h", "yanchor": "bottom", "y": 1.145,
+            "xanchor": "left", "x": 0.0, "font": {"size": 11},
             "bgcolor": "rgba(11,18,32,0.82)",
             "bordercolor": "rgba(148,163,184,0.35)", "borderwidth": 1,
         }

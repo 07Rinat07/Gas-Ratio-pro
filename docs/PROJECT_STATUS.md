@@ -1,3 +1,14 @@
+## Current increment: v222.9 — Interval-Focused Tablet and Visual Legends
+
+Status: **STABLE BUGFIX**
+
+Implemented:
+- automatic removal of empty depth sections from the tablet viewport;
+- preservation of all meaningful hydrocarbon and water intervals;
+- coloured curve symbols and fluid-class legend entries;
+- explicit top/base markers for interpreted intervals;
+- regression coverage for focus range and legend contracts.
+
 ## Current increment: v222.5 — Streamlit Rerun Coordination
 
 Status: **STABLE BUGFIX**

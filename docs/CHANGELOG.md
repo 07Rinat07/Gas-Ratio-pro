@@ -1,3 +1,12 @@
+## v222.9 — Interval-Focused Tablet and Visual Legends
+
+- Focused the engineering tablet on interpreted oil, gas, condensate, mixed and water intervals instead of empty well sections.
+- Preserved a geological context margin around the meaningful interval envelope.
+- Added explicit curve legend entries with coloured line-and-marker symbols.
+- Added a separate fluid legend for oil, gas, condensate, water and other visible interval classes.
+- Added coloured top/base triangle markers for every visible interpreted interval.
+- Kept the complete interval registry in tables and exports while improving screen readability.
+
 ## v222.5 — Dataframe Runtime Cache
 
 - Added a bounded runtime cache for calculation signatures and browser-facing dataframe samples.

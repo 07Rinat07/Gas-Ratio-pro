@@ -1,3 +1,13 @@
+## v222.9 — Interval-Focused Tablet and Visual Legends — COMPLETED
+
+- focus the tablet on meaningful interpreted depth intervals;
+- exclude empty and unclassified well sections from the default viewport;
+- add clear curve names, colours and marker symbols above the plot;
+- add fluid-class colours and top/base markers;
+- preserve the full interval registry in reports and tables.
+
+Next: frontend rendering optimization and field acceptance of the focused tablet.
+
 ## v222.5 — Streamlit Rerun Coordination — COMPLETED
 
 - centralize full-app rerun requests;
