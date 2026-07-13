@@ -542,3 +542,7 @@ Implemented:
 - focused repository and UI integration coverage.
 
 Next priority: PDF page-thumbnail preview, then an explicit quarantine-cleanup control in diagnostics.
+
+## Repository hygiene rule
+
+Keep all plans, handoff notes, roadmaps, and progress documents in `docs/`. Do not create additional Markdown planning files at repository root. The checked-in `data/` tree must contain only bootstrap placeholders and an empty recent-projects registry; never bundle a developer's local project state.

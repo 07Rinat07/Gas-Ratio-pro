@@ -1481,3 +1481,9 @@ Next priority: add bounded retention and cleanup for quarantined metadata files 
 - реализовать PDF Preview с миниатюрами страниц;
 - добавить ручную очистку quarantine-файлов из диагностического блока;
 - выполнить acceptance-проверку на большом LAS-файле.
+
+## Data hygiene increment
+
+- Project documentation is kept under `docs/`; no planning Markdown files are created at repository root.
+- Generated local project state was removed from the distributable archive.
+- Safe disposable-data cleanup is available through `core.data_cleanup.DataCleanupService` and preserves `data/projects` by default.

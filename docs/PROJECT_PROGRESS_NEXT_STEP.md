@@ -1,22 +1,7 @@
-# GAS RATIO PRO — Next Step
+# Next Step
 
-Canonical status source: `PROJECT_STATUS.md`.
+Completed in v37: Workspace Session Manager for Modern UI.
 
-Baseline: v197
+The application can now capture, save, load and restore a lightweight workspace session: active project, well, LAS, workspace, selected intervals, active report, active plot, recent exports and window layout.
 
-## Completed
-
-Stage 4 — Workbench UI Completion is complete. Production startup renders the Modern Workbench through native Streamlit columns/containers. Toolbar, Project Explorer, central workspace host, Properties and Status Bar are visible and command-backed. The `CommandExecutionResult.executed` contract is used consistently; the removed `success` attribute is no longer referenced.
-
-## Next authorized increment
-
-Stage 5 — Petrophysical Engine:
-
-1. formula source audit;
-2. explicit unit contracts;
-3. calculation provenance;
-4. quality flags;
-5. dimensional compatibility blocking;
-6. integration through existing application services.
-
-No Modeling Engine expansion is allowed before the Petrophysical Engine Definition of Done.
+Next recommended increment: Modern Workspace shell foundation — Project Explorer, central workspace area, toolbar/status boundary and integration points for session restore/reset/export actions.
