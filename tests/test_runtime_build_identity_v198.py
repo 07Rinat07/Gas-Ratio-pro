@@ -6,8 +6,8 @@ from core.build_info import BUILD_VERSION, runtime_build_info
 def test_runtime_build_identity_points_to_current_project() -> None:
     info = runtime_build_info()
     root = Path(info.project_root)
-    assert BUILD_VERSION == "v222-rc4"
-    assert info.version == "v222-rc4"
+    assert BUILD_VERSION == "v222-rc5"
+    assert info.version == "v222-rc5"
     assert info.channel == "release-candidate"
     assert root.is_dir()
     assert Path(info.entry_point) == root / "app" / "streamlit_app.py"
@@ -19,7 +19,7 @@ def test_launcher_guards_stale_port_and_prints_source() -> None:
     assert "-ForceRestart" in script
     assert "Source: $ProjectRoot" in script
     assert "$env:GAS_RATIO_PRO_LEGACY_UI = \"\"" in script
-    assert "Starting Gas Ratio Pro v222-rc4" in script
+    assert "Starting Gas Ratio Pro v222-rc5" in script
 
 
 def test_renderer_exposes_build_and_runtime_source() -> None:

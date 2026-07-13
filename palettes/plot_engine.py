@@ -14,13 +14,13 @@ class EngineeringPlotTheme:
     title_size: int = 18
     axis_title_size: int = 13
     tick_size: int = 11
-    line_width: float = 1.7
-    marker_size: int = 8
-    grid_color: str = "rgba(148, 163, 184, 0.24)"
+    line_width: float = 2.15
+    marker_size: int = 9
+    grid_color: str = "rgba(148, 163, 184, 0.34)"
     text_color: str = "#e5edf8"
     paper_color: str = "#0b1220"
     plot_color: str = "#0b1220"
-    axis_color: str = "#cbd5e1"
+    axis_color: str = "#e2e8f0"
     margin_left: int = 72
     margin_right: int = 28
     margin_top: int = 76
@@ -30,17 +30,17 @@ class EngineeringPlotTheme:
 THEME = EngineeringPlotTheme()
 
 ENGINEERING_COLORS: Mapping[str, str] = {
-    "primary": "#1f77b4",
-    "secondary": "#2a9d8f",
-    "accent": "#e76f51",
-    "warning": "#f4a261",
-    "neutral": "#6c757d",
+    "primary": "#38bdf8",
+    "secondary": "#34d399",
+    "accent": "#fb7185",
+    "warning": "#fbbf24",
+    "neutral": "#cbd5e1",
     "muted": "#94a3b8",
-    "gas": "#ff9f1c",
-    "condensate": "#e76f51",
-    "oil": "#2a9d8f",
-    "water": "#457b9d",
-    "unknown": "#adb5bd",
+    "gas": "#fbbf24",
+    "condensate": "#fb7185",
+    "oil": "#22d3ee",
+    "water": "#60a5fa",
+    "unknown": "#d1d5db",
 }
 
 LEGEND_HORIZONTAL: Mapping[str, Any] = {
@@ -154,10 +154,16 @@ def apply_depth_axis(
 def normalize_trace_style(fig: go.Figure) -> go.Figure:
     """Apply common widths and marker sizes without overriding explicit semantics."""
     for trace in fig.data:
-        if hasattr(trace, "line") and trace.line is not None and getattr(trace.line, "width", None) is None:
-            trace.line.width = THEME.line_width
-        if hasattr(trace, "marker") and trace.marker is not None and getattr(trace.marker, "size", None) is None:
-            trace.marker.size = THEME.marker_size
+        if hasattr(trace, "line") and trace.line is not None:
+            current_width = getattr(trace.line, "width", None)
+            if current_width is None or float(current_width) < THEME.line_width:
+                trace.line.width = THEME.line_width
+        if hasattr(trace, "marker") and trace.marker is not None:
+            current_size = getattr(trace.marker, "size", None)
+            if current_size is None:
+                trace.marker.size = THEME.marker_size
+            elif isinstance(current_size, (int, float)) and float(current_size) < THEME.marker_size:
+                trace.marker.size = THEME.marker_size
     return fig
 
 

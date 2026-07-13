@@ -19,8 +19,8 @@ def test_screen_theme_is_dark_and_contrasting() -> None:
     assert fig.layout.paper_bgcolor == "#0b1220"
     assert fig.layout.plot_bgcolor == "#0b1220"
     assert fig.layout.font.color == "#e5edf8"
-    assert fig.layout.xaxis.color == "#cbd5e1"
-    assert fig.layout.yaxis.color == "#cbd5e1"
+    assert fig.layout.xaxis.color == "#e2e8f0"
+    assert fig.layout.yaxis.color == "#e2e8f0"
 
 
 def test_export_copy_stays_light_and_does_not_mutate_screen_figure() -> None:

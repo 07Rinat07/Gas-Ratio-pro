@@ -149,6 +149,24 @@ def _add_metadata_table(doc: Document, rows: Sequence[tuple[str, str]]) -> None:
     doc.add_paragraph()
 
 
+
+
+def _adaptive_docx_column_widths(headers: Sequence[str], rows: Sequence[Sequence[str]], *, total_inches: float = 6.6) -> list[float]:
+    if not headers:
+        return []
+    weights: list[float] = []
+    for index, header in enumerate(headers):
+        samples = [str(header)] + [str(row[index]) for row in rows[:40] if index < len(row)]
+        longest = max((len(value.strip()) for value in samples), default=1)
+        weights.append(max(4.0, min(22.0, longest ** 0.72)))
+    total = sum(weights) or 1.0
+    minimum = 0.55 if len(headers) >= 7 else 0.75
+    raw = [total_inches * weight / total for weight in weights]
+    adjusted = [max(minimum, width) for width in raw]
+    scale = total_inches / sum(adjusted)
+    return [width * scale for width in adjusted]
+
+
 def _add_document_table(doc: Document, block: DocumentTable) -> None:
     if not block.headers or not block.rows:
         return
@@ -156,12 +174,16 @@ def _add_document_table(doc: Document, block: DocumentTable) -> None:
     table = doc.add_table(rows=1, cols=len(block.headers))
     table.alignment = WD_TABLE_ALIGNMENT.LEFT
     table.style = "Table Grid"
+    table.autofit = False
+    column_widths = _adaptive_docx_column_widths(block.headers, block.rows)
     header_cells = table.rows[0].cells
     for index, header in enumerate(block.headers):
+        header_cells[index].width = Inches(column_widths[index])
         header_cells[index].text = _clean_text(header)
         for paragraph in header_cells[index].paragraphs:
             for run in paragraph.runs:
                 run.bold = True
+                run.font.size = Pt(8.5)
     max_cols = len(block.headers)
     for source_row in block.rows:
         row_cells = table.add_row().cells
@@ -169,8 +191,12 @@ def _add_document_table(doc: Document, block: DocumentTable) -> None:
         if len(cells) < max_cols:
             cells.extend([""] * (max_cols - len(cells)))
         for index, value in enumerate(cells):
+            row_cells[index].width = Inches(column_widths[index])
             row_cells[index].text = _clean_text(value)
             row_cells[index].vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
+            for paragraph in row_cells[index].paragraphs:
+                for run in paragraph.runs:
+                    run.font.size = Pt(8.5)
     doc.add_paragraph()
 
 

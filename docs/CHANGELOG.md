@@ -2017,3 +2017,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Устранена повторная перерисовка Pixler, ternary, depth-графиков и планшета после подготовки файла.
 - Требование Streamlit обновлено до `>=1.37.0`.
 - Build identity обновлён до `v222-rc4`.
+
+
+## v222-rc5 — Engineering UI readability
+
+- Усилен контраст кривых, маркеров, сетки и УВ-зон.
+- Устранено наложение заголовков инженерных дорожек планшета.
+- Добавлено адаптивное распределение ширины столбцов PDF/DOCX.
+- Build identity обновлён до `v222-rc5`.

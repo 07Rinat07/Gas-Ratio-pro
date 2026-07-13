@@ -463,3 +463,8 @@ Decision: package as **release candidate v221-rc1**, not as final stable release
 - Подготовка и скачивание файла не инициируют повторную сериализацию Plotly-графиков.
 - Минимальная версия Streamlit повышена до `1.37.0`, где поддерживаются fragment reruns.
 - Транзакционный ExportController и ограниченные кэши v222-rc3 сохранены.
+
+
+## v222-rc5 — Engineering UI readability
+
+Статус: реализовано. Усилена читаемость графиков и планшета, улучшена компоновка отчётных таблиц.

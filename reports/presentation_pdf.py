@@ -277,6 +277,27 @@ def _metadata_table(rows: Sequence[tuple[str, str]], styles: dict[str, Paragraph
     return table
 
 
+
+
+def _adaptive_pdf_column_widths(headers: Sequence[str], rows: Sequence[Sequence[str]], *, total_width_mm: float = 160.0) -> list[float]:
+    """Allocate printable widths from visible content without creating tiny cells."""
+    if not headers:
+        return []
+    weights: list[float] = []
+    for index, header in enumerate(headers):
+        samples = [str(header)] + [str(row[index]) for row in rows[:40] if index < len(row)]
+        longest = max((len(value.strip()) for value in samples), default=1)
+        # Long narrative columns receive more space, numeric/ID columns remain compact.
+        weight = max(4.0, min(22.0, longest ** 0.72))
+        weights.append(weight)
+    total = sum(weights) or 1.0
+    raw = [total_width_mm * weight / total for weight in weights]
+    minimum = 14.0 if len(headers) >= 7 else 18.0
+    adjusted = [max(minimum, width) for width in raw]
+    scale = total_width_mm / sum(adjusted)
+    return [width * scale * mm for width in adjusted]
+
+
 def _document_table(block: DocumentTable, styles: dict[str, ParagraphStyle]) -> list[object]:
     if not block.headers or not block.rows:
         return []
@@ -299,9 +320,9 @@ def _document_table(block: DocumentTable, styles: dict[str, ParagraphStyle]) -> 
     # column sizing may allocate a cell width smaller than ReportLab paddings,
     # which breaks PDF export.  Use deterministic compact widths so expert
     # reports stay printable even when tables are wide.
-    compact = max_cols > 8
-    col_width = (12 * mm) if compact else max(22 * mm, min(42 * mm, (160 * mm) / max_cols))
-    table = Table(data, repeatRows=1, hAlign="LEFT", colWidths=[col_width] * max_cols)
+    compact = max_cols >= 7
+    col_widths = _adaptive_pdf_column_widths(visible_headers, [list(row[:max_cols]) for row in block.rows])
+    table = Table(data, repeatRows=1, hAlign="LEFT", colWidths=col_widths)
     cell_padding = 2 if compact else 4
     table.setStyle(
         TableStyle(
