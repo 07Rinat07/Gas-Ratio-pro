@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections import OrderedDict
 from dataclasses import dataclass
 from hashlib import sha256
+from math import isfinite
 from time import perf_counter
 from typing import Any, Callable, MutableMapping
 
@@ -27,6 +29,25 @@ class ExportRequest:
     def normalized_depth_range(self) -> tuple[float, float]:
         return (min(self.depth_top, self.depth_bottom), max(self.depth_top, self.depth_bottom))
 
+    def validate(self) -> None:
+        required = {
+            "project_id": self.project_id,
+            "profile_id": self.profile_id,
+            "format_id": self.format_id,
+            "extension": self.extension,
+            "mime_type": self.mime_type,
+            "source_signature": self.source_signature,
+        }
+        missing = [name for name, value in required.items() if not str(value).strip()]
+        if missing:
+            raise ValueError(f"Не заполнены обязательные параметры экспорта: {', '.join(missing)}.")
+        if not isfinite(float(self.depth_top)) or not isfinite(float(self.depth_bottom)):
+            raise ValueError("Границы глубины должны быть конечными числами.")
+        if self.figure_height < 400 or self.figure_height > 12000:
+            raise ValueError("Высота экспортируемого графика должна быть в диапазоне 400–12000 px.")
+        if self.calculation_revision < 0 or self.presentation_revision < 0:
+            raise ValueError("Ревизии расчёта и представления не могут быть отрицательными.")
+
 
 @dataclass(frozen=True, slots=True)
 class ExportArtifact:
@@ -37,6 +58,14 @@ class ExportArtifact:
     format_label: str
     profile_id: str
     cache_hit: bool = False
+
+    def validate(self) -> None:
+        if not isinstance(self.content, (bytes, bytearray)) or not self.content:
+            raise ValueError("Renderer вернул пустой экспортный файл.")
+        if not self.file_name.strip():
+            raise ValueError("Renderer не задал имя экспортного файла.")
+        if not self.mime_type.strip():
+            raise ValueError("Renderer не задал MIME-тип экспортного файла.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,12 +83,19 @@ class ExportControllerError(RuntimeError):
 
 
 class ExportController:
-    """Renderer-neutral export orchestration with model/artifact caching.
+    """Renderer-neutral, transactional export orchestration.
 
-    The controller deliberately has no Streamlit dependency. It isolates the
-    expensive report model build from format rendering, so switching PDF/DOCX/
-    XLSX does not rebuild the engineering interpretation model.
+    The controller has no Streamlit dependency. It validates the request before
+    any expensive work, isolates model building from format rendering, prevents
+    duplicate concurrent submissions in one session and keeps bounded LRU
+    caches so long engineering sessions do not grow memory without limit.
     """
+
+    MODEL_CACHE_KEY = "presentation_export_model_cache_v222"
+    ARTIFACT_CACHE_KEY = "presentation_export_artifact_cache_v222"
+    INFLIGHT_KEY = "presentation_export_inflight_v222"
+    MODEL_CACHE_LIMIT = 8
+    ARTIFACT_CACHE_LIMIT = 16
 
     def __init__(self, state: MutableMapping[str, Any]) -> None:
         self._state = state
@@ -95,6 +131,24 @@ class ExportController:
             )
         )
 
+    def _lru_cache(self, key: str) -> OrderedDict[str, Any]:
+        cache = self._state.get(key)
+        if not isinstance(cache, OrderedDict):
+            cache = OrderedDict(cache if isinstance(cache, dict) else {})
+            self._state[key] = cache
+        return cache
+
+    @staticmethod
+    def _touch(cache: OrderedDict[str, Any], key: str) -> Any:
+        value = cache.pop(key)
+        cache[key] = value
+        return value
+
+    @staticmethod
+    def _trim(cache: OrderedDict[str, Any], limit: int) -> None:
+        while len(cache) > limit:
+            cache.popitem(last=False)
+
     def prepare(
         self,
         request: ExportRequest,
@@ -103,53 +157,95 @@ class ExportController:
         build_model: Callable[[Any, ExportRequest], Any],
         render_artifact: Callable[[Any, Any, ExportRequest], ExportArtifact],
     ) -> tuple[ExportArtifact, dict[str, float | bool]]:
+        try:
+            request.validate()
+        except Exception as exc:
+            raise self._failure("validate_request", exc) from exc
+
         model_key = self._model_cache_key(request)
         artifact_key = self._artifact_cache_key(request, model_key)
-        model_cache = self._state.setdefault("presentation_export_model_cache_v222", {})
-        artifact_cache = self._state.setdefault("presentation_export_artifact_cache_v222", {})
+        model_cache = self._lru_cache(self.MODEL_CACHE_KEY)
+        artifact_cache = self._lru_cache(self.ARTIFACT_CACHE_KEY)
+        registry = self._state.setdefault("presentation_export_cache_registry_v222", {})
+        if not isinstance(registry, dict):
+            registry = {}
+            self._state["presentation_export_cache_registry_v222"] = registry
+        inflight = self._state.setdefault(self.INFLIGHT_KEY, set())
+        if not isinstance(inflight, set):
+            inflight = set()
+            self._state[self.INFLIGHT_KEY] = inflight
 
-        cached_artifact = artifact_cache.get(artifact_key)
-        if isinstance(cached_artifact, ExportArtifact):
-            return (
-                ExportArtifact(
-                    content=cached_artifact.content,
-                    file_name=cached_artifact.file_name,
-                    mime_type=cached_artifact.mime_type,
-                    format_id=cached_artifact.format_id,
-                    format_label=cached_artifact.format_label,
-                    profile_id=cached_artifact.profile_id,
-                    cache_hit=True,
-                ),
-                {"model_cache_hit": True, "artifact_cache_hit": True, "duration_ms": 0.0},
-            )
+        if artifact_key in artifact_cache:
+            cached_artifact = self._touch(artifact_cache, artifact_key)
+            if isinstance(cached_artifact, ExportArtifact):
+                return (
+                    ExportArtifact(
+                        content=cached_artifact.content,
+                        file_name=cached_artifact.file_name,
+                        mime_type=cached_artifact.mime_type,
+                        format_id=cached_artifact.format_id,
+                        format_label=cached_artifact.format_label,
+                        profile_id=cached_artifact.profile_id,
+                        cache_hit=True,
+                    ),
+                    {"model_cache_hit": True, "artifact_cache_hit": True, "duration_ms": 0.0},
+                )
 
+        if artifact_key in inflight:
+            raise self._failure("duplicate_request", RuntimeError("Этот формат уже подготавливается."))
+
+        inflight.add(artifact_key)
         started = perf_counter()
-        model_cache_hit = model_key in model_cache
-        if model_cache_hit:
-            model = model_cache[model_key]
-        else:
-            try:
-                model = build_model(frame, request)
-            except Exception as exc:  # pragma: no cover - exercised via integration tests
-                raise self._failure("build_model", exc) from exc
-            model_cache[model_key] = model
-
         try:
-            artifact = render_artifact(model, frame, request)
-        except Exception as exc:  # pragma: no cover - exercised via integration tests
-            raise self._failure(f"render_{request.format_id}", exc) from exc
+            model_cache_hit = model_key in model_cache
+            if model_cache_hit:
+                model = self._touch(model_cache, model_key)
+            else:
+                try:
+                    model = build_model(frame, request)
+                except Exception as exc:
+                    raise self._failure("build_model", exc) from exc
+                model_cache[model_key] = model
+                registry[model_key] = request.project_id
+                self._trim(model_cache, self.MODEL_CACHE_LIMIT)
 
-        artifact_cache[artifact_key] = artifact
-        return (
-            artifact,
-            {
-                "model_cache_hit": model_cache_hit,
-                "artifact_cache_hit": False,
-                "duration_ms": (perf_counter() - started) * 1000.0,
-            },
-        )
+            try:
+                artifact = render_artifact(model, frame, request)
+                artifact.validate()
+            except ExportControllerError:
+                raise
+            except Exception as exc:
+                raise self._failure(f"render_{request.format_id}", exc) from exc
+
+            artifact_cache[artifact_key] = artifact
+            registry[artifact_key] = request.project_id
+            self._trim(artifact_cache, self.ARTIFACT_CACHE_LIMIT)
+            return (
+                artifact,
+                {
+                    "model_cache_hit": model_cache_hit,
+                    "artifact_cache_hit": False,
+                    "duration_ms": (perf_counter() - started) * 1000.0,
+                },
+            )
+        finally:
+            inflight.discard(artifact_key)
 
     def clear_project_cache(self, project_id: str) -> None:
-        # Cache keys are hashed, so a full export-cache reset is safer and cheap.
-        self._state.pop("presentation_export_model_cache_v222", None)
-        self._state.pop("presentation_export_artifact_cache_v222", None)
+        # Cache keys are hashes, therefore project-aware invalidation uses the
+        # metadata registry recorded alongside each key.
+        registry = self._state.get("presentation_export_cache_registry_v222", {})
+        for cache_name in (self.MODEL_CACHE_KEY, self.ARTIFACT_CACHE_KEY):
+            cache = self._state.get(cache_name)
+            if not isinstance(cache, MutableMapping):
+                continue
+            keys = [key for key, owner in registry.items() if owner == project_id and key in cache]
+            for key in keys:
+                cache.pop(key, None)
+                registry.pop(key, None)
+        self._state[self.INFLIGHT_KEY] = set()
+
+    def cache_sizes(self) -> tuple[int, int]:
+        model_cache = self._state.get(self.MODEL_CACHE_KEY, {})
+        artifact_cache = self._state.get(self.ARTIFACT_CACHE_KEY, {})
+        return (len(model_cache), len(artifact_cache))

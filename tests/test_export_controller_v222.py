@@ -83,3 +83,90 @@ def test_export_controller_reports_failure_stage() -> None:
         assert exc.failure.error_id.startswith("export-")
     else:
         raise AssertionError("ExportControllerError expected")
+
+
+def test_export_controller_validates_request_before_build() -> None:
+    controller = ExportController({})
+    request = _request()
+    invalid = ExportRequest(**{**request.__dict__, "source_signature": ""}) if hasattr(request, "__dict__") else ExportRequest(
+        project_id=request.project_id,
+        project_name=request.project_name,
+        source_label=request.source_label,
+        profile_id=request.profile_id,
+        format_id=request.format_id,
+        format_label=request.format_label,
+        extension=request.extension,
+        mime_type=request.mime_type,
+        depth_top=request.depth_top,
+        depth_bottom=request.depth_bottom,
+        source_signature="",
+        calculation_revision=request.calculation_revision,
+        presentation_revision=request.presentation_revision,
+        figure_height=request.figure_height,
+    )
+    called = False
+
+    def build_model(frame, export_request):
+        nonlocal called
+        called = True
+        return object()
+
+    try:
+        controller.prepare(invalid, frame=[1], build_model=build_model, render_artifact=lambda *_: None)
+    except ExportControllerError as exc:
+        assert exc.failure.stage == "validate_request"
+        assert called is False
+    else:
+        raise AssertionError("ExportControllerError expected")
+
+
+def test_export_controller_rejects_empty_artifact() -> None:
+    controller = ExportController({})
+
+    def render(model, frame, request):
+        return ExportArtifact(b"", "x.pdf", request.mime_type, request.format_id, request.format_label, request.profile_id)
+
+    try:
+        controller.prepare(_request(), frame=[1], build_model=lambda *_: object(), render_artifact=render)
+    except ExportControllerError as exc:
+        assert exc.failure.stage == "render_pdf"
+    else:
+        raise AssertionError("ExportControllerError expected")
+
+
+def test_export_controller_uses_bounded_lru_caches() -> None:
+    state = {}
+    controller = ExportController(state)
+
+    def render(model, frame, request):
+        return ExportArtifact(b"ok", f"x.{request.extension}", request.mime_type, request.format_id, request.format_label, request.profile_id)
+
+    for index in range(ExportController.ARTIFACT_CACHE_LIMIT + 5):
+        base = _request(f"fmt{index}")
+        controller.prepare(base, frame=[1], build_model=lambda *_: object(), render_artifact=render)
+
+    model_size, artifact_size = controller.cache_sizes()
+    assert model_size <= ExportController.MODEL_CACHE_LIMIT
+    assert artifact_size == ExportController.ARTIFACT_CACHE_LIMIT
+
+
+def test_export_controller_clears_only_requested_project() -> None:
+    state = {}
+    controller = ExportController(state)
+
+    def render(model, frame, request):
+        return ExportArtifact(b"ok", f"x.{request.extension}", request.mime_type, request.format_id, request.format_label, request.profile_id)
+
+    p1 = _request("pdf")
+    p2 = ExportRequest(
+        project_id="p2", project_name=p1.project_name, source_label=p1.source_label,
+        profile_id=p1.profile_id, format_id="docx", format_label="DOCX", extension="docx",
+        mime_type=p1.mime_type, depth_top=p1.depth_top, depth_bottom=p1.depth_bottom,
+        source_signature="def", calculation_revision=2, presentation_revision=3, figure_height=1000,
+    )
+    controller.prepare(p1, frame=[1], build_model=lambda *_: object(), render_artifact=render)
+    controller.prepare(p2, frame=[1], build_model=lambda *_: object(), render_artifact=render)
+    controller.clear_project_cache("p1")
+    registry = state["presentation_export_cache_registry_v222"]
+    assert "p1" not in registry.values()
+    assert "p2" in registry.values()
