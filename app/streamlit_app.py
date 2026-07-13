@@ -375,6 +375,7 @@ from reports.background_export_ui import (
     BackgroundExportResult,
     build_background_export_status_view,
     build_recent_background_job_history,
+    filter_recent_background_job_history,
     latest_relevant_job,
     retry_diagnostic_reason,
 )
@@ -9607,6 +9608,7 @@ def _render_professional_export_panel(
                         work=_background_work,
                         retry_of_job_id=str(retry_context.get("job_id", "")),
                         retry_reason=str(retry_context.get("reason", "")),
+                        export_format=str(selected_format.id),
                     )
                     export_state.pop(export_error_key, None)
                     logger.info(
@@ -9680,8 +9682,38 @@ def _render_professional_export_panel(
         )
         if recent_job_history:
             with st.expander("Последние фоновые экспорты", expanded=False):
+                filter_left, filter_right = st.columns(2)
+                status_label_to_value = {
+                    "Выполняется": "running",
+                    "Завершён": "completed",
+                    "Ошибка": "failed",
+                    "Отменён": "cancelled",
+                    "Прерван": "orphaned",
+                }
+                available_formats = tuple(sorted({
+                    item.export_format.upper()
+                    for item in recent_job_history
+                    if item.export_format
+                }))
+                selected_status_labels = filter_left.multiselect(
+                    "Статус",
+                    options=tuple(status_label_to_value),
+                    key=f"background_export_history_status_filter_{active_project.id}",
+                    placeholder="Все статусы",
+                )
+                selected_history_formats = filter_right.multiselect(
+                    "Формат",
+                    options=available_formats,
+                    key=f"background_export_history_format_filter_{active_project.id}",
+                    placeholder="Все форматы",
+                )
+                filtered_job_history = filter_recent_background_job_history(
+                    recent_job_history,
+                    statuses=tuple(status_label_to_value[label] for label in selected_status_labels),
+                    formats=tuple(selected_history_formats),
+                )
                 cleanup_candidates = tuple(
-                    item for item in recent_job_history if item.dismissible
+                    item for item in filtered_job_history if item.dismissible
                 )
                 if cleanup_candidates and st.button(
                     "Очистить завершённые записи",
@@ -9701,7 +9733,10 @@ def _render_professional_export_panel(
                     _request_ui_refresh_and_rerun("background_export_cleanup_terminal")
                     return
 
-                for history_item in recent_job_history:
+                if not filtered_job_history:
+                    st.caption("Нет экспортов, соответствующих выбранным фильтрам.")
+
+                for history_item in filtered_job_history:
                     history_content, history_action = st.columns([5, 1])
                     retry_note = (
                         f"  \nПричина повтора: {history_item.retry_reason}"

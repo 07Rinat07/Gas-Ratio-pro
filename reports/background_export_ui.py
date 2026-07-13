@@ -125,6 +125,8 @@ class BackgroundExportHistoryItem:
     terminal: bool
     dismissible: bool
     updated_at: float
+    status: ExportJobStatus
+    export_format: str
 
 
 def retry_diagnostic_reason(
@@ -172,6 +174,32 @@ def build_recent_background_job_history(
                     and not (snapshot.status is ExportJobStatus.COMPLETED and available is True)
                 ),
                 updated_at=snapshot.updated_at,
+                status=snapshot.status,
+                export_format=snapshot.export_format,
             )
         )
     return tuple(items)
+
+
+def filter_recent_background_job_history(
+    items: tuple[BackgroundExportHistoryItem, ...],
+    *,
+    statuses: tuple[ExportJobStatus | str, ...] = (),
+    formats: tuple[str, ...] = (),
+) -> tuple[BackgroundExportHistoryItem, ...]:
+    """Filter already-bounded export history without mutating its order.
+
+    Empty filters mean "all". String status values are accepted to keep the
+    function convenient for Streamlit widget values and persisted UI state.
+    """
+    normalized_statuses = {
+        value.value if isinstance(value, ExportJobStatus) else str(value).strip().lower()
+        for value in statuses
+        if str(value).strip()
+    }
+    normalized_formats = {str(value).strip().lower() for value in formats if str(value).strip()}
+    return tuple(
+        item for item in items
+        if (not normalized_statuses or item.status.value in normalized_statuses)
+        and (not normalized_formats or item.export_format.strip().lower() in normalized_formats)
+    )

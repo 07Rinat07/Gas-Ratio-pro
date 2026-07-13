@@ -310,3 +310,17 @@ Validation:
 - `logs/app.log` is not present in the supplied project archive.
 
 Next priority: manual large-LAS cancel/retry/cleanup acceptance test and runtime performance summary UI.
+
+# Latest implementation — Background Export History Filters
+
+Status: COMPLETED
+
+Implemented:
+- project-scoped recent export history can be filtered by status and export format;
+- `ExportJobSnapshot` persists normalized `export_format` metadata;
+- filtering is renderer-neutral, stable-order and backward compatible with old snapshots;
+- empty status/format selections mean all records;
+- the UI shows an explicit empty state when no history item matches;
+- focused unit and Streamlit integration tests pass.
+
+Next priority: expose job duration and artifact size, then connect runtime performance summary to diagnostics.

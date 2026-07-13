@@ -51,3 +51,11 @@ def test_background_history_exposes_individual_and_bulk_cleanup_controls() -> No
     assert "background_manager.dismiss_terminal(" in body
     assert "preserve_available_results=True" in body
     assert "relevant_job is not None" in body
+
+
+def test_background_history_exposes_status_and_format_filters() -> None:
+    body = _professional_export_body()
+    assert '"Статус"' in body
+    assert '"Формат"' in body
+    assert "filter_recent_background_job_history(" in body
+    assert "export_format=str(selected_format.id)" in body

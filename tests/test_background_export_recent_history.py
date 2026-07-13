@@ -73,3 +73,24 @@ def test_history_cleanup_protects_unclaimed_completed_artifact():
     assert items[0].dismissible is False
     assert items[1].terminal is True
     assert items[1].dismissible is True
+
+
+def test_history_filter_supports_status_and_format_without_reordering():
+    from dataclasses import replace
+    from reports.background_export_ui import filter_recent_background_job_history
+
+    snapshots = (
+        replace(_snapshot("pdf-ok", ExportJobStatus.COMPLETED, updated_at=3), export_format="pdf"),
+        replace(_snapshot("docx-fail", ExportJobStatus.FAILED, updated_at=2), export_format="docx"),
+        replace(_snapshot("pdf-fail", ExportJobStatus.FAILED, updated_at=1), export_format="pdf"),
+    )
+    items = build_recent_background_job_history(snapshots)
+
+    filtered = filter_recent_background_job_history(
+        items,
+        statuses=(ExportJobStatus.FAILED,),
+        formats=("PDF",),
+    )
+
+    assert [item.job_id for item in filtered] == ["pdf-fail"]
+    assert filter_recent_background_job_history(items) == items

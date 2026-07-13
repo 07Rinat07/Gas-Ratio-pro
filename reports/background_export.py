@@ -33,6 +33,7 @@ class ExportJobSnapshot:
     error: str = ""
     retry_of_job_id: str = ""
     retry_reason: str = ""
+    export_format: str = ""
 
     @property
     def terminal(self) -> bool:
@@ -57,6 +58,7 @@ class ExportJobSnapshot:
             "error": self.error,
             "retry_of_job_id": self.retry_of_job_id,
             "retry_reason": self.retry_reason,
+            "export_format": self.export_format,
         }
 
     @classmethod
@@ -75,6 +77,7 @@ class ExportJobSnapshot:
             error=str(payload.get("error") or ""),
             retry_of_job_id=str(payload.get("retry_of_job_id") or ""),
             retry_reason=str(payload.get("retry_reason") or ""),
+            export_format=str(payload.get("export_format") or ""),
         )
 
 
@@ -172,6 +175,7 @@ class BackgroundExportManager:
         work: ExportWork,
         retry_of_job_id: str = "",
         retry_reason: str = "",
+        export_format: str = "",
     ) -> ExportJobSnapshot:
         if not request_signature.strip():
             raise ValueError("request_signature must not be empty")
@@ -195,6 +199,7 @@ class BackgroundExportManager:
                 updated_at=now,
                 retry_of_job_id=str(retry_of_job_id),
                 retry_reason=str(retry_reason),
+                export_format=str(export_format).strip().lower(),
             )
             cancel_event = Event()
             self._cancel_events[snapshot.id] = cancel_event

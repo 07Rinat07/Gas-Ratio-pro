@@ -268,3 +268,16 @@ def test_bulk_terminal_cleanup_can_discard_available_results_when_explicit():
         manager.snapshot(completed.id)
     assert manager.result_available(completed.id) is False
     manager.shutdown()
+
+
+def test_background_manager_persists_normalized_export_format():
+    state = {}
+    manager = BackgroundExportManager(state)
+    job = manager.submit(
+        project_id="p1",
+        request_signature="sig-format",
+        export_format=" PDF ",
+        work=lambda report, check: b"ok",
+    )
+    assert manager.snapshot(job.id).export_format == "pdf"
+    manager.shutdown(wait=True)
