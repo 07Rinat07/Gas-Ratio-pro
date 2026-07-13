@@ -811,3 +811,12 @@ Release candidate Definition of Done:
 - стабильные ключи экранных Plotly-компонентов;
 - адаптивная компоновка инженерных дорожек планшета;
 - устранение наложения верхних заголовков.
+
+### v222-rc7 — Engineering Core Refactoring — завершено
+
+- State namespaces.
+- Observable Plot Cache.
+- Runtime diagnostics ring buffer.
+- Plot render metrics in logs.
+
+Следующий подэтап: v222-rc8 — Lazy Workspace Rendering and Render Queue.

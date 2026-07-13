@@ -223,6 +223,7 @@ from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
 from palettes.plot_engine import PLOTLY_SCREEN_CONFIG, downsample_frame_for_screen
 from palettes.plot_cache import PlotCache
+from core.runtime_diagnostics import RuntimeDiagnostics
 from palettes.depth_tracks import (
     build_depth_gas_tracks,
     build_depth_interpretation_track,
@@ -9442,18 +9443,34 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         tuple(sorted((str(key), repr(value)) for key, value in applied_presentation.settings.items())),
         len(screen_filtered_df),
     )
-    state = _application_state_controller().state
-    plot_cache = state.get("interpretation_plot_cache")
+    state_controller = _application_state_controller()
+    state = state_controller.state
+    plot_cache = state_controller.get_value("interpretation_plot_cache")
     if not isinstance(plot_cache, PlotCache):
         plot_cache = PlotCache(max_entries=4)
-        state["interpretation_plot_cache"] = plot_cache
+        state_controller.set_value("interpretation_plot_cache", plot_cache)
+    runtime_diagnostics = state_controller.get_value("runtime_diagnostics")
+    if not isinstance(runtime_diagnostics, RuntimeDiagnostics):
+        runtime_diagnostics = RuntimeDiagnostics(max_events=64)
+        state_controller.set_value("runtime_diagnostics", runtime_diagnostics)
+    cache_lookup_started = perf_counter()
     cached_bundle = plot_cache.get(figure_cache_key)
     if cached_bundle is not None:
         figures = list(cached_bundle.figures)
         tablet_figure = cached_bundle.tablet_figure
+        cache_stats = plot_cache.stats()
+        lookup_duration_ms = (perf_counter() - cache_lookup_started) * 1000.0
+        runtime_diagnostics.record(
+            stage="interpretation_plots",
+            duration_ms=lookup_duration_ms,
+            cache_status="hit",
+            renderer="plotly",
+            item_count=len(figures),
+            memory_bytes=cache_stats.estimated_bytes,
+        )
         logger.info(
-            "interpretation_plot_cache_hit rows=%d figure_count=%d cache_entries=%d",
-            len(filtered_df), len(figures), len(plot_cache),
+            "interpretation_plot_cache_hit rows=%d figure_count=%d cache_entries=%d cache_bytes=%d lookup_ms=%.2f",
+            len(filtered_df), len(figures), len(plot_cache), cache_stats.estimated_bytes, lookup_duration_ms,
         )
     else:
         render_status = st.empty()
@@ -9505,11 +9522,23 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             figures.append(tablet_figure)
         plot_cache.put(figure_cache_key, figures, tablet_figure=tablet_figure)
         render_duration_ms = (perf_counter() - render_started) * 1000.0
+        cache_stats = plot_cache.stats()
+        runtime_diagnostics.record(
+            stage="interpretation_plots",
+            duration_ms=render_duration_ms,
+            cache_status="miss",
+            renderer="plotly",
+            item_count=len(figures),
+            memory_bytes=cache_stats.estimated_bytes,
+        )
         logger.info(
-            "interpretation_figure_cache_miss rows=%d figure_count=%d duration_ms=%.2f",
+            "interpretation_figure_cache_miss rows=%d figure_count=%d duration_ms=%.2f cache_entries=%d cache_bytes=%d evictions=%d",
             len(filtered_df),
             len(figures),
             render_duration_ms,
+            cache_stats.entries,
+            cache_stats.estimated_bytes,
+            cache_stats.evictions,
         )
         _set_inline_operation_status(
             render_status,

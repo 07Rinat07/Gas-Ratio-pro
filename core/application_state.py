@@ -174,6 +174,29 @@ class ApplicationStateController:
         value = self.get_value(key, ())
         return tuple(value) if isinstance(value, (list, tuple)) else ()
 
+    def get_namespace(self, namespace: str) -> dict[str, Any]:
+        """Return a defensive copy of one application-state namespace."""
+
+        key = f"state::{str(namespace).strip()}"
+        value = self.get_value(key, {})
+        return dict(value) if isinstance(value, dict) else {}
+
+    def update_namespace(self, namespace: str, values: dict[str, Any]) -> dict[str, Any]:
+        """Atomically merge values into an isolated state namespace."""
+
+        key = f"state::{str(namespace).strip()}"
+        current = self.get_namespace(namespace)
+        current.update(dict(values))
+        self.set_value(key, current)
+        return dict(current)
+
+    def clear_namespace(self, namespace: str) -> dict[str, Any]:
+        """Remove and return one isolated state namespace."""
+
+        key = f"state::{str(namespace).strip()}"
+        value = self.remove_value(key, {})
+        return dict(value) if isinstance(value, dict) else {}
+
     def ensure_project(self, project_id: str) -> StateTransition:
         """Initialize active project if missing without clearing existing state."""
 

@@ -2034,3 +2034,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - переработаны ширины инженерных дорожек и вертикальная компоновка заголовков планшета;
 - заголовки `Тип пласта`, `Достоверность` и `QC / действия` получили отдельные контрастные блоки;
 - увеличен верхний резерв планшета для устранения наложений при большом числе дорожек.
+
+## v222-rc7 — Engineering Core Refactoring
+
+- Added isolated application-state namespaces for plot/export/workspace data.
+- Added bounded runtime diagnostics for stage duration, cache status, renderer and memory estimate.
+- Added observable Plot Cache metrics: hits, misses, puts, evictions and estimated serialized size.
+- Integrated plot-cache diagnostics into interpretation rendering logs.
