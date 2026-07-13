@@ -7926,11 +7926,33 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         )
 
     st.subheader("Графики по глубине")
-    screen_plot_df = downsample_frame_for_screen(calculated_df)
-    tab_gas, tab_ratios, tab_pixler = st.tabs(["C1-C5", "Wh/Bh/Ch", "Pixler ratios"])
-    tab_gas.plotly_chart(build_depth_gas_tracks(screen_plot_df), width="stretch", config=PLOTLY_SCREEN_CONFIG)
-    tab_ratios.plotly_chart(build_depth_ratio_tracks(screen_plot_df), width="stretch", config=PLOTLY_SCREEN_CONFIG)
-    tab_pixler.plotly_chart(build_depth_pixler_tracks(screen_plot_df), width="stretch", config=PLOTLY_SCREEN_CONFIG)
+    workspace_overlays = tuple(pair[0] for pair in interval_pairs)
+    workspace_full_range = _effective_depth_range(calculated_df, None)
+    workspace_focus_range = _tablet_informative_depth_range(
+        workspace_overlays,
+        workspace_full_range,
+        selected_depth=selected_depth_value,
+    )
+    workspace_plot_frame = _filter_by_depth_range(
+        calculated_df, workspace_focus_range[0], workspace_focus_range[1]
+    )
+    screen_plot_df = downsample_frame_for_screen(workspace_plot_frame)
+    selected_workspace_interval_id = (
+        str(selected_reservoir_overlay.interval_id) if selected_reservoir_overlay is not None else ""
+    )
+    st.caption(
+        f"Показан инженерно значимый диапазон: {workspace_focus_range[0]:.1f}–{workspace_focus_range[1]:.1f} м. "
+        "Пустые участки без интерпретированных флюидов скрыты."
+    )
+    tab_gas, tab_ratios, tab_pixler = st.tabs(["C1–C5", "Wh / Bh / Ch", "Pixler"])
+    common_depth_kwargs = {
+        "depth_range": workspace_focus_range,
+        "reservoir_intervals": workspace_overlays,
+        "selected_interval_id": selected_workspace_interval_id,
+    }
+    tab_gas.plotly_chart(build_depth_gas_tracks(screen_plot_df, **common_depth_kwargs), width="stretch", config=PLOTLY_SCREEN_CONFIG)
+    tab_ratios.plotly_chart(build_depth_ratio_tracks(screen_plot_df, **common_depth_kwargs), width="stretch", config=PLOTLY_SCREEN_CONFIG)
+    tab_pixler.plotly_chart(build_depth_pixler_tracks(screen_plot_df, **common_depth_kwargs), width="stretch", config=PLOTLY_SCREEN_CONFIG)
 
     st.subheader("Расчетная таблица")
     _render_dataframe_panel(
@@ -9665,22 +9687,38 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         if "Интерпретация" in selected_tracks:
             render_tasks.append(RenderTask(
                 "depth-interpretation",
-                lambda: build_depth_interpretation_track(screen_filtered_df, depth_range=depth_range, height=height),
+                lambda: build_depth_interpretation_track(
+                    tablet_screen_df, depth_range=tablet_depth_range, height=height,
+                    reservoir_intervals=reservoir_overlays,
+                    selected_interval_id=str(render_settings.selected_interval_id or ""),
+                ),
             ))
         if "C1-C5" in selected_tracks:
             render_tasks.append(RenderTask(
                 "depth-gases",
-                lambda: build_depth_gas_tracks(screen_filtered_df, depth_range=depth_range, x_range=gas_x_range, height=height),
+                lambda: build_depth_gas_tracks(
+                    tablet_screen_df, depth_range=tablet_depth_range, x_range=gas_x_range, height=height,
+                    reservoir_intervals=reservoir_overlays,
+                    selected_interval_id=str(render_settings.selected_interval_id or ""),
+                ),
             ))
         if "Wh/Bh/Ch" in selected_tracks:
             render_tasks.append(RenderTask(
                 "depth-ratios",
-                lambda: build_depth_ratio_tracks(screen_filtered_df, depth_range=depth_range, x_range=ratio_x_range, height=height),
+                lambda: build_depth_ratio_tracks(
+                    tablet_screen_df, depth_range=tablet_depth_range, x_range=ratio_x_range, height=height,
+                    reservoir_intervals=reservoir_overlays,
+                    selected_interval_id=str(render_settings.selected_interval_id or ""),
+                ),
             ))
         if "Pixler ratios" in selected_tracks:
             render_tasks.append(RenderTask(
                 "depth-pixler",
-                lambda: build_depth_pixler_tracks(screen_filtered_df, depth_range=depth_range, x_range=pixler_x_range, height=height),
+                lambda: build_depth_pixler_tracks(
+                    tablet_screen_df, depth_range=tablet_depth_range, x_range=pixler_x_range, height=height,
+                    reservoir_intervals=reservoir_overlays,
+                    selected_interval_id=str(render_settings.selected_interval_id or ""),
+                ),
             ))
         if TABLET_TRACK_OPTION in selected_tracks and tablet_columns:
             tablet_tracks = normalize_track_configs(

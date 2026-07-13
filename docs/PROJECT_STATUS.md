@@ -559,3 +559,6 @@ Workspace performance audit is active. Plot construction and frontend dispatch a
 
 Current build: v222.8 stable. Export format isolation and printable tablet clarity fixes are complete.
 
+
+## v222.10
+Глубинные графики и графики раздела данных синхронизированы с полезным диапазоном УВ-интерпретации. Пустые участки исключаются из рабочего viewport; легенды и цветовые зоны унифицированы.

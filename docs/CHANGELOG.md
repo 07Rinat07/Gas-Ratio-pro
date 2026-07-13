@@ -2158,3 +2158,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Printable well-log tablet no longer washes the full canvas when one interval spans most of the selected range.
 - Added a stronger interval track, larger labels and clearer OIL/GAS/COND indication.
 
+
+## v222.10 — Unified Depth Graph Focus
+- Все глубинные графики используют инженерно значимый диапазон интерпретированных флюидов.
+- Графики раздела «Работа с данными» больше не показывают пустую глубину скважины.
+- Добавлены цветные обозначения кривых, легенда флюидов, зоны и границы интервалов.
+- Выбранный интервал синхронно выделяется на C1–C5, Wh/Bh/Ch, Pixler и интерпретации.
