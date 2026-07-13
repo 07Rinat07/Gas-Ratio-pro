@@ -349,6 +349,64 @@ def _document_notice(block: DocumentNotice, styles: dict[str, ParagraphStyle]) -
     ]
 
 
+def _figure_report_legend(figure: object) -> dict[str, object]:
+    """Read renderer-neutral legend metadata embedded by the print plot builder."""
+
+    layout = getattr(figure, "layout", None)
+    meta = getattr(layout, "meta", None) if layout is not None else None
+    if not isinstance(meta, dict):
+        return {}
+    payload = meta.get("gas_ratio_report_legend", {})
+    return dict(payload) if isinstance(payload, dict) else {}
+
+
+def _legend_table_pdf(
+    title: str,
+    entries: Sequence[dict[str, object]],
+    styles: dict[str, ParagraphStyle],
+    *,
+    marker_mode: bool = False,
+) -> list[object]:
+    """Render a compact two-item-per-row legend for portrait reports."""
+
+    if not entries:
+        return []
+    normalized = list(entries)
+    rows: list[list[object]] = []
+    style_commands: list[tuple[object, ...]] = [
+        ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#dbe3ec")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ("TOPPADDING", (0, 0), (-1, -1), 2.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+    ]
+    for row_index in range(0, len(normalized), 2):
+        row: list[object] = []
+        for pair_index, entry in enumerate(normalized[row_index:row_index + 2]):
+            color = str(entry.get("color", "#64748b"))
+            symbol = str(entry.get("symbol", "◆" if marker_mode else "●"))
+            label = str(entry.get("label", ""))
+            description = str(entry.get("description", ""))
+            row.extend([
+                symbol,
+                _paragraph(label, styles["small"]),
+                _paragraph(description, styles["small"]),
+            ])
+            cell_col = pair_index * 3
+            try:
+                style_commands.append(("TEXTCOLOR", (cell_col, len(rows)), (cell_col, len(rows)), colors.HexColor(color)))
+            except ValueError:
+                pass
+        while len(row) < 6:
+            row.extend(["", "", ""])
+        rows.append(row)
+    table = Table(rows, colWidths=[8 * mm, 24 * mm, 56 * mm, 8 * mm, 24 * mm, 56 * mm], hAlign="LEFT")
+    table.setStyle(TableStyle(style_commands))
+    return [_paragraph(title, styles["small"]), table, Spacer(1, 5)]
+
+
 def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> list[object]:
     """Render a Plotly-compatible engineering figure into the PDF.
 
@@ -360,18 +418,33 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
     title = block.title or "Профессиональный планшет интерпретации"
     items: list[object] = [_paragraph(title, styles["h2"])]
     figure = block.figure
+    legend = _figure_report_legend(figure)
+    depth_range = legend.get("depth_range", {}) if isinstance(legend.get("depth_range", {}), dict) else {}
+    if depth_range:
+        items.extend([
+            _paragraph(
+                f"Показан инженерно значимый диапазон глубин: "
+                f"{float(depth_range.get('top', 0)):g}–{float(depth_range.get('base', 0)):g} м. "
+                "Цветные зоны обозначают вероятный тип флюида; границы интервалов показаны маркерами кровли и подошвы.",
+                styles["small"],
+            ),
+            Spacer(1, 5),
+        ])
+    items.extend(_legend_table_pdf("Кривые", list(legend.get("curves", []) or []), styles))
+    items.extend(_legend_table_pdf("Интервалы", list(legend.get("fluids", []) or []), styles))
+    items.extend(_legend_table_pdf("Маркеры", list(legend.get("markers", []) or []), styles, marker_mode=True))
     try:
         if hasattr(figure, "to_image"):
-            png = figure.to_image(format="png", width=1900, height=1200, scale=1)
+            png = figure.to_image(format="png", width=2400, height=1500, scale=1)
         elif hasattr(figure, "write_image"):
             buffer = BytesIO()
-            figure.write_image(buffer, format="png", width=1900, height=1200)
+            figure.write_image(buffer, format="png", width=2400, height=1500)
             png = buffer.getvalue()
         else:
             raise TypeError("Figure backend does not support raster export")
         image = Image(BytesIO(png))
         max_width = 185 * mm
-        max_height = 175 * mm
+        max_height = 142 * mm
         ratio = min(max_width / image.imageWidth, max_height / image.imageHeight)
         image.drawWidth = image.imageWidth * ratio
         image.drawHeight = image.imageHeight * ratio

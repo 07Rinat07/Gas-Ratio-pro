@@ -1,3 +1,10 @@
+## v222.12 — Professional Report Visualization Renderer
+- Replaced the bare reduced plot snapshot with a print-specific visualization contract.
+- Added explicit curve colours, names and engineering descriptions to PDF and DOCX.
+- Added fluid-zone and interval-marker legends for both client and engineering reports.
+- Increased static render resolution, typography and curve weight for print readability.
+- Preserved the screen visualization path and README policy unchanged.
+
 ## v222.11 — Interpretation Freeze Hotfix
 - Selected interval now controls the initial tablet viewport instead of the full envelope of every interpreted interval.
 - Depth charts receive at most 24 visible interval overlays; the selected interval is always preserved.

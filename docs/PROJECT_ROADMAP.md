@@ -1,3 +1,14 @@
+## Current increment: v222.12 — Professional Report Visualization Renderer
+
+Status: **STABLE BUGFIX CANDIDATE**
+
+Implemented:
+- dedicated print-oriented plot metadata shared by PDF and DOCX;
+- readable curve legend with colour, mnemonic and engineering meaning;
+- explicit fluid-zone legend and top/base/priority marker explanations;
+- high-resolution report rendering with larger typography and line weights;
+- one synchronized legend contract for client and engineering profiles.
+
 ## v222.9 — Interval-Focused Tablet and Visual Legends — COMPLETED
 
 - focus the tablet on meaningful interpreted depth intervals;

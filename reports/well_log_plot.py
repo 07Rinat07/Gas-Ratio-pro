@@ -25,15 +25,41 @@ DEFAULT_TRACK_COLUMNS: tuple[str, ...] = (
 )
 
 FLUID_PLOT_LABELS: Mapping[str, str] = {
-    "gas": "GAS",
-    "oil": "OIL",
-    "condensate": "COND",
-    "gas_oil": "GAS-OIL",
-    "oil_gas": "OIL-GAS",
-    "mixed": "MIXED",
-    "transition": "CHECK",
-    "water": "WATER",
-    "uncertain": "UNCERTAIN",
+    "gas": "Газ",
+    "oil": "Нефть",
+    "condensate": "Газоконденсат",
+    "gas_oil": "Газ–нефть",
+    "oil_gas": "Нефть–газ",
+    "mixed": "Смешанный",
+    "transition": "Переходный",
+    "water": "Вода",
+    "uncertain": "Неопределённый",
+}
+
+CURVE_PRINT_SPECS: Mapping[str, Mapping[str, str]] = {
+    "c1": {"label": "C1", "description": "Метан", "color": "#ef4444"},
+    "c2": {"label": "C2", "description": "Этан", "color": "#10b981"},
+    "c3": {"label": "C3", "description": "Пропан", "color": "#8b5cf6"},
+    "ic4": {"label": "iC4", "description": "Изобутан", "color": "#f97316"},
+    "nc4": {"label": "nC4", "description": "Н-бутан", "color": "#06b6d4"},
+    "ic5": {"label": "iC5", "description": "Изопентан", "color": "#ec4899"},
+    "nc5": {"label": "nC5", "description": "Н-пентан", "color": "#eab308"},
+    "wh": {"label": "Wh", "description": "Влажность газа (Wetness)", "color": "#92400e"},
+    "bh": {"label": "Bh", "description": "Баланс компонентов (Balance)", "color": "#0ea5e9"},
+    "ch": {"label": "Ch", "description": "Характер газа (Character)", "color": "#f43f5e"},
+    "c1_c2": {"label": "C1/C2", "description": "Отношение метана к этану", "color": "#84cc16"},
+    "c1_c3": {"label": "C1/C3", "description": "Отношение метана к пропану", "color": "#d946ef"},
+    "inverse_oil_indicator": {"label": "Обратный нефтяной индикатор", "description": "Расчётный индикатор нефтяного отклика", "color": "#f59e0b"},
+}
+
+FLUID_PRINT_SPECS: Mapping[str, Mapping[str, str]] = {
+    "oil": {"label": "Нефть", "color": "#16a34a", "description": "Вероятный нефтенасыщенный интервал"},
+    "gas": {"label": "Газ", "color": "#dc2626", "description": "Вероятный газонасыщенный интервал"},
+    "condensate": {"label": "Газоконденсат", "color": "#f97316", "description": "Вероятный газоконденсатный интервал"},
+    "water": {"label": "Вода", "color": "#0284c7", "description": "Вероятный водонасыщенный интервал"},
+    "mixed": {"label": "Смешанный", "color": "#7c3aed", "description": "Смешанный или неоднозначный отклик"},
+    "transition": {"label": "Переходный", "color": "#ca8a04", "description": "Переходная зона, требуется проверка"},
+    "uncertain": {"label": "Неопределённый", "color": "#64748b", "description": "Недостаточно данных для уверенной классификации"},
 }
 
 
@@ -255,8 +281,8 @@ def build_professional_well_log_plot(
                 x=values,
                 y=depth,
                 mode="lines",
-                name=column,
-                line={"width": max(float(THEME.line_width), 2.2)},
+                name=f"{CURVE_PRINT_SPECS.get(column, {}).get('label', column)} — {CURVE_PRINT_SPECS.get(column, {}).get('description', 'Кривая')}",
+                line={"width": max(float(THEME.line_width), 2.8), "color": CURVE_PRINT_SPECS.get(column, {}).get("color", "#334155")},
                 connectgaps=False,
                 hovertemplate=engineering_hover(column),
                 showlegend=True,
@@ -265,7 +291,8 @@ def build_professional_well_log_plot(
             col=col_index,
         )
         curve_range = _curve_range(values)
-        fig.update_xaxes(title_text=column, zeroline=False, showgrid=True, row=1, col=col_index)
+        track_label = CURVE_PRINT_SPECS.get(column, {}).get("label", column)
+        fig.update_xaxes(title_text=track_label, zeroline=False, showgrid=True, row=1, col=col_index)
         if curve_range is not None:
             fig.update_xaxes(range=list(curve_range), row=1, col=col_index)
 
@@ -352,22 +379,61 @@ def build_professional_well_log_plot(
                 }
             )
 
+    visible_curve_specs = [
+        {
+            "key": column,
+            "label": CURVE_PRINT_SPECS.get(column, {}).get("label", column),
+            "description": CURVE_PRINT_SPECS.get(column, {}).get("description", "Расчётная кривая"),
+            "color": CURVE_PRINT_SPECS.get(column, {}).get("color", "#334155"),
+        }
+        for column in plotted_columns
+    ]
+    visible_fluid_types = []
+    for interval in visible_intervals:
+        fluid_type = str(interval.fluid_type or "uncertain")
+        if fluid_type not in visible_fluid_types:
+            visible_fluid_types.append(fluid_type)
+    visible_fluid_specs = [
+        {
+            "key": fluid_type,
+            "label": FLUID_PRINT_SPECS.get(fluid_type, {}).get("label", FLUID_PLOT_LABELS.get(fluid_type, fluid_type)),
+            "description": FLUID_PRINT_SPECS.get(fluid_type, {}).get("description", "Интерпретированный интервал"),
+            "color": FLUID_PRINT_SPECS.get(fluid_type, {}).get("color", str(_interval_style(fluid_type).get("color", "#64748b"))),
+        }
+        for fluid_type in visible_fluid_types
+    ]
+    report_meta = {
+        "schema": "gas-ratio-pro/report-plot-legend/v1",
+        "curves": visible_curve_specs,
+        "fluids": visible_fluid_specs,
+        "markers": [
+            {"symbol": "▼", "label": "Кровля", "description": "Верхняя граница интервала"},
+            {"symbol": "▲", "label": "Подошва", "description": "Нижняя граница интервала"},
+            {"symbol": "★", "label": "Приоритет", "description": "Наиболее перспективный интервал"},
+        ],
+        "depth_range": {"top": top_depth, "base": bottom_depth},
+    }
+
     apply_engineering_layout(
-        fig, title=cfg.title, height=cfg.height,
-        margin={"l": 64, "r": 28, "t": 108, "b": 42}, showlegend=True,
+        fig, title=cfg.title, height=max(cfg.height, 980),
+        margin={"l": 78, "r": 30, "t": 142, "b": 58}, showlegend=True,
     )
     fig.update_layout(
         shapes=shapes,
         annotations=annotations,
+        meta={"gas_ratio_report_legend": report_meta},
         legend={
-            "orientation": "h", "yanchor": "bottom", "y": 1.035,
-            "xanchor": "left", "x": 0.04, "font": {"size": 10},
-            "bgcolor": "rgba(255,255,255,0.98)",
+            "orientation": "h", "yanchor": "bottom", "y": 1.055,
+            "xanchor": "left", "x": 0.02, "font": {"size": 14, "color": "#0f172a"},
+            "bgcolor": "rgba(255,255,255,1)", "bordercolor": "#cbd5e1", "borderwidth": 1,
+            "itemsizing": "constant", "itemwidth": 42,
         },
+        font={"size": 14, "color": "#0f172a"},
         plot_bgcolor="#ffffff",
         paper_bgcolor="#ffffff",
         hovermode="y unified",
     )
+    fig.update_annotations(font={"size": 14, "color": "#0f172a"})
     # A professional well-log uses one common depth scale, not a repeated
     # "Глубина, м" title inside every track.
     for subplot_col in range(1, len(column_titles) + 1):

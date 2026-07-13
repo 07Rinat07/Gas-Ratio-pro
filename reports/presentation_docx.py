@@ -10,12 +10,12 @@ try:
     from docx.enum.section import WD_ORIENT
     from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
     from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.shared import Inches, Pt
+    from docx.shared import Inches, Pt, RGBColor
     DOCX_AVAILABLE = True
 except ModuleNotFoundError:  # pragma: no cover - depends on user environment
     Document = None
     WD_ORIENT = WD_TABLE_ALIGNMENT = WD_CELL_VERTICAL_ALIGNMENT = WD_ALIGN_PARAGRAPH = None
-    Inches = Pt = None
+    Inches = Pt = RGBColor = None
     DOCX_AVAILABLE = False
 
 from reports.document_model import (
@@ -222,22 +222,89 @@ def _add_visualization_preview_placeholder(doc: Document, block: DocumentVisuali
     doc.add_paragraph()
 
 
+def _figure_report_legend(figure: object) -> dict[str, object]:
+    layout = getattr(figure, "layout", None)
+    meta = getattr(layout, "meta", None) if layout is not None else None
+    if not isinstance(meta, dict):
+        return {}
+    payload = meta.get("gas_ratio_report_legend", {})
+    return dict(payload) if isinstance(payload, dict) else {}
+
+
+def _hex_rgb(value: object) -> tuple[int, int, int]:
+    text = str(value or "#64748b").strip().lstrip("#")
+    if len(text) != 6:
+        return (100, 116, 139)
+    try:
+        return tuple(int(text[index:index + 2], 16) for index in (0, 2, 4))
+    except ValueError:
+        return (100, 116, 139)
+
+
+def _add_report_legend_table(doc: Document, title: str, entries: Sequence[dict[str, object]]) -> None:
+    if not entries:
+        return
+    paragraph = doc.add_paragraph()
+    run = paragraph.add_run(title)
+    run.bold = True
+    run.font.size = Pt(9)
+    table = doc.add_table(rows=1, cols=3)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    table.style = "Table Grid"
+    headers = ("Знак", "Обозначение", "Инженерное значение")
+    for index, header in enumerate(headers):
+        cell = table.rows[0].cells[index]
+        cell.text = header
+        for cell_run in cell.paragraphs[0].runs:
+            cell_run.bold = True
+            cell_run.font.size = Pt(8)
+    for entry in entries:
+        cells = table.add_row().cells
+        symbol = str(entry.get("symbol", "■"))
+        color = _hex_rgb(entry.get("color"))
+        cells[0].text = ""
+        symbol_run = cells[0].paragraphs[0].add_run(symbol)
+        symbol_run.bold = True
+        symbol_run.font.size = Pt(12)
+        symbol_run.font.color.rgb = RGBColor(*color)
+        cells[1].text = str(entry.get("label", ""))
+        cells[2].text = str(entry.get("description", ""))
+        for cell in cells[1:]:
+            for cell_run in cell.paragraphs[0].runs:
+                cell_run.font.size = Pt(8)
+        for cell in cells:
+            cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+    doc.add_paragraph()
+
+
 def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
     """Embed the shared Plotly figure into DOCX; never expose renderer placeholders."""
     _add_paragraph(doc, block.title or "Планшет", style="Heading 2")
     figure = block.figure
+    legend = _figure_report_legend(figure)
+    depth_range = legend.get("depth_range", {}) if isinstance(legend.get("depth_range", {}), dict) else {}
+    if depth_range:
+        _add_paragraph(
+            doc,
+            f"Показан инженерно значимый диапазон глубин: "
+            f"{float(depth_range.get('top', 0)):g}–{float(depth_range.get('base', 0)):g} м. "
+            "Цветные зоны обозначают вероятный тип флюида; маркеры показывают кровлю, подошву и приоритетный интервал.",
+        )
+    _add_report_legend_table(doc, "Кривые", list(legend.get("curves", []) or []))
+    _add_report_legend_table(doc, "Интервалы и типы флюида", list(legend.get("fluids", []) or []))
+    _add_report_legend_table(doc, "Маркеры интервалов", list(legend.get("markers", []) or []))
     try:
         if hasattr(figure, "to_image"):
-            png = figure.to_image(format="png", width=1900, height=1200, scale=1)
+            png = figure.to_image(format="png", width=2400, height=1500, scale=1)
         elif hasattr(figure, "write_image"):
             buffer = BytesIO()
-            figure.write_image(buffer, format="png", width=1900, height=1200)
+            figure.write_image(buffer, format="png", width=2400, height=1500)
             png = buffer.getvalue()
         else:
             raise TypeError("Figure backend does not support raster export")
         paragraph = doc.add_paragraph()
         paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        paragraph.add_run().add_picture(BytesIO(png), width=Inches(6.35))
+        paragraph.add_run().add_picture(BytesIO(png), width=Inches(7.0))
     except Exception as exc:
         paragraph = doc.add_paragraph()
         paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
