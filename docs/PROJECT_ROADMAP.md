@@ -1,3 +1,13 @@
+## v222.4 — Streamlit Rerun Coordination — COMPLETED
+
+- centralize full-app rerun requests;
+- suppress duplicate reruns inside one render cycle;
+- preserve named refresh reasons for diagnostics;
+- keep Professional Export fragment isolated;
+- verify navigation, export and render-queue regressions.
+
+Next: field acceptance and targeted v222.5 performance fixes only.
+
 ## v222.3 — Engineering UX & Visibility Stabilization — COMPLETED
 
 - strengthen screen curve and marker visibility;

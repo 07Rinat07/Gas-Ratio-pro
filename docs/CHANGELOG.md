@@ -1,3 +1,11 @@
+## v222.4 — Streamlit Rerun Coordination
+
+- Added one state-backed rerun coordinator for full-app refreshes.
+- Limited each Streamlit render cycle to one full rerun request.
+- Replaced direct workspace reruns with named refresh reasons.
+- Added bounded rerun history for diagnostics.
+- Preserved isolated Professional Export fragment behavior.
+
 ## v222.3 — Engineering UX & Visibility Stabilization
 
 - Added a final browser-facing visibility profile for all Plotly figures.

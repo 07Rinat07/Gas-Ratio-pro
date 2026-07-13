@@ -224,6 +224,7 @@ from palettes.config import load_palette_config
 from palettes.plot_engine import PLOTLY_SCREEN_CONFIG, downsample_frame_for_screen, enhance_screen_visibility
 from palettes.plot_cache import PlotCache
 from core.runtime_diagnostics import RuntimeDiagnostics
+from core.rerun_coordinator import begin_rerun_cycle, request_rerun
 from core.performance_audit import build_workspace_performance_gate, evaluate_performance
 from core.render_queue import RenderQueue, RenderTask
 from core.lazy_workspace import LazyWorkspaceRegistry, WorkspaceRoute
@@ -5229,15 +5230,21 @@ def _las_workspace_controller() -> LasWorkspaceController:
     )
 
 
-def _refresh_ui() -> None:
-    """Centralized UI refresh helper used by repository/service actions."""
-    st.rerun()
+def _refresh_ui(reason: str = "ui_refresh") -> bool:
+    """Request at most one full-app rerun in the current render cycle."""
+    controller = _application_state_controller()
+    decision = request_rerun(controller.state, reason, source="streamlit_app")
+    if decision.allowed:
+        st.rerun()
+    return decision.allowed
 
 
-def _request_ui_refresh_and_rerun(reason: str) -> None:
-    """Record a refresh reason and rerun the Streamlit app through one helper."""
-    _application_state_controller().request_refresh(reason, source="streamlit_app")
-    _refresh_ui()
+def _request_ui_refresh_and_rerun(reason: str) -> bool:
+    """Record a refresh reason and rerun through the single-cycle gate."""
+    controller = _application_state_controller()
+    if hasattr(controller, "request_refresh"):
+        controller.request_refresh(reason, source="streamlit_app")
+    return _refresh_ui(reason)
 
 
 def _render_table_toolbar_caption(title: str, description: str | None = None) -> None:
@@ -7701,7 +7708,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         )
         if table_interval_id and table_interval_id != active_workspace_interval_id:
             state_controller.update_values({"selected_reservoir_interval_id": table_interval_id})
-            st.rerun()
+            _request_ui_refresh_and_rerun("workspace_interval_selected")
 
     interval_indices = [
         int(index)
@@ -8694,7 +8701,7 @@ def _render_reservoir_ranking(
                     "selected_reservoir_bottom": float(interval.base),
                 })
             _application_state_controller().update_values(payload)
-            st.rerun()
+            _request_ui_refresh_and_rerun("ranking_interval_selected")
 
 
 def _render_selected_interval_passport(
@@ -9861,7 +9868,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                     "selected_reservoir_bottom": float(table_interval.base),
                 })
             state_controller.update_values(update_payload)
-            st.rerun()
+            _request_ui_refresh_and_rerun("interpretation_interval_selected")
 
     st.subheader("Расчетные данные выбранного интервала")
     st.caption("Таблица прокручивается вертикально и горизонтально; служебные колонки можно изучать при необходимости.")
@@ -11310,7 +11317,7 @@ def _render_workbench_data_grid(
                         "metadata": dict(selection_metadata or {}),
                         "confirmed": confirmed,
                     })
-                    st.rerun()
+                    _request_ui_refresh_and_rerun("workbench_selection_changed")
             else:
                 st.caption("Выберите один или несколько объектов на текущей странице.")
             bulk_result = bulk_service.result()
@@ -13906,12 +13913,14 @@ def _run_modern_workbench() -> None:
     st.set_page_config(page_title="Gas Ratio Pro", page_icon=_app_icon_data_uri() or None, layout="wide")
     from core.streamlit_runtime_compat import configure_streamlit_runtime_log_capture
     logger = configure_streamlit_runtime_log_capture()
+    state_controller = _application_state_controller()
+    begin_rerun_cycle(state_controller.state)
     logger.info("modern_workbench_started")
     _process_workbench_bulk_action(logger)
     _process_workbench_property_action(logger)
-    results = render_streamlit_workbench(_application_state_controller().state, st)
+    results = render_streamlit_workbench(state_controller.state, st)
     if any(result.executed for result in results):
-        st.rerun()
+        _request_ui_refresh_and_rerun("workbench_command_executed")
 
 
 def main() -> None:

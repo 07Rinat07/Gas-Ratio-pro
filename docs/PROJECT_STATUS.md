@@ -1,3 +1,16 @@
+## Current increment: v222.4 — Streamlit Rerun Coordination
+
+Status: **STABLE BUGFIX**
+
+Implemented:
+- centralized full-app rerun gate;
+- one rerun maximum per render cycle;
+- named reasons for interval, ranking and Workbench refreshes;
+- bounded rerun diagnostics;
+- regression coverage for duplicate-rerun suppression.
+
+Validation: 42 focused architecture, navigation, export and rendering tests passed.
+
 ## Current increment: v222.3 — Engineering UX & Visibility Stabilization
 
 Status: **STABLE BUGFIX**
