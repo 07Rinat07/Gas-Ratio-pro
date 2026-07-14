@@ -2295,3 +2295,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added optional application of the target type color during reassignment.
 - Added safe reassignment-and-delete workflow for types currently used by intervals.
 - Added rollback of already changed interval files if a batch reassignment fails.
+
+## Interpretation interval type reassignment preview
+
+- Added a read-only project-wide preview before interval type reassignment.
+- Preview lists affected wells, interpretations, interval labels, depth bounds, thickness and current colors.
+- Preview validation uses the same source and target type rules as the batch operation.
+- Preview does not write interval files or modify the type catalog.

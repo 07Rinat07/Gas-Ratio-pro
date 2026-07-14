@@ -43,6 +43,32 @@ class InterpretationIntervalTypeUsage:
 
 
 @dataclass(frozen=True)
+class InterpretationIntervalTypeReassignmentPreviewItem:
+    interval_id: str
+    label: str
+    well_id: str
+    interpretation_id: str
+    top: float
+    base: float
+    color: str
+
+    @property
+    def thickness(self) -> float:
+        return round(self.base - self.top, 6)
+
+
+@dataclass(frozen=True)
+class InterpretationIntervalTypeReassignmentPreview:
+    source_type_id: str
+    target_type_id: str
+    interval_count: int
+    well_count: int
+    interpretation_count: int
+    target_color_applied: bool
+    items: tuple[InterpretationIntervalTypeReassignmentPreviewItem, ...]
+
+
+@dataclass(frozen=True)
 class InterpretationIntervalTypeReassignmentResult:
     source_type_id: str
     target_type_id: str
@@ -280,6 +306,63 @@ class InterpretationIntervalTypeRepository:
             type_id,
             root=self.root,
             project_id=self.project_id,
+        )
+
+    def preview_reassignment(
+        self,
+        source_type_id: str,
+        target_type_id: str,
+        *,
+        apply_target_color: bool = True,
+    ) -> InterpretationIntervalTypeReassignmentPreview:
+        source_id = _clean_id(source_type_id)
+        target_id = _clean_id(target_type_id)
+        if source_id == target_id:
+            raise ValueError("Исходный и целевой типы должны отличаться.")
+        if self.get(source_id) is None:
+            raise KeyError(f"Тип интервала не найден: {source_id}")
+        if self.get(target_id) is None:
+            raise KeyError(f"Тип интервала не найден: {target_id}")
+
+        project_root = self.root / self.project_id / "wells"
+        paths = sorted(project_root.glob("*/interpretations/*/intervals.json")) if project_root.exists() else []
+        items: list[InterpretationIntervalTypeReassignmentPreviewItem] = []
+        wells: set[str] = set()
+        interpretations: set[tuple[str, str]] = set()
+        for path in paths:
+            well_id = path.parents[2].name
+            interpretation_id = path.parent.name
+            interval_set = load_interpretation_intervals(
+                self.root, self.project_id, well_id, interpretation_id
+            )
+            for interval in interval_set.intervals:
+                if interval.interval_type != source_id:
+                    continue
+                items.append(
+                    InterpretationIntervalTypeReassignmentPreviewItem(
+                        interval_id=interval.id,
+                        label=interval.label,
+                        well_id=well_id,
+                        interpretation_id=interpretation_id,
+                        top=interval.top,
+                        base=interval.base,
+                        color=interval.color,
+                    )
+                )
+                wells.add(well_id)
+                interpretations.add((well_id, interpretation_id))
+
+        normalized_items = tuple(
+            sorted(items, key=lambda item: (item.well_id, item.interpretation_id, item.top, item.base, item.label.lower()))
+        )
+        return InterpretationIntervalTypeReassignmentPreview(
+            source_type_id=source_id,
+            target_type_id=target_id,
+            interval_count=len(normalized_items),
+            well_count=len(wells),
+            interpretation_count=len(interpretations),
+            target_color_applied=bool(apply_target_color),
+            items=normalized_items,
         )
 
     def reassign(

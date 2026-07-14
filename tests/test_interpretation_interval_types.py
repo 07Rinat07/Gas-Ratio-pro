@@ -185,3 +185,54 @@ def test_repository_reassign_rejects_same_or_missing_target_type(tmp_path: Path)
         repository.reassign("source", "source")
     with pytest.raises(KeyError, match="missing"):
         repository.reassign("source", "missing")
+
+
+def test_repository_previews_project_wide_reassignment_without_changing_data(tmp_path: Path) -> None:
+    from projects.interpretation_intervals import load_interpretation_intervals
+
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    repository.upsert(type_id="source", name="Source", color="#112233")
+    repository.upsert(type_id="target", name="Target", color="#AABBCC")
+    first = create_interpretation_interval(
+        root=tmp_path,
+        project_id="project",
+        well_id="well-b",
+        interpretation_id="secondary",
+        label="B",
+        top=200,
+        base=212,
+        interval_type="source",
+        color="#010203",
+    )
+    second = create_interpretation_interval(
+        root=tmp_path,
+        project_id="project",
+        well_id="well-a",
+        interpretation_id="default",
+        label="A",
+        top=100,
+        base=110,
+        interval_type="source",
+        color="#040506",
+    )
+
+    preview = repository.preview_reassignment("source", "target", apply_target_color=True)
+
+    assert preview.interval_count == 2
+    assert preview.well_count == 2
+    assert preview.interpretation_count == 2
+    assert preview.target_color_applied is True
+    assert [item.interval_id for item in preview.items] == [second.id, first.id]
+    assert preview.items[0].thickness == 10.0
+    assert load_interpretation_intervals(tmp_path, "project", "well-a", "default").intervals[0].interval_type == "source"
+    assert load_interpretation_intervals(tmp_path, "project", "well-b", "secondary").intervals[0].interval_type == "source"
+
+
+def test_repository_reassignment_preview_validates_types(tmp_path: Path) -> None:
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    repository.upsert(type_id="source", name="Source", color="#112233")
+
+    with pytest.raises(ValueError, match="должны отличаться"):
+        repository.preview_reassignment("source", "source")
+    with pytest.raises(KeyError, match="missing"):
+        repository.preview_reassignment("source", "missing")

@@ -156,6 +156,38 @@ def render_interpretation_interval_panel(
                             value=True,
                             key=f"manual_interval_type_reassign_color_{project_id}",
                         )
+                        try:
+                            reassignment_preview = type_repository.preview_reassignment(
+                                type_delete_id,
+                                replacement_type_id,
+                                apply_target_color=apply_replacement_color,
+                            )
+                        except (KeyError, ValueError) as exc:
+                            st.error(str(exc))
+                            reassignment_preview = None
+                        if reassignment_preview is not None:
+                            st.caption(
+                                f"Будет изменено: {reassignment_preview.interval_count} интервалов · "
+                                f"{reassignment_preview.well_count} скважин · "
+                                f"{reassignment_preview.interpretation_count} интерпретаций."
+                            )
+                            with st.expander("Предварительный просмотр переназначения", expanded=False):
+                                st.dataframe(
+                                    [
+                                        {
+                                            "Скважина": item.well_id,
+                                            "Интерпретация": item.interpretation_id,
+                                            "Интервал": item.label,
+                                            "Верх": item.top,
+                                            "Низ": item.base,
+                                            "Мощность": item.thickness,
+                                            "Текущий цвет": item.color,
+                                        }
+                                        for item in reassignment_preview.items
+                                    ],
+                                    width="stretch",
+                                    hide_index=True,
+                                )
                         if st.button(
                             "Переназначить интервалы и удалить тип",
                             key=f"manual_interval_type_reassign_delete_{project_id}",
