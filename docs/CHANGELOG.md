@@ -2510,3 +2510,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Integrated correlation runtime stages into one trace execution.
 - Added slow-operation classification and trace diagnostics to Developer Diagnostics.
 - Added regression tests for context isolation, bounded storage, failure recording and diagnostics serialization.
+
+## 2026-07-14 — Performance regression protection
+
+- Added compact performance baselines derived from Diagnostics Center snapshots.
+- Added deterministic regression comparison for stage p95 duration, cache hit-rate, Session State growth and new runtime failures.
+- Added a CI/local CLI that exports JSON and Markdown reports and returns a non-zero exit code on confirmed regression.
+- Developer Diagnostics can download the current JSON baseline without exposing runtime objects or cached payloads.

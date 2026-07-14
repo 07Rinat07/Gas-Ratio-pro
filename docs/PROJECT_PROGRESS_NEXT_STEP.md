@@ -506,3 +506,12 @@ Next priority: migrate remaining high-value transient keys and runtime caches to
 - Added framework-neutral trace contexts based on `contextvars`; context is never stored in serializable Session State.
 
 Next priority: establish repeatable cold/warm correlation benchmarks and add byte-aware limits to runtime caches.
+
+## Phase 2: benchmark and regression protection
+
+- Diagnostics Center now produces a compact versioned performance baseline.
+- Baselines include stage p95 durations, cache hit-rate, measured cache operations, Session State key count and failed runtime events.
+- `scripts/run_performance_regression.py` compares a saved baseline with a current diagnostics snapshot or baseline.
+- Release-gate policy checks duration growth, cache hit-rate degradation, Session State growth and new runtime failures.
+- Reports are available as JSON and Markdown; regression returns exit code `2` for CI integration.
+- Next step: collect repeatable real-world LAS/correlation benchmark fixtures and tune budgets from measured hardware profiles.

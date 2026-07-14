@@ -32,6 +32,8 @@ def test_diagnostics_center_returns_serializable_runtime_cache_and_session_data(
     assert snapshot["repository"]["bytes_read"] == 120
     assert "loose_key" in snapshot["session"]["unscoped_keys"]
     assert snapshot["budgets"][0]["status"] == "slow"
+    assert snapshot["performance_baseline"]["stages"]["las_correlation.total"] == 12000.0
+    assert snapshot["performance_baseline"]["cache_hit_rate"] == 75.0
 
 
 def test_diagnostics_center_does_not_expose_runtime_instances() -> None:

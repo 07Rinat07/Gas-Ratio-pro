@@ -14,6 +14,7 @@ from core.runtime_service_registry import RuntimeServiceRegistry, runtime_servic
 from core.repository_io import RepositoryIOMetrics
 from core.operation_tracing import OperationTraceRegistry
 from core.session_state_audit import audit_session_state
+from core.performance_regression import build_performance_baseline
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,7 +114,7 @@ def build_diagnostics_center_snapshot(
     ]
     budgets = dict(performance_budgets_ms or {})
 
-    return {
+    snapshot = {
         "runtime": {
             "registry": registry.snapshot().to_dict(),
             "services": descriptors,
@@ -127,3 +128,5 @@ def build_diagnostics_center_snapshot(
         "session": session,
         "budgets": _budget_snapshot(events, budgets),
     }
+    snapshot["performance_baseline"] = build_performance_baseline(snapshot).to_dict()
+    return snapshot

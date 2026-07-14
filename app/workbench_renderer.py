@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import base64
+import json
 import mimetypes
 from typing import Any, MutableMapping, Protocol
 
@@ -839,6 +840,24 @@ def _render_native_streamlit_layout(
                     st_module.markdown("##### Performance budgets")
                     if hasattr(st_module, "dataframe"):
                         st_module.dataframe(budgets, width="stretch", hide_index=True)
+
+                baseline = dict(center.get("performance_baseline", {}) or {})
+                if baseline:
+                    st_module.markdown("##### Performance baseline")
+                    st_module.caption(
+                        "Stages: " + str(len(baseline.get("stages", {}) or {}))
+                        + " | Cache hit rate: " + str(baseline.get("cache_hit_rate", 0.0)) + "%"
+                        + " | Session keys: " + str(baseline.get("session_keys", 0))
+                        + " | Failed events: " + str(baseline.get("failed_events", 0))
+                    )
+                    if hasattr(st_module, "download_button"):
+                        st_module.download_button(
+                            "Download performance baseline",
+                            data=json.dumps(baseline, ensure_ascii=False, indent=2),
+                            file_name="gasratio-performance-baseline.json",
+                            mime="application/json",
+                            key="workbench_diagnostics_performance_baseline_download",
+                        )
 
     status_items = list(layout.get("status_items", ()))
     status_html = "".join(f"<span><strong>{_html(i.get('label',''))}:</strong> {_html(i.get('value',''))}</span>" for i in status_items)
