@@ -612,3 +612,7 @@ Validation completed:
 ## Latest increment: PDF Preview cache memory diagnostics
 
 The PDF preview cache now exposes `summarize_pdf_preview_cache()` and `PdfPreviewCacheStats`. The UI can optionally show range count, rendered page count, aggregate PNG bytes, largest entry and pressure status. Diagnostics inspect metadata only and do not duplicate PDF or PNG bytes. Keep all future planning documents under `docs/`; do not create Markdown planning files at repository root.
+
+## Latest increment: PDF Preview cache memory budget
+
+The PDF thumbnail cache is now bounded by both number of ranges and total PNG bytes. Use `store_pdf_preview_cache_with_diagnostics()` when UI or telemetry needs eviction details. The compatibility wrapper `store_pdf_preview_cache()` still returns only the payload. The newest range is never evicted during the same insertion, even when it exceeds the selected budget. All new documentation remains under `docs/`; do not add Markdown files to the repository root except `README.md`.

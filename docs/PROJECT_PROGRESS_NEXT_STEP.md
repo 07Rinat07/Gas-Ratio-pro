@@ -119,3 +119,12 @@ Next recommended increment: Modern Workspace shell foundation — Project Explor
 - Renderer-neutral diagnostics classify memory pressure as `empty`, `ok`, `warning` or `critical` without copying PDF/PNG payloads.
 - Warning and critical guidance recommends cache cleanup or lower DPI/page limits.
 - Next step: add cache eviction telemetry and an optional per-project memory budget control.
+
+## PDF Preview cache memory budget and eviction telemetry
+
+- Added a per-project Session State memory budget selector for PDF preview thumbnails: 8, 16, 24 or 48 MiB.
+- Cache insertion now evicts the oldest preview ranges until both the entry-count limit and memory budget are satisfied.
+- The newest explicitly requested range is always retained, even if that single range exceeds the selected budget.
+- Evictions emit payload-free telemetry with evicted count, released bytes, retained bytes and configured budget.
+- Existing `store_pdf_preview_cache()` remains backward compatible and delegates to the new diagnostic storage API.
+- Next step: return to the core interpretation workflow and implement project-persistent editable interval annotations.

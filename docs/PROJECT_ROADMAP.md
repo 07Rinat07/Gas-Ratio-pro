@@ -1594,3 +1594,10 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Classify cache pressure with bounded warning and critical thresholds.
 - [x] Preserve the three-entry cache bound and avoid copying binary payloads during diagnostics.
 - [ ] Add explicit cache eviction telemetry and configurable bounded memory budget.
+
+## PDF Preview memory budget
+
+- [x] Add per-project in-session preview cache memory budget control.
+- [x] Evict oldest thumbnail ranges when count or memory limits are exceeded.
+- [x] Add renderer-neutral eviction diagnostics and payload-free logging.
+- [ ] Begin editable interpretation interval manager with project persistence and validation.

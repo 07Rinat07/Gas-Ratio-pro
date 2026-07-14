@@ -358,6 +358,7 @@ from reports.pdf_preview import (
     resolve_pdf_preview_cache,
     shift_pdf_preview_window,
     store_pdf_preview_cache,
+    store_pdf_preview_cache_with_diagnostics,
     summarize_pdf_preview_cache,
     validate_pdf_preview_page_jump,
 )
@@ -10248,6 +10249,18 @@ def _render_professional_export_panel(
                             "только одну следующую ограниченную группу страниц."
                         ),
                     )
+                    cache_budget_mib = st.selectbox(
+                        "Лимит памяти кэша",
+                        options=(8, 16, 24, 48),
+                        index=2,
+                        key=f"pdf_preview_cache_budget_mib_{active_project.id}",
+                        help=(
+                            "При превышении лимита самые старые диапазоны удаляются. "
+                            "Текущий диапазон всегда сохраняется."
+                        ),
+                    )
+                    cache_budget_bytes = int(cache_budget_mib) * 1024 * 1024
+
                     show_cache_stats = st.checkbox(
                         "Показать статистику кэша предпросмотра",
                         value=False,
@@ -10258,7 +10271,11 @@ def _render_professional_export_panel(
                         ),
                     )
                     if show_cache_stats:
-                        cache_stats = summarize_pdf_preview_cache(cached_pdf_preview)
+                        cache_stats = summarize_pdf_preview_cache(
+                            cached_pdf_preview,
+                            warning_threshold_bytes=max(1, int(cache_budget_bytes * 0.75)),
+                            critical_threshold_bytes=cache_budget_bytes,
+                        )
                         cache_metric_columns = st.columns(4)
                         cache_metric_columns[0].metric("Диапазоны в кэше", cache_stats.entry_count)
                         cache_metric_columns[1].metric("Страницы в памяти", cache_stats.rendered_pages)
@@ -10327,13 +10344,24 @@ def _render_professional_export_panel(
                                 start_page=effective_preview_start,
                                 dpi=preview_dpi,
                             )
-                            cached_pdf_preview = store_pdf_preview_cache(
+                            cache_store = store_pdf_preview_cache_with_diagnostics(
                                 cached_pdf_preview,
                                 signature=str(expected_preview_signature),
                                 result=preview_result,
                                 max_entries=3,
+                                max_bytes=cache_budget_bytes,
                             )
+                            cached_pdf_preview = cache_store.payload
                             export_state[pdf_preview_cache_key] = cached_pdf_preview
+                            if cache_store.eviction_count:
+                                logger.info(
+                                    "pdf_preview_cache_evicted project_id=%s count=%d bytes=%d retained_bytes=%d budget_bytes=%d",
+                                    safe_log_value(active_project.id),
+                                    cache_store.eviction_count,
+                                    cache_store.evicted_bytes,
+                                    cache_store.retained_bytes,
+                                    cache_store.budget_bytes,
+                                )
                             matched_preview_result = preview_result
                             preview_matches = True
 
@@ -10361,13 +10389,24 @@ def _render_professional_export_panel(
                                             start_page=adjacent_start,
                                             dpi=preview_dpi,
                                         )
-                                        cached_pdf_preview = store_pdf_preview_cache(
+                                        prefetch_store = store_pdf_preview_cache_with_diagnostics(
                                             cached_pdf_preview,
                                             signature=adjacent_signature,
                                             result=adjacent_result,
                                             max_entries=3,
+                                            max_bytes=cache_budget_bytes,
                                         )
+                                        cached_pdf_preview = prefetch_store.payload
                                         export_state[pdf_preview_cache_key] = cached_pdf_preview
+                                        if prefetch_store.eviction_count:
+                                            logger.info(
+                                                "pdf_preview_cache_evicted project_id=%s count=%d bytes=%d retained_bytes=%d budget_bytes=%d source=prefetch",
+                                                safe_log_value(active_project.id),
+                                                prefetch_store.eviction_count,
+                                                prefetch_store.evicted_bytes,
+                                                prefetch_store.retained_bytes,
+                                                prefetch_store.budget_bytes,
+                                            )
                                         logger.info(
                                             "pdf_preview_prefetched project_id=%s start_page=%d pages=%d duration_ms=%.2f bytes=%d backend=%s",
                                             safe_log_value(active_project.id),

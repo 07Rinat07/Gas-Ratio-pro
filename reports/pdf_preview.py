@@ -71,6 +71,19 @@ class PdfPreviewCacheStats:
 
 
 @dataclass(frozen=True)
+class PdfPreviewCacheStoreResult:
+    payload: dict[str, object]
+    evicted_signatures: tuple[str, ...] = ()
+    evicted_bytes: int = 0
+    retained_bytes: int = 0
+    budget_bytes: int = 0
+
+    @property
+    def eviction_count(self) -> int:
+        return len(self.evicted_signatures)
+
+
+@dataclass(frozen=True)
 class PdfPreviewPageJumpValidation:
     requested_page: int
     normalized_page: int
@@ -412,19 +425,29 @@ def resolve_pdf_preview_cache(
     return inspect_pdf_preview_cache(payload, signature=signature).result
 
 
-def store_pdf_preview_cache(
+def store_pdf_preview_cache_with_diagnostics(
     payload: object,
     *,
     signature: str,
     result: PdfPreviewResult,
     max_entries: int = 3,
-) -> dict[str, object]:
-    """Store a preview in a small newest-first cache suitable for Session State."""
+    max_bytes: int = 24 * 1024 * 1024,
+) -> PdfPreviewCacheStoreResult:
+    """Store a preview and evict oldest ranges to satisfy count and memory budgets.
+
+    The newest range is always retained, even when it alone exceeds ``max_bytes``.
+    This keeps the explicit user action useful while ensuring older previews cannot
+    grow Session State without bounds.
+    """
 
     try:
         safe_max_entries = max(1, min(int(max_entries), 6))
     except (TypeError, ValueError):
         safe_max_entries = 3
+    try:
+        safe_max_bytes = max(1, min(int(max_bytes), 128 * 1024 * 1024))
+    except (TypeError, ValueError):
+        safe_max_bytes = 24 * 1024 * 1024
 
     entries: list[dict[str, object]] = []
     if isinstance(payload, dict):
@@ -446,7 +469,53 @@ def store_pdf_preview_cache(
             entries.append({"signature": payload["signature"], "result": payload["result"]})
 
     entries.insert(0, {"signature": str(signature), "result": result})
-    return {"entries": entries[:safe_max_entries]}
+    evicted: list[dict[str, object]] = []
+    while len(entries) > safe_max_entries:
+        evicted.append(entries.pop())
+
+    def entry_bytes(entry: dict[str, object]) -> int:
+        cached_result = entry.get("result")
+        if not isinstance(cached_result, PdfPreviewResult):
+            return 0
+        return max(0, int(cached_result.image_size_bytes))
+
+    retained_bytes = sum(entry_bytes(entry) for entry in entries)
+    while len(entries) > 1 and retained_bytes > safe_max_bytes:
+        removed = entries.pop()
+        removed_bytes = entry_bytes(removed)
+        retained_bytes -= removed_bytes
+        evicted.append(removed)
+
+    evicted_signatures = tuple(
+        str(entry.get("signature", "")) for entry in evicted if entry.get("signature")
+    )
+    evicted_bytes = sum(entry_bytes(entry) for entry in evicted)
+    return PdfPreviewCacheStoreResult(
+        payload={"entries": entries},
+        evicted_signatures=evicted_signatures,
+        evicted_bytes=evicted_bytes,
+        retained_bytes=max(0, retained_bytes),
+        budget_bytes=safe_max_bytes,
+    )
+
+
+def store_pdf_preview_cache(
+    payload: object,
+    *,
+    signature: str,
+    result: PdfPreviewResult,
+    max_entries: int = 3,
+    max_bytes: int = 24 * 1024 * 1024,
+) -> dict[str, object]:
+    """Compatibility wrapper returning only the bounded cache payload."""
+
+    return store_pdf_preview_cache_with_diagnostics(
+        payload,
+        signature=signature,
+        result=result,
+        max_entries=max_entries,
+        max_bytes=max_bytes,
+    ).payload
 
 
 def next_pdf_preview_start_page(

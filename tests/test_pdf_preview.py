@@ -313,3 +313,66 @@ def test_summarize_pdf_preview_cache_supports_empty_legacy_and_critical() -> Non
     assert critical.status == "critical"
     assert critical.entry_count == 1
     assert critical.image_size_bytes == 2_500
+
+
+def test_pdf_preview_cache_memory_budget_evicts_oldest_ranges() -> None:
+    from reports.pdf_preview import (
+        PdfPreviewPage,
+        PdfPreviewResult,
+        inspect_pdf_preview_cache,
+        store_pdf_preview_cache_with_diagnostics,
+    )
+
+    def result(page: int, size: int) -> PdfPreviewResult:
+        return PdfPreviewResult(
+            pages=(PdfPreviewPage(page, b"x" * size, 10, 10),),
+            total_pages=3,
+            rendered_pages=1,
+            backend="test",
+            truncated=True,
+            image_size_bytes=size,
+        )
+
+    first = store_pdf_preview_cache_with_diagnostics(
+        None, signature="one", result=result(1, 700), max_entries=3, max_bytes=1_500
+    )
+    second = store_pdf_preview_cache_with_diagnostics(
+        first.payload, signature="two", result=result(2, 700), max_entries=3, max_bytes=1_500
+    )
+    third = store_pdf_preview_cache_with_diagnostics(
+        second.payload, signature="three", result=result(3, 700), max_entries=3, max_bytes=1_500
+    )
+
+    assert third.eviction_count == 1
+    assert third.evicted_signatures == ("one",)
+    assert third.evicted_bytes == 700
+    assert third.retained_bytes == 1_400
+    assert inspect_pdf_preview_cache(third.payload, signature="three").hit is True
+    assert inspect_pdf_preview_cache(third.payload, signature="two").hit is True
+    assert inspect_pdf_preview_cache(third.payload, signature="one").hit is False
+
+
+def test_pdf_preview_cache_keeps_newest_entry_when_it_exceeds_budget() -> None:
+    from reports.pdf_preview import PdfPreviewPage, PdfPreviewResult, store_pdf_preview_cache_with_diagnostics
+
+    oversized = PdfPreviewResult(
+        pages=(PdfPreviewPage(1, b"x" * 2_000, 10, 10),),
+        total_pages=1,
+        rendered_pages=1,
+        backend="test",
+        truncated=False,
+        image_size_bytes=2_000,
+    )
+
+    stored = store_pdf_preview_cache_with_diagnostics(
+        None,
+        signature="oversized",
+        result=oversized,
+        max_entries=3,
+        max_bytes=1_000,
+    )
+
+    assert stored.eviction_count == 0
+    assert stored.retained_bytes == 2_000
+    assert stored.budget_bytes == 1_000
+    assert len(stored.payload["entries"]) == 1
