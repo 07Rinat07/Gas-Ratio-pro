@@ -583,3 +583,7 @@ Implemented `PdfPreviewPageJumpValidation` and `validate_pdf_preview_page_jump()
 ## Workbench runtime-state deepcopy fix
 
 `core/workbench_dispatcher.py` uses a per-key rollback snapshot. Do not restore the former `deepcopy(dict(self.state))`: Streamlit state may contain live background-export services backed by `ThreadPoolExecutor`/`queue.SimpleQueue`, which are not pickleable. Copyable values retain deep rollback semantics; runtime services are preserved by reference.
+
+## Runtime service registry
+
+Live services now belong in `core.runtime_service_registry.RuntimeServiceRegistry`, accessed through `ApplicationStateController.ensure_runtime_service()`. Do not place `ThreadPoolExecutor`, queue, lock, manager or mutable runtime-cache instances directly under normal Session State keys. The registry itself is stored under `runtime::services` and is intentionally preserved by reference during Workbench rollback. Ordinary project and UI data must continue to use `get_value()`/`set_value()` and remains deeply copyable. Keep all planning and handoff Markdown files under `docs/`.

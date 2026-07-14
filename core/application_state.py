@@ -27,6 +27,7 @@ from core.session_state_manager import (
     clear_on_workspace_change,
 )
 from core.event_bus import ApplicationEvent, ApplicationEventBus
+from core.runtime_service_registry import RuntimeServiceRegistry, runtime_service_registry
 
 ACTIVE_PROJECT_ID_KEY = "active_project_id"
 ACTIVE_WELL_ID_KEY = "active_well_id"
@@ -105,9 +106,40 @@ class ApplicationStateController:
         return self.state.get(str(key), default)
 
     def set_value(self, key: str, value: Any) -> None:
-        """Write a session value through the application-state boundary."""
+        """Write a serializable session value through the application-state boundary."""
 
         self.state[str(key)] = value
+
+    def runtime_services(self) -> RuntimeServiceRegistry:
+        """Return the session-scoped registry for live, non-copyable services."""
+
+        return runtime_service_registry(self.state)
+
+    def get_runtime_service(self, key: str, default: Any = None) -> Any:
+        """Read a process-local service without mixing it into rollback data."""
+
+        return self.runtime_services().get(key, default)
+
+    def set_runtime_service(self, key: str, service: Any) -> Any:
+        """Register a process-local service and return it."""
+
+        return self.runtime_services().set(key, service)
+
+    def ensure_runtime_service(
+        self,
+        key: str,
+        factory: Any,
+        *,
+        expected_type: type[Any] | None = None,
+    ) -> Any:
+        """Return an existing runtime service or construct it exactly once."""
+
+        return self.runtime_services().ensure(key, factory, expected_type=expected_type)
+
+    def remove_runtime_service(self, key: str, default: Any = None) -> Any:
+        """Remove one process-local service from the registry."""
+
+        return self.runtime_services().remove(key, default)
 
     def update_values(self, values: dict[str, Any]) -> None:
         """Write multiple application-owned session values atomically."""

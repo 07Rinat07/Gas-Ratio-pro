@@ -68,3 +68,11 @@ Next recommended increment: Modern Workspace shell foundation — Project Explor
 - Навигация не падает, если в Session State присутствует `BackgroundExportManager` с `ThreadPoolExecutor` и `queue.SimpleQueue`.
 - Для обычных словарей и списков сохранён глубокий rollback при ошибке команды.
 - Добавлены регрессионные тесты успешной навигации и отката при наличии непиклируемой очереди.
+
+## Изоляция runtime-сервисов Workbench
+
+- Добавлен `RuntimeServiceRegistry` для process-local объектов, которые нельзя сериализовать или копировать.
+- `BackgroundExportManager`, `DataframeRuntimeCache`, `PlotCache` и `RuntimeDiagnostics` больше не хранятся как обычные ключи состояния приложения.
+- Rollback Workbench глубоко копирует обычные данные, но сохраняет идентичность отдельного runtime-реестра.
+- Добавлена сериализуемая диагностика типов зарегистрированных сервисов без раскрытия самих объектов.
+- Следующий шаг: постепенно перевести оставшиеся live-сервисы на тот же runtime-контейнер и добавить lifecycle shutdown при завершении сессии.

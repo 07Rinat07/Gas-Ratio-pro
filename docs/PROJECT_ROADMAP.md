@@ -1545,3 +1545,10 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Make Workbench navigation tolerant of non-pickleable background runtime services in application state.
 - [x] Preserve deep rollback for ordinary mutable shell state.
 - [x] Cover `queue.SimpleQueue` navigation and rollback scenarios with regression tests.
+
+### Runtime state isolation
+
+- [x] Introduce a session-scoped registry for executors, queues, locks and in-memory runtime caches.
+- [x] Move background export, dataframe cache, plot cache and runtime diagnostics behind the registry boundary.
+- [x] Exclude the runtime registry from transactional deep-copy rollback while retaining deep rollback for data state.
+- [ ] Add explicit lifecycle shutdown for registered services when a session is disposed.

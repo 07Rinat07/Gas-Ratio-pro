@@ -15,6 +15,7 @@ from uuid import uuid4
 
 from core.command_framework import CommandExecutionResult, WorkbenchCommandRegistry
 from core.event_bus import ApplicationEvent, ApplicationEventBus
+from core.runtime_service_registry import RUNTIME_SERVICES_STATE_KEY
 
 ShellSnapshotFactory = Callable[[], dict[str, Any]]
 
@@ -37,9 +38,17 @@ def _snapshot_state_for_rollback(state: MutableMapping[str, Any]) -> dict[str, A
 
     snapshot: dict[str, Any] = {}
     for key, value in dict(state).items():
+        if str(key) == RUNTIME_SERVICES_STATE_KEY:
+            # Runtime services are process resources, not transactional data.
+            # Keep the registry reference so rollback never copies executors,
+            # queues, locks or caches and never replaces live service identity.
+            snapshot[key] = value
+            continue
         try:
             snapshot[key] = deepcopy(value)
         except (TypeError, AttributeError, RecursionError):
+            # Legacy compatibility for runtime objects stored before the registry
+            # boundary was introduced. New code must use RuntimeServiceRegistry.
             snapshot[key] = value
     return snapshot
 

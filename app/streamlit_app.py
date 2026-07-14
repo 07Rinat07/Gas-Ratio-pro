@@ -2672,7 +2672,7 @@ def _store_interpretation_dataset(calculated_df: pd.DataFrame, source_label: str
     )
     controller.state.pop("interpretation_figure_cache", None)
     controller.state.pop("interpretation_plot_cache", None)
-    controller.state.pop("dataframe_runtime_cache", None)
+    controller.remove_runtime_service("dataframe_runtime_cache", None)
     configure_logging().info(
         "active_calculation_committed project_id=%s rows=%d revision=%d source=%s",
         safe_log_value(active_project_id),
@@ -9036,14 +9036,16 @@ def _render_professional_export_panel(
         default_print_bottom = (
             float(selected_interval.base) if selected_interval is not None else float(depth_range[1])
         )
-        export_state = _application_state_controller().state
+        state_controller = _application_state_controller()
+        export_state = state_controller.state
         background_state_key = f"background_export_metadata_{active_project.id}"
         background_manager_key = f"background_export_manager_{active_project.id}"
         background_state = export_state.setdefault(background_state_key, {})
-        background_manager = export_state.get(background_manager_key)
-        if not isinstance(background_manager, BackgroundExportManager):
-            background_manager = BackgroundExportManager(background_state, max_workers=1)
-            export_state[background_manager_key] = background_manager
+        background_manager = state_controller.ensure_runtime_service(
+            background_manager_key,
+            lambda: BackgroundExportManager(background_state, max_workers=1),
+            expected_type=BackgroundExportManager,
+        )
         normalized_form = normalize_export_form_state(
             export_state,
             project_id=str(active_project.id),
@@ -10591,10 +10593,11 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     # bottom of a long interpretation page.
     state_controller = _application_state_controller()
     revision_snapshot = revision_controller_from_state(state_controller.state).snapshot
-    dataframe_runtime_cache = state_controller.get_value("dataframe_runtime_cache")
-    if not isinstance(dataframe_runtime_cache, DataframeRuntimeCache):
-        dataframe_runtime_cache = DataframeRuntimeCache(max_samples=8)
-        state_controller.set_value("dataframe_runtime_cache", dataframe_runtime_cache)
+    dataframe_runtime_cache = state_controller.ensure_runtime_service(
+        "dataframe_runtime_cache",
+        lambda: DataframeRuntimeCache(max_samples=8),
+        expected_type=DataframeRuntimeCache,
+    )
     calculated_signature = dataframe_runtime_cache.signature(
         calculated_df,
         revision=revision_snapshot.calculation,
@@ -10696,7 +10699,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         revisions = revision_controller_from_state(_application_state_controller().state)
         persist_revisions(_application_state_controller().state, revisions.bump_presentation())
         _application_state_controller().state.pop("interpretation_figure_cache", None)
-        _application_state_controller().state.pop("interpretation_plot_cache", None)
+        _application_state_controller().remove_runtime_service("interpretation_plot_cache", None)
         logger.info(
             "interpretation_presentation_committed signature=%s calculation_revision=%d tracks=%s",
             safe_log_value(calculated_signature[:12]),
@@ -10731,7 +10734,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         revisions = revision_controller_from_state(_application_state_controller().state)
         persist_revisions(_application_state_controller().state, revisions.bump_presentation())
         _application_state_controller().state.pop("interpretation_figure_cache", None)
-        _application_state_controller().state.pop("interpretation_plot_cache", None)
+        _application_state_controller().remove_runtime_service("interpretation_plot_cache", None)
         logger.info(
             "interpretation_presentation_auto_committed signature=%s calculation_revision=%d tracks=%s",
             safe_log_value(calculated_signature[:12]),
@@ -10867,14 +10870,16 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         len(tablet_screen_df),
     )
     state = state_controller.state
-    plot_cache = state_controller.get_value("interpretation_plot_cache")
-    if not isinstance(plot_cache, PlotCache):
-        plot_cache = PlotCache(max_entries=4)
-        state_controller.set_value("interpretation_plot_cache", plot_cache)
-    runtime_diagnostics = state_controller.get_value("runtime_diagnostics")
-    if not isinstance(runtime_diagnostics, RuntimeDiagnostics):
-        runtime_diagnostics = RuntimeDiagnostics(max_events=64)
-        state_controller.set_value("runtime_diagnostics", runtime_diagnostics)
+    plot_cache = state_controller.ensure_runtime_service(
+        "interpretation_plot_cache",
+        lambda: PlotCache(max_entries=4),
+        expected_type=PlotCache,
+    )
+    runtime_diagnostics = state_controller.ensure_runtime_service(
+        "runtime_diagnostics",
+        lambda: RuntimeDiagnostics(max_events=64),
+        expected_type=RuntimeDiagnostics,
+    )
     performance_cycle_marker = runtime_diagnostics.mark()
     cache_lookup_started = perf_counter()
     cached_bundle = plot_cache.get(figure_cache_key)
