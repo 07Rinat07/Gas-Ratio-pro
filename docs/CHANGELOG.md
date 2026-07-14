@@ -2443,3 +2443,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added grouped tie deletion as one reversible command.
 - Added a bounded persistent correlation operation journal.
 - Updated Plotly and SVG renderers to respect individual tie styles and visibility.
+
+## Multi-well correlation quality control
+
+- Added deterministic correlation quality scoring without mutating published revisions or workspace data.
+- Detects unavailable endpoints, duplicate ties, crossing tie pairs and isolated wells.
+- Added UI quality dashboard with severity filtering and JSON/CSV report export.
+- Quality exports include the correlation workspace state token for reproducible review.

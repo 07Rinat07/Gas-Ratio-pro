@@ -14,6 +14,12 @@ from projects.interpretation_correlation import (
     export_correlation_json,
 )
 from projects.interpretation_correlation_commands import CorrelationHistoryConflict, CorrelationWorkspaceCommandService
+from projects.interpretation_correlation_quality import (
+    analyze_correlation_quality,
+    build_correlation_quality_issue_rows,
+    export_correlation_quality_csv,
+    export_correlation_quality_json,
+)
 from projects.interpretation_correlation_chart import (
     CorrelationChartSettings,
     build_correlation_figure,
@@ -295,6 +301,46 @@ def render_interpretation_correlation_panel(
                     st.rerun()
         else:
             st.info("В проекте ещё нет корреляционных связей.")
+
+        quality = analyze_correlation_quality(workspace, sources)
+        with st.expander("Контроль качества корреляции", expanded=False):
+            metric_cols = st.columns(5)
+            metric_cols[0].metric("Оценка", f"{quality.score}/100")
+            metric_cols[1].metric("Связи", quality.total_ties)
+            metric_cols[2].metric("Скважины", f"{quality.connected_wells}/{quality.total_wells}")
+            metric_cols[3].metric("Ошибки", quality.error_count)
+            metric_cols[4].metric("Предупреждения", quality.warning_count)
+            status_labels = {"good": "Хорошее", "attention": "Требует внимания", "critical": "Критическое"}
+            st.caption(
+                f"Состояние: {status_labels.get(quality.status, quality.status)} · "
+                f"дубли: {quality.duplicate_groups} · пересечения: {quality.crossing_pairs} · "
+                f"недоступные опоры: {quality.unavailable_endpoints}"
+            )
+            issue_rows = build_correlation_quality_issue_rows(quality)
+            if issue_rows:
+                severity_filter = st.multiselect(
+                    "Уровень проблем", options=["error", "warning", "info"],
+                    default=["error", "warning", "info"],
+                    key=f"correlation_quality_severity_{workspace.id}",
+                )
+                filtered_rows = [row for row in issue_rows if row["severity"] in severity_filter]
+                if filtered_rows:
+                    st.dataframe(filtered_rows, width="stretch", hide_index=True)
+                else:
+                    st.caption("Для выбранных уровней проблем нет.")
+            else:
+                st.success("Проблемы качества корреляции не обнаружены.")
+            quality_export_cols = st.columns(2)
+            quality_export_cols[0].download_button(
+                "Скачать отчёт JSON", export_correlation_quality_json(workspace, quality),
+                file_name=f"correlation_quality_{workspace.id}.json", mime="application/json",
+                key=f"correlation_quality_json_{workspace.id}", width="stretch",
+            )
+            quality_export_cols[1].download_button(
+                "Скачать отчёт CSV", export_correlation_quality_csv(workspace, quality),
+                file_name=f"correlation_quality_{workspace.id}.csv", mime="text/csv",
+                key=f"correlation_quality_csv_{workspace.id}", width="stretch",
+            )
 
         operations = commands.journal.list()
         with st.expander("Журнал изменений корреляции", expanded=False):

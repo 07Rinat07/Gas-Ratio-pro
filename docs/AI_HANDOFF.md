@@ -728,3 +728,7 @@ Use `projects.interpretation_correlation_chart.py` to build the multi-well visua
 ## Latest increment: editable correlation workflow
 
 The multi-well correlation workspace now supports validated tie editing, individual line styles, grouped deletion, serializable Undo/Redo and a persistent bounded operation journal. Published interpretation revisions remain immutable inputs. The next large stage should focus on correlation quality metrics and assisted tie suggestions rather than further storage infrastructure.
+
+## Latest correlation increment
+
+The multi-well correlation workspace now includes a renderer-neutral quality analyzer in `projects/interpretation_correlation_quality.py`. It reports unavailable published endpoints, duplicate endpoint pairs, crossing visible ties and isolated wells, calculates a bounded score, and exports JSON/CSV reports. The Streamlit panel only renders the serializable analysis result; no Plotly or runtime object is persisted.

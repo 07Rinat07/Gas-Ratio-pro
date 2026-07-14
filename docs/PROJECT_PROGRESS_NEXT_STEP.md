@@ -411,3 +411,11 @@ Begin the multi-well correlation workspace using published interpretation revisi
 - External workspace changes invalidate unsafe Undo/Redo operations.
 - A compact persistent operation journal records correlation mutations without storing snapshots.
 - Next recommended stage: add correlation quality metrics, horizon consistency diagnostics and assisted tie suggestions.
+
+## Контроль качества многоскважинной корреляции
+
+- Добавлена детерминированная оценка качества корреляционного проекта от 0 до 100.
+- Проверяются недоступные опубликованные опоры, дубли связей, пересечения линий и скважины без доступных видимых связей.
+- В интерфейсе доступны сводные метрики, фильтрация проблем по уровню и экспорт отчёта JSON/CSV.
+- Отчёт содержит контрольный токен состояния корреляционного проекта и не изменяет исходные ревизии.
+- Следующий крупный этап: автоматические предложения корреляционных связей и пакетное принятие предложений с preview и Undo/Redo.
