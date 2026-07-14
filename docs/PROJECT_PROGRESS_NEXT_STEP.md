@@ -348,3 +348,9 @@ Next recommended increment: improve tablet interaction for manual intervals with
 - Выбранные интервалы можно перенести из сравниваемой версии в активную с политикой конфликтов: заменить, пропустить или создать копию.
 - Перенос защищён контрольным токеном preview, может запрещать пересечения и сохраняется одним шагом Undo/Redo.
 - Следующий крупный этап: контроль качества версии интерпретации, выявление конфликтов и формирование сводного отчёта по скважине.
+
+## Completed: interpretation three-way merge
+- Base/source/target workspace merge is available from the interval panel.
+- Merge preview reports automatic changes, conflicts, unchanged intervals and deletions.
+- Confirmation tokens prevent applying a stale merge preview.
+- The complete merge is persisted as one reversible interval command.

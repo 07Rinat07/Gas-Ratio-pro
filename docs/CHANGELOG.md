@@ -2393,3 +2393,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added previewed transfer of selected intervals into the active interpretation.
 - Added overwrite, skip and copy policies for UUID conflicts.
 - Added stale-preview protection, optional overlap rejection and one-step Undo/Redo for transfer.
+
+## Interpretation three-way merge
+- Added stale-safe three-way merge for manual interpretation intervals.
+- Added automatic non-conflicting changes, conflict preview and source/target/skip policies.
+- Added optional overlap rejection and one-step Undo/Redo for the target interpretation.
+- Integrated merge workflow into the Streamlit interval panel.

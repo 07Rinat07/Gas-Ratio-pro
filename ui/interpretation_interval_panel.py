@@ -39,6 +39,7 @@ from projects.interpretation_interval_manager import (
     InterpretationIntervalManager,
     InterpretationIntervalOverlapError,
 )
+from projects.interpretation_interval_merge import InterpretationIntervalMergeService
 from projects.interpretation_interval_properties import InterpretationIntervalPropertiesService
 from projects.interpretation_interval_type_operation_exports import (
     export_type_operations_csv,
@@ -377,6 +378,104 @@ def render_interpretation_interval_panel(
                                 f"Перенос завершён: добавлено {result.added_count}, "
                                 f"заменено {result.overwritten_count}, "
                                 f"пропущено {result.skipped_count}, копий {result.copied_count}."
+                            )
+                            st.rerun()
+
+        if len(catalog_items) >= 3:
+            with st.expander("Трёхстороннее объединение интерпретаций", expanded=False):
+                merge_candidates = [item.id for item in catalog_items if item.id != manager.interpretation_id]
+                merge_base_id = st.selectbox(
+                    "Базовая интерпретация",
+                    options=merge_candidates,
+                    format_func=lambda value: next(
+                        (f"{item.name} ({item.id})" for item in catalog_items if item.id == value), value
+                    ),
+                    key=f"interpretation_merge_base_{project_id}_{well_id}_{manager.interpretation_id}",
+                )
+                source_candidates = [item for item in merge_candidates if item != merge_base_id]
+                merge_source_id = st.selectbox(
+                    "Исходная интерпретация",
+                    options=source_candidates,
+                    format_func=lambda value: next(
+                        (f"{item.name} ({item.id})" for item in catalog_items if item.id == value), value
+                    ),
+                    key=f"interpretation_merge_source_{project_id}_{well_id}_{manager.interpretation_id}",
+                )
+                merge_service = InterpretationIntervalMergeService(
+                    state,
+                    root=root,
+                    project_id=project_id,
+                    well_id=well_id,
+                    base_interpretation_id=merge_base_id,
+                    source_interpretation_id=merge_source_id,
+                    target_interpretation_id=manager.interpretation_id,
+                )
+                try:
+                    merge_preview = merge_service.preview()
+                except (KeyError, ValueError) as exc:
+                    st.error(str(exc))
+                    merge_preview = None
+                if merge_preview is not None:
+                    merge_metrics = st.columns(4)
+                    merge_metrics[0].metric("Автоматически", merge_preview.automatic_count)
+                    merge_metrics[1].metric("Конфликты", merge_preview.conflict_count)
+                    merge_metrics[2].metric("Без изменений", merge_preview.unchanged_count)
+                    merge_metrics[3].metric("Удаления", merge_preview.delete_count)
+                    if merge_preview.conflicts:
+                        st.dataframe(
+                            [
+                                {
+                                    "UUID": item.interval_id,
+                                    "База": item.base.label if item.base else "—",
+                                    "Источник": item.source.label if item.source else "—",
+                                    "Цель": item.target.label if item.target else "—",
+                                    "Поля": ", ".join(item.changed_fields),
+                                }
+                                for item in merge_preview.conflicts
+                            ],
+                            width="stretch",
+                            hide_index=True,
+                        )
+                    merge_policy_label = st.selectbox(
+                        "Разрешение конфликтов",
+                        options=("Сохранить целевую версию", "Принять исходную версию", "Пропустить конфликт"),
+                        key=f"interpretation_merge_policy_{project_id}_{well_id}_{manager.interpretation_id}",
+                    )
+                    merge_policy = {
+                        "Сохранить целевую версию": "target",
+                        "Принять исходную версию": "source",
+                        "Пропустить конфликт": "skip",
+                    }[merge_policy_label]
+                    merge_reject_overlaps = st.checkbox(
+                        "Запретить пересечения после объединения",
+                        value=False,
+                        key=f"interpretation_merge_overlap_{project_id}_{well_id}_{manager.interpretation_id}",
+                    )
+                    merge_confirmed = st.checkbox(
+                        "Подтверждаю объединение в активную интерпретацию",
+                        value=False,
+                        key=f"interpretation_merge_confirm_{project_id}_{well_id}_{manager.interpretation_id}",
+                    )
+                    if st.button(
+                        "Объединить интерпретации",
+                        disabled=not merge_confirmed,
+                        key=f"interpretation_merge_apply_{project_id}_{well_id}_{manager.interpretation_id}",
+                        width="stretch",
+                    ):
+                        try:
+                            merge_result = merge_service.apply(
+                                merge_preview,
+                                expected_confirmation_token=merge_preview.confirmation_token,
+                                conflict_policy=merge_policy,
+                                reject_overlaps=merge_reject_overlaps,
+                            )
+                        except (KeyError, ValueError) as exc:
+                            st.error(str(exc))
+                        else:
+                            st.success(
+                                f"Объединение завершено: автоматически {merge_result.automatic_count}, "
+                                f"разрешено конфликтов {merge_result.resolved_conflict_count}, "
+                                f"пропущено {merge_result.skipped_conflict_count}."
                             )
                             st.rerun()
 
