@@ -762,6 +762,7 @@ def _render_native_streamlit_layout(
                 traces = dict(center.get("traces", {}) or {})
                 session = dict(center.get("session", {}) or {})
                 dataframe_memory = dict(center.get("dataframe_memory", {}) or {})
+                route_lifecycle = dict(center.get("route_lifecycle", {}) or {})
                 registry_stats = dict(runtime.get("registry", {}) or {})
                 cache_summary = dict(cache.get("summary", {}) or {})
 
@@ -777,6 +778,18 @@ def _render_native_streamlit_layout(
                     startup_stages = list(latest_startup.get("stages", ()) or ())
                     if startup_stages and hasattr(st_module, "dataframe"):
                         st_module.dataframe(startup_stages, width="stretch", hide_index=True)
+
+                st_module.markdown("##### Route lifecycle")
+                st_module.caption(
+                    "Active: " + str(route_lifecycle.get("active_route") or "—")
+                    + " | Switches: " + str(route_lifecycle.get("transition_count", 0))
+                    + " | Slow: " + str(route_lifecycle.get("slow_transition_count", 0))
+                    + " | Cleanup failures: " + str(route_lifecycle.get("cleanup_failures", 0))
+                    + " | Budget: " + str(route_lifecycle.get("switch_budget_ms", 0.0)) + " ms"
+                )
+                route_events = list(route_lifecycle.get("events", ()) or ())
+                if route_events and hasattr(st_module, "dataframe"):
+                    st_module.dataframe(route_events, width="stretch", hide_index=True)
 
                 st_module.markdown("##### Runtime")
                 st_module.caption(

@@ -537,3 +537,9 @@ Next priority: profile real PDF preview cold/warm timings and consolidate remain
 The Modern Workbench entry point now records lightweight per-stage startup and rerun timings. Developer Diagnostics exposes the latest cycle and budget status without storing runtime timers or renderer objects in Session State.
 
 Next stabilization focus: route-level provider lazy loading and reduction of import-time coupling in `app/streamlit_app.py`.
+
+### Phase 2 progress: route lifecycle and lazy loading
+Workbench navigation now has an explicit route lifecycle boundary. Runtime services may use
+`route:<navigation_id>` scopes and are closed when the active route changes. Diagnostics expose
+route switch timing, cleanup counts and failures. Next optimization target: measure project data
+loads per route and avoid repeated repository reads within one rerun.

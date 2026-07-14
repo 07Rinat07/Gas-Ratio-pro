@@ -17,6 +17,7 @@ from core.session_state_audit import audit_session_state
 from core.performance_regression import build_performance_baseline
 from core.startup_diagnostics import StartupDiagnostics
 from core.dataframe_runtime_cache import DataframeRuntimeCache
+from core.workbench_route_lifecycle import WorkbenchRouteLifecycle
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +94,16 @@ def _dataframe_memory_snapshot(service: Any) -> dict[str, Any]:
         }
     return service.stats().to_dict()
 
+
+def _route_lifecycle_snapshot(service: Any, *, limit: int) -> dict[str, Any]:
+    if not isinstance(service, WorkbenchRouteLifecycle):
+        return {
+            "active_route": "", "transition_count": 0,
+            "slow_transition_count": 0, "cleanup_failures": 0,
+            "switch_budget_ms": 0.0, "events": [],
+        }
+    return service.snapshot(limit=limit)
+
 def _budget_snapshot(events: list[dict[str, Any]], budgets: Mapping[str, float]) -> list[dict[str, Any]]:
     latest: dict[str, float] = {}
     for event in events:
@@ -132,6 +143,7 @@ def build_diagnostics_center_snapshot(
     startup = _startup_snapshot(registry.get("startup_diagnostics"), limit=event_limit)
     session = audit_session_state(state).to_dict()
     dataframe_memory = _dataframe_memory_snapshot(registry.get("dataframe_runtime_cache"))
+    route_lifecycle = _route_lifecycle_snapshot(registry.get("workbench_route_lifecycle"), limit=event_limit)
     descriptors = [
         {"key": item.key, "type_name": item.type_name}
         for item in registry.descriptors()
@@ -152,6 +164,7 @@ def build_diagnostics_center_snapshot(
         "startup": startup,
         "session": session,
         "dataframe_memory": dataframe_memory,
+        "route_lifecycle": route_lifecycle,
         "budgets": _budget_snapshot(events, budgets),
     }
     snapshot["performance_baseline"] = build_performance_baseline(snapshot).to_dict()

@@ -15794,6 +15794,19 @@ def _run_modern_workbench() -> None:
 
     state_controller = _application_state_controller()
     startup_timer.mark("state_controller")
+
+    registry = runtime_service_registry(state_controller.state)
+    from core.workbench_route_lifecycle import WorkbenchRouteLifecycle
+    route_lifecycle = registry.ensure(
+        "workbench_route_lifecycle", WorkbenchRouteLifecycle,
+        expected_type=WorkbenchRouteLifecycle, scope="session",
+    )
+    current_route = str(
+        state_controller.state.get("workbench.interaction.active_navigation_id") or "nav.dashboard"
+    )
+    transition = route_lifecycle.activate(current_route, registry)
+    startup_timer.mark("route_lifecycle")
+
     begin_rerun_cycle(state_controller.state)
     startup_timer.mark("rerun_begin")
 
@@ -15808,7 +15821,6 @@ def _run_modern_workbench() -> None:
     results = render_streamlit_workbench(state_controller.state, st)
     startup_timer.mark("workbench_render")
 
-    registry = runtime_service_registry(state_controller.state)
     startup_diagnostics = registry.ensure(
         "startup_diagnostics", StartupDiagnostics, expected_type=StartupDiagnostics, scope="session"
     )
@@ -15822,6 +15834,12 @@ def _run_modern_workbench() -> None:
         "workbench_startup_diagnostics status=%s total_ms=%s slow_stages=%s",
         startup_record.get("status"), startup_record.get("total_ms"), startup_record.get("slow_stages"),
     )
+    if transition.changed:
+        logger.info(
+            "workbench_route_transition previous=%s active=%s duration_ms=%.2f cleanup=%d failures=%d status=%s",
+            transition.previous_route, transition.active_route, transition.transition_ms,
+            transition.cleanup_count, transition.cleanup_failures, transition.status,
+        )
 
     if any(result.executed for result in results):
         _request_ui_refresh_and_rerun("workbench_command_executed")

@@ -2547,3 +2547,8 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added startup timing visibility to Developer Diagnostics.
 - Kept startup timers and history outside serializable Session State.
 - Preserved lazy import of the production Workbench renderer at the application boundary.
+
+## Phase 2 — Workbench route lifecycle and lazy loading
+- Added route-scoped runtime lifecycle cleanup for Modern Workbench navigation.
+- Added route transition timing, cleanup diagnostics and switch budgets.
+- Exposed route lifecycle metrics in Developer Diagnostics without retaining UI payloads.

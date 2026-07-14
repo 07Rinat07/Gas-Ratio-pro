@@ -759,3 +759,8 @@ Heavy rendered PDF preview pages are owned by `PdfPreviewRuntimeCache`, register
 ### Phase 2 startup diagnostics
 
 `core/startup_diagnostics.py` owns process-local startup timing history. The service is registered under `startup_diagnostics` with session scope. Do not move timers, module objects or callables into serializable state. Startup budgets are diagnostic thresholds, not functional timeouts.
+
+### Route lifecycle contract
+Use `core.workbench_route_lifecycle.route_scope(route_id)` for runtime services that belong only
+to one Workbench route. The session-scoped `WorkbenchRouteLifecycle` disposes the previous route
+scope on navigation changes and returns only serializable diagnostics.
