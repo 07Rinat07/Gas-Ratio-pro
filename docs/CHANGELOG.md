@@ -2218,3 +2218,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added UUID lookup, deterministic listing and positive-thickness overlap diagnostics.
 - Added optional overlap rejection without changing the repository's permissive default behavior.
 - Reused the existing command service so all manager mutations remain Undo/Redo-aware.
+
+## Interpretation interval property service
+
+- Added a serializable property-panel projection for selected manual intervals.
+- Added canonical validation and normalization for partial form edits.
+- Added derived thickness and middle-depth values for UI display.
+- Applied edits through the existing manager so overlap policy and Undo/Redo remain active.

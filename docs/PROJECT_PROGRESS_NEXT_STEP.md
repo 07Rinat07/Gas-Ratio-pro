@@ -147,3 +147,10 @@ Completed the serializable `Project -> Well -> Interpretation -> Intervals` repo
 - Added overlap diagnostics with adjacent boundaries treated as non-overlapping.
 - Strict overlap rejection is opt-in to preserve backward compatibility.
 - Next step: connect the manager to a focused Streamlit interval panel with selection, create/edit/delete and Undo/Redo controls.
+
+## Interpretation interval property service completed
+
+- Added backend preparation for a focused interval properties panel.
+- Partial edits preserve omitted values and ignore UI-only keys.
+- All changes reuse repository validation and remain Undo/Redo-aware.
+- Next step: connect the service to a focused Streamlit panel with interval selection and edit controls.
