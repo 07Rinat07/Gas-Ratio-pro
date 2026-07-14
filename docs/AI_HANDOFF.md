@@ -587,3 +587,7 @@ Implemented `PdfPreviewPageJumpValidation` and `validate_pdf_preview_page_jump()
 ## Runtime service registry
 
 Live services now belong in `core.runtime_service_registry.RuntimeServiceRegistry`, accessed through `ApplicationStateController.ensure_runtime_service()`. Do not place `ThreadPoolExecutor`, queue, lock, manager or mutable runtime-cache instances directly under normal Session State keys. The registry itself is stored under `runtime::services` and is intentionally preserved by reference during Workbench rollback. Ordinary project and UI data must continue to use `get_value()`/`set_value()` and remains deeply copyable. Keep all planning and handoff Markdown files under `docs/`.
+
+## Runtime service lifecycle shutdown
+
+`RuntimeServiceRegistry.shutdown()` is now the canonical cleanup boundary for process-local services. It invokes `close()` when available, otherwise `shutdown(wait=False)` (falling back to `shutdown()` for incompatible signatures), records a serializable `RuntimeServiceShutdownResult`, and continues after individual cleanup failures. `ApplicationStateController.shutdown_runtime_services()` exposes this boundary, and `WorkbenchLifecycleManager.close_workspace()` invokes it before marking the workspace closed. Do not reintroduce direct executor/cache shutdown calls into shell state code; register new live services and let the lifecycle boundary own their disposal.

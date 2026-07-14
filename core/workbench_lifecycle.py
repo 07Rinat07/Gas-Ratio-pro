@@ -121,6 +121,8 @@ class WorkbenchLifecycleManager:
         if save:
             save_result = self.session_manager.save(path)
             affected.extend(save_result.affected_keys)
+        shutdown_results = self.state_controller.shutdown_runtime_services(remove=True)
+        affected.extend(f"runtime_service:{item.key}" for item in shutdown_results)
         self.state[WORKBENCH_LIFECYCLE_STATE_KEY] = WORKBENCH_LIFECYCLE_CLOSED
         self.state.pop(WORKBENCH_LIFECYCLE_OPENED_SESSION_KEY, None)
         affected.append(WORKBENCH_LIFECYCLE_OPENED_SESSION_KEY)

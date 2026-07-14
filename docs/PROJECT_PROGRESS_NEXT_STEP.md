@@ -76,3 +76,11 @@ Next recommended increment: Modern Workspace shell foundation — Project Explor
 - Rollback Workbench глубоко копирует обычные данные, но сохраняет идентичность отдельного runtime-реестра.
 - Добавлена сериализуемая диагностика типов зарегистрированных сервисов без раскрытия самих объектов.
 - Следующий шаг: постепенно перевести оставшиеся live-сервисы на тот же runtime-контейнер и добавить lifecycle shutdown при завершении сессии.
+
+## Lifecycle shutdown для runtime-сервисов
+
+- `RuntimeServiceRegistry` теперь выполняет best-effort shutdown всех зарегистрированных process-local сервисов.
+- Поддерживаются сервисы с методами `close()` и `shutdown(wait=False)`; отсутствие lifecycle-метода считается корректным no-op.
+- Ошибка закрытия одного сервиса не блокирует завершение остальных и возвращается как сериализуемый диагностический результат.
+- `WorkbenchLifecycleManager.close_workspace()` освобождает runtime-сервисы и очищает registry текущей сессии.
+- Следующий шаг: добавить явный shutdown при полном завершении Streamlit-сессии и телеметрию неуспешного закрытия сервисов.

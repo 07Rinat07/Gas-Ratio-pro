@@ -141,6 +141,11 @@ class ApplicationStateController:
 
         return self.runtime_services().remove(key, default)
 
+    def shutdown_runtime_services(self, *, remove: bool = True) -> tuple[Any, ...]:
+        """Close all process-local services owned by the current session."""
+
+        return self.runtime_services().shutdown(remove=remove)
+
     def update_values(self, values: dict[str, Any]) -> None:
         """Write multiple application-owned session values atomically."""
 

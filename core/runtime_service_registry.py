@@ -25,6 +25,17 @@ class RuntimeServiceDescriptor:
     type_name: str
 
 
+@dataclass(frozen=True, slots=True)
+class RuntimeServiceShutdownResult:
+    """Serializable outcome of closing one registered runtime service."""
+
+    key: str
+    type_name: str
+    closed: bool
+    method: str = ""
+    error: str = ""
+
+
 class RuntimeServiceRegistry:
     """Own non-copyable services for one application session."""
 
@@ -60,18 +71,49 @@ class RuntimeServiceRegistry:
     def remove(self, key: str, default: T | None = None) -> Any | T | None:
         return self._services.pop(str(key), default)
 
+    @staticmethod
+    def _close_service(key: str, service: Any) -> RuntimeServiceShutdownResult:
+        """Close one service without allowing cleanup failures to abort shutdown."""
+
+        type_name = type(service).__name__
+        closer = getattr(service, "close", None)
+        method = "close"
+        if not callable(closer):
+            closer = getattr(service, "shutdown", None)
+            method = "shutdown"
+        if not callable(closer):
+            return RuntimeServiceShutdownResult(key, type_name, True, method="none")
+        try:
+            if method == "shutdown":
+                try:
+                    closer(wait=False)
+                except TypeError:
+                    closer()
+            else:
+                closer()
+        except Exception as exc:  # cleanup must remain best-effort
+            return RuntimeServiceShutdownResult(
+                key, type_name, False, method=method, error=f"{type(exc).__name__}: {exc}"
+            )
+        return RuntimeServiceShutdownResult(key, type_name, True, method=method)
+
+    def shutdown(self, *, remove: bool = True) -> tuple[RuntimeServiceShutdownResult, ...]:
+        """Best-effort shutdown for every registered process-local service."""
+
+        results = tuple(
+            self._close_service(key, service)
+            for key, service in tuple(self._services.items())
+        )
+        if remove:
+            self._services.clear()
+        return results
+
     def clear(self, *, close: bool = False) -> tuple[str, ...]:
         keys = tuple(self._services)
         if close:
-            for service in tuple(self._services.values()):
-                closer = getattr(service, "close", None) or getattr(service, "shutdown", None)
-                if callable(closer):
-                    try:
-                        closer()
-                    except Exception:
-                        # Cleanup is best-effort; application shutdown must continue.
-                        pass
-        self._services.clear()
+            self.shutdown(remove=True)
+        else:
+            self._services.clear()
         return keys
 
     def descriptors(self) -> tuple[RuntimeServiceDescriptor, ...]:

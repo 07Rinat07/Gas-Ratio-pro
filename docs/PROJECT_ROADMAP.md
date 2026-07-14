@@ -1552,3 +1552,11 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Move background export, dataframe cache, plot cache and runtime diagnostics behind the registry boundary.
 - [x] Exclude the runtime registry from transactional deep-copy rollback while retaining deep rollback for data state.
 - [ ] Add explicit lifecycle shutdown for registered services when a session is disposed.
+
+### Runtime service lifecycle shutdown
+
+- [x] Add best-effort `close()` / `shutdown(wait=False)` handling to `RuntimeServiceRegistry`.
+- [x] Return serializable per-service shutdown diagnostics without leaking live objects.
+- [x] Dispose and remove session runtime services when the Workbench workspace closes.
+- [x] Preserve shutdown progress when one service raises during cleanup.
+- [ ] Connect the same disposal boundary to full Streamlit session termination where supported.
