@@ -1679,3 +1679,13 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - Targeted project navigation cache invalidation.
 - Active-project DataFrame cache invalidation.
 - Mutation diagnostics and failure isolation.
+
+### Phase 2 — Repository transaction boundaries and consistency diagnostics (completed)
+
+- [x] Add staged multi-file JSON transactions with one transaction identifier.
+- [x] Prepare all write payloads before replacing destination files.
+- [x] Restore already-applied files when a later commit step fails.
+- [x] Publish one coherent cache-invalidation mutation after successful commit.
+- [x] Expose transaction counts, rollbacks and recent transaction metadata in Developer Diagnostics.
+- [ ] Next: migrate high-value multi-file workflows to the shared transaction API.
+

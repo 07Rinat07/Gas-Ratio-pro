@@ -561,3 +561,10 @@ Next stabilization focus: move remaining route-specific render providers behind 
 Completed a repository-wide mutation contract for hardened JSON stores. Successful writes and deletes now notify project-scoped runtime caches, allowing targeted invalidation instead of waiting for a later metadata fingerprint mismatch. Diagnostics expose mutation counts, subscribers and notification failures using primitive-only snapshots.
 
 Next engineering focus: expand the mutation contract to remaining repositories and add dependency tags for figure, export and interpretation caches.
+
+## Completed: repository transaction boundaries
+
+Atomic JSON repositories now support staged multi-file transactions. A successful transaction emits one mutation event with a shared transaction ID, preventing repeated cache invalidation for one logical operation. Failed commits restore already-applied files and are recorded as rollbacks in primitive-only diagnostics.
+
+Next priority: migrate interpretation revision restore, type reassignment and correlation batch persistence to the common transaction API where they currently coordinate multiple repository files.
+

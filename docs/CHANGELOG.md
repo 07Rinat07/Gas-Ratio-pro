@@ -2575,3 +2575,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added targeted invalidation of project navigation and active-project DataFrame runtime caches.
 - Added mutation/subscriber diagnostics without retaining repository payloads.
 - Isolated subscriber failures so cache-coherence diagnostics cannot break durable writes.
+
+## Phase 2 — Repository transaction boundaries
+
+- Added staged multi-file transactions to the hardened JSON repository layer.
+- Added rollback restoration when a commit fails after partially applying files.
+- Added one coherent mutation notification per committed transaction.
+- Added transaction IDs, commit/rollback counters and a bounded transaction journal to Developer Diagnostics.
+

@@ -867,6 +867,15 @@ def _render_native_streamlit_layout(
                     + " | Subscribers: " + str(mutation_info.get("subscriber_count", 0))
                     + " | Notification failures: " + str(mutation_info.get("mutation_failures", 0))
                 )
+                st_module.caption(
+                    "Transactions: " + str(mutation_info.get("transaction_count", 0))
+                    + " | Rollbacks: " + str(mutation_info.get("transaction_failures", 0))
+                    + " | Last ID: "
+                    + str(dict(mutation_info.get("last_transaction", {}) or {}).get("transaction_id", ""))[:12]
+                )
+                transaction_rows = list(mutation_info.get("recent_transactions", ()) or ())
+                if transaction_rows and hasattr(st_module, "dataframe"):
+                    st_module.dataframe(transaction_rows[-10:], width="stretch", hide_index=True)
                 repository_events = list(repository_io.get("events", ()) or ())
                 if repository_events and hasattr(st_module, "dataframe"):
                     st_module.dataframe(repository_events, width="stretch", hide_index=True)
