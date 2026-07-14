@@ -24,6 +24,9 @@ class RouteDataLoadRecord:
     navigation_cache: str
     total_ms: float
     status: str
+    navigation_reason: str = "not-required"
+    token_ms: float = 0.0
+    metadata_files: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -33,6 +36,9 @@ class RouteDataLoadRecord:
             "project_ms": round(self.project_ms, 2),
             "navigation_ms": round(self.navigation_ms, 2),
             "navigation_cache": self.navigation_cache,
+            "navigation_reason": self.navigation_reason,
+            "token_ms": round(self.token_ms, 2),
+            "metadata_files": self.metadata_files,
             "total_ms": round(self.total_ms, 2),
             "status": self.status,
         }
@@ -56,6 +62,9 @@ class WorkbenchRouteDataDiagnostics:
         navigation_ms: float,
         navigation_cache: str,
         total_ms: float,
+        navigation_reason: str = "not-required",
+        token_ms: float = 0.0,
+        metadata_files: int = 0,
     ) -> RouteDataLoadRecord:
         record = RouteDataLoadRecord(
             route_id=str(route_id or ""),
@@ -66,6 +75,9 @@ class WorkbenchRouteDataDiagnostics:
             navigation_cache=str(navigation_cache or "not-required"),
             total_ms=max(0.0, float(total_ms)),
             status="ok" if float(total_ms) <= self._budget_ms else "slow",
+            navigation_reason=str(navigation_reason or "not-required"),
+            token_ms=max(0.0, float(token_ms)),
+            metadata_files=max(0, int(metadata_files)),
         )
         self._events.append(record)
         if len(self._events) > self._max_events:
@@ -80,6 +92,10 @@ class WorkbenchRouteDataDiagnostics:
             "slow_count": sum(1 for item in self._events if item.status == "slow"),
             "navigation_cache_hits": sum(1 for item in self._events if item.navigation_cache == "hit"),
             "navigation_cache_misses": sum(1 for item in self._events if item.navigation_cache == "miss"),
+            "navigation_reasons": {
+                reason: sum(1 for item in self._events if item.navigation_reason == reason)
+                for reason in sorted({item.navigation_reason for item in self._events})
+            },
             "events": [item.to_dict() for item in events],
         }
 

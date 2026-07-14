@@ -549,3 +549,9 @@ loads per route and avoid repeated repository reads within one rerun.
 Workbench routes now explicitly declare whether they require a project record and project navigation data. Documentation routes avoid project loading entirely, while project routes reuse the serialized explorer tree until the active project changes. Developer Diagnostics reports project-resolution time, navigation-build time and navigation cache hit/miss status.
 
 Next stabilization focus: reduce import-time coupling in `app/streamlit_app.py` and move remaining route-specific providers behind module-level lazy factories.
+
+## Completed: project navigation cache and repository invalidation
+
+Workbench project navigation now uses a bounded process-local LRU cache keyed by project metadata fingerprints. Route changes reuse serialized primitive explorer rows, while metadata changes invalidate only the affected project entry and trigger a deterministic rebuild. Developer Diagnostics reports hit-rate, token cost, metadata-file count, invalidation reason and eviction totals.
+
+Next stabilization focus: move remaining route-specific render providers behind lazy module factories and add explicit repository write hooks that invalidate navigation immediately instead of waiting for the next fingerprint check.

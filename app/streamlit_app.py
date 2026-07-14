@@ -15335,85 +15335,105 @@ def _resolve_active_project_for_workbench(logger) -> ProjectRecord:
     return project
 
 
+def _build_workbench_project_navigation(project: ProjectRecord) -> tuple[dict[str, int], list[dict[str, object]]]:
+    """Build primitive project navigation data without mutating Session State."""
+
+    counts = {
+        "calculations": len(list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)),
+        "correlations": 0,
+        "reports": 0,
+        "exports": 0,
+    }
+    project_tree = build_project_tree(LAS_CORRELATION_PROJECTS_ROOT, project.id)
+    serialized_tree: list[dict[str, object]] = []
+
+    def _serialize_project_tree_node(node, *, level: int = 0, parent_id: str = "") -> None:
+        kind = str(node.kind or "")
+        route_by_kind = {
+            "project": "nav.dashboard",
+            "well": "nav.data",
+            "las_version": "nav.las_workspace",
+            "calculation": "nav.data",
+            "export": "nav.exports",
+        }
+        route_by_id = {
+            "folder:wells": "nav.data",
+            "folder:calculations": "nav.data",
+            "folder:exports": "nav.exports",
+        }
+        target_by_kind = {
+            "project": "project",
+            "well": "well",
+            "las_version": "las",
+            "calculation": "calculation",
+            "export": "export",
+            "folder_item": "collection",
+            "custom_folder": "collection",
+            "well_group": "collection",
+            "folder": "collection",
+        }
+        metadata = dict(node.metadata or {})
+        object_id = str(
+            metadata.get("project_id")
+            or metadata.get("well_id")
+            or metadata.get("las_file_id")
+            or metadata.get("calculation_id")
+            or metadata.get("export_id")
+            or metadata.get("folder_id")
+            or node.id
+        )
+        serialized_tree.append(
+            {
+                "id": str(node.id),
+                "parent_id": parent_id,
+                "title": str(node.label),
+                "kind": kind,
+                "level": int(level),
+                "count": len(tuple(node.children or ())),
+                "has_children": bool(node.children),
+                "selectable": kind not in {"empty", "missing"},
+                "target": target_by_kind.get(kind, "collection"),
+                "object_id": object_id,
+                "navigation_id": route_by_id.get(str(node.id), route_by_kind.get(kind, "")),
+                "status": str(node.status or ""),
+                "metadata": metadata,
+            }
+        )
+        for child in tuple(node.children or ()):
+            _serialize_project_tree_node(child, level=level + 1, parent_id=str(node.id))
+
+    _serialize_project_tree_node(project_tree)
+    return counts, serialized_tree
+
+def _apply_workbench_project_navigation(
+    project: ProjectRecord,
+    counts: dict[str, int],
+    serialized_tree: list[dict[str, object]] | tuple[dict[str, object], ...],
+    *,
+    token: str = "",
+) -> None:
+    """Publish primitive navigation rows for existing Workbench UI providers."""
+
+    state = _application_state_controller()
+    state.set_value("workbench_project_counts", dict(counts))
+    state.set_value("workbench_project_tree", [dict(item) for item in serialized_tree])
+    state.set_value("workbench.route_data.navigation_project_id", project.id)
+    state.set_value("workbench.route_data.navigation_token", str(token or ""))
+
+
 def _refresh_workbench_project_navigation(logger, project: ProjectRecord) -> None:
     """Refresh serialized explorer data without exposing repository objects to UI."""
 
     state = _application_state_controller()
     try:
-        state.set_value(
-            "workbench_project_counts",
-            {
-                "calculations": len(list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)),
-                "correlations": 0,
-                "reports": 0,
-                "exports": 0,
-            },
-        )
-        project_tree = build_project_tree(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-        serialized_tree: list[dict[str, object]] = []
-
-        def _serialize_project_tree_node(node, *, level: int = 0, parent_id: str = "") -> None:
-            kind = str(node.kind or "")
-            route_by_kind = {
-                "project": "nav.dashboard",
-                "well": "nav.data",
-                "las_version": "nav.las_workspace",
-                "calculation": "nav.data",
-                "export": "nav.exports",
-            }
-            route_by_id = {
-                "folder:wells": "nav.data",
-                "folder:calculations": "nav.data",
-                "folder:exports": "nav.exports",
-            }
-            target_by_kind = {
-                "project": "project",
-                "well": "well",
-                "las_version": "las",
-                "calculation": "calculation",
-                "export": "export",
-                "folder_item": "collection",
-                "custom_folder": "collection",
-                "well_group": "collection",
-                "folder": "collection",
-            }
-            metadata = dict(node.metadata or {})
-            object_id = str(
-                metadata.get("project_id")
-                or metadata.get("well_id")
-                or metadata.get("las_file_id")
-                or metadata.get("calculation_id")
-                or metadata.get("export_id")
-                or metadata.get("folder_id")
-                or node.id
-            )
-            serialized_tree.append(
-                {
-                    "id": str(node.id),
-                    "parent_id": parent_id,
-                    "title": str(node.label),
-                    "kind": kind,
-                    "level": int(level),
-                    "count": len(tuple(node.children or ())),
-                    "has_children": bool(node.children),
-                    "selectable": kind not in {"empty", "missing"},
-                    "target": target_by_kind.get(kind, "collection"),
-                    "object_id": object_id,
-                    "navigation_id": route_by_id.get(str(node.id), route_by_kind.get(kind, "")),
-                    "status": str(node.status or ""),
-                    "metadata": metadata,
-                }
-            )
-            for child in tuple(node.children or ()):
-                _serialize_project_tree_node(child, level=level + 1, parent_id=str(node.id))
-
-        _serialize_project_tree_node(project_tree)
-        state.set_value("workbench_project_tree", serialized_tree)
+        counts, serialized_tree = _build_workbench_project_navigation(project)
+        _apply_workbench_project_navigation(project, counts, serialized_tree)
     except Exception:
         logger.exception("workbench_project_counts_failed project_id=%s", safe_log_value(project.id))
         state.set_value("workbench_project_counts", {})
         state.set_value("workbench_project_tree", [])
-    state.set_value("workbench.route_data.navigation_project_id", project.id)
+        state.set_value("workbench.route_data.navigation_project_id", project.id)
+        state.set_value("workbench.route_data.navigation_token", "")
 
 
 def _active_project_for_workbench(logger) -> ProjectRecord:
@@ -15516,17 +15536,52 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
         data_timer = RouteDataTimer()
         active_project = None
         navigation_cache = "not-required"
+        navigation_reason = "not-required"
+        navigation_token_ms = 0.0
+        navigation_metadata_files = 0
+        diagnostics_registry = runtime_service_registry(state)
         if PROJECT_RECORD in requirements:
             active_project = data_timer.measure_project(lambda: _resolve_active_project_for_workbench(logger))
         if PROJECT_NAVIGATION in requirements and active_project is not None:
-            navigation_project_id = str(state.get("workbench.route_data.navigation_project_id") or "")
-            has_navigation = bool(state.get("workbench_project_tree"))
-            if navigation_project_id == active_project.id and has_navigation:
-                navigation_cache = "hit"
+            from core.project_navigation_runtime_cache import ProjectNavigationRuntimeCache
+
+            navigation_runtime_cache = diagnostics_registry.ensure(
+                "project_navigation_runtime_cache",
+                ProjectNavigationRuntimeCache,
+                expected_type=ProjectNavigationRuntimeCache,
+                scope="session",
+            )
+            lookup = navigation_runtime_cache.lookup(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)
+            navigation_cache = lookup.status
+            navigation_reason = lookup.reason
+            navigation_token_ms = lookup.token_ms
+            navigation_metadata_files = lookup.metadata_files
+            if lookup.hit:
+                current_project_id = str(state.get("workbench.route_data.navigation_project_id") or "")
+                current_token = str(state.get("workbench.route_data.navigation_token") or "")
+                has_navigation = bool(state.get("workbench_project_tree"))
+                if current_project_id != active_project.id or current_token != lookup.token or not has_navigation:
+                    data_timer.measure_navigation(
+                        lambda: _apply_workbench_project_navigation(
+                            active_project, dict(lookup.counts or {}), list(lookup.tree), token=lookup.token,
+                        )
+                    )
+                    navigation_reason = "runtime-hit-state-restored"
             else:
-                navigation_cache = "miss"
-                data_timer.measure_navigation(lambda: _refresh_workbench_project_navigation(logger, active_project))
-        diagnostics_registry = runtime_service_registry(state)
+                def _rebuild_navigation() -> None:
+                    counts, serialized_tree = _build_workbench_project_navigation(active_project)
+                    navigation_runtime_cache.store(
+                        project_id=active_project.id,
+                        token=lookup.token,
+                        tree=serialized_tree,
+                        counts=counts,
+                        metadata_files=lookup.metadata_files,
+                    )
+                    _apply_workbench_project_navigation(
+                        active_project, counts, serialized_tree, token=lookup.token,
+                    )
+
+                data_timer.measure_navigation(_rebuild_navigation)
         route_data_diagnostics = diagnostics_registry.ensure(
             "workbench_route_data_diagnostics", WorkbenchRouteDataDiagnostics,
             expected_type=WorkbenchRouteDataDiagnostics, scope="session",
@@ -15539,11 +15594,15 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
             navigation_ms=data_timer.navigation_ms,
             navigation_cache=navigation_cache,
             total_ms=data_timer.total_ms,
+            navigation_reason=navigation_reason,
+            token_ms=navigation_token_ms,
+            metadata_files=navigation_metadata_files,
         )
         logger.info(
-            "workbench_route_data route=%s project_id=%s requirements=%s project_ms=%.2f navigation_ms=%.2f navigation_cache=%s total_ms=%.2f status=%s",
+            "workbench_route_data route=%s project_id=%s requirements=%s project_ms=%.2f navigation_ms=%.2f navigation_cache=%s navigation_reason=%s token_ms=%.2f metadata_files=%s total_ms=%.2f status=%s",
             clean_id, data_record.project_id, data_record.requirements, data_record.project_ms,
-            data_record.navigation_ms, data_record.navigation_cache, data_record.total_ms, data_record.status,
+            data_record.navigation_ms, data_record.navigation_cache, data_record.navigation_reason,
+            data_record.token_ms, data_record.metadata_files, data_record.total_ms, data_record.status,
         )
         renderer(active_project)
     except Exception as exc:

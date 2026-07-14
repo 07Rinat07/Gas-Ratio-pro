@@ -764,6 +764,7 @@ def _render_native_streamlit_layout(
                 dataframe_memory = dict(center.get("dataframe_memory", {}) or {})
                 route_lifecycle = dict(center.get("route_lifecycle", {}) or {})
                 route_data = dict(center.get("route_data", {}) or {})
+                project_navigation_cache = dict(center.get("project_navigation_cache", {}) or {})
                 registry_stats = dict(runtime.get("registry", {}) or {})
                 cache_summary = dict(cache.get("summary", {}) or {})
 
@@ -803,6 +804,14 @@ def _render_native_streamlit_layout(
                 route_data_events = list(route_data.get("events", ()) or ())
                 if route_data_events and hasattr(st_module, "dataframe"):
                     st_module.dataframe(route_data_events, width="stretch", hide_index=True)
+                st_module.caption(
+                    "Navigation runtime cache: " + str(project_navigation_cache.get("entries", 0))
+                    + "/" + str(project_navigation_cache.get("max_projects", 0))
+                    + " projects | Hit rate: " + str(project_navigation_cache.get("hit_rate_percent", 0.0)) + "%"
+                    + " | Invalidations: " + str(project_navigation_cache.get("invalidations", 0))
+                    + " | Evictions: " + str(project_navigation_cache.get("evictions", 0))
+                    + " | Last reason: " + str(project_navigation_cache.get("last_reason", "not-used"))
+                )
 
                 st_module.markdown("##### Runtime")
                 st_module.caption(

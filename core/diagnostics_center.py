@@ -19,6 +19,7 @@ from core.startup_diagnostics import StartupDiagnostics
 from core.dataframe_runtime_cache import DataframeRuntimeCache
 from core.workbench_route_lifecycle import WorkbenchRouteLifecycle
 from core.workbench_route_data import WorkbenchRouteDataDiagnostics
+from core.project_navigation_runtime_cache import ProjectNavigationRuntimeCache
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,6 +116,17 @@ def _route_data_snapshot(service: Any, *, limit: int) -> dict[str, Any]:
         }
     return service.snapshot(limit=limit)
 
+
+
+def _project_navigation_cache_snapshot(service: Any) -> dict[str, Any]:
+    if not isinstance(service, ProjectNavigationRuntimeCache):
+        return {
+            "entries": 0, "max_projects": 0, "hits": 0, "misses": 0,
+            "invalidations": 0, "evictions": 0, "hit_rate_percent": 0.0,
+            "last_reason": "not-used", "projects": [],
+        }
+    return service.snapshot()
+
 def _budget_snapshot(events: list[dict[str, Any]], budgets: Mapping[str, float]) -> list[dict[str, Any]]:
     latest: dict[str, float] = {}
     for event in events:
@@ -156,6 +168,9 @@ def build_diagnostics_center_snapshot(
     dataframe_memory = _dataframe_memory_snapshot(registry.get("dataframe_runtime_cache"))
     route_lifecycle = _route_lifecycle_snapshot(registry.get("workbench_route_lifecycle"), limit=event_limit)
     route_data = _route_data_snapshot(registry.get("workbench_route_data_diagnostics"), limit=event_limit)
+    project_navigation_cache = _project_navigation_cache_snapshot(
+        registry.get("project_navigation_runtime_cache")
+    )
     descriptors = [
         {"key": item.key, "type_name": item.type_name}
         for item in registry.descriptors()
@@ -178,6 +193,7 @@ def build_diagnostics_center_snapshot(
         "dataframe_memory": dataframe_memory,
         "route_lifecycle": route_lifecycle,
         "route_data": route_data,
+        "project_navigation_cache": project_navigation_cache,
         "budgets": _budget_snapshot(events, budgets),
     }
     snapshot["performance_baseline"] = build_performance_baseline(snapshot).to_dict()

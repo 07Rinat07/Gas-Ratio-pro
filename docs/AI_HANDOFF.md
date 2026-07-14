@@ -764,3 +764,7 @@ Heavy rendered PDF preview pages are owned by `PdfPreviewRuntimeCache`, register
 Use `core.workbench_route_lifecycle.route_scope(route_id)` for runtime services that belong only
 to one Workbench route. The session-scoped `WorkbenchRouteLifecycle` disposes the previous route
 scope on navigation changes and returns only serializable diagnostics.
+
+### Phase 2 navigation-cache note
+
+Workbench project navigation is cached by `ProjectNavigationRuntimeCache` in the runtime registry under `project_navigation_runtime_cache` with session scope. Cached values are primitive serialized rows only. Freshness comes from `project_navigation_token`; do not place repository objects or Streamlit values in this cache. Explicit repository invalidation hooks remain the next step.

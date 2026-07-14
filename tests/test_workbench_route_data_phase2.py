@@ -77,3 +77,31 @@ def test_diagnostics_center_exposes_route_data_loading_snapshot() -> None:
     assert snapshot["route_data"]["event_count"] == 1
     assert snapshot["route_data"]["navigation_cache_misses"] == 1
     assert snapshot["route_data"]["events"][0]["project_id"] == "project-a"
+
+
+def test_diagnostics_center_exposes_project_navigation_runtime_cache(tmp_path) -> None:
+    from core.project_navigation_runtime_cache import ProjectNavigationRuntimeCache
+
+    state: dict[str, object] = {}
+    registry = runtime_service_registry(state)
+    cache = registry.set(
+        "project_navigation_runtime_cache",
+        ProjectNavigationRuntimeCache(max_projects=2),
+        scope="session",
+    )
+    project_dir = tmp_path / "project-a"
+    project_dir.mkdir()
+    (project_dir / "project.json").write_text('{"id":"project-a"}', encoding="utf-8")
+    lookup = cache.lookup(tmp_path, "project-a")
+    cache.store(
+        project_id="project-a", token=lookup.token,
+        tree=({"id": "project:project-a"},), counts={},
+        metadata_files=lookup.metadata_files,
+    )
+    assert cache.lookup(tmp_path, "project-a").hit
+
+    snapshot = build_diagnostics_center_snapshot(state)
+
+    assert snapshot["project_navigation_cache"]["entries"] == 1
+    assert snapshot["project_navigation_cache"]["hits"] == 1
+    assert snapshot["project_navigation_cache"]["projects"] == ["project-a"]

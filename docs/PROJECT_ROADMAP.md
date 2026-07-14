@@ -1663,3 +1663,12 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Reuse project navigation data until the active project changes.
 - [x] Add route data loading diagnostics and budgets.
 - [ ] Move heavy route providers behind lazy module factories.
+
+### Phase 2 increment — Project navigation cache and repository invalidation (completed)
+
+- [x] Add bounded process-local LRU cache for serialized project navigation.
+- [x] Add metadata fingerprint tokens without reading payload file contents.
+- [x] Invalidate only changed project entries and report the rebuild reason.
+- [x] Restore navigation state from runtime cache after Session State cleanup.
+- [x] Expose hit-rate, invalidations, evictions and token cost in Developer Diagnostics.
+- [ ] Next: connect repository write operations to explicit navigation invalidation hooks.

@@ -2560,3 +2560,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Reused serialized project navigation data until the active project changes.
 - Added route data load timing, cache status and budgets to Developer Diagnostics.
 - Kept project records, trees and Streamlit objects out of diagnostic runtime history.
+
+## 2026-07-14 — Phase 2 project navigation cache and invalidation
+
+- Added a bounded process-local LRU cache for primitive Workbench project-tree rows.
+- Added metadata fingerprints based on relative path, size and nanosecond mtime without loading project payloads.
+- Added automatic per-project invalidation when navigation metadata changes.
+- Added restoration of current navigation Session State from the runtime cache.
+- Added cache reason, token timing, metadata-file count, hit-rate and eviction diagnostics.
