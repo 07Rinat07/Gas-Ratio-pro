@@ -2487,3 +2487,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Migrated correlation workspace, journal and suggestion stores to the shared atomic boundary.
 - Added repository I/O metrics to Workbench Developer Diagnostics.
 - Added regression tests for atomic cleanup, schema validation, bounded metrics and serialization boundaries.
+
+## 2026-07-14 — Correlation runtime cache optimization
+
+- Added `CorrelationRuntimeCache` as a bounded LRU runtime service.
+- Removed heavy Plotly figures and correlation panel objects from serializable Session State.
+- Added shared cache telemetry for correlation render hits, misses, invalidations, evictions and entries.
+- Added regression tests for LRU reuse and safe invalidation.

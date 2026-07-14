@@ -238,6 +238,7 @@ from core.runtime_diagnostics import RuntimeDiagnostics
 from core.rerun_coordinator import begin_rerun_cycle, request_rerun
 from core.dataframe_runtime_cache import DataframeRuntimeCache
 from core.cache_metrics import CacheMetricsRegistry
+from core.correlation_runtime_cache import CorrelationRenderArtifacts, CorrelationRuntimeCache
 from core.session_state_audit import audit_session_state
 from core.performance_audit import build_workspace_performance_gate, evaluate_performance
 from core.render_queue import RenderQueue, RenderTask
@@ -14969,7 +14970,9 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         )
         revisions = revision_controller_from_state(_application_state_controller().state)
         persist_revisions(_application_state_controller().state, revisions.bump_presentation())
-        _application_state_controller().state.pop("las_correlation_figure_cache", None)
+        correlation_runtime_cache = _application_state_controller().get_runtime_service("correlation_runtime_cache")
+        if isinstance(correlation_runtime_cache, CorrelationRuntimeCache):
+            correlation_runtime_cache.clear()
         logger.info(
             "las_correlation_presentation_committed signature=%s wells=%d markers=%d",
             safe_log_value(correlation_source_signature[:12]),
@@ -15028,12 +15031,23 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         expected_type=RuntimeDiagnostics,
     )
     correlation_cycle_marker = correlation_diagnostics.mark()
-    cache_lookup_started = perf_counter()
-    cached_correlation = correlation_state_controller.state.get("las_correlation_figure_cache")
-    cache_lookup_ms = (perf_counter() - cache_lookup_started) * 1000.0
-    correlation_cache_hit = bool(
-        isinstance(cached_correlation, dict) and cached_correlation.get("key") == figure_cache_key
+    cache_metrics_registry = correlation_state_controller.ensure_runtime_service(
+        "cache_metrics_registry",
+        CacheMetricsRegistry,
+        expected_type=CacheMetricsRegistry,
     )
+    correlation_runtime_cache = correlation_state_controller.ensure_runtime_service(
+        "correlation_runtime_cache",
+        lambda: CorrelationRuntimeCache(
+            max_entries=3,
+            metrics=cache_metrics_registry.counter("correlation_render", max_entries=3),
+        ),
+        expected_type=CorrelationRuntimeCache,
+    )
+    cache_lookup_started = perf_counter()
+    cached_correlation = correlation_runtime_cache.get(figure_cache_key)
+    cache_lookup_ms = (perf_counter() - cache_lookup_started) * 1000.0
+    correlation_cache_hit = cached_correlation is not None
     correlation_diagnostics.record(
         stage="correlation.cache_lookup",
         duration_ms=cache_lookup_ms,
@@ -15042,11 +15056,11 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         item_count=len(selected_wells),
     )
     if correlation_cache_hit:
-        studio_panel = cached_correlation.get("studio_panel")
-        studio_figure = cached_correlation.get("studio_figure")
-        figure = cached_correlation.get("figure")
-        figure_title = str(cached_correlation.get("figure_title") or "Gas Ratio Interpreter - LAS correlation")
-        figure_file_name = str(cached_correlation.get("figure_file_name") or "las_correlation")
+        studio_panel = cached_correlation.studio_panel
+        studio_figure = cached_correlation.studio_figure
+        figure = cached_correlation.figure
+        figure_title = cached_correlation.figure_title
+        figure_file_name = cached_correlation.figure_file_name
         logger.info(
             "las_correlation_figure_cache_hit wells=%d lookup_ms=%.2f",
             len(selected_wells),
@@ -15124,14 +15138,16 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
                 figure_title = "Gas Ratio Interpreter - LAS correlation"
                 figure_file_name = "las_correlation"
         cache_store_started = perf_counter()
-        correlation_state_controller.state["las_correlation_figure_cache"] = {
-            "key": figure_cache_key,
-            "studio_panel": studio_panel,
-            "studio_figure": studio_figure,
-            "figure": figure,
-            "figure_title": figure_title,
-            "figure_file_name": figure_file_name,
-        }
+        correlation_runtime_cache.put(
+            figure_cache_key,
+            CorrelationRenderArtifacts(
+                studio_panel=studio_panel,
+                studio_figure=studio_figure,
+                figure=figure,
+                figure_title=figure_title,
+                figure_file_name=figure_file_name,
+            ),
+        )
         correlation_diagnostics.record(
             stage="correlation.cache_store",
             duration_ms=(perf_counter() - cache_store_started) * 1000.0,

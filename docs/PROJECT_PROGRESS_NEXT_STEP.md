@@ -475,3 +475,13 @@ Next priority: move the legacy correlation figure cache from ordinary Session St
 - Kept old repository constructors backward compatible through optional runtime telemetry injection.
 
 Next priority: migrate the legacy correlation figure cache behind `RuntimeServiceRegistry`, enforce byte-aware eviction, and establish cold/warm benchmark baselines.
+
+## Phase 2 — Correlation runtime cache optimization
+
+- Moved heavy correlation panel and Plotly artifacts out of serializable Session State.
+- Added a bounded LRU runtime cache owned by `RuntimeServiceRegistry`.
+- Reuses up to three recently applied correlation configurations instead of retaining only one state snapshot.
+- Integrated hit, miss, invalidation, eviction and entry metrics with the shared cache telemetry registry.
+- Explicit presentation rebuilds invalidate the runtime cache without touching project data.
+
+Next priority: add byte-aware cache limits and cold/warm benchmark baselines from captured runtime diagnostics.
