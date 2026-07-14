@@ -126,6 +126,7 @@ def build_interpretation_interval(
     source: str = "manual",
     interval_id: str | None = None,
     created_at: str | None = None,
+    updated_at: str | None = None,
 ) -> InterpretationInterval:
     """Validate and construct one immutable interval with a stable UUID."""
 
@@ -141,7 +142,7 @@ def build_interpretation_interval(
         comment=_clean_text(comment, "Комментарий", max_length=2000),
         source=_clean_text(source, "Источник", max_length=80, fallback="manual"),
         created_at=created_at or now,
-        updated_at=now,
+        updated_at=updated_at or now,
     )
 
 
@@ -156,6 +157,7 @@ def _interval_from_dict(raw: dict[str, Any]) -> InterpretationInterval:
         comment=str(raw.get("comment", "")),
         source=str(raw.get("source", "manual")),
         created_at=str(raw.get("created_at", "")) or None,
+        updated_at=str(raw.get("updated_at", "")) or None,
     )
 
 

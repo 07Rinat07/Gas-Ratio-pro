@@ -132,3 +132,11 @@ Next recommended increment: Modern Workspace shell foundation — Project Explor
 ## 2026-07-14: interpretation repository foundation completed
 
 Completed the serializable `Project -> Well -> Interpretation -> Intervals` repository with UUID-based CRUD and atomic persistence. The next bounded increment is an application service/command layer that records reversible create/update/delete operations for undo/redo before Streamlit UI integration.
+
+## Interpretation interval Undo/Redo command service
+
+- Added `InterpretationIntervalCommandService` with bounded create/update/delete history.
+- Undo/Redo restores complete serializable snapshots and refuses unsafe restoration after external repository changes.
+- History is scoped to project, well and interpretation and contains no runtime objects.
+- Interval loading now preserves both `created_at` and `updated_at`.
+- Next step: connect the service to a focused Streamlit interval manager panel with create/edit/delete and Undo/Redo controls.

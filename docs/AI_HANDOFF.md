@@ -632,3 +632,9 @@ Implemented the first interpretation-module increment in `projects/interpretatio
 Validation: focused interpretation repository tests plus the existing professional well-interval manager tests pass (11 tests).
 
 Next priority: add a service/command layer with undo/redo snapshots, then connect the interval manager UI to that layer.
+
+## Latest increment: interpretation interval Undo/Redo
+
+Use `projects.interpretation_interval_commands.InterpretationIntervalCommandService` for all future manual interval mutations from the UI. Its state contains only JSON-compatible snapshots, is isolated by project/well/interpretation and has a bounded history. Undo/Redo verifies that repository content still matches the expected command snapshot; an external change raises `InterpretationIntervalHistoryConflict` instead of overwriting data. Do not bypass this service from the future interval manager UI except for read-only loading.
+
+Validation: repository, command history, professional interval manager and architecture freeze tests pass (19 tests).

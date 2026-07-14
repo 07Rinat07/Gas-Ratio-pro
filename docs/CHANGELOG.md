@@ -2204,3 +2204,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added create, read, update and idempotent delete operations.
 - Added derived thickness/middle-depth table projection.
 - Added focused repository tests without changing the existing automatic well interval manager.
+
+## 2026-07-14 — Interpretation interval Undo/Redo command service
+
+- Added a bounded command history for create, update and delete operations.
+- Added Undo/Redo restoration with external-change conflict protection.
+- Kept history snapshots JSON-compatible and isolated by project/well/interpretation.
+- Preserved persisted interval timestamps during repository reload.
