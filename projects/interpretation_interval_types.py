@@ -4,11 +4,12 @@ import json
 import os
 import re
 import tempfile
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+from projects.interpretation_intervals import load_interpretation_intervals, save_interpretation_intervals
 from projects.repository import DEFAULT_PROJECT_ID, DEFAULT_PROJECTS_ROOT, safe_project_id
 
 INTERVAL_TYPES_SCHEMA = "gas-ratio-pro/interpretation-interval-types/v1"
@@ -37,6 +38,34 @@ class InterpretationIntervalTypeUsage:
     @property
     def in_use(self) -> bool:
         return self.interval_count > 0
+
+
+
+
+@dataclass(frozen=True)
+class InterpretationIntervalTypeReassignmentResult:
+    source_type_id: str
+    target_type_id: str
+    interval_count: int
+    well_count: int
+    interpretation_count: int
+    target_color_applied: bool
+
+
+def _write_bytes_atomic(path: Path, payload: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".rollback", dir=path.parent
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
 
 
 DEFAULT_INTERVAL_TYPES: tuple[InterpretationIntervalType, ...] = (
@@ -252,6 +281,93 @@ class InterpretationIntervalTypeRepository:
             root=self.root,
             project_id=self.project_id,
         )
+
+    def reassign(
+        self,
+        source_type_id: str,
+        target_type_id: str,
+        *,
+        apply_target_color: bool = True,
+    ) -> InterpretationIntervalTypeReassignmentResult:
+        source_id = _clean_id(source_type_id)
+        target_id = _clean_id(target_type_id)
+        if source_id == target_id:
+            raise ValueError("Исходный и целевой типы должны отличаться.")
+        if self.get(source_id) is None:
+            raise KeyError(f"Тип интервала не найден: {source_id}")
+        target = self.get(target_id)
+        if target is None:
+            raise KeyError(f"Тип интервала не найден: {target_id}")
+
+        project_root = self.root / self.project_id / "wells"
+        paths = sorted(project_root.glob("*/interpretations/*/intervals.json")) if project_root.exists() else []
+        originals: dict[Path, bytes] = {}
+        changed_paths: list[Path] = []
+        interval_count = 0
+        wells: set[str] = set()
+        interpretations: set[tuple[str, str]] = set()
+        now = _utc_now()
+
+        try:
+            for path in paths:
+                well_id = path.parents[2].name
+                interpretation_id = path.parent.name
+                interval_set = load_interpretation_intervals(
+                    self.root, self.project_id, well_id, interpretation_id
+                )
+                matching = [item for item in interval_set.intervals if item.interval_type == source_id]
+                if not matching:
+                    continue
+                originals[path] = path.read_bytes()
+                updated_intervals = tuple(
+                    replace(
+                        item,
+                        interval_type=target_id,
+                        color=target.color if apply_target_color else item.color,
+                        updated_at=now,
+                    )
+                    if item.interval_type == source_id
+                    else item
+                    for item in interval_set.intervals
+                )
+                save_interpretation_intervals(
+                    replace(interval_set, intervals=updated_intervals),
+                    self.root,
+                )
+                changed_paths.append(path)
+                interval_count += len(matching)
+                wells.add(well_id)
+                interpretations.add((well_id, interpretation_id))
+        except Exception:
+            for changed_path in reversed(changed_paths):
+                original = originals.get(changed_path)
+                if original is not None:
+                    _write_bytes_atomic(changed_path, original)
+            raise
+
+        return InterpretationIntervalTypeReassignmentResult(
+            source_type_id=source_id,
+            target_type_id=target_id,
+            interval_count=interval_count,
+            well_count=len(wells),
+            interpretation_count=len(interpretations),
+            target_color_applied=bool(apply_target_color),
+        )
+
+    def reassign_and_delete(
+        self,
+        source_type_id: str,
+        target_type_id: str,
+        *,
+        apply_target_color: bool = True,
+    ) -> InterpretationIntervalTypeReassignmentResult:
+        result = self.reassign(
+            source_type_id,
+            target_type_id,
+            apply_target_color=apply_target_color,
+        )
+        self.delete(source_type_id)
+        return result
 
     def delete(self, type_id: str) -> bool:
         clean_id = _clean_id(type_id)

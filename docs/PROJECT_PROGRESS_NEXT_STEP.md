@@ -221,3 +221,11 @@ Next recommended increment: improve tablet interaction for manual intervals with
 - Types referenced by persisted intervals cannot be deleted accidentally.
 - The Streamlit catalog shows interval, well and interpretation usage counts and disables unsafe deletion.
 - Next step: add an explicit batch reassignment workflow for replacing a type across project intervals.
+
+## Массовое переназначение типов интервалов
+
+- Используемый тип можно переназначить на другой тип во всех скважинах и интерпретациях проекта.
+- При переназначении можно применить цвет целевого типа или сохранить индивидуальные цвета интервалов.
+- После успешного переназначения исходный тип безопасно удаляется из справочника.
+- При ошибке пакетной операции уже изменённые файлы интервалов восстанавливаются.
+- Следующий шаг: добавить предварительный просмотр затрагиваемых интервалов перед массовым переназначением.

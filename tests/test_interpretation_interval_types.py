@@ -103,3 +103,85 @@ def test_repository_refuses_to_delete_type_used_by_intervals(tmp_path: Path) -> 
         repository.delete("custom")
 
     assert repository.get("custom") is not None
+
+
+def test_repository_reassigns_type_across_project_and_applies_target_color(tmp_path: Path) -> None:
+    from projects.interpretation_intervals import load_interpretation_intervals
+
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    repository.upsert(type_id="source", name="Source", color="#112233")
+    repository.upsert(type_id="target", name="Target", color="#AABBCC")
+    create_interpretation_interval(
+        root=tmp_path,
+        project_id="project",
+        well_id="well-a",
+        interpretation_id="default",
+        label="A",
+        top=100,
+        base=110,
+        interval_type="source",
+        color="#010203",
+    )
+    create_interpretation_interval(
+        root=tmp_path,
+        project_id="project",
+        well_id="well-b",
+        interpretation_id="secondary",
+        label="B",
+        top=200,
+        base=210,
+        interval_type="source",
+        color="#040506",
+    )
+
+    result = repository.reassign("source", "target", apply_target_color=True)
+
+    assert result.interval_count == 2
+    assert result.well_count == 2
+    assert result.interpretation_count == 2
+    for well_id, interpretation_id in (("well-a", "default"), ("well-b", "secondary")):
+        interval = load_interpretation_intervals(
+            tmp_path, "project", well_id, interpretation_id
+        ).intervals[0]
+        assert interval.interval_type == "target"
+        assert interval.color == "#AABBCC"
+
+
+def test_repository_reassign_and_delete_preserves_interval_color_when_requested(tmp_path: Path) -> None:
+    from projects.interpretation_intervals import load_interpretation_intervals
+
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    repository.upsert(type_id="source", name="Source", color="#112233")
+    repository.upsert(type_id="target", name="Target", color="#AABBCC")
+    create_interpretation_interval(
+        root=tmp_path,
+        project_id="project",
+        well_id="well-a",
+        label="A",
+        top=100,
+        base=110,
+        interval_type="source",
+        color="#010203",
+    )
+
+    result = repository.reassign_and_delete(
+        "source", "target", apply_target_color=False
+    )
+
+    interval = load_interpretation_intervals(
+        tmp_path, "project", "well-a", "default"
+    ).intervals[0]
+    assert result.interval_count == 1
+    assert interval.interval_type == "target"
+    assert interval.color == "#010203"
+    assert repository.get("source") is None
+
+
+def test_repository_reassign_rejects_same_or_missing_target_type(tmp_path: Path) -> None:
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    repository.upsert(type_id="source", name="Source", color="#112233")
+
+    with pytest.raises(ValueError, match="должны отличаться"):
+        repository.reassign("source", "source")
+    with pytest.raises(KeyError, match="missing"):
+        repository.reassign("source", "missing")

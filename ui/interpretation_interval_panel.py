@@ -140,6 +140,41 @@ def render_interpretation_interval_panel(
                         f"{type_usage.well_count} скважин · "
                         f"{type_usage.interpretation_count} интерпретаций."
                     )
+                    replacement_ids = [item.id for item in interval_types if item.id != type_delete_id]
+                    if replacement_ids:
+                        replacement_type_id = st.selectbox(
+                            "Переназначить интервалы на тип",
+                            options=replacement_ids,
+                            format_func=lambda value: next(
+                                (f"{item.name} ({item.id})" for item in interval_types if item.id == value),
+                                value,
+                            ),
+                            key=f"manual_interval_type_reassign_target_{project_id}",
+                        )
+                        apply_replacement_color = st.checkbox(
+                            "Применить цвет целевого типа",
+                            value=True,
+                            key=f"manual_interval_type_reassign_color_{project_id}",
+                        )
+                        if st.button(
+                            "Переназначить интервалы и удалить тип",
+                            key=f"manual_interval_type_reassign_delete_{project_id}",
+                            width="stretch",
+                        ):
+                            try:
+                                reassigned = type_repository.reassign_and_delete(
+                                    type_delete_id,
+                                    replacement_type_id,
+                                    apply_target_color=apply_replacement_color,
+                                )
+                            except (KeyError, ValueError) as exc:
+                                st.error(str(exc))
+                            else:
+                                st.success(
+                                    f"Переназначено интервалов: {reassigned.interval_count}. "
+                                    "Исходный тип удалён."
+                                )
+                                st.rerun()
                 if st.button(
                     "Удалить тип из справочника",
                     key=f"manual_interval_type_delete_{project_id}",
