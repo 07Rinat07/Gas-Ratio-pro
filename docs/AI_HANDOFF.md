@@ -715,3 +715,8 @@ Interpretation workspaces now have persistent draft/review/approved/published st
 ## Latest increment: role-aware interpretation publication
 
 The publication workflow now uses `InterpretationActor` and a centralized role policy. Authors submit drafts, reviewers return/approve, publishers publish/unpublish, and administrators may perform all transitions. Workflow events persist actor identity and role and can be exported to JSON, CSV or XLSX. No runtime authentication objects are stored in project state; a future identity provider should create the same serializable actor value.
+
+## Current correlation stage
+
+The project now contains `projects/interpretation_correlation.py` and `ui/interpretation_correlation_panel.py`.
+Correlation inputs must come from published interpretation revisions. Correlation ties reference stable interval UUIDs and explicit anchor depths. The next recommended increment is a visual multi-well correlation canvas; do not bypass publication or copy mutable runtime objects into correlation state.

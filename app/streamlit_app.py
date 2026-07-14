@@ -90,6 +90,7 @@ from ui.interpretation_interval_panel import (
     render_interpretation_interval_panel,
     resolve_interpretation_well_id,
 )
+from ui.interpretation_correlation_panel import render_interpretation_correlation_panel
 from ui.interpretation_interval_navigator import (
     build_manual_interval_navigator,
     selected_interval_id_from_plotly_event,
@@ -10757,6 +10758,11 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     )
     try:
         render_interpretation_interval_panel(
+            st,
+            state=_application_state_controller().state,
+            project_id=str(active_project.id),
+        )
+        render_interpretation_correlation_panel(
             st,
             state=_application_state_controller().state,
             project_id=str(active_project.id),

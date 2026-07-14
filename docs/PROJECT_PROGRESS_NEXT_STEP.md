@@ -384,3 +384,12 @@ Add review/approval workflow for interpretation versions: draft/reviewed/approve
 ## Recommended next major stage
 
 Begin the multi-well correlation workspace using published interpretation revisions as immutable correlation inputs.
+
+## Multi-well correlation workspace foundation
+
+- Added project-level correlation workspaces based only on published interpretation revisions.
+- Published revision discovery validates workflow status and loads immutable interval snapshots.
+- Correlation ties connect interval UUIDs from different wells and validate anchor depths inside interval bounds.
+- Workspace writes are atomic and protected by a stale-state token.
+- Added Streamlit UI for creating correlation projects, selecting published inputs, adding/removing ties and exporting JSON/CSV.
+- Next major stage: build the visual multi-well correlation canvas with aligned depth tracks, tie-line rendering and correlation quality diagnostics.

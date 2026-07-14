@@ -2420,3 +2420,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added actor identity and role to persistent workflow audit events.
 - Added JSON, CSV and Excel export for publication audit history.
 - Kept legacy workflow files backward compatible and local-first.
+
+## Multi-well correlation workspace
+
+- Added persistent correlation workspaces under project storage.
+- Added published-revision discovery and immutable correlation inputs.
+- Added validated cross-well interval ties with stale-state protection.
+- Added correlation UI and JSON/CSV export.

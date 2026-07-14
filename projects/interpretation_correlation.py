@@ -1,0 +1,276 @@
+from __future__ import annotations
+
+"""Persistent multi-well correlation workspaces based on published revisions."""
+
+import csv
+import hashlib
+import io
+import json
+import os
+import tempfile
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Mapping
+from uuid import UUID, uuid4
+
+from projects.interpretation_intervals import InterpretationInterval, _interval_from_dict
+from projects.repository import DEFAULT_PROJECTS_ROOT, safe_project_id
+from projects.well_cards import safe_well_id
+
+CORRELATION_SCHEMA = "gas-ratio-pro/interpretation-correlation/v1"
+CORRELATION_DIR_NAME = "correlations"
+MAX_NAME = 160
+MAX_NOTE = 2000
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _clean(value: Any, label: str, limit: int, required: bool = False) -> str:
+    result = str(value or "").strip()
+    if required and not result:
+        raise ValueError(f"{label}: значение обязательно.")
+    if len(result) > limit:
+        raise ValueError(f"{label}: максимум {limit} символов.")
+    return result
+
+
+def _uuid(value: Any = "") -> str:
+    clean = str(value or "").strip()
+    if not clean:
+        return str(uuid4())
+    try:
+        return str(UUID(clean))
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise ValueError("Некорректный UUID.") from exc
+
+
+def _atomic_write(path: Path, payload: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    tmp = Path(name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
+            json.dump(payload, stream, ensure_ascii=False, indent=2, sort_keys=True)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+@dataclass(frozen=True)
+class PublishedInterpretationInput:
+    well_id: str
+    interpretation_id: str
+    revision_id: str
+    revision_name: str
+    published_at: str
+    intervals: tuple[InterpretationInterval, ...]
+    state_token: str
+
+
+@dataclass(frozen=True)
+class CorrelationEndpoint:
+    well_id: str
+    interpretation_id: str
+    revision_id: str
+    interval_id: str
+    depth: float
+    label: str
+
+
+@dataclass(frozen=True)
+class CorrelationTie:
+    id: str
+    left: CorrelationEndpoint
+    right: CorrelationEndpoint
+    name: str
+    note: str
+    created_at: str
+    updated_at: str
+
+
+@dataclass(frozen=True)
+class CorrelationWorkspace:
+    id: str
+    name: str
+    description: str
+    wells: tuple[str, ...]
+    ties: tuple[CorrelationTie, ...]
+    created_at: str
+    updated_at: str
+
+    @property
+    def state_token(self) -> str:
+        payload = asdict(self)
+        return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
+
+
+def discover_published_interpretations(*, root: Path | str = DEFAULT_PROJECTS_ROOT, project_id: str) -> tuple[PublishedInterpretationInput, ...]:
+    project = safe_project_id(project_id)
+    project_dir = Path(root) / project
+    result: list[PublishedInterpretationInput] = []
+    for publication_path in sorted(project_dir.glob("wells/*/interpretations/*/.workflow/publication.json")):
+        try:
+            publication = json.loads(publication_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, TypeError):
+            continue
+        if publication.get("status") != "published" or not publication.get("published_revision_id"):
+            continue
+        interpretation_dir = publication_path.parent.parent
+        interpretation_id = interpretation_dir.name
+        well_id = interpretation_dir.parent.parent.name
+        revision_id = str(publication["published_revision_id"])
+        revision_path = interpretation_dir / ".revisions" / f"{revision_id}.json"
+        try:
+            revision = json.loads(revision_path.read_text(encoding="utf-8"))
+            metadata = revision["metadata"]
+            files = revision["files"]
+            rows = files.get("intervals.json", {}).get("intervals", [])
+            intervals = tuple(sorted((_interval_from_dict(row) for row in rows), key=lambda item: (item.top, item.base)))
+            result.append(PublishedInterpretationInput(
+                well_id=safe_well_id(well_id), interpretation_id=interpretation_id,
+                revision_id=revision_id, revision_name=str(metadata.get("name", revision_id)),
+                published_at=str(publication.get("updated_at", "")), intervals=intervals,
+                state_token=str(metadata.get("state_token", "")),
+            ))
+        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            continue
+    return tuple(sorted(result, key=lambda item: (item.well_id, item.interpretation_id)))
+
+
+class CorrelationWorkspaceRepository:
+    def __init__(self, *, root: Path | str = DEFAULT_PROJECTS_ROOT, project_id: str) -> None:
+        self.root = Path(root)
+        self.project_id = safe_project_id(project_id)
+        self.directory = self.root / self.project_id / CORRELATION_DIR_NAME
+
+    def list(self) -> tuple[CorrelationWorkspace, ...]:
+        result: list[CorrelationWorkspace] = []
+        if not self.directory.exists():
+            return ()
+        for path in sorted(self.directory.glob("*/correlation.json")):
+            try:
+                result.append(self._parse(json.loads(path.read_text(encoding="utf-8"))))
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                continue
+        return tuple(sorted(result, key=lambda item: item.updated_at, reverse=True))
+
+    def create(self, *, name: str, description: str = "", wells: tuple[str, ...] = ()) -> CorrelationWorkspace:
+        now = _utc_now()
+        workspace = CorrelationWorkspace(
+            id=str(uuid4()), name=_clean(name, "Название", MAX_NAME, True),
+            description=_clean(description, "Описание", MAX_NOTE),
+            wells=self._normalize_wells(wells), ties=(), created_at=now, updated_at=now,
+        )
+        return self.save(workspace)
+
+    def get(self, workspace_id: str) -> CorrelationWorkspace:
+        clean_id = _uuid(workspace_id)
+        path = self.directory / clean_id / "correlation.json"
+        if not path.exists():
+            raise KeyError(f"Корреляционный проект не найден: {clean_id}")
+        return self._parse(json.loads(path.read_text(encoding="utf-8")))
+
+    def save(self, workspace: CorrelationWorkspace, *, expected_state_token: str = "") -> CorrelationWorkspace:
+        if expected_state_token:
+            current = self.get(workspace.id)
+            if current.state_token != expected_state_token:
+                raise ValueError("Корреляционный проект изменился после построения preview.")
+        normalized = CorrelationWorkspace(
+            id=_uuid(workspace.id), name=_clean(workspace.name, "Название", MAX_NAME, True),
+            description=_clean(workspace.description, "Описание", MAX_NOTE),
+            wells=self._normalize_wells(workspace.wells), ties=tuple(workspace.ties),
+            created_at=workspace.created_at or _utc_now(), updated_at=_utc_now(),
+        )
+        _atomic_write(self.directory / normalized.id / "correlation.json", {
+            "schema": CORRELATION_SCHEMA, "project_id": self.project_id, **asdict(normalized)
+        })
+        return normalized
+
+    def delete(self, workspace_id: str) -> bool:
+        import shutil
+        path = self.directory / _uuid(workspace_id)
+        if not path.exists():
+            return False
+        shutil.rmtree(path)
+        return True
+
+    def _parse(self, payload: Mapping[str, Any]) -> CorrelationWorkspace:
+        if payload.get("schema") != CORRELATION_SCHEMA:
+            raise ValueError("Неподдерживаемая схема корреляционного проекта.")
+        ties = []
+        for row in payload.get("ties", []):
+            left = CorrelationEndpoint(**row["left"])
+            right = CorrelationEndpoint(**row["right"])
+            ties.append(CorrelationTie(id=_uuid(row.get("id")), left=left, right=right,
+                                       name=str(row.get("name", "")), note=str(row.get("note", "")),
+                                       created_at=str(row.get("created_at", "")), updated_at=str(row.get("updated_at", ""))))
+        return CorrelationWorkspace(id=_uuid(payload.get("id")), name=str(payload.get("name", "")),
+                                    description=str(payload.get("description", "")),
+                                    wells=self._normalize_wells(tuple(payload.get("wells", ()))), ties=tuple(ties),
+                                    created_at=str(payload.get("created_at", "")), updated_at=str(payload.get("updated_at", "")))
+
+    @staticmethod
+    def _normalize_wells(wells: tuple[str, ...]) -> tuple[str, ...]:
+        return tuple(dict.fromkeys(safe_well_id(item) for item in wells if str(item).strip()))
+
+
+class CorrelationWorkspaceService:
+    def __init__(self, *, root: Path | str = DEFAULT_PROJECTS_ROOT, project_id: str, workspace_id: str) -> None:
+        self.root = Path(root)
+        self.project_id = safe_project_id(project_id)
+        self.repository = CorrelationWorkspaceRepository(root=root, project_id=project_id)
+        self.workspace_id = _uuid(workspace_id)
+
+    def add_tie(self, *, left: CorrelationEndpoint, right: CorrelationEndpoint, name: str = "", note: str = "", expected_state_token: str = "") -> CorrelationWorkspace:
+        workspace = self.repository.get(self.workspace_id)
+        if left.well_id == right.well_id:
+            raise ValueError("Корреляционная связь должна соединять разные скважины.")
+        inputs = {(item.well_id, item.interpretation_id, item.revision_id): item for item in discover_published_interpretations(root=self.root, project_id=self.project_id)}
+        for endpoint in (left, right):
+            source = inputs.get((endpoint.well_id, endpoint.interpretation_id, endpoint.revision_id))
+            if source is None:
+                raise ValueError("Источник корреляции больше не опубликован.")
+            interval = next((item for item in source.intervals if item.id == endpoint.interval_id), None)
+            if interval is None:
+                raise ValueError("Интервал корреляции отсутствует в опубликованной ревизии.")
+            if not interval.top <= float(endpoint.depth) <= interval.base:
+                raise ValueError("Опорная глубина должна находиться внутри выбранного интервала.")
+        now = _utc_now()
+        tie = CorrelationTie(id=str(uuid4()), left=left, right=right,
+                             name=_clean(name, "Название связи", MAX_NAME) or f"{left.label} ↔ {right.label}",
+                             note=_clean(note, "Комментарий", MAX_NOTE), created_at=now, updated_at=now)
+        updated = CorrelationWorkspace(id=workspace.id, name=workspace.name, description=workspace.description,
+                                       wells=tuple((*workspace.wells, left.well_id, right.well_id)),
+                                       ties=tuple((*workspace.ties, tie)), created_at=workspace.created_at, updated_at=workspace.updated_at)
+        return self.repository.save(updated, expected_state_token=expected_state_token)
+
+    def delete_tie(self, tie_id: str, *, expected_state_token: str = "") -> CorrelationWorkspace:
+        workspace = self.repository.get(self.workspace_id)
+        clean_id = _uuid(tie_id)
+        ties = tuple(item for item in workspace.ties if item.id != clean_id)
+        if len(ties) == len(workspace.ties):
+            raise KeyError("Корреляционная связь не найдена.")
+        updated = CorrelationWorkspace(id=workspace.id, name=workspace.name, description=workspace.description,
+                                       wells=workspace.wells, ties=ties, created_at=workspace.created_at, updated_at=workspace.updated_at)
+        return self.repository.save(updated, expected_state_token=expected_state_token)
+
+
+def export_correlation_json(workspace: CorrelationWorkspace) -> bytes:
+    return (json.dumps({"schema": CORRELATION_SCHEMA, **asdict(workspace)}, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+
+
+def export_correlation_csv(workspace: CorrelationWorkspace) -> bytes:
+    stream = io.StringIO(newline="")
+    writer = csv.DictWriter(stream, fieldnames=["tie_id", "name", "left_well", "left_depth", "left_label", "right_well", "right_depth", "right_label", "note"])
+    writer.writeheader()
+    for tie in workspace.ties:
+        writer.writerow({"tie_id": tie.id, "name": tie.name, "left_well": tie.left.well_id, "left_depth": tie.left.depth,
+                         "left_label": tie.left.label, "right_well": tie.right.well_id, "right_depth": tie.right.depth,
+                         "right_label": tie.right.label, "note": tie.note})
+    return ("\ufeff" + stream.getvalue()).encode("utf-8")
