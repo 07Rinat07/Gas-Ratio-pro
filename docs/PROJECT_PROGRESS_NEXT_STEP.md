@@ -192,3 +192,18 @@ Next recommended increment: improve tablet interaction for manual intervals with
 - Overlay settings do not modify repository interval data or command history.
 - Selected interval synchronization remains available when overlays are hidden.
 - Next step: add direct selection from the main tablet tracks or persist display preferences per project.
+
+## Project-persistent manual interval display settings
+
+- Manual interval overlay visibility and opacity are now stored per project and well.
+- Display preferences use a small versioned JSON file next to the interpretation interval repository.
+- Widget keys are scoped by project and well, preventing settings from leaking between active wells.
+- Persistence is atomic and does not modify interval data or Undo/Redo history.
+- Next step: add direct interval selection from the main tablet tracks.
+
+## Direct manual interval selection on depth tracks
+
+- Manual intervals can now be selected directly from the main interpretation depth charts.
+- Selection stores only the interval UUID and synchronizes with the existing properties panel and tablet focus.
+- Older Streamlit versions continue rendering charts without interactive selection.
+- Next step: add direct selection to the engineering tablet interval track or add interval type management.

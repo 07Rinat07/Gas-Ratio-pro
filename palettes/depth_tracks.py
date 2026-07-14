@@ -116,6 +116,41 @@ def _add_interval_overlays(fig: go.Figure, intervals: Sequence[object], selected
         if selected:
             fig.add_hline(y=top, line={"color": color, "width": 2.2, "dash": "solid"})
             fig.add_hline(y=bottom, line={"color": color, "width": 2.2, "dash": "solid"})
+        if fluid == "manual" and interval_id:
+            thickness = max(0.0, bottom - top)
+            note = str(getattr(interval, "note", "") or "")
+            fig.add_trace(go.Scatter(
+                x=[0.985],
+                y=[(top + bottom) / 2.0],
+                xaxis="x2",
+                mode="markers",
+                customdata=[[interval_id, display_label, top, bottom, thickness, note]],
+                marker={
+                    "size": 12 if selected else 9,
+                    "symbol": "diamond" if selected else "square",
+                    "color": color,
+                    "line": {"width": 2 if selected else 1, "color": "#ffffff"},
+                },
+                hovertemplate=(
+                    "<b>%{customdata[1]}</b><br>"
+                    "Верх: %{customdata[2]:.3f} м<br>"
+                    "Низ: %{customdata[3]:.3f} м<br>"
+                    "Мощность: %{customdata[4]:.3f} м<br>"
+                    "Комментарий: %{customdata[5]}"
+                    "<extra>Выбрать интервал</extra>"
+                ),
+                name=f"Выбрать: {display_label}",
+                showlegend=False,
+            ))
+            fig.update_layout(
+                xaxis2={
+                    "overlaying": "x",
+                    "range": [0.0, 1.0],
+                    "visible": False,
+                    "fixedrange": True,
+                }
+            )
+
         legend_key = f"{fluid}:{display_label}" if fluid == "manual" else fluid
         if legend_key not in shown:
             fig.add_trace(go.Scatter(x=[None], y=[None], mode="markers", name=display_label,

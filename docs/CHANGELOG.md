@@ -2263,3 +2263,15 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 
 - Added visibility and opacity controls for manual interval overlays on interpretation charts.
 - Added regression tests for overlay presentation settings and immutability.
+
+## 2026-07-14
+
+- Added project- and well-scoped persistence for manual interval overlay visibility and opacity.
+- Prevented overlay widget state from leaking between wells.
+
+## 2026-07-14 — Direct manual interval selection on depth tracks
+
+- Added clickable manual-interval markers to the main interpretation depth charts.
+- Reused the existing UUID-only Plotly selection boundary to synchronize the properties panel.
+- Added a compatibility fallback for Streamlit versions without Plotly selection callbacks.
+- Kept Plotly event payloads and runtime objects out of serializable application state.

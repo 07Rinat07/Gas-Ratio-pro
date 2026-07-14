@@ -330,6 +330,7 @@ from core.storage_lifecycle import IndexManager
 from projects import calculations as project_calculations
 from projects import exports as project_exports
 from projects import graph_settings as project_graph_settings
+from projects import interpretation_interval_display_settings as interval_display_settings
 from projects import datasets as project_datasets
 from projects import project_labels as project_labels
 from projects import project_index as project_index
@@ -10680,12 +10681,12 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         )
         manual_intervals = manual_interval_manager.list_intervals()
         raw_manual_overlays = manual_interval_overlays(manual_intervals)
-        manual_overlay_visible = bool(
-            state_controller.get_value("interpretation_manual_overlay_visible", True)
+        persisted_overlay_settings = interval_display_settings.load_interpretation_interval_display_settings(
+            project_id=str(active_project.id),
+            well_id=manual_well_id,
         )
-        manual_overlay_opacity = float(
-            state_controller.get_value("interpretation_manual_overlay_opacity", 0.18) or 0.18
-        )
+        manual_overlay_visible = persisted_overlay_settings.visible
+        manual_overlay_opacity = persisted_overlay_settings.opacity
         manual_overlays = configure_manual_interval_overlays(
             raw_manual_overlays,
             visible=manual_overlay_visible,
@@ -10768,17 +10769,18 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         )
         st.error("Не удалось открыть панель ручных интервалов. Подробности записаны в logs/app.log.")
     if manual_intervals:
-        overlay_visible_key = "interpretation_manual_overlay_visible"
-        overlay_opacity_key = "interpretation_manual_overlay_opacity"
+        overlay_scope = f"{active_project.id}_{manual_well_id}"
+        overlay_visible_key = f"interpretation_manual_overlay_visible_{overlay_scope}"
+        overlay_opacity_key = f"interpretation_manual_overlay_opacity_{overlay_scope}"
         application_state = _application_state_controller().state
+        persisted_overlay_settings = interval_display_settings.load_interpretation_interval_display_settings(
+            project_id=str(active_project.id),
+            well_id=manual_well_id,
+        )
         if overlay_visible_key not in application_state:
-            application_state[overlay_visible_key] = bool(
-                state_controller.get_value(overlay_visible_key, True)
-            )
+            application_state[overlay_visible_key] = persisted_overlay_settings.visible
         if overlay_opacity_key not in application_state:
-            application_state[overlay_opacity_key] = float(
-                state_controller.get_value(overlay_opacity_key, 0.18) or 0.18
-            )
+            application_state[overlay_opacity_key] = persisted_overlay_settings.opacity
         overlay_control_left, overlay_control_right = st.columns((1.0, 1.4))
         manual_overlay_visible = overlay_control_left.checkbox(
             "Показывать ручные интервалы",
@@ -10792,10 +10794,16 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             key=overlay_opacity_key,
             disabled=not manual_overlay_visible,
         ))
-        state_controller.update_values({
-            "interpretation_manual_overlay_visible": manual_overlay_visible,
-            "interpretation_manual_overlay_opacity": manual_overlay_opacity,
-        })
+        updated_overlay_settings = interval_display_settings.normalize_interval_display_settings(
+            visible=manual_overlay_visible,
+            opacity=manual_overlay_opacity,
+        )
+        if updated_overlay_settings != persisted_overlay_settings:
+            interval_display_settings.save_interpretation_interval_display_settings(
+                updated_overlay_settings,
+                project_id=str(active_project.id),
+                well_id=manual_well_id,
+            )
         manual_overlays = configure_manual_interval_overlays(
             manual_interval_overlays(manual_intervals),
             visible=manual_overlay_visible,
@@ -11375,12 +11383,34 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             else str(figure_index)
         )
         frontend_dispatch_started = perf_counter()
-        st.plotly_chart(
-            render_value,
-            width="stretch",
-            config=PLOTLY_SCREEN_CONFIG,
-            key=f"interpretation_plot_{stable_plot_token}_{fingerprint}",
+        plot_key = f"interpretation_plot_{stable_plot_token}_{fingerprint}"
+        try:
+            plot_event = st.plotly_chart(
+                render_value,
+                width="stretch",
+                config=PLOTLY_SCREEN_CONFIG,
+                key=plot_key,
+                on_select="rerun",
+                selection_mode="points",
+            )
+        except TypeError:
+            # Compatibility fallback for Streamlit versions without Plotly selection events.
+            st.plotly_chart(
+                render_value,
+                width="stretch",
+                config=PLOTLY_SCREEN_CONFIG,
+                key=plot_key,
+            )
+            plot_event = None
+        chart_selected_manual_id = selected_interval_id_from_plotly_event(
+            plot_event,
+            valid_interval_ids=[item.id for item in manual_intervals],
         )
+        if chart_selected_manual_id and chart_selected_manual_id != selected_manual_interval_id:
+            state_controller.state[
+                f"manual_interval_selected_{active_project.id}_{manual_well_id}"
+            ] = chart_selected_manual_id
+            st.rerun()
         frontend_dispatch_ms = (perf_counter() - frontend_dispatch_started) * 1000.0
         payload_size = screen_plot_sizes[figure_index] if figure_index < len(screen_plot_sizes) else 0
         runtime_diagnostics.record(
