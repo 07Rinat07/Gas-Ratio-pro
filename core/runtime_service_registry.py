@@ -25,6 +25,28 @@ class RuntimeServiceDescriptor:
     type_name: str
 
 
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeServiceRegistrySnapshot:
+    """Serializable lifecycle counters for diagnostics and regression tests."""
+
+    active: int
+    created: int
+    replaced: int
+    removed: int
+    shutdowns: int
+
+    def to_dict(self) -> dict[str, int]:
+        return {
+            "active": self.active,
+            "created": self.created,
+            "replaced": self.replaced,
+            "removed": self.removed,
+            "shutdowns": self.shutdowns,
+        }
+
+
 @dataclass(frozen=True, slots=True)
 class RuntimeServiceShutdownResult:
     """Serializable outcome of closing one registered runtime service."""
@@ -90,6 +112,10 @@ class RuntimeServiceRegistry:
 
     def __init__(self) -> None:
         self._services: dict[str, Any] = {}
+        self._created = 0
+        self._replaced = 0
+        self._removed = 0
+        self._shutdowns = 0
 
     def get(self, key: str, default: T | None = None) -> Any | T | None:
         return self._services.get(str(key), default)
@@ -98,6 +124,10 @@ class RuntimeServiceRegistry:
         clean_key = str(key).strip()
         if not clean_key:
             raise ValueError("Runtime service key must not be empty.")
+        if clean_key in self._services:
+            self._replaced += 1
+        else:
+            self._created += 1
         self._services[clean_key] = service
         return service
 
@@ -114,11 +144,19 @@ class RuntimeServiceRegistry:
                 f"Runtime service factory for {clean_key!r} returned "
                 f"{type(service).__name__}, expected {expected_type.__name__}."
             )
+        if current is None:
+            self._created += 1
+        else:
+            self._replaced += 1
         self._services[clean_key] = service
         return service
 
     def remove(self, key: str, default: T | None = None) -> Any | T | None:
-        return self._services.pop(str(key), default)
+        clean_key = str(key)
+        if clean_key not in self._services:
+            return default
+        self._removed += 1
+        return self._services.pop(clean_key)
 
     @staticmethod
     def _close_service(key: str, service: Any) -> RuntimeServiceShutdownResult:
@@ -153,7 +191,9 @@ class RuntimeServiceRegistry:
             self._close_service(key, service)
             for key, service in tuple(self._services.items())
         )
+        self._shutdowns += len(results)
         if remove:
+            self._removed += len(self._services)
             self._services.clear()
         return results
 
@@ -162,6 +202,7 @@ class RuntimeServiceRegistry:
         if close:
             self.shutdown(remove=True)
         else:
+            self._removed += len(self._services)
             self._services.clear()
         return keys
 
@@ -169,6 +210,17 @@ class RuntimeServiceRegistry:
         return tuple(
             RuntimeServiceDescriptor(key=key, type_name=type(service).__name__)
             for key, service in sorted(self._services.items())
+        )
+
+    def snapshot(self) -> RuntimeServiceRegistrySnapshot:
+        """Return lifecycle counters without exposing live service references."""
+
+        return RuntimeServiceRegistrySnapshot(
+            active=len(self._services),
+            created=self._created,
+            replaced=self._replaced,
+            removed=self._removed,
+            shutdowns=self._shutdowns,
         )
 
 

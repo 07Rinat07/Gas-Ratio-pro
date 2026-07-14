@@ -2458,3 +2458,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added baseline/current scenario comparison before candidate generation.
 - Added persistent acceptance journal for confirmed automatic ties.
 - Preserved stale-preview validation and single-step Undo/Redo for batch acceptance.
+
+## 2026-07-14 — Phase 2 runtime and performance foundation
+
+- Reclassified an empty active calculation as a normal project state instead of a recurring warning.
+- Added reusable bounded runtime stage timers and cache hit-rate summaries.
+- Added detailed correlation timings for cache lookup, panel preparation, Plotly figure construction, cache storage and frontend dispatch.
+- Added explicit correlation performance budgets and structured performance audit logging.
+- Added serializable runtime-service lifecycle counters without exposing live process objects.

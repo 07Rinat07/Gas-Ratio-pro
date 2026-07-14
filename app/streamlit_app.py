@@ -2738,11 +2738,16 @@ def _active_calculation_dataset(project_id: str = "") -> tuple[pd.DataFrame | No
         frame = controller.get_value(INTERPRETATION_SESSION_DATA_KEY)
         source = str(controller.get_value(INTERPRETATION_SESSION_SOURCE_KEY, source) or source)
     if not isinstance(frame, pd.DataFrame) or frame.empty:
-        logger.warning(
-            "active_calculation_missing project_id=%s contract_type=%s",
-            safe_log_value(expected_project_id),
-            type(contract).__name__,
-        )
+        # An empty project normally has no calculation. This is a valid initial
+        # state and must not flood the application log with warnings on every
+        # Streamlit rerun. Warn only when a non-empty persisted contract exists
+        # but cannot provide a usable dataframe.
+        if isinstance(contract, dict) and contract:
+            logger.warning(
+                "active_calculation_contract_invalid project_id=%s contract_keys=%s",
+                safe_log_value(expected_project_id),
+                tuple(sorted(str(key) for key in contract.keys())),
+            )
         return None, ""
 
     migrated_contract = {
@@ -15006,68 +15011,110 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         tuple(sorted((str(key), repr(value)) for key, value in applied_correlation.settings.items())),
         tuple(sorted((str(key), repr(value)) for key, value in applied_correlation.studio_settings.items())),
     )
-    cached_correlation = _application_state_controller().state.get("las_correlation_figure_cache")
-    if isinstance(cached_correlation, dict) and cached_correlation.get("key") == figure_cache_key:
+    correlation_state_controller = _application_state_controller()
+    correlation_diagnostics = correlation_state_controller.ensure_runtime_service(
+        "runtime_diagnostics",
+        lambda: RuntimeDiagnostics(max_events=128),
+        expected_type=RuntimeDiagnostics,
+    )
+    correlation_cycle_marker = correlation_diagnostics.mark()
+    cache_lookup_started = perf_counter()
+    cached_correlation = correlation_state_controller.state.get("las_correlation_figure_cache")
+    cache_lookup_ms = (perf_counter() - cache_lookup_started) * 1000.0
+    correlation_cache_hit = bool(
+        isinstance(cached_correlation, dict) and cached_correlation.get("key") == figure_cache_key
+    )
+    correlation_diagnostics.record(
+        stage="correlation.cache_lookup",
+        duration_ms=cache_lookup_ms,
+        cache_status="hit" if correlation_cache_hit else "miss",
+        renderer="runtime-cache",
+        item_count=len(selected_wells),
+    )
+    if correlation_cache_hit:
         studio_panel = cached_correlation.get("studio_panel")
         studio_figure = cached_correlation.get("studio_figure")
         figure = cached_correlation.get("figure")
         figure_title = str(cached_correlation.get("figure_title") or "Gas Ratio Interpreter - LAS correlation")
         figure_file_name = str(cached_correlation.get("figure_file_name") or "las_correlation")
-        logger.info("las_correlation_figure_cache_hit wells=%d", len(selected_wells))
+        logger.info(
+            "las_correlation_figure_cache_hit wells=%d lookup_ms=%.2f",
+            len(selected_wells),
+            cache_lookup_ms,
+        )
     else:
         render_status = st.empty()
         _set_inline_operation_status(render_status, "Рендеринг", "Строится синхронная корреляция нескольких скважин.")
         render_started = perf_counter()
-        studio_panel = build_correlation_panel(
-            selected_wells,
-            markers=marker_records,
-            depth_range=depth_range,
-            depth_step=studio_depth_step,
-            groups=selected_groups,
-            grid_mode=studio_grid_mode,
-        )
+        with correlation_diagnostics.timer(
+            "correlation.panel",
+            cache_status="miss",
+            renderer="correlation-panel",
+            item_count=len(selected_wells),
+        ):
+            studio_panel = build_correlation_panel(
+                selected_wells,
+                markers=marker_records,
+                depth_range=depth_range,
+                depth_step=studio_depth_step,
+                groups=selected_groups,
+                grid_mode=studio_grid_mode,
+            )
         valid_studio_curves = common_curve_names(selected_wells, groups=selected_groups)
         if studio_curve not in valid_studio_curves:
             studio_curve = valid_studio_curves[0] if valid_studio_curves else ""
-        studio_figure = (
-            build_correlation_panel_figure(
-                studio_panel,
-                studio_curve,
-                height_per_well=max(480, int(height_per_well)),
+        with correlation_diagnostics.timer(
+            "correlation.studio_figure",
+            cache_status="miss",
+            renderer="plotly",
+            item_count=len(selected_wells),
+        ):
+            studio_figure = (
+                build_correlation_panel_figure(
+                    studio_panel,
+                    studio_curve,
+                    height_per_well=max(480, int(height_per_well)),
+                )
+                if studio_curve
+                else None
             )
-            if studio_curve
-            else None
-        )
-        if view_mode == VIEW_MODE_BY_CURVE and comparison_curve:
-            figure = build_las_curve_comparison_figure(
-                selected_wells,
-                comparison_curve,
-                depth_range=depth_range,
-                x_range=_comparison_x_range_for_curve(
+        with correlation_diagnostics.timer(
+            "correlation.main_figure",
+            cache_status="miss",
+            renderer="plotly",
+            item_count=len(selected_wells),
+        ):
+            if view_mode == VIEW_MODE_BY_CURVE and comparison_curve:
+                figure = build_las_curve_comparison_figure(
                     selected_wells,
                     comparison_curve,
-                    tuple(gis_groups),
-                    tuple(gas_groups),
-                    gis_x_range,
-                    gas_x_range,
-                ),
-                height=max(650, int(height_per_well)),
-            )
-            figure_title = f"Gas Ratio Interpreter - LAS curve comparison: {comparison_curve}"
-            figure_file_name = "las_curve_comparison"
-        else:
-            figure = build_las_correlation_figure(
-                selected_wells,
-                gis_groups=tuple(gis_groups),
-                gas_groups=tuple(gas_groups),
-                depth_range=depth_range,
-                gis_x_range=gis_x_range,
-                gas_x_range=gas_x_range,
-                height_per_well=height_per_well,
-            )
-            figure_title = "Gas Ratio Interpreter - LAS correlation"
-            figure_file_name = "las_correlation"
-        _application_state_controller().state["las_correlation_figure_cache"] = {
+                    depth_range=depth_range,
+                    x_range=_comparison_x_range_for_curve(
+                        selected_wells,
+                        comparison_curve,
+                        tuple(gis_groups),
+                        tuple(gas_groups),
+                        gis_x_range,
+                        gas_x_range,
+                    ),
+                    height=max(650, int(height_per_well)),
+                )
+                figure_title = f"Gas Ratio Interpreter - LAS curve comparison: {comparison_curve}"
+                figure_file_name = "las_curve_comparison"
+            else:
+                figure = build_las_correlation_figure(
+                    selected_wells,
+                    gis_groups=tuple(gis_groups),
+                    gas_groups=tuple(gas_groups),
+                    depth_range=depth_range,
+                    gis_x_range=gis_x_range,
+                    gas_x_range=gas_x_range,
+                    height_per_well=height_per_well,
+                )
+                figure_title = "Gas Ratio Interpreter - LAS correlation"
+                figure_file_name = "las_correlation"
+        cache_store_started = perf_counter()
+        correlation_state_controller.state["las_correlation_figure_cache"] = {
             "key": figure_cache_key,
             "studio_panel": studio_panel,
             "studio_figure": studio_figure,
@@ -15075,7 +15122,21 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
             "figure_title": figure_title,
             "figure_file_name": figure_file_name,
         }
+        correlation_diagnostics.record(
+            stage="correlation.cache_store",
+            duration_ms=(perf_counter() - cache_store_started) * 1000.0,
+            cache_status="miss",
+            renderer="runtime-cache",
+            item_count=1,
+        )
         render_duration_ms = (perf_counter() - render_started) * 1000.0
+        correlation_diagnostics.record(
+            stage="correlation.total",
+            duration_ms=render_duration_ms,
+            cache_status="miss",
+            renderer="plotly",
+            item_count=len(selected_wells),
+        )
         logger.info(
             "las_correlation_figure_cache_miss wells=%d markers=%d duration_ms=%.2f",
             len(selected_wells),
@@ -15098,7 +15159,15 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         for warning in studio_panel.warnings:
             st.warning(warning)
     if studio_figure is not None:
+        studio_dispatch_started = perf_counter()
         st.plotly_chart(studio_figure, width="stretch", config=PLOTLY_SCREEN_CONFIG)
+        correlation_diagnostics.record(
+            stage="correlation.frontend_dispatch",
+            duration_ms=(perf_counter() - studio_dispatch_started) * 1000.0,
+            cache_status="hit" if correlation_cache_hit else "miss",
+            renderer="streamlit-plotly",
+            item_count=1,
+        )
         if studio_panel.markers:
             st.dataframe(pd.DataFrame(correlation_marker_rows(studio_panel)), width="stretch")
 
@@ -15113,8 +15182,28 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         view_mode=view_mode,
         comparison_curve=comparison_curve,
     )
+    main_dispatch_started = perf_counter()
     st.plotly_chart(figure, width="stretch", config=PLOTLY_SCREEN_CONFIG)
-    correlation_revision = revision_controller_from_state(_application_state_controller().state).snapshot
+    correlation_diagnostics.record(
+        stage="correlation.frontend_dispatch",
+        duration_ms=(perf_counter() - main_dispatch_started) * 1000.0,
+        cache_status="hit" if correlation_cache_hit else "miss",
+        renderer="streamlit-plotly",
+        item_count=1,
+    )
+    correlation_events = correlation_diagnostics.snapshot_since(correlation_cycle_marker)
+    correlation_summary = evaluate_performance(correlation_events)
+    correlation_gate = build_workspace_performance_gate(correlation_summary)
+    correlation_cache = correlation_diagnostics.cache_summary(stage_prefix="correlation")
+    logger.info(
+        "las_correlation_performance status=%s wells=%d cache_hit=%s hit_rate=%.2f stages=%s",
+        correlation_gate.status,
+        len(selected_wells),
+        correlation_cache_hit,
+        float(correlation_cache["hit_rate"]),
+        {event.stage: round(event.duration_ms, 2) for event in correlation_events},
+    )
+    correlation_revision = revision_controller_from_state(correlation_state_controller.state).snapshot
     st.caption("Для печати используйте PDF; для изображений доступны PNG и SVG.")
     _render_static_export_controls(
         figure,

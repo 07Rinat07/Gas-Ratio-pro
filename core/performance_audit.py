@@ -60,6 +60,9 @@ DEFAULT_PERFORMANCE_BUDGETS: tuple[PerformanceBudget, ...] = (
         critical_ms=1200.0,
         max_payload_bytes=12 * 1024 * 1024,
     ),
+    PerformanceBudget("correlation.total", warning_ms=5000.0, critical_ms=12000.0),
+    PerformanceBudget("correlation.main_figure", warning_ms=3000.0, critical_ms=8000.0),
+    PerformanceBudget("correlation.frontend_dispatch", warning_ms=1500.0, critical_ms=5000.0),
 )
 
 

@@ -51,3 +51,24 @@ def test_registry_descriptors_are_serializable_diagnostics():
 
     assert descriptors[0].key == "queue"
     assert descriptors[0].type_name == "SimpleQueue"
+
+
+def test_registry_snapshot_tracks_service_lifecycle_without_live_references() -> None:
+    registry = RuntimeServiceRegistry()
+    first = object()
+    second = object()
+
+    registry.set("cache", first)
+    registry.set("cache", second)
+    registry.ensure("queue", object)
+    registry.remove("queue")
+
+    snapshot = registry.snapshot()
+
+    assert snapshot.to_dict() == {
+        "active": 1,
+        "created": 2,
+        "replaced": 1,
+        "removed": 1,
+        "shutdowns": 0,
+    }

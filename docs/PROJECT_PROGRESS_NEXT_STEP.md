@@ -435,3 +435,15 @@ scenario comparison and a compact acceptance audit journal. Candidate generation
 and published-source/state-token validation is preserved.
 
 Next recommended stage: correlation horizon grouping and stratigraphic marker management across wells.
+
+## Phase 2 — Stabilization and architecture hardening started
+
+Completed first Runtime & Performance Foundation increment:
+
+- normal empty projects no longer emit `active_calculation_missing` warnings on every rerun;
+- correlation rendering is instrumented by independent stages;
+- cache hit/miss rate is available from bounded runtime diagnostics;
+- correlation performance budgets are included in the existing workspace performance audit;
+- runtime service registry exposes serializable lifecycle counters.
+
+Next priority: move the legacy correlation figure cache from ordinary Session State into a bounded runtime cache service, add eviction/memory telemetry, and compare cold/warm render timings from real logs.

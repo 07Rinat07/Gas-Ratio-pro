@@ -1601,3 +1601,17 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Evict oldest thumbnail ranges when count or memory limits are exceeded.
 - [x] Add renderer-neutral eviction diagnostics and payload-free logging.
 - [ ] Begin editable interpretation interval manager with project persistence and validation.
+
+## Phase 2 — Stabilization, optimization and architecture hardening
+
+### Runtime & Performance Foundation
+
+- [x] Treat an absent active calculation as a valid empty-project state.
+- [x] Add reusable bounded stage timers to runtime diagnostics.
+- [x] Instrument the LAS correlation render pipeline by stage.
+- [x] Add correlation performance budgets and cache hit-rate telemetry.
+- [x] Add serializable runtime-service lifecycle counters.
+- [ ] Move the correlation figure cache behind `RuntimeServiceRegistry`.
+- [ ] Add bounded cache eviction and memory-budget telemetry.
+- [ ] Add a diagnostics UI for runtime, cache and render metrics.
+- [ ] Establish cold/warm correlation benchmark baselines for 1, 2, 5 and 10 wells.

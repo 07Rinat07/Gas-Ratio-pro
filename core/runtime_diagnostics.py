@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import asdict, dataclass
-from time import time
-from typing import Any, Deque, Iterable
+from time import perf_counter, time
+from typing import Any, Deque, Iterable, Mapping
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +25,53 @@ class RuntimeDiagnosticEvent:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+
+
+class RuntimeStageTimer:
+    """Context manager that records one bounded diagnostic stage.
+
+    The timer owns no framework objects and keeps only primitive metadata. It
+    can therefore be used around repository, renderer and cache boundaries
+    without leaking runtime resources into serializable application state.
+    """
+
+    def __init__(
+        self,
+        diagnostics: "RuntimeDiagnostics",
+        *,
+        stage: str,
+        cache_status: str = "none",
+        renderer: str = "",
+        item_count: int = 0,
+        memory_bytes: int = 0,
+    ) -> None:
+        self._diagnostics = diagnostics
+        self._stage = str(stage)
+        self._cache_status = str(cache_status)
+        self._renderer = str(renderer)
+        self._item_count = max(0, int(item_count))
+        self._memory_bytes = max(0, int(memory_bytes))
+        self._started = 0.0
+        self.event: RuntimeDiagnosticEvent | None = None
+
+    def __enter__(self) -> "RuntimeStageTimer":
+        self._started = perf_counter()
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> bool:
+        status = "success" if exc is None else "failed"
+        self.event = self._diagnostics.record(
+            stage=self._stage,
+            duration_ms=(perf_counter() - self._started) * 1000.0,
+            status=status,
+            cache_status=self._cache_status,
+            renderer=self._renderer,
+            item_count=self._item_count,
+            memory_bytes=self._memory_bytes,
+        )
+        return False
 
 
 class RuntimeDiagnostics:
@@ -86,6 +133,43 @@ class RuntimeDiagnostics:
 
         threshold = float(marker)
         return tuple(event for event in self._events if event.timestamp >= threshold)
+
+    def timer(
+        self,
+        stage: str,
+        *,
+        cache_status: str = "none",
+        renderer: str = "",
+        item_count: int = 0,
+        memory_bytes: int = 0,
+    ) -> RuntimeStageTimer:
+        """Create a stage timer bound to this collector."""
+
+        return RuntimeStageTimer(
+            self,
+            stage=stage,
+            cache_status=cache_status,
+            renderer=renderer,
+            item_count=item_count,
+            memory_bytes=memory_bytes,
+        )
+
+    def cache_summary(self, *, stage_prefix: str = "") -> dict[str, int | float]:
+        """Return compact hit/miss statistics for diagnostics UI and logs."""
+
+        events = tuple(
+            event for event in self._events
+            if not stage_prefix or event.stage.startswith(str(stage_prefix))
+        )
+        hits = sum(1 for event in events if event.cache_status == "hit")
+        misses = sum(1 for event in events if event.cache_status == "miss")
+        measured = hits + misses
+        return {
+            "hits": hits,
+            "misses": misses,
+            "measured": measured,
+            "hit_rate": round((hits / measured) * 100.0, 2) if measured else 0.0,
+        }
 
     def clear(self) -> None:
         self._events.clear()
