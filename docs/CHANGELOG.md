@@ -2321,3 +2321,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added project metadata and explicit completed/undone operation status.
 - Connected journal download controls to the Streamlit interval type catalog.
 - Added regression tests for deterministic rows and readable export formats.
+
+
+## 2026-07-14 — Interval type operation journal filters
+
+- Added status and type-ID filters to the project interval type operation journal.
+- Applied filtering before the result limit so older matching operations remain discoverable.
+- Fixed the empty-journal UI path that could access a missing latest operation.
+- Kept undo bound to the actual latest project operation, independent of active journal filters.

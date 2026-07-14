@@ -234,9 +234,29 @@ def render_interpretation_interval_panel(
                             st.success("Неиспользуемый тип удалён из справочника.")
                             st.rerun()
             with st.expander("Журнал пакетных операций", expanded=False):
-                type_operations = type_repository.list_operations(limit=25)
+                journal_filter_left, journal_filter_right = st.columns((1, 2))
+                journal_status_label = journal_filter_left.selectbox(
+                    "Статус",
+                    options=("Все", "Выполненные", "Отменённые"),
+                    key=f"manual_interval_type_journal_status_{project_id}",
+                )
+                journal_query = journal_filter_right.text_input(
+                    "Поиск по типам",
+                    placeholder="ID исходного или целевого типа",
+                    key=f"manual_interval_type_journal_query_{project_id}",
+                )
+                status_map = {
+                    "Все": "all",
+                    "Выполненные": "completed",
+                    "Отменённые": "undone",
+                }
+                type_operations = type_repository.list_operations(
+                    limit=50,
+                    status=status_map[journal_status_label],
+                    query=journal_query,
+                )
                 if not type_operations:
-                    st.caption("Пакетные операции с типами ещё не выполнялись.")
+                    st.caption("Операции, соответствующие фильтру, не найдены.")
                 else:
                     st.dataframe(
                         [
@@ -289,33 +309,33 @@ def render_interpretation_interval_panel(
                         width="stretch",
                     )
 
-                latest_operation = type_operations[0]
-                undo_confirmed = st.checkbox(
-                    "Подтверждаю отмену последнего проектного переназначения",
-                    value=False,
-                    key=f"manual_interval_type_operation_undo_confirm_{project_id}",
-                    disabled=not latest_operation.undo_available or bool(latest_operation.undone_at),
-                )
-                if st.button(
-                    "Отменить последнее переназначение",
-                    key=f"manual_interval_type_operation_undo_{project_id}",
-                    disabled=(
-                        not latest_operation.undo_available
-                        or bool(latest_operation.undone_at)
-                        or not undo_confirmed
-                    ),
-                    width="stretch",
-                ):
-                    try:
-                        restored = type_repository.undo_last_reassignment()
-                    except ValueError as exc:
-                        st.error(str(exc))
-                    else:
-                        st.success(
-                            f"Переназначение {restored.source_type_id} → "
-                            f"{restored.target_type_id} отменено."
-                        )
-                        st.rerun()
+                    latest_operation = type_repository.list_operations(limit=1)[0]
+                    undo_confirmed = st.checkbox(
+                        "Подтверждаю отмену последнего проектного переназначения",
+                        value=False,
+                        key=f"manual_interval_type_operation_undo_confirm_{project_id}",
+                        disabled=not latest_operation.undo_available or bool(latest_operation.undone_at),
+                    )
+                    if st.button(
+                        "Отменить последнее переназначение",
+                        key=f"manual_interval_type_operation_undo_{project_id}",
+                        disabled=(
+                            not latest_operation.undo_available
+                            or bool(latest_operation.undone_at)
+                            or not undo_confirmed
+                        ),
+                        width="stretch",
+                    ):
+                        try:
+                            restored = type_repository.undo_last_reassignment()
+                        except ValueError as exc:
+                            st.error(str(exc))
+                        else:
+                            st.success(
+                                f"Переназначение {restored.source_type_id} → "
+                                f"{restored.target_type_id} отменено."
+                            )
+                            st.rerun()
 
             if st.button(
                 "Восстановить типы по умолчанию",

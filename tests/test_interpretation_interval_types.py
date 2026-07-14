@@ -3,7 +3,11 @@ from pathlib import Path
 import pytest
 
 from projects.interpretation_interval_manager import InterpretationIntervalManager
-from projects.interpretation_interval_types import InterpretationIntervalTypeRepository
+from projects.interpretation_interval_types import (
+    InterpretationIntervalTypeOperation,
+    InterpretationIntervalTypeRepository,
+    _replace_type_operations,
+)
 
 
 def test_repository_returns_defaults_without_creating_file(tmp_path: Path) -> None:
@@ -443,3 +447,44 @@ def test_repository_only_undoes_latest_operation_once(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="нельзя отменить"):
         repository.undo_last_reassignment()
+
+
+def test_list_operations_filters_status_and_type_query(tmp_path: Path) -> None:
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    completed = InterpretationIntervalTypeOperation(
+        id="completed-op",
+        operation="reassign_and_delete",
+        source_type_id="gas",
+        target_type_id="pay",
+        interval_count=2,
+        well_count=1,
+        interpretation_count=1,
+        target_color_applied=True,
+        created_at="2026-07-14T10:00:00Z",
+        undo_available=True,
+    )
+    undone = InterpretationIntervalTypeOperation(
+        id="undone-op",
+        operation="reassign_and_delete",
+        source_type_id="oil",
+        target_type_id="reservoir",
+        interval_count=3,
+        well_count=1,
+        interpretation_count=1,
+        target_color_applied=False,
+        created_at="2026-07-14T11:00:00Z",
+        undo_available=False,
+        undone_at="2026-07-14T12:00:00Z",
+    )
+    _replace_type_operations(tmp_path, "project", (completed, undone))
+
+    assert repository.list_operations(status="completed") == (completed,)
+    assert repository.list_operations(status="undone") == (undone,)
+    assert repository.list_operations(query="RESERVOIR") == (undone,)
+    assert repository.list_operations(query="gas") == (completed,)
+
+
+def test_list_operations_rejects_unknown_status(tmp_path: Path) -> None:
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    with pytest.raises(ValueError, match="Неподдерживаемый статус"):
+        repository.list_operations(status="unknown")

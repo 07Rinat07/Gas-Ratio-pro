@@ -478,10 +478,48 @@ class InterpretationIntervalTypeRepository:
             project_id=self.project_id,
         )
 
-    def list_operations(self, *, limit: int = 50) -> tuple[InterpretationIntervalTypeOperation, ...]:
+    def list_operations(
+        self,
+        *,
+        limit: int = 50,
+        status: str = "all",
+        query: str = "",
+    ) -> tuple[InterpretationIntervalTypeOperation, ...]:
+        """Return newest journal operations with optional status/text filters.
+
+        ``status`` accepts ``all``, ``completed`` or ``undone``.  Text search
+        is case-insensitive and matches operation, source type and target type.
+        Filtering happens before the result limit is applied so callers do not
+        silently miss older matching records.
+        """
+
         bounded_limit = max(1, min(int(limit), INTERVAL_TYPE_OPERATIONS_LIMIT))
-        operations = _load_type_operations(self.root, self.project_id)
-        return tuple(reversed(operations[-bounded_limit:]))
+        normalized_status = str(status or "all").strip().lower()
+        if normalized_status not in {"all", "completed", "undone"}:
+            raise ValueError("Неподдерживаемый статус журнала операций типов.")
+        normalized_query = str(query or "").strip().casefold()
+
+        filtered: list[InterpretationIntervalTypeOperation] = []
+        for operation in reversed(_load_type_operations(self.root, self.project_id)):
+            is_undone = bool(operation.undone_at)
+            if normalized_status == "completed" and is_undone:
+                continue
+            if normalized_status == "undone" and not is_undone:
+                continue
+            if normalized_query:
+                haystack = " ".join(
+                    (
+                        operation.operation,
+                        operation.source_type_id,
+                        operation.target_type_id,
+                    )
+                ).casefold()
+                if normalized_query not in haystack:
+                    continue
+            filtered.append(operation)
+            if len(filtered) >= bounded_limit:
+                break
+        return tuple(filtered)
 
     def preview_reassignment(
         self,
