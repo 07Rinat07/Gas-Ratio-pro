@@ -16,6 +16,7 @@ class WorkspaceRoute:
     provider: str
     renderer: Callable[[Any], Any]
     expected_controls: tuple[str, ...] = ()
+    data_requirements: tuple[str, ...] = ("project_record",)
 
 
 class LazyWorkspaceRegistry:

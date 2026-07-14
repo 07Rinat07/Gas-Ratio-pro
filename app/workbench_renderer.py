@@ -763,6 +763,7 @@ def _render_native_streamlit_layout(
                 session = dict(center.get("session", {}) or {})
                 dataframe_memory = dict(center.get("dataframe_memory", {}) or {})
                 route_lifecycle = dict(center.get("route_lifecycle", {}) or {})
+                route_data = dict(center.get("route_data", {}) or {})
                 registry_stats = dict(runtime.get("registry", {}) or {})
                 cache_summary = dict(cache.get("summary", {}) or {})
 
@@ -790,6 +791,18 @@ def _render_native_streamlit_layout(
                 route_events = list(route_lifecycle.get("events", ()) or ())
                 if route_events and hasattr(st_module, "dataframe"):
                     st_module.dataframe(route_events, width="stretch", hide_index=True)
+
+                st_module.markdown("##### Route data loading")
+                st_module.caption(
+                    "Events: " + str(route_data.get("event_count", 0))
+                    + " | Slow: " + str(route_data.get("slow_count", 0))
+                    + " | Navigation hits: " + str(route_data.get("navigation_cache_hits", 0))
+                    + " | Misses: " + str(route_data.get("navigation_cache_misses", 0))
+                    + " | Budget: " + str(route_data.get("budget_ms", 0.0)) + " ms"
+                )
+                route_data_events = list(route_data.get("events", ()) or ())
+                if route_data_events and hasattr(st_module, "dataframe"):
+                    st_module.dataframe(route_data_events, width="stretch", hide_index=True)
 
                 st_module.markdown("##### Runtime")
                 st_module.caption(

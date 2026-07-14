@@ -15316,14 +15316,8 @@ WORKBENCH_LAS_MODES: tuple[str, ...] = (
 )
 
 
-def _active_project_for_workbench(logger) -> ProjectRecord:
-    """Resolve the active project without rendering the legacy project selector.
-
-    Modern Workbench owns the surrounding layout, while existing domain screens
-    remain responsible only for their established workflows.  This helper keeps
-    project resolution in the application layer and prevents a second navigation
-    shell from appearing inside the central workspace.
-    """
+def _resolve_active_project_for_workbench(logger) -> ProjectRecord:
+    """Resolve only the active project record for the selected route."""
 
     projects = _load_project_records_for_ui(logger)
     projects_by_id = {project.id: project for project in projects}
@@ -15338,6 +15332,13 @@ def _active_project_for_workbench(logger) -> ProjectRecord:
         _project_manager_service().touch_recent(project)
     except Exception:
         logger.exception("workbench_recent_project_touch_failed project_id=%s", safe_log_value(project.id))
+    return project
+
+
+def _refresh_workbench_project_navigation(logger, project: ProjectRecord) -> None:
+    """Refresh serialized explorer data without exposing repository objects to UI."""
+
+    state = _application_state_controller()
     try:
         state.set_value(
             "workbench_project_counts",
@@ -15412,8 +15413,15 @@ def _active_project_for_workbench(logger) -> ProjectRecord:
         logger.exception("workbench_project_counts_failed project_id=%s", safe_log_value(project.id))
         state.set_value("workbench_project_counts", {})
         state.set_value("workbench_project_tree", [])
-    return project
+    state.set_value("workbench.route_data.navigation_project_id", project.id)
 
+
+def _active_project_for_workbench(logger) -> ProjectRecord:
+    """Backward-compatible eager project resolver used by legacy callers."""
+
+    project = _resolve_active_project_for_workbench(logger)
+    _refresh_workbench_project_navigation(logger, project)
+    return project
 
 def _render_workbench_las_workspace(logger, active_project: ProjectRecord) -> None:
     """Render the existing LAS workflows inside the Modern Workbench host."""
@@ -15475,17 +15483,20 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
     clean_id = str(navigation_id or "").strip()
     logger = configure_logging()
     state = _application_state_controller().state
-    registry = LazyWorkspaceRegistry({
-        "nav.dashboard": WorkspaceRoute("nav.dashboard", "dashboard", lambda project: _render_start_tab(project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.dashboard", ())),
-        "nav.data": WorkspaceRoute("nav.data", "data-workspace", lambda project: _render_workspace(logger, project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.data", ())),
-        "nav.las_workspace": WorkspaceRoute("nav.las_workspace", "las-workflows", lambda project: _render_workbench_las_workspace(logger, project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.las_workspace", ())),
-        "nav.correlation": WorkspaceRoute("nav.correlation", "las-correlation", lambda project: _render_las_correlation_tab(logger, project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.correlation", ())),
-        "nav.interpretation": WorkspaceRoute("nav.interpretation", "interpretation-graphs", lambda project: _render_interpretation_graphs_tab(logger, project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.interpretation", ())),
-        "nav.reports": WorkspaceRoute("nav.reports", "report-workflow", lambda project: _render_workbench_reports(logger, project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.reports", ())),
-        "nav.exports": WorkspaceRoute("nav.exports", "project-exports", lambda project: _render_project_exports_panel(project, logger), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.exports", ())),
-        "nav.documentation": WorkspaceRoute("nav.documentation", "documentation-center", lambda _project: _render_documentation_tab(), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.documentation", ())),
+    from core.workbench_route_data import (
+        PROJECT_NAVIGATION, PROJECT_RECORD, RouteDataTimer, WorkbenchRouteDataDiagnostics,
+    )
+    routes_registry = LazyWorkspaceRegistry({
+        "nav.dashboard": WorkspaceRoute("nav.dashboard", "dashboard", lambda project: _render_start_tab(project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.dashboard", ()), (PROJECT_RECORD, PROJECT_NAVIGATION)),
+        "nav.data": WorkspaceRoute("nav.data", "data-workspace", lambda project: _render_workspace(logger, project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.data", ()), (PROJECT_RECORD, PROJECT_NAVIGATION)),
+        "nav.las_workspace": WorkspaceRoute("nav.las_workspace", "las-workflows", lambda project: _render_workbench_las_workspace(logger, project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.las_workspace", ()), (PROJECT_RECORD, PROJECT_NAVIGATION)),
+        "nav.correlation": WorkspaceRoute("nav.correlation", "las-correlation", lambda project: _render_las_correlation_tab(logger, project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.correlation", ()), (PROJECT_RECORD, PROJECT_NAVIGATION)),
+        "nav.interpretation": WorkspaceRoute("nav.interpretation", "interpretation-graphs", lambda project: _render_interpretation_graphs_tab(logger, project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.interpretation", ()), (PROJECT_RECORD, PROJECT_NAVIGATION)),
+        "nav.reports": WorkspaceRoute("nav.reports", "report-workflow", lambda project: _render_workbench_reports(logger, project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.reports", ()), (PROJECT_RECORD, PROJECT_NAVIGATION)),
+        "nav.exports": WorkspaceRoute("nav.exports", "project-exports", lambda project: _render_project_exports_panel(project, logger), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.exports", ()), (PROJECT_RECORD, PROJECT_NAVIGATION)),
+        "nav.documentation": WorkspaceRoute("nav.documentation", "documentation-center", lambda _project: _render_documentation_tab(), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.documentation", ()), ()),
     })
-    route = registry.resolve(clean_id)
+    route = routes_registry.resolve(clean_id)
     if route is None:
         record_render_audit(
             state, route_id=clean_id, renderer="unresolved", provider="none",
@@ -15501,7 +15512,39 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
         provider=provider, phase="start", success=True, expected_controls=expected,
     )
     try:
-        active_project = _active_project_for_workbench(logger)
+        requirements = tuple(route.data_requirements or ())
+        data_timer = RouteDataTimer()
+        active_project = None
+        navigation_cache = "not-required"
+        if PROJECT_RECORD in requirements:
+            active_project = data_timer.measure_project(lambda: _resolve_active_project_for_workbench(logger))
+        if PROJECT_NAVIGATION in requirements and active_project is not None:
+            navigation_project_id = str(state.get("workbench.route_data.navigation_project_id") or "")
+            has_navigation = bool(state.get("workbench_project_tree"))
+            if navigation_project_id == active_project.id and has_navigation:
+                navigation_cache = "hit"
+            else:
+                navigation_cache = "miss"
+                data_timer.measure_navigation(lambda: _refresh_workbench_project_navigation(logger, active_project))
+        diagnostics_registry = runtime_service_registry(state)
+        route_data_diagnostics = diagnostics_registry.ensure(
+            "workbench_route_data_diagnostics", WorkbenchRouteDataDiagnostics,
+            expected_type=WorkbenchRouteDataDiagnostics, scope="session",
+        )
+        data_record = route_data_diagnostics.record(
+            route_id=clean_id,
+            project_id=str(getattr(active_project, "id", "") or ""),
+            requirements=requirements,
+            project_ms=data_timer.project_ms,
+            navigation_ms=data_timer.navigation_ms,
+            navigation_cache=navigation_cache,
+            total_ms=data_timer.total_ms,
+        )
+        logger.info(
+            "workbench_route_data route=%s project_id=%s requirements=%s project_ms=%.2f navigation_ms=%.2f navigation_cache=%s total_ms=%.2f status=%s",
+            clean_id, data_record.project_id, data_record.requirements, data_record.project_ms,
+            data_record.navigation_ms, data_record.navigation_cache, data_record.total_ms, data_record.status,
+        )
         renderer(active_project)
     except Exception as exc:
         duration_ms = (perf_counter() - started) * 1000.0
@@ -15516,7 +15559,7 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
     record_render_audit(
         state, route_id=clean_id, renderer=getattr(renderer, "__name__", "route-renderer"),
         provider=provider, phase="completed", success=True, duration_ms=duration_ms,
-        expected_controls=expected, details={"project_id": active_project.id},
+        expected_controls=expected, details={"project_id": str(getattr(active_project, "id", "") or "")},
     )
     return True
 

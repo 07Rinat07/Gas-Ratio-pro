@@ -543,3 +543,9 @@ Workbench navigation now has an explicit route lifecycle boundary. Runtime servi
 `route:<navigation_id>` scopes and are closed when the active route changes. Diagnostics expose
 route switch timing, cleanup counts and failures. Next optimization target: measure project data
 loads per route and avoid repeated repository reads within one rerun.
+
+## Completed: route data contracts and lazy project loading
+
+Workbench routes now explicitly declare whether they require a project record and project navigation data. Documentation routes avoid project loading entirely, while project routes reuse the serialized explorer tree until the active project changes. Developer Diagnostics reports project-resolution time, navigation-build time and navigation cache hit/miss status.
+
+Next stabilization focus: reduce import-time coupling in `app/streamlit_app.py` and move remaining route-specific providers behind module-level lazy factories.

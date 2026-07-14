@@ -1655,3 +1655,11 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Diagnostics Center trace summary and recent-event inspection.
 - [ ] Cold/warm correlation benchmark baselines.
 - [ ] Byte-aware runtime cache eviction.
+
+### Phase 2 increment — Route data contracts and lazy project loading (completed)
+
+- [x] Declare route-specific project data requirements.
+- [x] Separate active-project resolution from project-tree construction.
+- [x] Reuse project navigation data until the active project changes.
+- [x] Add route data loading diagnostics and budgets.
+- [ ] Move heavy route providers behind lazy module factories.

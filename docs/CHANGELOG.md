@@ -2552,3 +2552,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added route-scoped runtime lifecycle cleanup for Modern Workbench navigation.
 - Added route transition timing, cleanup diagnostics and switch budgets.
 - Exposed route lifecycle metrics in Developer Diagnostics without retaining UI payloads.
+
+## 2026-07-14 — Phase 2 route data contracts and lazy project loading
+
+- Added explicit per-route data requirements to the lazy workspace registry.
+- Split project-record resolution from project-navigation tree construction.
+- Reused serialized project navigation data until the active project changes.
+- Added route data load timing, cache status and budgets to Developer Diagnostics.
+- Kept project records, trees and Streamlit objects out of diagnostic runtime history.
