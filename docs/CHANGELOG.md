@@ -2363,3 +2363,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Подтверждённые операции сохраняются в ограниченном сериализуемом журнале Session State.
 - Каждая пакетная операция остаётся одним шагом Undo/Redo.
 
+
+## 2026-07-14 — Interpretation interval filtering and analytics
+
+- Added combined text, type, source, depth and thickness filters.
+- Added interval summary metrics and type-level statistics.
+- Added filtered JSON, CSV and Excel exports.
+- Connected the filtered subset to selection and batch workflows.

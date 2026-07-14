@@ -10,6 +10,11 @@ are stored in Streamlit session state.
 from pathlib import Path
 from typing import Any, MutableMapping
 
+from projects.interpretation_interval_analysis import (
+    InterpretationIntervalFilter,
+    filter_interpretation_intervals,
+    summarize_interpretation_intervals,
+)
 from projects.interpretation_interval_batch import InterpretationIntervalBatchService
 from projects.interpretation_interval_exports import (
     export_interpretation_intervals_csv,
@@ -71,6 +76,7 @@ def render_interpretation_interval_panel(
     type_repository = InterpretationIntervalTypeRepository(root=root, project_id=project_id)
     interval_types = type_repository.list()
     intervals = manager.list_intervals()
+    filtered_intervals = intervals
 
     with st.expander("Ручные интервалы интерпретации", expanded=False):
         st.caption(f"Область хранения: проект `{project_id}` · скважина `{well_id}`")
@@ -452,6 +458,150 @@ def render_interpretation_interval_panel(
                 width="stretch",
             )
 
+            with st.expander("Поиск, фильтры и аналитика", expanded=False):
+                filter_query = st.text_input(
+                    "Поиск",
+                    placeholder="Подпись, UUID, тип, комментарий или источник",
+                    key=f"manual_interval_filter_query_{project_id}_{well_id}",
+                )
+                available_types = sorted({item.interval_type for item in intervals})
+                available_sources = sorted({item.source for item in intervals})
+                filter_left, filter_right = st.columns(2)
+                filter_types = filter_left.multiselect(
+                    "Типы",
+                    options=available_types,
+                    key=f"manual_interval_filter_types_{project_id}_{well_id}",
+                )
+                filter_sources = filter_right.multiselect(
+                    "Источники",
+                    options=available_sources,
+                    key=f"manual_interval_filter_sources_{project_id}_{well_id}",
+                )
+                depth_left, depth_right = st.columns(2)
+                use_depth_filter = depth_left.checkbox(
+                    "Ограничить диапазон глубин",
+                    value=False,
+                    key=f"manual_interval_filter_depth_enabled_{project_id}_{well_id}",
+                )
+                use_thickness_filter = depth_right.checkbox(
+                    "Ограничить мощность",
+                    value=False,
+                    key=f"manual_interval_filter_thickness_enabled_{project_id}_{well_id}",
+                )
+                min_project_depth = min(item.top for item in intervals)
+                max_project_depth = max(item.base for item in intervals)
+                range_left, range_right = st.columns(2)
+                filter_depth_top = range_left.number_input(
+                    "Верх диапазона, м",
+                    value=float(min_project_depth),
+                    step=0.1,
+                    disabled=not use_depth_filter,
+                    key=f"manual_interval_filter_depth_top_{project_id}_{well_id}",
+                )
+                filter_depth_base = range_right.number_input(
+                    "Низ диапазона, м",
+                    value=float(max_project_depth),
+                    step=0.1,
+                    disabled=not use_depth_filter,
+                    key=f"manual_interval_filter_depth_base_{project_id}_{well_id}",
+                )
+                thickness_left, thickness_right = st.columns(2)
+                filter_min_thickness = thickness_left.number_input(
+                    "Минимальная мощность, м",
+                    min_value=0.0,
+                    value=0.0,
+                    step=0.1,
+                    disabled=not use_thickness_filter,
+                    key=f"manual_interval_filter_min_thickness_{project_id}_{well_id}",
+                )
+                filter_max_thickness = thickness_right.number_input(
+                    "Максимальная мощность, м",
+                    min_value=0.0,
+                    value=float(max(item.thickness for item in intervals)),
+                    step=0.1,
+                    disabled=not use_thickness_filter,
+                    key=f"manual_interval_filter_max_thickness_{project_id}_{well_id}",
+                )
+                try:
+                    filtered_intervals = filter_interpretation_intervals(
+                        intervals,
+                        InterpretationIntervalFilter(
+                            query=filter_query,
+                            interval_types=tuple(filter_types),
+                            sources=tuple(filter_sources),
+                            depth_top=filter_depth_top if use_depth_filter else None,
+                            depth_base=filter_depth_base if use_depth_filter else None,
+                            min_thickness=filter_min_thickness if use_thickness_filter else None,
+                            max_thickness=filter_max_thickness if use_thickness_filter else None,
+                        ),
+                    )
+                except ValueError as exc:
+                    st.error(str(exc))
+                    filtered_intervals = ()
+
+                summary = summarize_interpretation_intervals(filtered_intervals)
+                metric_a, metric_b, metric_c, metric_d = st.columns(4)
+                metric_a.metric("Найдено", summary.count)
+                metric_b.metric("Суммарная мощность, м", f"{summary.total_thickness:g}")
+                metric_c.metric("Покрытая глубина, м", f"{summary.covered_depth:g}")
+                metric_d.metric("Типов", summary.type_count)
+                if summary.by_type:
+                    st.dataframe(
+                        [
+                            {
+                                "Тип": item.interval_type,
+                                "Интервалы": item.count,
+                                "Суммарная мощность, м": item.total_thickness,
+                                "Средняя мощность, м": item.average_thickness,
+                                "Диапазон, м": f"{item.min_top:g}–{item.max_base:g}",
+                            }
+                            for item in summary.by_type
+                        ],
+                        width="stretch",
+                        hide_index=True,
+                    )
+                if filtered_intervals:
+                    filtered_json = export_interpretation_intervals_json(
+                        filtered_intervals,
+                        project_id=project_id,
+                        well_id=well_id,
+                        interpretation_id=manager.interpretation_id,
+                    )
+                    filtered_csv = export_interpretation_intervals_csv(filtered_intervals)
+                    filtered_xlsx = export_interpretation_intervals_xlsx(
+                        filtered_intervals,
+                        project_id=project_id,
+                        well_id=well_id,
+                        interpretation_id=manager.interpretation_id,
+                    )
+                    filtered_left, filtered_mid, filtered_right = st.columns(3)
+                    filtered_left.download_button(
+                        "Выборка JSON",
+                        data=filtered_json,
+                        file_name=f"interpretation_intervals_filtered_{project_id}_{well_id}.json",
+                        mime="application/json",
+                        key=f"manual_interval_filtered_json_{project_id}_{well_id}",
+                        width="stretch",
+                    )
+                    filtered_mid.download_button(
+                        "Выборка CSV",
+                        data=filtered_csv,
+                        file_name=f"interpretation_intervals_filtered_{project_id}_{well_id}.csv",
+                        mime="text/csv",
+                        key=f"manual_interval_filtered_csv_{project_id}_{well_id}",
+                        width="stretch",
+                    )
+                    filtered_right.download_button(
+                        "Выборка Excel",
+                        data=filtered_xlsx,
+                        file_name=f"interpretation_intervals_filtered_{project_id}_{well_id}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key=f"manual_interval_filtered_xlsx_{project_id}_{well_id}",
+                        width="stretch",
+                    )
+                else:
+                    st.info("По заданным условиям интервалы не найдены.")
+
         st.markdown("**Импорт интервалов**")
         import_file = st.file_uploader(
             "JSON, CSV или Excel",
@@ -541,10 +691,14 @@ def render_interpretation_interval_panel(
             st.info("Ручные интервалы ещё не созданы.")
             return
 
-        option_ids = [item.id for item in intervals]
+        if not filtered_intervals:
+            st.info("Измените фильтры, чтобы выбрать и редактировать интервалы.")
+            return
+
+        option_ids = [item.id for item in filtered_intervals]
         option_labels = {
             item.id: f"{item.label} · {item.top:g}–{item.base:g} м · {item.interval_type}"
-            for item in intervals
+            for item in filtered_intervals
         }
         selected_id = st.selectbox(
             "Выбранный интервал",
