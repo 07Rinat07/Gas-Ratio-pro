@@ -488,3 +488,55 @@ def test_list_operations_rejects_unknown_status(tmp_path: Path) -> None:
     repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
     with pytest.raises(ValueError, match="Неподдерживаемый статус"):
         repository.list_operations(status="unknown")
+
+
+def test_list_operations_supports_pagination_and_count(tmp_path: Path) -> None:
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    operations = tuple(
+        InterpretationIntervalTypeOperation(
+            id=f"operation-{index}",
+            operation="reassign_and_delete",
+            source_type_id="source",
+            target_type_id="target",
+            interval_count=index,
+            well_count=1,
+            interpretation_count=1,
+            target_color_applied=True,
+            created_at=f"2026-07-14T10:{index:02d}:00Z",
+        )
+        for index in range(6)
+    )
+    _replace_type_operations(tmp_path, "project", operations)
+
+    assert repository.count_operations() == 6
+    assert tuple(item.id for item in repository.list_operations(limit=2, offset=0)) == (
+        "operation-5",
+        "operation-4",
+    )
+    assert tuple(item.id for item in repository.list_operations(limit=2, offset=2)) == (
+        "operation-3",
+        "operation-2",
+    )
+    assert repository.list_operations(limit=2, offset=20) == ()
+
+
+def test_operation_search_matches_uuid_and_get_operation_returns_exact_item(tmp_path: Path) -> None:
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    operation = InterpretationIntervalTypeOperation(
+        id="11d84dcc-7d23-4f24-baf3-43a0c741e785",
+        operation="reassign_and_delete",
+        source_type_id="gas",
+        target_type_id="pay",
+        interval_count=3,
+        well_count=1,
+        interpretation_count=1,
+        target_color_applied=False,
+        created_at="2026-07-14T10:00:00Z",
+    )
+    _replace_type_operations(tmp_path, "project", (operation,))
+
+    assert repository.count_operations(query="11d84dcc") == 1
+    assert repository.list_operations(query="43A0C741E785") == (operation,)
+    assert repository.get_operation(operation.id) == operation
+    assert repository.get_operation("missing") is None
+    assert repository.get_operation("") is None

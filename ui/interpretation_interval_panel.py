@@ -250,10 +250,40 @@ def render_interpretation_interval_panel(
                     "Выполненные": "completed",
                     "Отменённые": "undone",
                 }
-                type_operations = type_repository.list_operations(
-                    limit=50,
-                    status=status_map[journal_status_label],
+                journal_status = status_map[journal_status_label]
+                journal_total = type_repository.count_operations(
+                    status=journal_status,
                     query=journal_query,
+                )
+                pagination_left, pagination_right = st.columns((1, 1))
+                journal_page_size = int(
+                    pagination_left.selectbox(
+                        "Строк на странице",
+                        options=(10, 25, 50),
+                        index=1,
+                        key=f"manual_interval_type_journal_page_size_{project_id}",
+                    )
+                )
+                journal_page_count = max(1, (journal_total + journal_page_size - 1) // journal_page_size)
+                journal_page = int(
+                    pagination_right.number_input(
+                        "Страница",
+                        min_value=1,
+                        max_value=journal_page_count,
+                        value=1,
+                        step=1,
+                        key=f"manual_interval_type_journal_page_{project_id}",
+                    )
+                )
+                type_operations = type_repository.list_operations(
+                    limit=journal_page_size,
+                    offset=(journal_page - 1) * journal_page_size,
+                    status=journal_status,
+                    query=journal_query,
+                )
+                st.caption(
+                    f"Найдено операций: {journal_total}. "
+                    f"Страница {journal_page} из {journal_page_count}."
                 )
                 if not type_operations:
                     st.caption("Операции, соответствующие фильтру, не найдены.")
@@ -276,6 +306,41 @@ def render_interpretation_interval_panel(
                         width="stretch",
                         hide_index=True,
                     )
+                    operation_labels = {
+                        item.id: (
+                            f"{item.created_at} · {item.source_type_id} → "
+                            f"{item.target_type_id} · {item.id}"
+                        )
+                        for item in type_operations
+                    }
+                    selected_operation_id = st.selectbox(
+                        "Детальная карточка операции",
+                        options=tuple(operation_labels),
+                        format_func=lambda value: operation_labels[value],
+                        key=f"manual_interval_type_journal_detail_{project_id}",
+                    )
+                    selected_operation = type_repository.get_operation(selected_operation_id)
+                    if selected_operation is not None:
+                        with st.container(border=True):
+                            st.code(selected_operation.id, language=None)
+                            detail_left, detail_right = st.columns(2)
+                            detail_left.markdown(
+                                f"**Типы:** `{selected_operation.source_type_id}` → "
+                                f"`{selected_operation.target_type_id}`\n\n"
+                                f"**Создана:** {selected_operation.created_at}\n\n"
+                                f"**Статус:** "
+                                f"{'Отменена' if selected_operation.undone_at else 'Выполнена'}"
+                            )
+                            detail_right.markdown(
+                                f"**Интервалы:** {selected_operation.interval_count}\n\n"
+                                f"**Скважины:** {selected_operation.well_count}\n\n"
+                                f"**Интерпретации:** {selected_operation.interpretation_count}\n\n"
+                                f"**Цвет целевого типа:** "
+                                f"{'применён' if selected_operation.target_color_applied else 'сохранены текущие цвета'}"
+                            )
+                            if selected_operation.undone_at:
+                                st.caption(f"Отменена: {selected_operation.undone_at}")
+
                     journal_json = export_type_operations_json(
                         type_operations, project_id=project_id
                     )

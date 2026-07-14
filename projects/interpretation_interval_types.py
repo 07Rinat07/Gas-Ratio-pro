@@ -478,22 +478,12 @@ class InterpretationIntervalTypeRepository:
             project_id=self.project_id,
         )
 
-    def list_operations(
+    def _filtered_operations(
         self,
         *,
-        limit: int = 50,
         status: str = "all",
         query: str = "",
     ) -> tuple[InterpretationIntervalTypeOperation, ...]:
-        """Return newest journal operations with optional status/text filters.
-
-        ``status`` accepts ``all``, ``completed`` or ``undone``.  Text search
-        is case-insensitive and matches operation, source type and target type.
-        Filtering happens before the result limit is applied so callers do not
-        silently miss older matching records.
-        """
-
-        bounded_limit = max(1, min(int(limit), INTERVAL_TYPE_OPERATIONS_LIMIT))
         normalized_status = str(status or "all").strip().lower()
         if normalized_status not in {"all", "completed", "undone"}:
             raise ValueError("Неподдерживаемый статус журнала операций типов.")
@@ -509,6 +499,7 @@ class InterpretationIntervalTypeRepository:
             if normalized_query:
                 haystack = " ".join(
                     (
+                        operation.id,
                         operation.operation,
                         operation.source_type_id,
                         operation.target_type_id,
@@ -517,9 +508,43 @@ class InterpretationIntervalTypeRepository:
                 if normalized_query not in haystack:
                     continue
             filtered.append(operation)
-            if len(filtered) >= bounded_limit:
-                break
         return tuple(filtered)
+
+    def list_operations(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        status: str = "all",
+        query: str = "",
+    ) -> tuple[InterpretationIntervalTypeOperation, ...]:
+        """Return one newest-first page of journal operations.
+
+        ``status`` accepts ``all``, ``completed`` or ``undone``. Text search
+        matches UUID, operation and source/target type IDs. Filtering happens
+        before ``offset`` and ``limit`` are applied.
+        """
+
+        bounded_limit = max(1, min(int(limit), INTERVAL_TYPE_OPERATIONS_LIMIT))
+        bounded_offset = max(0, int(offset))
+        filtered = self._filtered_operations(status=status, query=query)
+        return filtered[bounded_offset : bounded_offset + bounded_limit]
+
+    def count_operations(self, *, status: str = "all", query: str = "") -> int:
+        """Return the number of journal operations matching the filters."""
+
+        return len(self._filtered_operations(status=status, query=query))
+
+    def get_operation(self, operation_id: str) -> InterpretationIntervalTypeOperation | None:
+        """Find a project journal operation by its stable UUID."""
+
+        clean_id = str(operation_id or "").strip()
+        if not clean_id:
+            return None
+        return next(
+            (item for item in _load_type_operations(self.root, self.project_id) if item.id == clean_id),
+            None,
+        )
 
     def preview_reassignment(
         self,

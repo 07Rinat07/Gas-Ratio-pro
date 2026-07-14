@@ -683,3 +683,7 @@ Project-wide interval type reassignment now requires an explicit UI confirmation
 ## Latest interpretation increment: project type reassignment undo
 
 `InterpretationIntervalTypeRepository.undo_last_reassignment()` restores the catalog and only the interval files affected by the latest `reassign_and_delete` operation. The restore is rejected when any tracked file differs from the sealed post-operation checksum. Backups are stored under the project directory and removed after a successful undo; operation journal entries retain only serializable metadata.
+
+## Interpretation interval type journal pagination
+
+`InterpretationIntervalTypeRepository.list_operations()` now accepts a non-negative `offset` after filtering and newest-first ordering. `count_operations()` returns the filtered total for UI pagination, while `get_operation()` resolves a stable journal UUID. The Streamlit journal shows 10/25/50 rows per page and a serializable detail card; no Streamlit event or repository object is stored in project state.

@@ -2329,3 +2329,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Applied filtering before the result limit so older matching operations remain discoverable.
 - Fixed the empty-journal UI path that could access a missing latest operation.
 - Kept undo bound to the actual latest project operation, independent of active journal filters.
+
+## 2026-07-14 — Interval type journal pagination and details
+
+- Added filtered journal pagination with configurable page size.
+- Added operation lookup and search by stable operation UUID.
+- Added a detailed operation card with status, timestamps and project statistics.
+- Preserved latest-operation Undo semantics independently of the active page and filters.
