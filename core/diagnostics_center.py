@@ -20,6 +20,7 @@ from core.dataframe_runtime_cache import DataframeRuntimeCache
 from core.workbench_route_lifecycle import WorkbenchRouteLifecycle
 from core.workbench_route_data import WorkbenchRouteDataDiagnostics
 from core.project_navigation_runtime_cache import ProjectNavigationRuntimeCache
+from core.repository_health import RepositoryHealthService
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +130,19 @@ def _project_navigation_cache_snapshot(service: Any) -> dict[str, Any]:
         }
     return service.snapshot()
 
+
+
+def _repository_health_snapshot(service: Any) -> dict[str, Any]:
+    if not isinstance(service, RepositoryHealthService):
+        return {
+            "root_name": "", "scanned_at": 0.0, "duration_ms": 0.0,
+            "files_scanned": 0, "json_files": 0, "total_bytes": 0,
+            "healthy": True, "truncated": False, "issue_count": 0,
+            "repairable_count": 0, "severity_counts": {}, "issues": [],
+            "repair_plan": [],
+        }
+    return service.scan().to_dict()
+
 def _budget_snapshot(events: list[dict[str, Any]], budgets: Mapping[str, float]) -> list[dict[str, Any]]:
     latest: dict[str, float] = {}
     for event in events:
@@ -173,6 +187,7 @@ def build_diagnostics_center_snapshot(
     project_navigation_cache = _project_navigation_cache_snapshot(
         registry.get("project_navigation_runtime_cache")
     )
+    repository_health = _repository_health_snapshot(registry.get("repository_health_service"))
     descriptors = [
         {"key": item.key, "type_name": item.type_name}
         for item in registry.descriptors()
@@ -196,6 +211,7 @@ def build_diagnostics_center_snapshot(
         "route_lifecycle": route_lifecycle,
         "route_data": route_data,
         "project_navigation_cache": project_navigation_cache,
+        "repository_health": repository_health,
         "budgets": _budget_snapshot(events, budgets),
     }
     snapshot["performance_baseline"] = build_performance_baseline(snapshot).to_dict()

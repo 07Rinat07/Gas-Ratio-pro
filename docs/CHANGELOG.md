@@ -2602,3 +2602,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added safe manual recovery for integrity-valid incomplete quarantined transactions.
 - Added dry-run retention cleanup for old valid committed journals.
 - Added a standalone JSON CLI for list, inspect, recover and cleanup operations.
+
+## Phase 2 — Repository health and repair planning
+
+- Added bounded read-only repository health scans for JSON integrity and stale temporary files.
+- Added serializable issue metadata and explicit repair plans with stale-target tokens.
+- Added quarantine-only repairs that require an explicit action ID and revalidate the file before moving it.
+- Added repository health metrics and issue tables to Developer Diagnostics.
+- Added a standalone CLI for health scans and explicit quarantine actions.

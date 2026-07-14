@@ -589,3 +589,15 @@ Next engineering focus: adopt transaction boundaries in the remaining project-wi
 Repository transaction journals now have a non-mutating inspection API and a CLI maintenance workflow. Active and quarantined journals can be listed and integrity-checked, a valid incomplete quarantined transaction can be rolled back manually, and old integrity-valid committed journals can be cleaned using a dry-run retention policy.
 
 Next engineering focus: connect project lifecycle startup to a bounded recovery scan and migrate the remaining project-wide batch workflows to the shared transaction boundary.
+
+## Completed — Repository health checks and repair planning
+
+The repository hardening phase now includes bounded health scans, JSON validation,
+stale temporary-file detection, explicit quarantine repair plans and Developer
+Diagnostics integration. Repairs are never applied automatically and are rejected
+when the target changed after the scan.
+
+## Next engineering step
+
+Adopt health checks for additional repository roots and add scheduled maintenance
+policies with project backup integration before any destructive cleanup.

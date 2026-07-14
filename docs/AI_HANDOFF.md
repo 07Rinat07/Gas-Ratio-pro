@@ -772,3 +772,13 @@ Workbench project navigation is cached by `ProjectNavigationRuntimeCache` in the
 ## Repository transaction recovery
 
 `core/repository_io.py` now owns durable multi-file transaction recovery. Transaction journals are stored temporarily under `.repository_transactions/` at the common transaction root and are removed after commit or successful recovery. Do not place business data in this directory and do not copy it into interpretation revisions.
+
+## Phase 2 repository health contract
+
+- `core/repository_health.py` performs bounded read-only scans by default.
+- Invalid JSON and stale temporary files produce serializable issues and repair actions.
+- Repair actions only quarantine files, require an explicit action ID and revalidate the
+  file metadata token before applying.
+- `scripts/repository_health_check.py` returns exit code 2 when errors are detected.
+- Developer Diagnostics reads the project-scoped `repository_health_service`; no file
+  payloads are stored in Session State.

@@ -15565,6 +15565,16 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
         )
         if PROJECT_RECORD in requirements:
             active_project = data_timer.measure_project(lambda: _resolve_active_project_for_workbench(logger))
+        if active_project is not None:
+            from core.repository_health import RepositoryHealthService
+            active_health_root = LAS_CORRELATION_PROJECTS_ROOT / str(active_project.id)
+            current_health = diagnostics_registry.get("repository_health_service")
+            if not isinstance(current_health, RepositoryHealthService) or current_health.root != active_health_root.resolve():
+                diagnostics_registry.set(
+                    "repository_health_service",
+                    RepositoryHealthService(active_health_root),
+                    scope="project",
+                )
         if PROJECT_NAVIGATION in requirements and active_project is not None:
             from core.project_navigation_runtime_cache import ProjectNavigationRuntimeCache
 

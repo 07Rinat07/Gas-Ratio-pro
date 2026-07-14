@@ -765,6 +765,7 @@ def _render_native_streamlit_layout(
                 route_lifecycle = dict(center.get("route_lifecycle", {}) or {})
                 route_data = dict(center.get("route_data", {}) or {})
                 project_navigation_cache = dict(center.get("project_navigation_cache", {}) or {})
+                repository_health = dict(center.get("repository_health", {}) or {})
                 registry_stats = dict(runtime.get("registry", {}) or {})
                 cache_summary = dict(cache.get("summary", {}) or {})
 
@@ -889,6 +890,23 @@ def _render_native_streamlit_layout(
                 repository_events = list(repository_io.get("events", ()) or ())
                 if repository_events and hasattr(st_module, "dataframe"):
                     st_module.dataframe(repository_events, width="stretch", hide_index=True)
+
+                st_module.markdown("##### Repository health")
+                severity_counts = dict(repository_health.get("severity_counts", {}) or {})
+                st_module.caption(
+                    "Status: " + ("healthy" if repository_health.get("healthy", True) else "issues detected")
+                    + " | Files: " + str(repository_health.get("files_scanned", 0))
+                    + " | JSON: " + str(repository_health.get("json_files", 0))
+                    + " | Errors: " + str(severity_counts.get("error", 0))
+                    + " | Warnings: " + str(severity_counts.get("warning", 0))
+                    + " | Repairable: " + str(repository_health.get("repairable_count", 0))
+                    + " | Scan: " + str(repository_health.get("duration_ms", 0.0)) + " ms"
+                )
+                health_issues = list(repository_health.get("issues", ()) or ())
+                if health_issues and hasattr(st_module, "dataframe"):
+                    st_module.dataframe(health_issues[:50], width="stretch", hide_index=True)
+                if repository_health.get("truncated"):
+                    st_module.warning("Repository health scan reached its configured file limit.")
 
                 st_module.markdown("##### Operation traces")
                 trace_summary = dict(traces.get("summary", {}) or {})
