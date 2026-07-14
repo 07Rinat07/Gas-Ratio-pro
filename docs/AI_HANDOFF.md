@@ -608,3 +608,7 @@ Validation completed:
 ## Latest increment: PDF Preview cache/prefetch telemetry
 
 `reports.pdf_preview.inspect_pdf_preview_cache()` returns a compact `PdfPreviewCacheLookup` with result, hit flag, source (`legacy`, `entries`, `miss`) and bounded entry index. The Professional Export UI logs `pdf_preview_cache_lookup`, `pdf_preview_prefetched`, and `pdf_preview_prefetch_cache_hit` events. No PDF or PNG bytes are included in telemetry. Acceptance coverage uses a generated 24-page PDF and verifies reuse of pages 6–10 from the bounded cache.
+
+## Latest increment: PDF Preview cache memory diagnostics
+
+The PDF preview cache now exposes `summarize_pdf_preview_cache()` and `PdfPreviewCacheStats`. The UI can optionally show range count, rendered page count, aggregate PNG bytes, largest entry and pressure status. Diagnostics inspect metadata only and do not duplicate PDF or PNG bytes. Keep all future planning documents under `docs/`; do not create Markdown planning files at repository root.

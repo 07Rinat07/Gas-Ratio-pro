@@ -1586,3 +1586,11 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Log reuse of an already-prefetched adjacent range.
 - [x] Validate bounded adjacent-window reuse on a generated 24-page PDF.
 - [ ] Add optional UI cache statistics and memory-pressure diagnostics.
+
+### PDF Preview: UI cache statistics and memory pressure diagnostics
+
+- [x] Add payload-free aggregation of cached range count, page count and PNG memory usage.
+- [x] Display optional per-project cache metrics in the Professional Export panel.
+- [x] Classify cache pressure with bounded warning and critical thresholds.
+- [x] Preserve the three-entry cache bound and avoid copying binary payloads during diagnostics.
+- [ ] Add explicit cache eviction telemetry and configurable bounded memory budget.

@@ -111,3 +111,11 @@ Next recommended increment: Modern Workspace shell foundation — Project Explor
 - Reusing an already-prefetched range emits a dedicated cache-hit event.
 - Added an acceptance-style regression using a generated 24-page PDF and bounded 5-page windows.
 - Next step: expose an optional compact in-UI preview cache statistic and evaluate memory pressure with several large reports.
+
+## PDF Preview cache statistics and memory pressure
+
+- Added an optional in-UI cache statistics panel for the current project session.
+- The summary reports cached ranges, rendered pages, aggregate PNG bytes and the largest cached range.
+- Renderer-neutral diagnostics classify memory pressure as `empty`, `ok`, `warning` or `critical` without copying PDF/PNG payloads.
+- Warning and critical guidance recommends cache cleanup or lower DPI/page limits.
+- Next step: add cache eviction telemetry and an optional per-project memory budget control.

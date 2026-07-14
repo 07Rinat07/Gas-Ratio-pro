@@ -247,3 +247,69 @@ def test_large_pdf_adjacent_preview_cache_reuses_prefetched_window() -> None:
     assert lookup.hit is True
     assert lookup.result is prefetched
     assert tuple(page.page_number for page in lookup.result.pages) == (6, 7, 8, 9, 10)
+
+
+def test_summarize_pdf_preview_cache_reports_memory_pressure() -> None:
+    from reports.pdf_preview import PdfPreviewPage, PdfPreviewResult, summarize_pdf_preview_cache
+
+    first = PdfPreviewResult(
+        pages=(PdfPreviewPage(1, b"x" * 400, 10, 10),),
+        total_pages=2,
+        rendered_pages=1,
+        backend="test",
+        truncated=True,
+        image_size_bytes=400,
+    )
+    second = PdfPreviewResult(
+        pages=(PdfPreviewPage(2, b"y" * 700, 10, 10),),
+        total_pages=2,
+        rendered_pages=1,
+        backend="test",
+        truncated=True,
+        image_size_bytes=700,
+    )
+    cache = {
+        "entries": [
+            {"signature": "two", "result": second},
+            {"signature": "one", "result": first},
+        ]
+    }
+
+    stats = summarize_pdf_preview_cache(
+        cache,
+        warning_threshold_bytes=1_000,
+        critical_threshold_bytes=2_000,
+    )
+
+    assert stats.entry_count == 2
+    assert stats.rendered_pages == 2
+    assert stats.image_size_bytes == 1_100
+    assert stats.largest_entry_bytes == 700
+    assert stats.average_entry_bytes == 550
+    assert stats.status == "warning"
+    assert stats.pressure_ratio == pytest.approx(0.55)
+
+
+def test_summarize_pdf_preview_cache_supports_empty_legacy_and_critical() -> None:
+    from reports.pdf_preview import PdfPreviewResult, summarize_pdf_preview_cache
+
+    empty = summarize_pdf_preview_cache(None)
+    legacy_result = PdfPreviewResult(
+        pages=(),
+        total_pages=1,
+        rendered_pages=3,
+        backend="test",
+        truncated=False,
+        image_size_bytes=2_500,
+    )
+    critical = summarize_pdf_preview_cache(
+        {"signature": "legacy", "result": legacy_result},
+        warning_threshold_bytes=1_000,
+        critical_threshold_bytes=2_000,
+    )
+
+    assert empty.status == "empty"
+    assert empty.entry_count == 0
+    assert critical.status == "critical"
+    assert critical.entry_count == 1
+    assert critical.image_size_bytes == 2_500

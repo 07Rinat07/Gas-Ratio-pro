@@ -48,6 +48,29 @@ class PdfPreviewCacheLookup:
 
 
 @dataclass(frozen=True)
+class PdfPreviewCacheStats:
+    entry_count: int = 0
+    rendered_pages: int = 0
+    image_size_bytes: int = 0
+    largest_entry_bytes: int = 0
+    status: str = "empty"
+    warning_threshold_bytes: int = 8 * 1024 * 1024
+    critical_threshold_bytes: int = 24 * 1024 * 1024
+
+    @property
+    def average_entry_bytes(self) -> int:
+        if self.entry_count <= 0:
+            return 0
+        return int(round(self.image_size_bytes / self.entry_count))
+
+    @property
+    def pressure_ratio(self) -> float:
+        if self.critical_threshold_bytes <= 0:
+            return 0.0
+        return max(0.0, self.image_size_bytes / self.critical_threshold_bytes)
+
+
+@dataclass(frozen=True)
 class PdfPreviewPageJumpValidation:
     requested_page: int
     normalized_page: int
@@ -322,6 +345,60 @@ def inspect_pdf_preview_cache(
     return PdfPreviewCacheLookup(None, False, "miss", None)
 
 
+def summarize_pdf_preview_cache(
+    payload: object,
+    *,
+    warning_threshold_bytes: int = 8 * 1024 * 1024,
+    critical_threshold_bytes: int = 24 * 1024 * 1024,
+) -> PdfPreviewCacheStats:
+    """Return bounded, payload-free memory diagnostics for preview cache.
+
+    Only metadata already present on :class:`PdfPreviewResult` is aggregated.
+    PDF bytes and PNG payloads are never copied while calculating the summary.
+    """
+
+    try:
+        warning = max(1, int(warning_threshold_bytes))
+    except (TypeError, ValueError):
+        warning = 8 * 1024 * 1024
+    try:
+        critical = max(warning, int(critical_threshold_bytes))
+    except (TypeError, ValueError):
+        critical = max(warning, 24 * 1024 * 1024)
+
+    results: list[PdfPreviewResult] = []
+    if isinstance(payload, dict):
+        legacy = payload.get("result")
+        if isinstance(legacy, PdfPreviewResult):
+            results.append(legacy)
+        entries = payload.get("entries")
+        if isinstance(entries, (list, tuple)):
+            for entry in entries:
+                if isinstance(entry, dict) and isinstance(entry.get("result"), PdfPreviewResult):
+                    results.append(entry["result"])
+
+    total_bytes = sum(max(0, int(result.image_size_bytes)) for result in results)
+    total_pages = sum(max(0, int(result.rendered_pages)) for result in results)
+    largest = max((max(0, int(result.image_size_bytes)) for result in results), default=0)
+    if not results:
+        status = "empty"
+    elif total_bytes >= critical:
+        status = "critical"
+    elif total_bytes >= warning:
+        status = "warning"
+    else:
+        status = "ok"
+    return PdfPreviewCacheStats(
+        entry_count=len(results),
+        rendered_pages=total_pages,
+        image_size_bytes=total_bytes,
+        largest_entry_bytes=largest,
+        status=status,
+        warning_threshold_bytes=warning,
+        critical_threshold_bytes=critical,
+    )
+
+
 def resolve_pdf_preview_cache(
     payload: object,
     *,
@@ -469,6 +546,7 @@ def build_pdf_preview(
 
 __all__ = [
     "PdfPreviewCacheLookup",
+    "PdfPreviewCacheStats",
     "PdfPreviewPage",
     "PdfPreviewPageJumpValidation",
     "PdfPreviewResult",
@@ -479,6 +557,7 @@ __all__ = [
     "next_pdf_preview_start_page",
     "resolve_pdf_preview_cache",
     "store_pdf_preview_cache",
+    "summarize_pdf_preview_cache",
     "bounded_pdf_preview_start_page",
     "shift_pdf_preview_window",
     "validate_pdf_preview_page_jump",

@@ -358,6 +358,7 @@ from reports.pdf_preview import (
     resolve_pdf_preview_cache,
     shift_pdf_preview_window,
     store_pdf_preview_cache,
+    summarize_pdf_preview_cache,
     validate_pdf_preview_page_jump,
 )
 from reports.export_wizard import (
@@ -10247,6 +10248,44 @@ def _render_professional_export_panel(
                             "только одну следующую ограниченную группу страниц."
                         ),
                     )
+                    show_cache_stats = st.checkbox(
+                        "Показать статистику кэша предпросмотра",
+                        value=False,
+                        key=f"pdf_preview_cache_stats_{active_project.id}",
+                        help=(
+                            "Показывает число сохранённых диапазонов и ориентировочный объём "
+                            "PNG-миниатюр в памяти текущей сессии."
+                        ),
+                    )
+                    if show_cache_stats:
+                        cache_stats = summarize_pdf_preview_cache(cached_pdf_preview)
+                        cache_metric_columns = st.columns(4)
+                        cache_metric_columns[0].metric("Диапазоны в кэше", cache_stats.entry_count)
+                        cache_metric_columns[1].metric("Страницы в памяти", cache_stats.rendered_pages)
+                        cache_metric_columns[2].metric(
+                            "Объём кэша", f"{cache_stats.image_size_bytes / 1024:.1f} КиБ"
+                        )
+                        cache_metric_columns[3].metric(
+                            "Крупнейший диапазон",
+                            f"{cache_stats.largest_entry_bytes / 1024:.1f} КиБ",
+                        )
+                        if cache_stats.status == "critical":
+                            st.error(
+                                "Кэш миниатюр создаёт высокую нагрузку на память. "
+                                "Очистите кэш или уменьшите DPI/количество страниц."
+                            )
+                        elif cache_stats.status == "warning":
+                            st.warning(
+                                "Объём кэша миниатюр повышен. Для снижения нагрузки можно "
+                                "очистить кэш или уменьшить качество предпросмотра."
+                            )
+                        elif cache_stats.status == "ok":
+                            st.caption(
+                                "Нагрузка кэша в безопасном диапазоне; средний диапазон: "
+                                f"{cache_stats.average_entry_bytes / 1024:.1f} КиБ."
+                            )
+                        else:
+                            st.caption("Кэш предпросмотра пуст.")
 
                     navigation_previous, navigation_next, preview_action = st.columns([1, 1, 2])
                     if navigation_previous.button(
