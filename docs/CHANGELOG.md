@@ -2342,3 +2342,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added Undo/Redo-aware batch type and color assignment for selected manual intervals.
 - Added confirmed batch deletion for selected manual intervals.
 - Added Streamlit controls and regression tests for batch operations.
+
+## Interpretation interval batch metadata editing
+
+- Added one-command batch editing for interval comments and sources.
+- Added replace/append comment modes with shared interval validation.
+- Integrated the operation into the manual interval Streamlit panel.

@@ -599,6 +599,58 @@ def render_interpretation_interval_panel(
                 else:
                     st.success(f"Изменено интервалов: {result.changed_count}.")
                     st.rerun()
+            st.markdown("**Комментарий и источник**")
+            metadata_left, metadata_right = st.columns(2)
+            batch_comment_enabled = metadata_left.checkbox(
+                "Изменить комментарий",
+                value=False,
+                key=f"manual_interval_batch_comment_enabled_{project_id}_{well_id}",
+            )
+            batch_source_enabled = metadata_right.checkbox(
+                "Изменить источник",
+                value=False,
+                key=f"manual_interval_batch_source_enabled_{project_id}_{well_id}",
+            )
+            batch_comment_mode = st.radio(
+                "Режим комментария",
+                options=("replace", "append"),
+                format_func=lambda value: "Заменить" if value == "replace" else "Добавить к существующему",
+                horizontal=True,
+                disabled=not batch_comment_enabled,
+                key=f"manual_interval_batch_comment_mode_{project_id}_{well_id}",
+            )
+            batch_comment = st.text_area(
+                "Комментарий для выбранных интервалов",
+                disabled=not batch_comment_enabled,
+                key=f"manual_interval_batch_comment_{project_id}_{well_id}",
+            )
+            batch_source = st.text_input(
+                "Источник для выбранных интервалов",
+                disabled=not batch_source_enabled,
+                key=f"manual_interval_batch_source_{project_id}_{well_id}",
+            )
+            if st.button(
+                "Изменить комментарий и источник",
+                key=f"manual_interval_batch_metadata_{project_id}_{well_id}",
+                disabled=(
+                    not batch_ids
+                    or (not batch_comment_enabled and not batch_source_enabled)
+                ),
+                width="stretch",
+            ):
+                try:
+                    result = batch_service.edit_metadata(
+                        batch_ids,
+                        comment=batch_comment if batch_comment_enabled else None,
+                        comment_mode=batch_comment_mode,
+                        source=batch_source if batch_source_enabled else None,
+                    )
+                except (ValueError, KeyError) as exc:
+                    st.error(str(exc))
+                else:
+                    st.success(f"Изменено интервалов: {result.changed_count}.")
+                    st.rerun()
+
             batch_delete_confirm = st.checkbox(
                 "Подтверждаю групповое удаление",
                 value=False,

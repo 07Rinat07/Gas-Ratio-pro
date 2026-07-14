@@ -66,6 +66,77 @@ class InterpretationIntervalBatchService:
             interval_ids=tuple(changed_ids),
         )
 
+
+    def edit_metadata(
+        self,
+        interval_ids: Iterable[str],
+        *,
+        comment: str | None = None,
+        comment_mode: str = "replace",
+        source: str | None = None,
+    ) -> InterpretationIntervalBatchResult:
+        """Update comment/source for several intervals as one reversible command.
+
+        ``comment_mode`` may be ``replace`` or ``append``.  ``None`` means that
+        the corresponding field must remain unchanged; an empty string is a
+        valid explicit replacement.
+        """
+
+        selected_ids = self._normalize_ids(interval_ids)
+        if comment is None and source is None:
+            raise ValueError("Укажите комментарий или источник для изменения.")
+        clean_mode = str(comment_mode or "replace").strip().lower()
+        if clean_mode not in {"replace", "append"}:
+            raise ValueError("Режим комментария должен быть replace или append.")
+
+        selected = set(selected_ids)
+        current = self.manager.list_intervals()
+        self._ensure_known(selected, current)
+
+        updated: list[InterpretationInterval] = []
+        changed_ids: list[str] = []
+        for interval in current:
+            if interval.id not in selected:
+                updated.append(interval)
+                continue
+
+            target_comment = interval.comment
+            if comment is not None:
+                clean_comment = str(comment).strip()
+                if clean_mode == "append" and clean_comment:
+                    target_comment = (
+                        f"{interval.comment.rstrip()}\n{clean_comment}"
+                        if interval.comment.strip()
+                        else clean_comment
+                    )
+                elif clean_mode == "replace":
+                    target_comment = clean_comment
+
+            target_source = interval.source if source is None else str(source).strip()
+            replacement = build_interpretation_interval(
+                interval_id=interval.id,
+                label=interval.label,
+                top=interval.top,
+                base=interval.base,
+                interval_type=interval.interval_type,
+                color=interval.color,
+                comment=target_comment,
+                source=target_source,
+                created_at=interval.created_at,
+            )
+            updated.append(replacement)
+            if replacement != interval:
+                changed_ids.append(interval.id)
+
+        if changed_ids:
+            self.manager.replace_all(tuple(updated), action="batch_edit_metadata")
+        return InterpretationIntervalBatchResult(
+            action="edit_metadata",
+            selected_count=len(selected_ids),
+            changed_count=len(changed_ids),
+            interval_ids=tuple(changed_ids),
+        )
+
     def delete(self, interval_ids: Iterable[str]) -> InterpretationIntervalBatchResult:
         selected_ids = self._normalize_ids(interval_ids)
         selected = set(selected_ids)
