@@ -10,6 +10,7 @@ are stored in Streamlit session state.
 from pathlib import Path
 from typing import Any, MutableMapping
 
+from projects.interpretation_interval_batch import InterpretationIntervalBatchService
 from projects.interpretation_interval_exports import (
     export_interpretation_intervals_csv,
     export_interpretation_intervals_json,
@@ -552,6 +553,71 @@ def render_interpretation_interval_panel(
             key=f"manual_interval_selected_{project_id}_{well_id}",
         )
         selected = properties_service.get(selected_id)
+
+        with st.expander("Групповые операции", expanded=False):
+            batch_service = InterpretationIntervalBatchService(manager)
+            batch_ids = st.multiselect(
+                "Выбранные интервалы",
+                options=option_ids,
+                format_func=lambda value: option_labels.get(value, value),
+                key=f"manual_interval_batch_selected_{project_id}_{well_id}",
+            )
+            batch_type_ids = [item.id for item in interval_types] or ["undefined"]
+            batch_type = st.selectbox(
+                "Новый тип",
+                options=batch_type_ids,
+                format_func=lambda value: next(
+                    (f"{item.name} ({item.id})" for item in interval_types if item.id == value),
+                    value,
+                ),
+                key=f"manual_interval_batch_type_{project_id}_{well_id}",
+            )
+            batch_apply_color = st.checkbox(
+                "Применить цвет выбранного типа",
+                value=True,
+                key=f"manual_interval_batch_apply_color_{project_id}_{well_id}",
+            )
+            batch_color = next(
+                (item.color for item in interval_types if item.id == batch_type),
+                "#4C78A8",
+            )
+            batch_left, batch_right = st.columns(2)
+            if batch_left.button(
+                "Изменить тип",
+                key=f"manual_interval_batch_assign_{project_id}_{well_id}",
+                disabled=not batch_ids,
+                width="stretch",
+            ):
+                try:
+                    result = batch_service.assign_type(
+                        batch_ids,
+                        interval_type=batch_type,
+                        color=batch_color if batch_apply_color else None,
+                    )
+                except (ValueError, KeyError) as exc:
+                    st.error(str(exc))
+                else:
+                    st.success(f"Изменено интервалов: {result.changed_count}.")
+                    st.rerun()
+            batch_delete_confirm = st.checkbox(
+                "Подтверждаю групповое удаление",
+                value=False,
+                key=f"manual_interval_batch_delete_confirm_{project_id}_{well_id}",
+            )
+            if batch_right.button(
+                "Удалить выбранные",
+                key=f"manual_interval_batch_delete_{project_id}_{well_id}",
+                disabled=not batch_ids or not batch_delete_confirm,
+                width="stretch",
+            ):
+                try:
+                    result = batch_service.delete(batch_ids)
+                except (ValueError, KeyError) as exc:
+                    st.error(str(exc))
+                else:
+                    state.pop(f"manual_interval_selected_{project_id}_{well_id}", None)
+                    st.success(f"Удалено интервалов: {result.changed_count}.")
+                    st.rerun()
 
         with st.form(f"manual_interval_properties_{project_id}_{well_id}_{selected_id}"):
             st.markdown("**Свойства интервала**")

@@ -2336,3 +2336,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added operation lookup and search by stable operation UUID.
 - Added a detailed operation card with status, timestamps and project statistics.
 - Preserved latest-operation Undo semantics independently of the active page and filters.
+
+## 2026-07-14 — Interpretation interval batch operations
+
+- Added Undo/Redo-aware batch type and color assignment for selected manual intervals.
+- Added confirmed batch deletion for selected manual intervals.
+- Added Streamlit controls and regression tests for batch operations.
