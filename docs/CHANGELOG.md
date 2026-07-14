@@ -2378,3 +2378,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added versioned JSON exchange for preset backup and transfer.
 - Presets restore text, type, source, depth and thickness filter state.
 
+
+## 2026-07-14 — Interpretation workspace catalog
+
+- Added project/well-scoped interpretation catalog metadata.
+- Added create, switch, rename and duplicate workflows for manual interpretations.
+- Added reversible trash-based deletion and restoration.
+- Added atomic catalog persistence and regression tests for directory-level operations.

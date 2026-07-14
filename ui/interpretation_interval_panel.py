@@ -10,6 +10,7 @@ are stored in Streamlit session state.
 from pathlib import Path
 from typing import Any, MutableMapping
 
+from projects.interpretation_catalog import InterpretationCatalogRepository
 from projects.interpretation_interval_analysis import (
     InterpretationIntervalFilter,
     filter_interpretation_intervals,
@@ -71,11 +72,31 @@ def render_interpretation_interval_panel(
     """Render CRUD and property editing for manually managed intervals."""
 
     well_id = resolve_interpretation_well_id(state)
+    catalog_repository = InterpretationCatalogRepository(
+        root=root,
+        project_id=project_id,
+        well_id=well_id,
+    )
+    catalog_items = catalog_repository.list()
+    interpretation_ids = [item.id for item in catalog_items]
+    selector_key = f"manual_interval_interpretation_selector_{project_id}_{well_id}"
+    if str(state.get(selector_key, "")) not in interpretation_ids:
+        state[selector_key] = interpretation_ids[0]
+    selected_interpretation_id = st.selectbox(
+        "Активная интерпретация",
+        options=interpretation_ids,
+        format_func=lambda value: next(
+            (f"{item.name} ({item.id})" for item in catalog_items if item.id == value),
+            value,
+        ),
+        key=selector_key,
+    )
     manager = InterpretationIntervalManager(
         state,
         root=root,
         project_id=project_id,
         well_id=well_id,
+        interpretation_id=selected_interpretation_id,
     )
     properties_service = InterpretationIntervalPropertiesService(manager)
     type_repository = InterpretationIntervalTypeRepository(root=root, project_id=project_id)
@@ -91,7 +112,144 @@ def render_interpretation_interval_panel(
     filtered_intervals = intervals
 
     with st.expander("Ручные интервалы интерпретации", expanded=False):
-        st.caption(f"Область хранения: проект `{project_id}` · скважина `{well_id}`")
+        active_catalog_item = catalog_repository.get(manager.interpretation_id)
+        st.caption(
+            f"Область хранения: проект `{project_id}` · скважина `{well_id}` · "
+            f"интерпретация `{manager.interpretation_id}`"
+        )
+        if active_catalog_item.description:
+            st.caption(active_catalog_item.description)
+
+        with st.expander("Управление интерпретациями", expanded=False):
+            st.dataframe(
+                [
+                    {
+                        "ID": item.id,
+                        "Название": item.name,
+                        "Описание": item.description,
+                        "Создана": item.created_at,
+                        "Обновлена": item.updated_at,
+                        "Источник копии": item.duplicated_from,
+                    }
+                    for item in catalog_items
+                ],
+                width="stretch",
+                hide_index=True,
+            )
+
+            with st.form(f"interpretation_create_{project_id}_{well_id}", clear_on_submit=True):
+                create_name = st.text_input("Название новой интерпретации")
+                create_description = st.text_area("Описание новой интерпретации")
+                create_submitted = st.form_submit_button("Создать интерпретацию", width="stretch")
+            if create_submitted:
+                try:
+                    created_interpretation = catalog_repository.create(
+                        name=create_name,
+                        description=create_description,
+                    )
+                except (KeyError, ValueError, OSError) as exc:
+                    st.error(str(exc))
+                else:
+                    state[selector_key] = created_interpretation.id
+                    st.success("Интерпретация создана.")
+                    st.rerun()
+
+            with st.form(f"interpretation_update_{project_id}_{well_id}_{manager.interpretation_id}"):
+                update_name = st.text_input(
+                    "Название активной интерпретации",
+                    value=active_catalog_item.name,
+                )
+                update_description = st.text_area(
+                    "Описание активной интерпретации",
+                    value=active_catalog_item.description,
+                )
+                update_submitted = st.form_submit_button("Сохранить метаданные", width="stretch")
+            if update_submitted:
+                try:
+                    catalog_repository.update(
+                        manager.interpretation_id,
+                        name=update_name,
+                        description=update_description,
+                    )
+                except (KeyError, ValueError, OSError) as exc:
+                    st.error(str(exc))
+                else:
+                    st.success("Метаданные интерпретации обновлены.")
+                    st.rerun()
+
+            with st.form(f"interpretation_duplicate_{project_id}_{well_id}_{manager.interpretation_id}", clear_on_submit=True):
+                duplicate_name = st.text_input(
+                    "Название копии",
+                    value=f"{active_catalog_item.name} — копия",
+                )
+                duplicate_description = st.text_area(
+                    "Описание копии",
+                    value=active_catalog_item.description,
+                )
+                duplicate_submitted = st.form_submit_button("Дублировать интерпретацию", width="stretch")
+            if duplicate_submitted:
+                try:
+                    duplicated_interpretation = catalog_repository.duplicate(
+                        manager.interpretation_id,
+                        name=duplicate_name,
+                        description=duplicate_description,
+                    )
+                except (KeyError, ValueError, OSError) as exc:
+                    st.error(str(exc))
+                else:
+                    state[selector_key] = duplicated_interpretation.id
+                    st.success("Интерпретация продублирована вместе с её настройками и интервалами.")
+                    st.rerun()
+
+            delete_confirmed = st.checkbox(
+                "Подтверждаю удаление активной интерпретации",
+                value=False,
+                key=f"interpretation_delete_confirm_{project_id}_{well_id}_{manager.interpretation_id}",
+            )
+            if st.button(
+                "Удалить активную интерпретацию",
+                key=f"interpretation_delete_{project_id}_{well_id}_{manager.interpretation_id}",
+                disabled=len(catalog_items) <= 1 or not delete_confirmed,
+                width="stretch",
+            ):
+                try:
+                    catalog_repository.delete(manager.interpretation_id)
+                except (KeyError, ValueError, OSError) as exc:
+                    st.error(str(exc))
+                else:
+                    remaining = catalog_repository.list()
+                    state[selector_key] = remaining[0].id
+                    st.success("Интерпретация перемещена в корзину.")
+                    st.rerun()
+
+            deleted_interpretations = catalog_repository.list_deleted()
+            if deleted_interpretations:
+                restore_id = st.selectbox(
+                    "Удалённая интерпретация",
+                    options=[item.trash_id for item in deleted_interpretations],
+                    format_func=lambda value: next(
+                        (
+                            f"{item.name} ({item.interpretation_id}) · {item.deleted_at}"
+                            for item in deleted_interpretations
+                            if item.trash_id == value
+                        ),
+                        value,
+                    ),
+                    key=f"interpretation_restore_select_{project_id}_{well_id}",
+                )
+                if st.button(
+                    "Восстановить из корзины",
+                    key=f"interpretation_restore_{project_id}_{well_id}",
+                    width="stretch",
+                ):
+                    try:
+                        restored_interpretation = catalog_repository.restore(restore_id)
+                    except (KeyError, ValueError, OSError) as exc:
+                        st.error(str(exc))
+                    else:
+                        state[selector_key] = restored_interpretation.id
+                        st.success("Интерпретация восстановлена.")
+                        st.rerun()
 
         action_left, action_mid, action_right = st.columns((1, 1, 3))
         if action_left.button(
