@@ -37,7 +37,8 @@ FLUID_STYLES = {
     "oil": ("Нефть", "#22c55e"), "gas": ("Газ", "#ef4444"),
     "condensate": ("Газоконденсат", "#f59e0b"), "gas_condensate": ("Газоконденсат", "#f59e0b"),
     "water": ("Вода", "#38bdf8"), "mixed": ("Смешанный", "#a855f7"),
-    "transition": ("Переходный", "#eab308"), "unknown": ("Неопределённый", "#94a3b8"),
+    "transition": ("Переходный", "#eab308"), "manual": ("Ручной интервал", "#4C78A8"),
+    "unknown": ("Неопределённый", "#94a3b8"),
 }
 
 INTERPRETATION_COLORS = {
@@ -96,6 +97,10 @@ def _add_interval_overlays(fig: go.Figure, intervals: Sequence[object], selected
     for interval in intervals or ():
         fluid = str(getattr(interval, "fluid_type", "unknown") or "unknown").lower()
         label, color = FLUID_STYLES.get(fluid, FLUID_STYLES["unknown"])
+        custom_color = str(getattr(interval, "color", "") or "").strip()
+        if custom_color:
+            color = custom_color
+        display_label = str(getattr(interval, "display_label", "") or label)
         top = min(float(getattr(interval, "top_depth", 0.0)), float(getattr(interval, "bottom_depth", 0.0)))
         bottom = max(float(getattr(interval, "top_depth", 0.0)), float(getattr(interval, "bottom_depth", 0.0)))
         interval_id = str(getattr(interval, "interval_id", "") or "")
@@ -104,19 +109,20 @@ def _add_interval_overlays(fig: go.Figure, intervals: Sequence[object], selected
             y0=top,
             y1=bottom,
             fillcolor=color,
-            opacity=0.18 if selected else 0.055,
+            opacity=0.24 if selected else max(0.055, min(float(getattr(interval, "opacity", 0.0) or 0.055), 0.45)),
             line={"color": color, "width": 2.4 if selected else 0.45},
             layer="below",
         )
         if selected:
             fig.add_hline(y=top, line={"color": color, "width": 2.2, "dash": "solid"})
             fig.add_hline(y=bottom, line={"color": color, "width": 2.2, "dash": "solid"})
-        if fluid not in shown:
-            fig.add_trace(go.Scatter(x=[None], y=[None], mode="markers", name=label,
+        legend_key = f"{fluid}:{display_label}" if fluid == "manual" else fluid
+        if legend_key not in shown:
+            fig.add_trace(go.Scatter(x=[None], y=[None], mode="markers", name=display_label,
                                      marker={"size": 10, "symbol": "square", "color": color,
                                              "line": {"width": 1, "color": "#ffffff"}},
                                      hoverinfo="skip", showlegend=True))
-            shown.add(fluid)
+            shown.add(legend_key)
 
 
 def _build_depth_tracks(df, columns, title, x_title, *, depth_range=None, x_range=None,

@@ -158,3 +158,7 @@ Completed the serializable `Project -> Well -> Interpretation -> Intervals` repo
 ## Current next step
 
 Manual interpretation intervals are now editable in the Streamlit interpretation workspace. The next increment should render these intervals as colored overlays on the tablet and synchronize selection between the panel and visualization.
+
+### Completed: manual interval visualization
+
+Manual interpretation intervals are now rendered on interpretation depth tracks and the engineering tablet. The next increment should add interval export (JSON/CSV/Excel) or improve direct chart selection, while preserving the current repository and command-service boundaries.

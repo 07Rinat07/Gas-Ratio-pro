@@ -2231,3 +2231,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added UI for creating, selecting, editing and deleting manual intervals.
 - Connected interval properties, overlap validation and Undo/Redo to the interpretation workspace.
 - Kept Streamlit state limited to serializable values.
+
+## 2026-07-14 — Manual interval tablet overlays
+
+- Added manual interpretation intervals to depth tracks and the engineering tablet.
+- Added user-defined colors, labels, comments and selected-interval highlighting.
+- Added manual interval state to the plot cache signature to prevent stale rendering after edits.
+- Added regression tests for manual interval overlay conversion and rendering.

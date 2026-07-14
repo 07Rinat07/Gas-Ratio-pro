@@ -86,7 +86,11 @@ from core.workbench_context import WorkbenchSelectionService
 from core.application_state import ApplicationStateController
 from core.models import CalculationConfig, STANDARD_FIELDS
 from ui.ux_feedback import REPORT_EXPORT_PROGRESS, tooltip
-from ui.interpretation_interval_panel import render_interpretation_interval_panel
+from ui.interpretation_interval_panel import (
+    render_interpretation_interval_panel,
+    resolve_interpretation_well_id,
+)
+from projects.interpretation_interval_manager import InterpretationIntervalManager
 from core.presentation_runtime import (
     AppliedCorrelationState,
     AppliedExportState,
@@ -248,6 +252,7 @@ from palettes.well_log_tablet import (
     default_tablet_columns,
     mud_gas_literature_markers,
     mud_gas_literature_tablet_columns,
+    manual_interval_overlays,
     normalize_track_configs,
     numeric_tablet_columns,
     reservoir_interval_overlays,
@@ -10658,6 +10663,33 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         key="interpretation_tablet_adaptive_height",
     ))
 
+    manual_well_id = resolve_interpretation_well_id(state_controller.state)
+    manual_intervals = ()
+    manual_overlays = ()
+    selected_manual_interval_id = ""
+    try:
+        manual_interval_manager = InterpretationIntervalManager(
+            state_controller.state,
+            project_id=str(active_project.id),
+            well_id=manual_well_id,
+        )
+        manual_intervals = manual_interval_manager.list_intervals()
+        manual_overlays = manual_interval_overlays(manual_intervals)
+        selected_manual_interval_id = str(
+            state_controller.state.get(
+                f"manual_interval_selected_{active_project.id}_{manual_well_id}",
+                "",
+            )
+            or ""
+        )
+    except Exception as exc:
+        logger.exception(
+            "interpretation_manual_interval_overlay_load_failed project_id=%s well_id=%s error=%s",
+            safe_log_value(active_project.id),
+            safe_log_value(manual_well_id),
+            safe_log_value(exc),
+        )
+
     if detected_interval_result is not None and detected_interval_result.intervals:
         interval_pairs = list(zip(all_reservoir_overlays, detected_interval_result.intervals))
         selectable_pairs = [
@@ -11002,15 +11034,23 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     if render_settings.tablet_adaptive_height and depth_range is not None:
         height = _adaptive_tablet_height(depth_range, render_settings.tablet_view_mode, height)
 
-    reservoir_overlays = tuple(
+    detected_reservoir_overlays = tuple(
         overlay for overlay in all_reservoir_overlays
         if float(overlay.thickness) >= float(render_settings.tablet_min_interval_thickness)
         or overlay.interval_id == str(render_settings.selected_interval_id)
     )
+    reservoir_overlays = detected_reservoir_overlays + tuple(manual_overlays)
     selected_tablet_depth = selected_interval_depth
     if selected_tablet_depth is None and tablet_markers:
         selected_tablet_depth = float(tablet_markers[0].depth)
-    selected_interval_id = str(render_settings.selected_interval_id or "")
+    selected_interval_id = selected_manual_interval_id or str(render_settings.selected_interval_id or "")
+    if selected_manual_interval_id:
+        selected_manual = next(
+            (item for item in manual_intervals if item.id == selected_manual_interval_id),
+            None,
+        )
+        if selected_manual is not None:
+            selected_tablet_depth = float(selected_manual.middle_depth)
     tablet_depth_range = _tablet_informative_depth_range(
         reservoir_overlays,
         depth_range,
@@ -11056,6 +11096,11 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         len(screen_filtered_df),
         tuple(round(float(value), 4) for value in tablet_depth_range),
         len(tablet_screen_df),
+        tuple(
+            (item.id, item.updated_at, item.color, item.label, item.top, item.base)
+            for item in manual_intervals
+        ),
+        selected_manual_interval_id,
     )
     state = state_controller.state
     plot_cache = state_controller.ensure_runtime_service(

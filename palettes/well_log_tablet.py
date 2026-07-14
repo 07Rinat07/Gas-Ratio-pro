@@ -184,6 +184,10 @@ class ReservoirIntervalOverlay:
     decision_level: str = ""
     note: str = ""
     recommendation: str = ""
+    display_label: str = ""
+    color: str = ""
+    opacity: float = 0.0
+    source_kind: str = "detected"
 
 
 def _interval_recommendation(interval: object) -> str:
@@ -244,6 +248,43 @@ def reservoir_interval_overlays(intervals: Sequence[object]) -> tuple[ReservoirI
         )
     return tuple(overlays)
 
+
+
+def manual_interval_overlays(intervals: Sequence[object]) -> tuple[ReservoirIntervalOverlay, ...]:
+    """Convert manually managed intervals into tablet-safe overlays.
+
+    The function depends only on the interval protocol (id/label/top/base/etc.)
+    and keeps the palette layer independent from the project repository.
+    """
+
+    overlays: list[ReservoirIntervalOverlay] = []
+    for interval in intervals or ():
+        try:
+            top = float(getattr(interval, "top"))
+            base = float(getattr(interval, "base"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        label = str(getattr(interval, "label", "") or "Ручной интервал").strip()
+        interval_type = str(getattr(interval, "interval_type", "manual") or "manual").strip()
+        comment = str(getattr(interval, "comment", "") or "").strip()
+        overlays.append(
+            ReservoirIntervalOverlay(
+                interval_id=str(getattr(interval, "id", "") or ""),
+                top_depth=min(top, base),
+                bottom_depth=max(top, base),
+                fluid_type="manual",
+                confidence_score=100,
+                thickness=abs(base - top),
+                decision_level="manual",
+                note=comment,
+                recommendation=comment or f"Пользовательский тип: {interval_type}",
+                display_label=label,
+                color=str(getattr(interval, "color", "") or "#4C78A8"),
+                opacity=0.18,
+                source_kind="manual",
+            )
+        )
+    return tuple(sorted(overlays, key=lambda item: (item.top_depth, item.bottom_depth, item.display_label.lower())))
 
 def numeric_tablet_columns(df: pd.DataFrame | Sequence[object]) -> tuple[str, ...]:
     """Return numeric tablet columns or safe column names from lightweight lists.
@@ -965,6 +1006,10 @@ def build_well_log_tablet(
         color, fluid_label = FLUID_INTERVAL_STYLES.get(
             str(interval.fluid_type).lower(), FLUID_INTERVAL_STYLES["uncertain"]
         )
+        if str(interval.color or "").strip():
+            color = str(interval.color)
+        display_label = str(interval.display_label or interval.interval_id)
+        overlay_opacity = max(0.04, min(float(interval.opacity or 0.0), 0.55))
         is_selected = interval.interval_id == selected_interval_id
         is_priority = interval.interval_id == priority_interval_id
         show_label = interval.interval_id in label_interval_ids
@@ -984,7 +1029,7 @@ def build_well_log_tablet(
                 "y0": top_depth,
                 "y1": bottom_depth,
                 "fillcolor": color,
-                "opacity": 0.27 if is_selected else (0.16 if is_priority else 0.10),
+                "opacity": 0.34 if is_selected else (overlay_opacity if overlay_opacity else (0.16 if is_priority else 0.10)),
                 "line": {
                     "color": "#ffffff" if is_selected else ("#f6c344" if is_priority else color),
                     "width": 3.0 if is_selected else (2.4 if is_priority else 1.15),
@@ -1019,7 +1064,7 @@ def build_well_log_tablet(
                         "yref": "y",
                         "y": midpoint,
                         "text": (
-                            f"<b>{interval.interval_id}</b>{'<br><b>ПРИОРИТЕТ A</b>' if is_priority else ''}<br>"
+                            f"<b>{display_label}</b>{'<br><b>ПРИОРИТЕТ A</b>' if is_priority and interval.source_kind != "manual" else ''}<br>"
                             f"{top_depth:g}–{bottom_depth:g} м<br>"
                             f"{fluid_label} · {interval.confidence_score}%"
                         ),
@@ -1099,7 +1144,7 @@ def build_well_log_tablet(
                         "color": marker_color,
                         "status": status,
                         "hover": (
-                            f"<b>{interval.interval_id}</b><br>{fluid_label}<br>"
+                            f"<b>{display_label}</b><br>{fluid_label}<br>"
                             f"{top_depth:g}–{bottom_depth:g} м · {interval.thickness:g} м<br>"
                             f"Достоверность: {interval.confidence_score}%<br>{recommendation}"
                         ),
