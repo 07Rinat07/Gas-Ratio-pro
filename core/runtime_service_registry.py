@@ -23,6 +23,7 @@ class RuntimeServiceDescriptor:
 
     key: str
     type_name: str
+    scope: str = "session"
 
 
 
@@ -112,6 +113,7 @@ class RuntimeServiceRegistry:
 
     def __init__(self) -> None:
         self._services: dict[str, Any] = {}
+        self._scopes: dict[str, str] = {}
         self._created = 0
         self._replaced = 0
         self._removed = 0
@@ -120,7 +122,7 @@ class RuntimeServiceRegistry:
     def get(self, key: str, default: T | None = None) -> Any | T | None:
         return self._services.get(str(key), default)
 
-    def set(self, key: str, service: T) -> T:
+    def set(self, key: str, service: T, *, scope: str = "session") -> T:
         clean_key = str(key).strip()
         if not clean_key:
             raise ValueError("Runtime service key must not be empty.")
@@ -129,9 +131,13 @@ class RuntimeServiceRegistry:
         else:
             self._created += 1
         self._services[clean_key] = service
+        self._scopes[clean_key] = str(scope or "session")
         return service
 
-    def ensure(self, key: str, factory: Callable[[], T], *, expected_type: type[T] | None = None) -> T:
+    def ensure(
+        self, key: str, factory: Callable[[], T], *,
+        expected_type: type[T] | None = None, scope: str = "session"
+    ) -> T:
         clean_key = str(key).strip()
         if not clean_key:
             raise ValueError("Runtime service key must not be empty.")
@@ -149,6 +155,7 @@ class RuntimeServiceRegistry:
         else:
             self._replaced += 1
         self._services[clean_key] = service
+        self._scopes[clean_key] = str(scope or "session")
         return service
 
     def remove(self, key: str, default: T | None = None) -> Any | T | None:
@@ -156,6 +163,7 @@ class RuntimeServiceRegistry:
         if clean_key not in self._services:
             return default
         self._removed += 1
+        self._scopes.pop(clean_key, None)
         return self._services.pop(clean_key)
 
     @staticmethod
@@ -195,6 +203,7 @@ class RuntimeServiceRegistry:
         if remove:
             self._removed += len(self._services)
             self._services.clear()
+            self._scopes.clear()
         return results
 
     def clear(self, *, close: bool = False) -> tuple[str, ...]:
@@ -204,11 +213,36 @@ class RuntimeServiceRegistry:
         else:
             self._removed += len(self._services)
             self._services.clear()
+            self._scopes.clear()
         return keys
+
+
+    def shutdown_scopes(
+        self, scopes: set[str] | tuple[str, ...], *, remove: bool = True
+    ) -> tuple[RuntimeServiceShutdownResult, ...]:
+        """Close only services owned by the requested lifecycle scopes."""
+
+        requested = {str(scope) for scope in scopes}
+        selected = tuple(
+            (key, service) for key, service in self._services.items()
+            if self._scopes.get(key, "session") in requested
+        )
+        results = tuple(self._close_service(key, service) for key, service in selected)
+        self._shutdowns += len(results)
+        if remove:
+            for key, _service in selected:
+                if key in self._services:
+                    self._services.pop(key, None)
+                    self._scopes.pop(key, None)
+                    self._removed += 1
+        return results
 
     def descriptors(self) -> tuple[RuntimeServiceDescriptor, ...]:
         return tuple(
-            RuntimeServiceDescriptor(key=key, type_name=type(service).__name__)
+            RuntimeServiceDescriptor(
+                key=key, type_name=type(service).__name__,
+                scope=self._scopes.get(key, "session")
+            )
             for key, service in sorted(self._services.items())
         )
 

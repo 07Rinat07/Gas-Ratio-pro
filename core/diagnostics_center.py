@@ -106,6 +106,7 @@ def build_diagnostics_center_snapshot(
         "runtime": {
             "registry": registry.snapshot().to_dict(),
             "services": descriptors,
+            "service_scopes": {item.key: item.scope for item in registry.descriptors()},
             "events": events,
             "event_count": len(events),
         },

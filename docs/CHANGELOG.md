@@ -2494,3 +2494,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Removed heavy Plotly figures and correlation panel objects from serializable Session State.
 - Added shared cache telemetry for correlation render hits, misses, invalidations, evictions and entries.
 - Added regression tests for LRU reuse and safe invalidation.
+
+## 2026-07-14 — Session State and runtime lifecycle cleanup
+
+- Added a centralized Session State key ownership/lifecycle registry.
+- Added owner, lifecycle and unregistered-key diagnostics without serializing values.
+- Added scoped runtime-service lifecycle management for project, well, LAS and workspace boundaries.
+- Made the correlation render cache workspace-scoped and automatically disposable on context changes.
+- Preserved the existing Diagnostics Center service-list contract while exposing scopes separately.

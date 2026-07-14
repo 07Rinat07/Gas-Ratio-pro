@@ -15043,6 +15043,7 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
             metrics=cache_metrics_registry.counter("correlation_render", max_entries=3),
         ),
         expected_type=CorrelationRuntimeCache,
+        scope="workspace",
     )
     cache_lookup_started = perf_counter()
     cached_correlation = correlation_runtime_cache.get(figure_cache_key)

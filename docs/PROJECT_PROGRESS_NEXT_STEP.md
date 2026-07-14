@@ -485,3 +485,14 @@ Next priority: migrate the legacy correlation figure cache behind `RuntimeServic
 - Explicit presentation rebuilds invalidate the runtime cache without touching project data.
 
 Next priority: add byte-aware cache limits and cold/warm benchmark baselines from captured runtime diagnostics.
+
+## Phase 2 — Session State and runtime lifecycle cleanup
+
+- Added one central registry for Session State ownership and lifecycle classification.
+- Session diagnostics now report owner/lifecycle counts and explicitly unregistered legacy keys without reading payloads.
+- Runtime services support explicit session/project/well/LAS/workspace scopes.
+- Context changes close only runtime services owned by the invalidated scope; session-wide diagnostics and metrics remain active.
+- Correlation render cache is workspace-scoped and is disposed automatically when the active workspace changes.
+- Developer Diagnostics displays runtime scopes and Session State ownership summaries.
+
+Next priority: migrate remaining high-value transient keys and runtime caches to explicit registry ownership, then add byte-aware cache limits and cold/warm benchmark baselines.

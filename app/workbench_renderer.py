@@ -770,8 +770,13 @@ def _render_native_streamlit_layout(
                     + " | Events: " + str(runtime.get("event_count", 0))
                 )
                 services = list(runtime.get("services", ()) or ())
+                service_scopes = dict(runtime.get("service_scopes", {}) or {})
                 if services and hasattr(st_module, "dataframe"):
-                    st_module.dataframe(services, width="stretch", hide_index=True)
+                    service_rows = [
+                        {**item, "scope": service_scopes.get(str(item.get("key") or ""), "session")}
+                        for item in services
+                    ]
+                    st_module.dataframe(service_rows, width="stretch", hide_index=True)
 
                 st_module.markdown("##### Cache")
                 st_module.caption(
@@ -802,9 +807,19 @@ def _render_native_streamlit_layout(
                     + " | Transient: " + str(session.get("transient_count", 0))
                     + " | Unscoped: " + str(len(session.get("unscoped_keys", ()) or ()))
                 )
-                unscoped = list(session.get("unscoped_keys", ()) or ())
-                if unscoped:
-                    st_module.warning("Unscoped keys: " + ", ".join(unscoped[:12]))
+                owner_counts = dict(session.get("owner_counts", {}) or {})
+                lifecycle_counts = dict(session.get("lifecycle_counts", {}) or {})
+                if owner_counts:
+                    st_module.caption(
+                        "Owners: " + ", ".join(f"{key}={value}" for key, value in owner_counts.items())
+                    )
+                if lifecycle_counts:
+                    st_module.caption(
+                        "Lifecycle: " + ", ".join(f"{key}={value}" for key, value in lifecycle_counts.items())
+                    )
+                unregistered = list(session.get("unregistered_keys", ()) or ())
+                if unregistered:
+                    st_module.warning("Unregistered keys: " + ", ".join(unregistered[:12]))
 
                 budgets = list(center.get("budgets", ()) or ())
                 if budgets:

@@ -743,3 +743,7 @@ Automatic tie suggestions are configurable through `CorrelationSuggestionSetting
 are stored under `correlations/suggestion_profiles.json`; accepted suggestion batches are audited per
 workspace in `suggestion_acceptance.json`. UI supports baseline/current scenario comparison. Do not place
 runtime Plotly or Streamlit objects in these files or Session State snapshots.
+
+## Phase 2 lifecycle rule
+
+Session State keys should be registered through `core/session_key_registry.py` ownership rules. New live services must be registered in `RuntimeServiceRegistry` with the narrowest valid scope (`session`, `project`, `well`, `las`, or `workspace`). Context cleanup may close scoped services, so session-wide metrics and diagnostics must remain `session` scoped.

@@ -15,6 +15,12 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, MutableMapping, Sequence
 
+from core.runtime_service_registry import (
+    RUNTIME_SERVICES_STATE_KEY, RuntimeServiceRegistry,
+    RuntimeServiceShutdownResult,
+)
+from core.session_key_registry import build_default_session_key_registry
+
 SESSION_STATE_MANAGER_SCHEMA = "gas-ratio-pro/session-state-manager/v2"
 
 # Prefixes that represent derived UI/analytical state. These values are
@@ -114,6 +120,7 @@ class SessionCleanupResult:
     preserved_keys: tuple[str, ...]
     active_context: dict[str, str]
     timestamp: str
+    runtime_shutdown: tuple[RuntimeServiceShutdownResult, ...] = ()
     schema: str = SESSION_STATE_MANAGER_SCHEMA
 
     def to_dict(self) -> dict[str, Any]:
@@ -124,6 +131,7 @@ class SessionCleanupResult:
             "cleared_keys": list(self.cleared_keys),
             "preserved_keys": list(self.preserved_keys),
             "active_context": dict(self.active_context),
+            "runtime_shutdown": [item.to_dict() for item in self.runtime_shutdown],
         }
 
 
@@ -172,10 +180,12 @@ def is_transient_session_key(
 ) -> bool:
     """Return True when a key contains derived state that must be invalidated."""
 
-    key_text = str(key)
-    if key_text in set(str(item) for item in preserve_keys):
-        return False
-    return _matches_transient_key(key_text, transient_prefixes, transient_keys)
+    registry = build_default_session_key_registry(
+        transient_prefixes=transient_prefixes,
+        transient_keys=transient_keys,
+        preserved_keys=preserve_keys,
+    )
+    return registry.is_transient(str(key))
 
 
 def clear_transient_session_state(
@@ -194,6 +204,19 @@ def clear_transient_session_state(
 
     cleared: list[str] = []
     retained: list[str] = []
+    runtime_shutdown: tuple[RuntimeServiceShutdownResult, ...] = ()
+
+    scope_map = {
+        "project_changed": {"project", "well", "las", "workspace"},
+        "well_changed": {"well", "las", "workspace"},
+        "las_changed": {"las", "workspace"},
+        "workspace_changed": {"workspace"},
+    }
+    runtime_registry = state.get(RUNTIME_SERVICES_STATE_KEY)
+    if isinstance(runtime_registry, RuntimeServiceRegistry):
+        runtime_shutdown = runtime_registry.shutdown_scopes(
+            scope_map.get(str(reason), set()), remove=True
+        )
 
     for key in list(state.keys()):
         key_text = str(key)
@@ -235,6 +258,7 @@ def clear_transient_session_state(
             "workspace_id": workspace_id,
         },
         timestamp=state["last_session_cleanup"]["timestamp"],
+        runtime_shutdown=runtime_shutdown,
     )
 
 

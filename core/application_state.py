@@ -120,10 +120,10 @@ class ApplicationStateController:
 
         return self.runtime_services().get(key, default)
 
-    def set_runtime_service(self, key: str, service: Any) -> Any:
+    def set_runtime_service(self, key: str, service: Any, *, scope: str = "session") -> Any:
         """Register a process-local service and return it."""
 
-        return self.runtime_services().set(key, service)
+        return self.runtime_services().set(key, service, scope=scope)
 
     def ensure_runtime_service(
         self,
@@ -131,10 +131,13 @@ class ApplicationStateController:
         factory: Any,
         *,
         expected_type: type[Any] | None = None,
+        scope: str = "session",
     ) -> Any:
         """Return an existing runtime service or construct it exactly once."""
 
-        return self.runtime_services().ensure(key, factory, expected_type=expected_type)
+        return self.runtime_services().ensure(
+            key, factory, expected_type=expected_type, scope=scope
+        )
 
     def remove_runtime_service(self, key: str, default: Any = None) -> Any:
         """Remove one process-local service from the registry."""
