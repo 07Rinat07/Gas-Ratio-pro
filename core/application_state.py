@@ -142,9 +142,21 @@ class ApplicationStateController:
         return self.runtime_services().remove(key, default)
 
     def shutdown_runtime_services(self, *, remove: bool = True) -> tuple[Any, ...]:
-        """Close all process-local services owned by the current session."""
+        """Close all process-local services owned by the current session.
 
-        return self.runtime_services().shutdown(remove=remove)
+        When ``remove`` is true, the registry container itself is detached from
+        application state after shutdown. A later runtime-service request will
+        create a fresh empty registry instead of retaining a disposed container.
+        """
+
+        registry = self.runtime_services()
+        results = registry.shutdown(remove=remove)
+        if remove:
+            from core.runtime_service_registry import RUNTIME_SERVICES_STATE_KEY
+
+            if self.state.get(RUNTIME_SERVICES_STATE_KEY) is registry:
+                self.state.pop(RUNTIME_SERVICES_STATE_KEY, None)
+        return results
 
     def update_values(self, values: dict[str, Any]) -> None:
         """Write multiple application-owned session values atomically."""

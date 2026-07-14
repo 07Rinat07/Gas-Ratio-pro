@@ -35,6 +35,55 @@ class RuntimeServiceShutdownResult:
     method: str = ""
     error: str = ""
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "key": self.key,
+            "type_name": self.type_name,
+            "closed": self.closed,
+            "method": self.method,
+            "error": self.error,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeServiceShutdownSummary:
+    """Serializable aggregate used by lifecycle events and diagnostics."""
+
+    total: int
+    closed: int
+    failed: int
+    noop: int
+    failures: tuple[RuntimeServiceShutdownResult, ...] = ()
+
+    @property
+    def successful(self) -> bool:
+        return self.failed == 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "total": self.total,
+            "closed": self.closed,
+            "failed": self.failed,
+            "noop": self.noop,
+            "successful": self.successful,
+            "failures": [item.to_dict() for item in self.failures],
+        }
+
+
+def summarize_runtime_service_shutdown(
+    results: tuple[RuntimeServiceShutdownResult, ...],
+) -> RuntimeServiceShutdownSummary:
+    """Build a stable aggregate without retaining live service references."""
+
+    failures = tuple(item for item in results if not item.closed)
+    return RuntimeServiceShutdownSummary(
+        total=len(results),
+        closed=sum(1 for item in results if item.closed),
+        failed=len(failures),
+        noop=sum(1 for item in results if item.method == "none"),
+        failures=failures,
+    )
+
 
 class RuntimeServiceRegistry:
     """Own non-copyable services for one application session."""

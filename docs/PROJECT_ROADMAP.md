@@ -1560,3 +1560,11 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Dispose and remove session runtime services when the Workbench workspace closes.
 - [x] Preserve shutdown progress when one service raises during cleanup.
 - [ ] Connect the same disposal boundary to full Streamlit session termination where supported.
+
+### Runtime shutdown telemetry
+
+- [x] Aggregate per-service shutdown outcomes into a serializable summary.
+- [x] Publish `workbench.runtime_services.shutdown` during workspace disposal.
+- [x] Report failed service keys/types/errors without retaining live objects.
+- [x] Detach the disposed runtime registry from application state.
+- [ ] Connect disposal to a stable Streamlit session-termination hook when supported.

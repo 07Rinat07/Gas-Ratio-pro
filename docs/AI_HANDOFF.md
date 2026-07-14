@@ -591,3 +591,7 @@ Live services now belong in `core.runtime_service_registry.RuntimeServiceRegistr
 ## Runtime service lifecycle shutdown
 
 `RuntimeServiceRegistry.shutdown()` is now the canonical cleanup boundary for process-local services. It invokes `close()` when available, otherwise `shutdown(wait=False)` (falling back to `shutdown()` for incompatible signatures), records a serializable `RuntimeServiceShutdownResult`, and continues after individual cleanup failures. `ApplicationStateController.shutdown_runtime_services()` exposes this boundary, and `WorkbenchLifecycleManager.close_workspace()` invokes it before marking the workspace closed. Do not reintroduce direct executor/cache shutdown calls into shell state code; register new live services and let the lifecycle boundary own their disposal.
+
+## Runtime shutdown telemetry and registry disposal
+
+`WorkbenchLifecycleManager.close_workspace()` now publishes `workbench.runtime_services.shutdown` with a serializable aggregate produced by `summarize_runtime_service_shutdown()`. The payload contains totals and failure diagnostics only; never place service instances, executors, queues or locks in event history. `ApplicationStateController.shutdown_runtime_services(remove=True)` also detaches the disposed `runtime::services` registry from state, so future runtime access receives a fresh registry. Keep cleanup best-effort and preserve lifecycle completion even when an individual service fails to close.

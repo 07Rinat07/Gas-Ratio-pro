@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, MutableMapping, TYPE_CHECKING
 
 from core.application_state import ApplicationStateController
+from core.runtime_service_registry import summarize_runtime_service_shutdown
 from core.workspace_session import WorkspaceSession, WorkspaceSessionManager
 from core.workbench_context import (
     WORKBENCH_LIFECYCLE_OPENED_SESSION_KEY,
@@ -122,7 +123,14 @@ class WorkbenchLifecycleManager:
             save_result = self.session_manager.save(path)
             affected.extend(save_result.affected_keys)
         shutdown_results = self.state_controller.shutdown_runtime_services(remove=True)
+        shutdown_summary = summarize_runtime_service_shutdown(shutdown_results)
         affected.extend(f"runtime_service:{item.key}" for item in shutdown_results)
+        shutdown_event = self.state_controller.publish_event(
+            "workbench.runtime_services.shutdown",
+            shutdown_summary.to_dict(),
+            source="WorkbenchLifecycleManager",
+        )
+        affected.append(shutdown_event.name)
         self.state[WORKBENCH_LIFECYCLE_STATE_KEY] = WORKBENCH_LIFECYCLE_CLOSED
         self.state.pop(WORKBENCH_LIFECYCLE_OPENED_SESSION_KEY, None)
         affected.append(WORKBENCH_LIFECYCLE_OPENED_SESSION_KEY)
@@ -132,11 +140,17 @@ class WorkbenchLifecycleManager:
             source="WorkbenchLifecycleManager",
         )
         affected.append(event.name)
+        message = "Workbench workspace closed."
+        if shutdown_summary.failed:
+            message = (
+                "Workbench workspace closed with "
+                f"{shutdown_summary.failed} runtime service shutdown failure(s)."
+            )
         return WorkbenchLifecycleResult(
             executed=True,
             state=WORKBENCH_LIFECYCLE_CLOSED,
             context=self.context(),
-            message="Workbench workspace closed.",
+            message=message,
             affected_keys=tuple(sorted(set(affected))),
         )
 
