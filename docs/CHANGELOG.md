@@ -2348,3 +2348,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added one-command batch editing for interval comments and sources.
 - Added replace/append comment modes with shared interval validation.
 - Integrated the operation into the manual interval Streamlit panel.
+
+## 2026-07-14 — Interpretation interval batch preview
+
+- Added read-only preview models for batch type, metadata and delete operations.
+- Added Streamlit preview tables with current and target values.
+- Reused model validation without persisting data or creating command history.

@@ -651,6 +651,70 @@ def render_interpretation_interval_panel(
                     st.success(f"Изменено интервалов: {result.changed_count}.")
                     st.rerun()
 
+            if batch_ids:
+                with st.expander("Предварительный просмотр групповых изменений", expanded=False):
+                    try:
+                        type_preview = batch_service.preview_assign_type(
+                            batch_ids,
+                            interval_type=batch_type,
+                            color=batch_color if batch_apply_color else None,
+                        )
+                        st.caption(
+                            f"Изменение типа: будет изменено {type_preview.changed_count} "
+                            f"из {type_preview.selected_count} интервалов."
+                        )
+                        st.dataframe(
+                            [
+                                {
+                                    "Интервал": item.label,
+                                    "Глубины, м": f"{item.top:g}–{item.base:g}",
+                                    "Текущий тип": item.current_type,
+                                    "Новый тип": item.target_type,
+                                    "Текущий цвет": item.current_color,
+                                    "Новый цвет": item.target_color,
+                                    "Изменится": "Да" if item.will_change else "Нет",
+                                }
+                                for item in type_preview.items
+                            ],
+                            width="stretch",
+                            hide_index=True,
+                        )
+
+                        if batch_comment_enabled or batch_source_enabled:
+                            metadata_preview = batch_service.preview_edit_metadata(
+                                batch_ids,
+                                comment=batch_comment if batch_comment_enabled else None,
+                                comment_mode=batch_comment_mode,
+                                source=batch_source if batch_source_enabled else None,
+                            )
+                            st.caption(
+                                f"Метаданные: будет изменено {metadata_preview.changed_count} "
+                                f"из {metadata_preview.selected_count} интервалов."
+                            )
+                            st.dataframe(
+                                [
+                                    {
+                                        "Интервал": item.label,
+                                        "Текущий источник": item.current_source,
+                                        "Новый источник": item.target_source,
+                                        "Текущий комментарий": item.current_comment,
+                                        "Новый комментарий": item.target_comment,
+                                        "Изменится": "Да" if item.will_change else "Нет",
+                                    }
+                                    for item in metadata_preview.items
+                                ],
+                                width="stretch",
+                                hide_index=True,
+                            )
+
+                        delete_preview = batch_service.preview_delete(batch_ids)
+                        st.caption(
+                            f"Удаление затронет {delete_preview.changed_count} "
+                            f"интервалов после отдельного подтверждения."
+                        )
+                    except (ValueError, KeyError) as exc:
+                        st.warning(str(exc))
+
             batch_delete_confirm = st.checkbox(
                 "Подтверждаю групповое удаление",
                 value=False,

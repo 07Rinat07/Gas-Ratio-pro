@@ -17,11 +17,97 @@ class InterpretationIntervalBatchResult:
     interval_ids: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class InterpretationIntervalBatchPreviewItem:
+    interval_id: str
+    label: str
+    top: float
+    base: float
+    current_type: str
+    target_type: str
+    current_color: str
+    target_color: str
+    current_comment: str
+    target_comment: str
+    current_source: str
+    target_source: str
+    will_change: bool
+
+
+@dataclass(frozen=True)
+class InterpretationIntervalBatchPreview:
+    action: str
+    selected_count: int
+    changed_count: int
+    items: tuple[InterpretationIntervalBatchPreviewItem, ...]
+
+
 class InterpretationIntervalBatchService:
     """Apply one validated mutation to several intervals as a single command."""
 
     def __init__(self, manager: InterpretationIntervalManager) -> None:
         self.manager = manager
+
+
+    def preview_assign_type(
+        self,
+        interval_ids: Iterable[str],
+        *,
+        interval_type: str,
+        color: str | None = None,
+    ) -> InterpretationIntervalBatchPreview:
+        selected_ids = self._normalize_ids(interval_ids)
+        selected_intervals = self._selected_intervals(selected_ids)
+        items: list[InterpretationIntervalBatchPreviewItem] = []
+        for interval in selected_intervals:
+            target_color = interval.color if color is None else str(color)
+            replacement = build_interpretation_interval(
+                interval_id=interval.id,
+                label=interval.label,
+                top=interval.top,
+                base=interval.base,
+                interval_type=interval_type,
+                color=target_color,
+                comment=interval.comment,
+                source=interval.source,
+                created_at=interval.created_at,
+            )
+            items.append(self._preview_item(interval, replacement))
+        return self._preview("assign_type", selected_ids, items)
+
+    def preview_edit_metadata(
+        self,
+        interval_ids: Iterable[str],
+        *,
+        comment: str | None = None,
+        comment_mode: str = "replace",
+        source: str | None = None,
+    ) -> InterpretationIntervalBatchPreview:
+        selected_ids = self._normalize_ids(interval_ids)
+        clean_mode = self._validate_metadata_request(comment, comment_mode, source)
+        items: list[InterpretationIntervalBatchPreviewItem] = []
+        for interval in self._selected_intervals(selected_ids):
+            target_comment, target_source = self._metadata_targets(
+                interval, comment=comment, comment_mode=clean_mode, source=source
+            )
+            replacement = build_interpretation_interval(
+                interval_id=interval.id,
+                label=interval.label,
+                top=interval.top,
+                base=interval.base,
+                interval_type=interval.interval_type,
+                color=interval.color,
+                comment=target_comment,
+                source=target_source,
+                created_at=interval.created_at,
+            )
+            items.append(self._preview_item(interval, replacement))
+        return self._preview("edit_metadata", selected_ids, items)
+
+    def preview_delete(self, interval_ids: Iterable[str]) -> InterpretationIntervalBatchPreview:
+        selected_ids = self._normalize_ids(interval_ids)
+        items = [self._preview_item(interval, None) for interval in self._selected_intervals(selected_ids)]
+        return self._preview("delete", selected_ids, items)
 
     def assign_type(
         self,
@@ -83,11 +169,7 @@ class InterpretationIntervalBatchService:
         """
 
         selected_ids = self._normalize_ids(interval_ids)
-        if comment is None and source is None:
-            raise ValueError("Укажите комментарий или источник для изменения.")
-        clean_mode = str(comment_mode or "replace").strip().lower()
-        if clean_mode not in {"replace", "append"}:
-            raise ValueError("Режим комментария должен быть replace или append.")
+        clean_mode = self._validate_metadata_request(comment, comment_mode, source)
 
         selected = set(selected_ids)
         current = self.manager.list_intervals()
@@ -100,19 +182,9 @@ class InterpretationIntervalBatchService:
                 updated.append(interval)
                 continue
 
-            target_comment = interval.comment
-            if comment is not None:
-                clean_comment = str(comment).strip()
-                if clean_mode == "append" and clean_comment:
-                    target_comment = (
-                        f"{interval.comment.rstrip()}\n{clean_comment}"
-                        if interval.comment.strip()
-                        else clean_comment
-                    )
-                elif clean_mode == "replace":
-                    target_comment = clean_comment
-
-            target_source = interval.source if source is None else str(source).strip()
+            target_comment, target_source = self._metadata_targets(
+                interval, comment=comment, comment_mode=clean_mode, source=source
+            )
             replacement = build_interpretation_interval(
                 interval_id=interval.id,
                 label=interval.label,
@@ -149,6 +221,81 @@ class InterpretationIntervalBatchService:
             selected_count=len(selected_ids),
             changed_count=len(selected_ids),
             interval_ids=selected_ids,
+        )
+
+
+    def _selected_intervals(self, selected_ids: tuple[str, ...]) -> tuple[InterpretationInterval, ...]:
+        current = self.manager.list_intervals()
+        selected = set(selected_ids)
+        self._ensure_known(selected, current)
+        by_id = {interval.id: interval for interval in current}
+        return tuple(by_id[interval_id] for interval_id in selected_ids)
+
+    @staticmethod
+    def _validate_metadata_request(
+        comment: str | None, comment_mode: str, source: str | None
+    ) -> str:
+        if comment is None and source is None:
+            raise ValueError("Укажите комментарий или источник для изменения.")
+        clean_mode = str(comment_mode or "replace").strip().lower()
+        if clean_mode not in {"replace", "append"}:
+            raise ValueError("Режим комментария должен быть replace или append.")
+        return clean_mode
+
+    @staticmethod
+    def _metadata_targets(
+        interval: InterpretationInterval,
+        *,
+        comment: str | None,
+        comment_mode: str,
+        source: str | None,
+    ) -> tuple[str, str]:
+        target_comment = interval.comment
+        if comment is not None:
+            clean_comment = str(comment).strip()
+            if comment_mode == "append" and clean_comment:
+                target_comment = (
+                    f"{interval.comment.rstrip()}\n{clean_comment}"
+                    if interval.comment.strip()
+                    else clean_comment
+                )
+            elif comment_mode == "replace":
+                target_comment = clean_comment
+        target_source = interval.source if source is None else str(source).strip()
+        return target_comment, target_source
+
+    @staticmethod
+    def _preview_item(
+        current: InterpretationInterval, replacement: InterpretationInterval | None
+    ) -> InterpretationIntervalBatchPreviewItem:
+        target = replacement or current
+        return InterpretationIntervalBatchPreviewItem(
+            interval_id=current.id,
+            label=current.label,
+            top=current.top,
+            base=current.base,
+            current_type=current.interval_type,
+            target_type="—" if replacement is None else target.interval_type,
+            current_color=current.color,
+            target_color="—" if replacement is None else target.color,
+            current_comment=current.comment,
+            target_comment="—" if replacement is None else target.comment,
+            current_source=current.source,
+            target_source="—" if replacement is None else target.source,
+            will_change=replacement is None or replacement != current,
+        )
+
+    @staticmethod
+    def _preview(
+        action: str,
+        selected_ids: tuple[str, ...],
+        items: list[InterpretationIntervalBatchPreviewItem],
+    ) -> InterpretationIntervalBatchPreview:
+        return InterpretationIntervalBatchPreview(
+            action=action,
+            selected_count=len(selected_ids),
+            changed_count=sum(1 for item in items if item.will_change),
+            items=tuple(items),
         )
 
     @staticmethod

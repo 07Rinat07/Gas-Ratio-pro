@@ -123,3 +123,55 @@ def test_batch_edit_metadata_validates_requested_changes(tmp_path: Path):
         service.edit_metadata([interval.id], comment="x", comment_mode="merge")
     with pytest.raises(ValueError, match="длиннее 80"):
         service.edit_metadata([interval.id], source="x" * 81)
+
+
+def test_batch_preview_reports_type_changes_without_persisting(tmp_path: Path):
+    manager = _manager(tmp_path, {})
+    first = manager.create(label="A", top=100, base=110, interval_type="old", color="#111111")
+    second = manager.create(label="B", top=120, base=130, interval_type="new", color="#ABCDEF")
+    manager.commands.clear_history()
+
+    preview = InterpretationIntervalBatchService(manager).preview_assign_type(
+        [first.id, second.id], interval_type="new", color="#ABCDEF"
+    )
+
+    assert preview.selected_count == 2
+    assert preview.changed_count == 1
+    assert [item.will_change for item in preview.items] == [True, False]
+    assert manager.get_interval(first.id).interval_type == "old"
+    assert manager.can_undo is False
+
+
+def test_batch_metadata_and_delete_preview_are_read_only(tmp_path: Path):
+    manager = _manager(tmp_path, {})
+    interval = manager.create(
+        label="A", top=100, base=110, comment="Исходный", source="manual"
+    )
+    manager.commands.clear_history()
+    service = InterpretationIntervalBatchService(manager)
+
+    metadata = service.preview_edit_metadata(
+        [interval.id], comment="Проверено", comment_mode="append", source="reviewed"
+    )
+    deletion = service.preview_delete([interval.id])
+
+    assert metadata.changed_count == 1
+    assert metadata.items[0].target_comment == "Исходный\nПроверено"
+    assert metadata.items[0].target_source == "reviewed"
+    assert deletion.changed_count == 1
+    assert deletion.items[0].target_type == "—"
+    assert manager.get_interval(interval.id).comment == "Исходный"
+    assert manager.can_undo is False
+
+
+def test_batch_preview_reuses_operation_validation(tmp_path: Path):
+    manager = _manager(tmp_path, {})
+    interval = manager.create(label="A", top=100, base=110)
+    service = InterpretationIntervalBatchService(manager)
+
+    with pytest.raises(ValueError, match="комментарий или источник"):
+        service.preview_edit_metadata([interval.id])
+    with pytest.raises(ValueError, match="длиннее 80"):
+        service.preview_edit_metadata([interval.id], source="x" * 81)
+    with pytest.raises(KeyError, match="не найдены"):
+        service.preview_delete(["missing"])
