@@ -105,8 +105,10 @@ def build_correlation_payload(
     )
     visible_ties = tuple(
         tie for tie in workspace.ties
-        if normalized.depth_min <= tie.left.depth <= normalized.depth_max
-        or normalized.depth_min <= tie.right.depth <= normalized.depth_max
+        if tie.visible and (
+            normalized.depth_min <= tie.left.depth <= normalized.depth_max
+            or normalized.depth_min <= tie.right.depth <= normalized.depth_max
+        )
     )
     return CorrelationChartPayload(wells, selected, normalized.depth_min, normalized.depth_max, visible_ties), normalized
 
@@ -172,7 +174,8 @@ def build_correlation_figure(
         x0, x1 = x_by_well[tie.left.well_id], x_by_well[tie.right.well_id]
         figure.add_trace(go.Scatter(
             x=[x0, x1], y=[tie.left.depth, tie.right.depth], mode="lines+markers",
-            line={"width": normalized.tie_width}, marker={"size": 7},
+            line={"width": tie.width, "color": tie.color, "dash": tie.dash},
+            marker={"size": 7, "color": tie.color},
             customdata=[[tie.id, tie.name, tie.note]] * 2,
             hovertemplate="<b>%{customdata[1]}</b><br>%{customdata[2]}<extra></extra>",
             name=tie.name, showlegend=False,
@@ -249,7 +252,9 @@ def export_correlation_svg(
         x0, x1 = x_by_well[tie.left.well_id], x_by_well[tie.right.well_id]
         y0 = plot_top + (tie.left.depth - payload.depth_min) * scale_y
         y1 = plot_top + (tie.right.depth - payload.depth_min) * scale_y
-        parts.append(f'<line x1="{x0:.1f}" y1="{y0:.1f}" x2="{x1:.1f}" y2="{y1:.1f}" stroke="#1f77b4" stroke-width="{normalized.tie_width:.1f}"/><title>{html.escape(tie.name)}</title>')
+        dash_map = {"solid": "", "dot": "2,4", "dash": "8,5", "longdash": "14,6", "dashdot": "8,4,2,4", "longdashdot": "14,5,2,5"}
+        dash_attr = f' stroke-dasharray="{dash_map.get(tie.dash, "")}"' if dash_map.get(tie.dash, "") else ""
+        parts.append(f'<line x1="{x0:.1f}" y1="{y0:.1f}" x2="{x1:.1f}" y2="{y1:.1f}" stroke="{html.escape(tie.color)}" stroke-width="{tie.width:.1f}"{dash_attr}/><title>{html.escape(tie.name)}</title>')
         if normalized.show_tie_labels:
             parts.append(f'<text x="{(x0+x1)/2:.1f}" y="{(y0+y1)/2 - 4:.1f}" font-size="10" text-anchor="middle">{html.escape(tie.name)}</text>')
     parts.append(f'<text x="20" y="{plot_top}" font-size="10">{payload.depth_min:g} м</text>')

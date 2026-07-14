@@ -724,3 +724,7 @@ Correlation inputs must come from published interpretation revisions. Correlatio
 ## Latest correlation increment: visual tablet
 
 Use `projects.interpretation_correlation_chart.py` to build the multi-well visual model, Plotly figure and standalone SVG export. The chart resolves exact published revisions pinned by ties and rejects mixed revisions for the same well. UI controls are rendering-only and must not be persisted inside `CorrelationWorkspace`. The next recommended correlation stage is quality diagnostics and confidence scoring for ties.
+
+## Latest increment: editable correlation workflow
+
+The multi-well correlation workspace now supports validated tie editing, individual line styles, grouped deletion, serializable Undo/Redo and a persistent bounded operation journal. Published interpretation revisions remain immutable inputs. The next large stage should focus on correlation quality metrics and assisted tie suggestions rather than further storage infrastructure.

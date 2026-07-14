@@ -401,3 +401,13 @@ Begin the multi-well correlation workspace using published interpretation revisi
 - One shared depth window controls every well track synchronously.
 - The current visual state can be exported as standalone SVG without an external renderer.
 - Next major stage: correlation quality diagnostics, horizon consistency checks and tie confidence scoring.
+
+## Editable correlation workflow completed
+
+- Correlation ties can now be edited without recreating them.
+- Endpoint depths remain constrained to the immutable published source intervals.
+- Individual color, width, dash and visibility are supported by Plotly and SVG output.
+- Add, edit and grouped delete operations are reversible through bounded Undo/Redo history.
+- External workspace changes invalidate unsafe Undo/Redo operations.
+- A compact persistent operation journal records correlation mutations without storing snapshots.
+- Next recommended stage: add correlation quality metrics, horizon consistency diagnostics and assisted tie suggestions.

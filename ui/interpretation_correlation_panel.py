@@ -13,6 +13,7 @@ from projects.interpretation_correlation import (
     export_correlation_csv,
     export_correlation_json,
 )
+from projects.interpretation_correlation_commands import CorrelationHistoryConflict, CorrelationWorkspaceCommandService
 from projects.interpretation_correlation_chart import (
     CorrelationChartSettings,
     build_correlation_figure,
@@ -73,6 +74,34 @@ def render_interpretation_correlation_panel(
         )
         workspace = repository.get(workspace_id)
         service = CorrelationWorkspaceService(root=root, project_id=project_id, workspace_id=workspace.id)
+        commands = CorrelationWorkspaceCommandService(
+            state, root=root, project_id=project_id, workspace_id=workspace.id
+        )
+        history = commands.history_status()
+        undo_col, redo_col, history_col = st.columns([1, 1, 2])
+        if undo_col.button(
+            "Отменить", disabled=not history["can_undo"],
+            key=f"correlation_undo_{workspace.id}", width="stretch",
+        ):
+            try:
+                commands.undo()
+            except (CorrelationHistoryConflict, ValueError, KeyError, OSError) as exc:
+                st.error(str(exc))
+            else:
+                st.rerun()
+        if redo_col.button(
+            "Повторить", disabled=not history["can_redo"],
+            key=f"correlation_redo_{workspace.id}", width="stretch",
+        ):
+            try:
+                commands.redo()
+            except (CorrelationHistoryConflict, ValueError, KeyError, OSError) as exc:
+                st.error(str(exc))
+            else:
+                st.rerun()
+        history_col.caption(
+            f"История: {history['undo_count']} отмен · {history['redo_count']} повторов"
+        )
 
         source_map = {_source_key(item): item for item in sources}
         source_options = list(source_map)
@@ -126,12 +155,12 @@ def render_interpretation_correlation_panel(
                 add_clicked = st.form_submit_button("Добавить корреляционную связь", width="stretch")
             if add_clicked:
                 try:
-                    service.add_tie(
+                    commands.add_tie(
                         left=CorrelationEndpoint(left_source.well_id, left_source.interpretation_id, left_source.revision_id,
                                                  left_interval.id, float(left_depth), left_interval.label),
                         right=CorrelationEndpoint(right_source.well_id, right_source.interpretation_id, right_source.revision_id,
                                                   right_interval.id, float(right_depth), right_interval.label),
-                        name=tie_name, note=tie_note, expected_state_token=workspace.state_token,
+                        name=tie_name, note=tie_note,
                     )
                 except (ValueError, KeyError, OSError) as exc:
                     st.error(str(exc))
@@ -196,31 +225,93 @@ def render_interpretation_correlation_panel(
                     "Связь": tie.name,
                     "Левая скважина": tie.left.well_id,
                     "Глубина слева": tie.left.depth,
-                    "Левый интервал": tie.left.label,
                     "Правая скважина": tie.right.well_id,
                     "Глубина справа": tie.right.depth,
-                    "Правый интервал": tie.right.label,
+                    "Цвет": tie.color,
+                    "Толщина": tie.width,
+                    "Линия": tie.dash,
+                    "Видима": tie.visible,
                     "Комментарий": tie.note,
                 }
                 for tie in workspace.ties
             ], width="stretch", hide_index=True)
             tie_ids = [tie.id for tie in workspace.ties]
-            selected_tie = st.selectbox(
-                "Связь для удаления", options=tie_ids,
+            selected_tie_id = st.selectbox(
+                "Выбранная корреляционная связь", options=tie_ids,
                 format_func=lambda value: next(tie.name for tie in workspace.ties if tie.id == value),
-                key=f"correlation_delete_tie_{workspace.id}",
+                key=f"correlation_selected_tie_{workspace.id}",
             )
-            confirm_delete = st.checkbox("Подтверждаю удаление связи", key=f"correlation_confirm_delete_{workspace.id}")
-            if st.button("Удалить выбранную связь", disabled=not confirm_delete, key=f"correlation_delete_{workspace.id}"):
+            selected_tie = next(item for item in workspace.ties if item.id == selected_tie_id)
+            with st.form(f"correlation_edit_tie_{workspace.id}_{selected_tie.id}"):
+                edit_name = st.text_input("Название", value=selected_tie.name)
+                edit_note = st.text_area("Комментарий", value=selected_tie.note)
+                depth_cols = st.columns(2)
+                edit_left_depth = depth_cols[0].number_input(
+                    "Опорная глубина слева, м", value=float(selected_tie.left.depth), format="%.3f"
+                )
+                edit_right_depth = depth_cols[1].number_input(
+                    "Опорная глубина справа, м", value=float(selected_tie.right.depth), format="%.3f"
+                )
+                style_cols = st.columns(4)
+                edit_color = style_cols[0].color_picker("Цвет", value=selected_tie.color)
+                edit_width = style_cols[1].slider("Толщина", 0.5, 8.0, float(selected_tie.width), 0.5)
+                dash_options = ["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"]
+                edit_dash = style_cols[2].selectbox(
+                    "Тип линии", dash_options, index=dash_options.index(selected_tie.dash)
+                )
+                edit_visible = style_cols[3].checkbox("Видима", value=selected_tie.visible)
+                save_tie = st.form_submit_button("Сохранить связь", width="stretch")
+            if save_tie:
                 try:
-                    service.delete_tie(selected_tie, expected_state_token=workspace.state_token)
+                    commands.update_tie(
+                        selected_tie.id, left_depth=float(edit_left_depth), right_depth=float(edit_right_depth),
+                        name=edit_name, note=edit_note, color=edit_color, width=float(edit_width),
+                        dash=edit_dash, visible=bool(edit_visible),
+                    )
                 except (ValueError, KeyError, OSError) as exc:
                     st.error(str(exc))
                 else:
-                    st.success("Корреляционная связь удалена.")
+                    st.success("Корреляционная связь обновлена.")
+                    st.rerun()
+
+            selected_for_delete = st.multiselect(
+                "Связи для удаления", options=tie_ids,
+                format_func=lambda value: next(tie.name for tie in workspace.ties if tie.id == value),
+                key=f"correlation_delete_ties_{workspace.id}",
+            )
+            confirm_delete = st.checkbox(
+                "Подтверждаю групповое удаление связей", key=f"correlation_confirm_delete_{workspace.id}"
+            )
+            if st.button(
+                "Удалить выбранные связи", disabled=not (confirm_delete and selected_for_delete),
+                key=f"correlation_delete_{workspace.id}", width="stretch",
+            ):
+                try:
+                    commands.delete_ties(tuple(selected_for_delete))
+                except (ValueError, KeyError, OSError) as exc:
+                    st.error(str(exc))
+                else:
+                    st.success("Выбранные связи удалены.")
                     st.rerun()
         else:
             st.info("В проекте ещё нет корреляционных связей.")
+
+        operations = commands.journal.list()
+        with st.expander("Журнал изменений корреляции", expanded=False):
+            if operations:
+                st.dataframe([
+                    {
+                        "Дата": item.get("timestamp", ""),
+                        "Операция": item.get("action", ""),
+                        "Связей до": item.get("tie_count_before", 0),
+                        "Связей после": item.get("tie_count_after", 0),
+                        "Добавлено": len(item.get("added_tie_ids", [])),
+                        "Удалено": len(item.get("removed_tie_ids", [])),
+                    }
+                    for item in reversed(operations)
+                ], width="stretch", hide_index=True)
+            else:
+                st.caption("Журнал изменений пока пуст.")
 
         export_left, export_right = st.columns(2)
         export_left.download_button(

@@ -22,6 +22,7 @@ CORRELATION_SCHEMA = "gas-ratio-pro/interpretation-correlation/v1"
 CORRELATION_DIR_NAME = "correlations"
 MAX_NAME = 160
 MAX_NOTE = 2000
+TIE_DASHES = {"solid", "dot", "dash", "longdash", "dashdot", "longdashdot"}
 
 
 def _utc_now() -> str:
@@ -90,8 +91,12 @@ class CorrelationTie:
     right: CorrelationEndpoint
     name: str
     note: str
-    created_at: str
-    updated_at: str
+    color: str = "#1F77B4"
+    width: float = 2.0
+    dash: str = "solid"
+    visible: bool = True
+    created_at: str = ""
+    updated_at: str = ""
 
 
 @dataclass(frozen=True)
@@ -176,7 +181,7 @@ class CorrelationWorkspaceRepository:
             raise KeyError(f"Корреляционный проект не найден: {clean_id}")
         return self._parse(json.loads(path.read_text(encoding="utf-8")))
 
-    def save(self, workspace: CorrelationWorkspace, *, expected_state_token: str = "") -> CorrelationWorkspace:
+    def save(self, workspace: CorrelationWorkspace, *, expected_state_token: str = "", preserve_updated_at: bool = False) -> CorrelationWorkspace:
         if expected_state_token:
             current = self.get(workspace.id)
             if current.state_token != expected_state_token:
@@ -185,7 +190,8 @@ class CorrelationWorkspaceRepository:
             id=_uuid(workspace.id), name=_clean(workspace.name, "Название", MAX_NAME, True),
             description=_clean(workspace.description, "Описание", MAX_NOTE),
             wells=self._normalize_wells(workspace.wells), ties=tuple(workspace.ties),
-            created_at=workspace.created_at or _utc_now(), updated_at=_utc_now(),
+            created_at=workspace.created_at or _utc_now(),
+            updated_at=(workspace.updated_at or _utc_now()) if preserve_updated_at else _utc_now(),
         )
         _atomic_write(self.directory / normalized.id / "correlation.json", {
             "schema": CORRELATION_SCHEMA, "project_id": self.project_id, **asdict(normalized)
@@ -207,9 +213,15 @@ class CorrelationWorkspaceRepository:
         for row in payload.get("ties", []):
             left = CorrelationEndpoint(**row["left"])
             right = CorrelationEndpoint(**row["right"])
-            ties.append(CorrelationTie(id=_uuid(row.get("id")), left=left, right=right,
-                                       name=str(row.get("name", "")), note=str(row.get("note", "")),
-                                       created_at=str(row.get("created_at", "")), updated_at=str(row.get("updated_at", ""))))
+            ties.append(CorrelationTie(
+                id=_uuid(row.get("id")), left=left, right=right,
+                name=str(row.get("name", "")), note=str(row.get("note", "")),
+                color=self._normalize_color(row.get("color", "#1F77B4")),
+                width=self._normalize_width(row.get("width", 2.0)),
+                dash=self._normalize_dash(row.get("dash", "solid")),
+                visible=bool(row.get("visible", True)),
+                created_at=str(row.get("created_at", "")), updated_at=str(row.get("updated_at", "")),
+            ))
         return CorrelationWorkspace(id=_uuid(payload.get("id")), name=str(payload.get("name", "")),
                                     description=str(payload.get("description", "")),
                                     wells=self._normalize_wells(tuple(payload.get("wells", ()))), ties=tuple(ties),
@@ -219,6 +231,31 @@ class CorrelationWorkspaceRepository:
     def _normalize_wells(wells: tuple[str, ...]) -> tuple[str, ...]:
         return tuple(dict.fromkeys(safe_well_id(item) for item in wells if str(item).strip()))
 
+    @staticmethod
+    def _normalize_color(value: Any) -> str:
+        color = str(value or "#1F77B4").strip().upper()
+        if len(color) != 7 or not color.startswith("#"):
+            raise ValueError("Цвет связи должен быть в формате #RRGGBB.")
+        try:
+            int(color[1:], 16)
+        except ValueError as exc:
+            raise ValueError("Цвет связи должен быть в формате #RRGGBB.") from exc
+        return color
+
+    @staticmethod
+    def _normalize_width(value: Any) -> float:
+        width = float(value)
+        if not 0.5 <= width <= 8.0:
+            raise ValueError("Толщина связи должна быть от 0.5 до 8.0.")
+        return width
+
+    @staticmethod
+    def _normalize_dash(value: Any) -> str:
+        dash = str(value or "solid").strip().lower()
+        if dash not in TIE_DASHES:
+            raise ValueError("Неподдерживаемый тип линии связи.")
+        return dash
+
 
 class CorrelationWorkspaceService:
     def __init__(self, *, root: Path | str = DEFAULT_PROJECTS_ROOT, project_id: str, workspace_id: str) -> None:
@@ -227,8 +264,62 @@ class CorrelationWorkspaceService:
         self.repository = CorrelationWorkspaceRepository(root=root, project_id=project_id)
         self.workspace_id = _uuid(workspace_id)
 
-    def add_tie(self, *, left: CorrelationEndpoint, right: CorrelationEndpoint, name: str = "", note: str = "", expected_state_token: str = "") -> CorrelationWorkspace:
+    def add_tie(self, *, left: CorrelationEndpoint, right: CorrelationEndpoint, name: str = "", note: str = "",
+                color: str = "#1F77B4", width: float = 2.0, dash: str = "solid", visible: bool = True,
+                expected_state_token: str = "") -> CorrelationWorkspace:
         workspace = self.repository.get(self.workspace_id)
+        self._validate_endpoints(left, right)
+        now = _utc_now()
+        tie = CorrelationTie(
+            id=str(uuid4()), left=left, right=right,
+            name=_clean(name, "Название связи", MAX_NAME) or f"{left.label} ↔ {right.label}",
+            note=_clean(note, "Комментарий", MAX_NOTE),
+            color=self.repository._normalize_color(color), width=self.repository._normalize_width(width),
+            dash=self.repository._normalize_dash(dash), visible=bool(visible),
+            created_at=now, updated_at=now,
+        )
+        updated = CorrelationWorkspace(id=workspace.id, name=workspace.name, description=workspace.description,
+                                       wells=tuple((*workspace.wells, left.well_id, right.well_id)),
+                                       ties=tuple((*workspace.ties, tie)), created_at=workspace.created_at, updated_at=workspace.updated_at)
+        return self.repository.save(updated, expected_state_token=expected_state_token)
+
+    def update_tie(self, tie_id: str, *, left_depth: float | None = None, right_depth: float | None = None,
+                   name: str | None = None, note: str | None = None, color: str | None = None,
+                   width: float | None = None, dash: str | None = None, visible: bool | None = None,
+                   expected_state_token: str = "") -> CorrelationWorkspace:
+        workspace = self.repository.get(self.workspace_id)
+        clean_id = _uuid(tie_id)
+        current = next((item for item in workspace.ties if item.id == clean_id), None)
+        if current is None:
+            raise KeyError("Корреляционная связь не найдена.")
+        left = CorrelationEndpoint(**{**asdict(current.left), "depth": float(current.left.depth if left_depth is None else left_depth)})
+        right = CorrelationEndpoint(**{**asdict(current.right), "depth": float(current.right.depth if right_depth is None else right_depth)})
+        self._validate_endpoints(left, right)
+        now = _utc_now()
+        changed = CorrelationTie(
+            id=current.id, left=left, right=right,
+            name=current.name if name is None else (_clean(name, "Название связи", MAX_NAME) or f"{left.label} ↔ {right.label}"),
+            note=current.note if note is None else _clean(note, "Комментарий", MAX_NOTE),
+            color=current.color if color is None else self.repository._normalize_color(color),
+            width=current.width if width is None else self.repository._normalize_width(width),
+            dash=current.dash if dash is None else self.repository._normalize_dash(dash),
+            visible=current.visible if visible is None else bool(visible),
+            created_at=current.created_at, updated_at=now,
+        )
+        ties = tuple(changed if item.id == clean_id else item for item in workspace.ties)
+        updated = CorrelationWorkspace(workspace.id, workspace.name, workspace.description, workspace.wells, ties, workspace.created_at, workspace.updated_at)
+        return self.repository.save(updated, expected_state_token=expected_state_token)
+
+    def delete_ties(self, tie_ids: tuple[str, ...], *, expected_state_token: str = "") -> CorrelationWorkspace:
+        workspace = self.repository.get(self.workspace_id)
+        selected = {_uuid(item) for item in tie_ids}
+        ties = tuple(item for item in workspace.ties if item.id not in selected)
+        if len(ties) == len(workspace.ties):
+            raise KeyError("Корреляционные связи не найдены.")
+        updated = CorrelationWorkspace(workspace.id, workspace.name, workspace.description, workspace.wells, ties, workspace.created_at, workspace.updated_at)
+        return self.repository.save(updated, expected_state_token=expected_state_token)
+
+    def _validate_endpoints(self, left: CorrelationEndpoint, right: CorrelationEndpoint) -> None:
         if left.well_id == right.well_id:
             raise ValueError("Корреляционная связь должна соединять разные скважины.")
         inputs = {(item.well_id, item.interpretation_id, item.revision_id): item for item in discover_published_interpretations(root=self.root, project_id=self.project_id)}
@@ -241,14 +332,6 @@ class CorrelationWorkspaceService:
                 raise ValueError("Интервал корреляции отсутствует в опубликованной ревизии.")
             if not interval.top <= float(endpoint.depth) <= interval.base:
                 raise ValueError("Опорная глубина должна находиться внутри выбранного интервала.")
-        now = _utc_now()
-        tie = CorrelationTie(id=str(uuid4()), left=left, right=right,
-                             name=_clean(name, "Название связи", MAX_NAME) or f"{left.label} ↔ {right.label}",
-                             note=_clean(note, "Комментарий", MAX_NOTE), created_at=now, updated_at=now)
-        updated = CorrelationWorkspace(id=workspace.id, name=workspace.name, description=workspace.description,
-                                       wells=tuple((*workspace.wells, left.well_id, right.well_id)),
-                                       ties=tuple((*workspace.ties, tie)), created_at=workspace.created_at, updated_at=workspace.updated_at)
-        return self.repository.save(updated, expected_state_token=expected_state_token)
 
     def delete_tie(self, tie_id: str, *, expected_state_token: str = "") -> CorrelationWorkspace:
         workspace = self.repository.get(self.workspace_id)

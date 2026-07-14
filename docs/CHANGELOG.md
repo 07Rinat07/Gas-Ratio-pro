@@ -2434,3 +2434,12 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added aligned depth tracks, interval overlays, tie-line rendering and synchronized depth range controls.
 - Added label, opacity and tie-width controls without mutating correlation data.
 - Added dependency-free SVG export of the current tablet view.
+
+## 2026-07-14 — Editable multi-well correlation workflow
+
+- Added backward-compatible per-tie color, width, dash and visibility settings.
+- Added validated editing of tie names, notes and endpoint depths.
+- Added serializable correlation Undo/Redo with external-change conflict protection.
+- Added grouped tie deletion as one reversible command.
+- Added a bounded persistent correlation operation journal.
+- Updated Plotly and SVG renderers to respect individual tie styles and visibility.
