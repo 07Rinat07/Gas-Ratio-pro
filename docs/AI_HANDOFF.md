@@ -658,3 +658,20 @@ Use `projects.interpretation_interval_imports` for parsing and applying manual i
 ## Latest increment: manual interval navigator
 
 The interpretation workspace now renders a compact Plotly navigator after the manual interval panel. Selection events update `manual_interval_selected_<project>_<well>` using only the interval UUID, so the existing panel and tablet highlighting remain the source of truth. The helper lives in `ui/interpretation_interval_navigator.py` and is covered by `tests/test_interpretation_interval_navigator.py`.
+
+# Latest implementation — Interpretation Interval Type Catalog
+
+Status: COMPLETED
+
+Implemented:
+- project-scoped atomic JSON repository for interval types;
+- default geological type presets;
+- Streamlit management UI for create/update/delete/reset;
+- catalog-backed type selection in interval create/edit forms;
+- backward compatibility for intervals whose type is not present in the catalog.
+
+Validation:
+- syntax compilation passed;
+- 34 focused interpretation interval tests passed.
+
+Next priority: batch operations for manual intervals or direct selection on the engineering tablet interval track.

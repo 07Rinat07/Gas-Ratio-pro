@@ -24,6 +24,7 @@ from projects.interpretation_interval_manager import (
     InterpretationIntervalOverlapError,
 )
 from projects.interpretation_interval_properties import InterpretationIntervalPropertiesService
+from projects.interpretation_interval_types import InterpretationIntervalTypeRepository
 from projects.repository import DEFAULT_PROJECTS_ROOT
 
 
@@ -61,6 +62,8 @@ def render_interpretation_interval_panel(
         well_id=well_id,
     )
     properties_service = InterpretationIntervalPropertiesService(manager)
+    type_repository = InterpretationIntervalTypeRepository(root=root, project_id=project_id)
+    interval_types = type_repository.list()
     intervals = manager.list_intervals()
 
     with st.expander("Ручные интервалы интерпретации", expanded=False):
@@ -84,6 +87,68 @@ def render_interpretation_interval_panel(
             manager.redo()
             st.rerun()
         action_right.caption(f"Интервалов: {len(intervals)}")
+
+        with st.expander("Справочник типов интервалов", expanded=False):
+            st.caption("Типы хранятся на уровне проекта и доступны всем его скважинам.")
+            if interval_types:
+                st.dataframe(
+                    [
+                        {
+                            "ID": item.id,
+                            "Название": item.name,
+                            "Цвет": item.color,
+                            "Описание": item.description,
+                        }
+                        for item in interval_types
+                    ],
+                    width="stretch",
+                    hide_index=True,
+                )
+            with st.form(f"manual_interval_type_upsert_{project_id}", clear_on_submit=True):
+                type_id_input = st.text_input("ID типа", placeholder="например: tight_gas")
+                type_name_input = st.text_input("Название типа")
+                type_color_input = st.color_picker("Цвет типа", value="#4C78A8")
+                type_description_input = st.text_area("Описание типа")
+                type_save_clicked = st.form_submit_button("Добавить или обновить тип", width="stretch")
+            if type_save_clicked:
+                try:
+                    type_repository.upsert(
+                        type_id=type_id_input,
+                        name=type_name_input,
+                        color=type_color_input,
+                        description=type_description_input,
+                    )
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    st.success("Тип интервала сохранён.")
+                    st.rerun()
+            if interval_types:
+                type_delete_id = st.selectbox(
+                    "Тип для удаления",
+                    options=[item.id for item in interval_types],
+                    format_func=lambda value: next(
+                        (f"{item.name} ({item.id})" for item in interval_types if item.id == value),
+                        value,
+                    ),
+                    key=f"manual_interval_type_delete_select_{project_id}",
+                )
+                if st.button(
+                    "Удалить тип из справочника",
+                    key=f"manual_interval_type_delete_{project_id}",
+                    width="stretch",
+                ):
+                    type_repository.delete(type_delete_id)
+                    st.success("Тип удалён из справочника. Существующие интервалы не изменены.")
+                    st.rerun()
+            if st.button(
+                "Восстановить типы по умолчанию",
+                key=f"manual_interval_type_reset_{project_id}",
+                width="stretch",
+            ):
+                type_repository.reset_defaults()
+                st.success("Справочник типов восстановлен.")
+                st.rerun()
 
         if intervals:
             export_json = export_interpretation_intervals_json(
@@ -174,8 +239,20 @@ def render_interpretation_interval_panel(
             base = create_base_col.number_input("Низ, м", step=0.1, format="%.3f")
             label = st.text_input("Подпись", value="Интервал")
             type_col, color_col = st.columns(2)
-            interval_type = type_col.text_input("Тип", value="undefined")
-            color = color_col.color_picker("Цвет", value="#4C78A8")
+            type_ids = [item.id for item in interval_types] or ["undefined"]
+            interval_type = type_col.selectbox(
+                "Тип",
+                options=type_ids,
+                format_func=lambda value: next(
+                    (f"{item.name} ({item.id})" for item in interval_types if item.id == value),
+                    value,
+                ),
+            )
+            default_type_color = next(
+                (item.color for item in interval_types if item.id == interval_type),
+                "#4C78A8",
+            )
+            color = color_col.color_picker("Цвет", value=default_type_color)
             comment = st.text_area("Комментарий")
             reject_overlaps = st.checkbox("Запрещать пересечения", value=False)
             create_clicked = st.form_submit_button("Добавить интервал", width="stretch")
@@ -228,7 +305,18 @@ def render_interpretation_interval_panel(
             metrics_left, metrics_right = st.columns(2)
             metrics_left.metric("Мощность, м", f"{selected.thickness:g}")
             metrics_right.metric("Средняя глубина, м", f"{selected.middle_depth:g}")
-            type_value = st.text_input("Тип интервала", value=selected.interval_type)
+            edit_type_ids = [item.id for item in interval_types]
+            if selected.interval_type not in edit_type_ids:
+                edit_type_ids.append(selected.interval_type)
+            type_value = st.selectbox(
+                "Тип интервала",
+                options=edit_type_ids,
+                index=edit_type_ids.index(selected.interval_type),
+                format_func=lambda value: next(
+                    (f"{item.name} ({item.id})" for item in interval_types if item.id == value),
+                    f"{value} (вне справочника)",
+                ),
+            )
             color_value = st.color_picker("Цвет интервала", value=selected.color)
             comment_value = st.text_area("Комментарий интервала", value=selected.comment)
             reject_update_overlaps = st.checkbox(

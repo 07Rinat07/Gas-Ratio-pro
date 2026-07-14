@@ -2275,3 +2275,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Reused the existing UUID-only Plotly selection boundary to synchronize the properties panel.
 - Added a compatibility fallback for Streamlit versions without Plotly selection callbacks.
 - Kept Plotly event payloads and runtime objects out of serializable application state.
+
+## Interpretation interval type catalog
+
+- Added a project-scoped catalog for interpretation interval types.
+- Added built-in geological type presets with names, colors and descriptions.
+- Connected type selection to interval create and edit forms.
+- Existing intervals remain valid when a catalog entry is removed.

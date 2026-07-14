@@ -207,3 +207,10 @@ Next recommended increment: improve tablet interaction for manual intervals with
 - Selection stores only the interval UUID and synchronizes with the existing properties panel and tablet focus.
 - Older Streamlit versions continue rendering charts without interactive selection.
 - Next step: add direct selection to the engineering tablet interval track or add interval type management.
+
+## Project-scoped interpretation interval type catalog
+
+- Manual interval types are now managed through a project-scoped persistent catalog.
+- Each type has a stable ID, display name, default color and description.
+- Create and edit forms use catalog values while preserving legacy/custom interval types.
+- Next step: add batch operations for manual intervals or direct selection on the engineering tablet track.
