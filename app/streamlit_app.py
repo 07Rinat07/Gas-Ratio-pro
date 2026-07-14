@@ -241,6 +241,7 @@ from core.cache_metrics import CacheMetricsRegistry
 from core.correlation_runtime_cache import CorrelationRenderArtifacts, CorrelationRuntimeCache
 from core.session_state_audit import audit_session_state
 from core.performance_audit import build_workspace_performance_gate, evaluate_performance
+from core.operation_tracing import OperationTraceRegistry, trace_context
 from core.render_queue import RenderQueue, RenderTask
 from core.lazy_workspace import LazyWorkspaceRegistry, WorkspaceRoute
 from palettes.depth_tracks import (
@@ -15045,6 +15046,12 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         expected_type=CorrelationRuntimeCache,
         scope="workspace",
     )
+    operation_trace_registry = correlation_state_controller.ensure_runtime_service(
+        "operation_trace_registry",
+        lambda: OperationTraceRegistry(max_events=256, slow_threshold_ms=1000.0),
+        expected_type=OperationTraceRegistry,
+        scope="session",
+    )
     cache_lookup_started = perf_counter()
     cached_correlation = correlation_runtime_cache.get(figure_cache_key)
     cache_lookup_ms = (perf_counter() - cache_lookup_started) * 1000.0
@@ -15219,6 +15226,16 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         item_count=1,
     )
     correlation_events = correlation_diagnostics.snapshot_since(correlation_cycle_marker)
+    with trace_context(
+        project_id=active_project.id,
+        route_id="nav.correlation",
+        execution_id=f"correlation-{int(correlation_cycle_marker * 1000)}",
+    ):
+        operation_trace_registry.ingest_runtime_events(
+            correlation_events,
+            category="performance",
+            execution_id=f"correlation-{int(correlation_cycle_marker * 1000)}",
+        )
     correlation_summary = evaluate_performance(correlation_events)
     correlation_gate = build_workspace_performance_gate(correlation_summary)
     correlation_cache = correlation_diagnostics.cache_summary(stage_prefix="correlation")

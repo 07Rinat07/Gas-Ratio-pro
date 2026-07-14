@@ -496,3 +496,13 @@ Next priority: add byte-aware cache limits and cold/warm benchmark baselines fro
 - Developer Diagnostics displays runtime scopes and Session State ownership summaries.
 
 Next priority: migrate remaining high-value transient keys and runtime caches to explicit registry ownership, then add byte-aware cache limits and cold/warm benchmark baselines.
+
+## Phase 2 — Logging 2.0 and performance tracing
+
+- Added bounded structured operation traces with execution, project and route context.
+- Correlation render stages are grouped under one execution identifier for end-to-end diagnostics.
+- Slow and failed operations are classified without retaining Plotly figures, DataFrames or repository payloads.
+- Extended Developer Diagnostics with trace summaries and recent operation events.
+- Added framework-neutral trace contexts based on `contextvars`; context is never stored in serializable Session State.
+
+Next priority: establish repeatable cold/warm correlation benchmarks and add byte-aware limits to runtime caches.

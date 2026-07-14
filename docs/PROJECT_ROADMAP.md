@@ -1634,3 +1634,11 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Surface repository metrics in Developer Diagnostics.
 - [x] Preserve backward-compatible repository constructors.
 - [ ] Next: migrate the correlation figure cache into a bounded runtime cache service.
+
+## Phase 2 engineering update — Logging and tracing
+
+- [x] Structured operation tracing with bounded runtime storage.
+- [x] Correlation execution grouping and slow-stage classification.
+- [x] Diagnostics Center trace summary and recent-event inspection.
+- [ ] Cold/warm correlation benchmark baselines.
+- [ ] Byte-aware runtime cache eviction.

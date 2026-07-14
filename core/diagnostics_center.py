@@ -12,6 +12,7 @@ from core.cache_metrics import CacheMetricsRegistry
 from core.runtime_diagnostics import RuntimeDiagnostics
 from core.runtime_service_registry import RuntimeServiceRegistry, runtime_service_registry
 from core.repository_io import RepositoryIOMetrics
+from core.operation_tracing import OperationTraceRegistry
 from core.session_state_audit import audit_session_state
 
 
@@ -60,6 +61,15 @@ def _repository_snapshot(service: Any) -> dict[str, Any]:
     return service.snapshot().to_dict()
 
 
+
+def _trace_snapshot(service: Any, *, limit: int) -> dict[str, Any]:
+    if not isinstance(service, OperationTraceRegistry):
+        return {"summary": {}, "events": []}
+    return {
+        "summary": dict(service.summary()),
+        "events": [item.to_dict() for item in service.snapshot(limit=limit)],
+    }
+
 def _budget_snapshot(events: list[dict[str, Any]], budgets: Mapping[str, float]) -> list[dict[str, Any]]:
     latest: dict[str, float] = {}
     for event in events:
@@ -95,6 +105,7 @@ def build_diagnostics_center_snapshot(
     events = _runtime_events(runtime_service, limit=event_limit)
     cache = _cache_snapshot(registry.get("cache_metrics_registry"))
     repository = _repository_snapshot(registry.get("repository_io_metrics"))
+    traces = _trace_snapshot(registry.get("operation_trace_registry"), limit=event_limit)
     session = audit_session_state(state).to_dict()
     descriptors = [
         {"key": item.key, "type_name": item.type_name}
@@ -112,6 +123,7 @@ def build_diagnostics_center_snapshot(
         },
         "cache": cache,
         "repository": repository,
+        "traces": traces,
         "session": session,
         "budgets": _budget_snapshot(events, budgets),
     }

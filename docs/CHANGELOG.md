@@ -2502,3 +2502,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added scoped runtime-service lifecycle management for project, well, LAS and workspace boundaries.
 - Made the correlation render cache workspace-scoped and automatically disposable on context changes.
 - Preserved the existing Diagnostics Center service-list contract while exposing scopes separately.
+
+## 2026-07-14 — Logging 2.0 and performance tracing
+
+- Added `OperationTraceRegistry` with bounded primitive-only operation events.
+- Added scoped trace context for execution, session, project and route identifiers.
+- Integrated correlation runtime stages into one trace execution.
+- Added slow-operation classification and trace diagnostics to Developer Diagnostics.
+- Added regression tests for context isolation, bounded storage, failure recording and diagnostics serialization.

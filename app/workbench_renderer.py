@@ -758,6 +758,7 @@ def _render_native_streamlit_layout(
                 runtime = dict(center.get("runtime", {}) or {})
                 cache = dict(center.get("cache", {}) or {})
                 repository_io = dict(center.get("repository", {}) or {})
+                traces = dict(center.get("traces", {}) or {})
                 session = dict(center.get("session", {}) or {})
                 registry_stats = dict(runtime.get("registry", {}) or {})
                 cache_summary = dict(cache.get("summary", {}) or {})
@@ -799,6 +800,18 @@ def _render_native_streamlit_layout(
                 repository_events = list(repository_io.get("events", ()) or ())
                 if repository_events and hasattr(st_module, "dataframe"):
                     st_module.dataframe(repository_events, width="stretch", hide_index=True)
+
+                st_module.markdown("##### Operation traces")
+                trace_summary = dict(traces.get("summary", {}) or {})
+                st_module.caption(
+                    "Events: " + str(trace_summary.get("events", 0))
+                    + " | Slow: " + str(trace_summary.get("slow_events", 0))
+                    + " | Failed: " + str(trace_summary.get("failed_events", 0))
+                    + " | Max: " + str(trace_summary.get("maximum_duration_ms", 0.0)) + " ms"
+                )
+                trace_events = list(traces.get("events", ()) or ())
+                if trace_events and hasattr(st_module, "dataframe"):
+                    st_module.dataframe(trace_events, width="stretch", hide_index=True)
 
                 st_module.markdown("##### Session State")
                 st_module.caption(
