@@ -64,7 +64,9 @@ def _repository_snapshot(service: Any) -> dict[str, Any]:
             "total_duration_ms": 0.0, "average_duration_ms": 0.0,
             "events": [],
         }
-    return service.snapshot().to_dict()
+    snapshot = service.snapshot().to_dict()
+    snapshot["mutations"] = service.mutation_snapshot()
+    return snapshot
 
 
 

@@ -1672,3 +1672,10 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Restore navigation state from runtime cache after Session State cleanup.
 - [x] Expose hit-rate, invalidations, evictions and token cost in Developer Diagnostics.
 - [ ] Next: connect repository write operations to explicit navigation invalidation hooks.
+
+### Phase 2 — Repository cache coherence (completed)
+
+- Shared repository mutation notifications.
+- Targeted project navigation cache invalidation.
+- Active-project DataFrame cache invalidation.
+- Mutation diagnostics and failure isolation.

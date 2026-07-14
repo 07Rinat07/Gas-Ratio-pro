@@ -861,6 +861,12 @@ def _render_native_streamlit_layout(
                     + " | Failures: " + str(repository_io.get("failures", 0))
                     + " | Avg: " + str(repository_io.get("average_duration_ms", 0.0)) + " ms"
                 )
+                mutation_info = dict(repository_io.get("mutations", {}) or {})
+                st_module.caption(
+                    "Mutations: " + str(mutation_info.get("mutation_count", 0))
+                    + " | Subscribers: " + str(mutation_info.get("subscriber_count", 0))
+                    + " | Notification failures: " + str(mutation_info.get("mutation_failures", 0))
+                )
                 repository_events = list(repository_io.get("events", ()) or ())
                 if repository_events and hasattr(st_module, "dataframe"):
                     st_module.dataframe(repository_events, width="stretch", hide_index=True)

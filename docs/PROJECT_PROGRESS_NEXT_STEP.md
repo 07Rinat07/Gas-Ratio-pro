@@ -555,3 +555,9 @@ Next stabilization focus: reduce import-time coupling in `app/streamlit_app.py` 
 Workbench project navigation now uses a bounded process-local LRU cache keyed by project metadata fingerprints. Route changes reuse serialized primitive explorer rows, while metadata changes invalidate only the affected project entry and trigger a deterministic rebuild. Developer Diagnostics reports hit-rate, token cost, metadata-file count, invalidation reason and eviction totals.
 
 Next stabilization focus: move remaining route-specific render providers behind lazy module factories and add explicit repository write hooks that invalidate navigation immediately instead of waiting for the next fingerprint check.
+
+## Phase 2 update — repository cache coherence
+
+Completed a repository-wide mutation contract for hardened JSON stores. Successful writes and deletes now notify project-scoped runtime caches, allowing targeted invalidation instead of waiting for a later metadata fingerprint mismatch. Diagnostics expose mutation counts, subscribers and notification failures using primitive-only snapshots.
+
+Next engineering focus: expand the mutation contract to remaining repositories and add dependency tags for figure, export and interpretation caches.

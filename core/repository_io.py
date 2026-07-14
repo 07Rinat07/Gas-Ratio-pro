@@ -13,7 +13,7 @@ from collections import deque
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from time import perf_counter, time
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,13 +58,66 @@ class RepositoryIOSnapshot:
 
 
 class RepositoryIOMetrics:
-    """Bounded process-local telemetry for repository operations."""
+    """Bounded process-local telemetry and repository mutation notifications."""
 
     def __init__(self, *, max_events: int = 100) -> None:
         if int(max_events) < 1:
             raise ValueError("max_events must be positive")
         self.max_events = int(max_events)
         self._events: deque[RepositoryIOEvent] = deque(maxlen=self.max_events)
+        self._mutation_subscribers: dict[str, Callable[[dict[str, Any]], None]] = {}
+        self._mutation_count = 0
+        self._mutation_failures = 0
+        self._last_mutation: dict[str, Any] = {}
+
+
+    def subscribe_mutations(
+        self, name: str, callback: Callable[[dict[str, Any]], None]
+    ) -> None:
+        clean = str(name).strip()
+        if not clean:
+            raise ValueError("mutation subscriber name must not be empty")
+        self._mutation_subscribers[clean] = callback
+
+    def unsubscribe_mutations(self, name: str) -> bool:
+        return self._mutation_subscribers.pop(str(name), None) is not None
+
+    @staticmethod
+    def project_id_from_path(path: Path | str) -> str:
+        parts = Path(path).parts
+        try:
+            index = parts.index("projects")
+        except ValueError:
+            return ""
+        return str(parts[index + 1]) if index + 1 < len(parts) else ""
+
+    def notify_mutation(
+        self, *, repository: str, operation: str, path: Path | str
+    ) -> None:
+        target = Path(path)
+        event = {
+            "repository": str(repository),
+            "operation": str(operation),
+            "path_name": target.name,
+            "suffix": target.suffix.lower(),
+            "project_id": self.project_id_from_path(target),
+            "timestamp": time(),
+        }
+        self._mutation_count += 1
+        self._last_mutation = dict(event)
+        for callback in tuple(self._mutation_subscribers.values()):
+            try:
+                callback(dict(event))
+            except Exception:
+                self._mutation_failures += 1
+
+    def mutation_snapshot(self) -> dict[str, Any]:
+        return {
+            "mutation_count": self._mutation_count,
+            "mutation_failures": self._mutation_failures,
+            "subscriber_count": len(self._mutation_subscribers),
+            "last_mutation": dict(self._last_mutation),
+        }
 
     def record(
         self,
@@ -208,6 +261,8 @@ class AtomicJsonStore:
             if temporary is not None:
                 temporary.unlink(missing_ok=True)
         self._record("write", "success", started, target, bytes_count=len(encoded))
+        if self.metrics is not None:
+            self.metrics.notify_mutation(repository=self.repository, operation="write", path=target)
         return len(encoded)
 
     def delete(self, path: Path | str, *, missing_ok: bool = True) -> bool:
@@ -220,4 +275,6 @@ class AtomicJsonStore:
             self._record("delete", "failed", started, target, error=exc)
             raise
         self._record("delete", "success", started, target)
+        if existed and self.metrics is not None:
+            self.metrics.notify_mutation(repository=self.repository, operation="delete", path=target)
         return existed

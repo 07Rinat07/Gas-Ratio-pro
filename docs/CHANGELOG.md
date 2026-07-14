@@ -2568,3 +2568,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added automatic per-project invalidation when navigation metadata changes.
 - Added restoration of current navigation Session State from the runtime cache.
 - Added cache reason, token timing, metadata-file count, hit-rate and eviction diagnostics.
+
+## Phase 2 — Repository cache coherence
+
+- Added repository mutation notifications to the shared atomic JSON store.
+- Added targeted invalidation of project navigation and active-project DataFrame runtime caches.
+- Added mutation/subscriber diagnostics without retaining repository payloads.
+- Isolated subscriber failures so cache-coherence diagnostics cannot break durable writes.

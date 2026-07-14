@@ -15540,6 +15540,29 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
         navigation_token_ms = 0.0
         navigation_metadata_files = 0
         diagnostics_registry = runtime_service_registry(state)
+        from core.repository_io import RepositoryIOMetrics
+        repository_metrics = diagnostics_registry.ensure(
+            "repository_io_metrics", RepositoryIOMetrics,
+            expected_type=RepositoryIOMetrics, scope="session",
+        )
+
+        def _invalidate_project_runtime_caches(event: dict[str, Any]) -> None:
+            changed_project = str(event.get("project_id") or "")
+            if not changed_project:
+                return
+            navigation_cache_service = diagnostics_registry.get("project_navigation_runtime_cache")
+            if navigation_cache_service is not None:
+                navigation_cache_service.invalidate(
+                    changed_project, reason=f"repository-{event.get('operation', 'mutation')}"
+                )
+            active_id = str(getattr(active_project, "id", "") or "")
+            dataframe_cache_service = diagnostics_registry.get("dataframe_runtime_cache")
+            if dataframe_cache_service is not None and active_id == changed_project:
+                dataframe_cache_service.clear()
+
+        repository_metrics.subscribe_mutations(
+            "workbench_project_cache_coherence", _invalidate_project_runtime_caches
+        )
         if PROJECT_RECORD in requirements:
             active_project = data_timer.measure_project(lambda: _resolve_active_project_for_workbench(logger))
         if PROJECT_NAVIGATION in requirements and active_project is not None:
