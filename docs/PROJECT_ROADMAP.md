@@ -1611,7 +1611,9 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Instrument the LAS correlation render pipeline by stage.
 - [x] Add correlation performance budgets and cache hit-rate telemetry.
 - [x] Add serializable runtime-service lifecycle counters.
+- [x] Add a shared cache metrics registry for runtime caches.
+- [x] Add payload-free Session State audit diagnostics.
 - [ ] Move the correlation figure cache behind `RuntimeServiceRegistry`.
 - [ ] Add bounded cache eviction and memory-budget telemetry.
-- [ ] Add a diagnostics UI for runtime, cache and render metrics.
+- [ ] Add a diagnostics UI for runtime, cache, session and render metrics.
 - [ ] Establish cold/warm correlation benchmark baselines for 1, 2, 5 and 10 wells.

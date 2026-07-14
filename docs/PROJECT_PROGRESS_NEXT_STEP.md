@@ -447,3 +447,12 @@ Completed first Runtime & Performance Foundation increment:
 - runtime service registry exposes serializable lifecycle counters.
 
 Next priority: move the legacy correlation figure cache from ordinary Session State into a bounded runtime cache service, add eviction/memory telemetry, and compare cold/warm render timings from real logs.
+
+
+## Phase 2 — Cache metrics and Session State diagnostics
+
+- Added one framework-neutral cache telemetry registry with hit, miss, invalidation, eviction and entry counters.
+- Dataframe runtime cache now publishes metrics through the shared registry without exposing cached data.
+- Added a payload-free Session State audit for runtime objects, transient keys, unscoped keys and value-type counts.
+- Correlation logs now include compact session-state diagnostics for every measured render cycle.
+- Next priority: migrate the legacy correlation figure cache behind RuntimeServiceRegistry and enforce bounded entry/memory eviction.

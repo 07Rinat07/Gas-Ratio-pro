@@ -1,3 +1,9 @@
+## Phase 2 — Cache Metrics and Session State Diagnostics
+- Added shared runtime cache telemetry for hits, misses, invalidations, evictions and entry counts.
+- Connected the dataframe runtime cache to the common telemetry contract.
+- Added payload-free Session State auditing without deepcopy or serialization of live values.
+- Added compact runtime-state diagnostics to correlation performance logs.
+
 ## v222.12 — Professional Report Visualization Renderer
 - Replaced the bare reduced plot snapshot with a print-specific visualization contract.
 - Added explicit curve colours, names and engineering descriptions to PDF and DOCX.

@@ -88,3 +88,39 @@ def test_sample_cache_is_bounded() -> None:
     stats = cache.stats()
     assert stats.sample_entries == 2
     assert stats.evictions == 1
+
+
+def test_dataframe_runtime_cache_updates_shared_metrics() -> None:
+    from core.cache_metrics import CacheMetricsRegistry
+
+    registry = CacheMetricsRegistry()
+    counter = registry.counter("dataframe", max_entries=2)
+    cache = DataframeRuntimeCache(max_samples=2, metrics=counter)
+    frame = pd.DataFrame({"DEPTH": [1.0, 2.0, 3.0], "VALUE": [4.0, 5.0, 6.0]})
+
+    signature = cache.signature(frame, revision=1, builder=lambda _: "sig")
+    cache.signature(frame, revision=1, builder=lambda _: "unused")
+    cache.screen_sample(
+        frame,
+        source_signature=signature,
+        depth_range=(1.0, 3.0),
+        max_rows=2,
+        sampler=lambda source, max_rows: source.head(max_rows),
+    )
+    cache.screen_sample(
+        frame,
+        source_signature=signature,
+        depth_range=(1.0, 3.0),
+        max_rows=2,
+        sampler=lambda source, max_rows: source.head(max_rows),
+    )
+
+    snapshot = counter.snapshot()
+    assert snapshot.hits == 2
+    assert snapshot.misses == 2
+    assert snapshot.entries == 1
+    assert snapshot.hit_rate == 50.0
+
+    cache.clear()
+    assert counter.snapshot().invalidations == 2
+    assert counter.snapshot().entries == 0

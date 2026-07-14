@@ -237,6 +237,8 @@ from palettes.plot_cache import PlotCache
 from core.runtime_diagnostics import RuntimeDiagnostics
 from core.rerun_coordinator import begin_rerun_cycle, request_rerun
 from core.dataframe_runtime_cache import DataframeRuntimeCache
+from core.cache_metrics import CacheMetricsRegistry
+from core.session_state_audit import audit_session_state
 from core.performance_audit import build_workspace_performance_gate, evaluate_performance
 from core.render_queue import RenderQueue, RenderTask
 from core.lazy_workspace import LazyWorkspaceRegistry, WorkspaceRoute
@@ -10912,9 +10914,17 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     # bottom of a long interpretation page.
     state_controller = _application_state_controller()
     revision_snapshot = revision_controller_from_state(state_controller.state).snapshot
+    cache_metrics_registry = state_controller.ensure_runtime_service(
+        "cache_metrics_registry",
+        CacheMetricsRegistry,
+        expected_type=CacheMetricsRegistry,
+    )
     dataframe_runtime_cache = state_controller.ensure_runtime_service(
         "dataframe_runtime_cache",
-        lambda: DataframeRuntimeCache(max_samples=8),
+        lambda: DataframeRuntimeCache(
+            max_samples=8,
+            metrics=cache_metrics_registry.counter("dataframe_runtime", max_entries=8),
+        ),
         expected_type=DataframeRuntimeCache,
     )
     calculated_signature = dataframe_runtime_cache.signature(
@@ -15202,6 +15212,14 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         correlation_cache_hit,
         float(correlation_cache["hit_rate"]),
         {event.stage: round(event.duration_ms, 2) for event in correlation_events},
+    )
+    session_audit = audit_session_state(correlation_state_controller.state)
+    logger.info(
+        "runtime_state_diagnostics session_keys=%d transient_keys=%d runtime_keys=%d unscoped_keys=%d",
+        session_audit.total_keys,
+        session_audit.transient_count,
+        session_audit.runtime_count,
+        len(session_audit.unscoped_keys),
     )
     correlation_revision = revision_controller_from_state(correlation_state_controller.state).snapshot
     st.caption("Для печати используйте PDF; для изображений доступны PNG и SVG.")
