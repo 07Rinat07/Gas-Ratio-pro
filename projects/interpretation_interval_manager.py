@@ -18,6 +18,7 @@ from projects.interpretation_intervals import (
     load_interpretation_intervals,
 )
 from projects.repository import DEFAULT_PROJECTS_ROOT
+from projects.interpretation_publication import InterpretationPublicationService
 
 
 class InterpretationIntervalOverlapError(ValueError):
@@ -58,6 +59,9 @@ class InterpretationIntervalManager:
         self.project_id = str(project_id)
         self.well_id = str(well_id)
         self.interpretation_id = str(interpretation_id)
+        self.publication = InterpretationPublicationService(
+            root=self.root, project_id=self.project_id, well_id=self.well_id, interpretation_id=self.interpretation_id
+        )
         self.commands = InterpretationIntervalCommandService(
             state,
             root=self.root,
@@ -121,6 +125,7 @@ class InterpretationIntervalManager:
         return tuple(overlaps)
 
     def create(self, *, reject_overlaps: bool = False, **fields: Any) -> InterpretationInterval:
+        self.publication.assert_editable()
         self._check_overlap_policy(
             top=fields.get("top"),
             base=fields.get("base"),
@@ -135,6 +140,7 @@ class InterpretationIntervalManager:
         reject_overlaps: bool = False,
         **fields: Any,
     ) -> InterpretationInterval:
+        self.publication.assert_editable()
         self.get_interval(interval_id)
         self._check_overlap_policy(
             top=fields.get("top"),
@@ -145,6 +151,7 @@ class InterpretationIntervalManager:
         return self.commands.update(interval_id, **fields)
 
     def delete(self, interval_id: str) -> bool:
+        self.publication.assert_editable()
         return self.commands.delete(interval_id)
 
     def replace_all(
@@ -155,12 +162,15 @@ class InterpretationIntervalManager:
     ) -> tuple[InterpretationInterval, ...]:
         """Replace all intervals as one Undo/Redo-aware operation."""
 
+        self.publication.assert_editable()
         return self.commands.replace_all(intervals, action=action).intervals
 
     def undo(self) -> bool:
+        self.publication.assert_editable()
         return self.commands.undo()
 
     def redo(self) -> bool:
+        self.publication.assert_editable()
         return self.commands.redo()
 
     @property

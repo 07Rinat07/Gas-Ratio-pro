@@ -227,7 +227,7 @@ class InterpretationRevisionRepository:
                 relative = path.relative_to(self.workspace_dir)
             except ValueError:
                 continue
-            if relative.parts and relative.parts[0] == REVISION_DIR_NAME:
+            if relative.parts and relative.parts[0] in {REVISION_DIR_NAME, ".workflow"}:
                 continue
             payload = self._read_json(path, None)
             if payload is not None:
@@ -240,7 +240,7 @@ class InterpretationRevisionRepository:
                 path.relative_to(self.workspace_dir).as_posix(): path
                 for path in self.workspace_dir.rglob("*.json")
                 if self.workspace_dir.exists()
-                and path.relative_to(self.workspace_dir).parts[0] != REVISION_DIR_NAME
+                and path.relative_to(self.workspace_dir).parts[0] not in {REVISION_DIR_NAME, ".workflow"}
             }
             target_names = set(files)
             for relative, path in current_paths.items():
@@ -257,7 +257,7 @@ class InterpretationRevisionRepository:
         if self.workspace_dir.exists():
             for path in self.workspace_dir.rglob("*.json"):
                 relative = path.relative_to(self.workspace_dir)
-                if relative.parts[0] != REVISION_DIR_NAME:
+                if relative.parts[0] not in {REVISION_DIR_NAME, ".workflow"}:
                     path.unlink(missing_ok=True)
         for relative, payload in files.items():
             self._validate_relative_path(relative)
@@ -325,7 +325,7 @@ class InterpretationRevisionRepository:
     @staticmethod
     def _validate_relative_path(value: str) -> None:
         path = Path(value)
-        if path.is_absolute() or ".." in path.parts or not path.parts or path.parts[0] == REVISION_DIR_NAME:
+        if path.is_absolute() or ".." in path.parts or not path.parts or path.parts[0] in {REVISION_DIR_NAME, ".workflow"}:
             raise ValueError("Некорректный путь файла в ревизии.")
 
     @staticmethod

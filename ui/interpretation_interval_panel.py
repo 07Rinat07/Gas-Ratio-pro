@@ -42,6 +42,7 @@ from projects.interpretation_interval_manager import (
 from projects.interpretation_interval_merge import InterpretationIntervalMergeService
 from projects.interpretation_interval_properties import InterpretationIntervalPropertiesService
 from projects.interpretation_revisions import InterpretationRevisionRepository
+from projects.interpretation_publication import InterpretationPublicationService
 from projects.interpretation_interval_type_operation_exports import (
     export_type_operations_csv,
     export_type_operations_json,
@@ -257,6 +258,88 @@ def render_interpretation_interval_panel(
                         st.success("Интерпретация восстановлена.")
                         st.rerun()
 
+
+        publication_service = InterpretationPublicationService(
+            root=root,
+            project_id=project_id,
+            well_id=well_id,
+            interpretation_id=manager.interpretation_id,
+        )
+        publication_state = publication_service.state()
+        status_labels = {
+            "draft": "Черновик",
+            "in_review": "На согласовании",
+            "approved": "Утверждена",
+            "published": "Опубликована",
+        }
+        with st.expander("Согласование и публикация", expanded=publication_state.status != "draft"):
+            st.metric("Статус", status_labels.get(publication_state.status, publication_state.status))
+            if publication_state.is_locked:
+                st.warning("Интерпретация заблокирована для изменения интервалов.")
+            workflow_comment = st.text_area(
+                "Комментарий к операции",
+                key=f"interpretation_publication_comment_{project_id}_{well_id}_{manager.interpretation_id}",
+            )
+            try:
+                if publication_state.status == "draft":
+                    if st.button("Отправить на согласование", key=f"interpretation_submit_{project_id}_{well_id}_{manager.interpretation_id}", width="stretch"):
+                        publication_service.submit_for_review(comment=workflow_comment)
+                        st.success("Интерпретация отправлена на согласование.")
+                        st.rerun()
+                elif publication_state.status == "in_review":
+                    review_left, review_right = st.columns(2)
+                    if review_left.button("Вернуть в черновик", key=f"interpretation_return_{project_id}_{well_id}_{manager.interpretation_id}", width="stretch"):
+                        publication_service.return_to_draft(comment=workflow_comment)
+                        st.rerun()
+                    if review_right.button("Утвердить", key=f"interpretation_approve_{project_id}_{well_id}_{manager.interpretation_id}", width="stretch"):
+                        publication_service.approve(comment=workflow_comment)
+                        st.rerun()
+                elif publication_state.status == "approved":
+                    approval_revisions = InterpretationRevisionRepository(
+                        root=root, project_id=project_id, well_id=well_id, interpretation_id=manager.interpretation_id
+                    ).list()
+                    if approval_revisions:
+                        publish_revision_id = st.selectbox(
+                            "Ревизия для публикации",
+                            options=[item.id for item in approval_revisions],
+                            format_func=lambda value: next((f"{item.name} · {item.created_at}" for item in approval_revisions if item.id == value), value),
+                            key=f"interpretation_publish_revision_{project_id}_{well_id}_{manager.interpretation_id}",
+                        )
+                        publish_left, publish_right = st.columns(2)
+                        if publish_left.button("Открыть для редактирования", key=f"interpretation_reopen_{project_id}_{well_id}_{manager.interpretation_id}", width="stretch"):
+                            publication_service.reopen(comment=workflow_comment)
+                            st.rerun()
+                        if publish_right.button("Опубликовать", key=f"interpretation_publish_{project_id}_{well_id}_{manager.interpretation_id}", width="stretch"):
+                            publication_service.publish(revision_id=publish_revision_id, comment=workflow_comment)
+                            st.rerun()
+                    else:
+                        st.info("Перед публикацией создайте ревизию текущего состояния.")
+                        if st.button("Открыть для редактирования", key=f"interpretation_reopen_no_revision_{project_id}_{well_id}_{manager.interpretation_id}", width="stretch"):
+                            publication_service.reopen(comment=workflow_comment)
+                            st.rerun()
+                elif publication_state.status == "published":
+                    st.caption(f"Опубликованная ревизия: `{publication_state.published_revision_id}`")
+                    if st.button("Снять с публикации", key=f"interpretation_unpublish_{project_id}_{well_id}_{manager.interpretation_id}", width="stretch"):
+                        publication_service.unpublish(comment=workflow_comment)
+                        st.rerun()
+            except (KeyError, ValueError, OSError) as exc:
+                st.error(str(exc))
+
+            if publication_state.events:
+                st.dataframe(
+                    [
+                        {
+                            "Дата": event.created_at,
+                            "Операция": event.action,
+                            "Статус": f"{status_labels.get(event.from_status, event.from_status)} → {status_labels.get(event.to_status, event.to_status)}",
+                            "Комментарий": event.comment,
+                            "Ревизия": event.revision_id,
+                        }
+                        for event in reversed(publication_state.events)
+                    ],
+                    width="stretch",
+                    hide_index=True,
+                )
 
         revision_repository = InterpretationRevisionRepository(
             root=root,

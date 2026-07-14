@@ -707,3 +707,7 @@ Three-way manual interval merge is implemented in `projects/interpretation_inter
 ### Latest increment: interpretation revisions
 
 `projects/interpretation_revisions.py` provides persistent snapshots for one manual interpretation workspace. Revisions are stored under the interpretation `.revisions/` directory and are excluded from their own snapshots. Restore requires the state token returned by `compare()` and rolls back on write failure. Duplicating an interpretation copies current workspace data but not revision history.
+
+## Latest increment: interpretation publication workflow
+
+Interpretation workspaces now have persistent draft/review/approved/published states. Approved and published workspaces are read-only through `InterpretationIntervalManager`. Publication requires a revision whose state token matches current interpretation content. Workflow metadata lives under `.workflow/` and is excluded from revision snapshots and duplicated workspaces.

@@ -212,7 +212,7 @@ class InterpretationCatalogRepository:
         stage_dir = self.base_dir / f".{clean_target_id}.staging-{uuid4().hex}"
         try:
             if source_dir.exists():
-                shutil.copytree(source_dir, stage_dir, ignore=shutil.ignore_patterns(".revisions"))
+                shutil.copytree(source_dir, stage_dir, ignore=shutil.ignore_patterns(".revisions", ".workflow"))
             else:
                 stage_dir.mkdir(parents=True)
             self._rewrite_scope_metadata(stage_dir, clean_target_id)

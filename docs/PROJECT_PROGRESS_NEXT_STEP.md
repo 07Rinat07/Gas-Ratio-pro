@@ -362,3 +362,13 @@ Implemented named snapshots, revision comparison, stale-safe restore, deletion a
 ## Recommended next major stage
 
 Add review/approval workflow for interpretation versions: draft/reviewed/approved statuses, validation gates, reviewer notes and release-ready export metadata.
+
+
+## Interpretation approval and publication workflow
+
+- Added persistent statuses: draft, in review, approved and published.
+- Approved and published interpretations are read-only for interval mutations until reopened.
+- Publication is bound to an existing revision and rejected when the revision no longer matches current interpretation content.
+- Workflow transitions keep a bounded JSON-compatible audit history with comments and published revision UUID.
+- Revision snapshots and interpretation duplication exclude workflow metadata, so approval state never contaminates content hashes or copied workspaces.
+- Next step: add role-aware reviewers/signatures or begin the multi-well correlation workspace.

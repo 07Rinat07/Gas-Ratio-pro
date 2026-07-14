@@ -2406,3 +2406,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added revision diff, stale-safe restore, deletion and retention cleanup.
 - Revision snapshots include interval data and interpretation JSON settings.
 - Interpretation duplication intentionally starts with an empty revision history.
+
+## Interpretation approval and publication workflow
+
+- Added draft, review, approved and published states for interpretation workspaces.
+- Locked approved/published interval mutations and tied publication to a current revision.
+- Added workflow audit events and excluded workflow metadata from revision hashes and workspace duplication.
