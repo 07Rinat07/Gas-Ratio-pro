@@ -256,6 +256,7 @@ from palettes.well_log_tablet import (
     default_tablet_columns,
     mud_gas_literature_markers,
     mud_gas_literature_tablet_columns,
+    configure_manual_interval_overlays,
     manual_interval_overlays,
     normalize_track_configs,
     numeric_tablet_columns,
@@ -10678,7 +10679,18 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             well_id=manual_well_id,
         )
         manual_intervals = manual_interval_manager.list_intervals()
-        manual_overlays = manual_interval_overlays(manual_intervals)
+        raw_manual_overlays = manual_interval_overlays(manual_intervals)
+        manual_overlay_visible = bool(
+            state_controller.get_value("interpretation_manual_overlay_visible", True)
+        )
+        manual_overlay_opacity = float(
+            state_controller.get_value("interpretation_manual_overlay_opacity", 0.18) or 0.18
+        )
+        manual_overlays = configure_manual_interval_overlays(
+            raw_manual_overlays,
+            visible=manual_overlay_visible,
+            opacity=manual_overlay_opacity,
+        )
         selected_manual_interval_id = str(
             state_controller.state.get(
                 f"manual_interval_selected_{active_project.id}_{manual_well_id}",
@@ -10756,6 +10768,39 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         )
         st.error("Не удалось открыть панель ручных интервалов. Подробности записаны в logs/app.log.")
     if manual_intervals:
+        overlay_visible_key = "interpretation_manual_overlay_visible"
+        overlay_opacity_key = "interpretation_manual_overlay_opacity"
+        application_state = _application_state_controller().state
+        if overlay_visible_key not in application_state:
+            application_state[overlay_visible_key] = bool(
+                state_controller.get_value(overlay_visible_key, True)
+            )
+        if overlay_opacity_key not in application_state:
+            application_state[overlay_opacity_key] = float(
+                state_controller.get_value(overlay_opacity_key, 0.18) or 0.18
+            )
+        overlay_control_left, overlay_control_right = st.columns((1.0, 1.4))
+        manual_overlay_visible = overlay_control_left.checkbox(
+            "Показывать ручные интервалы",
+            key=overlay_visible_key,
+        )
+        manual_overlay_opacity = float(overlay_control_right.slider(
+            "Прозрачность ручных интервалов",
+            min_value=0.04,
+            max_value=0.55,
+            step=0.01,
+            key=overlay_opacity_key,
+            disabled=not manual_overlay_visible,
+        ))
+        state_controller.update_values({
+            "interpretation_manual_overlay_visible": manual_overlay_visible,
+            "interpretation_manual_overlay_opacity": manual_overlay_opacity,
+        })
+        manual_overlays = configure_manual_interval_overlays(
+            manual_interval_overlays(manual_intervals),
+            visible=manual_overlay_visible,
+            opacity=manual_overlay_opacity,
+        )
         navigator_key = f"manual_interval_selected_{active_project.id}_{manual_well_id}"
         navigator_figure = build_manual_interval_navigator(
             manual_intervals,

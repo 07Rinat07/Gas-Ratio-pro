@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Mapping, Sequence
 
 import pandas as pd
@@ -285,6 +285,30 @@ def manual_interval_overlays(intervals: Sequence[object]) -> tuple[ReservoirInte
             )
         )
     return tuple(sorted(overlays, key=lambda item: (item.top_depth, item.bottom_depth, item.display_label.lower())))
+
+
+def configure_manual_interval_overlays(
+    overlays: Sequence[ReservoirIntervalOverlay],
+    *,
+    visible: bool = True,
+    opacity: float = 0.18,
+) -> tuple[ReservoirIntervalOverlay, ...]:
+    """Apply presentation-only settings to manual interval overlays.
+
+    Repository interval data is never modified. Opacity is clamped to the same
+    safe range used by the tablet renderer, while hidden overlays are omitted
+    entirely from chart construction.
+    """
+
+    if not visible:
+        return ()
+    normalized_opacity = max(0.04, min(float(opacity), 0.55))
+    return tuple(
+        replace(overlay, opacity=normalized_opacity)
+        for overlay in overlays or ()
+        if str(getattr(overlay, "source_kind", "") or "") == "manual"
+    )
+
 
 def numeric_tablet_columns(df: pd.DataFrame | Sequence[object]) -> tuple[str, ...]:
     """Return numeric tablet columns or safe column names from lightweight lists.

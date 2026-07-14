@@ -2258,3 +2258,8 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added an interactive depth navigator for manual interpretation intervals.
 - Synchronized chart selection with the interval properties panel by UUID.
 - Added hover metadata and a compatibility fallback for Plotly selection events.
+
+## 2026-07-14
+
+- Added visibility and opacity controls for manual interval overlays on interpretation charts.
+- Added regression tests for overlay presentation settings and immutability.

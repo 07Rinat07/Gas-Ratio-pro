@@ -184,3 +184,11 @@ Next recommended increment: improve tablet interaction for manual intervals with
 - Hover shows bounds, thickness, type and comment without exposing repository objects to Session State.
 - Older Streamlit builds fall back to a non-interactive navigator instead of failing the workspace.
 - Next step: add configurable overlay visibility/opacity or extend direct selection to the main tablet tracks.
+
+## Manual interval overlay controls
+
+- Added a presentation-only visibility toggle for manual interpretation intervals.
+- Added bounded overlay opacity control from 0.04 to 0.55.
+- Overlay settings do not modify repository interval data or command history.
+- Selected interval synchronization remains available when overlays are hidden.
+- Next step: add direct selection from the main tablet tracks or persist display preferences per project.
