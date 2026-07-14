@@ -90,3 +90,64 @@ def test_batch_add_is_single_undoable_command(tmp_path: Path, monkeypatch) -> No
     assert commands.history_status()["undo_count"] == 1
     assert commands.undo() is True
     assert repo.get(workspace.id).ties == ()
+
+
+def test_custom_weights_change_candidate_confidence() -> None:
+    from projects.interpretation_correlation_suggestions import CorrelationSuggestionSettings
+    left = _interval("11111111-1111-4111-8111-111111111112", "Sand A", 100)
+    right = _interval("22222222-2222-4222-8222-222222222222", "Different", 102, "reservoir")
+    sources = (_source("A", left), _source("B", right))
+    default = build_correlation_suggestions(_workspace(), sources).suggestions[0]
+    depth_focused = build_correlation_suggestions(
+        _workspace(), sources,
+        settings=CorrelationSuggestionSettings(
+            max_depth_delta=50, minimum_confidence=0.0,
+            base_weight=0.0, type_weight=0.0, label_weight=0.0, depth_weight=1.0,
+        ),
+    ).suggestions[0]
+    assert depth_focused.confidence != default.confidence
+    assert depth_focused.confidence == pytest.approx(0.96)
+
+
+def test_profile_repository_and_acceptance_journal(tmp_path: Path) -> None:
+    from projects.interpretation_correlation_suggestions import (
+        CorrelationSuggestionAcceptanceJournal,
+        CorrelationSuggestionProfileRepository,
+        CorrelationSuggestionSettings,
+    )
+    repo = CorrelationSuggestionProfileRepository(root=tmp_path, project_id="p")
+    saved = repo.save(name="Deep", settings=CorrelationSuggestionSettings(max_depth_delta=120))
+    assert repo.list()[0]["name"] == "Deep"
+    assert repo.delete(saved["id"]) is True
+    assert repo.list() == ()
+
+    left = _interval("11111111-1111-4111-8111-111111111112", "Sand", 100)
+    right = _interval("22222222-2222-4222-8222-222222222222", "Sand", 102)
+    preview = build_correlation_suggestions(_workspace(), (_source("A", left), _source("B", right)))
+    journal = CorrelationSuggestionAcceptanceJournal(
+        root=tmp_path, project_id="p", workspace_id=preview.workspace_id
+    )
+    journal.append(
+        preview=preview,
+        accepted_ids=[preview.suggestions[0].id],
+        added_tie_ids=["33333333-3333-4333-8333-333333333333"],
+    )
+    row = journal.list()[0]
+    assert row["accepted_count"] == 1
+    assert row["average_confidence"] > 0
+
+
+def test_scenario_comparison_reports_summary() -> None:
+    from projects.interpretation_correlation_suggestions import (
+        CorrelationSuggestionSettings,
+        compare_suggestion_scenarios,
+    )
+    left = _interval("11111111-1111-4111-8111-111111111112", "Sand", 100)
+    right = _interval("22222222-2222-4222-8222-222222222222", "Sand", 102)
+    rows = compare_suggestion_scenarios(
+        _workspace(), (_source("A", left), _source("B", right)),
+        (("Strict", CorrelationSuggestionSettings(minimum_confidence=0.99)),
+         ("Normal", CorrelationSuggestionSettings())),
+    )
+    assert [row.name for row in rows] == ["Strict", "Normal"]
+    assert rows[1].suggestion_count >= rows[0].suggestion_count

@@ -736,3 +736,10 @@ The multi-well correlation workspace now includes a renderer-neutral quality ana
 ## Automatic correlation candidate boundary
 
 `projects/interpretation_correlation_suggestions.py` is a renderer-neutral deterministic suggestion service. It never mutates published inputs or the workspace. Preview payloads are serializable and contain both workspace and source tokens. Confirmation must call `validate_suggestion_preview()` immediately before `CorrelationWorkspaceCommandService.add_ties()`. Batch acceptance is one Undo/Redo command. Do not persist ML/runtime models in the correlation workspace.
+
+### Latest correlation increment
+
+Automatic tie suggestions are configurable through `CorrelationSuggestionSettings`. Project-scoped profiles
+are stored under `correlations/suggestion_profiles.json`; accepted suggestion batches are audited per
+workspace in `suggestion_acceptance.json`. UI supports baseline/current scenario comparison. Do not place
+runtime Plotly or Streamlit objects in these files or Session State snapshots.

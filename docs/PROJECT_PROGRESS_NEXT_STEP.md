@@ -427,3 +427,11 @@ Begin the multi-well correlation workspace using published interpretation revisi
 - Preview records workspace and published-source state tokens and rejects stale confirmation.
 - Selected candidates are added as one command and can be reverted with a single Undo.
 - Next recommended stage: add correlation horizon/group management and propagate named horizons across three or more wells.
+
+### Completed: correlation suggestion calibration workflow
+
+Automatic correlation suggestions now support reusable project profiles, normalized criterion weights,
+scenario comparison and a compact acceptance audit journal. Candidate generation remains deterministic
+and published-source/state-token validation is preserved.
+
+Next recommended stage: correlation horizon grouping and stratigraphic marker management across wells.

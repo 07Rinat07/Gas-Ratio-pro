@@ -17,7 +17,11 @@ from projects.interpretation_correlation import (
 )
 from projects.interpretation_correlation_commands import CorrelationHistoryConflict, CorrelationWorkspaceCommandService
 from projects.interpretation_correlation_suggestions import (
+    CorrelationSuggestionAcceptanceJournal,
+    CorrelationSuggestionProfileRepository,
+    CorrelationSuggestionSettings,
     build_correlation_suggestions,
+    compare_suggestion_scenarios,
     suggestion_preview_from_dict,
     validate_suggestion_preview,
 )
@@ -184,22 +188,103 @@ def render_interpretation_correlation_panel(
         workspace = repository.get(workspace.id)
 
         with st.expander("Автоматические предложения связей", expanded=False):
-            st.caption("Кандидаты строятся детерминированно по типу, подписи и близости средних глубин. Исходные интервалы не изменяются.")
-            suggestion_cols = st.columns(2)
-            max_delta = suggestion_cols[0].number_input(
-                "Максимальная разница глубин, м", min_value=1.0, max_value=1000.0, value=50.0, step=5.0,
-                key=f"correlation_suggestion_delta_{workspace.id}",
+            st.caption("Настраиваемая детерминированная модель по типу, подписи и близости глубин. Сначала preview, затем подтверждение.")
+            profile_repository = CorrelationSuggestionProfileRepository(root=root, project_id=project_id)
+            acceptance_journal = CorrelationSuggestionAcceptanceJournal(
+                root=root, project_id=project_id, workspace_id=workspace.id
             )
-            min_confidence = suggestion_cols[1].slider(
-                "Минимальная уверенность", 0.0, 1.0, 0.55, 0.05,
-                key=f"correlation_suggestion_confidence_{workspace.id}",
+            profiles = profile_repository.list()
+            selected_profile_id = st.selectbox(
+                "Профиль калибровки",
+                options=[""] + [str(item["id"]) for item in profiles],
+                format_func=lambda value: "Текущие настройки" if not value else next(
+                    str(item["name"]) for item in profiles if item["id"] == value
+                ),
+                key=f"correlation_suggestion_profile_{workspace.id}",
             )
+            profile_settings = next(
+                (item.get("settings", {}) for item in profiles if item.get("id") == selected_profile_id), {}
+            )
+            calibration_cols = st.columns(2)
+            max_delta = calibration_cols[0].number_input(
+                "Максимальная разница глубин, м", min_value=1.0, max_value=1000.0,
+                value=float(profile_settings.get("max_depth_delta", 50.0)), step=5.0,
+                key=f"correlation_suggestion_delta_{workspace.id}_{selected_profile_id}",
+            )
+            min_confidence = calibration_cols[1].slider(
+                "Минимальная уверенность", 0.0, 1.0,
+                float(profile_settings.get("minimum_confidence", 0.55)), 0.05,
+                key=f"correlation_suggestion_confidence_{workspace.id}_{selected_profile_id}",
+            )
+            weight_cols = st.columns(4)
+            base_weight = weight_cols[0].number_input(
+                "Базовый вес", min_value=0.0, max_value=10.0,
+                value=float(profile_settings.get("base_weight", 0.25)), step=0.05,
+                key=f"correlation_weight_base_{workspace.id}_{selected_profile_id}",
+            )
+            type_weight = weight_cols[1].number_input(
+                "Вес типа", min_value=0.0, max_value=10.0,
+                value=float(profile_settings.get("type_weight", 0.40)), step=0.05,
+                key=f"correlation_weight_type_{workspace.id}_{selected_profile_id}",
+            )
+            label_weight = weight_cols[2].number_input(
+                "Вес подписи", min_value=0.0, max_value=10.0,
+                value=float(profile_settings.get("label_weight", 0.25)), step=0.05,
+                key=f"correlation_weight_label_{workspace.id}_{selected_profile_id}",
+            )
+            depth_weight = weight_cols[3].number_input(
+                "Вес глубины", min_value=0.0, max_value=10.0,
+                value=float(profile_settings.get("depth_weight", 0.10)), step=0.05,
+                key=f"correlation_weight_depth_{workspace.id}_{selected_profile_id}",
+            )
+            settings = CorrelationSuggestionSettings(
+                max_depth_delta=float(max_delta), minimum_confidence=float(min_confidence),
+                base_weight=float(base_weight), type_weight=float(type_weight),
+                label_weight=float(label_weight), depth_weight=float(depth_weight),
+            )
+            profile_cols = st.columns([3, 1, 1])
+            profile_name = profile_cols[0].text_input(
+                "Название нового профиля", key=f"correlation_profile_name_{workspace.id}"
+            )
+            if profile_cols[1].button("Сохранить", key=f"correlation_save_profile_{workspace.id}"):
+                try:
+                    profile_repository.save(name=profile_name, settings=settings)
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    st.success("Профиль калибровки сохранён.")
+                    st.rerun()
+            if profile_cols[2].button(
+                "Удалить", disabled=not selected_profile_id,
+                key=f"correlation_delete_profile_{workspace.id}",
+            ):
+                profile_repository.delete(selected_profile_id)
+                st.rerun()
+
+            if st.checkbox("Сравнить с базовым сценарием", key=f"correlation_compare_scenarios_{workspace.id}"):
+                try:
+                    comparison = compare_suggestion_scenarios(
+                        workspace, sources,
+                        (("Базовый", CorrelationSuggestionSettings()), ("Текущий", settings)),
+                    )
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    st.dataframe([
+                        {
+                            "Сценарий": item.name,
+                            "Кандидатов": item.suggestion_count,
+                            "Высокая уверенность": item.high_confidence_count,
+                            "Средняя уверенность": item.average_confidence,
+                            "Средняя Δ глубины": item.average_depth_delta,
+                        }
+                        for item in comparison
+                    ], width="stretch", hide_index=True)
+
             preview_key = f"correlation_suggestion_preview_{workspace.id}"
             if st.button("Построить предложения", key=f"correlation_build_suggestions_{workspace.id}", width="stretch"):
                 try:
-                    preview = build_correlation_suggestions(
-                        workspace, sources, max_depth_delta=float(max_delta), minimum_confidence=float(min_confidence)
-                    )
+                    preview = build_correlation_suggestions(workspace, sources, settings=settings)
                 except ValueError as exc:
                     st.error(str(exc))
                 else:
@@ -214,14 +299,10 @@ def render_interpretation_correlation_panel(
                 else:
                     rows = [
                         {
-                            "ID": item.id,
-                            "Левая скважина": item.left.well_id,
-                            "Левый интервал": item.left.label,
-                            "Глубина слева": item.left.depth,
-                            "Правая скважина": item.right.well_id,
-                            "Правый интервал": item.right.label,
-                            "Глубина справа": item.right.depth,
-                            "Уверенность": item.confidence,
+                            "ID": item.id, "Левая скважина": item.left.well_id,
+                            "Левый интервал": item.left.label, "Глубина слева": item.left.depth,
+                            "Правая скважина": item.right.well_id, "Правый интервал": item.right.label,
+                            "Глубина справа": item.right.depth, "Уверенность": item.confidence,
                             "Причина": item.reason,
                         }
                         for item in preview.suggestions
@@ -229,14 +310,12 @@ def render_interpretation_correlation_panel(
                     if rows:
                         st.dataframe(rows, width="stretch", hide_index=True)
                         selected_suggestions = st.multiselect(
-                            "Предложения для добавления",
-                            options=[item.id for item in preview.suggestions],
+                            "Предложения для добавления", options=[item.id for item in preview.suggestions],
                             default=[item.id for item in preview.suggestions if item.confidence >= 0.75],
                             format_func=lambda value: next(
                                 f"{item.left.well_id}: {item.left.label} ↔ {item.right.well_id}: {item.right.label} ({item.confidence:.0%})"
                                 for item in preview.suggestions if item.id == value
-                            ),
-                            key=f"correlation_selected_suggestions_{workspace.id}",
+                            ), key=f"correlation_selected_suggestions_{workspace.id}",
                         )
                         confirm_suggestions = st.checkbox(
                             "Подтверждаю добавление выбранных предложений",
@@ -251,16 +330,21 @@ def render_interpretation_correlation_panel(
                                 current_workspace = repository.get(workspace.id)
                                 current_sources = discover_published_interpretations(root=root, project_id=project_id)
                                 validate_suggestion_preview(preview, current_workspace, current_sources)
-                                chosen = [item for item in preview.suggestions if item.id in set(selected_suggestions)]
+                                selected_ids = set(selected_suggestions)
+                                chosen = [item for item in preview.suggestions if item.id in selected_ids]
                                 ties = tuple(
                                     CorrelationTie(
                                         id="", left=item.left, right=item.right,
                                         name=f"{item.left.label} ↔ {item.right.label}",
                                         note=f"Автопредложение: {item.reason}; уверенность {item.confidence:.0%}",
-                                    )
-                                    for item in chosen
+                                    ) for item in chosen
                                 )
-                                commands.add_ties(ties)
+                                before_ids = {item.id for item in current_workspace.ties}
+                                updated_workspace = commands.add_ties(ties)
+                                added_ids = [item.id for item in updated_workspace.ties if item.id not in before_ids]
+                                acceptance_journal.append(
+                                    preview=preview, accepted_ids=selected_suggestions, added_tie_ids=added_ids
+                                )
                             except (ValueError, KeyError, OSError) as exc:
                                 st.error(str(exc))
                             else:
@@ -269,6 +353,11 @@ def render_interpretation_correlation_panel(
                                 st.rerun()
                     else:
                         st.info("Подходящие новые связи не найдены.")
+
+            accepted_rows = acceptance_journal.list()
+            if accepted_rows:
+                with st.expander("Журнал подтверждённых автокорреляций", expanded=False):
+                    st.dataframe(list(reversed(accepted_rows[-20:])), width="stretch", hide_index=True)
 
         workspace = repository.get(workspace.id)
 

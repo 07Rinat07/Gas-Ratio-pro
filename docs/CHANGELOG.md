@@ -2450,3 +2450,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Detects unavailable endpoints, duplicate ties, crossing tie pairs and isolated wells.
 - Added UI quality dashboard with severity filtering and JSON/CSV report export.
 - Quality exports include the correlation workspace state token for reproducible review.
+
+## 2026-07-14 — Correlation suggestion calibration
+
+- Added configurable scoring weights and confidence/depth thresholds for automatic correlation suggestions.
+- Added project-scoped reusable calibration profiles.
+- Added baseline/current scenario comparison before candidate generation.
+- Added persistent acceptance journal for confirmed automatic ties.
+- Preserved stale-preview validation and single-step Undo/Redo for batch acceptance.
