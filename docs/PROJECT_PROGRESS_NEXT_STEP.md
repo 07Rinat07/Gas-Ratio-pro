@@ -568,3 +568,8 @@ Atomic JSON repositories now support staged multi-file transactions. A successfu
 
 Next priority: migrate interpretation revision restore, type reassignment and correlation batch persistence to the common transaction API where they currently coordinate multiple repository files.
 
+## Completed: transaction adoption and crash recovery
+
+Multi-file repository transactions now persist a recovery journal before replacing destination files. Interrupted commits are rolled back automatically on the next repository access. Interpretation revision restore uses the common transaction boundary instead of a local best-effort rollback loop.
+
+Next engineering focus: expand transaction adoption to remaining project-wide batch operations and add startup recovery scanning at the project lifecycle boundary.

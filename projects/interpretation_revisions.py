@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Any, Mapping
 from uuid import uuid4
 
+from core.repository_io import AtomicJsonStore
+
 from projects.interpretation_intervals import (
     INTERPRETATION_INTERVALS_FILE_NAME,
     InterpretationInterval,
@@ -106,6 +108,8 @@ class InterpretationRevisionRepository:
         )
         self.revision_dir = self.workspace_dir / REVISION_DIR_NAME
         self.index_path = self.revision_dir / REVISION_INDEX_FILE_NAME
+        self.store = AtomicJsonStore(repository="interpretation_revisions")
+        self.store.recover_transactions(self.workspace_dir)
 
     def list(self) -> tuple[InterpretationRevision, ...]:
         payload = self._read_json(self.index_path, {})
@@ -227,7 +231,7 @@ class InterpretationRevisionRepository:
                 relative = path.relative_to(self.workspace_dir)
             except ValueError:
                 continue
-            if relative.parts and relative.parts[0] in {REVISION_DIR_NAME, ".workflow"}:
+            if relative.parts and relative.parts[0] in {REVISION_DIR_NAME, ".workflow", ".repository_transactions"}:
                 continue
             payload = self._read_json(path, None)
             if payload is not None:
@@ -235,29 +239,32 @@ class InterpretationRevisionRepository:
         return files
 
     def _restore_files(self, files: Mapping[str, Any], *, rollback_files: Mapping[str, Any]) -> None:
-        try:
-            current_paths = {
-                path.relative_to(self.workspace_dir).as_posix(): path
-                for path in self.workspace_dir.rglob("*.json")
-                if self.workspace_dir.exists()
-                and path.relative_to(self.workspace_dir).parts[0] not in {REVISION_DIR_NAME, ".workflow"}
-            }
-            target_names = set(files)
-            for relative, path in current_paths.items():
-                if relative not in target_names:
-                    path.unlink(missing_ok=True)
-            for relative, payload in files.items():
-                self._validate_relative_path(relative)
-                _atomic_json_write(self.workspace_dir / relative, payload if isinstance(payload, Mapping) else {"value": payload})
-        except Exception:
-            self._force_restore(rollback_files)
-            raise
+        del rollback_files  # rollback is now provided by the durable repository transaction.
+        current_paths = {
+            path.relative_to(self.workspace_dir).as_posix(): path
+            for path in self.workspace_dir.rglob("*.json")
+            if self.workspace_dir.exists()
+            and path.relative_to(self.workspace_dir).parts[0]
+            not in {REVISION_DIR_NAME, ".workflow", ".repository_transactions"}
+        }
+        target_names = set(files)
+        transaction = self.store.transaction()
+        for relative, path in current_paths.items():
+            if relative not in target_names:
+                transaction.delete(path)
+        for relative, payload in files.items():
+            self._validate_relative_path(relative)
+            transaction.write(
+                self.workspace_dir / relative,
+                payload if isinstance(payload, Mapping) else {"value": payload},
+            )
+        transaction.commit()
 
     def _force_restore(self, files: Mapping[str, Any]) -> None:
         if self.workspace_dir.exists():
             for path in self.workspace_dir.rglob("*.json"):
                 relative = path.relative_to(self.workspace_dir)
-                if relative.parts[0] not in {REVISION_DIR_NAME, ".workflow"}:
+                if relative.parts[0] not in {REVISION_DIR_NAME, ".workflow", ".repository_transactions"}:
                     path.unlink(missing_ok=True)
         for relative, payload in files.items():
             self._validate_relative_path(relative)

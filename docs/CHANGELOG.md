@@ -2583,3 +2583,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added one coherent mutation notification per committed transaction.
 - Added transaction IDs, commit/rollback counters and a bounded transaction journal to Developer Diagnostics.
 
+## Phase 2 — Repository transaction recovery
+
+- Added durable transaction manifests and byte-for-byte backups for multi-file JSON commits.
+- Added automatic recovery of interrupted `prepared` and `applying` transactions.
+- Adopted the transaction API for interpretation revision restore operations.
+- Added recovery counters to Developer Diagnostics.

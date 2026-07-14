@@ -768,3 +768,7 @@ scope on navigation changes and returns only serializable diagnostics.
 ### Phase 2 navigation-cache note
 
 Workbench project navigation is cached by `ProjectNavigationRuntimeCache` in the runtime registry under `project_navigation_runtime_cache` with session scope. Cached values are primitive serialized rows only. Freshness comes from `project_navigation_token`; do not place repository objects or Streamlit values in this cache. Explicit repository invalidation hooks remain the next step.
+
+## Repository transaction recovery
+
+`core/repository_io.py` now owns durable multi-file transaction recovery. Transaction journals are stored temporarily under `.repository_transactions/` at the common transaction root and are removed after commit or successful recovery. Do not place business data in this directory and do not copy it into interpretation revisions.

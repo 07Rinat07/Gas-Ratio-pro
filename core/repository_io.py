@@ -10,6 +10,7 @@ import json
 import os
 import tempfile
 import uuid
+import shutil
 from collections import deque
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -74,6 +75,9 @@ class RepositoryIOMetrics:
         self._transaction_failures = 0
         self._last_transaction: dict[str, Any] = {}
         self._transactions: deque[dict[str, Any]] = deque(maxlen=self.max_events)
+        self._recovery_count = 0
+        self._recovery_failures = 0
+        self._last_recovery: dict[str, Any] = {}
 
 
     def subscribe_mutations(
@@ -158,6 +162,19 @@ class RepositoryIOMetrics:
         if status == "committed":
             self._publish_mutation(event)
 
+    def notify_recovery(
+        self, *, repository: str, root: Path | str, recovered: int, failures: int
+    ) -> None:
+        self._recovery_count += max(0, int(recovered))
+        self._recovery_failures += max(0, int(failures))
+        self._last_recovery = {
+            "repository": str(repository),
+            "root_name": Path(root).name,
+            "recovered": max(0, int(recovered)),
+            "failures": max(0, int(failures)),
+            "timestamp": time(),
+        }
+
     def mutation_snapshot(self) -> dict[str, Any]:
         return {
             "mutation_count": self._mutation_count,
@@ -168,6 +185,9 @@ class RepositoryIOMetrics:
             "transaction_failures": self._transaction_failures,
             "last_transaction": dict(self._last_transaction),
             "recent_transactions": [dict(item) for item in self._transactions],
+            "recovery_count": self._recovery_count,
+            "recovery_failures": self._recovery_failures,
+            "last_recovery": dict(self._last_recovery),
         }
 
     def record(
@@ -280,91 +300,117 @@ class AtomicJsonTransaction:
         finally:
             os.close(descriptor)
 
+    @staticmethod
+    def _write_manifest(path: Path, payload: Mapping[str, Any]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        encoded = (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        descriptor, name = tempfile.mkstemp(prefix=".manifest.", suffix=".tmp", dir=path.parent)
+        temporary = Path(name)
+        try:
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(encoded)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, path)
+            AtomicJsonTransaction._sync_directory(path.parent)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    @staticmethod
+    def _common_root(paths: tuple[Path, ...]) -> Path:
+        if not paths:
+            raise ValueError("repository transaction has no changes")
+        resolved = [str(path.resolve()) for path in paths]
+        common = Path(os.path.commonpath(resolved))
+        if common in tuple(path.resolve() for path in paths):
+            common = common.parent
+        return common
+
     def commit(self) -> RepositoryTransactionResult:
         self._ensure_open()
         self._closed = True
         started = perf_counter()
-        staged: dict[Path, Path] = {}
-        backups: dict[Path, bytes | None] = {}
-        applied: list[Path] = []
         paths = tuple(change[1] for change in self._changes)
         operations = tuple(change[0] for change in self._changes)
+        if len(set(paths)) != len(paths):
+            raise ValueError("transaction contains duplicate destination paths")
+        root = self._common_root(paths)
+        self.store.recover_transactions(root)
+        transaction_dir = root / ".repository_transactions" / self.transaction_id
+        manifest_path = transaction_dir / "manifest.json"
+        entries: list[dict[str, Any]] = []
         try:
-            if len(set(paths)) != len(paths):
-                raise ValueError("transaction contains duplicate destination paths")
-            for operation, target, encoded in self._changes:
+            transaction_dir.mkdir(parents=True, exist_ok=False)
+            for index, (operation, target, encoded) in enumerate(self._changes):
+                target = target.resolve()
                 target.parent.mkdir(parents=True, exist_ok=True)
-                backups[target] = target.read_bytes() if target.exists() else None
-                if operation == "write":
-                    descriptor, name = tempfile.mkstemp(
-                        prefix=f".{target.name}.{self.transaction_id}.",
-                        suffix=".tmp",
-                        dir=target.parent,
-                    )
-                    temporary = Path(name)
-                    with os.fdopen(descriptor, "wb") as stream:
-                        stream.write(encoded or b"")
-                        stream.flush()
+                backup_name = f"backup-{index:04d}.bin"
+                staged_name = f"staged-{index:04d}.json"
+                existed = target.exists()
+                if existed:
+                    backup_path = transaction_dir / backup_name
+                    backup_path.write_bytes(target.read_bytes())
+                    with backup_path.open("rb") as stream:
                         os.fsync(stream.fileno())
-                    staged[target] = temporary
-            for operation, target, _encoded in self._changes:
                 if operation == "write":
-                    os.replace(staged[target], target)
+                    staged_path = transaction_dir / staged_name
+                    staged_path.write_bytes(encoded or b"")
+                    with staged_path.open("rb") as stream:
+                        os.fsync(stream.fileno())
+                entries.append({
+                    "operation": operation,
+                    "target": str(target),
+                    "existed": existed,
+                    "backup": backup_name if existed else "",
+                    "staged": staged_name if operation == "write" else "",
+                })
+            manifest = {
+                "schema": "gas-ratio-pro/repository-transaction/v1",
+                "transaction_id": self.transaction_id,
+                "repository": self.store.repository,
+                "root": str(root.resolve()),
+                "status": "prepared",
+                "entries": entries,
+                "created_at": time(),
+            }
+            self._write_manifest(manifest_path, manifest)
+            manifest["status"] = "applying"
+            self._write_manifest(manifest_path, manifest)
+            for entry in entries:
+                target = Path(entry["target"])
+                if entry["operation"] == "write":
+                    os.replace(transaction_dir / entry["staged"], target)
                 else:
                     target.unlink(missing_ok=True)
-                applied.append(target)
                 self._sync_directory(target.parent)
+            manifest["status"] = "committed"
+            self._write_manifest(manifest_path, manifest)
         except Exception as exc:
-            for target in reversed(applied):
-                original = backups.get(target)
-                try:
-                    if original is None:
-                        target.unlink(missing_ok=True)
-                    else:
-                        descriptor, name = tempfile.mkstemp(
-                            prefix=f".{target.name}.rollback.", suffix=".tmp", dir=target.parent
-                        )
-                        temporary = Path(name)
-                        with os.fdopen(descriptor, "wb") as stream:
-                            stream.write(original)
-                            stream.flush()
-                            os.fsync(stream.fileno())
-                        os.replace(temporary, target)
-                        self._sync_directory(target.parent)
-                except Exception:
-                    # Preserve the original transaction failure. Rollback health
-                    # is visible through the failed transaction diagnostic.
-                    pass
+            self.store._recover_transaction_dir(transaction_dir, expected_root=root)
             duration_ms = (perf_counter() - started) * 1000.0
             if self.store.metrics is not None:
                 self.store.metrics.notify_transaction(
-                    repository=self.store.repository,
-                    transaction_id=self.transaction_id,
-                    paths=paths,
-                    operations=operations,
-                    status="rolled_back",
-                    duration_ms=duration_ms,
-                    error_type=type(exc).__name__,
+                    repository=self.store.repository, transaction_id=self.transaction_id,
+                    paths=paths, operations=operations, status="rolled_back",
+                    duration_ms=duration_ms, error_type=type(exc).__name__,
                 )
             raise
-        finally:
-            for temporary in staged.values():
-                temporary.unlink(missing_ok=True)
+        else:
+            shutil.rmtree(transaction_dir, ignore_errors=True)
+            parent = transaction_dir.parent
+            try:
+                parent.rmdir()
+            except OSError:
+                pass
         duration_ms = (perf_counter() - started) * 1000.0
         if self.store.metrics is not None:
             self.store.metrics.notify_transaction(
-                repository=self.store.repository,
-                transaction_id=self.transaction_id,
-                paths=paths,
-                operations=operations,
-                status="committed",
-                duration_ms=duration_ms,
+                repository=self.store.repository, transaction_id=self.transaction_id,
+                paths=paths, operations=operations, status="committed", duration_ms=duration_ms,
             )
         return RepositoryTransactionResult(
-            transaction_id=self.transaction_id,
-            status="committed",
-            change_count=len(paths),
-            duration_ms=duration_ms,
+            transaction_id=self.transaction_id, status="committed",
+            change_count=len(paths), duration_ms=duration_ms,
             paths=tuple(path.name for path in paths),
         )
 
@@ -420,6 +466,62 @@ class AtomicJsonStore:
             path=path,
             error_type=type(error).__name__ if error is not None else "",
         )
+
+    def _recover_transaction_dir(self, transaction_dir: Path, *, expected_root: Path) -> bool:
+        manifest_path = transaction_dir / "manifest.json"
+        if not manifest_path.exists():
+            shutil.rmtree(transaction_dir, ignore_errors=True)
+            return False
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        root = Path(str(payload.get("root", ""))).resolve()
+        if root != expected_root.resolve():
+            raise ValueError("repository transaction root mismatch")
+        status = str(payload.get("status", ""))
+        if status != "committed":
+            for entry in reversed(list(payload.get("entries", []))):
+                target = Path(str(entry.get("target", ""))).resolve()
+                try:
+                    target.relative_to(root)
+                except ValueError as exc:
+                    raise ValueError("unsafe repository transaction target") from exc
+                if bool(entry.get("existed")):
+                    backup = transaction_dir / str(entry.get("backup", ""))
+                    if not backup.exists():
+                        raise FileNotFoundError(backup)
+                    descriptor, name = tempfile.mkstemp(prefix=f".{target.name}.recover.", suffix=".tmp", dir=target.parent)
+                    temporary = Path(name)
+                    with os.fdopen(descriptor, "wb") as stream:
+                        stream.write(backup.read_bytes())
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                    os.replace(temporary, target)
+                else:
+                    target.unlink(missing_ok=True)
+                AtomicJsonTransaction._sync_directory(target.parent)
+        shutil.rmtree(transaction_dir, ignore_errors=True)
+        return status != "committed"
+
+    def recover_transactions(self, root: Path | str) -> dict[str, int]:
+        recovery_root = Path(root).resolve()
+        journal_root = recovery_root / ".repository_transactions"
+        recovered = 0
+        failures = 0
+        if journal_root.exists():
+            for transaction_dir in sorted(path for path in journal_root.iterdir() if path.is_dir()):
+                try:
+                    if self._recover_transaction_dir(transaction_dir, expected_root=recovery_root):
+                        recovered += 1
+                except Exception:
+                    failures += 1
+            try:
+                journal_root.rmdir()
+            except OSError:
+                pass
+        if self.metrics is not None and (recovered or failures):
+            self.metrics.notify_recovery(
+                repository=self.repository, root=recovery_root, recovered=recovered, failures=failures
+            )
+        return {"recovered": recovered, "failures": failures}
 
     def transaction(self) -> AtomicJsonTransaction:
         """Create a staged multi-file transaction for this repository."""

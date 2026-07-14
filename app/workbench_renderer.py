@@ -873,6 +873,10 @@ def _render_native_streamlit_layout(
                     + " | Last ID: "
                     + str(dict(mutation_info.get("last_transaction", {}) or {}).get("transaction_id", ""))[:12]
                 )
+                st_module.caption(
+                    "Recovered after interruption: " + str(mutation_info.get("recovery_count", 0))
+                    + " | Recovery failures: " + str(mutation_info.get("recovery_failures", 0))
+                )
                 transaction_rows = list(mutation_info.get("recent_transactions", ()) or ())
                 if transaction_rows and hasattr(st_module, "dataframe"):
                     st_module.dataframe(transaction_rows[-10:], width="stretch", hide_index=True)
