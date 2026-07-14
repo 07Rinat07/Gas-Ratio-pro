@@ -183,6 +183,22 @@ class InterpretationIntervalCommandService:
             ),
         )
 
+    def replace_all(
+        self,
+        intervals: tuple[InterpretationInterval, ...],
+        *,
+        action: str = "replace_all",
+    ) -> InterpretationIntervalSet:
+        """Replace the complete interval set as one reversible command."""
+
+        normalized = tuple(intervals)
+
+        def operation() -> InterpretationIntervalSet:
+            current = self._load()
+            return save_interpretation_intervals(replace(current, intervals=normalized), self.root)
+
+        return self._execute(action, operation)
+
     def undo(self) -> bool:
         history = self._ensure_history()
         if not history["undo"]:

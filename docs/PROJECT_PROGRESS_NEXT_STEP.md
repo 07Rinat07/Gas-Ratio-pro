@@ -168,3 +168,11 @@ Manual interpretation intervals are now rendered on interpretation depth tracks 
 Completed: manual interpretation intervals can be downloaded from the interval panel as JSON, CSV or Excel. Exports include UUID, bounds, derived thickness/middle depth, type, color, comment, source and timestamps.
 
 Next recommended increment: improve tablet interaction for manual intervals with direct selection/hover synchronization and configurable overlay visibility.
+
+## Interpretation interval import
+
+- JSON, CSV and Excel exports can now be imported back into the active interpretation.
+- Supported modes are append-only, UUID upsert and complete replacement.
+- A complete import is persisted atomically through the interval repository and recorded as one reversible command.
+- Invalid schemas, missing columns and duplicate UUID values are rejected before persistence.
+- Next step: synchronize selection and hover state between the interval table/panel and tablet overlays.

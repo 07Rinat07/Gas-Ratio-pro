@@ -15,6 +15,10 @@ from projects.interpretation_interval_exports import (
     export_interpretation_intervals_json,
     export_interpretation_intervals_xlsx,
 )
+from projects.interpretation_interval_imports import (
+    apply_interpretation_interval_import,
+    parse_interpretation_interval_import,
+)
 from projects.interpretation_interval_manager import (
     InterpretationIntervalManager,
     InterpretationIntervalOverlapError,
@@ -120,6 +124,48 @@ def render_interpretation_interval_panel(
                 key=f"manual_interval_export_xlsx_{project_id}_{well_id}",
                 width="stretch",
             )
+
+        st.markdown("**Импорт интервалов**")
+        import_file = st.file_uploader(
+            "JSON, CSV или Excel",
+            type=["json", "csv", "xlsx"],
+            key=f"manual_interval_import_file_{project_id}_{well_id}",
+        )
+        import_mode = st.selectbox(
+            "Режим импорта",
+            options=("upsert", "append", "replace"),
+            format_func=lambda value: {
+                "upsert": "Добавить и обновить по UUID",
+                "append": "Только добавить новые",
+                "replace": "Полностью заменить текущие",
+            }[value],
+            key=f"manual_interval_import_mode_{project_id}_{well_id}",
+        )
+        if st.button(
+            "Импортировать интервалы",
+            key=f"manual_interval_import_apply_{project_id}_{well_id}",
+            disabled=import_file is None,
+            width="stretch",
+        ):
+            try:
+                payload = parse_interpretation_interval_import(
+                    import_file.getvalue(),
+                    import_file.name,
+                )
+                result = apply_interpretation_interval_import(
+                    manager,
+                    payload,
+                    mode=import_mode,
+                )
+            except ValueError as exc:
+                st.error(str(exc))
+            else:
+                st.success(
+                    f"Импортировано: {result.imported_count}; "
+                    f"добавлено: {result.created_count}; "
+                    f"обновлено: {result.updated_count}."
+                )
+                st.rerun()
 
         with st.form(f"manual_interval_create_{project_id}_{well_id}", clear_on_submit=True):
             st.markdown("**Новый интервал**")

@@ -650,3 +650,7 @@ The interpretation workspace now includes a thin Streamlit panel over the interv
 ## Latest increment: interpretation interval export
 
 Manual interpretation intervals now have a UI-independent export service and Streamlit download actions for JSON, CSV and Excel. The next recommended increment is tablet interaction synchronization: direct manual-interval selection, overlay visibility and hover/selection state coordination.
+
+## Latest increment: interpretation interval import
+
+Use `projects.interpretation_interval_imports` for parsing and applying manual interval imports. Parsing is UI-independent and supports versioned JSON exports, CSV and XLSX. Apply imports through `apply_interpretation_interval_import()` so append/upsert/replace changes are stored as one Undo/Redo-aware command. Do not loop through UI-level create/update calls for bulk imports because that fragments history. The next recommended increment is bidirectional selected-interval and hover synchronization between panel/table and tablet overlays.

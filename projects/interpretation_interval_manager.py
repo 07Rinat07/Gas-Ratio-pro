@@ -146,6 +146,16 @@ class InterpretationIntervalManager:
     def delete(self, interval_id: str) -> bool:
         return self.commands.delete(interval_id)
 
+    def replace_all(
+        self,
+        intervals: tuple[InterpretationInterval, ...],
+        *,
+        action: str = "replace_all",
+    ) -> tuple[InterpretationInterval, ...]:
+        """Replace all intervals as one Undo/Redo-aware operation."""
+
+        return self.commands.replace_all(intervals, action=action).intervals
+
     def undo(self) -> bool:
         return self.commands.undo()
 

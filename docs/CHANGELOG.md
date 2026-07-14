@@ -2244,3 +2244,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added versioned JSON export for manual interpretation intervals.
 - Added UTF-8 CSV and formatted Excel exports with project/well metadata.
 - Added download actions to the Streamlit interval panel.
+
+## 2026-07-14 — Interpretation interval import
+
+- Added JSON, CSV and Excel import for manual interpretation intervals.
+- Added append, UUID-based upsert and full replace modes.
+- Recorded each complete import as one Undo/Redo command.
+- Added validation for schemas, required columns and duplicate UUID values.
+- Added import controls to the Streamlit interval panel.
