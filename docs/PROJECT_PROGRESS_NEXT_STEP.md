@@ -128,3 +128,7 @@ Next recommended increment: Modern Workspace shell foundation — Project Explor
 - Evictions emit payload-free telemetry with evicted count, released bytes, retained bytes and configured budget.
 - Existing `store_pdf_preview_cache()` remains backward compatible and delegates to the new diagnostic storage API.
 - Next step: return to the core interpretation workflow and implement project-persistent editable interval annotations.
+
+## 2026-07-14: interpretation repository foundation completed
+
+Completed the serializable `Project -> Well -> Interpretation -> Intervals` repository with UUID-based CRUD and atomic persistence. The next bounded increment is an application service/command layer that records reversible create/update/delete operations for undo/redo before Streamlit UI integration.

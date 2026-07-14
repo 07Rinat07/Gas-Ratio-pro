@@ -616,3 +616,19 @@ The PDF preview cache now exposes `summarize_pdf_preview_cache()` and `PdfPrevie
 ## Latest increment: PDF Preview cache memory budget
 
 The PDF thumbnail cache is now bounded by both number of ranges and total PNG bytes. Use `store_pdf_preview_cache_with_diagnostics()` when UI or telemetry needs eviction details. The compatibility wrapper `store_pdf_preview_cache()` still returns only the payload. The newest range is never evicted during the same insertion, even when it exceeds the selected budget. All new documentation remains under `docs/`; do not add Markdown files to the repository root except `README.md`.
+
+## Interpretation interval repository foundation
+
+Implemented the first interpretation-module increment in `projects/interpretation_intervals.py`.
+
+- Storage hierarchy: `data/projects/<project_id>/wells/<well_id>/interpretations/<interpretation_id>/intervals.json`.
+- Every manually managed interval has a stable UUID.
+- The serializable model contains label, top/base, type, color, comment, source and timestamps.
+- Thickness and middle depth are derived properties and are not duplicated in persisted state.
+- CRUD operations use validation and atomic JSON replacement.
+- This repository is intentionally separate from the existing automatic hydrocarbon and pay-zone interval engines; later UI integration may import or reference their results without changing their models.
+- Runtime services and UI objects must not be attached to `InterpretationInterval` or `InterpretationIntervalSet`.
+
+Validation: focused interpretation repository tests plus the existing professional well-interval manager tests pass (11 tests).
+
+Next priority: add a service/command layer with undo/redo snapshots, then connect the interval manager UI to that layer.

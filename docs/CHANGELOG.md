@@ -2195,3 +2195,12 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Для выбранного пласта явно отображается, что будет сформирован одиночный детальный отчёт.
 - Экспорт показывает четыре этапа выполнения и прогресс: проверка, модель/атлас, рендеринг, готовность.
 - Добавлены подсказки по профилям, форматам и области печати.
+
+## 2026-07-14 — Interpretation interval repository foundation
+
+- Added immutable manual interpretation interval and interval-set models.
+- Added stable UUID generation and validation.
+- Added project/well/interpretation-scoped atomic JSON persistence.
+- Added create, read, update and idempotent delete operations.
+- Added derived thickness/middle-depth table projection.
+- Added focused repository tests without changing the existing automatic well interval manager.
