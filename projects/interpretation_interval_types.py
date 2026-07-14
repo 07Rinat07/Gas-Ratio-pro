@@ -9,12 +9,16 @@ from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
+from uuid import uuid4
 
 from projects.interpretation_intervals import load_interpretation_intervals, save_interpretation_intervals
 from projects.repository import DEFAULT_PROJECT_ID, DEFAULT_PROJECTS_ROOT, safe_project_id
 
 INTERVAL_TYPES_SCHEMA = "gas-ratio-pro/interpretation-interval-types/v1"
 INTERVAL_TYPES_FILE_NAME = "interpretation_interval_types.json"
+INTERVAL_TYPE_OPERATIONS_SCHEMA = "gas-ratio-pro/interpretation-interval-type-operations/v1"
+INTERVAL_TYPE_OPERATIONS_FILE_NAME = "interpretation_interval_type_operations.json"
+INTERVAL_TYPE_OPERATIONS_LIMIT = 200
 
 
 @dataclass(frozen=True)
@@ -78,6 +82,19 @@ class InterpretationIntervalTypeReassignmentResult:
     well_count: int
     interpretation_count: int
     target_color_applied: bool
+
+
+@dataclass(frozen=True)
+class InterpretationIntervalTypeOperation:
+    id: str
+    operation: str
+    source_type_id: str
+    target_type_id: str
+    interval_count: int
+    well_count: int
+    interpretation_count: int
+    target_color_applied: bool
+    created_at: str
 
 
 def _write_bytes_atomic(path: Path, payload: bytes) -> None:
@@ -150,6 +167,51 @@ def _utc_now() -> str:
 
 def _storage_path(root: Path | str, project_id: str) -> Path:
     return Path(root) / safe_project_id(project_id) / INTERVAL_TYPES_FILE_NAME
+
+
+def _operations_path(root: Path | str, project_id: str) -> Path:
+    return Path(root) / safe_project_id(project_id) / INTERVAL_TYPE_OPERATIONS_FILE_NAME
+
+
+def _load_type_operations(
+    root: Path | str,
+    project_id: str,
+) -> tuple[InterpretationIntervalTypeOperation, ...]:
+    path = _operations_path(root, project_id)
+    if not path.exists():
+        return ()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError) as exc:
+        raise ValueError("Не удалось прочитать журнал операций типов интервалов.") from exc
+    if payload.get("schema") != INTERVAL_TYPE_OPERATIONS_SCHEMA:
+        raise ValueError("Неподдерживаемая схема журнала операций типов интервалов.")
+    items = []
+    for raw in payload.get("operations", ()):
+        try:
+            items.append(InterpretationIntervalTypeOperation(**raw))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Журнал операций типов интервалов повреждён.") from exc
+    return tuple(items)
+
+
+def _append_type_operation(
+    root: Path | str,
+    project_id: str,
+    operation: InterpretationIntervalTypeOperation,
+) -> None:
+    current = list(_load_type_operations(root, project_id))
+    current.append(operation)
+    current = current[-INTERVAL_TYPE_OPERATIONS_LIMIT:]
+    _atomic_write(
+        _operations_path(root, project_id),
+        {
+            "schema": INTERVAL_TYPE_OPERATIONS_SCHEMA,
+            "project_id": safe_project_id(project_id),
+            "updated_at": _utc_now(),
+            "operations": [asdict(item) for item in current],
+        },
+    )
 
 
 def _clean_id(value: str) -> str:
@@ -347,6 +409,11 @@ class InterpretationIntervalTypeRepository:
             project_id=self.project_id,
         )
 
+    def list_operations(self, *, limit: int = 50) -> tuple[InterpretationIntervalTypeOperation, ...]:
+        bounded_limit = max(1, min(int(limit), INTERVAL_TYPE_OPERATIONS_LIMIT))
+        operations = _load_type_operations(self.root, self.project_id)
+        return tuple(reversed(operations[-bounded_limit:]))
+
     def preview_reassignment(
         self,
         source_type_id: str,
@@ -513,6 +580,21 @@ class InterpretationIntervalTypeRepository:
             expected_confirmation_token=expected_confirmation_token,
         )
         self.delete(source_type_id)
+        _append_type_operation(
+            self.root,
+            self.project_id,
+            InterpretationIntervalTypeOperation(
+                id=str(uuid4()),
+                operation="reassign_and_delete",
+                source_type_id=result.source_type_id,
+                target_type_id=result.target_type_id,
+                interval_count=result.interval_count,
+                well_count=result.well_count,
+                interpretation_count=result.interpretation_count,
+                target_color_applied=result.target_color_applied,
+                created_at=_utc_now(),
+            ),
+        )
         return result
 
     def delete(self, type_id: str) -> bool:

@@ -283,3 +283,71 @@ def test_reassignment_accepts_current_preview_confirmation_token(tmp_path: Path)
     current = manager.get_interval(interval.id)
     assert current.interval_type == "target"
     assert repository.get("source") is None
+
+
+def test_reassign_and_delete_appends_project_operation_journal(tmp_path: Path) -> None:
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    repository.upsert(type_id="source", name="Source", color="#112233")
+    repository.upsert(type_id="target", name="Target", color="#445566")
+    create_interpretation_interval(
+        root=tmp_path,
+        project_id="project",
+        well_id="well-a",
+        interpretation_id="default",
+        label="A",
+        top=100,
+        base=110,
+        interval_type="source",
+        color="#010203",
+    )
+    preview = repository.preview_reassignment("source", "target", apply_target_color=False)
+
+    repository.reassign_and_delete(
+        "source",
+        "target",
+        apply_target_color=False,
+        expected_confirmation_token=preview.confirmation_token,
+    )
+
+    operations = repository.list_operations()
+    assert len(operations) == 1
+    operation = operations[0]
+    assert operation.operation == "reassign_and_delete"
+    assert operation.source_type_id == "source"
+    assert operation.target_type_id == "target"
+    assert operation.interval_count == 1
+    assert operation.well_count == 1
+    assert operation.interpretation_count == 1
+    assert operation.target_color_applied is False
+    assert operation.id
+    assert operation.created_at.endswith("Z")
+    assert (tmp_path / "project" / "interpretation_interval_type_operations.json").exists()
+
+
+def test_failed_stale_reassignment_does_not_append_operation_journal(tmp_path: Path) -> None:
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    repository.upsert(type_id="source", name="Source", color="#112233")
+    repository.upsert(type_id="target", name="Target", color="#445566")
+    manager = InterpretationIntervalManager(
+        {}, root=tmp_path, project_id="project", well_id="well-a", interpretation_id="default"
+    )
+    interval = manager.create(label="A", top=100, base=110, interval_type="source")
+    preview = repository.preview_reassignment("source", "target")
+    manager.update(
+        interval.id,
+        label=interval.label,
+        top=interval.top,
+        base=interval.base,
+        interval_type=interval.interval_type,
+        color=interval.color,
+        comment="changed",
+    )
+
+    with pytest.raises(ValueError, match="изменились после предварительного просмотра"):
+        repository.reassign_and_delete(
+            "source",
+            "target",
+            expected_confirmation_token=preview.confirmation_token,
+        )
+
+    assert repository.list_operations() == ()

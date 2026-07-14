@@ -228,6 +228,29 @@ def render_interpretation_interval_panel(
                         if deleted:
                             st.success("Неиспользуемый тип удалён из справочника.")
                             st.rerun()
+            with st.expander("Журнал пакетных операций", expanded=False):
+                type_operations = type_repository.list_operations(limit=25)
+                if not type_operations:
+                    st.caption("Пакетные операции с типами ещё не выполнялись.")
+                else:
+                    st.dataframe(
+                        [
+                            {
+                                "Дата": item.created_at,
+                                "Операция": "Переназначение и удаление",
+                                "Исходный тип": item.source_type_id,
+                                "Целевой тип": item.target_type_id,
+                                "Интервалы": item.interval_count,
+                                "Скважины": item.well_count,
+                                "Интерпретации": item.interpretation_count,
+                                "Цвет изменён": "Да" if item.target_color_applied else "Нет",
+                            }
+                            for item in type_operations
+                        ],
+                        width="stretch",
+                        hide_index=True,
+                    )
+
             if st.button(
                 "Восстановить типы по умолчанию",
                 key=f"manual_interval_type_reset_{project_id}",
