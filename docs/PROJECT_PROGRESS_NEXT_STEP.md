@@ -1,3 +1,9 @@
+# Phase 2 — DataFrame memory hardening completed
+
+The interpretation presentation cache is now bounded by both entry count and actual memory. It is project-scoped, releases DataFrames during project lifecycle cleanup, and exposes current/peak memory without copying cached values.
+
+Next step: instrument project-open stages and remove eager repository/dataframe loading from routes that do not consume project data.
+
 # Next Step
 
 Completed in v37: Workspace Session Manager for Modern UI.

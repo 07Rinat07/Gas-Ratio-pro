@@ -237,7 +237,7 @@ from palettes.plot_engine import PLOTLY_SCREEN_CONFIG, downsample_frame_for_scre
 from palettes.plot_cache import PlotCache
 from core.runtime_diagnostics import RuntimeDiagnostics
 from core.rerun_coordinator import begin_rerun_cycle, request_rerun
-from core.dataframe_runtime_cache import DataframeRuntimeCache
+from core.dataframe_runtime_cache import DEFAULT_DATAFRAME_CACHE_BYTES, DataframeRuntimeCache
 from core.cache_metrics import CacheMetricsRegistry
 from core.correlation_runtime_cache import CorrelationRenderArtifacts, CorrelationRuntimeCache
 from core.session_state_audit import audit_session_state
@@ -10939,9 +10939,11 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         "dataframe_runtime_cache",
         lambda: DataframeRuntimeCache(
             max_samples=8,
+            max_bytes=DEFAULT_DATAFRAME_CACHE_BYTES,
             metrics=cache_metrics_registry.counter("dataframe_runtime", max_entries=8),
         ),
         expected_type=DataframeRuntimeCache,
+        scope="project",
     )
     calculated_signature = dataframe_runtime_cache.signature(
         calculated_df,

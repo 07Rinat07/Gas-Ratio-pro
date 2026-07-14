@@ -1,3 +1,10 @@
+## Phase 2 — Project-scoped DataFrame memory hardening
+
+- Added a strict byte budget in addition to the existing sample-count limit.
+- Added LRU eviction by actual deep DataFrame memory usage.
+- Oversized samples are returned but never retained in runtime memory.
+- Registered the DataFrame cache in the project lifecycle and added a close hook.
+- Added DataFrame memory usage, peak, budget and oversized-skip diagnostics.
 
 ## Hotfix — Workbench startup runtime registry
 

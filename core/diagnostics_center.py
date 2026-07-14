@@ -16,6 +16,7 @@ from core.operation_tracing import OperationTraceRegistry
 from core.session_state_audit import audit_session_state
 from core.performance_regression import build_performance_baseline
 from core.startup_diagnostics import StartupDiagnostics
+from core.dataframe_runtime_cache import DataframeRuntimeCache
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +79,20 @@ def _trace_snapshot(service: Any, *, limit: int) -> dict[str, Any]:
         "events": [item.to_dict() for item in service.snapshot(limit=limit)],
     }
 
+
+def _dataframe_memory_snapshot(service: Any) -> dict[str, Any]:
+    if not isinstance(service, DataframeRuntimeCache):
+        return {
+            "sample_entries": 0,
+            "sample_bytes": 0,
+            "peak_sample_bytes": 0,
+            "max_sample_bytes": 0,
+            "memory_utilization_percent": 0.0,
+            "oversized_skips": 0,
+            "evictions": 0,
+        }
+    return service.stats().to_dict()
+
 def _budget_snapshot(events: list[dict[str, Any]], budgets: Mapping[str, float]) -> list[dict[str, Any]]:
     latest: dict[str, float] = {}
     for event in events:
@@ -116,6 +131,7 @@ def build_diagnostics_center_snapshot(
     traces = _trace_snapshot(registry.get("operation_trace_registry"), limit=event_limit)
     startup = _startup_snapshot(registry.get("startup_diagnostics"), limit=event_limit)
     session = audit_session_state(state).to_dict()
+    dataframe_memory = _dataframe_memory_snapshot(registry.get("dataframe_runtime_cache"))
     descriptors = [
         {"key": item.key, "type_name": item.type_name}
         for item in registry.descriptors()
@@ -135,6 +151,7 @@ def build_diagnostics_center_snapshot(
         "traces": traces,
         "startup": startup,
         "session": session,
+        "dataframe_memory": dataframe_memory,
         "budgets": _budget_snapshot(events, budgets),
     }
     snapshot["performance_baseline"] = build_performance_baseline(snapshot).to_dict()

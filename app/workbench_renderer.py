@@ -761,6 +761,7 @@ def _render_native_streamlit_layout(
                 repository_io = dict(center.get("repository", {}) or {})
                 traces = dict(center.get("traces", {}) or {})
                 session = dict(center.get("session", {}) or {})
+                dataframe_memory = dict(center.get("dataframe_memory", {}) or {})
                 registry_stats = dict(runtime.get("registry", {}) or {})
                 cache_summary = dict(cache.get("summary", {}) or {})
 
@@ -803,6 +804,20 @@ def _render_native_streamlit_layout(
                 caches = list(cache.get("caches", ()) or ())
                 if caches and hasattr(st_module, "dataframe"):
                     st_module.dataframe(caches, width="stretch", hide_index=True)
+
+                st_module.markdown("##### DataFrame memory")
+                st_module.caption(
+                    "Entries: " + str(dataframe_memory.get("sample_entries", 0))
+                    + " | Current: " + str(round(float(dataframe_memory.get("sample_bytes", 0)) / 1048576.0, 2)) + " MiB"
+                    + " | Peak: " + str(round(float(dataframe_memory.get("peak_sample_bytes", 0)) / 1048576.0, 2)) + " MiB"
+                    + " | Budget: " + str(round(float(dataframe_memory.get("max_sample_bytes", 0)) / 1048576.0, 2)) + " MiB"
+                    + " | Utilization: " + str(dataframe_memory.get("memory_utilization_percent", 0.0)) + "%"
+                )
+                if int(dataframe_memory.get("oversized_skips", 0) or 0):
+                    st_module.warning(
+                        "Oversized DataFrame samples skipped: "
+                        + str(dataframe_memory.get("oversized_skips", 0))
+                    )
 
                 st_module.markdown("##### Repository I/O")
                 st_module.caption(

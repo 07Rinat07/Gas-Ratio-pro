@@ -1,3 +1,16 @@
+# Latest increment — Project loading and DataFrame memory hardening
+
+Status: COMPLETED
+
+Implemented:
+- project-scoped DataFrame runtime cache lifecycle;
+- strict 64 MiB default cache budget plus entry-count limit;
+- LRU eviction based on deep DataFrame memory usage;
+- non-retention of single samples larger than the configured budget;
+- payload-free memory diagnostics in Developer Diagnostics.
+
+Next priority: profile project opening and move remaining eager project-data reads behind lazy repository boundaries.
+
 # Latest increment — Bounded Report Preview Quarantine Maintenance
 
 Status: COMPLETED
