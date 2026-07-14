@@ -175,3 +175,62 @@ def test_batch_preview_reuses_operation_validation(tmp_path: Path):
         service.preview_edit_metadata([interval.id], source="x" * 81)
     with pytest.raises(KeyError, match="не найдены"):
         service.preview_delete(["missing"])
+
+
+def test_confirmed_batch_operation_rejects_stale_preview(tmp_path: Path):
+    from projects.interpretation_interval_batch import InterpretationIntervalBatchConflict
+
+    manager = _manager(tmp_path, {})
+    interval = manager.create(label="A", top=100, base=110, interval_type="old")
+    service = InterpretationIntervalBatchService(manager)
+    preview = service.preview_assign_type([interval.id], interval_type="new")
+
+    manager.update(
+        interval.id,
+        label="A changed",
+        top=100,
+        base=110,
+        interval_type="old",
+        color=interval.color,
+        comment=interval.comment,
+    )
+
+    with pytest.raises(InterpretationIntervalBatchConflict, match="preview повторно"):
+        service.confirm_assign_type(preview, interval_type="new")
+
+
+def test_confirmed_batch_operation_is_journaled_and_undoable(tmp_path: Path):
+    state = {}
+    manager = _manager(tmp_path, state)
+    first = manager.create(label="A", top=100, base=110, interval_type="old")
+    second = manager.create(label="B", top=120, base=130, interval_type="old")
+    manager.commands.clear_history()
+    service = InterpretationIntervalBatchService(manager)
+
+    preview = service.preview_assign_type(
+        [first.id, second.id], interval_type="reservoir", color="#ABCDEF"
+    )
+    result = service.confirm_assign_type(
+        preview, interval_type="reservoir", color="#ABCDEF"
+    )
+
+    assert result.changed_count == 2
+    journal = service.list_journal()
+    assert len(journal) == 1
+    assert journal[0]["action"] == "assign_type"
+    assert journal[0]["changed_count"] == 2
+    assert manager.undo() is True
+    assert {item.interval_type for item in manager.list_intervals()} == {"old"}
+
+
+def test_confirm_delete_requires_matching_preview(tmp_path: Path):
+    manager = _manager(tmp_path, {})
+    interval = manager.create(label="A", top=100, base=110)
+    service = InterpretationIntervalBatchService(manager)
+    preview = service.preview_delete([interval.id])
+
+    result = service.confirm_delete(preview)
+
+    assert result.changed_count == 1
+    assert manager.list_intervals() == ()
+    assert service.list_journal()[0]["action"] == "delete"

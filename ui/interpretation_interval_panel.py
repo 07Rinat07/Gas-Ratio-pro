@@ -589,8 +589,13 @@ def render_interpretation_interval_panel(
                 width="stretch",
             ):
                 try:
-                    result = batch_service.assign_type(
+                    preview = batch_service.preview_assign_type(
                         batch_ids,
+                        interval_type=batch_type,
+                        color=batch_color if batch_apply_color else None,
+                    )
+                    result = batch_service.confirm_assign_type(
+                        preview,
                         interval_type=batch_type,
                         color=batch_color if batch_apply_color else None,
                     )
@@ -639,8 +644,14 @@ def render_interpretation_interval_panel(
                 width="stretch",
             ):
                 try:
-                    result = batch_service.edit_metadata(
+                    preview = batch_service.preview_edit_metadata(
                         batch_ids,
+                        comment=batch_comment if batch_comment_enabled else None,
+                        comment_mode=batch_comment_mode,
+                        source=batch_source if batch_source_enabled else None,
+                    )
+                    result = batch_service.confirm_edit_metadata(
+                        preview,
                         comment=batch_comment if batch_comment_enabled else None,
                         comment_mode=batch_comment_mode,
                         source=batch_source if batch_source_enabled else None,
@@ -715,6 +726,23 @@ def render_interpretation_interval_panel(
                     except (ValueError, KeyError) as exc:
                         st.warning(str(exc))
 
+            batch_journal = batch_service.list_journal(limit=10)
+            if batch_journal:
+                with st.expander("Журнал групповых операций", expanded=False):
+                    st.dataframe(
+                        [
+                            {
+                                "Дата": entry.get("timestamp", ""),
+                                "Операция": entry.get("action", ""),
+                                "Выбрано": entry.get("selected_count", 0),
+                                "Изменено": entry.get("changed_count", 0),
+                            }
+                            for entry in batch_journal
+                        ],
+                        width="stretch",
+                        hide_index=True,
+                    )
+
             batch_delete_confirm = st.checkbox(
                 "Подтверждаю групповое удаление",
                 value=False,
@@ -727,7 +755,8 @@ def render_interpretation_interval_panel(
                 width="stretch",
             ):
                 try:
-                    result = batch_service.delete(batch_ids)
+                    preview = batch_service.preview_delete(batch_ids)
+                    result = batch_service.confirm_delete(preview)
                 except (ValueError, KeyError) as exc:
                     st.error(str(exc))
                 else:

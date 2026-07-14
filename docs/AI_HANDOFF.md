@@ -687,3 +687,12 @@ Project-wide interval type reassignment now requires an explicit UI confirmation
 ## Interpretation interval type journal pagination
 
 `InterpretationIntervalTypeRepository.list_operations()` now accepts a non-negative `offset` after filtering and newest-first ordering. `count_operations()` returns the filtered total for UI pagination, while `get_operation()` resolves a stable journal UUID. The Streamlit journal shows 10/25/50 rows per page and a serializable detail card; no Streamlit event or repository object is stored in project state.
+
+## Batch interval workflow
+
+- Групповые изменения типа, цвета, комментария, источника и удаление выполняются через подтверждённый preview.
+- Preview содержит SHA-256 токен состояния выбранных интервалов и параметров операции.
+- Устаревший preview блокируется до записи данных.
+- Подтверждённые операции сохраняются в ограниченном сериализуемом журнале Session State.
+- Каждая пакетная операция остаётся одним шагом Undo/Redo.
+

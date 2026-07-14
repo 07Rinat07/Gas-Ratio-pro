@@ -2,11 +2,18 @@ from __future__ import annotations
 
 """Undo/Redo-aware batch operations for manual interpretation intervals."""
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+import hashlib
+import json
 from typing import Iterable
 
 from projects.interpretation_interval_manager import InterpretationIntervalManager
 from projects.interpretation_intervals import InterpretationInterval, build_interpretation_interval
+
+
+class InterpretationIntervalBatchConflict(RuntimeError):
+    """Raised when confirmed batch preview no longer matches repository state."""
 
 
 @dataclass(frozen=True)
@@ -40,6 +47,7 @@ class InterpretationIntervalBatchPreview:
     selected_count: int
     changed_count: int
     items: tuple[InterpretationIntervalBatchPreviewItem, ...]
+    confirmation_token: str
 
 
 class InterpretationIntervalBatchService:
@@ -47,6 +55,10 @@ class InterpretationIntervalBatchService:
 
     def __init__(self, manager: InterpretationIntervalManager) -> None:
         self.manager = manager
+        self._journal_key = (
+            f"interpretation_interval_batch_journal::{manager.project_id}::"
+            f"{manager.well_id}::{manager.interpretation_id}"
+        )
 
 
     def preview_assign_type(
@@ -73,7 +85,7 @@ class InterpretationIntervalBatchService:
                 created_at=interval.created_at,
             )
             items.append(self._preview_item(interval, replacement))
-        return self._preview("assign_type", selected_ids, items)
+        return self._preview("assign_type", selected_ids, items, {"interval_type": str(interval_type), "color": color})
 
     def preview_edit_metadata(
         self,
@@ -102,12 +114,43 @@ class InterpretationIntervalBatchService:
                 created_at=interval.created_at,
             )
             items.append(self._preview_item(interval, replacement))
-        return self._preview("edit_metadata", selected_ids, items)
+        return self._preview("edit_metadata", selected_ids, items, {"comment": comment, "comment_mode": clean_mode, "source": source})
 
     def preview_delete(self, interval_ids: Iterable[str]) -> InterpretationIntervalBatchPreview:
         selected_ids = self._normalize_ids(interval_ids)
         items = [self._preview_item(interval, None) for interval in self._selected_intervals(selected_ids)]
-        return self._preview("delete", selected_ids, items)
+        return self._preview("delete", selected_ids, items, {})
+
+    def confirm_assign_type(
+        self, preview: InterpretationIntervalBatchPreview, *, interval_type: str, color: str | None = None
+    ) -> InterpretationIntervalBatchResult:
+        self._validate_confirmation(preview, "assign_type", {"interval_type": str(interval_type), "color": color})
+        result = self.assign_type([item.interval_id for item in preview.items], interval_type=interval_type, color=color)
+        self._record_journal(result, preview.confirmation_token)
+        return result
+
+    def confirm_edit_metadata(
+        self, preview: InterpretationIntervalBatchPreview, *, comment: str | None = None,
+        comment_mode: str = "replace", source: str | None = None
+    ) -> InterpretationIntervalBatchResult:
+        clean_mode = self._validate_metadata_request(comment, comment_mode, source)
+        params = {"comment": comment, "comment_mode": clean_mode, "source": source}
+        self._validate_confirmation(preview, "edit_metadata", params)
+        result = self.edit_metadata([item.interval_id for item in preview.items], comment=comment, comment_mode=clean_mode, source=source)
+        self._record_journal(result, preview.confirmation_token)
+        return result
+
+    def confirm_delete(self, preview: InterpretationIntervalBatchPreview) -> InterpretationIntervalBatchResult:
+        self._validate_confirmation(preview, "delete", {})
+        result = self.delete([item.interval_id for item in preview.items])
+        self._record_journal(result, preview.confirmation_token)
+        return result
+
+    def list_journal(self, limit: int = 20) -> tuple[dict, ...]:
+        entries = self.manager.state.get(self._journal_key, [])
+        if not isinstance(entries, list):
+            return ()
+        return tuple(reversed(entries[-max(1, int(limit)):]))
 
     def assign_type(
         self,
@@ -285,18 +328,57 @@ class InterpretationIntervalBatchService:
             will_change=replacement is None or replacement != current,
         )
 
-    @staticmethod
     def _preview(
+        self,
         action: str,
         selected_ids: tuple[str, ...],
         items: list[InterpretationIntervalBatchPreviewItem],
+        params: dict,
     ) -> InterpretationIntervalBatchPreview:
+        frozen_items = tuple(items)
         return InterpretationIntervalBatchPreview(
             action=action,
             selected_count=len(selected_ids),
-            changed_count=sum(1 for item in items if item.will_change),
-            items=tuple(items),
+            changed_count=sum(1 for item in frozen_items if item.will_change),
+            items=frozen_items,
+            confirmation_token=self._confirmation_token(action, frozen_items, params),
         )
+
+    def _confirmation_token(
+        self, action: str, items: tuple[InterpretationIntervalBatchPreviewItem, ...], params: dict
+    ) -> str:
+        current = {item.id: asdict(item) for item in self.manager.list_intervals()}
+        payload = {
+            "action": action,
+            "params": params,
+            "items": [asdict(item) for item in items],
+            "current": {item.interval_id: current.get(item.interval_id) for item in items},
+        }
+        encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+    def _validate_confirmation(self, preview: InterpretationIntervalBatchPreview, action: str, params: dict) -> None:
+        if preview.action != action:
+            raise InterpretationIntervalBatchConflict("Тип подтверждаемой операции не совпадает с preview.")
+        expected = self._confirmation_token(action, preview.items, params)
+        if expected != preview.confirmation_token:
+            raise InterpretationIntervalBatchConflict(
+                "Интервалы изменились после предварительного просмотра; сформируйте preview повторно."
+            )
+
+    def _record_journal(self, result: InterpretationIntervalBatchResult, token: str) -> None:
+        entries = self.manager.state.get(self._journal_key, [])
+        if not isinstance(entries, list):
+            entries = []
+        entries.append({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "action": result.action,
+            "selected_count": result.selected_count,
+            "changed_count": result.changed_count,
+            "interval_ids": list(result.interval_ids),
+            "confirmation_token": token,
+        })
+        self.manager.state[self._journal_key] = entries[-100:]
 
     @staticmethod
     def _normalize_ids(interval_ids: Iterable[str]) -> tuple[str, ...]:

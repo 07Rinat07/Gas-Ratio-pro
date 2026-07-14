@@ -53,6 +53,7 @@ class InterpretationIntervalManager:
         interpretation_id: str = DEFAULT_INTERPRETATION_ID,
         history_limit: int = 50,
     ) -> None:
+        self.state = state
         self.root = Path(root)
         self.project_id = str(project_id)
         self.well_id = str(well_id)

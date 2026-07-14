@@ -2354,3 +2354,12 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added read-only preview models for batch type, metadata and delete operations.
 - Added Streamlit preview tables with current and target values.
 - Reused model validation without persisting data or creating command history.
+
+## Batch interval workflow
+
+- Групповые изменения типа, цвета, комментария, источника и удаление выполняются через подтверждённый preview.
+- Preview содержит SHA-256 токен состояния выбранных интервалов и параметров операции.
+- Устаревший preview блокируется до записи данных.
+- Подтверждённые операции сохраняются в ограниченном сериализуемом журнале Session State.
+- Каждая пакетная операция остаётся одним шагом Undo/Redo.
+
