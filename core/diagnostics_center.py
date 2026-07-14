@@ -11,6 +11,7 @@ from typing import Any, Mapping
 from core.cache_metrics import CacheMetricsRegistry
 from core.runtime_diagnostics import RuntimeDiagnostics
 from core.runtime_service_registry import RuntimeServiceRegistry, runtime_service_registry
+from core.repository_io import RepositoryIOMetrics
 from core.session_state_audit import audit_session_state
 
 
@@ -48,6 +49,17 @@ def _cache_snapshot(service: Any) -> dict[str, Any]:
     }
 
 
+def _repository_snapshot(service: Any) -> dict[str, Any]:
+    if not isinstance(service, RepositoryIOMetrics):
+        return {
+            "reads": 0, "writes": 0, "deletes": 0, "failures": 0,
+            "bytes_read": 0, "bytes_written": 0,
+            "total_duration_ms": 0.0, "average_duration_ms": 0.0,
+            "events": [],
+        }
+    return service.snapshot().to_dict()
+
+
 def _budget_snapshot(events: list[dict[str, Any]], budgets: Mapping[str, float]) -> list[dict[str, Any]]:
     latest: dict[str, float] = {}
     for event in events:
@@ -82,6 +94,7 @@ def build_diagnostics_center_snapshot(
     runtime_service = registry.get("runtime_diagnostics")
     events = _runtime_events(runtime_service, limit=event_limit)
     cache = _cache_snapshot(registry.get("cache_metrics_registry"))
+    repository = _repository_snapshot(registry.get("repository_io_metrics"))
     session = audit_session_state(state).to_dict()
     descriptors = [
         {"key": item.key, "type_name": item.type_name}
@@ -97,6 +110,7 @@ def build_diagnostics_center_snapshot(
             "event_count": len(events),
         },
         "cache": cache,
+        "repository": repository,
         "session": session,
         "budgets": _budget_snapshot(events, budgets),
     }

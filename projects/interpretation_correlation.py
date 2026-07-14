@@ -6,14 +6,13 @@ import csv
 import hashlib
 import io
 import json
-import os
-import tempfile
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 from uuid import UUID, uuid4
 
+from core.repository_io import AtomicJsonStore, RepositoryIOMetrics
 from projects.interpretation_intervals import InterpretationInterval, _interval_from_dict
 from projects.repository import DEFAULT_PROJECTS_ROOT, safe_project_id
 from projects.well_cards import safe_well_id
@@ -48,19 +47,16 @@ def _uuid(value: Any = "") -> str:
         raise ValueError("Некорректный UUID.") from exc
 
 
-def _atomic_write(path: Path, payload: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
-    tmp = Path(name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
-            json.dump(payload, stream, ensure_ascii=False, indent=2, sort_keys=True)
-            stream.write("\n")
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(tmp, path)
-    finally:
-        tmp.unlink(missing_ok=True)
+def _atomic_write(
+    path: Path,
+    payload: Mapping[str, Any],
+    *,
+    metrics: RepositoryIOMetrics | None = None,
+    repository: str = "interpretation_correlation",
+) -> None:
+    """Backward-compatible atomic writer routed through the shared I/O layer."""
+
+    AtomicJsonStore(repository=repository, metrics=metrics).write(path, payload)
 
 
 @dataclass(frozen=True)
@@ -149,10 +145,18 @@ def discover_published_interpretations(*, root: Path | str = DEFAULT_PROJECTS_RO
 
 
 class CorrelationWorkspaceRepository:
-    def __init__(self, *, root: Path | str = DEFAULT_PROJECTS_ROOT, project_id: str) -> None:
+    def __init__(
+        self,
+        *,
+        root: Path | str = DEFAULT_PROJECTS_ROOT,
+        project_id: str,
+        io_metrics: RepositoryIOMetrics | None = None,
+    ) -> None:
         self.root = Path(root)
         self.project_id = safe_project_id(project_id)
         self.directory = self.root / self.project_id / CORRELATION_DIR_NAME
+        self.io_metrics = io_metrics
+        self.store = AtomicJsonStore(repository="interpretation_correlation", metrics=io_metrics)
 
     def list(self) -> tuple[CorrelationWorkspace, ...]:
         result: list[CorrelationWorkspace] = []
@@ -160,7 +164,7 @@ class CorrelationWorkspaceRepository:
             return ()
         for path in sorted(self.directory.glob("*/correlation.json")):
             try:
-                result.append(self._parse(json.loads(path.read_text(encoding="utf-8"))))
+                result.append(self._parse(self.store.read(path, expected_schema=CORRELATION_SCHEMA)))
             except (OSError, ValueError, TypeError, json.JSONDecodeError):
                 continue
         return tuple(sorted(result, key=lambda item: item.updated_at, reverse=True))
@@ -179,7 +183,7 @@ class CorrelationWorkspaceRepository:
         path = self.directory / clean_id / "correlation.json"
         if not path.exists():
             raise KeyError(f"Корреляционный проект не найден: {clean_id}")
-        return self._parse(json.loads(path.read_text(encoding="utf-8")))
+        return self._parse(self.store.read(path, expected_schema=CORRELATION_SCHEMA))
 
     def save(self, workspace: CorrelationWorkspace, *, expected_state_token: str = "", preserve_updated_at: bool = False) -> CorrelationWorkspace:
         if expected_state_token:
@@ -193,7 +197,7 @@ class CorrelationWorkspaceRepository:
             created_at=workspace.created_at or _utc_now(),
             updated_at=(workspace.updated_at or _utc_now()) if preserve_updated_at else _utc_now(),
         )
-        _atomic_write(self.directory / normalized.id / "correlation.json", {
+        self.store.write(self.directory / normalized.id / "correlation.json", {
             "schema": CORRELATION_SCHEMA, "project_id": self.project_id, **asdict(normalized)
         })
         return normalized
@@ -258,10 +262,19 @@ class CorrelationWorkspaceRepository:
 
 
 class CorrelationWorkspaceService:
-    def __init__(self, *, root: Path | str = DEFAULT_PROJECTS_ROOT, project_id: str, workspace_id: str) -> None:
+    def __init__(
+        self,
+        *,
+        root: Path | str = DEFAULT_PROJECTS_ROOT,
+        project_id: str,
+        workspace_id: str,
+        io_metrics: RepositoryIOMetrics | None = None,
+    ) -> None:
         self.root = Path(root)
         self.project_id = safe_project_id(project_id)
-        self.repository = CorrelationWorkspaceRepository(root=root, project_id=project_id)
+        self.repository = CorrelationWorkspaceRepository(
+            root=root, project_id=project_id, io_metrics=io_metrics
+        )
         self.workspace_id = _uuid(workspace_id)
 
     def add_tie(self, *, left: CorrelationEndpoint, right: CorrelationEndpoint, name: str = "", note: str = "",

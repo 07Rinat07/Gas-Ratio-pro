@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 from uuid import uuid4
 
+from core.repository_io import AtomicJsonStore, RepositoryIOMetrics
 from projects.interpretation_correlation import (
     CorrelationEndpoint,
     CorrelationWorkspace,
@@ -237,14 +238,21 @@ def suggestion_preview_from_dict(payload: dict) -> CorrelationSuggestionPreview:
 class CorrelationSuggestionProfileRepository:
     """Project-scoped atomic storage for reusable suggestion calibration profiles."""
 
-    def __init__(self, *, root: Path | str = DEFAULT_PROJECTS_ROOT, project_id: str) -> None:
+    def __init__(
+        self,
+        *,
+        root: Path | str = DEFAULT_PROJECTS_ROOT,
+        project_id: str,
+        io_metrics: RepositoryIOMetrics | None = None,
+    ) -> None:
         self.path = Path(root) / safe_project_id(project_id) / "correlations" / "suggestion_profiles.json"
+        self.store = AtomicJsonStore(repository="correlation_suggestion_profiles", metrics=io_metrics)
 
     def list(self) -> tuple[dict[str, Any], ...]:
         if not self.path.exists():
             return ()
         try:
-            payload = json.loads(self.path.read_text(encoding="utf-8"))
+            payload = self.store.read(self.path)
         except (OSError, ValueError, TypeError):
             return ()
         if payload.get("schema") != PROFILE_SCHEMA:
@@ -267,7 +275,7 @@ class CorrelationSuggestionProfileRepository:
         rows = [profile if current and item.get("id") == current.get("id") else item for item in rows]
         if current is None:
             rows.append(profile)
-        _atomic_write(self.path, {"schema": PROFILE_SCHEMA, "profiles": rows})
+        self.store.write(self.path, {"schema": PROFILE_SCHEMA, "profiles": rows})
         return profile
 
     def delete(self, profile_id: str) -> bool:
@@ -275,22 +283,31 @@ class CorrelationSuggestionProfileRepository:
         kept = [item for item in rows if item.get("id") != profile_id]
         if len(kept) == len(rows):
             return False
-        _atomic_write(self.path, {"schema": PROFILE_SCHEMA, "profiles": kept})
+        self.store.write(self.path, {"schema": PROFILE_SCHEMA, "profiles": kept})
         return True
 
 
 class CorrelationSuggestionAcceptanceJournal:
     """Persistent compact audit of accepted automatic suggestions."""
 
-    def __init__(self, *, root: Path | str = DEFAULT_PROJECTS_ROOT, project_id: str, workspace_id: str, limit: int = 200) -> None:
+    def __init__(
+        self,
+        *,
+        root: Path | str = DEFAULT_PROJECTS_ROOT,
+        project_id: str,
+        workspace_id: str,
+        limit: int = 200,
+        io_metrics: RepositoryIOMetrics | None = None,
+    ) -> None:
         self.path = Path(root) / safe_project_id(project_id) / "correlations" / str(workspace_id) / "suggestion_acceptance.json"
         self.limit = max(1, int(limit))
+        self.store = AtomicJsonStore(repository="correlation_suggestion_acceptance", metrics=io_metrics)
 
     def list(self) -> tuple[dict[str, Any], ...]:
         if not self.path.exists():
             return ()
         try:
-            payload = json.loads(self.path.read_text(encoding="utf-8"))
+            payload = self.store.read(self.path)
         except (OSError, ValueError, TypeError):
             return ()
         if payload.get("schema") != ACCEPTANCE_JOURNAL_SCHEMA:
@@ -306,4 +323,4 @@ class CorrelationSuggestionAcceptanceJournal:
             "average_confidence": round(sum(item.confidence for item in selected) / len(selected), 4) if selected else 0.0,
             "suggestion_ids": [item.id for item in selected], "added_tie_ids": list(added_tie_ids),
         })
-        _atomic_write(self.path, {"schema": ACCEPTANCE_JOURNAL_SCHEMA, "operations": rows[-self.limit:]})
+        self.store.write(self.path, {"schema": ACCEPTANCE_JOURNAL_SCHEMA, "operations": rows[-self.limit:]})

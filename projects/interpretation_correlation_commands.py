@@ -6,6 +6,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, MutableMapping
 
+from core.repository_io import RepositoryIOMetrics
 from projects.interpretation_correlation import (
     CorrelationEndpoint,
     CorrelationTie,
@@ -47,9 +48,8 @@ class CorrelationOperationJournal:
     def list(self) -> tuple[dict[str, Any], ...]:
         if not self.path.exists():
             return ()
-        import json
         try:
-            payload = json.loads(self.path.read_text(encoding="utf-8"))
+            payload = self.repository.store.read(self.path)
         except (OSError, ValueError, TypeError):
             return ()
         if payload.get("schema") != CORRELATION_JOURNAL_SCHEMA:
@@ -71,7 +71,7 @@ class CorrelationOperationJournal:
             "added_tie_ids": sorted(after_ids - before_ids),
             "removed_tie_ids": sorted(before_ids - after_ids),
         })
-        _atomic_write(self.path, {
+        self.repository.store.write(self.path, {
             "schema": CORRELATION_JOURNAL_SCHEMA,
             "workspace_id": self.workspace_id,
             "operations": rows[-self.limit :],
@@ -87,6 +87,7 @@ class CorrelationWorkspaceCommandService:
         project_id: str,
         workspace_id: str,
         history_limit: int = DEFAULT_HISTORY_LIMIT,
+        io_metrics: RepositoryIOMetrics | None = None,
     ) -> None:
         if history_limit < 1:
             raise ValueError("Лимит истории должен быть не меньше 1.")
@@ -95,8 +96,8 @@ class CorrelationWorkspaceCommandService:
         self.project_id = str(project_id)
         self.workspace_id = str(workspace_id)
         self.history_limit = int(history_limit)
-        self.repository = CorrelationWorkspaceRepository(root=root, project_id=project_id)
-        self.service = CorrelationWorkspaceService(root=root, project_id=project_id, workspace_id=workspace_id)
+        self.repository = CorrelationWorkspaceRepository(root=root, project_id=project_id, io_metrics=io_metrics)
+        self.service = CorrelationWorkspaceService(root=root, project_id=project_id, workspace_id=workspace_id, io_metrics=io_metrics)
         self.journal = CorrelationOperationJournal(self.repository, self.workspace_id)
         self.key = _history_key(self.project_id, self.workspace_id)
         self._history()

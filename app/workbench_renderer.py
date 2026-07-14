@@ -757,6 +757,7 @@ def _render_native_streamlit_layout(
                 )
                 runtime = dict(center.get("runtime", {}) or {})
                 cache = dict(center.get("cache", {}) or {})
+                repository_io = dict(center.get("repository", {}) or {})
                 session = dict(center.get("session", {}) or {})
                 registry_stats = dict(runtime.get("registry", {}) or {})
                 cache_summary = dict(cache.get("summary", {}) or {})
@@ -782,6 +783,17 @@ def _render_native_streamlit_layout(
                 caches = list(cache.get("caches", ()) or ())
                 if caches and hasattr(st_module, "dataframe"):
                     st_module.dataframe(caches, width="stretch", hide_index=True)
+
+                st_module.markdown("##### Repository I/O")
+                st_module.caption(
+                    "Reads: " + str(repository_io.get("reads", 0))
+                    + " | Writes: " + str(repository_io.get("writes", 0))
+                    + " | Failures: " + str(repository_io.get("failures", 0))
+                    + " | Avg: " + str(repository_io.get("average_duration_ms", 0.0)) + " ms"
+                )
+                repository_events = list(repository_io.get("events", ()) or ())
+                if repository_events and hasattr(st_module, "dataframe"):
+                    st_module.dataframe(repository_events, width="stretch", hide_index=True)
 
                 st_module.markdown("##### Session State")
                 st_module.caption(

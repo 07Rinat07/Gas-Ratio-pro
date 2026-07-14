@@ -38,6 +38,8 @@ from projects.interpretation_correlation_chart import (
     export_correlation_svg,
 )
 from projects.repository import DEFAULT_PROJECTS_ROOT
+from core.repository_io import RepositoryIOMetrics
+from core.runtime_service_registry import runtime_service_registry
 
 
 def _source_key(item: Any) -> str:
@@ -51,8 +53,14 @@ def render_interpretation_correlation_panel(
     project_id: str,
     root: Path | str = DEFAULT_PROJECTS_ROOT,
 ) -> None:
+    registry = runtime_service_registry(state)
+    io_metrics = registry.ensure(
+        "repository_io_metrics", RepositoryIOMetrics, expected_type=RepositoryIOMetrics
+    )
     sources = discover_published_interpretations(root=root, project_id=project_id)
-    repository = CorrelationWorkspaceRepository(root=root, project_id=project_id)
+    repository = CorrelationWorkspaceRepository(
+        root=root, project_id=project_id, io_metrics=io_metrics
+    )
     workspaces = repository.list()
 
     with st.expander("Корреляция опубликованных интерпретаций", expanded=False):
@@ -90,9 +98,10 @@ def render_interpretation_correlation_panel(
             key=selector_key,
         )
         workspace = repository.get(workspace_id)
-        service = CorrelationWorkspaceService(root=root, project_id=project_id, workspace_id=workspace.id)
+        service = CorrelationWorkspaceService(root=root, project_id=project_id, workspace_id=workspace.id, io_metrics=io_metrics)
         commands = CorrelationWorkspaceCommandService(
-            state, root=root, project_id=project_id, workspace_id=workspace.id
+            state, root=root, project_id=project_id, workspace_id=workspace.id,
+            io_metrics=io_metrics,
         )
         history = commands.history_status()
         undo_col, redo_col, history_col = st.columns([1, 1, 2])
@@ -189,9 +198,10 @@ def render_interpretation_correlation_panel(
 
         with st.expander("Автоматические предложения связей", expanded=False):
             st.caption("Настраиваемая детерминированная модель по типу, подписи и близости глубин. Сначала preview, затем подтверждение.")
-            profile_repository = CorrelationSuggestionProfileRepository(root=root, project_id=project_id)
+            profile_repository = CorrelationSuggestionProfileRepository(root=root, project_id=project_id, io_metrics=io_metrics)
             acceptance_journal = CorrelationSuggestionAcceptanceJournal(
-                root=root, project_id=project_id, workspace_id=workspace.id
+                root=root, project_id=project_id, workspace_id=workspace.id,
+                io_metrics=io_metrics,
             )
             profiles = profile_repository.list()
             selected_profile_id = st.selectbox(

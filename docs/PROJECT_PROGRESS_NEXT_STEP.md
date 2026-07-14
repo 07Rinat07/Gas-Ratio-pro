@@ -465,3 +465,13 @@ Next priority: move the legacy correlation figure cache from ordinary Session St
 - Added Session State ownership diagnostics for runtime, transient and unscoped keys without copying values.
 - Added performance-budget status derived from bounded runtime diagnostic events.
 - Next priority: migrate the legacy correlation figure cache into a bounded runtime service with byte-aware eviction and cold/warm benchmark reporting.
+
+## Phase 2 — Repository and transaction hardening
+
+- Added one durable atomic JSON store with UTF-8 encoding, file fsync and directory-entry fsync where supported.
+- Added bounded repository I/O telemetry without retaining payloads, file handles or repository instances.
+- Migrated correlation workspaces, operation journals and suggestion profile/audit stores to the shared I/O boundary.
+- Extended Developer Diagnostics with repository reads, writes, failures, transferred bytes and recent operation timings.
+- Kept old repository constructors backward compatible through optional runtime telemetry injection.
+
+Next priority: migrate the legacy correlation figure cache behind `RuntimeServiceRegistry`, enforce byte-aware eviction, and establish cold/warm benchmark baselines.

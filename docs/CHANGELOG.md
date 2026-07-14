@@ -2479,3 +2479,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Expanded opt-in Workbench Developer Diagnostics with runtime service, cache and Session State metrics.
 - Kept diagnostics snapshots primitive-only and excluded live services and cached payloads.
 - Added regression tests for serialization boundaries and budget classification.
+
+## 2026-07-14 — Repository and transaction hardening
+
+- Added a shared durable `AtomicJsonStore` for repository-owned JSON files.
+- Added bounded repository I/O metrics with read/write/delete timing and failure counters.
+- Migrated correlation workspace, journal and suggestion stores to the shared atomic boundary.
+- Added repository I/O metrics to Workbench Developer Diagnostics.
+- Added regression tests for atomic cleanup, schema validation, bounded metrics and serialization boundaries.

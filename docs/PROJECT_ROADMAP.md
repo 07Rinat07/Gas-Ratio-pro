@@ -1625,3 +1625,12 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Session State ownership and scope audit without deepcopy.
 - [x] Performance-budget status from bounded diagnostic events.
 - [ ] Next: bounded correlation figure cache with memory-aware eviction and cold/warm benchmarks.
+
+### Phase 2 increment — Repository and transaction hardening (completed)
+
+- [x] Centralize durable atomic JSON writes.
+- [x] Add payload-free repository I/O telemetry.
+- [x] Migrate the correlation repository and its journals/profile stores.
+- [x] Surface repository metrics in Developer Diagnostics.
+- [x] Preserve backward-compatible repository constructors.
+- [ ] Next: migrate the correlation figure cache into a bounded runtime cache service.
