@@ -2525,3 +2525,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Integrated PDF preview cache metrics with the shared cache telemetry registry.
 - Added payload-free cache snapshots, MRU promotion, explicit invalidation and project-scope cleanup.
 - Added backward-compatible migration for legacy Session State preview caches.
+
+## Phase 2 — Workbench startup and lazy-loading hardening
+
+- Added bounded process-local startup diagnostics with per-stage budgets.
+- Measured page configuration, logging setup, state controller creation, rerun lifecycle, pending actions and Workbench rendering.
+- Added startup timing visibility to Developer Diagnostics.
+- Kept startup timers and history outside serializable Session State.
+- Preserved lazy import of the production Workbench renderer at the application boundary.

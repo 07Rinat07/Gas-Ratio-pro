@@ -15777,19 +15777,49 @@ def _process_workbench_property_action(logger) -> None:
 
 
 def _run_modern_workbench() -> None:
-    """Render Modern Workbench as the production application entry point."""
+    """Render Modern Workbench and record lightweight startup stage timings."""
 
-    from app.workbench_renderer import render_streamlit_workbench
+    from core.startup_diagnostics import StartupDiagnostics, StartupTimer
 
+    startup_timer = StartupTimer()
     st.set_page_config(page_title="Gas Ratio Pro", page_icon=_app_icon_data_uri() or None, layout="wide")
+    startup_timer.mark("page_config")
+
     from core.streamlit_runtime_compat import configure_streamlit_runtime_log_capture
     logger = configure_streamlit_runtime_log_capture()
+    startup_timer.mark("runtime_logging")
+
     state_controller = _application_state_controller()
+    startup_timer.mark("state_controller")
     begin_rerun_cycle(state_controller.state)
+    startup_timer.mark("rerun_begin")
+
     logger.info("modern_workbench_started")
     _process_workbench_bulk_action(logger)
     _process_workbench_property_action(logger)
+    startup_timer.mark("pending_actions")
+
+    # Import the renderer only when the production Workbench route is actually
+    # selected. This keeps legacy startup and module import smoke tests light.
+    from app.workbench_renderer import render_streamlit_workbench
     results = render_streamlit_workbench(state_controller.state, st)
+    startup_timer.mark("workbench_render")
+
+    registry = runtime_service_registry(state_controller.state)
+    startup_diagnostics = registry.ensure(
+        "startup_diagnostics", StartupDiagnostics, expected_type=StartupDiagnostics, scope="session"
+    )
+    context = state_controller.context()
+    startup_record = startup_diagnostics.record_cycle(
+        startup_timer.finish(),
+        route_id=str(state_controller.state.get("workbench.interaction.active_navigation_id") or ""),
+        project_id=str(context.project_id or ""),
+    )
+    logger.info(
+        "workbench_startup_diagnostics status=%s total_ms=%s slow_stages=%s",
+        startup_record.get("status"), startup_record.get("total_ms"), startup_record.get("slow_stages"),
+    )
+
     if any(result.executed for result in results):
         _request_ui_refresh_and_rerun("workbench_command_executed")
 

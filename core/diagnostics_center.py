@@ -15,6 +15,7 @@ from core.repository_io import RepositoryIOMetrics
 from core.operation_tracing import OperationTraceRegistry
 from core.session_state_audit import audit_session_state
 from core.performance_regression import build_performance_baseline
+from core.startup_diagnostics import StartupDiagnostics
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +64,12 @@ def _repository_snapshot(service: Any) -> dict[str, Any]:
 
 
 
+def _startup_snapshot(service: Any, *, limit: int) -> dict[str, Any]:
+    if not isinstance(service, StartupDiagnostics):
+        return {"latest": {}, "cycles": [], "cycle_count": 0, "budgets_ms": {}}
+    return service.snapshot(limit=limit)
+
+
 def _trace_snapshot(service: Any, *, limit: int) -> dict[str, Any]:
     if not isinstance(service, OperationTraceRegistry):
         return {"summary": {}, "events": []}
@@ -107,6 +114,7 @@ def build_diagnostics_center_snapshot(
     cache = _cache_snapshot(registry.get("cache_metrics_registry"))
     repository = _repository_snapshot(registry.get("repository_io_metrics"))
     traces = _trace_snapshot(registry.get("operation_trace_registry"), limit=event_limit)
+    startup = _startup_snapshot(registry.get("startup_diagnostics"), limit=event_limit)
     session = audit_session_state(state).to_dict()
     descriptors = [
         {"key": item.key, "type_name": item.type_name}
@@ -125,6 +133,7 @@ def build_diagnostics_center_snapshot(
         "cache": cache,
         "repository": repository,
         "traces": traces,
+        "startup": startup,
         "session": session,
         "budgets": _budget_snapshot(events, budgets),
     }

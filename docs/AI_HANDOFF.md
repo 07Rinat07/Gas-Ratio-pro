@@ -755,3 +755,7 @@ Use `scripts/run_performance_regression.py` to compare a committed or release ba
 ## Phase 2 PDF Preview cache boundary
 
 Heavy rendered PDF preview pages are owned by `PdfPreviewRuntimeCache`, registered in `RuntimeServiceRegistry` with project scope. Do not write `PdfPreviewResult` or PNG page bytes into ordinary Session State. UI code may retain only scalar widget settings and must use the runtime cache snapshot for diagnostics. Legacy `presentation_pdf_preview_<project>` payloads are migrated once and removed immediately.
+
+### Phase 2 startup diagnostics
+
+`core/startup_diagnostics.py` owns process-local startup timing history. The service is registered under `startup_diagnostics` with session scope. Do not move timers, module objects or callables into serializable state. Startup budgets are diagnostic thresholds, not functional timeouts.

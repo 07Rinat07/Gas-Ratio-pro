@@ -764,6 +764,19 @@ def _render_native_streamlit_layout(
                 registry_stats = dict(runtime.get("registry", {}) or {})
                 cache_summary = dict(cache.get("summary", {}) or {})
 
+                startup = dict(center.get("startup", {}) or {})
+                latest_startup = dict(startup.get("latest", {}) or {})
+                if latest_startup:
+                    st_module.markdown("##### Workbench startup")
+                    st_module.caption(
+                        "Status: " + str(latest_startup.get("status", "—"))
+                        + " | Total: " + str(latest_startup.get("total_ms", 0.0)) + " ms"
+                        + " | Slow stages: " + str(len(latest_startup.get("slow_stages", ()) or ()))
+                    )
+                    startup_stages = list(latest_startup.get("stages", ()) or ())
+                    if startup_stages and hasattr(st_module, "dataframe"):
+                        st_module.dataframe(startup_stages, width="stretch", hide_index=True)
+
                 st_module.markdown("##### Runtime")
                 st_module.caption(
                     "Services: " + str(registry_stats.get("active", 0))

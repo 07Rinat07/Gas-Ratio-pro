@@ -525,3 +525,9 @@ Next priority: establish repeatable cold/warm correlation benchmarks and add byt
 - Project lifecycle cleanup now closes and clears preview cache memory through `RuntimeServiceRegistry`.
 
 Next priority: profile real PDF preview cold/warm timings and consolidate remaining report/export transient state ownership.
+
+## Completed: Workbench startup and lazy-loading hardening
+
+The Modern Workbench entry point now records lightweight per-stage startup and rerun timings. Developer Diagnostics exposes the latest cycle and budget status without storing runtime timers or renderer objects in Session State.
+
+Next stabilization focus: route-level provider lazy loading and reduction of import-time coupling in `app/streamlit_app.py`.
