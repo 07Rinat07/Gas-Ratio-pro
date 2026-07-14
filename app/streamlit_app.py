@@ -90,6 +90,10 @@ from ui.interpretation_interval_panel import (
     render_interpretation_interval_panel,
     resolve_interpretation_well_id,
 )
+from ui.interpretation_interval_navigator import (
+    build_manual_interval_navigator,
+    selected_interval_id_from_plotly_event,
+)
 from projects.interpretation_interval_manager import InterpretationIntervalManager
 from core.presentation_runtime import (
     AppliedCorrelationState,
@@ -10751,6 +10755,37 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             safe_log_value(exc),
         )
         st.error("Не удалось открыть панель ручных интервалов. Подробности записаны в logs/app.log.")
+    if manual_intervals:
+        navigator_key = f"manual_interval_selected_{active_project.id}_{manual_well_id}"
+        navigator_figure = build_manual_interval_navigator(
+            manual_intervals,
+            selected_interval_id=selected_manual_interval_id,
+        )
+        try:
+            navigator_event = st.plotly_chart(
+                navigator_figure,
+                width="stretch",
+                config=PLOTLY_SCREEN_CONFIG,
+                key=f"manual_interval_navigator_{active_project.id}_{manual_well_id}",
+                on_select="rerun",
+                selection_mode="points",
+            )
+        except TypeError:
+            # Compatibility fallback for older Streamlit builds.
+            st.plotly_chart(
+                navigator_figure,
+                width="stretch",
+                config=PLOTLY_SCREEN_CONFIG,
+                key=f"manual_interval_navigator_{active_project.id}_{manual_well_id}",
+            )
+            navigator_event = None
+        navigator_selected_id = selected_interval_id_from_plotly_event(
+            navigator_event,
+            valid_interval_ids=[item.id for item in manual_intervals],
+        )
+        if navigator_selected_id and navigator_selected_id != selected_manual_interval_id:
+            _application_state_controller().state[navigator_key] = navigator_selected_id
+            st.rerun()
     if detected_interval_result is not None:
         _render_reservoir_ranking(
             calculated_df, list(detected_interval_result.intervals),

@@ -176,3 +176,11 @@ Next recommended increment: improve tablet interaction for manual intervals with
 - A complete import is persisted atomically through the interval repository and recorded as one reversible command.
 - Invalid schemas, missing columns and duplicate UUID values are rejected before persistence.
 - Next step: synchronize selection and hover state between the interval table/panel and tablet overlays.
+
+## Manual interval navigator
+
+- Added a compact Plotly depth navigator for manually managed interpretation intervals.
+- Clicking an interval marker synchronizes its UUID with the existing properties-panel selection state.
+- Hover shows bounds, thickness, type and comment without exposing repository objects to Session State.
+- Older Streamlit builds fall back to a non-interactive navigator instead of failing the workspace.
+- Next step: add configurable overlay visibility/opacity or extend direct selection to the main tablet tracks.

@@ -654,3 +654,7 @@ Manual interpretation intervals now have a UI-independent export service and Str
 ## Latest increment: interpretation interval import
 
 Use `projects.interpretation_interval_imports` for parsing and applying manual interval imports. Parsing is UI-independent and supports versioned JSON exports, CSV and XLSX. Apply imports through `apply_interpretation_interval_import()` so append/upsert/replace changes are stored as one Undo/Redo-aware command. Do not loop through UI-level create/update calls for bulk imports because that fragments history. The next recommended increment is bidirectional selected-interval and hover synchronization between panel/table and tablet overlays.
+
+## Latest increment: manual interval navigator
+
+The interpretation workspace now renders a compact Plotly navigator after the manual interval panel. Selection events update `manual_interval_selected_<project>_<well>` using only the interval UUID, so the existing panel and tablet highlighting remain the source of truth. The helper lives in `ui/interpretation_interval_navigator.py` and is covered by `tests/test_interpretation_interval_navigator.py`.

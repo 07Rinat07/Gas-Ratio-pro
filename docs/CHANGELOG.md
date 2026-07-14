@@ -2252,3 +2252,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Recorded each complete import as one Undo/Redo command.
 - Added validation for schemas, required columns and duplicate UUID values.
 - Added import controls to the Streamlit interval panel.
+
+## 2026-07-14 — Manual interval navigator
+
+- Added an interactive depth navigator for manual interpretation intervals.
+- Synchronized chart selection with the interval properties panel by UUID.
+- Added hover metadata and a compatibility fallback for Plotly selection events.
