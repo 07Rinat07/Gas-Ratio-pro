@@ -393,3 +393,11 @@ Begin the multi-well correlation workspace using published interpretation revisi
 - Workspace writes are atomic and protected by a stale-state token.
 - Added Streamlit UI for creating correlation projects, selecting published inputs, adding/removing ties and exporting JSON/CSV.
 - Next major stage: build the visual multi-well correlation canvas with aligned depth tracks, tie-line rendering and correlation quality diagnostics.
+
+## Visual multi-well correlation tablet
+
+- Correlation workspaces now render published interval snapshots as aligned well columns.
+- Tie lines connect explicit anchor depths across wells and retain hover metadata.
+- One shared depth window controls every well track synchronously.
+- The current visual state can be exported as standalone SVG without an external renderer.
+- Next major stage: correlation quality diagnostics, horizon consistency checks and tie confidence scoring.

@@ -2427,3 +2427,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added published-revision discovery and immutable correlation inputs.
 - Added validated cross-well interval ties with stale-state protection.
 - Added correlation UI and JSON/CSV export.
+
+## Multi-well visual correlation tablet
+
+- Added a Plotly multi-well correlation tablet for published interpretation revisions.
+- Added aligned depth tracks, interval overlays, tie-line rendering and synchronized depth range controls.
+- Added label, opacity and tie-width controls without mutating correlation data.
+- Added dependency-free SVG export of the current tablet view.

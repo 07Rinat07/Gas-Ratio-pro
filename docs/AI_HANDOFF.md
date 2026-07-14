@@ -720,3 +720,7 @@ The publication workflow now uses `InterpretationActor` and a centralized role p
 
 The project now contains `projects/interpretation_correlation.py` and `ui/interpretation_correlation_panel.py`.
 Correlation inputs must come from published interpretation revisions. Correlation ties reference stable interval UUIDs and explicit anchor depths. The next recommended increment is a visual multi-well correlation canvas; do not bypass publication or copy mutable runtime objects into correlation state.
+
+## Latest correlation increment: visual tablet
+
+Use `projects.interpretation_correlation_chart.py` to build the multi-well visual model, Plotly figure and standalone SVG export. The chart resolves exact published revisions pinned by ties and rejects mixed revisions for the same well. UI controls are rendering-only and must not be persisted inside `CorrelationWorkspace`. The next recommended correlation stage is quality diagnostics and confidence scoring for ties.

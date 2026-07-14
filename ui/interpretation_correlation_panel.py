@@ -13,6 +13,12 @@ from projects.interpretation_correlation import (
     export_correlation_csv,
     export_correlation_json,
 )
+from projects.interpretation_correlation_chart import (
+    CorrelationChartSettings,
+    build_correlation_figure,
+    build_correlation_payload,
+    export_correlation_svg,
+)
 from projects.repository import DEFAULT_PROJECTS_ROOT
 
 
@@ -134,6 +140,56 @@ def render_interpretation_correlation_panel(
                     st.rerun()
 
         workspace = repository.get(workspace.id)
+
+        if len(workspace.wells) >= 2:
+            st.markdown("#### Корреляционный планшет")
+            try:
+                default_payload, _ = build_correlation_payload(workspace, sources)
+            except ValueError as exc:
+                st.info(str(exc))
+            else:
+                controls = st.columns(4)
+                depth_min = controls[0].number_input(
+                    "Верх планшета, м", value=float(default_payload.depth_min), format="%.2f",
+                    key=f"correlation_chart_min_{workspace.id}",
+                )
+                depth_max = controls[1].number_input(
+                    "Низ планшета, м", value=float(default_payload.depth_max), format="%.2f",
+                    key=f"correlation_chart_max_{workspace.id}",
+                )
+                opacity = controls[2].slider(
+                    "Прозрачность", min_value=0.04, max_value=0.85, value=0.28, step=0.01,
+                    key=f"correlation_chart_opacity_{workspace.id}",
+                )
+                tie_width = controls[3].slider(
+                    "Толщина связей", min_value=0.5, max_value=8.0, value=2.0, step=0.5,
+                    key=f"correlation_chart_width_{workspace.id}",
+                )
+                label_controls = st.columns(2)
+                show_interval_labels = label_controls[0].checkbox(
+                    "Подписи интервалов", value=True, key=f"correlation_interval_labels_{workspace.id}"
+                )
+                show_tie_labels = label_controls[1].checkbox(
+                    "Подписи связей", value=True, key=f"correlation_tie_labels_{workspace.id}"
+                )
+                chart_settings = CorrelationChartSettings(
+                    depth_min=float(depth_min), depth_max=float(depth_max),
+                    interval_opacity=float(opacity), tie_width=float(tie_width),
+                    show_interval_labels=show_interval_labels, show_tie_labels=show_tie_labels,
+                )
+                try:
+                    chart = build_correlation_figure(workspace, sources, settings=chart_settings)
+                    svg_bytes = export_correlation_svg(workspace, sources, settings=chart_settings)
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    st.plotly_chart(chart, width="stretch", key=f"correlation_chart_{workspace.id}")
+                    st.download_button(
+                        "Скачать планшет SVG", svg_bytes,
+                        file_name=f"correlation_{workspace.id}.svg", mime="image/svg+xml",
+                        key=f"correlation_svg_{workspace.id}", width="stretch",
+                    )
+
         if workspace.ties:
             st.dataframe([
                 {
