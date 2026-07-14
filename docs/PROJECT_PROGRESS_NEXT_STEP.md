@@ -419,3 +419,11 @@ Begin the multi-well correlation workspace using published interpretation revisi
 - В интерфейсе доступны сводные метрики, фильтрация проблем по уровню и экспорт отчёта JSON/CSV.
 - Отчёт содержит контрольный токен состояния корреляционного проекта и не изменяет исходные ревизии.
 - Следующий крупный этап: автоматические предложения корреляционных связей и пакетное принятие предложений с preview и Undo/Redo.
+
+## Automatic multi-well correlation suggestions
+
+- Added deterministic correlation candidates based on interval type, normalized label and middle-depth proximity.
+- Existing endpoint pairs are excluded and each left interval keeps only its strongest candidate per source pair.
+- Preview records workspace and published-source state tokens and rejects stale confirmation.
+- Selected candidates are added as one command and can be reverted with a single Undo.
+- Next recommended stage: add correlation horizon/group management and propagate named horizons across three or more wells.

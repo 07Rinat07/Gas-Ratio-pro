@@ -2,11 +2,13 @@ from __future__ import annotations
 
 """Streamlit UI for project-level multi-well interpretation correlation."""
 
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, MutableMapping
 
 from projects.interpretation_correlation import (
     CorrelationEndpoint,
+    CorrelationTie,
     CorrelationWorkspaceRepository,
     CorrelationWorkspaceService,
     discover_published_interpretations,
@@ -14,6 +16,11 @@ from projects.interpretation_correlation import (
     export_correlation_json,
 )
 from projects.interpretation_correlation_commands import CorrelationHistoryConflict, CorrelationWorkspaceCommandService
+from projects.interpretation_correlation_suggestions import (
+    build_correlation_suggestions,
+    suggestion_preview_from_dict,
+    validate_suggestion_preview,
+)
 from projects.interpretation_correlation_quality import (
     analyze_correlation_quality,
     build_correlation_quality_issue_rows,
@@ -173,6 +180,95 @@ def render_interpretation_correlation_panel(
                 else:
                     st.success("Корреляционная связь добавлена.")
                     st.rerun()
+
+        workspace = repository.get(workspace.id)
+
+        with st.expander("Автоматические предложения связей", expanded=False):
+            st.caption("Кандидаты строятся детерминированно по типу, подписи и близости средних глубин. Исходные интервалы не изменяются.")
+            suggestion_cols = st.columns(2)
+            max_delta = suggestion_cols[0].number_input(
+                "Максимальная разница глубин, м", min_value=1.0, max_value=1000.0, value=50.0, step=5.0,
+                key=f"correlation_suggestion_delta_{workspace.id}",
+            )
+            min_confidence = suggestion_cols[1].slider(
+                "Минимальная уверенность", 0.0, 1.0, 0.55, 0.05,
+                key=f"correlation_suggestion_confidence_{workspace.id}",
+            )
+            preview_key = f"correlation_suggestion_preview_{workspace.id}"
+            if st.button("Построить предложения", key=f"correlation_build_suggestions_{workspace.id}", width="stretch"):
+                try:
+                    preview = build_correlation_suggestions(
+                        workspace, sources, max_depth_delta=float(max_delta), minimum_confidence=float(min_confidence)
+                    )
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    state[preview_key] = asdict(preview)
+
+            preview_payload = state.get(preview_key)
+            if isinstance(preview_payload, dict):
+                try:
+                    preview = suggestion_preview_from_dict(preview_payload)
+                except (ValueError, KeyError, TypeError):
+                    state.pop(preview_key, None)
+                else:
+                    rows = [
+                        {
+                            "ID": item.id,
+                            "Левая скважина": item.left.well_id,
+                            "Левый интервал": item.left.label,
+                            "Глубина слева": item.left.depth,
+                            "Правая скважина": item.right.well_id,
+                            "Правый интервал": item.right.label,
+                            "Глубина справа": item.right.depth,
+                            "Уверенность": item.confidence,
+                            "Причина": item.reason,
+                        }
+                        for item in preview.suggestions
+                    ]
+                    if rows:
+                        st.dataframe(rows, width="stretch", hide_index=True)
+                        selected_suggestions = st.multiselect(
+                            "Предложения для добавления",
+                            options=[item.id for item in preview.suggestions],
+                            default=[item.id for item in preview.suggestions if item.confidence >= 0.75],
+                            format_func=lambda value: next(
+                                f"{item.left.well_id}: {item.left.label} ↔ {item.right.well_id}: {item.right.label} ({item.confidence:.0%})"
+                                for item in preview.suggestions if item.id == value
+                            ),
+                            key=f"correlation_selected_suggestions_{workspace.id}",
+                        )
+                        confirm_suggestions = st.checkbox(
+                            "Подтверждаю добавление выбранных предложений",
+                            key=f"correlation_confirm_suggestions_{workspace.id}",
+                        )
+                        if st.button(
+                            "Добавить выбранные связи",
+                            disabled=not (confirm_suggestions and selected_suggestions),
+                            key=f"correlation_apply_suggestions_{workspace.id}", width="stretch",
+                        ):
+                            try:
+                                current_workspace = repository.get(workspace.id)
+                                current_sources = discover_published_interpretations(root=root, project_id=project_id)
+                                validate_suggestion_preview(preview, current_workspace, current_sources)
+                                chosen = [item for item in preview.suggestions if item.id in set(selected_suggestions)]
+                                ties = tuple(
+                                    CorrelationTie(
+                                        id="", left=item.left, right=item.right,
+                                        name=f"{item.left.label} ↔ {item.right.label}",
+                                        note=f"Автопредложение: {item.reason}; уверенность {item.confidence:.0%}",
+                                    )
+                                    for item in chosen
+                                )
+                                commands.add_ties(ties)
+                            except (ValueError, KeyError, OSError) as exc:
+                                st.error(str(exc))
+                            else:
+                                state.pop(preview_key, None)
+                                st.success(f"Добавлено связей: {len(ties)}.")
+                                st.rerun()
+                    else:
+                        st.info("Подходящие новые связи не найдены.")
 
         workspace = repository.get(workspace.id)
 

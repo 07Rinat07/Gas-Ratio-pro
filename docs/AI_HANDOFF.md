@@ -732,3 +732,7 @@ The multi-well correlation workspace now supports validated tie editing, individ
 ## Latest correlation increment
 
 The multi-well correlation workspace now includes a renderer-neutral quality analyzer in `projects/interpretation_correlation_quality.py`. It reports unavailable published endpoints, duplicate endpoint pairs, crossing visible ties and isolated wells, calculates a bounded score, and exports JSON/CSV reports. The Streamlit panel only renders the serializable analysis result; no Plotly or runtime object is persisted.
+
+## Automatic correlation candidate boundary
+
+`projects/interpretation_correlation_suggestions.py` is a renderer-neutral deterministic suggestion service. It never mutates published inputs or the workspace. Preview payloads are serializable and contain both workspace and source tokens. Confirmation must call `validate_suggestion_preview()` immediately before `CorrelationWorkspaceCommandService.add_ties()`. Batch acceptance is one Undo/Redo command. Do not persist ML/runtime models in the correlation workspace.

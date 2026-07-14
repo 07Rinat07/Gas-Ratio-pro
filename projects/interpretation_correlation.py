@@ -319,6 +319,34 @@ class CorrelationWorkspaceService:
         updated = CorrelationWorkspace(workspace.id, workspace.name, workspace.description, workspace.wells, ties, workspace.created_at, workspace.updated_at)
         return self.repository.save(updated, expected_state_token=expected_state_token)
 
+
+    def add_ties(self, ties: tuple[CorrelationTie, ...], *, expected_state_token: str = "") -> CorrelationWorkspace:
+        workspace = self.repository.get(self.workspace_id)
+        if not ties:
+            return workspace
+        existing = {frozenset(((item.left.well_id, item.left.interval_id), (item.right.well_id, item.right.interval_id))) for item in workspace.ties}
+        now = _utc_now()
+        normalized: list[CorrelationTie] = []
+        for item in ties:
+            self._validate_endpoints(item.left, item.right)
+            key = frozenset(((item.left.well_id, item.left.interval_id), (item.right.well_id, item.right.interval_id)))
+            if key in existing:
+                continue
+            existing.add(key)
+            normalized.append(CorrelationTie(
+                id=_uuid(item.id), left=item.left, right=item.right,
+                name=_clean(item.name, "Название связи", MAX_NAME) or f"{item.left.label} ↔ {item.right.label}",
+                note=_clean(item.note, "Комментарий", MAX_NOTE),
+                color=self.repository._normalize_color(item.color), width=self.repository._normalize_width(item.width),
+                dash=self.repository._normalize_dash(item.dash), visible=bool(item.visible),
+                created_at=item.created_at or now, updated_at=now,
+            ))
+        if not normalized:
+            return workspace
+        wells = tuple((*workspace.wells, *(endpoint.well_id for tie in normalized for endpoint in (tie.left, tie.right))))
+        updated = CorrelationWorkspace(workspace.id, workspace.name, workspace.description, wells, tuple((*workspace.ties, *normalized)), workspace.created_at, workspace.updated_at)
+        return self.repository.save(updated, expected_state_token=expected_state_token)
+
     def _validate_endpoints(self, left: CorrelationEndpoint, right: CorrelationEndpoint) -> None:
         if left.well_id == right.well_id:
             raise ValueError("Корреляционная связь должна соединять разные скважины.")

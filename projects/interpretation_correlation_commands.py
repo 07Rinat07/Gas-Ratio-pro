@@ -8,6 +8,7 @@ from typing import Any, MutableMapping
 
 from projects.interpretation_correlation import (
     CorrelationEndpoint,
+    CorrelationTie,
     CorrelationWorkspace,
     CorrelationWorkspaceRepository,
     CorrelationWorkspaceService,
@@ -154,6 +155,11 @@ class CorrelationWorkspaceCommandService:
     def add_tie(self, *, left: CorrelationEndpoint, right: CorrelationEndpoint, **fields: Any) -> CorrelationWorkspace:
         return self._execute("add_tie", lambda before: self.service.add_tie(
             left=left, right=right, expected_state_token=before.state_token, **fields
+        ))
+
+    def add_ties(self, ties: tuple[CorrelationTie, ...]) -> CorrelationWorkspace:
+        return self._execute("add_suggested_ties", lambda before: self.service.add_ties(
+            ties, expected_state_token=before.state_token
         ))
 
     def update_tie(self, tie_id: str, **fields: Any) -> CorrelationWorkspace:
