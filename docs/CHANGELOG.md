@@ -2225,3 +2225,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added canonical validation and normalization for partial form edits.
 - Added derived thickness and middle-depth values for UI display.
 - Applied edits through the existing manager so overlap policy and Undo/Redo remain active.
+
+## 2026-07-14 — Streamlit panel for manual interpretation intervals
+
+- Added UI for creating, selecting, editing and deleting manual intervals.
+- Connected interval properties, overlap validation and Undo/Redo to the interpretation workspace.
+- Kept Streamlit state limited to serializable values.

@@ -86,6 +86,7 @@ from core.workbench_context import WorkbenchSelectionService
 from core.application_state import ApplicationStateController
 from core.models import CalculationConfig, STANDARD_FIELDS
 from ui.ux_feedback import REPORT_EXPORT_PROGRESS, tooltip
+from ui.interpretation_interval_panel import render_interpretation_interval_panel
 from core.presentation_runtime import (
     AppliedCorrelationState,
     AppliedExportState,
@@ -10705,6 +10706,19 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         project_label=str(getattr(active_project, "name", "") or ""),
         source_label=str(source_label),
     )
+    try:
+        render_interpretation_interval_panel(
+            st,
+            state=_application_state_controller().state,
+            project_id=str(active_project.id),
+        )
+    except Exception as exc:
+        logger.exception(
+            "interpretation_manual_interval_panel_failed project_id=%s error=%s",
+            safe_log_value(active_project.id),
+            safe_log_value(exc),
+        )
+        st.error("Не удалось открыть панель ручных интервалов. Подробности записаны в logs/app.log.")
     if detected_interval_result is not None:
         _render_reservoir_ranking(
             calculated_df, list(detected_interval_result.intervals),

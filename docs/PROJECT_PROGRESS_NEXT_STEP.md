@@ -154,3 +154,7 @@ Completed the serializable `Project -> Well -> Interpretation -> Intervals` repo
 - Partial edits preserve omitted values and ignore UI-only keys.
 - All changes reuse repository validation and remain Undo/Redo-aware.
 - Next step: connect the service to a focused Streamlit panel with interval selection and edit controls.
+
+## Current next step
+
+Manual interpretation intervals are now editable in the Streamlit interpretation workspace. The next increment should render these intervals as colored overlays on the tablet and synchronize selection between the panel and visualization.

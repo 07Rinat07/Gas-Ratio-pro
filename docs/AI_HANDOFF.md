@@ -642,3 +642,7 @@ Validation: repository, command history, professional interval manager and archi
 ## Latest increment: interpretation interval manager
 
 `projects/interpretation_interval_manager.py` is now the preferred application-facing boundary for manual interval operations. It delegates persistence to the repository and reversible mutations to `InterpretationIntervalCommandService`. Overlap rejection is optional; do not change it to a mandatory repository rule without an explicit migration decision.
+
+## Latest increment
+
+The interpretation workspace now includes a thin Streamlit panel over the interval manager and properties service. UI code does not own persistence or business validation.
