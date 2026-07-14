@@ -2472,3 +2472,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added detailed correlation timings for cache lookup, panel preparation, Plotly figure construction, cache storage and frontend dispatch.
 - Added explicit correlation performance budgets and structured performance audit logging.
 - Added serializable runtime-service lifecycle counters without exposing live process objects.
+
+## 2026-07-14 — Workbench Diagnostics Center
+
+- Added a framework-neutral diagnostics snapshot builder for runtime, cache, Session State and performance budgets.
+- Expanded opt-in Workbench Developer Diagnostics with runtime service, cache and Session State metrics.
+- Kept diagnostics snapshots primitive-only and excluded live services and cached payloads.
+- Added regression tests for serialization boundaries and budget classification.

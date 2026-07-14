@@ -27,6 +27,7 @@ from core.workbench_project_explorer import (
     filter_project_explorer_nodes,
     visible_project_explorer_nodes,
 )
+from core.diagnostics_center import build_diagnostics_center_snapshot
 from core.workbench_runtime_diagnostics import (
     diagnostics_enabled, diagnostics_snapshot, record_binding_state, record_runtime_exception,
 )
@@ -745,6 +746,59 @@ def _render_native_streamlit_layout(
                     )
                 else:
                     st_module.success("No captured runtime incidents.")
+
+                center = build_diagnostics_center_snapshot(
+                    registry.state,
+                    performance_budgets_ms={
+                        "las_correlation.total": 10000.0,
+                        "las_correlation.figure": 5000.0,
+                        "las_correlation.frontend": 3000.0,
+                    },
+                )
+                runtime = dict(center.get("runtime", {}) or {})
+                cache = dict(center.get("cache", {}) or {})
+                session = dict(center.get("session", {}) or {})
+                registry_stats = dict(runtime.get("registry", {}) or {})
+                cache_summary = dict(cache.get("summary", {}) or {})
+
+                st_module.markdown("##### Runtime")
+                st_module.caption(
+                    "Services: " + str(registry_stats.get("active", 0))
+                    + " | Created: " + str(registry_stats.get("created", 0))
+                    + " | Replaced: " + str(registry_stats.get("replaced", 0))
+                    + " | Events: " + str(runtime.get("event_count", 0))
+                )
+                services = list(runtime.get("services", ()) or ())
+                if services and hasattr(st_module, "dataframe"):
+                    st_module.dataframe(services, width="stretch", hide_index=True)
+
+                st_module.markdown("##### Cache")
+                st_module.caption(
+                    "Hit rate: " + str(cache_summary.get("hit_rate", 0.0)) + "%"
+                    + " | Hits: " + str(cache_summary.get("hits", 0))
+                    + " | Misses: " + str(cache_summary.get("misses", 0))
+                    + " | Entries: " + str(cache_summary.get("entries", 0))
+                )
+                caches = list(cache.get("caches", ()) or ())
+                if caches and hasattr(st_module, "dataframe"):
+                    st_module.dataframe(caches, width="stretch", hide_index=True)
+
+                st_module.markdown("##### Session State")
+                st_module.caption(
+                    "Keys: " + str(session.get("total_keys", 0))
+                    + " | Runtime: " + str(session.get("runtime_count", 0))
+                    + " | Transient: " + str(session.get("transient_count", 0))
+                    + " | Unscoped: " + str(len(session.get("unscoped_keys", ()) or ()))
+                )
+                unscoped = list(session.get("unscoped_keys", ()) or ())
+                if unscoped:
+                    st_module.warning("Unscoped keys: " + ", ".join(unscoped[:12]))
+
+                budgets = list(center.get("budgets", ()) or ())
+                if budgets:
+                    st_module.markdown("##### Performance budgets")
+                    if hasattr(st_module, "dataframe"):
+                        st_module.dataframe(budgets, width="stretch", hide_index=True)
 
     status_items = list(layout.get("status_items", ()))
     status_html = "".join(f"<span><strong>{_html(i.get('label',''))}:</strong> {_html(i.get('value',''))}</span>" for i in status_items)

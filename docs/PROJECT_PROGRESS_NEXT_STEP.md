@@ -456,3 +456,12 @@ Next priority: move the legacy correlation figure cache from ordinary Session St
 - Added a payload-free Session State audit for runtime objects, transient keys, unscoped keys and value-type counts.
 - Correlation logs now include compact session-state diagnostics for every measured render cycle.
 - Next priority: migrate the legacy correlation figure cache behind RuntimeServiceRegistry and enforce bounded entry/memory eviction.
+
+## Phase 2 — Workbench Diagnostics Center
+
+- Extended the existing opt-in Developer Diagnostics panel into one consolidated diagnostics center.
+- Added serializable runtime-service lifecycle and descriptor snapshots without exposing live services.
+- Added shared cache summary and per-cache hit/miss/invalidation/eviction tables.
+- Added Session State ownership diagnostics for runtime, transient and unscoped keys without copying values.
+- Added performance-budget status derived from bounded runtime diagnostic events.
+- Next priority: migrate the legacy correlation figure cache into a bounded runtime service with byte-aware eviction and cold/warm benchmark reporting.

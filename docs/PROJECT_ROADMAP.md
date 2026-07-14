@@ -1617,3 +1617,11 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [ ] Add bounded cache eviction and memory-budget telemetry.
 - [ ] Add a diagnostics UI for runtime, cache, session and render metrics.
 - [ ] Establish cold/warm correlation benchmark baselines for 1, 2, 5 and 10 wells.
+
+### Phase 2 increment — Workbench Diagnostics Center (completed)
+
+- [x] Consolidated runtime-service lifecycle metrics.
+- [x] Consolidated cache hit/miss/invalidation/eviction metrics.
+- [x] Session State ownership and scope audit without deepcopy.
+- [x] Performance-budget status from bounded diagnostic events.
+- [ ] Next: bounded correlation figure cache with memory-aware eviction and cold/warm benchmarks.
