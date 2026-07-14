@@ -2385,3 +2385,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added create, switch, rename and duplicate workflows for manual interpretations.
 - Added reversible trash-based deletion and restoration.
 - Added atomic catalog persistence and regression tests for directory-level operations.
+
+## 2026-07-14 — Interpretation version comparison and transfer
+
+- Added UUID-based comparison between two interpretation workspaces of the same well.
+- Added added/removed/modified/unchanged summaries with field-level change details.
+- Added previewed transfer of selected intervals into the active interpretation.
+- Added overwrite, skip and copy policies for UUID conflicts.
+- Added stale-preview protection, optional overlap rejection and one-step Undo/Redo for transfer.

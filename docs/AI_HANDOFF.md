@@ -696,3 +696,7 @@ Project-wide interval type reassignment now requires an explicit UI confirmation
 - Подтверждённые операции сохраняются в ограниченном сериализуемом журнале Session State.
 - Каждая пакетная операция остаётся одним шагом Undo/Redo.
 
+
+## Latest interpretation increment: version comparison and transfer
+
+Use `projects.interpretation_interval_comparison` for UUID-based diff and transfer between interpretation workspaces of the same well. `compare_interpretation_intervals()` reports added, removed, modified and unchanged intervals while ignoring timestamps. `InterpretationIntervalTransferService` requires a fresh preview token, supports overwrite/skip/copy conflict policies, optional overlap rejection, and writes the target workspace through `InterpretationIntervalManager.replace_all()` as one Undo/Redo command. Do not transfer by directly writing `intervals.json` from UI code.

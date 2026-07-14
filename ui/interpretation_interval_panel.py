@@ -31,6 +31,10 @@ from projects.interpretation_interval_filter_presets import (
     export_filter_presets_json,
     import_filter_presets_json,
 )
+from projects.interpretation_interval_comparison import (
+    InterpretationIntervalTransferService,
+    compare_interpretation_intervals,
+)
 from projects.interpretation_interval_manager import (
     InterpretationIntervalManager,
     InterpretationIntervalOverlapError,
@@ -250,6 +254,131 @@ def render_interpretation_interval_panel(
                         state[selector_key] = restored_interpretation.id
                         st.success("Интерпретация восстановлена.")
                         st.rerun()
+
+        if len(catalog_items) > 1:
+            with st.expander("Сравнение и перенос интервалов", expanded=False):
+                reference_ids = [item.id for item in catalog_items if item.id != manager.interpretation_id]
+                reference_id = st.selectbox(
+                    "Сравнить с интерпретацией",
+                    options=reference_ids,
+                    format_func=lambda value: next(
+                        (f"{item.name} ({item.id})" for item in catalog_items if item.id == value),
+                        value,
+                    ),
+                    key=f"interpretation_compare_reference_{project_id}_{well_id}_{manager.interpretation_id}",
+                )
+                comparison = compare_interpretation_intervals(
+                    root=root,
+                    project_id=project_id,
+                    well_id=well_id,
+                    source_interpretation_id=reference_id,
+                    target_interpretation_id=manager.interpretation_id,
+                )
+                summary_columns = st.columns(4)
+                summary_columns[0].metric("Новые", comparison.added_count)
+                summary_columns[1].metric("Удалённые", comparison.removed_count)
+                summary_columns[2].metric("Изменённые", comparison.modified_count)
+                summary_columns[3].metric("Без изменений", comparison.unchanged_count)
+                changed_differences = [item for item in comparison.differences if item.status != "unchanged"]
+                if changed_differences:
+                    st.dataframe(
+                        [
+                            {
+                                "UUID": item.interval_id,
+                                "Статус": item.status,
+                                "Источник": item.source.label if item.source else "—",
+                                "Цель": item.target.label if item.target else "—",
+                                "Поля": ", ".join(item.changed_fields) or "—",
+                                "Верх источника": item.source.top if item.source else None,
+                                "Низ источника": item.source.base if item.source else None,
+                            }
+                            for item in changed_differences
+                        ],
+                        width="stretch",
+                        hide_index=True,
+                    )
+                else:
+                    st.info("Различий между интерпретациями нет.")
+
+                transferable = [item for item in comparison.differences if item.source is not None and item.status != "unchanged"]
+                if transferable:
+                    selected_transfer_ids = st.multiselect(
+                        "Интервалы из сравниваемой версии для переноса в активную",
+                        options=[item.interval_id for item in transferable],
+                        format_func=lambda value: next(
+                            (
+                                f"{item.source.label} · {item.source.top:g}–{item.source.base:g} м · {item.status}"
+                                for item in transferable
+                                if item.interval_id == value and item.source is not None
+                            ),
+                            value,
+                        ),
+                        key=f"interpretation_compare_transfer_ids_{project_id}_{well_id}_{manager.interpretation_id}_{reference_id}",
+                    )
+                    conflict_policy_label = st.selectbox(
+                        "Конфликт одинакового UUID",
+                        options=("Заменить целевой", "Пропустить", "Создать копию"),
+                        key=f"interpretation_compare_conflict_{project_id}_{well_id}_{manager.interpretation_id}_{reference_id}",
+                    )
+                    conflict_policy = {
+                        "Заменить целевой": "overwrite",
+                        "Пропустить": "skip",
+                        "Создать копию": "copy",
+                    }[conflict_policy_label]
+                    reject_transfer_overlaps = st.checkbox(
+                        "Запретить пересечения после переноса",
+                        value=False,
+                        key=f"interpretation_compare_reject_overlaps_{project_id}_{well_id}_{manager.interpretation_id}_{reference_id}",
+                    )
+                    transfer_preview = None
+                    if selected_transfer_ids:
+                        transfer_service = InterpretationIntervalTransferService(
+                            state,
+                            root=root,
+                            project_id=project_id,
+                            well_id=well_id,
+                            source_interpretation_id=reference_id,
+                            target_interpretation_id=manager.interpretation_id,
+                        )
+                        try:
+                            transfer_preview = transfer_service.preview(
+                                selected_transfer_ids, conflict_policy=conflict_policy
+                            )
+                        except (KeyError, ValueError) as exc:
+                            st.error(str(exc))
+                        else:
+                            st.caption(
+                                f"Добавить: {transfer_preview.add_count} · "
+                                f"заменить: {transfer_preview.overwrite_count} · "
+                                f"пропустить: {transfer_preview.skip_count} · "
+                                f"копировать: {transfer_preview.copy_count}"
+                            )
+                    transfer_confirmed = st.checkbox(
+                        "Подтверждаю перенос выбранных интервалов",
+                        value=False,
+                        key=f"interpretation_compare_confirm_{project_id}_{well_id}_{manager.interpretation_id}_{reference_id}",
+                    )
+                    if st.button(
+                        "Перенести в активную интерпретацию",
+                        disabled=transfer_preview is None or not transfer_confirmed,
+                        key=f"interpretation_compare_apply_{project_id}_{well_id}_{manager.interpretation_id}_{reference_id}",
+                        width="stretch",
+                    ):
+                        try:
+                            result = transfer_service.apply(
+                                transfer_preview,
+                                expected_confirmation_token=transfer_preview.confirmation_token,
+                                reject_overlaps=reject_transfer_overlaps,
+                            )
+                        except (KeyError, ValueError) as exc:
+                            st.error(str(exc))
+                        else:
+                            st.success(
+                                f"Перенос завершён: добавлено {result.added_count}, "
+                                f"заменено {result.overwritten_count}, "
+                                f"пропущено {result.skipped_count}, копий {result.copied_count}."
+                            )
+                            st.rerun()
 
         action_left, action_mid, action_right = st.columns((1, 1, 3))
         if action_left.button(
