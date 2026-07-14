@@ -84,3 +84,39 @@ def test_duplicate_does_not_copy_publication_lock(tmp_path: Path) -> None:
         root=tmp_path, project_id="p", well_id="w", interpretation_id=duplicate.id
     )
     assert copy_service.state().status == "draft"
+
+
+def test_role_permissions_protect_workflow_transitions(tmp_path: Path) -> None:
+    from projects.interpretation_access import InterpretationActor
+
+    author = InterpretationPublicationService(
+        root=tmp_path, project_id="p", well_id="w", interpretation_id="default",
+        actor=InterpretationActor(id="author-1", name="Автор", role="author"),
+    )
+    author.submit_for_review(comment="ready")
+    with pytest.raises(PermissionError, match="не разрешает"):
+        author.approve(comment="self approval")
+
+    reviewer = InterpretationPublicationService(
+        root=tmp_path, project_id="p", well_id="w", interpretation_id="default",
+        actor=InterpretationActor(id="reviewer-1", name="Рецензент", role="reviewer"),
+    )
+    approved = reviewer.approve(comment="checked")
+    assert approved.status == "approved"
+    assert approved.events[-1].actor_id == "reviewer-1"
+    assert approved.events[-1].actor_role == "reviewer"
+
+    with pytest.raises(PermissionError, match="не разрешает"):
+        reviewer.publish(revision_id="missing")
+
+
+def test_publication_event_actor_fields_are_backward_compatible(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    state = service.submit_for_review(comment="ready")
+    event = state.events[-1]
+    assert event.actor_id == "local-user"
+    assert event.actor_name == "Локальный пользователь"
+    assert event.actor_role == "administrator"
+
+    reloaded = _service(tmp_path).state()
+    assert reloaded.events[-1].actor_role == "administrator"

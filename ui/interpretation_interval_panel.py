@@ -43,6 +43,12 @@ from projects.interpretation_interval_merge import InterpretationIntervalMergeSe
 from projects.interpretation_interval_properties import InterpretationIntervalPropertiesService
 from projects.interpretation_revisions import InterpretationRevisionRepository
 from projects.interpretation_publication import InterpretationPublicationService
+from projects.interpretation_publication_exports import (
+    export_publication_audit_csv,
+    export_publication_audit_json,
+    export_publication_audit_xlsx,
+)
+from projects.interpretation_access import InterpretationActor, ROLE_LABELS_RU, ROLES
 from projects.interpretation_interval_type_operation_exports import (
     export_type_operations_csv,
     export_type_operations_json,
@@ -154,7 +160,7 @@ def render_interpretation_interval_panel(
                         name=create_name,
                         description=create_description,
                     )
-                except (KeyError, ValueError, OSError) as exc:
+                except (KeyError, ValueError, PermissionError, OSError) as exc:
                     st.error(str(exc))
                 else:
                     state[selector_key] = created_interpretation.id
@@ -259,11 +265,18 @@ def render_interpretation_interval_panel(
                         st.rerun()
 
 
+        actor_name_key = f"interpretation_actor_name_{project_id}_{well_id}"
+        actor_role_key = f"interpretation_actor_role_{project_id}_{well_id}"
+        actor_name = str(state.get(actor_name_key, "Локальный пользователь") or "Локальный пользователь")
+        actor_role = str(state.get(actor_role_key, "administrator") or "administrator")
+        if actor_role not in ROLES:
+            actor_role = "administrator"
         publication_service = InterpretationPublicationService(
             root=root,
             project_id=project_id,
             well_id=well_id,
             interpretation_id=manager.interpretation_id,
+            actor=InterpretationActor(id="local-user", name=actor_name, role=actor_role),
         )
         publication_state = publication_service.state()
         status_labels = {
@@ -273,7 +286,30 @@ def render_interpretation_interval_panel(
             "published": "Опубликована",
         }
         with st.expander("Согласование и публикация", expanded=publication_state.status != "draft"):
+            actor_left, actor_right = st.columns(2)
+            actor_name = actor_left.text_input(
+                "Пользователь",
+                value=actor_name,
+                key=f"{actor_name_key}_input",
+            )
+            actor_role = actor_right.selectbox(
+                "Роль",
+                options=list(ROLES),
+                index=list(ROLES).index(actor_role),
+                format_func=lambda value: ROLE_LABELS_RU.get(value, value),
+                key=f"{actor_role_key}_input",
+            )
+            state[actor_name_key] = actor_name
+            state[actor_role_key] = actor_role
+            publication_service = InterpretationPublicationService(
+                root=root,
+                project_id=project_id,
+                well_id=well_id,
+                interpretation_id=manager.interpretation_id,
+                actor=InterpretationActor(id="local-user", name=actor_name, role=actor_role),
+            )
             st.metric("Статус", status_labels.get(publication_state.status, publication_state.status))
+            st.caption(f"Активная роль: {ROLE_LABELS_RU.get(actor_role, actor_role)}")
             if publication_state.is_locked:
                 st.warning("Интерпретация заблокирована для изменения интервалов.")
             workflow_comment = st.text_area(
@@ -332,6 +368,8 @@ def render_interpretation_interval_panel(
                             "Дата": event.created_at,
                             "Операция": event.action,
                             "Статус": f"{status_labels.get(event.from_status, event.from_status)} → {status_labels.get(event.to_status, event.to_status)}",
+                            "Пользователь": event.actor_name or "—",
+                            "Роль": ROLE_LABELS_RU.get(event.actor_role, event.actor_role or "—"),
                             "Комментарий": event.comment,
                             "Ревизия": event.revision_id,
                         }
@@ -339,6 +377,35 @@ def render_interpretation_interval_panel(
                     ],
                     width="stretch",
                     hide_index=True,
+                )
+                audit_json = export_publication_audit_json(
+                    publication_state.events,
+                    project_id=project_id,
+                    well_id=well_id,
+                    interpretation_id=manager.interpretation_id,
+                )
+                audit_csv = export_publication_audit_csv(publication_state.events)
+                audit_xlsx = export_publication_audit_xlsx(
+                    publication_state.events,
+                    project_id=project_id,
+                    well_id=well_id,
+                    interpretation_id=manager.interpretation_id,
+                )
+                audit_json_col, audit_csv_col, audit_xlsx_col = st.columns(3)
+                audit_json_col.download_button(
+                    "Аудит JSON", data=audit_json,
+                    file_name=f"{manager.interpretation_id}_publication_audit.json",
+                    mime="application/json", width="stretch",
+                )
+                audit_csv_col.download_button(
+                    "Аудит CSV", data=audit_csv,
+                    file_name=f"{manager.interpretation_id}_publication_audit.csv",
+                    mime="text/csv", width="stretch",
+                )
+                audit_xlsx_col.download_button(
+                    "Аудит Excel", data=audit_xlsx,
+                    file_name=f"{manager.interpretation_id}_publication_audit.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", width="stretch",
                 )
 
         revision_repository = InterpretationRevisionRepository(

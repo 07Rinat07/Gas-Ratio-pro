@@ -372,3 +372,15 @@ Add review/approval workflow for interpretation versions: draft/reviewed/approve
 - Workflow transitions keep a bounded JSON-compatible audit history with comments and published revision UUID.
 - Revision snapshots and interpretation duplication exclude workflow metadata, so approval state never contaminates content hashes or copied workspaces.
 - Next step: add role-aware reviewers/signatures or begin the multi-well correlation workspace.
+
+## Completed: role-aware publication workflow
+
+- Interpretation publication transitions now enforce author, reviewer, publisher and administrator permissions.
+- Every workflow event records actor ID, display name and role.
+- The Streamlit workflow panel exposes the active local actor and role and displays them in the audit history.
+- Audit history can be exported as JSON, CSV or Excel.
+- The role model is serializable and independent from a future authentication provider.
+
+## Recommended next major stage
+
+Begin the multi-well correlation workspace using published interpretation revisions as immutable correlation inputs.

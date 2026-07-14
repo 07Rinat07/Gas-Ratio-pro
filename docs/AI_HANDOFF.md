@@ -711,3 +711,7 @@ Three-way manual interval merge is implemented in `projects/interpretation_inter
 ## Latest increment: interpretation publication workflow
 
 Interpretation workspaces now have persistent draft/review/approved/published states. Approved and published workspaces are read-only through `InterpretationIntervalManager`. Publication requires a revision whose state token matches current interpretation content. Workflow metadata lives under `.workflow/` and is excluded from revision snapshots and duplicated workspaces.
+
+## Latest increment: role-aware interpretation publication
+
+The publication workflow now uses `InterpretationActor` and a centralized role policy. Authors submit drafts, reviewers return/approve, publishers publish/unpublish, and administrators may perform all transitions. Workflow events persist actor identity and role and can be exported to JSON, CSV or XLSX. No runtime authentication objects are stored in project state; a future identity provider should create the same serializable actor value.

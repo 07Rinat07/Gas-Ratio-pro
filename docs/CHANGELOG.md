@@ -2412,3 +2412,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added draft, review, approved and published states for interpretation workspaces.
 - Locked approved/published interval mutations and tied publication to a current revision.
 - Added workflow audit events and excluded workflow metadata from revision hashes and workspace duplication.
+
+## Interpretation role access and publication audit
+
+- Added explicit author, reviewer, publisher and administrator workflow roles.
+- Protected approval and publication transitions with role permissions.
+- Added actor identity and role to persistent workflow audit events.
+- Added JSON, CSV and Excel export for publication audit history.
+- Kept legacy workflow files backward compatible and local-first.

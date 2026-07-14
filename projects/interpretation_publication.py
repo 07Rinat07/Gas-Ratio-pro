@@ -18,6 +18,16 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 from projects.interpretation_intervals import _safe_interpretation_id
+from projects.interpretation_access import (
+    InterpretationActor,
+    PERMISSION_APPROVE,
+    PERMISSION_PUBLISH,
+    PERMISSION_REOPEN,
+    PERMISSION_RETURN,
+    PERMISSION_SUBMIT,
+    PERMISSION_UNPUBLISH,
+    require_permission,
+)
 from projects.interpretation_revisions import InterpretationRevisionRepository
 from projects.repository import DEFAULT_PROJECTS_ROOT, safe_project_id
 from projects.well_cards import safe_well_id
@@ -65,6 +75,9 @@ class InterpretationPublicationEvent:
     comment: str
     created_at: str
     revision_id: str = ""
+    actor_id: str = ""
+    actor_name: str = ""
+    actor_role: str = ""
 
 
 @dataclass(frozen=True)
@@ -109,6 +122,8 @@ class InterpretationPublicationRepository:
                 from_status=str(row.get("from_status", "")), to_status=str(row.get("to_status", "")),
                 comment=str(row.get("comment", "")), created_at=str(row.get("created_at", "")),
                 revision_id=str(row.get("revision_id", "")),
+                actor_id=str(row.get("actor_id", "")), actor_name=str(row.get("actor_name", "")),
+                actor_role=str(row.get("actor_role", "")),
             ))
         return InterpretationPublicationState(
             status=status,
@@ -117,14 +132,16 @@ class InterpretationPublicationRepository:
             events=tuple(events),
         )
 
-    def transition(self, *, to_status: str, action: str, comment: str = "", revision_id: str = "") -> InterpretationPublicationState:
+    def transition(self, *, to_status: str, action: str, comment: str = "", revision_id: str = "", actor: InterpretationActor | None = None) -> InterpretationPublicationState:
         target = str(to_status)
         if target not in STATUSES:
             raise ValueError("Некорректный целевой статус интерпретации.")
         current = self.get()
+        current_actor = actor or InterpretationActor()
         event = InterpretationPublicationEvent(
             id=str(uuid4()), action=str(action), from_status=current.status, to_status=target,
             comment=_clean_comment(comment), created_at=_utc_now(), revision_id=str(revision_id or ""),
+            actor_id=current_actor.id, actor_name=current_actor.name, actor_role=current_actor.role,
         )
         state = InterpretationPublicationState(
             status=target,
@@ -146,39 +163,46 @@ class InterpretationPublicationRepository:
 
 
 class InterpretationPublicationService:
-    def __init__(self, *, root: Path | str = DEFAULT_PROJECTS_ROOT, project_id: str, well_id: str, interpretation_id: str) -> None:
+    def __init__(self, *, root: Path | str = DEFAULT_PROJECTS_ROOT, project_id: str, well_id: str, interpretation_id: str, actor: InterpretationActor | None = None) -> None:
         self.repository = InterpretationPublicationRepository(root=root, project_id=project_id, well_id=well_id, interpretation_id=interpretation_id)
         self.revisions = InterpretationRevisionRepository(root=root, project_id=project_id, well_id=well_id, interpretation_id=interpretation_id)
+        self.actor = actor or InterpretationActor()
 
     def state(self) -> InterpretationPublicationState:
         return self.repository.get()
 
     def submit_for_review(self, *, comment: str = "") -> InterpretationPublicationState:
         self._require("draft")
-        return self.repository.transition(to_status="in_review", action="submit_for_review", comment=comment)
+        require_permission(self.actor, PERMISSION_SUBMIT)
+        return self.repository.transition(to_status="in_review", action="submit_for_review", comment=comment, actor=self.actor)
 
     def return_to_draft(self, *, comment: str = "") -> InterpretationPublicationState:
         self._require("in_review")
-        return self.repository.transition(to_status="draft", action="return_to_draft", comment=comment)
+        require_permission(self.actor, PERMISSION_RETURN)
+        return self.repository.transition(to_status="draft", action="return_to_draft", comment=comment, actor=self.actor)
 
     def approve(self, *, comment: str = "") -> InterpretationPublicationState:
         self._require("in_review")
-        return self.repository.transition(to_status="approved", action="approve", comment=comment)
+        require_permission(self.actor, PERMISSION_APPROVE)
+        return self.repository.transition(to_status="approved", action="approve", comment=comment, actor=self.actor)
 
     def reopen(self, *, comment: str = "") -> InterpretationPublicationState:
         self._require("approved")
-        return self.repository.transition(to_status="draft", action="reopen", comment=comment)
+        require_permission(self.actor, PERMISSION_REOPEN)
+        return self.repository.transition(to_status="draft", action="reopen", comment=comment, actor=self.actor)
 
     def publish(self, *, revision_id: str, comment: str = "") -> InterpretationPublicationState:
         self._require("approved")
+        require_permission(self.actor, PERMISSION_PUBLISH)
         revision = self.revisions.get(revision_id)
         if revision.state_token != self.revisions.current_state_token():
             raise ValueError("Выбранная ревизия не соответствует текущему состоянию интерпретации.")
-        return self.repository.transition(to_status="published", action="publish", comment=comment, revision_id=revision.id)
+        return self.repository.transition(to_status="published", action="publish", comment=comment, revision_id=revision.id, actor=self.actor)
 
     def unpublish(self, *, comment: str = "") -> InterpretationPublicationState:
         self._require("published")
-        return self.repository.transition(to_status="approved", action="unpublish", comment=comment)
+        require_permission(self.actor, PERMISSION_UNPUBLISH)
+        return self.repository.transition(to_status="approved", action="unpublish", comment=comment, actor=self.actor)
 
     def assert_editable(self) -> None:
         state = self.state()
