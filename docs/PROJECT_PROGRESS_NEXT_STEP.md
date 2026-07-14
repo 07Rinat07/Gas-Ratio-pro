@@ -583,3 +583,9 @@ Next engineering focus: expand transaction adoption to remaining project-wide ba
 - Developer Diagnostics reports integrity checks, failures, quarantined journals and cleaned journals.
 
 Next engineering focus: adopt transaction boundaries in the remaining project-wide batch workflows and add bounded quarantine maintenance.
+
+## Phase 2 — Transaction maintenance and disaster recovery tooling
+
+Repository transaction journals now have a non-mutating inspection API and a CLI maintenance workflow. Active and quarantined journals can be listed and integrity-checked, a valid incomplete quarantined transaction can be rolled back manually, and old integrity-valid committed journals can be cleaned using a dry-run retention policy.
+
+Next engineering focus: connect project lifecycle startup to a bounded recovery scan and migrate the remaining project-wide batch workflows to the shared transaction boundary.

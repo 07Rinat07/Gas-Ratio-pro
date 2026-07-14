@@ -283,6 +283,36 @@ class RepositoryTransactionResult:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class RepositoryTransactionInspection:
+    transaction_id: str
+    location: str
+    status: str
+    schema: str
+    repository: str
+    created_at: float
+    entry_count: int
+    recoverable: bool
+    integrity_valid: bool
+    issues: tuple[str, ...]
+    path: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "transaction_id": self.transaction_id,
+            "location": self.location,
+            "status": self.status,
+            "schema": self.schema,
+            "repository": self.repository,
+            "created_at": self.created_at,
+            "entry_count": self.entry_count,
+            "recoverable": self.recoverable,
+            "integrity_valid": self.integrity_valid,
+            "issues": list(self.issues),
+            "path": self.path,
+        }
+
+
 class AtomicJsonTransaction:
     """Stage several JSON writes/deletes and publish one coherent mutation.
 
@@ -671,6 +701,206 @@ class AtomicJsonStore:
                 cleaned=cleaned,
             )
         return {"recovered": recovered, "failures": failures}
+
+    def inspect_transaction_directory(
+        self,
+        transaction_dir: Path | str,
+        *,
+        expected_root: Path | str,
+        location: str = "active",
+    ) -> RepositoryTransactionInspection:
+        """Inspect a transaction journal without mutating repository data."""
+
+        directory = Path(transaction_dir).resolve()
+        root = Path(expected_root).resolve()
+        issues: list[str] = []
+        payload: dict[str, Any] = {}
+        manifest_path = directory / "manifest.json"
+        if not manifest_path.exists():
+            issues.append("manifest_missing")
+        else:
+            try:
+                loaded = json.loads(manifest_path.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    payload = loaded
+                else:
+                    issues.append("manifest_root_not_object")
+            except Exception:
+                issues.append("manifest_invalid_json")
+
+        schema = str(payload.get("schema", ""))
+        if payload and schema not in {
+            "gas-ratio-pro/repository-transaction/v1",
+            "gas-ratio-pro/repository-transaction/v2",
+        }:
+            issues.append("schema_unsupported")
+        manifest_root = Path(str(payload.get("root", ""))).resolve() if payload.get("root") else None
+        if payload and manifest_root != root:
+            issues.append("root_mismatch")
+
+        raw_entries = payload.get("entries", []) if payload else []
+        if not isinstance(raw_entries, list):
+            issues.append("entries_invalid")
+            raw_entries = []
+        status = str(payload.get("status", "unknown"))
+        for index, entry in enumerate(raw_entries):
+            prefix = f"entry_{index}"
+            if not isinstance(entry, dict):
+                issues.append(prefix + "_invalid")
+                continue
+            target_text = str(entry.get("target", ""))
+            if not target_text:
+                issues.append(prefix + "_target_missing")
+                continue
+            target = Path(target_text).resolve()
+            try:
+                target.relative_to(root)
+            except ValueError:
+                issues.append(prefix + "_target_outside_root")
+                continue
+            operation = str(entry.get("operation", ""))
+            if operation not in {"write", "delete"}:
+                issues.append(prefix + "_operation_invalid")
+            if status != "committed" and bool(entry.get("existed")):
+                backup_name = str(entry.get("backup", ""))
+                backup = directory / backup_name
+                if not backup_name or not backup.exists():
+                    issues.append(prefix + "_backup_missing")
+                else:
+                    expected_hash = str(entry.get("before_sha256", ""))
+                    if expected_hash and self._sha256_file(backup) != expected_hash:
+                        issues.append(prefix + "_backup_hash_mismatch")
+            if status == "committed":
+                expected_hash = str(entry.get("after_sha256", ""))
+                if operation == "write" and expected_hash:
+                    if not target.exists() or self._sha256_file(target) != expected_hash:
+                        issues.append(prefix + "_committed_hash_mismatch")
+                elif operation == "delete" and target.exists():
+                    issues.append(prefix + "_committed_delete_mismatch")
+
+        integrity_valid = not issues
+        recoverable = integrity_valid and status in {"prepared", "applying"}
+        return RepositoryTransactionInspection(
+            transaction_id=str(payload.get("transaction_id", directory.name)),
+            location=str(location),
+            status=status,
+            schema=schema,
+            repository=str(payload.get("repository", "")),
+            created_at=float(payload.get("created_at", 0.0) or 0.0),
+            entry_count=len(raw_entries),
+            recoverable=recoverable,
+            integrity_valid=integrity_valid,
+            issues=tuple(issues),
+            path=str(directory),
+        )
+
+    def list_transaction_journals(self, root: Path | str) -> list[dict[str, Any]]:
+        """Return active and quarantined journals as JSON-compatible metadata."""
+
+        recovery_root = Path(root).resolve()
+        rows: list[RepositoryTransactionInspection] = []
+        locations = (
+            ("active", recovery_root / ".repository_transactions"),
+            ("quarantine", recovery_root / ".repository_transactions_quarantine"),
+        )
+        for location, parent in locations:
+            if not parent.exists():
+                continue
+            for directory in sorted(path for path in parent.iterdir() if path.is_dir()):
+                rows.append(self.inspect_transaction_directory(
+                    directory, expected_root=recovery_root, location=location
+                ))
+        return [item.to_dict() for item in rows]
+
+    def recover_quarantined_transaction(
+        self, root: Path | str, transaction_id: str
+    ) -> dict[str, Any]:
+        """Safely roll back one valid incomplete transaction from quarantine."""
+
+        recovery_root = Path(root).resolve()
+        clean_id = str(transaction_id).strip()
+        if not clean_id or Path(clean_id).name != clean_id:
+            raise ValueError("invalid transaction id")
+        quarantine_root = recovery_root / ".repository_transactions_quarantine"
+        candidates = [
+            path for path in quarantine_root.glob(clean_id + "*")
+            if path.is_dir() and (path.name == clean_id or path.name.startswith(clean_id + "-"))
+        ]
+        if len(candidates) != 1:
+            raise FileNotFoundError(f"quarantined transaction not uniquely found: {clean_id}")
+        source = candidates[0].resolve()
+        inspection = self.inspect_transaction_directory(
+            source, expected_root=recovery_root, location="quarantine"
+        )
+        if not inspection.recoverable:
+            raise ValueError("quarantined transaction is not safe for automatic recovery")
+        active_root = recovery_root / ".repository_transactions"
+        active_root.mkdir(parents=True, exist_ok=True)
+        destination = active_root / source.name
+        if destination.exists():
+            raise FileExistsError(destination)
+        os.replace(source, destination)
+        AtomicJsonTransaction._sync_directory(active_root)
+        recovered, checks, failures, quarantined, cleaned = self._recover_transaction_dir(
+            destination, expected_root=recovery_root
+        )
+        try:
+            quarantine_root.rmdir()
+        except OSError:
+            pass
+        if self.metrics is not None:
+            self.metrics.notify_recovery(
+                repository=self.repository, root=recovery_root,
+                recovered=int(recovered), failures=0 if recovered else 1,
+                integrity_checks=checks, integrity_failures=failures,
+                quarantined=int(quarantined), cleaned=int(cleaned),
+            )
+        return {
+            "transaction_id": inspection.transaction_id,
+            "recovered": bool(recovered),
+            "integrity_checks": checks,
+            "integrity_failures": failures,
+            "quarantined": bool(quarantined),
+            "cleaned": bool(cleaned),
+        }
+
+    def cleanup_transaction_journals(
+        self,
+        root: Path | str,
+        *,
+        older_than_seconds: float = 30 * 24 * 60 * 60,
+        dry_run: bool = True,
+    ) -> dict[str, Any]:
+        """Remove only integrity-valid committed journals older than retention."""
+
+        recovery_root = Path(root).resolve()
+        cutoff = time() - max(0.0, float(older_than_seconds))
+        candidates: list[str] = []
+        removed: list[str] = []
+        journal_root = recovery_root / ".repository_transactions"
+        if journal_root.exists():
+            for directory in sorted(path for path in journal_root.iterdir() if path.is_dir()):
+                inspection = self.inspect_transaction_directory(
+                    directory, expected_root=recovery_root, location="active"
+                )
+                created_at = inspection.created_at or directory.stat().st_mtime
+                if inspection.status == "committed" and inspection.integrity_valid and created_at <= cutoff:
+                    candidates.append(inspection.transaction_id)
+                    if not dry_run:
+                        shutil.rmtree(directory)
+                        removed.append(inspection.transaction_id)
+            if not dry_run:
+                try:
+                    journal_root.rmdir()
+                except OSError:
+                    pass
+        return {
+            "dry_run": bool(dry_run),
+            "candidate_count": len(candidates),
+            "removed_count": len(removed),
+            "candidates": candidates,
+            "removed": removed,
+        }
 
     def transaction(self) -> AtomicJsonTransaction:
         """Create a staged multi-file transaction for this repository."""

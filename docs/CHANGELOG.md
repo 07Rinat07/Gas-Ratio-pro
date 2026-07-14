@@ -2595,3 +2595,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added SHA-256 verification for multi-file transaction commit and recovery.
 - Added quarantine handling for malformed or unsafe recovery journals.
 - Added transaction integrity and journal cleanup diagnostics.
+
+## Phase 2 — Repository transaction maintenance
+
+- Added non-mutating inspection for active and quarantined transaction journals.
+- Added safe manual recovery for integrity-valid incomplete quarantined transactions.
+- Added dry-run retention cleanup for old valid committed journals.
+- Added a standalone JSON CLI for list, inspect, recover and cleanup operations.
