@@ -573,3 +573,13 @@ Next priority: migrate interpretation revision restore, type reassignment and co
 Multi-file repository transactions now persist a recovery journal before replacing destination files. Interrupted commits are rolled back automatically on the next repository access. Interpretation revision restore uses the common transaction boundary instead of a local best-effort rollback loop.
 
 Next engineering focus: expand transaction adoption to remaining project-wide batch operations and add startup recovery scanning at the project lifecycle boundary.
+
+## Phase 2 — Transaction integrity verification
+
+- Repository transaction manifests now include SHA-256 checksums for original and staged content.
+- Commit verifies every written/deleted destination before marking the transaction committed.
+- Crash recovery verifies backup content and the restored destination before deleting the journal.
+- Corrupt, unsafe or malformed journals are quarantined instead of silently removed.
+- Developer Diagnostics reports integrity checks, failures, quarantined journals and cleaned journals.
+
+Next engineering focus: adopt transaction boundaries in the remaining project-wide batch workflows and add bounded quarantine maintenance.

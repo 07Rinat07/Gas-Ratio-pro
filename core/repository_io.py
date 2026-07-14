@@ -7,6 +7,7 @@ handles, locks, or repository objects.
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import tempfile
 import uuid
@@ -78,6 +79,10 @@ class RepositoryIOMetrics:
         self._recovery_count = 0
         self._recovery_failures = 0
         self._last_recovery: dict[str, Any] = {}
+        self._integrity_checks = 0
+        self._integrity_failures = 0
+        self._quarantined_transactions = 0
+        self._cleaned_transactions = 0
 
 
     def subscribe_mutations(
@@ -163,15 +168,32 @@ class RepositoryIOMetrics:
             self._publish_mutation(event)
 
     def notify_recovery(
-        self, *, repository: str, root: Path | str, recovered: int, failures: int
+        self,
+        *,
+        repository: str,
+        root: Path | str,
+        recovered: int,
+        failures: int,
+        integrity_checks: int = 0,
+        integrity_failures: int = 0,
+        quarantined: int = 0,
+        cleaned: int = 0,
     ) -> None:
         self._recovery_count += max(0, int(recovered))
         self._recovery_failures += max(0, int(failures))
+        self._integrity_checks += max(0, int(integrity_checks))
+        self._integrity_failures += max(0, int(integrity_failures))
+        self._quarantined_transactions += max(0, int(quarantined))
+        self._cleaned_transactions += max(0, int(cleaned))
         self._last_recovery = {
             "repository": str(repository),
             "root_name": Path(root).name,
             "recovered": max(0, int(recovered)),
             "failures": max(0, int(failures)),
+            "integrity_checks": max(0, int(integrity_checks)),
+            "integrity_failures": max(0, int(integrity_failures)),
+            "quarantined": max(0, int(quarantined)),
+            "cleaned": max(0, int(cleaned)),
             "timestamp": time(),
         }
 
@@ -188,6 +210,10 @@ class RepositoryIOMetrics:
             "recovery_count": self._recovery_count,
             "recovery_failures": self._recovery_failures,
             "last_recovery": dict(self._last_recovery),
+            "integrity_checks": self._integrity_checks,
+            "integrity_failures": self._integrity_failures,
+            "quarantined_transactions": self._quarantined_transactions,
+            "cleaned_transactions": self._cleaned_transactions,
         }
 
     def record(
@@ -301,6 +327,14 @@ class AtomicJsonTransaction:
             os.close(descriptor)
 
     @staticmethod
+    def _sha256_bytes(payload: bytes) -> str:
+        return hashlib.sha256(payload).hexdigest()
+
+    @classmethod
+    def _sha256_file(cls, path: Path) -> str:
+        return cls._sha256_bytes(path.read_bytes())
+
+    @staticmethod
     def _write_manifest(path: Path, payload: Mapping[str, Any]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         encoded = (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
@@ -349,23 +383,32 @@ class AtomicJsonTransaction:
                 existed = target.exists()
                 if existed:
                     backup_path = transaction_dir / backup_name
-                    backup_path.write_bytes(target.read_bytes())
+                    original_bytes = target.read_bytes()
+                    backup_path.write_bytes(original_bytes)
                     with backup_path.open("rb") as stream:
                         os.fsync(stream.fileno())
+                    before_sha256 = self._sha256_bytes(original_bytes)
+                else:
+                    before_sha256 = ""
                 if operation == "write":
                     staged_path = transaction_dir / staged_name
                     staged_path.write_bytes(encoded or b"")
                     with staged_path.open("rb") as stream:
                         os.fsync(stream.fileno())
+                    after_sha256 = self._sha256_bytes(encoded or b"")
+                else:
+                    after_sha256 = ""
                 entries.append({
                     "operation": operation,
                     "target": str(target),
                     "existed": existed,
                     "backup": backup_name if existed else "",
                     "staged": staged_name if operation == "write" else "",
+                    "before_sha256": before_sha256,
+                    "after_sha256": after_sha256,
                 })
             manifest = {
-                "schema": "gas-ratio-pro/repository-transaction/v1",
+                "schema": "gas-ratio-pro/repository-transaction/v2",
                 "transaction_id": self.transaction_id,
                 "repository": self.store.repository,
                 "root": str(root.resolve()),
@@ -380,10 +423,16 @@ class AtomicJsonTransaction:
                 target = Path(entry["target"])
                 if entry["operation"] == "write":
                     os.replace(transaction_dir / entry["staged"], target)
+                    if self._sha256_file(target) != str(entry.get("after_sha256", "")):
+                        raise IOError(f"repository transaction integrity check failed: {target.name}")
                 else:
                     target.unlink(missing_ok=True)
+                    if target.exists():
+                        raise IOError(f"repository transaction delete verification failed: {target.name}")
                 self._sync_directory(target.parent)
             manifest["status"] = "committed"
+            manifest["committed_at"] = time()
+            manifest["integrity_verified"] = True
             self._write_manifest(manifest_path, manifest)
         except Exception as exc:
             self.store._recover_transaction_dir(transaction_dir, expected_root=root)
@@ -467,27 +516,78 @@ class AtomicJsonStore:
             error_type=type(error).__name__ if error is not None else "",
         )
 
-    def _recover_transaction_dir(self, transaction_dir: Path, *, expected_root: Path) -> bool:
+    @staticmethod
+    def _sha256_file(path: Path) -> str:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    @staticmethod
+    def _quarantine_transaction_dir(transaction_dir: Path, *, root: Path) -> Path:
+        quarantine_root = root / ".repository_transactions_quarantine"
+        quarantine_root.mkdir(parents=True, exist_ok=True)
+        destination = quarantine_root / transaction_dir.name
+        if destination.exists():
+            destination = quarantine_root / f"{transaction_dir.name}-{uuid.uuid4().hex[:8]}"
+        os.replace(transaction_dir, destination)
+        AtomicJsonTransaction._sync_directory(quarantine_root)
+        return destination
+
+    def _recover_transaction_dir(
+        self, transaction_dir: Path, *, expected_root: Path
+    ) -> tuple[bool, int, int, bool, bool]:
+        """Recover one journal directory.
+
+        Returns ``(recovered, checks, failures, quarantined, cleaned)``.
+        Corrupt or unsafe journals are quarantined instead of being deleted.
+        """
         manifest_path = transaction_dir / "manifest.json"
         if not manifest_path.exists():
-            shutil.rmtree(transaction_dir, ignore_errors=True)
-            return False
-        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self._quarantine_transaction_dir(transaction_dir, root=expected_root)
+            return False, 0, 1, True, False
+        try:
+            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception:
+            self._quarantine_transaction_dir(transaction_dir, root=expected_root)
+            return False, 0, 1, True, False
+        if not isinstance(payload, dict) or payload.get("schema") not in {
+            "gas-ratio-pro/repository-transaction/v1",
+            "gas-ratio-pro/repository-transaction/v2",
+        }:
+            self._quarantine_transaction_dir(transaction_dir, root=expected_root)
+            return False, 0, 1, True, False
         root = Path(str(payload.get("root", ""))).resolve()
         if root != expected_root.resolve():
-            raise ValueError("repository transaction root mismatch")
+            self._quarantine_transaction_dir(transaction_dir, root=expected_root)
+            return False, 0, 1, True, False
         status = str(payload.get("status", ""))
+        checks = 0
+        integrity_failures = 0
         if status != "committed":
-            for entry in reversed(list(payload.get("entries", []))):
+            try:
+                entries = list(payload.get("entries", []))
+            except Exception:
+                self._quarantine_transaction_dir(transaction_dir, root=expected_root)
+                return False, 0, 1, True, False
+            for entry in reversed(entries):
+                if not isinstance(entry, dict):
+                    self._quarantine_transaction_dir(transaction_dir, root=expected_root)
+                    return False, checks, integrity_failures + 1, True, False
                 target = Path(str(entry.get("target", ""))).resolve()
                 try:
                     target.relative_to(root)
-                except ValueError as exc:
-                    raise ValueError("unsafe repository transaction target") from exc
+                except ValueError:
+                    self._quarantine_transaction_dir(transaction_dir, root=expected_root)
+                    return False, checks, integrity_failures + 1, True, False
                 if bool(entry.get("existed")):
                     backup = transaction_dir / str(entry.get("backup", ""))
                     if not backup.exists():
-                        raise FileNotFoundError(backup)
+                        self._quarantine_transaction_dir(transaction_dir, root=expected_root)
+                        return False, checks, integrity_failures + 1, True, False
+                    expected_hash = str(entry.get("before_sha256", ""))
+                    if expected_hash:
+                        checks += 1
+                        if self._sha256_file(backup) != expected_hash:
+                            self._quarantine_transaction_dir(transaction_dir, root=expected_root)
+                            return False, checks, integrity_failures + 1, True, False
                     descriptor, name = tempfile.mkstemp(prefix=f".{target.name}.recover.", suffix=".tmp", dir=target.parent)
                     temporary = Path(name)
                     with os.fdopen(descriptor, "wb") as stream:
@@ -495,21 +595,61 @@ class AtomicJsonStore:
                         stream.flush()
                         os.fsync(stream.fileno())
                     os.replace(temporary, target)
+                    if expected_hash:
+                        checks += 1
+                        if self._sha256_file(target) != expected_hash:
+                            integrity_failures += 1
+                            raise IOError(f"recovered file integrity mismatch: {target.name}")
                 else:
                     target.unlink(missing_ok=True)
+                    checks += 1
+                    if target.exists():
+                        integrity_failures += 1
+                        raise IOError(f"recovered delete verification failed: {target.name}")
                 AtomicJsonTransaction._sync_directory(target.parent)
+        else:
+            for entry in list(payload.get("entries", [])):
+                if not isinstance(entry, dict):
+                    continue
+                target = Path(str(entry.get("target", ""))).resolve()
+                try:
+                    target.relative_to(root)
+                except ValueError:
+                    self._quarantine_transaction_dir(transaction_dir, root=expected_root)
+                    return False, checks, integrity_failures + 1, True, False
+                expected_hash = str(entry.get("after_sha256", ""))
+                if entry.get("operation") == "write" and expected_hash:
+                    checks += 1
+                    if not target.exists() or self._sha256_file(target) != expected_hash:
+                        self._quarantine_transaction_dir(transaction_dir, root=expected_root)
+                        return False, checks, integrity_failures + 1, True, False
+                elif entry.get("operation") == "delete":
+                    checks += 1
+                    if target.exists():
+                        self._quarantine_transaction_dir(transaction_dir, root=expected_root)
+                        return False, checks, integrity_failures + 1, True, False
         shutil.rmtree(transaction_dir, ignore_errors=True)
-        return status != "committed"
+        return status != "committed", checks, integrity_failures, False, True
 
     def recover_transactions(self, root: Path | str) -> dict[str, int]:
         recovery_root = Path(root).resolve()
         journal_root = recovery_root / ".repository_transactions"
         recovered = 0
         failures = 0
+        integrity_checks = 0
+        integrity_failures = 0
+        quarantined = 0
+        cleaned = 0
         if journal_root.exists():
             for transaction_dir in sorted(path for path in journal_root.iterdir() if path.is_dir()):
                 try:
-                    if self._recover_transaction_dir(transaction_dir, expected_root=recovery_root):
+                    result = self._recover_transaction_dir(transaction_dir, expected_root=recovery_root)
+                    was_recovered, checks, check_failures, was_quarantined, was_cleaned = result
+                    integrity_checks += checks
+                    integrity_failures += check_failures
+                    quarantined += int(was_quarantined)
+                    cleaned += int(was_cleaned)
+                    if was_recovered:
                         recovered += 1
                 except Exception:
                     failures += 1
@@ -517,9 +657,18 @@ class AtomicJsonStore:
                 journal_root.rmdir()
             except OSError:
                 pass
-        if self.metrics is not None and (recovered or failures):
+        if self.metrics is not None and (
+            recovered or failures or integrity_checks or integrity_failures or quarantined or cleaned
+        ):
             self.metrics.notify_recovery(
-                repository=self.repository, root=recovery_root, recovered=recovered, failures=failures
+                repository=self.repository,
+                root=recovery_root,
+                recovered=recovered,
+                failures=failures,
+                integrity_checks=integrity_checks,
+                integrity_failures=integrity_failures,
+                quarantined=quarantined,
+                cleaned=cleaned,
             )
         return {"recovered": recovered, "failures": failures}
 

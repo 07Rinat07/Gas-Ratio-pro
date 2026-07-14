@@ -2589,3 +2589,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added automatic recovery of interrupted `prepared` and `applying` transactions.
 - Adopted the transaction API for interpretation revision restore operations.
 - Added recovery counters to Developer Diagnostics.
+
+## Phase 2 — Repository transaction integrity
+
+- Added SHA-256 verification for multi-file transaction commit and recovery.
+- Added quarantine handling for malformed or unsafe recovery journals.
+- Added transaction integrity and journal cleanup diagnostics.

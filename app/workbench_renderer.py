@@ -877,6 +877,12 @@ def _render_native_streamlit_layout(
                     "Recovered after interruption: " + str(mutation_info.get("recovery_count", 0))
                     + " | Recovery failures: " + str(mutation_info.get("recovery_failures", 0))
                 )
+                st_module.caption(
+                    "Integrity checks: " + str(mutation_info.get("integrity_checks", 0))
+                    + " | Integrity failures: " + str(mutation_info.get("integrity_failures", 0))
+                    + " | Quarantined journals: " + str(mutation_info.get("quarantined_transactions", 0))
+                    + " | Cleaned journals: " + str(mutation_info.get("cleaned_transactions", 0))
+                )
                 transaction_rows = list(mutation_info.get("recent_transactions", ()) or ())
                 if transaction_rows and hasattr(st_module, "dataframe"):
                     st_module.dataframe(transaction_rows[-10:], width="stretch", hide_index=True)
