@@ -2314,3 +2314,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added safe undo for the latest project-wide interval type reassignment.
 - Added bounded operation backups and post-operation integrity checks.
 - Added UI confirmation and operation status in the type journal.
+
+## 2026-07-14 — Interpretation type operation journal export
+
+- Added JSON, CSV and Excel exports for the project interval type operation journal.
+- Added project metadata and explicit completed/undone operation status.
+- Connected journal download controls to the Streamlit interval type catalog.
+- Added regression tests for deterministic rows and readable export formats.

@@ -24,6 +24,11 @@ from projects.interpretation_interval_manager import (
     InterpretationIntervalOverlapError,
 )
 from projects.interpretation_interval_properties import InterpretationIntervalPropertiesService
+from projects.interpretation_interval_type_operation_exports import (
+    export_type_operations_csv,
+    export_type_operations_json,
+    export_type_operations_xlsx,
+)
 from projects.interpretation_interval_types import InterpretationIntervalTypeRepository
 from projects.repository import DEFAULT_PROJECTS_ROOT
 
@@ -250,6 +255,38 @@ def render_interpretation_interval_panel(
                         ],
                         width="stretch",
                         hide_index=True,
+                    )
+                    journal_json = export_type_operations_json(
+                        type_operations, project_id=project_id
+                    )
+                    journal_csv = export_type_operations_csv(type_operations)
+                    journal_xlsx = export_type_operations_xlsx(
+                        type_operations, project_id=project_id
+                    )
+                    journal_left, journal_mid, journal_right = st.columns(3)
+                    journal_left.download_button(
+                        "Журнал JSON",
+                        data=journal_json,
+                        file_name=f"interval_type_operations_{project_id}.json",
+                        mime="application/json",
+                        key=f"manual_interval_type_journal_json_{project_id}",
+                        width="stretch",
+                    )
+                    journal_mid.download_button(
+                        "Журнал CSV",
+                        data=journal_csv,
+                        file_name=f"interval_type_operations_{project_id}.csv",
+                        mime="text/csv",
+                        key=f"manual_interval_type_journal_csv_{project_id}",
+                        width="stretch",
+                    )
+                    journal_right.download_button(
+                        "Журнал Excel",
+                        data=journal_xlsx,
+                        file_name=f"interval_type_operations_{project_id}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key=f"manual_interval_type_journal_xlsx_{project_id}",
+                        width="stretch",
                     )
 
                 latest_operation = type_operations[0]
