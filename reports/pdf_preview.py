@@ -40,6 +40,14 @@ class PdfPreviewResult:
 
 
 @dataclass(frozen=True)
+class PdfPreviewCacheLookup:
+    result: PdfPreviewResult | None
+    hit: bool
+    source: str
+    entry_index: int | None = None
+
+
+@dataclass(frozen=True)
 class PdfPreviewPageJumpValidation:
     requested_page: int
     normalized_page: int
@@ -285,33 +293,46 @@ def _render_with_pdftoppm(pdf_bytes: bytes, *, start_page: int, page_limit: int,
 
 
 
-def resolve_pdf_preview_cache(
+def inspect_pdf_preview_cache(
     payload: object,
     *,
     signature: str,
-) -> PdfPreviewResult | None:
-    """Return a cached preview result for ``signature`` from a bounded cache payload.
+) -> PdfPreviewCacheLookup:
+    """Inspect a preview cache lookup without mutating the cache payload.
 
-    The helper accepts both the legacy single-entry structure and the newer
-    multi-entry structure so existing Streamlit session state remains valid
-    after an application update.
+    ``source`` is one of ``legacy``, ``entries`` or ``miss``.  The compact
+    result is safe for logging and UI telemetry because it never exposes PDF
+    bytes or PNG payloads.
     """
 
     if not isinstance(payload, dict) or not signature:
-        return None
+        return PdfPreviewCacheLookup(None, False, "miss", None)
     if payload.get("signature") == signature and isinstance(payload.get("result"), PdfPreviewResult):
-        return payload["result"]
+        return PdfPreviewCacheLookup(payload["result"], True, "legacy", 0)
     entries = payload.get("entries")
     if not isinstance(entries, (list, tuple)):
-        return None
-    for entry in entries:
+        return PdfPreviewCacheLookup(None, False, "miss", None)
+    for index, entry in enumerate(entries):
         if (
             isinstance(entry, dict)
             and entry.get("signature") == signature
             and isinstance(entry.get("result"), PdfPreviewResult)
         ):
-            return entry["result"]
-    return None
+            return PdfPreviewCacheLookup(entry["result"], True, "entries", index)
+    return PdfPreviewCacheLookup(None, False, "miss", None)
+
+
+def resolve_pdf_preview_cache(
+    payload: object,
+    *,
+    signature: str,
+) -> PdfPreviewResult | None:
+    """Return a cached preview result for ``signature``.
+
+    This compatibility wrapper delegates to :func:`inspect_pdf_preview_cache`.
+    """
+
+    return inspect_pdf_preview_cache(payload, signature=signature).result
 
 
 def store_pdf_preview_cache(
@@ -447,12 +468,14 @@ def build_pdf_preview(
 
 
 __all__ = [
+    "PdfPreviewCacheLookup",
     "PdfPreviewPage",
     "PdfPreviewPageJumpValidation",
     "PdfPreviewResult",
     "PdfPreviewUnavailableError",
     "build_pdf_preview",
     "build_pdf_preview_signature",
+    "inspect_pdf_preview_cache",
     "next_pdf_preview_start_page",
     "resolve_pdf_preview_cache",
     "store_pdf_preview_cache",

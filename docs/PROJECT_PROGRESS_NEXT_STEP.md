@@ -102,3 +102,12 @@ Next recommended increment: Modern Workspace shell foundation — Project Explor
 - Legacy single-entry preview cache payloads remain readable after the update.
 - Prefetch never runs by default and remains constrained by the selected page limit and DPI.
 - Next step: add lightweight cache-hit/prefetch telemetry and acceptance testing on a large multi-page report.
+
+## PDF Preview cache and prefetch telemetry
+
+- Added renderer-neutral cache lookup diagnostics (`hit`, source and bounded entry index).
+- Streamlit now logs cache hit/miss events without exposing PDF or PNG payloads.
+- Prefetch telemetry includes page range, render duration, thumbnail bytes and backend.
+- Reusing an already-prefetched range emits a dedicated cache-hit event.
+- Added an acceptance-style regression using a generated 24-page PDF and bounded 5-page windows.
+- Next step: expose an optional compact in-UI preview cache statistic and evaluate memory pressure with several large reports.

@@ -1577,3 +1577,12 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Reuse prefetched thumbnails when the user navigates to the next range.
 - [x] Keep page count and DPI workload limits unchanged.
 - [ ] Add cache hit/prefetch telemetry and validate behavior on a large generated report.
+
+### PDF Preview: cache and prefetch telemetry
+
+- [x] Add safe cache lookup metadata for legacy and bounded multi-entry payloads.
+- [x] Log current-range cache hits and misses with page-window parameters.
+- [x] Log prefetch render duration, thumbnail bytes and backend.
+- [x] Log reuse of an already-prefetched adjacent range.
+- [x] Validate bounded adjacent-window reuse on a generated 24-page PDF.
+- [ ] Add optional UI cache statistics and memory-pressure diagnostics.

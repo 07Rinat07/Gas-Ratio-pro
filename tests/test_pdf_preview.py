@@ -184,3 +184,66 @@ def test_next_pdf_preview_start_page_is_bounded() -> None:
     assert next_pdf_preview_start_page(6, total_pages=12, page_limit=5) == 11
     assert next_pdf_preview_start_page(11, total_pages=12, page_limit=5) is None
     assert next_pdf_preview_start_page(1, total_pages=0, page_limit=5) is None
+
+
+def test_inspect_pdf_preview_cache_reports_multi_entry_hit_metadata() -> None:
+    from reports.pdf_preview import inspect_pdf_preview_cache, store_pdf_preview_cache
+
+    first = build_pdf_preview(_sample_pdf(3), start_page=1, page_limit=1, dpi=72)
+    second = build_pdf_preview(_sample_pdf(3), start_page=2, page_limit=1, dpi=72)
+    cache = store_pdf_preview_cache(None, signature="first", result=first)
+    cache = store_pdf_preview_cache(cache, signature="second", result=second)
+
+    lookup = inspect_pdf_preview_cache(cache, signature="first")
+
+    assert lookup.hit is True
+    assert lookup.result is first
+    assert lookup.source == "entries"
+    assert lookup.entry_index == 1
+
+
+def test_inspect_pdf_preview_cache_reports_legacy_and_miss() -> None:
+    from reports.pdf_preview import inspect_pdf_preview_cache
+
+    result = build_pdf_preview(_sample_pdf(1), page_limit=1, dpi=72)
+    legacy = inspect_pdf_preview_cache(
+        {"signature": "legacy", "result": result}, signature="legacy"
+    )
+    missing = inspect_pdf_preview_cache({}, signature="missing")
+
+    assert legacy.hit is True
+    assert legacy.source == "legacy"
+    assert legacy.entry_index == 0
+    assert missing.hit is False
+    assert missing.result is None
+    assert missing.source == "miss"
+    assert missing.entry_index is None
+
+
+def test_large_pdf_adjacent_preview_cache_reuses_prefetched_window() -> None:
+    from reports.pdf_preview import (
+        build_pdf_preview_signature,
+        inspect_pdf_preview_cache,
+        next_pdf_preview_start_page,
+        store_pdf_preview_cache,
+    )
+
+    payload = _sample_pdf(24)
+    first = build_pdf_preview(payload, start_page=1, page_limit=5, dpi=72)
+    adjacent_start = next_pdf_preview_start_page(
+        1, total_pages=first.total_pages, page_limit=5
+    )
+    assert adjacent_start == 6
+    signature = build_pdf_preview_signature(
+        payload, start_page=adjacent_start, page_limit=5, dpi=72
+    )
+    prefetched = build_pdf_preview(
+        payload, start_page=adjacent_start, page_limit=5, dpi=72
+    )
+    cache = store_pdf_preview_cache(None, signature=signature, result=prefetched)
+
+    lookup = inspect_pdf_preview_cache(cache, signature=signature)
+
+    assert lookup.hit is True
+    assert lookup.result is prefetched
+    assert tuple(page.page_number for page in lookup.result.pages) == (6, 7, 8, 9, 10)

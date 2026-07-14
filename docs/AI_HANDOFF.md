@@ -604,3 +604,7 @@ Validation completed:
 - `python -m py_compile reports/pdf_preview.py app/streamlit_app.py`;
 - focused PDF Preview tests: 23 passed;
 - report/export regression selection: 89 passed.
+
+## Latest increment: PDF Preview cache/prefetch telemetry
+
+`reports.pdf_preview.inspect_pdf_preview_cache()` returns a compact `PdfPreviewCacheLookup` with result, hit flag, source (`legacy`, `entries`, `miss`) and bounded entry index. The Professional Export UI logs `pdf_preview_cache_lookup`, `pdf_preview_prefetched`, and `pdf_preview_prefetch_cache_hit` events. No PDF or PNG bytes are included in telemetry. Acceptance coverage uses a generated 24-page PDF and verifies reuse of pages 6–10 from the bounded cache.

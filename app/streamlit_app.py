@@ -353,6 +353,7 @@ from reports.pdf_preview import (
     build_pdf_preview,
     build_pdf_preview_signature,
     bounded_pdf_preview_start_page,
+    inspect_pdf_preview_cache,
     next_pdf_preview_start_page,
     resolve_pdf_preview_cache,
     shift_pdf_preview_window,
@@ -10214,15 +10215,29 @@ def _render_professional_export_panel(
                     except (TypeError, ValueError):
                         st.error("Готовый PDF повреждён или недоступен для предпросмотра.")
 
-                    matched_preview_result = (
-                        resolve_pdf_preview_cache(
+                    preview_cache_lookup = (
+                        inspect_pdf_preview_cache(
                             cached_pdf_preview,
                             signature=str(expected_preview_signature or ""),
                         )
                         if expected_preview_signature is not None
                         else None
                     )
+                    matched_preview_result = (
+                        preview_cache_lookup.result if preview_cache_lookup is not None else None
+                    )
                     preview_matches = isinstance(matched_preview_result, PdfPreviewResult)
+                    if expected_preview_signature is not None:
+                        logger.info(
+                            "pdf_preview_cache_lookup project_id=%s hit=%s source=%s entry_index=%s start_page=%d page_limit=%d dpi=%d",
+                            safe_log_value(active_project.id),
+                            bool(preview_cache_lookup and preview_cache_lookup.hit),
+                            safe_log_value(preview_cache_lookup.source if preview_cache_lookup else "miss"),
+                            preview_cache_lookup.entry_index if preview_cache_lookup else None,
+                            effective_preview_start,
+                            int(preview_page_limit),
+                            preview_dpi,
+                        )
                     prefetch_next_range = st.checkbox(
                         "Предзагрузить следующую группу страниц",
                         value=False,
@@ -10297,9 +10312,10 @@ def _render_professional_export_panel(
                                         start_page=adjacent_start,
                                         dpi=preview_dpi,
                                     )
-                                    if resolve_pdf_preview_cache(
+                                    adjacent_lookup = inspect_pdf_preview_cache(
                                         cached_pdf_preview, signature=adjacent_signature
-                                    ) is None:
+                                    )
+                                    if not adjacent_lookup.hit:
                                         adjacent_result = build_pdf_preview(
                                             pdf_payload,
                                             page_limit=int(preview_page_limit),
@@ -10314,10 +10330,21 @@ def _render_professional_export_panel(
                                         )
                                         export_state[pdf_preview_cache_key] = cached_pdf_preview
                                         logger.info(
-                                            "pdf_preview_prefetched project_id=%s start_page=%d pages=%d",
+                                            "pdf_preview_prefetched project_id=%s start_page=%d pages=%d duration_ms=%.2f bytes=%d backend=%s",
                                             safe_log_value(active_project.id),
                                             adjacent_start,
                                             adjacent_result.rendered_pages,
+                                            adjacent_result.render_duration_seconds * 1000.0,
+                                            adjacent_result.image_size_bytes,
+                                            safe_log_value(adjacent_result.backend),
+                                        )
+                                    else:
+                                        logger.info(
+                                            "pdf_preview_prefetch_cache_hit project_id=%s start_page=%d source=%s entry_index=%s",
+                                            safe_log_value(active_project.id),
+                                            adjacent_start,
+                                            safe_log_value(adjacent_lookup.source),
+                                            adjacent_lookup.entry_index,
                                         )
                             logger.info(
                                 "pdf_preview_built project_id=%s pages=%d total=%d backend=%s",
