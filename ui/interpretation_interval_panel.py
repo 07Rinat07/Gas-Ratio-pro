@@ -188,9 +188,15 @@ def render_interpretation_interval_panel(
                                     width="stretch",
                                     hide_index=True,
                                 )
+                        reassignment_confirmed = st.checkbox(
+                            "Подтверждаю переназначение и удаление исходного типа",
+                            value=False,
+                            key=f"manual_interval_type_reassign_confirm_{project_id}_{type_delete_id}_{replacement_type_id}",
+                        )
                         if st.button(
                             "Переназначить интервалы и удалить тип",
                             key=f"manual_interval_type_reassign_delete_{project_id}",
+                            disabled=not reassignment_confirmed or reassignment_preview is None,
                             width="stretch",
                         ):
                             try:
@@ -198,6 +204,7 @@ def render_interpretation_interval_panel(
                                     type_delete_id,
                                     replacement_type_id,
                                     apply_target_color=apply_replacement_color,
+                                    expected_confirmation_token=reassignment_preview.confirmation_token,
                                 )
                             except (KeyError, ValueError) as exc:
                                 st.error(str(exc))

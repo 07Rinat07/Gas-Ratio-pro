@@ -2302,3 +2302,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Preview lists affected wells, interpretations, interval labels, depth bounds, thickness and current colors.
 - Preview validation uses the same source and target type rules as the batch operation.
 - Preview does not write interval files or modify the type catalog.
+
+## 2026-07-14 — Interval type reassignment confirmation
+
+- Added explicit confirmation before project-wide interval type reassignment.
+- Added stale-preview protection based on catalog and interval-file signatures.
+- Reassignment is rejected when project data changes after preview generation.

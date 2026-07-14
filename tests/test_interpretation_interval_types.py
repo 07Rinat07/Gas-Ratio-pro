@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from projects.interpretation_interval_manager import InterpretationIntervalManager
 from projects.interpretation_interval_types import InterpretationIntervalTypeRepository
 
 
@@ -236,3 +237,49 @@ def test_repository_reassignment_preview_validates_types(tmp_path: Path) -> None
         repository.preview_reassignment("source", "source")
     with pytest.raises(KeyError, match="missing"):
         repository.preview_reassignment("source", "missing")
+
+
+def test_reassignment_rejects_stale_preview_after_interval_change(tmp_path: Path) -> None:
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    repository.upsert(type_id="source", name="Source", color="#112233")
+    repository.upsert(type_id="target", name="Target", color="#445566")
+    manager = InterpretationIntervalManager(
+        {}, root=tmp_path, project_id="project", well_id="well-a", interpretation_id="default"
+    )
+    interval = manager.create(label="A", top=100, base=110, interval_type="source", color="#010203")
+    preview = repository.preview_reassignment("source", "target")
+
+    manager.update(interval.id, label=interval.label, top=interval.top, base=interval.base, interval_type=interval.interval_type, color=interval.color, comment="changed after preview")
+
+    with pytest.raises(ValueError, match="изменились после предварительного просмотра"):
+        repository.reassign_and_delete(
+            "source",
+            "target",
+            expected_confirmation_token=preview.confirmation_token,
+        )
+
+    current = manager.get_interval(interval.id)
+    assert current.interval_type == "source"
+    assert repository.get("source") is not None
+
+
+def test_reassignment_accepts_current_preview_confirmation_token(tmp_path: Path) -> None:
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    repository.upsert(type_id="source", name="Source", color="#112233")
+    repository.upsert(type_id="target", name="Target", color="#445566")
+    manager = InterpretationIntervalManager(
+        {}, root=tmp_path, project_id="project", well_id="well-a", interpretation_id="default"
+    )
+    interval = manager.create(label="A", top=100, base=110, interval_type="source", color="#010203")
+    preview = repository.preview_reassignment("source", "target")
+
+    result = repository.reassign_and_delete(
+        "source",
+        "target",
+        expected_confirmation_token=preview.confirmation_token,
+    )
+
+    assert result.interval_count == 1
+    current = manager.get_interval(interval.id)
+    assert current.interval_type == "target"
+    assert repository.get("source") is None

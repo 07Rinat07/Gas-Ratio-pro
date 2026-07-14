@@ -675,3 +675,7 @@ Validation:
 - 34 focused interpretation interval tests passed.
 
 Next priority: batch operations for manual intervals or direct selection on the engineering tablet interval track.
+
+## Latest interpretation increment: reassignment confirmation
+
+Project-wide interval type reassignment now requires an explicit UI confirmation and a current preview confirmation token. The token covers the project type catalog and all persisted interval files. Pass `expected_confirmation_token` to `reassign()` or `reassign_and_delete()` when applying a preview-backed operation; stale tokens fail before any mutation.

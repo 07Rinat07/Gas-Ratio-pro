@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -66,6 +67,7 @@ class InterpretationIntervalTypeReassignmentPreview:
     interpretation_count: int
     target_color_applied: bool
     items: tuple[InterpretationIntervalTypeReassignmentPreviewItem, ...]
+    confirmation_token: str
 
 
 @dataclass(frozen=True)
@@ -92,6 +94,43 @@ def _write_bytes_atomic(path: Path, payload: bytes) -> None:
         os.replace(temporary_path, path)
     finally:
         temporary_path.unlink(missing_ok=True)
+
+
+def _reassignment_confirmation_token(
+    *,
+    source_type_id: str,
+    target_type_id: str,
+    apply_target_color: bool,
+    catalog: tuple[InterpretationIntervalType, ...],
+    project_root: Path,
+    paths: list[Path],
+) -> str:
+    files = []
+    for path in paths:
+        try:
+            payload = path.read_bytes()
+        except OSError as exc:
+            raise ValueError(f"Не удалось прочитать интервалы для подтверждения: {path}") from exc
+        files.append(
+            {
+                "path": path.relative_to(project_root).as_posix(),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            }
+        )
+    payload = {
+        "source_type_id": source_type_id,
+        "target_type_id": target_type_id,
+        "apply_target_color": bool(apply_target_color),
+        "catalog": [asdict(item) for item in catalog],
+        "files": files,
+    }
+    serialized = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(serialized).hexdigest()
 
 
 DEFAULT_INTERVAL_TYPES: tuple[InterpretationIntervalType, ...] = (
@@ -319,9 +358,11 @@ class InterpretationIntervalTypeRepository:
         target_id = _clean_id(target_type_id)
         if source_id == target_id:
             raise ValueError("Исходный и целевой типы должны отличаться.")
-        if self.get(source_id) is None:
+        source = self.get(source_id)
+        if source is None:
             raise KeyError(f"Тип интервала не найден: {source_id}")
-        if self.get(target_id) is None:
+        target = self.get(target_id)
+        if target is None:
             raise KeyError(f"Тип интервала не найден: {target_id}")
 
         project_root = self.root / self.project_id / "wells"
@@ -363,6 +404,14 @@ class InterpretationIntervalTypeRepository:
             interpretation_count=len(interpretations),
             target_color_applied=bool(apply_target_color),
             items=normalized_items,
+            confirmation_token=_reassignment_confirmation_token(
+                source_type_id=source_id,
+                target_type_id=target_id,
+                apply_target_color=apply_target_color,
+                catalog=self.list(),
+                project_root=project_root,
+                paths=paths,
+            ),
         )
 
     def reassign(
@@ -371,6 +420,7 @@ class InterpretationIntervalTypeRepository:
         target_type_id: str,
         *,
         apply_target_color: bool = True,
+        expected_confirmation_token: str | None = None,
     ) -> InterpretationIntervalTypeReassignmentResult:
         source_id = _clean_id(source_type_id)
         target_id = _clean_id(target_type_id)
@@ -381,6 +431,17 @@ class InterpretationIntervalTypeRepository:
         target = self.get(target_id)
         if target is None:
             raise KeyError(f"Тип интервала не найден: {target_id}")
+        if expected_confirmation_token is not None:
+            current_preview = self.preview_reassignment(
+                source_id,
+                target_id,
+                apply_target_color=apply_target_color,
+            )
+            if current_preview.confirmation_token != str(expected_confirmation_token):
+                raise ValueError(
+                    "Данные проекта изменились после предварительного просмотра. "
+                    "Обновите preview и подтвердите операцию повторно."
+                )
 
         project_root = self.root / self.project_id / "wells"
         paths = sorted(project_root.glob("*/interpretations/*/intervals.json")) if project_root.exists() else []
@@ -443,11 +504,13 @@ class InterpretationIntervalTypeRepository:
         target_type_id: str,
         *,
         apply_target_color: bool = True,
+        expected_confirmation_token: str | None = None,
     ) -> InterpretationIntervalTypeReassignmentResult:
         result = self.reassign(
             source_type_id,
             target_type_id,
             apply_target_color=apply_target_color,
+            expected_confirmation_token=expected_confirmation_token,
         )
         self.delete(source_type_id)
         return result
