@@ -351,3 +351,95 @@ def test_failed_stale_reassignment_does_not_append_operation_journal(tmp_path: P
         )
 
     assert repository.list_operations() == ()
+
+
+def test_repository_undoes_last_reassign_and_delete(tmp_path: Path) -> None:
+    from projects.interpretation_intervals import load_interpretation_intervals
+
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    source = repository.upsert(type_id="source", name="Source", color="#112233")
+    repository.upsert(type_id="target", name="Target", color="#445566")
+    interval = create_interpretation_interval(
+        root=tmp_path,
+        project_id="project",
+        well_id="well-a",
+        interpretation_id="default",
+        label="A",
+        top=100,
+        base=110,
+        interval_type="source",
+        color="#010203",
+    )
+    preview = repository.preview_reassignment("source", "target", apply_target_color=True)
+    repository.reassign_and_delete(
+        "source",
+        "target",
+        apply_target_color=True,
+        expected_confirmation_token=preview.confirmation_token,
+    )
+
+    operation = repository.undo_last_reassignment()
+
+    restored = load_interpretation_intervals(
+        tmp_path, "project", "well-a", "default"
+    ).intervals[0]
+    assert restored.id == interval.id
+    assert restored.interval_type == "source"
+    assert restored.color == "#010203"
+    assert repository.get("source") == source
+    assert operation.undone_at.endswith("Z")
+    assert operation.undo_available is False
+    assert repository.list_operations()[0].undone_at == operation.undone_at
+
+
+def test_repository_blocks_undo_after_external_interval_change(tmp_path: Path) -> None:
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    repository.upsert(type_id="source", name="Source", color="#112233")
+    repository.upsert(type_id="target", name="Target", color="#445566")
+    manager = InterpretationIntervalManager(
+        {}, root=tmp_path, project_id="project", well_id="well-a", interpretation_id="default"
+    )
+    interval = manager.create(label="A", top=100, base=110, interval_type="source")
+    preview = repository.preview_reassignment("source", "target")
+    repository.reassign_and_delete(
+        "source", "target", expected_confirmation_token=preview.confirmation_token
+    )
+    current = manager.get_interval(interval.id)
+    manager.update(
+        current.id,
+        label=current.label,
+        top=current.top,
+        base=current.base,
+        interval_type=current.interval_type,
+        color=current.color,
+        comment="changed after reassignment",
+    )
+
+    with pytest.raises(ValueError, match="Автоматическая отмена заблокирована"):
+        repository.undo_last_reassignment()
+
+    assert repository.get("source") is None
+    assert repository.list_operations()[0].undo_available is True
+
+
+def test_repository_only_undoes_latest_operation_once(tmp_path: Path) -> None:
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    repository.upsert(type_id="source", name="Source", color="#112233")
+    repository.upsert(type_id="target", name="Target", color="#445566")
+    create_interpretation_interval(
+        root=tmp_path,
+        project_id="project",
+        well_id="well-a",
+        label="A",
+        top=100,
+        base=110,
+        interval_type="source",
+    )
+    preview = repository.preview_reassignment("source", "target")
+    repository.reassign_and_delete(
+        "source", "target", expected_confirmation_token=preview.confirmation_token
+    )
+    repository.undo_last_reassignment()
+
+    with pytest.raises(ValueError, match="нельзя отменить"):
+        repository.undo_last_reassignment()

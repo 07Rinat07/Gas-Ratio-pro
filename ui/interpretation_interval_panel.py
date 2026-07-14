@@ -244,12 +244,41 @@ def render_interpretation_interval_panel(
                                 "Скважины": item.well_count,
                                 "Интерпретации": item.interpretation_count,
                                 "Цвет изменён": "Да" if item.target_color_applied else "Нет",
+                                "Статус": "Отменена" if item.undone_at else "Выполнена",
                             }
                             for item in type_operations
                         ],
                         width="stretch",
                         hide_index=True,
                     )
+
+                latest_operation = type_operations[0]
+                undo_confirmed = st.checkbox(
+                    "Подтверждаю отмену последнего проектного переназначения",
+                    value=False,
+                    key=f"manual_interval_type_operation_undo_confirm_{project_id}",
+                    disabled=not latest_operation.undo_available or bool(latest_operation.undone_at),
+                )
+                if st.button(
+                    "Отменить последнее переназначение",
+                    key=f"manual_interval_type_operation_undo_{project_id}",
+                    disabled=(
+                        not latest_operation.undo_available
+                        or bool(latest_operation.undone_at)
+                        or not undo_confirmed
+                    ),
+                    width="stretch",
+                ):
+                    try:
+                        restored = type_repository.undo_last_reassignment()
+                    except ValueError as exc:
+                        st.error(str(exc))
+                    else:
+                        st.success(
+                            f"Переназначение {restored.source_type_id} → "
+                            f"{restored.target_type_id} отменено."
+                        )
+                        st.rerun()
 
             if st.button(
                 "Восстановить типы по умолчанию",

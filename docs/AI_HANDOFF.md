@@ -679,3 +679,7 @@ Next priority: batch operations for manual intervals or direct selection on the 
 ## Latest interpretation increment: reassignment confirmation
 
 Project-wide interval type reassignment now requires an explicit UI confirmation and a current preview confirmation token. The token covers the project type catalog and all persisted interval files. Pass `expected_confirmation_token` to `reassign()` or `reassign_and_delete()` when applying a preview-backed operation; stale tokens fail before any mutation.
+
+## Latest interpretation increment: project type reassignment undo
+
+`InterpretationIntervalTypeRepository.undo_last_reassignment()` restores the catalog and only the interval files affected by the latest `reassign_and_delete` operation. The restore is rejected when any tracked file differs from the sealed post-operation checksum. Backups are stored under the project directory and removed after a successful undo; operation journal entries retain only serializable metadata.

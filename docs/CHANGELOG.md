@@ -2308,3 +2308,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added explicit confirmation before project-wide interval type reassignment.
 - Added stale-preview protection based on catalog and interval-file signatures.
 - Reassignment is rejected when project data changes after preview generation.
+
+## Interpretation type reassignment undo
+
+- Added safe undo for the latest project-wide interval type reassignment.
+- Added bounded operation backups and post-operation integrity checks.
+- Added UI confirmation and operation status in the type journal.

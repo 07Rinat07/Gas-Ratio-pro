@@ -19,6 +19,7 @@ INTERVAL_TYPES_FILE_NAME = "interpretation_interval_types.json"
 INTERVAL_TYPE_OPERATIONS_SCHEMA = "gas-ratio-pro/interpretation-interval-type-operations/v1"
 INTERVAL_TYPE_OPERATIONS_FILE_NAME = "interpretation_interval_type_operations.json"
 INTERVAL_TYPE_OPERATIONS_LIMIT = 200
+INTERVAL_TYPE_OPERATION_BACKUPS_DIR = "interpretation_interval_type_operation_backups"
 
 
 @dataclass(frozen=True)
@@ -95,6 +96,8 @@ class InterpretationIntervalTypeOperation:
     interpretation_count: int
     target_color_applied: bool
     created_at: str
+    undo_available: bool = False
+    undone_at: str = ""
 
 
 def _write_bytes_atomic(path: Path, payload: bytes) -> None:
@@ -213,6 +216,72 @@ def _append_type_operation(
         },
     )
 
+
+
+def _operation_backup_path(root: Path | str, project_id: str, operation_id: str) -> Path:
+    return (
+        Path(root)
+        / safe_project_id(project_id)
+        / INTERVAL_TYPE_OPERATION_BACKUPS_DIR
+        / f"{operation_id}.json"
+    )
+
+
+def _file_state_hash(path: Path) -> str:
+    if not path.exists():
+        return "missing"
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _save_type_operation_backup(
+    root: Path | str,
+    project_id: str,
+    operation_id: str,
+    *,
+    catalog_path: Path,
+    interval_paths: list[Path],
+) -> None:
+    project_root = Path(root) / safe_project_id(project_id)
+    payload = {
+        "schema": "gas-ratio-pro/interpretation-interval-type-operation-backup/v1",
+        "operation_id": operation_id,
+        "catalog": {
+            "path": catalog_path.relative_to(project_root).as_posix(),
+            "content": catalog_path.read_text(encoding="utf-8") if catalog_path.exists() else None,
+        },
+        "intervals": [
+            {
+                "path": path.relative_to(project_root).as_posix(),
+                "content": path.read_text(encoding="utf-8"),
+            }
+            for path in interval_paths
+        ],
+    }
+    _atomic_write(_operation_backup_path(root, project_id, operation_id), payload)
+
+
+def _seal_type_operation_backup(root: Path | str, project_id: str, operation_id: str) -> None:
+    path = _operation_backup_path(root, project_id, operation_id)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    project_root = Path(root) / safe_project_id(project_id)
+    tracked = [payload["catalog"]["path"]] + [item["path"] for item in payload.get("intervals", ())]
+    payload["post_state"] = {relative: _file_state_hash(project_root / relative) for relative in tracked}
+    _atomic_write(path, payload)
+
+
+def _replace_type_operations(
+    root: Path | str, project_id: str, operations: Iterable[InterpretationIntervalTypeOperation]
+) -> None:
+    normalized = list(operations)[-INTERVAL_TYPE_OPERATIONS_LIMIT:]
+    _atomic_write(
+        _operations_path(root, project_id),
+        {
+            "schema": INTERVAL_TYPE_OPERATIONS_SCHEMA,
+            "project_id": safe_project_id(project_id),
+            "updated_at": _utc_now(),
+            "operations": [asdict(item) for item in normalized],
+        },
+    )
 
 def _clean_id(value: str) -> str:
     clean = re.sub(r"[^a-z0-9_-]+", "_", str(value or "").strip().lower()).strip("_")
@@ -573,29 +642,128 @@ class InterpretationIntervalTypeRepository:
         apply_target_color: bool = True,
         expected_confirmation_token: str | None = None,
     ) -> InterpretationIntervalTypeReassignmentResult:
-        result = self.reassign(
-            source_type_id,
-            target_type_id,
-            apply_target_color=apply_target_color,
-            expected_confirmation_token=expected_confirmation_token,
+        source_id = _clean_id(source_type_id)
+        target_id = _clean_id(target_type_id)
+        preview = self.preview_reassignment(
+            source_id, target_id, apply_target_color=apply_target_color
         )
-        self.delete(source_type_id)
-        _append_type_operation(
-            self.root,
-            self.project_id,
-            InterpretationIntervalTypeOperation(
-                id=str(uuid4()),
-                operation="reassign_and_delete",
-                source_type_id=result.source_type_id,
-                target_type_id=result.target_type_id,
-                interval_count=result.interval_count,
-                well_count=result.well_count,
-                interpretation_count=result.interpretation_count,
-                target_color_applied=result.target_color_applied,
-                created_at=_utc_now(),
-            ),
+        if expected_confirmation_token is not None and preview.confirmation_token != str(expected_confirmation_token):
+            raise ValueError(
+                "Данные проекта изменились после предварительного просмотра. "
+                "Обновите preview и подтвердите операцию повторно."
+            )
+        operation_id = str(uuid4())
+        project_root = self.root / self.project_id
+        interval_paths = sorted({
+            project_root / "wells" / item.well_id / "interpretations" / item.interpretation_id / "intervals.json"
+            for item in preview.items
+        })
+        catalog_path = _storage_path(self.root, self.project_id)
+        _save_type_operation_backup(
+            self.root, self.project_id, operation_id,
+            catalog_path=catalog_path, interval_paths=interval_paths,
         )
+        try:
+            result = self.reassign(
+                source_id,
+                target_id,
+                apply_target_color=apply_target_color,
+                expected_confirmation_token=preview.confirmation_token,
+            )
+            self.delete(source_id)
+            _seal_type_operation_backup(self.root, self.project_id, operation_id)
+            _append_type_operation(
+                self.root,
+                self.project_id,
+                InterpretationIntervalTypeOperation(
+                    id=operation_id,
+                    operation="reassign_and_delete",
+                    source_type_id=result.source_type_id,
+                    target_type_id=result.target_type_id,
+                    interval_count=result.interval_count,
+                    well_count=result.well_count,
+                    interpretation_count=result.interpretation_count,
+                    target_color_applied=result.target_color_applied,
+                    created_at=_utc_now(),
+                    undo_available=True,
+                ),
+            )
+        except Exception:
+            backup_path = _operation_backup_path(self.root, self.project_id, operation_id)
+            if backup_path.exists():
+                try:
+                    payload = json.loads(backup_path.read_text(encoding="utf-8"))
+                    project_root = self.root / self.project_id
+                    catalog = payload.get("catalog", {})
+                    restore_entries = [
+                        (project_root / catalog["path"], catalog.get("content"))
+                    ] + [
+                        (project_root / item["path"], item.get("content"))
+                        for item in payload.get("intervals", ())
+                    ]
+                    for path, content in restore_entries:
+                        if content is None:
+                            path.unlink(missing_ok=True)
+                        else:
+                            _write_bytes_atomic(path, str(content).encode("utf-8"))
+                finally:
+                    backup_path.unlink(missing_ok=True)
+            raise
         return result
+
+    def undo_last_reassignment(self) -> InterpretationIntervalTypeOperation:
+        operations = list(_load_type_operations(self.root, self.project_id))
+        if not operations:
+            raise ValueError("В журнале нет операций для отмены.")
+        operation = operations[-1]
+        if operation.operation != "reassign_and_delete" or not operation.undo_available or operation.undone_at:
+            raise ValueError("Последнюю операцию нельзя отменить.")
+        backup_path = _operation_backup_path(self.root, self.project_id, operation.id)
+        if not backup_path.exists():
+            raise ValueError("Резервная копия операции не найдена.")
+        try:
+            payload = json.loads(backup_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, TypeError) as exc:
+            raise ValueError("Резервная копия операции повреждена.") from exc
+        if payload.get("schema") != "gas-ratio-pro/interpretation-interval-type-operation-backup/v1":
+            raise ValueError("Неподдерживаемая схема резервной копии операции.")
+        project_root = self.root / self.project_id
+        post_state = payload.get("post_state", {})
+        for relative, expected_hash in post_state.items():
+            if _file_state_hash(project_root / relative) != expected_hash:
+                raise ValueError(
+                    "Данные проекта изменились после пакетной операции. "
+                    "Автоматическая отмена заблокирована."
+                )
+        catalog = payload["catalog"]
+        catalog_path = project_root / catalog["path"]
+        interval_entries = payload.get("intervals", ())
+        current: dict[Path, bytes | None] = {}
+        restore_entries = [(catalog_path, catalog.get("content"))] + [
+            (project_root / item["path"], item.get("content")) for item in interval_entries
+        ]
+        try:
+            for path, _ in restore_entries:
+                current[path] = path.read_bytes() if path.exists() else None
+            for path, content in restore_entries:
+                if content is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    _write_bytes_atomic(path, str(content).encode("utf-8"))
+        except Exception:
+            for path, content in current.items():
+                if content is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    _write_bytes_atomic(path, content)
+            raise
+        restored_operation = replace(
+            operation, undo_available=False, undone_at=_utc_now()
+        )
+        operations[-1] = restored_operation
+        _replace_type_operations(self.root, self.project_id, operations)
+        backup_path.unlink(missing_ok=True)
+        return restored_operation
 
     def delete(self, type_id: str) -> bool:
         clean_id = _clean_id(type_id)
