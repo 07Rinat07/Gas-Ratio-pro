@@ -2399,3 +2399,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added automatic non-conflicting changes, conflict preview and source/target/skip policies.
 - Added optional overlap rejection and one-step Undo/Redo for the target interpretation.
 - Integrated merge workflow into the Streamlit interval panel.
+
+## Interpretation revision history
+
+- Added persistent project/well/interpretation-scoped revision snapshots.
+- Added revision diff, stale-safe restore, deletion and retention cleanup.
+- Revision snapshots include interval data and interpretation JSON settings.
+- Interpretation duplication intentionally starts with an empty revision history.

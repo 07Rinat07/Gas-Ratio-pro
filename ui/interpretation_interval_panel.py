@@ -41,6 +41,7 @@ from projects.interpretation_interval_manager import (
 )
 from projects.interpretation_interval_merge import InterpretationIntervalMergeService
 from projects.interpretation_interval_properties import InterpretationIntervalPropertiesService
+from projects.interpretation_revisions import InterpretationRevisionRepository
 from projects.interpretation_interval_type_operation_exports import (
     export_type_operations_csv,
     export_type_operations_json,
@@ -255,6 +256,158 @@ def render_interpretation_interval_panel(
                         state[selector_key] = restored_interpretation.id
                         st.success("Интерпретация восстановлена.")
                         st.rerun()
+
+
+        revision_repository = InterpretationRevisionRepository(
+            root=root,
+            project_id=project_id,
+            well_id=well_id,
+            interpretation_id=manager.interpretation_id,
+        )
+        with st.expander("Ревизии активной интерпретации", expanded=False):
+            revisions = revision_repository.list()
+            st.caption(
+                "Ревизия сохраняет интервалы и JSON-настройки активной интерпретации. "
+                "Восстановление защищено от устаревшего предварительного просмотра."
+            )
+            with st.form(
+                f"interpretation_revision_create_{project_id}_{well_id}_{manager.interpretation_id}",
+                clear_on_submit=True,
+            ):
+                revision_name = st.text_input("Название ревизии", placeholder="Например: До корректировки пластов")
+                revision_note = st.text_area("Комментарий к ревизии")
+                revision_create_submitted = st.form_submit_button("Создать ревизию", width="stretch")
+            if revision_create_submitted:
+                try:
+                    created_revision = revision_repository.create(name=revision_name, note=revision_note)
+                except (ValueError, OSError) as exc:
+                    st.error(str(exc))
+                else:
+                    st.success(
+                        f"Ревизия создана: {created_revision.interval_count} интервалов, "
+                        f"{created_revision.file_count} файлов."
+                    )
+                    st.rerun()
+
+            if revisions:
+                st.dataframe(
+                    [
+                        {
+                            "ID": item.id,
+                            "Название": item.name,
+                            "Комментарий": item.note,
+                            "Создана": item.created_at,
+                            "Интервалы": item.interval_count,
+                            "Файлы": item.file_count,
+                        }
+                        for item in revisions
+                    ],
+                    width="stretch",
+                    hide_index=True,
+                )
+                selected_revision_id = st.selectbox(
+                    "Выбранная ревизия",
+                    options=[item.id for item in revisions],
+                    format_func=lambda value: next(
+                        (f"{item.name} · {item.created_at}" for item in revisions if item.id == value),
+                        value,
+                    ),
+                    key=f"interpretation_revision_select_{project_id}_{well_id}_{manager.interpretation_id}",
+                )
+                try:
+                    revision_diff = revision_repository.compare(selected_revision_id)
+                except (KeyError, ValueError, OSError) as exc:
+                    st.error(str(exc))
+                    revision_diff = None
+                if revision_diff is not None:
+                    revision_metrics = st.columns(4)
+                    revision_metrics[0].metric("Добавлено после ревизии", len(revision_diff.added))
+                    revision_metrics[1].metric("Удалено после ревизии", len(revision_diff.removed))
+                    revision_metrics[2].metric("Изменено", len(revision_diff.changed))
+                    revision_metrics[3].metric("Без изменений", revision_diff.unchanged_count)
+                    changed_rows = [
+                        {
+                            "UUID": before.id,
+                            "Было": f"{before.label}: {before.top:g}–{before.base:g}",
+                            "Стало": f"{after.label}: {after.top:g}–{after.base:g}",
+                        }
+                        for before, after in revision_diff.changed
+                    ]
+                    changed_rows.extend(
+                        {"UUID": item.id, "Было": "—", "Стало": f"{item.label}: {item.top:g}–{item.base:g}"}
+                        for item in revision_diff.added
+                    )
+                    changed_rows.extend(
+                        {"UUID": item.id, "Было": f"{item.label}: {item.top:g}–{item.base:g}", "Стало": "—"}
+                        for item in revision_diff.removed
+                    )
+                    if changed_rows:
+                        st.dataframe(changed_rows, width="stretch", hide_index=True)
+                    revision_restore_confirmed = st.checkbox(
+                        "Подтверждаю восстановление выбранной ревизии",
+                        value=False,
+                        key=f"interpretation_revision_restore_confirm_{project_id}_{well_id}_{manager.interpretation_id}",
+                    )
+                    if st.button(
+                        "Восстановить выбранную ревизию",
+                        disabled=not revision_restore_confirmed,
+                        key=f"interpretation_revision_restore_{project_id}_{well_id}_{manager.interpretation_id}",
+                        width="stretch",
+                    ):
+                        try:
+                            revision_repository.restore(
+                                selected_revision_id,
+                                expected_current_state_token=revision_diff.current_state_token,
+                            )
+                        except (KeyError, ValueError, OSError) as exc:
+                            st.error(str(exc))
+                        else:
+                            st.success("Активная интерпретация восстановлена из ревизии.")
+                            st.rerun()
+
+                revision_delete_confirmed = st.checkbox(
+                    "Подтверждаю удаление выбранной ревизии",
+                    value=False,
+                    key=f"interpretation_revision_delete_confirm_{project_id}_{well_id}_{manager.interpretation_id}",
+                )
+                if st.button(
+                    "Удалить выбранную ревизию",
+                    disabled=not revision_delete_confirmed,
+                    key=f"interpretation_revision_delete_{project_id}_{well_id}_{manager.interpretation_id}",
+                    width="stretch",
+                ):
+                    try:
+                        deleted = revision_repository.delete(selected_revision_id)
+                    except (ValueError, OSError) as exc:
+                        st.error(str(exc))
+                    else:
+                        if deleted:
+                            st.success("Ревизия удалена.")
+                            st.rerun()
+
+                keep_latest = st.number_input(
+                    "Оставить последних ревизий",
+                    min_value=1,
+                    max_value=max(1, len(revisions)),
+                    value=min(10, len(revisions)),
+                    step=1,
+                    key=f"interpretation_revision_keep_{project_id}_{well_id}_{manager.interpretation_id}",
+                )
+                if st.button(
+                    "Очистить старые ревизии",
+                    disabled=len(revisions) <= int(keep_latest),
+                    key=f"interpretation_revision_prune_{project_id}_{well_id}_{manager.interpretation_id}",
+                    width="stretch",
+                ):
+                    try:
+                        removed_revision_ids = revision_repository.prune(keep_latest=int(keep_latest))
+                    except (ValueError, OSError) as exc:
+                        st.error(str(exc))
+                    else:
+                        st.success(f"Удалено старых ревизий: {len(removed_revision_ids)}.")
+                        st.rerun()
+            else:
+                st.info("Для активной интерпретации ещё нет сохранённых ревизий.")
 
         if len(catalog_items) > 1:
             with st.expander("Сравнение и перенос интервалов", expanded=False):

@@ -354,3 +354,11 @@ Next recommended increment: improve tablet interaction for manual intervals with
 - Merge preview reports automatic changes, conflicts, unchanged intervals and deletions.
 - Confirmation tokens prevent applying a stale merge preview.
 - The complete merge is persisted as one reversible interval command.
+
+## Completed: interpretation revision history
+
+Implemented named snapshots, revision comparison, stale-safe restore, deletion and retention cleanup for manual interpretation workspaces.
+
+## Recommended next major stage
+
+Add review/approval workflow for interpretation versions: draft/reviewed/approved statuses, validation gates, reviewer notes and release-ready export metadata.

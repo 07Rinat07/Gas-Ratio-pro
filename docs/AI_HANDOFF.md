@@ -703,3 +703,7 @@ Use `projects.interpretation_interval_comparison` for UUID-based diff and transf
 
 ### Latest interpretation increment
 Three-way manual interval merge is implemented in `projects/interpretation_interval_merge.py` and integrated into `ui/interpretation_interval_panel.py`. It requires three distinct interpretations, applies non-conflicting source changes automatically, supports source/target/skip conflict policies, stale-preview protection, optional overlap rejection and one-step target Undo/Redo.
+
+### Latest increment: interpretation revisions
+
+`projects/interpretation_revisions.py` provides persistent snapshots for one manual interpretation workspace. Revisions are stored under the interpretation `.revisions/` directory and are excluded from their own snapshots. Restore requires the state token returned by `compare()` and rolls back on write failure. Duplicating an interpretation copies current workspace data but not revision history.
