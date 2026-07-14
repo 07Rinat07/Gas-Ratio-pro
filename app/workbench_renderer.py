@@ -905,6 +905,15 @@ def _render_native_streamlit_layout(
                 health_issues = list(repository_health.get("issues", ()) or ())
                 if health_issues and hasattr(st_module, "dataframe"):
                     st_module.dataframe(health_issues[:50], width="stretch", hide_index=True)
+                readiness = dict(repository_health.get("readiness", {}) or {})
+                schedule = dict(repository_health.get("schedule", {}) or {})
+                st_module.caption(
+                    "Recovery readiness: " + str(readiness.get("score", 100)) + "/100"
+                    + " (" + str(readiness.get("status", "ready")) + ")"
+                    + " | Scheduled scans: " + str(schedule.get("scan_count", 0))
+                    + " | Skipped: " + str(schedule.get("skipped_count", 0))
+                    + " | Failures: " + str(schedule.get("failure_count", 0))
+                )
                 if repository_health.get("truncated"):
                     st_module.warning("Repository health scan reached its configured file limit.")
 

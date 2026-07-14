@@ -2610,3 +2610,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added quarantine-only repairs that require an explicit action ID and revalidate the file before moving it.
 - Added repository health metrics and issue tables to Developer Diagnostics.
 - Added a standalone CLI for health scans and explicit quarantine actions.
+
+## Phase 2 — Scheduled repository health and recovery readiness
+
+- Added project-scoped scheduled read-only repository health checks.
+- Added recovery-readiness scoring and next-scan diagnostics.
+- Added scan, skip and failure counters to Developer Diagnostics.
+- Preserved explicit-only quarantine repairs; scheduled checks never mutate data.

@@ -601,3 +601,15 @@ when the target changed after the scan.
 
 Adopt health checks for additional repository roots and add scheduled maintenance
 policies with project backup integration before any destructive cleanup.
+
+## Completed — Scheduled repository health and recovery readiness
+
+Repository health checks now run through a bounded project-scoped scheduler instead of
+re-scanning on every diagnostics render. The scheduler is read-only, never applies
+repairs automatically, and exposes a recovery-readiness score based on blocking JSON
+errors, warnings and scan completeness.
+
+## Next engineering step
+
+Extend health coverage to additional project repository roots and add explicit backup
+verification before transaction maintenance or quarantine cleanup.

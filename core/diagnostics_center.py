@@ -21,6 +21,7 @@ from core.workbench_route_lifecycle import WorkbenchRouteLifecycle
 from core.workbench_route_data import WorkbenchRouteDataDiagnostics
 from core.project_navigation_runtime_cache import ProjectNavigationRuntimeCache
 from core.repository_health import RepositoryHealthService
+from core.repository_health_scheduler import RepositoryHealthScheduler
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,15 +134,28 @@ def _project_navigation_cache_snapshot(service: Any) -> dict[str, Any]:
 
 
 def _repository_health_snapshot(service: Any) -> dict[str, Any]:
+    if isinstance(service, RepositoryHealthScheduler):
+        scheduled = service.snapshot()
+        result = dict(scheduled.get("health", {}) or {})
+        result["schedule"] = {
+            key: value for key, value in scheduled.items()
+            if key not in {"health", "readiness"}
+        }
+        result["readiness"] = dict(scheduled.get("readiness", {}) or {})
+        return result
     if not isinstance(service, RepositoryHealthService):
         return {
             "root_name": "", "scanned_at": 0.0, "duration_ms": 0.0,
             "files_scanned": 0, "json_files": 0, "total_bytes": 0,
             "healthy": True, "truncated": False, "issue_count": 0,
             "repairable_count": 0, "severity_counts": {}, "issues": [],
-            "repair_plan": [],
+            "repair_plan": [], "schedule": {"enabled": False},
+            "readiness": {"score": 100, "status": "ready"},
         }
-    return service.scan().to_dict()
+    result = service.scan().to_dict()
+    result["schedule"] = {"enabled": False}
+    result["readiness"] = {"score": 100 if result.get("healthy") else 50, "status": "ready" if result.get("healthy") else "attention"}
+    return result
 
 def _budget_snapshot(events: list[dict[str, Any]], budgets: Mapping[str, float]) -> list[dict[str, Any]]:
     latest: dict[str, float] = {}
