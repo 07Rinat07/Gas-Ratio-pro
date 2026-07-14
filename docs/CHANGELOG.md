@@ -2370,3 +2370,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added interval summary metrics and type-level statistics.
 - Added filtered JSON, CSV and Excel exports.
 - Connected the filtered subset to selection and batch workflows.
+
+## 2026-07-14 — Saved interpretation filter views
+
+- Added persistent filter presets scoped by project, well and interpretation.
+- Added create, apply and delete controls for saved interval search views.
+- Added versioned JSON exchange for preset backup and transfer.
+- Presets restore text, type, source, depth and thickness filter state.
+

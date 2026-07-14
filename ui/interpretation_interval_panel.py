@@ -25,6 +25,11 @@ from projects.interpretation_interval_imports import (
     apply_interpretation_interval_import,
     parse_interpretation_interval_import,
 )
+from projects.interpretation_interval_filter_presets import (
+    InterpretationIntervalFilterPresetRepository,
+    export_filter_presets_json,
+    import_filter_presets_json,
+)
 from projects.interpretation_interval_manager import (
     InterpretationIntervalManager,
     InterpretationIntervalOverlapError,
@@ -75,6 +80,13 @@ def render_interpretation_interval_panel(
     properties_service = InterpretationIntervalPropertiesService(manager)
     type_repository = InterpretationIntervalTypeRepository(root=root, project_id=project_id)
     interval_types = type_repository.list()
+    preset_repository = InterpretationIntervalFilterPresetRepository(
+        root=root,
+        project_id=project_id,
+        well_id=well_id,
+        interpretation_id=manager.interpretation_id,
+    )
+    filter_presets = preset_repository.list()
     intervals = manager.list_intervals()
     filtered_intervals = intervals
 
@@ -459,10 +471,104 @@ def render_interpretation_interval_panel(
             )
 
             with st.expander("Поиск, фильтры и аналитика", expanded=False):
+                filter_keys = {
+                    "query": f"manual_interval_filter_query_{project_id}_{well_id}",
+                    "types": f"manual_interval_filter_types_{project_id}_{well_id}",
+                    "sources": f"manual_interval_filter_sources_{project_id}_{well_id}",
+                    "depth_enabled": f"manual_interval_filter_depth_enabled_{project_id}_{well_id}",
+                    "depth_top": f"manual_interval_filter_depth_top_{project_id}_{well_id}",
+                    "depth_base": f"manual_interval_filter_depth_base_{project_id}_{well_id}",
+                    "thickness_enabled": f"manual_interval_filter_thickness_enabled_{project_id}_{well_id}",
+                    "min_thickness": f"manual_interval_filter_min_thickness_{project_id}_{well_id}",
+                    "max_thickness": f"manual_interval_filter_max_thickness_{project_id}_{well_id}",
+                }
+                with st.expander("Сохранённые представления", expanded=False):
+                    if filter_presets:
+                        preset_ids = [item.id for item in filter_presets]
+                        preset_labels = {item.id: item.name for item in filter_presets}
+                        selected_preset_id = st.selectbox(
+                            "Представление",
+                            options=preset_ids,
+                            format_func=lambda value: preset_labels.get(value, value),
+                            key=f"manual_interval_filter_preset_selected_{project_id}_{well_id}",
+                        )
+                        preset_load, preset_delete = st.columns(2)
+                        if preset_load.button(
+                            "Применить",
+                            key=f"manual_interval_filter_preset_apply_{project_id}_{well_id}",
+                            width="stretch",
+                        ):
+                            selected_preset = preset_repository.get(selected_preset_id)
+                            criteria = selected_preset.criteria
+                            st.session_state[filter_keys["query"]] = criteria.query
+                            st.session_state[filter_keys["types"]] = list(criteria.interval_types)
+                            st.session_state[filter_keys["sources"]] = list(criteria.sources)
+                            st.session_state[filter_keys["depth_enabled"]] = (
+                                criteria.depth_top is not None or criteria.depth_base is not None
+                            )
+                            if criteria.depth_top is not None:
+                                st.session_state[filter_keys["depth_top"]] = criteria.depth_top
+                            if criteria.depth_base is not None:
+                                st.session_state[filter_keys["depth_base"]] = criteria.depth_base
+                            st.session_state[filter_keys["thickness_enabled"]] = (
+                                criteria.min_thickness is not None or criteria.max_thickness is not None
+                            )
+                            if criteria.min_thickness is not None:
+                                st.session_state[filter_keys["min_thickness"]] = criteria.min_thickness
+                            if criteria.max_thickness is not None:
+                                st.session_state[filter_keys["max_thickness"]] = criteria.max_thickness
+                            st.success(f"Применено представление: {selected_preset.name}.")
+                            st.rerun()
+                        if preset_delete.button(
+                            "Удалить",
+                            key=f"manual_interval_filter_preset_delete_{project_id}_{well_id}",
+                            width="stretch",
+                        ):
+                            preset_repository.delete(selected_preset_id)
+                            st.success("Представление удалено.")
+                            st.rerun()
+                    else:
+                        st.caption("Сохранённых представлений пока нет.")
+
+                    preset_import = st.file_uploader(
+                        "Импорт представлений JSON",
+                        type=["json"],
+                        key=f"manual_interval_filter_preset_import_{project_id}_{well_id}",
+                    )
+                    preset_exchange_left, preset_exchange_right = st.columns(2)
+                    if filter_presets:
+                        preset_exchange_left.download_button(
+                            "Экспорт JSON",
+                            data=export_filter_presets_json(
+                                filter_presets,
+                                project_id=project_id,
+                                well_id=well_id,
+                                interpretation_id=manager.interpretation_id,
+                            ),
+                            file_name=f"interpretation_filter_presets_{project_id}_{well_id}.json",
+                            mime="application/json",
+                            key=f"manual_interval_filter_preset_export_{project_id}_{well_id}",
+                            width="stretch",
+                        )
+                    if preset_exchange_right.button(
+                        "Импортировать",
+                        key=f"manual_interval_filter_preset_import_apply_{project_id}_{well_id}",
+                        disabled=preset_import is None,
+                        width="stretch",
+                    ):
+                        try:
+                            imported_presets = import_filter_presets_json(preset_import.getvalue())
+                            preset_repository.replace_all(imported_presets)
+                        except ValueError as exc:
+                            st.error(str(exc))
+                        else:
+                            st.success(f"Импортировано представлений: {len(imported_presets)}.")
+                            st.rerun()
+
                 filter_query = st.text_input(
                     "Поиск",
                     placeholder="Подпись, UUID, тип, комментарий или источник",
-                    key=f"manual_interval_filter_query_{project_id}_{well_id}",
+                    key=filter_keys["query"],
                 )
                 available_types = sorted({item.interval_type for item in intervals})
                 available_sources = sorted({item.source for item in intervals})
@@ -470,23 +576,23 @@ def render_interpretation_interval_panel(
                 filter_types = filter_left.multiselect(
                     "Типы",
                     options=available_types,
-                    key=f"manual_interval_filter_types_{project_id}_{well_id}",
+                    key=filter_keys["types"],
                 )
                 filter_sources = filter_right.multiselect(
                     "Источники",
                     options=available_sources,
-                    key=f"manual_interval_filter_sources_{project_id}_{well_id}",
+                    key=filter_keys["sources"],
                 )
                 depth_left, depth_right = st.columns(2)
                 use_depth_filter = depth_left.checkbox(
                     "Ограничить диапазон глубин",
                     value=False,
-                    key=f"manual_interval_filter_depth_enabled_{project_id}_{well_id}",
+                    key=filter_keys["depth_enabled"],
                 )
                 use_thickness_filter = depth_right.checkbox(
                     "Ограничить мощность",
                     value=False,
-                    key=f"manual_interval_filter_thickness_enabled_{project_id}_{well_id}",
+                    key=filter_keys["thickness_enabled"],
                 )
                 min_project_depth = min(item.top for item in intervals)
                 max_project_depth = max(item.base for item in intervals)
@@ -496,14 +602,14 @@ def render_interpretation_interval_panel(
                     value=float(min_project_depth),
                     step=0.1,
                     disabled=not use_depth_filter,
-                    key=f"manual_interval_filter_depth_top_{project_id}_{well_id}",
+                    key=filter_keys["depth_top"],
                 )
                 filter_depth_base = range_right.number_input(
                     "Низ диапазона, м",
                     value=float(max_project_depth),
                     step=0.1,
                     disabled=not use_depth_filter,
-                    key=f"manual_interval_filter_depth_base_{project_id}_{well_id}",
+                    key=filter_keys["depth_base"],
                 )
                 thickness_left, thickness_right = st.columns(2)
                 filter_min_thickness = thickness_left.number_input(
@@ -512,7 +618,7 @@ def render_interpretation_interval_panel(
                     value=0.0,
                     step=0.1,
                     disabled=not use_thickness_filter,
-                    key=f"manual_interval_filter_min_thickness_{project_id}_{well_id}",
+                    key=filter_keys["min_thickness"],
                 )
                 filter_max_thickness = thickness_right.number_input(
                     "Максимальная мощность, м",
@@ -520,7 +626,7 @@ def render_interpretation_interval_panel(
                     value=float(max(item.thickness for item in intervals)),
                     step=0.1,
                     disabled=not use_thickness_filter,
-                    key=f"manual_interval_filter_max_thickness_{project_id}_{well_id}",
+                    key=filter_keys["max_thickness"],
                 )
                 try:
                     filtered_intervals = filter_interpretation_intervals(
@@ -538,6 +644,34 @@ def render_interpretation_interval_panel(
                 except ValueError as exc:
                     st.error(str(exc))
                     filtered_intervals = ()
+
+                current_filter_criteria = InterpretationIntervalFilter(
+                    query=filter_query,
+                    interval_types=tuple(filter_types),
+                    sources=tuple(filter_sources),
+                    depth_top=filter_depth_top if use_depth_filter else None,
+                    depth_base=filter_depth_base if use_depth_filter else None,
+                    min_thickness=filter_min_thickness if use_thickness_filter else None,
+                    max_thickness=filter_max_thickness if use_thickness_filter else None,
+                )
+                save_name_col, save_button_col = st.columns((3, 1))
+                preset_name = save_name_col.text_input(
+                    "Название представления",
+                    placeholder="Например: Газовые интервалы 1000–1200 м",
+                    key=f"manual_interval_filter_preset_name_{project_id}_{well_id}",
+                )
+                if save_button_col.button(
+                    "Сохранить",
+                    key=f"manual_interval_filter_preset_save_{project_id}_{well_id}",
+                    width="stretch",
+                ):
+                    try:
+                        preset_repository.save(name=preset_name, criteria=current_filter_criteria)
+                    except ValueError as exc:
+                        st.error(str(exc))
+                    else:
+                        st.success("Представление сохранено.")
+                        st.rerun()
 
                 summary = summarize_interpretation_intervals(filtered_intervals)
                 metric_a, metric_b, metric_c, metric_d = st.columns(4)
