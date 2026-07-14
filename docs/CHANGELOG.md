@@ -1,3 +1,10 @@
+
+## Hotfix — Workbench startup runtime registry
+
+- restored the missing `runtime_service_registry` import in the production Workbench entry point;
+- aligned the production-entry regression test with the `ApplicationStateController.context()` contract;
+- prevents the post-render `NameError` observed after startup diagnostics were introduced.
+
 ## Phase 2 — Cache Metrics and Session State Diagnostics
 - Added shared runtime cache telemetry for hits, misses, invalidations, evictions and entry counts.
 - Connected the dataframe runtime cache to the common telemetry contract.

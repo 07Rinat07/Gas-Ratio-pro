@@ -74,7 +74,17 @@ def test_production_entry_point_checks_executed_not_removed_success_attribute(mo
     result = CommandExecutionResult("x", executed=True)
     monkeypatch.setattr("app.streamlit_app.st", fake)
     monkeypatch.setattr("app.workbench_renderer.render_streamlit_workbench", lambda state, st: (result,))
-    monkeypatch.setattr("app.streamlit_app._application_state_controller", lambda: type("C", (), {"state": {}})())
+    monkeypatch.setattr(
+        "app.streamlit_app._application_state_controller",
+        lambda: type(
+            "C",
+            (),
+            {
+                "state": {},
+                "context": lambda self: type("Context", (), {"project_id": "default"})(),
+            },
+        )(),
+    )
     monkeypatch.setattr("app.streamlit_app.configure_logging", lambda: type("L", (), {"info": lambda self, *a, **k: None})())
     monkeypatch.setattr("app.streamlit_app._app_icon_data_uri", lambda: "")
 
