@@ -646,3 +646,7 @@ Validation: repository, command history, professional interval manager and archi
 ## Latest increment
 
 The interpretation workspace now includes a thin Streamlit panel over the interval manager and properties service. UI code does not own persistence or business validation.
+
+## Latest increment: interpretation interval export
+
+Manual interpretation intervals now have a UI-independent export service and Streamlit download actions for JSON, CSV and Excel. The next recommended increment is tablet interaction synchronization: direct manual-interval selection, overlay visibility and hover/selection state coordination.

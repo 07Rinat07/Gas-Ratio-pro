@@ -10,6 +10,11 @@ are stored in Streamlit session state.
 from pathlib import Path
 from typing import Any, MutableMapping
 
+from projects.interpretation_interval_exports import (
+    export_interpretation_intervals_csv,
+    export_interpretation_intervals_json,
+    export_interpretation_intervals_xlsx,
+)
 from projects.interpretation_interval_manager import (
     InterpretationIntervalManager,
     InterpretationIntervalOverlapError,
@@ -75,6 +80,46 @@ def render_interpretation_interval_panel(
             manager.redo()
             st.rerun()
         action_right.caption(f"Интервалов: {len(intervals)}")
+
+        if intervals:
+            export_json = export_interpretation_intervals_json(
+                intervals,
+                project_id=project_id,
+                well_id=well_id,
+                interpretation_id=manager.interpretation_id,
+            )
+            export_csv = export_interpretation_intervals_csv(intervals)
+            export_xlsx = export_interpretation_intervals_xlsx(
+                intervals,
+                project_id=project_id,
+                well_id=well_id,
+                interpretation_id=manager.interpretation_id,
+            )
+            export_left, export_mid, export_right = st.columns(3)
+            export_left.download_button(
+                "JSON",
+                data=export_json,
+                file_name=f"interpretation_intervals_{project_id}_{well_id}.json",
+                mime="application/json",
+                key=f"manual_interval_export_json_{project_id}_{well_id}",
+                width="stretch",
+            )
+            export_mid.download_button(
+                "CSV",
+                data=export_csv,
+                file_name=f"interpretation_intervals_{project_id}_{well_id}.csv",
+                mime="text/csv",
+                key=f"manual_interval_export_csv_{project_id}_{well_id}",
+                width="stretch",
+            )
+            export_right.download_button(
+                "Excel",
+                data=export_xlsx,
+                file_name=f"interpretation_intervals_{project_id}_{well_id}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key=f"manual_interval_export_xlsx_{project_id}_{well_id}",
+                width="stretch",
+            )
 
         with st.form(f"manual_interval_create_{project_id}_{well_id}", clear_on_submit=True):
             st.markdown("**Новый интервал**")

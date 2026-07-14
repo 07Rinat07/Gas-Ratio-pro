@@ -2238,3 +2238,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added user-defined colors, labels, comments and selected-interval highlighting.
 - Added manual interval state to the plot cache signature to prevent stale rendering after edits.
 - Added regression tests for manual interval overlay conversion and rendering.
+
+## Interpretation interval export
+
+- Added versioned JSON export for manual interpretation intervals.
+- Added UTF-8 CSV and formatted Excel exports with project/well metadata.
+- Added download actions to the Streamlit interval panel.

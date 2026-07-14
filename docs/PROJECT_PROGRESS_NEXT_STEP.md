@@ -162,3 +162,9 @@ Manual interpretation intervals are now editable in the Streamlit interpretation
 ### Completed: manual interval visualization
 
 Manual interpretation intervals are now rendered on interpretation depth tracks and the engineering tablet. The next increment should add interval export (JSON/CSV/Excel) or improve direct chart selection, while preserving the current repository and command-service boundaries.
+
+## Interpretation interval export
+
+Completed: manual interpretation intervals can be downloaded from the interval panel as JSON, CSV or Excel. Exports include UUID, bounds, derived thickness/middle depth, type, color, comment, source and timestamps.
+
+Next recommended increment: improve tablet interaction for manual intervals with direct selection/hover synchronization and configurable overlay visibility.
