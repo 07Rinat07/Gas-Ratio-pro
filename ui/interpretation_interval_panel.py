@@ -133,14 +133,27 @@ def render_interpretation_interval_panel(
                     ),
                     key=f"manual_interval_type_delete_select_{project_id}",
                 )
+                type_usage = type_repository.usage(type_delete_id)
+                if type_usage.in_use:
+                    st.warning(
+                        f"Тип используется: {type_usage.interval_count} интервалов · "
+                        f"{type_usage.well_count} скважин · "
+                        f"{type_usage.interpretation_count} интерпретаций."
+                    )
                 if st.button(
                     "Удалить тип из справочника",
                     key=f"manual_interval_type_delete_{project_id}",
+                    disabled=type_usage.in_use,
                     width="stretch",
                 ):
-                    type_repository.delete(type_delete_id)
-                    st.success("Тип удалён из справочника. Существующие интервалы не изменены.")
-                    st.rerun()
+                    try:
+                        deleted = type_repository.delete(type_delete_id)
+                    except ValueError as exc:
+                        st.error(str(exc))
+                    else:
+                        if deleted:
+                            st.success("Неиспользуемый тип удалён из справочника.")
+                            st.rerun()
             if st.button(
                 "Восстановить типы по умолчанию",
                 key=f"manual_interval_type_reset_{project_id}",

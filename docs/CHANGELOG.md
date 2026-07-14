@@ -2282,3 +2282,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added built-in geological type presets with names, colors and descriptions.
 - Connected type selection to interval create and edit forms.
 - Existing intervals remain valid when a catalog entry is removed.
+
+## 2026-07-14
+
+- Added project-wide usage diagnostics for interpretation interval types.
+- Prevented deletion of types referenced by persisted manual intervals.
+- Added UI feedback and regression tests for safe type deletion.

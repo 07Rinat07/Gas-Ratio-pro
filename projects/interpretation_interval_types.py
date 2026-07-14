@@ -25,6 +25,20 @@ class InterpretationIntervalType:
     updated_at: str = ""
 
 
+
+
+@dataclass(frozen=True)
+class InterpretationIntervalTypeUsage:
+    type_id: str
+    interval_count: int
+    well_count: int
+    interpretation_count: int
+
+    @property
+    def in_use(self) -> bool:
+        return self.interval_count > 0
+
+
 DEFAULT_INTERVAL_TYPES: tuple[InterpretationIntervalType, ...] = (
     InterpretationIntervalType("undefined", "Не определён", "#4C78A8", "Тип не назначен."),
     InterpretationIntervalType("reservoir", "Коллектор", "#59A14F", "Интервал коллектора."),
@@ -168,6 +182,42 @@ def save_interval_types(
     return normalized
 
 
+def get_interval_type_usage(
+    type_id: str,
+    *,
+    root: Path | str = DEFAULT_PROJECTS_ROOT,
+    project_id: str = DEFAULT_PROJECT_ID,
+) -> InterpretationIntervalTypeUsage:
+    clean_id = _clean_id(type_id)
+    project_root = Path(root) / safe_project_id(project_id) / "wells"
+    interval_count = 0
+    wells: set[str] = set()
+    interpretations: set[tuple[str, str]] = set()
+    if project_root.exists():
+        for path in project_root.glob("*/interpretations/*/intervals.json"):
+            try:
+                raw = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError, TypeError):
+                continue
+            matching = sum(
+                1
+                for item in raw.get("intervals", ())
+                if str(item.get("interval_type", "undefined")).strip() == clean_id
+            )
+            if matching:
+                well_id = path.parents[2].name
+                interpretation_id = path.parent.name
+                interval_count += matching
+                wells.add(well_id)
+                interpretations.add((well_id, interpretation_id))
+    return InterpretationIntervalTypeUsage(
+        type_id=clean_id,
+        interval_count=interval_count,
+        well_count=len(wells),
+        interpretation_count=len(interpretations),
+    )
+
+
 class InterpretationIntervalTypeRepository:
     def __init__(self, *, root: Path | str = DEFAULT_PROJECTS_ROOT, project_id: str = DEFAULT_PROJECT_ID) -> None:
         self.root = Path(root)
@@ -196,8 +246,21 @@ class InterpretationIntervalTypeRepository:
         save_interval_types(current, self.root, self.project_id)
         return item
 
+    def usage(self, type_id: str) -> InterpretationIntervalTypeUsage:
+        return get_interval_type_usage(
+            type_id,
+            root=self.root,
+            project_id=self.project_id,
+        )
+
     def delete(self, type_id: str) -> bool:
         clean_id = _clean_id(type_id)
+        usage = self.usage(clean_id)
+        if usage.in_use:
+            raise ValueError(
+                f"Тип «{clean_id}» используется в {usage.interval_count} интервалах "
+                f"({usage.well_count} скважин). Сначала переназначьте интервалы."
+            )
         current = list(self.list())
         updated = [item for item in current if item.id != clean_id]
         if len(updated) == len(current):

@@ -50,3 +50,56 @@ def test_repository_validates_color(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="HEX"):
         repository.upsert(type_id="bad", name="Bad", color="red")
+
+from projects.interpretation_intervals import create_interpretation_interval
+
+
+def test_repository_reports_project_wide_type_usage(tmp_path: Path) -> None:
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    repository.upsert(type_id="custom", name="Custom", color="#112233")
+    create_interpretation_interval(
+        root=tmp_path,
+        project_id="project",
+        well_id="well-a",
+        interpretation_id="default",
+        label="A",
+        top=100,
+        base=110,
+        interval_type="custom",
+    )
+    create_interpretation_interval(
+        root=tmp_path,
+        project_id="project",
+        well_id="well-b",
+        interpretation_id="secondary",
+        label="B",
+        top=200,
+        base=210,
+        interval_type="custom",
+    )
+
+    usage = repository.usage("custom")
+
+    assert usage.interval_count == 2
+    assert usage.well_count == 2
+    assert usage.interpretation_count == 2
+    assert usage.in_use is True
+
+
+def test_repository_refuses_to_delete_type_used_by_intervals(tmp_path: Path) -> None:
+    repository = InterpretationIntervalTypeRepository(root=tmp_path, project_id="project")
+    repository.upsert(type_id="custom", name="Custom", color="#112233")
+    create_interpretation_interval(
+        root=tmp_path,
+        project_id="project",
+        well_id="well-a",
+        label="A",
+        top=100,
+        base=110,
+        interval_type="custom",
+    )
+
+    with pytest.raises(ValueError, match="используется"):
+        repository.delete("custom")
+
+    assert repository.get("custom") is not None

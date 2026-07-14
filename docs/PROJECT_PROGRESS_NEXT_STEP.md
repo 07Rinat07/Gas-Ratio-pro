@@ -214,3 +214,10 @@ Next recommended increment: improve tablet interaction for manual intervals with
 - Each type has a stable ID, display name, default color and description.
 - Create and edit forms use catalog values while preserving legacy/custom interval types.
 - Next step: add batch operations for manual intervals or direct selection on the engineering tablet track.
+
+## Safe deletion for interpretation interval types
+
+- The project type catalog now reports usage across all wells and interpretations.
+- Types referenced by persisted intervals cannot be deleted accidentally.
+- The Streamlit catalog shows interval, well and interpretation usage counts and disables unsafe deletion.
+- Next step: add an explicit batch reassignment workflow for replacing a type across project intervals.
