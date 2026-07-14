@@ -366,6 +366,7 @@ from reports.report_designer_export import build_designed_report_artifact
 from reports.report_preview_persistence import ReportPreviewCountsRepository
 from reports.pdf_preview import (
     PdfPreviewResult,
+    PdfPreviewRuntimeCache,
     PdfPreviewUnavailableError,
     build_pdf_preview,
     build_pdf_preview_signature,
@@ -9066,6 +9067,42 @@ def _render_professional_export_panel(
         )
         state_controller = _application_state_controller()
         export_state = state_controller.state
+        cache_metrics_registry = state_controller.ensure_runtime_service(
+            "cache_metrics_registry",
+            CacheMetricsRegistry,
+            expected_type=CacheMetricsRegistry,
+            scope="session",
+        )
+        pdf_preview_runtime_cache = state_controller.ensure_runtime_service(
+            f"pdf_preview_runtime_cache::{active_project.id}",
+            lambda: PdfPreviewRuntimeCache(
+                max_entries=3,
+                max_bytes=24 * 1024 * 1024,
+                metrics=cache_metrics_registry.counter(
+                    "pdf_preview_runtime", max_entries=3
+                ),
+            ),
+            expected_type=PdfPreviewRuntimeCache,
+            scope="project",
+        )
+        # Migrate and immediately remove the legacy Session State payload.
+        legacy_pdf_preview_cache = export_state.pop(pdf_preview_cache_key, None)
+        if isinstance(legacy_pdf_preview_cache, dict):
+            legacy_entries = legacy_pdf_preview_cache.get("entries")
+            if not isinstance(legacy_entries, (list, tuple)):
+                legacy_entries = (legacy_pdf_preview_cache,)
+            for legacy_entry in reversed(tuple(legacy_entries)):
+                if not isinstance(legacy_entry, dict):
+                    continue
+                legacy_signature = legacy_entry.get("signature")
+                legacy_result = legacy_entry.get("result")
+                if isinstance(legacy_signature, str) and isinstance(legacy_result, PdfPreviewResult):
+                    pdf_preview_runtime_cache.store(legacy_signature, legacy_result)
+            logger.info(
+                "pdf_preview_cache_migrated project_id=%s entries=%d",
+                safe_log_value(active_project.id),
+                pdf_preview_runtime_cache.snapshot().entry_count,
+            )
         background_state_key = f"background_export_metadata_{active_project.id}"
         background_manager_key = f"background_export_manager_{active_project.id}"
         background_state = export_state.setdefault(background_state_key, {})
@@ -10195,23 +10232,7 @@ def _render_professional_export_panel(
                         key=f"pdf_preview_layout_{active_project.id}",
                     )
                     pdf_payload = cached_export.get("content", b"")
-                    cached_pdf_preview = export_state.get(pdf_preview_cache_key)
-                    known_total_pages = 0
-                    if isinstance(cached_pdf_preview, dict):
-                        legacy_result = cached_pdf_preview.get("result")
-                        if isinstance(legacy_result, PdfPreviewResult):
-                            known_total_pages = int(legacy_result.total_pages)
-                        else:
-                            entries = cached_pdf_preview.get("entries")
-                            if isinstance(entries, (list, tuple)):
-                                known_totals = [
-                                    int(entry["result"].total_pages)
-                                    for entry in entries
-                                    if isinstance(entry, dict)
-                                    and isinstance(entry.get("result"), PdfPreviewResult)
-                                    and int(entry["result"].total_pages) > 0
-                                ]
-                                known_total_pages = max(known_totals, default=0)
+                    known_total_pages = pdf_preview_runtime_cache.known_total_pages()
 
                     page_jump_validation = validate_pdf_preview_page_jump(
                         int(preview_start_page),
@@ -10240,9 +10261,8 @@ def _render_professional_export_panel(
                         st.error("Готовый PDF повреждён или недоступен для предпросмотра.")
 
                     preview_cache_lookup = (
-                        inspect_pdf_preview_cache(
-                            cached_pdf_preview,
-                            signature=str(expected_preview_signature or ""),
+                        pdf_preview_runtime_cache.inspect(
+                            str(expected_preview_signature or "")
                         )
                         if expected_preview_signature is not None
                         else None
@@ -10293,8 +10313,10 @@ def _render_professional_export_panel(
                         ),
                     )
                     if show_cache_stats:
-                        cache_stats = summarize_pdf_preview_cache(
-                            cached_pdf_preview,
+                        pdf_preview_runtime_cache.configure(
+                            max_entries=3, max_bytes=cache_budget_bytes
+                        )
+                        cache_stats = pdf_preview_runtime_cache.stats(
                             warning_threshold_bytes=max(1, int(cache_budget_bytes * 0.75)),
                             critical_threshold_bytes=cache_budget_bytes,
                         )
@@ -10366,15 +10388,12 @@ def _render_professional_export_panel(
                                 start_page=effective_preview_start,
                                 dpi=preview_dpi,
                             )
-                            cache_store = store_pdf_preview_cache_with_diagnostics(
-                                cached_pdf_preview,
-                                signature=str(expected_preview_signature),
-                                result=preview_result,
-                                max_entries=3,
-                                max_bytes=cache_budget_bytes,
+                            pdf_preview_runtime_cache.configure(
+                                max_entries=3, max_bytes=cache_budget_bytes
                             )
-                            cached_pdf_preview = cache_store.payload
-                            export_state[pdf_preview_cache_key] = cached_pdf_preview
+                            cache_store = pdf_preview_runtime_cache.store(
+                                str(expected_preview_signature), preview_result
+                            )
                             if cache_store.eviction_count:
                                 logger.info(
                                     "pdf_preview_cache_evicted project_id=%s count=%d bytes=%d retained_bytes=%d budget_bytes=%d",
@@ -10401,8 +10420,8 @@ def _render_professional_export_panel(
                                         start_page=adjacent_start,
                                         dpi=preview_dpi,
                                     )
-                                    adjacent_lookup = inspect_pdf_preview_cache(
-                                        cached_pdf_preview, signature=adjacent_signature
+                                    adjacent_lookup = pdf_preview_runtime_cache.inspect(
+                                        adjacent_signature
                                     )
                                     if not adjacent_lookup.hit:
                                         adjacent_result = build_pdf_preview(
@@ -10411,15 +10430,9 @@ def _render_professional_export_panel(
                                             start_page=adjacent_start,
                                             dpi=preview_dpi,
                                         )
-                                        prefetch_store = store_pdf_preview_cache_with_diagnostics(
-                                            cached_pdf_preview,
-                                            signature=adjacent_signature,
-                                            result=adjacent_result,
-                                            max_entries=3,
-                                            max_bytes=cache_budget_bytes,
+                                        prefetch_store = pdf_preview_runtime_cache.store(
+                                            adjacent_signature, adjacent_result
                                         )
-                                        cached_pdf_preview = prefetch_store.payload
-                                        export_state[pdf_preview_cache_key] = cached_pdf_preview
                                         if prefetch_store.eviction_count:
                                             logger.info(
                                                 "pdf_preview_cache_evicted project_id=%s count=%d bytes=%d retained_bytes=%d budget_bytes=%d source=prefetch",
@@ -10464,18 +10477,18 @@ def _render_professional_export_panel(
                                 "Готовый файл всё равно можно скачать."
                             )
 
-                    if isinstance(cached_pdf_preview, dict):
+                    if pdf_preview_runtime_cache.snapshot().entry_count > 0:
                         if st.button(
                             "Очистить кэш предпросмотра",
                             key=f"clear_pdf_preview_{active_project.id}",
                             width="stretch",
                         ):
-                            export_state.pop(pdf_preview_cache_key, None)
-                            cached_pdf_preview = None
+                            cleared_entries = pdf_preview_runtime_cache.clear()
                             preview_matches = False
                             logger.info(
-                                "pdf_preview_cache_cleared project_id=%s",
+                                "pdf_preview_cache_cleared project_id=%s entries=%d",
                                 safe_log_value(active_project.id),
+                                cleared_entries,
                             )
                             st.success("Кэш миниатюр PDF очищен.")
 

@@ -376,3 +376,76 @@ def test_pdf_preview_cache_keeps_newest_entry_when_it_exceeds_budget() -> None:
     assert stored.retained_bytes == 2_000
     assert stored.budget_bytes == 1_000
     assert len(stored.payload["entries"]) == 1
+
+
+def test_pdf_preview_runtime_cache_is_bounded_and_reports_metrics() -> None:
+    from core.cache_metrics import CacheMetricCounter
+    from reports.pdf_preview import PdfPreviewRuntimeCache
+
+    metrics = CacheMetricCounter("pdf-preview", max_entries=2)
+    cache = PdfPreviewRuntimeCache(max_entries=2, max_bytes=10_000_000, metrics=metrics)
+    first = build_pdf_preview(_sample_pdf(3), start_page=1, page_limit=1, dpi=72)
+    second = build_pdf_preview(_sample_pdf(3), start_page=2, page_limit=1, dpi=72)
+    third = build_pdf_preview(_sample_pdf(3), start_page=3, page_limit=1, dpi=72)
+
+    cache.store("one", first)
+    cache.store("two", second)
+    assert cache.inspect("one").hit is True
+    cache.store("three", third)
+
+    assert cache.inspect("two").hit is False
+    assert cache.inspect("one").hit is True
+    snapshot = cache.snapshot()
+    assert snapshot.entry_count == 2
+    assert snapshot.evictions == 1
+    assert snapshot.hits == 2
+    assert snapshot.misses == 1
+    assert snapshot.hit_rate == pytest.approx(66.67)
+    assert metrics.snapshot().entries == 2
+    assert metrics.snapshot().evictions == 1
+
+
+def test_pdf_preview_runtime_cache_enforces_memory_budget_and_clears() -> None:
+    from reports.pdf_preview import PdfPreviewPage, PdfPreviewResult, PdfPreviewRuntimeCache
+
+    cache = PdfPreviewRuntimeCache(max_entries=3, max_bytes=1_000)
+    first = PdfPreviewResult(
+        pages=(PdfPreviewPage(1, b"x" * 700, 10, 10),),
+        total_pages=3,
+        rendered_pages=1,
+        backend="test",
+        truncated=True,
+        image_size_bytes=700,
+    )
+    second = PdfPreviewResult(
+        pages=(PdfPreviewPage(2, b"y" * 700, 10, 10),),
+        total_pages=3,
+        rendered_pages=1,
+        backend="test",
+        truncated=True,
+        image_size_bytes=700,
+    )
+
+    cache.store("one", first)
+    stored = cache.store("two", second)
+
+    assert stored.eviction_count == 1
+    assert cache.snapshot().entry_count == 1
+    assert cache.snapshot().image_size_bytes == 700
+    assert cache.known_total_pages() == 3
+    assert cache.clear() == 1
+    assert cache.snapshot().entry_count == 0
+    assert cache.snapshot().invalidations == 1
+
+
+def test_pdf_preview_runtime_cache_snapshot_is_payload_free() -> None:
+    from reports.pdf_preview import PdfPreviewRuntimeCache
+
+    cache = PdfPreviewRuntimeCache()
+    cache.store("one", build_pdf_preview(_sample_pdf(1), page_limit=1, dpi=72))
+
+    snapshot = cache.snapshot().to_dict()
+
+    assert "image_png" not in repr(snapshot)
+    assert "result" not in snapshot
+    assert snapshot["entry_count"] == 1

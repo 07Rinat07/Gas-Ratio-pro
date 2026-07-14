@@ -515,3 +515,13 @@ Next priority: establish repeatable cold/warm correlation benchmarks and add byt
 - Release-gate policy checks duration growth, cache hit-rate degradation, Session State growth and new runtime failures.
 - Reports are available as JSON and Markdown; regression returns exit code `2` for CI integration.
 - Next step: collect repeatable real-world LAS/correlation benchmark fixtures and tune budgets from measured hardware profiles.
+
+## Phase 2 — PDF Preview runtime and memory hardening
+
+- Moved rendered PDF PNG ranges out of serializable Session State into a project-scoped runtime cache service.
+- Added bounded MRU/LRU reuse with entry and byte budgets, cache hit/miss/invalidation/eviction telemetry and payload-free snapshots.
+- Preserved adjacent-range prefetch, DPI/page-window signatures and user-controlled memory budgets.
+- Added one-time migration of legacy Session State preview entries, followed by immediate removal of the heavy legacy payload.
+- Project lifecycle cleanup now closes and clears preview cache memory through `RuntimeServiceRegistry`.
+
+Next priority: profile real PDF preview cold/warm timings and consolidate remaining report/export transient state ownership.

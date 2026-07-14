@@ -2517,3 +2517,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added deterministic regression comparison for stage p95 duration, cache hit-rate, Session State growth and new runtime failures.
 - Added a CI/local CLI that exports JSON and Markdown reports and returns a non-zero exit code on confirmed regression.
 - Developer Diagnostics can download the current JSON baseline without exposing runtime objects or cached payloads.
+
+## 2026-07-14 — PDF Preview runtime and memory hardening
+
+- Added `PdfPreviewRuntimeCache` with bounded entry and byte budgets.
+- Removed PDF thumbnail payloads from serializable Session State.
+- Integrated PDF preview cache metrics with the shared cache telemetry registry.
+- Added payload-free cache snapshots, MRU promotion, explicit invalidation and project-scope cleanup.
+- Added backward-compatible migration for legacy Session State preview caches.

@@ -751,3 +751,7 @@ Session State keys should be registered through `core/session_key_registry.py` o
 ## Phase 2 performance regression gate
 
 Use `scripts/run_performance_regression.py` to compare a committed or release baseline with a new Diagnostics Center export. The gate is metadata-only and must never serialize Plotly figures, DataFrames, executors or repository payloads. Default policy allows 25%/250 ms stage growth, 10 percentage-point cache hit-rate loss and 20 additional Session State keys. Tune thresholds explicitly in CI rather than weakening runtime instrumentation.
+
+## Phase 2 PDF Preview cache boundary
+
+Heavy rendered PDF preview pages are owned by `PdfPreviewRuntimeCache`, registered in `RuntimeServiceRegistry` with project scope. Do not write `PdfPreviewResult` or PNG page bytes into ordinary Session State. UI code may retain only scalar widget settings and must use the runtime cache snapshot for diagnostics. Legacy `presentation_pdf_preview_<project>` payloads are migrated once and removed immediately.

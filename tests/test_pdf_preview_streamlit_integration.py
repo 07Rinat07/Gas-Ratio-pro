@@ -44,8 +44,9 @@ def test_pdf_preview_ui_contains_opt_in_adjacent_range_prefetch() -> None:
 
     assert '"Предзагрузить следующую группу страниц"' in source
     assert "next_pdf_preview_start_page(" in source
-    assert "store_pdf_preview_cache_with_diagnostics(" in source
-    assert "inspect_pdf_preview_cache(" in source
+    assert "PdfPreviewRuntimeCache" in source
+    assert "pdf_preview_runtime_cache.store(" in source
+    assert "pdf_preview_runtime_cache.inspect(" in source
     assert "pdf_preview_prefetched" in source
     assert "max_entries=3" in source
 
@@ -62,6 +63,15 @@ def test_pdf_preview_ui_exposes_memory_budget_and_eviction_telemetry() -> None:
     source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
 
     assert '"Лимит памяти кэша"' in source
-    assert "store_pdf_preview_cache_with_diagnostics(" in source
+    assert "pdf_preview_runtime_cache.store(" in source
     assert "pdf_preview_cache_evicted" in source
     assert "cache_budget_bytes" in source
+
+
+def test_pdf_preview_heavy_payload_is_kept_out_of_session_state() -> None:
+    source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
+
+    assert 'f"pdf_preview_runtime_cache::{active_project.id}"' in source
+    assert 'scope="project"' in source
+    assert "export_state.pop(pdf_preview_cache_key, None)" in source
+    assert "export_state[pdf_preview_cache_key]" not in source

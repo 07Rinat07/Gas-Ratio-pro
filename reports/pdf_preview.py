@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import tempfile
 from time import perf_counter
-from typing import Iterable
+from typing import Any, Iterable
 
 
 @dataclass(frozen=True)
@@ -90,6 +90,200 @@ class PdfPreviewPageJumpValidation:
     adjusted: bool
     code: str
     message: str
+
+
+
+
+@dataclass(frozen=True)
+class PdfPreviewRuntimeCacheSnapshot:
+    entry_count: int
+    rendered_pages: int
+    image_size_bytes: int
+    max_entries: int
+    max_bytes: int
+    hits: int
+    misses: int
+    invalidations: int
+    evictions: int
+
+    @property
+    def measured(self) -> int:
+        return self.hits + self.misses
+
+    @property
+    def hit_rate(self) -> float:
+        return round((self.hits / self.measured) * 100.0, 2) if self.measured else 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "entry_count": self.entry_count,
+            "rendered_pages": self.rendered_pages,
+            "image_size_bytes": self.image_size_bytes,
+            "max_entries": self.max_entries,
+            "max_bytes": self.max_bytes,
+            "hits": self.hits,
+            "misses": self.misses,
+            "invalidations": self.invalidations,
+            "evictions": self.evictions,
+            "measured": self.measured,
+            "hit_rate": self.hit_rate,
+        }
+
+
+class PdfPreviewRuntimeCache:
+    """Process-local bounded cache for heavy PDF preview PNG payloads.
+
+    The cache deliberately lives behind ``RuntimeServiceRegistry`` instead of
+    serializable Session State. Only :meth:`snapshot` crosses the diagnostic
+    boundary. ``metrics`` is an optional ``CacheMetricCounter``-compatible
+    object, kept duck-typed to avoid coupling reports to the core package.
+    """
+
+    def __init__(
+        self,
+        *,
+        max_entries: int = 3,
+        max_bytes: int = 24 * 1024 * 1024,
+        metrics: object | None = None,
+    ) -> None:
+        self.max_entries = max(1, min(int(max_entries), 6))
+        self.max_bytes = max(1, min(int(max_bytes), 128 * 1024 * 1024))
+        self._payload: dict[str, object] = {"entries": []}
+        self._metrics = metrics
+        self._hits = 0
+        self._misses = 0
+        self._invalidations = 0
+        self._evictions = 0
+        self._sync_metric_entries()
+
+    def _metric_call(self, name: str, *args: object) -> None:
+        method = getattr(self._metrics, name, None)
+        if callable(method):
+            method(*args)
+
+    def _sync_metric_entries(self) -> None:
+        stats = summarize_pdf_preview_cache(self._payload)
+        self._metric_call("set_entries", stats.entry_count)
+
+    def configure(self, *, max_entries: int | None = None, max_bytes: int | None = None) -> None:
+        if max_entries is not None:
+            self.max_entries = max(1, min(int(max_entries), 6))
+        if max_bytes is not None:
+            self.max_bytes = max(1, min(int(max_bytes), 128 * 1024 * 1024))
+        # Re-apply budgets without requiring a new rendered result.
+        entries = self._payload.get("entries")
+        if not isinstance(entries, list):
+            entries = []
+        evicted = 0
+        while len(entries) > self.max_entries:
+            entries.pop()
+            evicted += 1
+        def size(entry: object) -> int:
+            if not isinstance(entry, dict):
+                return 0
+            result = entry.get("result")
+            return max(0, int(result.image_size_bytes)) if isinstance(result, PdfPreviewResult) else 0
+        retained = sum(size(entry) for entry in entries)
+        while len(entries) > 1 and retained > self.max_bytes:
+            retained -= size(entries.pop())
+            evicted += 1
+        self._payload = {"entries": entries}
+        if evicted:
+            self._evictions += evicted
+            self._metric_call("evict", evicted)
+        self._sync_metric_entries()
+
+    def inspect(self, signature: str) -> PdfPreviewCacheLookup:
+        lookup = inspect_pdf_preview_cache(self._payload, signature=signature)
+        if lookup.hit:
+            self._hits += 1
+            self._metric_call("hit")
+            # Promote a hit to MRU without copying PNG payloads.
+            entries = self._payload.get("entries")
+            if isinstance(entries, list) and lookup.entry_index not in (None, 0):
+                entry = entries.pop(int(lookup.entry_index))
+                entries.insert(0, entry)
+        else:
+            self._misses += 1
+            self._metric_call("miss")
+        return lookup
+
+    def store(self, signature: str, result: PdfPreviewResult) -> PdfPreviewCacheStoreResult:
+        stored = store_pdf_preview_cache_with_diagnostics(
+            self._payload,
+            signature=signature,
+            result=result,
+            max_entries=self.max_entries,
+            max_bytes=self.max_bytes,
+        )
+        self._payload = stored.payload
+        if stored.eviction_count:
+            self._evictions += stored.eviction_count
+            self._metric_call("evict", stored.eviction_count)
+        self._sync_metric_entries()
+        return stored
+
+    def clear(self) -> int:
+        count = summarize_pdf_preview_cache(self._payload).entry_count
+        self._payload = {"entries": []}
+        self._invalidations += 1
+        self._metric_call("invalidate")
+        self._sync_metric_entries()
+        return count
+
+    def close(self) -> None:
+        self.clear()
+
+    def known_total_pages(self) -> int:
+        entries = self._payload.get("entries")
+        if not isinstance(entries, (list, tuple)):
+            return 0
+        return max(
+            (
+                int(entry["result"].total_pages)
+                for entry in entries
+                if isinstance(entry, dict)
+                and isinstance(entry.get("result"), PdfPreviewResult)
+                and int(entry["result"].total_pages) > 0
+            ),
+            default=0,
+        )
+
+    def stats(
+        self,
+        *,
+        warning_threshold_bytes: int | None = None,
+        critical_threshold_bytes: int | None = None,
+    ) -> PdfPreviewCacheStats:
+        warning = (
+            max(1, int(warning_threshold_bytes))
+            if warning_threshold_bytes is not None
+            else max(1, int(self.max_bytes * 0.75))
+        )
+        critical = (
+            max(warning, int(critical_threshold_bytes))
+            if critical_threshold_bytes is not None
+            else self.max_bytes
+        )
+        return summarize_pdf_preview_cache(
+            self._payload,
+            warning_threshold_bytes=warning,
+            critical_threshold_bytes=critical,
+        )
+
+    def snapshot(self) -> PdfPreviewRuntimeCacheSnapshot:
+        stats = self.stats()
+        return PdfPreviewRuntimeCacheSnapshot(
+            entry_count=stats.entry_count,
+            rendered_pages=stats.rendered_pages,
+            image_size_bytes=stats.image_size_bytes,
+            max_entries=self.max_entries,
+            max_bytes=self.max_bytes,
+            hits=self._hits,
+            misses=self._misses,
+            invalidations=self._invalidations,
+            evictions=self._evictions,
+        )
 
 
 class PdfPreviewUnavailableError(RuntimeError):
@@ -619,6 +813,8 @@ __all__ = [
     "PdfPreviewPage",
     "PdfPreviewPageJumpValidation",
     "PdfPreviewResult",
+    "PdfPreviewRuntimeCache",
+    "PdfPreviewRuntimeCacheSnapshot",
     "PdfPreviewUnavailableError",
     "build_pdf_preview",
     "build_pdf_preview_signature",
