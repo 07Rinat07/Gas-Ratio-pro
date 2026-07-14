@@ -638,3 +638,7 @@ Next priority: add a service/command layer with undo/redo snapshots, then connec
 Use `projects.interpretation_interval_commands.InterpretationIntervalCommandService` for all future manual interval mutations from the UI. Its state contains only JSON-compatible snapshots, is isolated by project/well/interpretation and has a bounded history. Undo/Redo verifies that repository content still matches the expected command snapshot; an external change raises `InterpretationIntervalHistoryConflict` instead of overwriting data. Do not bypass this service from the future interval manager UI except for read-only loading.
 
 Validation: repository, command history, professional interval manager and architecture freeze tests pass (19 tests).
+
+## Latest increment: interpretation interval manager
+
+`projects/interpretation_interval_manager.py` is now the preferred application-facing boundary for manual interval operations. It delegates persistence to the repository and reversible mutations to `InterpretationIntervalCommandService`. Overlap rejection is optional; do not change it to a mandatory repository rule without an explicit migration decision.

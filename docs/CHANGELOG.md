@@ -2211,3 +2211,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added Undo/Redo restoration with external-change conflict protection.
 - Kept history snapshots JSON-compatible and isolated by project/well/interpretation.
 - Preserved persisted interval timestamps during repository reload.
+
+## Interpretation interval manager
+
+- Added `InterpretationIntervalManager` as the application-facing API for manual intervals.
+- Added UUID lookup, deterministic listing and positive-thickness overlap diagnostics.
+- Added optional overlap rejection without changing the repository's permissive default behavior.
+- Reused the existing command service so all manager mutations remain Undo/Redo-aware.

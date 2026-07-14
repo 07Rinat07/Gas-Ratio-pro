@@ -140,3 +140,10 @@ Completed the serializable `Project -> Well -> Interpretation -> Intervals` repo
 - History is scoped to project, well and interpretation and contains no runtime objects.
 - Interval loading now preserves both `created_at` and `updated_at`.
 - Next step: connect the service to a focused Streamlit interval manager panel with create/edit/delete and Undo/Redo controls.
+
+## Interpretation interval manager completed
+
+- Added a unified manager for list/get/create/update/delete and Undo/Redo operations.
+- Added overlap diagnostics with adjacent boundaries treated as non-overlapping.
+- Strict overlap rejection is opt-in to preserve backward compatibility.
+- Next step: connect the manager to a focused Streamlit interval panel with selection, create/edit/delete and Undo/Redo controls.
