@@ -93,3 +93,12 @@ Next recommended increment: Modern Workspace shell foundation — Project Explor
 - После полного shutdown контейнер runtime-реестра удаляется из application state, а следующий запрос создаёт новый чистый registry.
 - Закрытие Workspace остаётся best-effort: сбой одного сервиса не блокирует остальные, но отражается в сообщении lifecycle-результата.
 - Следующий шаг: подключить этот же boundary к подтверждённому завершению Streamlit-сессии, когда будет доступен стабильный session-dispose hook.
+
+## PDF Preview: bounded adjacent-range prefetch
+
+- Added an opt-in control for preloading exactly one next bounded page group.
+- Preview Session State now uses a backward-compatible cache that keeps at most three recent ranges.
+- Navigating into a prefetched range reuses its existing PNG thumbnails without another rasterization.
+- Legacy single-entry preview cache payloads remain readable after the update.
+- Prefetch never runs by default and remains constrained by the selected page limit and DPI.
+- Next step: add lightweight cache-hit/prefetch telemetry and acceptance testing on a large multi-page report.

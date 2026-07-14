@@ -1568,3 +1568,12 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Report failed service keys/types/errors without retaining live objects.
 - [x] Detach the disposed runtime registry from application state.
 - [ ] Connect disposal to a stable Streamlit session-termination hook when supported.
+
+### PDF Preview: bounded adjacent-window prefetch
+
+- [x] Add an explicit opt-in checkbox for preloading the next page group.
+- [x] Keep the preview cache bounded to three recent signatures.
+- [x] Preserve compatibility with legacy single-preview Session State payloads.
+- [x] Reuse prefetched thumbnails when the user navigates to the next range.
+- [x] Keep page count and DPI workload limits unchanged.
+- [ ] Add cache hit/prefetch telemetry and validate behavior on a large generated report.

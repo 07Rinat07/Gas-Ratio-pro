@@ -353,7 +353,10 @@ from reports.pdf_preview import (
     build_pdf_preview,
     build_pdf_preview_signature,
     bounded_pdf_preview_start_page,
+    next_pdf_preview_start_page,
+    resolve_pdf_preview_cache,
     shift_pdf_preview_window,
+    store_pdf_preview_cache,
     validate_pdf_preview_page_jump,
 )
 from reports.export_wizard import (
@@ -10169,8 +10172,21 @@ def _render_professional_export_panel(
                     pdf_payload = cached_export.get("content", b"")
                     cached_pdf_preview = export_state.get(pdf_preview_cache_key)
                     known_total_pages = 0
-                    if isinstance(cached_pdf_preview, dict) and isinstance(cached_pdf_preview.get("result"), PdfPreviewResult):
-                        known_total_pages = int(cached_pdf_preview["result"].total_pages)
+                    if isinstance(cached_pdf_preview, dict):
+                        legacy_result = cached_pdf_preview.get("result")
+                        if isinstance(legacy_result, PdfPreviewResult):
+                            known_total_pages = int(legacy_result.total_pages)
+                        else:
+                            entries = cached_pdf_preview.get("entries")
+                            if isinstance(entries, (list, tuple)):
+                                known_totals = [
+                                    int(entry["result"].total_pages)
+                                    for entry in entries
+                                    if isinstance(entry, dict)
+                                    and isinstance(entry.get("result"), PdfPreviewResult)
+                                    and int(entry["result"].total_pages) > 0
+                                ]
+                                known_total_pages = max(known_totals, default=0)
 
                     page_jump_validation = validate_pdf_preview_page_jump(
                         int(preview_start_page),
@@ -10198,10 +10214,23 @@ def _render_professional_export_panel(
                     except (TypeError, ValueError):
                         st.error("Готовый PDF повреждён или недоступен для предпросмотра.")
 
-                    preview_matches = (
-                        isinstance(cached_pdf_preview, dict)
-                        and cached_pdf_preview.get("signature") == expected_preview_signature
-                        and isinstance(cached_pdf_preview.get("result"), PdfPreviewResult)
+                    matched_preview_result = (
+                        resolve_pdf_preview_cache(
+                            cached_pdf_preview,
+                            signature=str(expected_preview_signature or ""),
+                        )
+                        if expected_preview_signature is not None
+                        else None
+                    )
+                    preview_matches = isinstance(matched_preview_result, PdfPreviewResult)
+                    prefetch_next_range = st.checkbox(
+                        "Предзагрузить следующую группу страниц",
+                        value=False,
+                        key=f"pdf_preview_prefetch_next_{active_project.id}",
+                        help=(
+                            "После построения текущего диапазона приложение заранее создаст "
+                            "только одну следующую ограниченную группу страниц."
+                        ),
                     )
 
                     navigation_previous, navigation_next, preview_action = st.columns([1, 1, 2])
@@ -10244,12 +10273,52 @@ def _render_professional_export_panel(
                                 start_page=effective_preview_start,
                                 dpi=preview_dpi,
                             )
-                            export_state[pdf_preview_cache_key] = {
-                                "signature": expected_preview_signature,
-                                "result": preview_result,
-                            }
-                            cached_pdf_preview = export_state[pdf_preview_cache_key]
+                            cached_pdf_preview = store_pdf_preview_cache(
+                                cached_pdf_preview,
+                                signature=str(expected_preview_signature),
+                                result=preview_result,
+                                max_entries=3,
+                            )
+                            export_state[pdf_preview_cache_key] = cached_pdf_preview
+                            matched_preview_result = preview_result
                             preview_matches = True
+
+                            if prefetch_next_range:
+                                adjacent_start = next_pdf_preview_start_page(
+                                    effective_preview_start,
+                                    total_pages=preview_result.total_pages,
+                                    page_limit=int(preview_page_limit),
+                                )
+                                if adjacent_start is not None:
+                                    adjacent_signature = build_pdf_preview_signature(
+                                        pdf_payload,
+                                        request_signature=str(cached_export.get("request_signature", "")),
+                                        page_limit=int(preview_page_limit),
+                                        start_page=adjacent_start,
+                                        dpi=preview_dpi,
+                                    )
+                                    if resolve_pdf_preview_cache(
+                                        cached_pdf_preview, signature=adjacent_signature
+                                    ) is None:
+                                        adjacent_result = build_pdf_preview(
+                                            pdf_payload,
+                                            page_limit=int(preview_page_limit),
+                                            start_page=adjacent_start,
+                                            dpi=preview_dpi,
+                                        )
+                                        cached_pdf_preview = store_pdf_preview_cache(
+                                            cached_pdf_preview,
+                                            signature=adjacent_signature,
+                                            result=adjacent_result,
+                                            max_entries=3,
+                                        )
+                                        export_state[pdf_preview_cache_key] = cached_pdf_preview
+                                        logger.info(
+                                            "pdf_preview_prefetched project_id=%s start_page=%d pages=%d",
+                                            safe_log_value(active_project.id),
+                                            adjacent_start,
+                                            adjacent_result.rendered_pages,
+                                        )
                             logger.info(
                                 "pdf_preview_built project_id=%s pages=%d total=%d backend=%s",
                                 safe_log_value(active_project.id),
@@ -10283,8 +10352,8 @@ def _render_professional_export_panel(
                             )
                             st.success("Кэш миниатюр PDF очищен.")
 
-                    if preview_matches:
-                        preview_result = cached_pdf_preview["result"]
+                    if preview_matches and isinstance(matched_preview_result, PdfPreviewResult):
+                        preview_result = matched_preview_result
                         metric_columns = st.columns(4)
                         metric_columns[0].metric(
                             "Страницы",

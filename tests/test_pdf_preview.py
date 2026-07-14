@@ -150,3 +150,37 @@ def test_validate_pdf_preview_page_jump_handles_invalid_lower_bound() -> None:
     assert result.adjusted is True
     assert result.code == "below_minimum"
     assert result.normalized_page == 1
+
+
+def test_pdf_preview_cache_keeps_bounded_recent_entries() -> None:
+    from reports.pdf_preview import resolve_pdf_preview_cache, store_pdf_preview_cache
+
+    first = build_pdf_preview(_sample_pdf(4), start_page=1, page_limit=1, dpi=72)
+    second = build_pdf_preview(_sample_pdf(4), start_page=2, page_limit=1, dpi=72)
+    third = build_pdf_preview(_sample_pdf(4), start_page=3, page_limit=1, dpi=72)
+
+    cache = store_pdf_preview_cache(None, signature="one", result=first, max_entries=2)
+    cache = store_pdf_preview_cache(cache, signature="two", result=second, max_entries=2)
+    cache = store_pdf_preview_cache(cache, signature="three", result=third, max_entries=2)
+
+    assert resolve_pdf_preview_cache(cache, signature="three") is third
+    assert resolve_pdf_preview_cache(cache, signature="two") is second
+    assert resolve_pdf_preview_cache(cache, signature="one") is None
+
+
+def test_pdf_preview_cache_reads_legacy_single_entry_payload() -> None:
+    from reports.pdf_preview import resolve_pdf_preview_cache
+
+    result = build_pdf_preview(_sample_pdf(1), page_limit=1, dpi=72)
+    assert resolve_pdf_preview_cache(
+        {"signature": "legacy", "result": result}, signature="legacy"
+    ) is result
+
+
+def test_next_pdf_preview_start_page_is_bounded() -> None:
+    from reports.pdf_preview import next_pdf_preview_start_page
+
+    assert next_pdf_preview_start_page(1, total_pages=12, page_limit=5) == 6
+    assert next_pdf_preview_start_page(6, total_pages=12, page_limit=5) == 11
+    assert next_pdf_preview_start_page(11, total_pages=12, page_limit=5) is None
+    assert next_pdf_preview_start_page(1, total_pages=0, page_limit=5) is None

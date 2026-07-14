@@ -283,6 +283,99 @@ def _render_with_pdftoppm(pdf_bytes: bytes, *, start_page: int, page_limit: int,
 
 
 
+
+
+def resolve_pdf_preview_cache(
+    payload: object,
+    *,
+    signature: str,
+) -> PdfPreviewResult | None:
+    """Return a cached preview result for ``signature`` from a bounded cache payload.
+
+    The helper accepts both the legacy single-entry structure and the newer
+    multi-entry structure so existing Streamlit session state remains valid
+    after an application update.
+    """
+
+    if not isinstance(payload, dict) or not signature:
+        return None
+    if payload.get("signature") == signature and isinstance(payload.get("result"), PdfPreviewResult):
+        return payload["result"]
+    entries = payload.get("entries")
+    if not isinstance(entries, (list, tuple)):
+        return None
+    for entry in entries:
+        if (
+            isinstance(entry, dict)
+            and entry.get("signature") == signature
+            and isinstance(entry.get("result"), PdfPreviewResult)
+        ):
+            return entry["result"]
+    return None
+
+
+def store_pdf_preview_cache(
+    payload: object,
+    *,
+    signature: str,
+    result: PdfPreviewResult,
+    max_entries: int = 3,
+) -> dict[str, object]:
+    """Store a preview in a small newest-first cache suitable for Session State."""
+
+    try:
+        safe_max_entries = max(1, min(int(max_entries), 6))
+    except (TypeError, ValueError):
+        safe_max_entries = 3
+
+    entries: list[dict[str, object]] = []
+    if isinstance(payload, dict):
+        existing = payload.get("entries")
+        if isinstance(existing, (list, tuple)):
+            for entry in existing:
+                if (
+                    isinstance(entry, dict)
+                    and isinstance(entry.get("signature"), str)
+                    and isinstance(entry.get("result"), PdfPreviewResult)
+                    and entry.get("signature") != signature
+                ):
+                    entries.append({"signature": entry["signature"], "result": entry["result"]})
+        elif (
+            isinstance(payload.get("signature"), str)
+            and isinstance(payload.get("result"), PdfPreviewResult)
+            and payload.get("signature") != signature
+        ):
+            entries.append({"signature": payload["signature"], "result": payload["result"]})
+
+    entries.insert(0, {"signature": str(signature), "result": result})
+    return {"entries": entries[:safe_max_entries]}
+
+
+def next_pdf_preview_start_page(
+    current_start: int,
+    *,
+    total_pages: int,
+    page_limit: int = 5,
+) -> int | None:
+    """Return the next valid bounded page-window start, or ``None`` at the end."""
+
+    try:
+        known_total = max(0, int(total_pages))
+    except (TypeError, ValueError):
+        known_total = 0
+    if known_total <= 0:
+        return None
+    safe_limit = _bounded_page_limit(page_limit)
+    safe_current = bounded_pdf_preview_start_page(
+        current_start, total_pages=known_total, page_limit=safe_limit
+    )
+    candidate = safe_current + safe_limit
+    if candidate > known_total:
+        return None
+    return bounded_pdf_preview_start_page(
+        candidate, total_pages=known_total, page_limit=safe_limit
+    )
+
 def build_pdf_preview_signature(
     pdf_content: bytes | bytearray | memoryview,
     *,
@@ -360,6 +453,9 @@ __all__ = [
     "PdfPreviewUnavailableError",
     "build_pdf_preview",
     "build_pdf_preview_signature",
+    "next_pdf_preview_start_page",
+    "resolve_pdf_preview_cache",
+    "store_pdf_preview_cache",
     "bounded_pdf_preview_start_page",
     "shift_pdf_preview_window",
     "validate_pdf_preview_page_jump",

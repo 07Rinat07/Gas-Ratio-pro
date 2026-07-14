@@ -595,3 +595,12 @@ Live services now belong in `core.runtime_service_registry.RuntimeServiceRegistr
 ## Runtime shutdown telemetry and registry disposal
 
 `WorkbenchLifecycleManager.close_workspace()` now publishes `workbench.runtime_services.shutdown` with a serializable aggregate produced by `summarize_runtime_service_shutdown()`. The payload contains totals and failure diagnostics only; never place service instances, executors, queues or locks in event history. `ApplicationStateController.shutdown_runtime_services(remove=True)` also detaches the disposed `runtime::services` registry from state, so future runtime access receives a fresh registry. Keep cleanup best-effort and preserve lifecycle completion even when an individual service fails to close.
+
+## Latest increment: bounded PDF adjacent-range prefetch
+
+The Professional Export PDF preview now supports an opt-in "Предзагрузить следующую группу страниц" action. The current range is rendered first; when the exact page count shows that another range exists, only the immediately adjacent bounded group is rendered and cached. The Session State cache is newest-first and limited to three entries. Use `resolve_pdf_preview_cache()` and `store_pdf_preview_cache()` rather than reading `signature`/`result` directly because both legacy and multi-entry payloads are supported.
+
+Validation completed:
+- `python -m py_compile reports/pdf_preview.py app/streamlit_app.py`;
+- focused PDF Preview tests: 23 passed;
+- report/export regression selection: 89 passed.
