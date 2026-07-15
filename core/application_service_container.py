@@ -117,6 +117,21 @@ class ApplicationServiceContainer:
             factory=lambda: DatasetManagerService(root), expected_type=DatasetManagerService,
         )
 
+    def runtime_diagnostics(self, *, root: Path | str):
+        # Local import keeps diagnostics infrastructure behind a lazy boundary.
+        from services.runtime_diagnostics_application_service import (
+            RuntimeDiagnosticsApplicationService,
+        )
+
+        return self.ensure_workspace_service(
+            service_name="runtime_diagnostics",
+            root=root,
+            factory=lambda: RuntimeDiagnosticsApplicationService(
+                root=root, registry=self._registry
+            ),
+            expected_type=RuntimeDiagnosticsApplicationService,
+        )
+
     def correlation(
         self,
         *,

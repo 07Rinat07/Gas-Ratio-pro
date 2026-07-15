@@ -2660,3 +2660,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Project, export, well and dataset manager services are now created lazily through `ApplicationServiceContainer`.
 - Added workspace-scoped service lifecycle support to keep live managers out of Streamlit session state.
 - Removed direct manager construction from the Streamlit UI boundary.
+## Runtime diagnostics application-service boundary
+
+- Added a lazy workspace-scoped `RuntimeDiagnosticsApplicationService`.
+- Removed direct repository health scheduler and navigation-cache construction from Streamlit route rendering.
+- Centralized repository telemetry, mutation subscriptions, project health lifecycle, and navigation cache access behind the application service container.
+- Preserved the existing Diagnostics Center compatibility key while isolating schedulers per project.
+- Added architecture and lifecycle tests for service reuse, project isolation, and lightweight health diagnostics.
+

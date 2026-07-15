@@ -15528,10 +15528,8 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
         navigation_token_ms = 0.0
         navigation_metadata_files = 0
         diagnostics_registry = runtime_service_registry(state)
-        from core.repository_io import RepositoryIOMetrics
-        repository_metrics = diagnostics_registry.ensure(
-            "repository_io_metrics", RepositoryIOMetrics,
-            expected_type=RepositoryIOMetrics, scope="session",
+        diagnostics_service = application_service_container(state).runtime_diagnostics(
+            root=LAS_CORRELATION_PROJECTS_ROOT
         )
 
         def _invalidate_project_runtime_caches(event: dict[str, Any]) -> None:
@@ -15548,35 +15546,15 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
             if dataframe_cache_service is not None and active_id == changed_project:
                 dataframe_cache_service.clear()
 
-        repository_metrics.subscribe_mutations(
+        repository_metrics = diagnostics_service.subscribe_repository_mutations(
             "workbench_project_cache_coherence", _invalidate_project_runtime_caches
         )
         if PROJECT_RECORD in requirements:
             active_project = data_timer.measure_project(lambda: _resolve_active_project_for_workbench(logger))
         if active_project is not None:
-            from core.repository_health import RepositoryHealthService
-            from core.repository_health_scheduler import RepositoryHealthScheduler
-            active_health_root = LAS_CORRELATION_PROJECTS_ROOT / str(active_project.id)
-            current_health = diagnostics_registry.get("repository_health_service")
-            current_root = getattr(getattr(current_health, "service", current_health), "root", None)
-            if not isinstance(current_health, RepositoryHealthScheduler) or current_root != active_health_root.resolve():
-                diagnostics_registry.set(
-                    "repository_health_service",
-                    RepositoryHealthScheduler(
-                        RepositoryHealthService(active_health_root, scan_ttl_seconds=0),
-                        interval_seconds=300.0,
-                    ),
-                    scope="project",
-                )
+            diagnostics_service.prepare_project_health(str(active_project.id))
         if PROJECT_NAVIGATION in requirements and active_project is not None:
-            from core.project_navigation_runtime_cache import ProjectNavigationRuntimeCache
-
-            navigation_runtime_cache = diagnostics_registry.ensure(
-                "project_navigation_runtime_cache",
-                ProjectNavigationRuntimeCache,
-                expected_type=ProjectNavigationRuntimeCache,
-                scope="session",
-            )
+            navigation_runtime_cache = diagnostics_service.navigation_cache()
             lookup = navigation_runtime_cache.lookup(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)
             navigation_cache = lookup.status
             navigation_reason = lookup.reason
