@@ -9,16 +9,11 @@ from typing import Any, MutableMapping
 from projects.interpretation_correlation import (
     CorrelationEndpoint,
     CorrelationTie,
-    CorrelationWorkspaceRepository,
-    CorrelationWorkspaceService,
-    discover_published_interpretations,
     export_correlation_csv,
     export_correlation_json,
 )
-from projects.interpretation_correlation_commands import CorrelationHistoryConflict, CorrelationWorkspaceCommandService
+from projects.interpretation_correlation_commands import CorrelationHistoryConflict
 from projects.interpretation_correlation_suggestions import (
-    CorrelationSuggestionAcceptanceJournal,
-    CorrelationSuggestionProfileRepository,
     CorrelationSuggestionSettings,
     build_correlation_suggestions,
     compare_suggestion_scenarios,
@@ -40,6 +35,7 @@ from projects.interpretation_correlation_chart import (
 from projects.repository import DEFAULT_PROJECTS_ROOT
 from core.repository_io import RepositoryIOMetrics
 from core.runtime_service_registry import runtime_service_registry
+from core.application_service_container import application_service_container
 
 
 def _source_key(item: Any) -> str:
@@ -57,11 +53,11 @@ def render_interpretation_correlation_panel(
     io_metrics = registry.ensure(
         "repository_io_metrics", RepositoryIOMetrics, expected_type=RepositoryIOMetrics
     )
-    sources = discover_published_interpretations(root=root, project_id=project_id)
-    repository = CorrelationWorkspaceRepository(
+    application = application_service_container(state).correlation(
         root=root, project_id=project_id, io_metrics=io_metrics
     )
-    workspaces = repository.list()
+    sources = application.list_published_inputs()
+    workspaces = application.list_workspaces()
 
     with st.expander("Корреляция опубликованных интерпретаций", expanded=False):
         st.caption("Корреляционные связи используют только опубликованные ревизии и не изменяют исходные интервалы.")
@@ -75,7 +71,7 @@ def render_interpretation_correlation_panel(
             create_clicked = st.form_submit_button("Создать корреляционный проект", width="stretch")
         if create_clicked:
             try:
-                created = repository.create(name=name, description=description)
+                created = application.create_workspace(name=name, description=description)
             except (ValueError, OSError) as exc:
                 st.error(str(exc))
             else:
@@ -97,12 +93,9 @@ def render_interpretation_correlation_panel(
             format_func=lambda value: next((item.name for item in workspaces if item.id == value), value),
             key=selector_key,
         )
-        workspace = repository.get(workspace_id)
-        service = CorrelationWorkspaceService(root=root, project_id=project_id, workspace_id=workspace.id, io_metrics=io_metrics)
-        commands = CorrelationWorkspaceCommandService(
-            state, root=root, project_id=project_id, workspace_id=workspace.id,
-            io_metrics=io_metrics,
-        )
+        workspace = application.get_workspace(workspace_id)
+        service = application.workspace_service(workspace.id)
+        commands = application.command_service(state, workspace.id)
         history = commands.history_status()
         undo_col, redo_col, history_col = st.columns([1, 1, 2])
         if undo_col.button(
@@ -194,15 +187,12 @@ def render_interpretation_correlation_panel(
                     st.success("Корреляционная связь добавлена.")
                     st.rerun()
 
-        workspace = repository.get(workspace.id)
+        workspace = application.get_workspace(workspace.id)
 
         with st.expander("Автоматические предложения связей", expanded=False):
             st.caption("Настраиваемая детерминированная модель по типу, подписи и близости глубин. Сначала preview, затем подтверждение.")
-            profile_repository = CorrelationSuggestionProfileRepository(root=root, project_id=project_id, io_metrics=io_metrics)
-            acceptance_journal = CorrelationSuggestionAcceptanceJournal(
-                root=root, project_id=project_id, workspace_id=workspace.id,
-                io_metrics=io_metrics,
-            )
+            profile_repository = application.suggestion_profile_repository()
+            acceptance_journal = application.suggestion_acceptance_journal(workspace.id)
             profiles = profile_repository.list()
             selected_profile_id = st.selectbox(
                 "Профиль калибровки",
@@ -337,8 +327,8 @@ def render_interpretation_correlation_panel(
                             key=f"correlation_apply_suggestions_{workspace.id}", width="stretch",
                         ):
                             try:
-                                current_workspace = repository.get(workspace.id)
-                                current_sources = discover_published_interpretations(root=root, project_id=project_id)
+                                current_workspace = application.get_workspace(workspace.id)
+                                current_sources = application.list_published_inputs()
                                 validate_suggestion_preview(preview, current_workspace, current_sources)
                                 selected_ids = set(selected_suggestions)
                                 chosen = [item for item in preview.suggestions if item.id in selected_ids]
@@ -369,7 +359,7 @@ def render_interpretation_correlation_panel(
                 with st.expander("Журнал подтверждённых автокорреляций", expanded=False):
                     st.dataframe(list(reversed(accepted_rows[-20:])), width="stretch", hide_index=True)
 
-        workspace = repository.get(workspace.id)
+        workspace = application.get_workspace(workspace.id)
 
         if len(workspace.wells) >= 2:
             st.markdown("#### Корреляционный планшет")

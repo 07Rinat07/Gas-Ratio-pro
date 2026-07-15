@@ -1689,3 +1689,12 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Expose transaction counts, rollbacks and recent transaction metadata in Developer Diagnostics.
 - [ ] Next: migrate high-value multi-file workflows to the shared transaction API.
 
+
+### Phase 2 — Repository and service decoupling (in progress)
+
+- [x] Add lazy application service container on top of the runtime registry.
+- [x] Move correlation workspace/profile/audit repository access behind an application service.
+- [x] Keep application services project-scoped and removable through lifecycle cleanup.
+- [x] Add architecture tests preventing direct repository construction in correlation UI.
+- [ ] Migrate interpretation workspace, revision and publication UI to application services.
+- [ ] Add service dependency and health diagnostics.

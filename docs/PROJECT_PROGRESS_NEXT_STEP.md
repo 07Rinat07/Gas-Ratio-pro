@@ -613,3 +613,16 @@ errors, warnings and scan completeness.
 
 Extend health coverage to additional project repository roots and add explicit backup
 verification before transaction maintenance or quarantine cleanup.
+
+## Phase 2 — Application service layer and repository decoupling
+
+The first service-decoupling slice is complete for interpretation correlation. A lazy,
+project-scoped application service container now owns the correlation application
+service through the runtime registry. The Streamlit correlation panel no longer
+constructs workspace, profile or audit repositories directly; UI operations flow
+through one application-service facade while repositories remain persistence-only
+implementation details.
+
+Next engineering focus: migrate interpretation workspace and revision/publication
+workflows behind the same application-service boundary, then add dependency and
+service-health views to Developer Diagnostics.

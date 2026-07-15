@@ -2617,3 +2617,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added recovery-readiness scoring and next-scan diagnostics.
 - Added scan, skip and failure counters to Developer Diagnostics.
 - Preserved explicit-only quarantine repairs; scheduled checks never mutate data.
+
+## Phase 2 — Application service layer and repository decoupling
+
+- Added a lazy project-scoped application service container backed by RuntimeServiceRegistry.
+- Added an interpretation-correlation application service facade for workspace, command, profile and audit use cases.
+- Removed direct correlation repository construction from the Streamlit correlation panel.
+- Added lifecycle, reuse and UI architecture boundary tests.
