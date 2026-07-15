@@ -18,6 +18,8 @@ from typing import Any, MutableMapping, Protocol
 from core.command_framework import CommandExecutionResult, WorkbenchCommandRegistry
 from core.build_info import runtime_build_info
 from core.workbench_controller import WorkbenchController, build_workbench_controller
+from core.application_service_container import application_service_container
+from projects.repository import DEFAULT_PROJECTS_ROOT
 from core.workbench_ui_layout import build_workbench_ui_layout
 from core.workbench_property_actions import (
     WORKBENCH_PROPERTY_ACTION_COMMAND_ID, WORKBENCH_PROPERTY_TECHNICAL_KEY,
@@ -318,8 +320,7 @@ def _render_native_streamlit_layout(
         with file_cols[1]:
             if st_module.button("Restore Recent Session", key="workbench_file_restore_session", width="stretch"):
                 try:
-                    from core.workbench_entry_points import WorkbenchEntryPointService
-                    service = WorkbenchEntryPointService(registry.state)
+                    service = application_service_container(registry.state).workbench(projects_root=DEFAULT_PROJECTS_ROOT)
                     result = service.restore_recent_session()
                     registry.state[WORKBENCH_LAST_UI_ACTION_KEY] = {"action_id":"restore_recent_session","title":"Restore Recent Session","executed":True,"message":result.kind}
                 except Exception as exc:
@@ -331,8 +332,7 @@ def _render_native_streamlit_layout(
     elif panel_id == "menu.project":
         st_module.markdown("### Project")
         try:
-            from core.workbench_entry_points import WorkbenchEntryPointService
-            service = WorkbenchEntryPointService(registry.state)
+            service = application_service_container(registry.state).workbench(projects_root=DEFAULT_PROJECTS_ROOT)
             entries = service.project_entries()
             if entries:
                 for entry in entries:

@@ -5238,6 +5238,12 @@ def _dashboard_recent_projects(projects: tuple[ProjectRecord, ...], limit: int =
     return tuple(recent_records[:limit])
 
 
+def _workbench_application_service():
+    return application_service_container(_application_state_controller().state).workbench(
+        projects_root=LAS_CORRELATION_PROJECTS_ROOT,
+    )
+
+
 def _project_manager_service():
     """Return the lazy workspace-scoped project application service."""
     return application_service_container(_application_state_controller().state).project_manager(
@@ -13012,8 +13018,7 @@ def _render_workbench_data_grid(
     source_by_id = {str(row[id_column]): row.to_dict() for _, row in frame.iterrows() if pd.notna(row.get(id_column))}
 
     if enable_multi_selection:
-        from core.workbench_bulk_actions import WorkbenchBulkActionService, bulk_actions_for
-
+        
         with st.expander("Массовые операции", expanded=False):
             selected_ids = st.multiselect(
                 "Выбранные объекты",
@@ -13021,11 +13026,11 @@ def _render_workbench_data_grid(
                 format_func=lambda object_id: str(source_by_id.get(object_id, {}).get(selection_label_column or "", object_id)),
                 key=f"{key_prefix}_bulk_selected",
             )
-            bulk_service = WorkbenchBulkActionService(_application_state_controller().state)
-            bulk_service.set_selection(
+            bulk_service = _workbench_application_service()
+            bulk_service.set_bulk_selection(
                 key=key_prefix, target=selection_target, object_ids=selected_ids, metadata=dict(selection_metadata or {})
             )
-            actions = tuple(bulk_actions_for(selection_target))
+            actions = _workbench_application_service().bulk_actions(selection_target)
             if selected_ids and actions:
                 action_by_id = {str(item["id"]): item for item in actions}
                 action_id = st.selectbox(
@@ -13050,7 +13055,7 @@ def _render_workbench_data_grid(
                     disabled=not confirmed,
                     width="stretch",
                 ):
-                    bulk_service.request({
+                    bulk_service.request_bulk_action({
                         "target": selection_target,
                         "action_id": action_id,
                         "object_ids": tuple(selected_ids),
@@ -13060,7 +13065,7 @@ def _render_workbench_data_grid(
                     _request_ui_refresh_and_rerun("workbench_selection_changed")
             else:
                 st.caption("Выберите один или несколько объектов на текущей странице.")
-            bulk_result = bulk_service.result()
+            bulk_result = bulk_service.bulk_result()
             if bulk_result:
                 message = str(bulk_result.get("message") or "")
                 if bool(bulk_result.get("success")):
@@ -13087,7 +13092,7 @@ def _render_workbench_data_grid(
             str(key): value for key, value in dict(selection_metadata or {}).items()
             if isinstance(value, (str, int, float, bool))
         })
-        WorkbenchSelectionService(_application_state_controller().state).select(
+        _workbench_application_service().select(
             selection_target, str(selected_id), metadata
         )
         st.caption("Подробности выбранной строки отображаются в панели Properties.")
@@ -15706,11 +15711,9 @@ def _process_workbench_bulk_action(logger) -> None:
     import json
     import zipfile
 
-    from core.workbench_bulk_actions import WorkbenchBulkActionService
-
     state = _application_state_controller().state
-    service = WorkbenchBulkActionService(state)
-    request = service.consume()
+    service = _workbench_application_service()
+    request = service.consume_bulk_action()
     if not request:
         return
 
@@ -15739,7 +15742,7 @@ def _process_workbench_bulk_action(logger) -> None:
             elif target == "export":
                 existing = {str(item.id) for item in _export_manager_service().list_exports(project_id)}
                 failures = [item for item in object_ids if item not in existing]
-            service.set_result(
+            service.set_bulk_result(
                 success=not failures,
                 message=(f"Проверено объектов: {len(object_ids)}. Ошибок нет." if not failures else f"Проверено: {len(object_ids)}. Проблемные ID: {', '.join(failures)}"),
                 action_id=action_id,
@@ -15761,7 +15764,7 @@ def _process_workbench_bulk_action(logger) -> None:
                     deleted += int(_export_manager_service().delete_export(project_id, item).deleted)
             else:
                 raise ValueError(f"Массовое удаление не поддерживается для {target}.")
-            service.set_result(success=True, message=f"Удалено объектов: {deleted}. Backup: {backup.file_name}.", action_id=action_id)
+            service.set_bulk_result(success=True, message=f"Удалено объектов: {deleted}. Backup: {backup.file_name}.", action_id=action_id)
             return
 
         if action_id == "export":
@@ -15804,25 +15807,23 @@ def _process_workbench_bulk_action(logger) -> None:
                 source="Workbench Data Grid",
                 metadata={"object_ids": list(object_ids), "target": target},
             )
-            service.set_result(success=True, message=f"ZIP-пакет создан: {save_result.file_name}.", action_id=action_id, export_id=save_result.id)
+            service.set_bulk_result(success=True, message=f"ZIP-пакет создан: {save_result.file_name}.", action_id=action_id, export_id=save_result.id)
             return
 
         raise ValueError(f"Неизвестное массовое действие: {target}/{action_id}")
     except Exception as exc:
         logger.exception("workbench_bulk_action_failed target=%s action=%s", safe_log_value(target), safe_log_value(action_id))
-        service.set_result(success=False, message=f"Не удалось выполнить массовое действие: {exc}", action_id=action_id)
+        service.set_bulk_result(success=False, message=f"Не удалось выполнить массовое действие: {exc}", action_id=action_id)
 
 
 def _process_workbench_property_action(logger) -> None:
     """Execute one requested Properties action at the application boundary."""
 
-    from core.workbench_property_actions import WorkbenchPropertyActionService
-    from core.workbench_context import WorkbenchSelectionService
     from core.workbench_controller import build_workbench_controller
 
     state = _application_state_controller().state
-    action_service = WorkbenchPropertyActionService(state)
-    request = action_service.consume()
+    action_service = _workbench_application_service()
+    request = action_service.consume_property_action()
     if not request:
         return
 
@@ -15840,24 +15841,24 @@ def _process_workbench_property_action(logger) -> None:
                 "export": "nav.exports", "report": "nav.reports", "project": "nav.dashboard",
             }.get(target, "nav.dashboard")
             build_workbench_controller(state).select_navigation(navigation)
-            action_service.set_result(success=True, message="Рабочая область выбранного объекта открыта.", action_id=action_id)
+            action_service.set_property_result(success=True, message="Рабочая область выбранного объекта открыта.", action_id=action_id)
             return
 
         if action_id == "verify":
             if target == "calculation":
                 integrity = check_project_calculation_integrity(LAS_CORRELATION_PROJECTS_ROOT, project_id, object_id)
                 message = "Проверка целостности пройдена." if integrity.ok else "Проверка обнаружила проблемы: " + "; ".join(integrity.messages)
-                action_service.set_result(success=integrity.ok, message=message, action_id=action_id)
+                action_service.set_property_result(success=integrity.ok, message=message, action_id=action_id)
             elif target == "dataset":
                 section = str(metadata.get("section") or "")
                 records = _dataset_manager_service().list_records(project_id, section, include_archived=True)
                 exists = any(str(getattr(record, "id", "")) == object_id for record in records)
-                action_service.set_result(success=exists, message="Dataset зарегистрирован и доступен." if exists else "Dataset отсутствует в manifest.", action_id=action_id)
+                action_service.set_property_result(success=exists, message="Dataset зарегистрирован и доступен." if exists else "Dataset отсутствует в manifest.", action_id=action_id)
             elif target == "las":
                 exists = any(record.id == object_id for record in _las_workspace_service(project_id).list_files(include_archived=True))
-                action_service.set_result(success=exists, message="LAS зарегистрирован и доступен." if exists else "LAS не найден в проекте.", action_id=action_id)
+                action_service.set_property_result(success=exists, message="LAS зарегистрирован и доступен." if exists else "LAS не найден в проекте.", action_id=action_id)
             else:
-                action_service.set_result(success=True, message="Объект доступен.", action_id=action_id)
+                action_service.set_property_result(success=True, message="Объект доступен.", action_id=action_id)
             return
 
         if action_id in {"delete", "archive"} and not confirmed:
@@ -15880,11 +15881,11 @@ def _process_workbench_property_action(logger) -> None:
             message = ("Расчёт удалён." if deleted else "Расчёт уже отсутствует.") + f" Backup: {backup.file_name}."
         else:
             raise ValueError(f"Действие пока не поддерживается: {target}/{action_id}")
-        WorkbenchSelectionService(state).clear("properties_action_completed")
-        action_service.set_result(success=True, message=message, action_id=action_id)
+        _workbench_application_service().clear_selection("properties_action_completed")
+        action_service.set_property_result(success=True, message=message, action_id=action_id)
     except Exception as exc:
         logger.exception("workbench_property_action_failed target=%s object_id=%s action=%s", safe_log_value(target), safe_log_value(object_id), safe_log_value(action_id))
-        action_service.set_result(success=False, message=f"Не удалось выполнить действие: {exc}", action_id=action_id)
+        action_service.set_property_result(success=False, message=f"Не удалось выполнить действие: {exc}", action_id=action_id)
 
 
 def _run_modern_workbench() -> None:

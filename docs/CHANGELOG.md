@@ -1,3 +1,11 @@
+## Application service boundary hardening — Modern Workbench
+
+- Added session-scoped `WorkbenchApplicationService` as the single UI boundary for Workbench entry points, selections, bulk actions and Properties actions.
+- Removed ad-hoc construction of Workbench coordination services from `streamlit_app.py` and `workbench_renderer.py`.
+- Added lazy entry-point initialization and root-aware service isolation in the application-service container.
+- Added lightweight health diagnostics and architecture regression tests for the new boundary.
+
+
 ## Phase 2 — Depth tablet regression and documentation governance stabilization
 
 ## Application service boundary hardening — correlation suggestions

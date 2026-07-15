@@ -31,8 +31,9 @@ class ApplicationServiceDescriptor:
 class ApplicationServiceContainer:
     """Create and reuse project-scoped application services lazily."""
 
-    def __init__(self, registry: RuntimeServiceRegistry) -> None:
+    def __init__(self, registry: RuntimeServiceRegistry, state: MutableMapping[str, Any]) -> None:
         self._registry = registry
+        self._state = state
         self._descriptors: dict[str, ApplicationServiceDescriptor] = {}
 
     @staticmethod
@@ -68,6 +69,41 @@ class ApplicationServiceContainer:
         )
         return service
 
+
+
+    def ensure_session_service(
+        self,
+        *,
+        service_name: str,
+        factory: Callable[[], T],
+        expected_type: type[T],
+        instance_key: str = "",
+    ) -> T:
+        """Create/reuse a session-scoped application service."""
+        clean_name = str(service_name).strip()
+        if not clean_name:
+            raise ValueError("Service name must not be empty.")
+        suffix = str(instance_key).strip()
+        key = f"application::{clean_name}::__session__" + (f"::{suffix}" if suffix else "")
+        service = self._registry.ensure(
+            key, factory, expected_type=expected_type, scope="session"
+        )
+        self._descriptors[key] = ApplicationServiceDescriptor(
+            key=key, service_name=clean_name, project_id="__session__",
+            type_name=type(service).__name__,
+        )
+        return service
+
+    def workbench(self, *, projects_root: Path | str, sessions_dir: Path | str = "data/sessions"):
+        from services.workbench_application_service import WorkbenchApplicationService
+        return self.ensure_session_service(
+            service_name="workbench",
+            factory=lambda: WorkbenchApplicationService(
+                self._state, projects_root=projects_root, sessions_dir=sessions_dir
+            ),
+            expected_type=WorkbenchApplicationService,
+            instance_key=f"{Path(projects_root).resolve()}::{Path(sessions_dir).resolve()}",
+        )
 
     def ensure_workspace_service(
         self,
@@ -276,7 +312,7 @@ def application_service_container(state: MutableMapping[str, Any]) -> Applicatio
     registry = runtime_service_registry(state)
     return registry.ensure(
         _CONTAINER_KEY,
-        lambda: ApplicationServiceContainer(registry),
+        lambda: ApplicationServiceContainer(registry, state),
         expected_type=ApplicationServiceContainer,
         scope="session",
     )
