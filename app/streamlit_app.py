@@ -366,7 +366,6 @@ from reports.report_designer import (
 from reports.report_designer_export import build_designed_report_artifact
 from reports.pdf_preview import (
     PdfPreviewResult,
-    PdfPreviewRuntimeCache,
     PdfPreviewUnavailableError,
     build_pdf_preview,
     build_pdf_preview_signature,
@@ -5257,7 +5256,7 @@ def _well_manager_service() -> WellManagerService:
 
 def _las_workspace_service(project_id: str):
     """Return the lazy project-scoped LAS application service."""
-    return application_service_container(st.session_state).las_workspace(
+    return application_service_container(_application_state_controller().state).las_workspace(
         project_id=project_id,
         root=LAS_CORRELATION_PROJECTS_ROOT,
     )
@@ -9071,35 +9070,21 @@ def _render_professional_export_panel(
             expected_type=CacheMetricsRegistry,
             scope="session",
         )
-        pdf_preview_runtime_cache = state_controller.ensure_runtime_service(
-            f"pdf_preview_runtime_cache::{active_project.id}",
-            lambda: PdfPreviewRuntimeCache(
-                max_entries=3,
-                max_bytes=24 * 1024 * 1024,
-                metrics=cache_metrics_registry.counter(
-                    "pdf_preview_runtime", max_entries=3
-                ),
-            ),
-            expected_type=PdfPreviewRuntimeCache,
-            scope="project",
+        pdf_preview_runtime_cache = application_service_container(export_state).pdf_preview(
+            project_id=str(active_project.id),
+            root=PROJECTS_ROOT,
+            metrics_registry=cache_metrics_registry,
         )
         # Migrate and immediately remove the legacy Session State payload.
         legacy_pdf_preview_cache = export_state.pop(pdf_preview_cache_key, None)
         if isinstance(legacy_pdf_preview_cache, dict):
-            legacy_entries = legacy_pdf_preview_cache.get("entries")
-            if not isinstance(legacy_entries, (list, tuple)):
-                legacy_entries = (legacy_pdf_preview_cache,)
-            for legacy_entry in reversed(tuple(legacy_entries)):
-                if not isinstance(legacy_entry, dict):
-                    continue
-                legacy_signature = legacy_entry.get("signature")
-                legacy_result = legacy_entry.get("result")
-                if isinstance(legacy_signature, str) and isinstance(legacy_result, PdfPreviewResult):
-                    pdf_preview_runtime_cache.store(legacy_signature, legacy_result)
+            migrated_entries = pdf_preview_runtime_cache.migrate_legacy_entries(
+                legacy_pdf_preview_cache
+            )
             logger.info(
                 "pdf_preview_cache_migrated project_id=%s entries=%d",
                 safe_log_value(active_project.id),
-                pdf_preview_runtime_cache.snapshot().entry_count,
+                migrated_entries,
             )
         background_state_key = f"background_export_metadata_{active_project.id}"
         background_manager_key = f"background_export_manager_{active_project.id}"

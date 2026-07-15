@@ -1,3 +1,10 @@
+
+## PDF preview application-service boundary
+
+- Added project-scoped `PdfPreviewApplicationService` for bounded PDF preview cache ownership.
+- Moved PDF runtime cache construction and legacy Session State migration out of Streamlit UI.
+- Added lazy `ApplicationServiceContainer.pdf_preview(...)` resolution, health diagnostics, and architectural tests.
+
 ## Phase 2 — Presentation Export Application Service Boundary
 
 - Added a lazy project-scoped `PresentationExportApplicationService`.

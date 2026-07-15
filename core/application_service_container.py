@@ -136,6 +136,31 @@ class ApplicationServiceContainer:
             expected_type=LasWorkspaceApplicationService,
         )
 
+
+    def pdf_preview(
+        self,
+        *,
+        project_id: str,
+        root: Path | str,
+        metrics_registry=None,
+    ):
+        # Local import keeps heavy PDF preview runtime dependencies lazy.
+        from services.pdf_preview_application_service import (
+            PdfPreviewApplicationService,
+        )
+
+        return self.ensure_project_service(
+            service_name="pdf_preview",
+            project_id=project_id,
+            root=root,
+            factory=lambda: PdfPreviewApplicationService(
+                root=root,
+                project_id=project_id,
+                metrics_registry=metrics_registry,
+            ),
+            expected_type=PdfPreviewApplicationService,
+        )
+
     def interpretation_workspace(
         self,
         *,
