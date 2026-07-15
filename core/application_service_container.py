@@ -68,6 +68,55 @@ class ApplicationServiceContainer:
         )
         return service
 
+
+    def ensure_workspace_service(
+        self,
+        *,
+        service_name: str,
+        root: Path | str,
+        factory: Callable[[], T],
+        expected_type: type[T],
+    ) -> T:
+        """Create/reuse a workspace-scoped service without serializing it in session state."""
+        key = self._service_key(service_name, "__workspace__", root)
+        service = self._registry.ensure(
+            key, factory, expected_type=expected_type, scope="workspace"
+        )
+        self._descriptors[key] = ApplicationServiceDescriptor(
+            key=key, service_name=str(service_name), project_id="__workspace__",
+            type_name=type(service).__name__,
+        )
+        return service
+
+    def project_manager(self, *, root: Path | str, default_project_id: str):
+        from services.project_manager_service import ProjectManagerService
+        return self.ensure_workspace_service(
+            service_name="project_manager", root=root,
+            factory=lambda: ProjectManagerService(root, default_project_id),
+            expected_type=ProjectManagerService,
+        )
+
+    def export_manager(self, *, root: Path | str):
+        from services.export_manager_service import ExportManagerService
+        return self.ensure_workspace_service(
+            service_name="export_manager", root=root,
+            factory=lambda: ExportManagerService(root), expected_type=ExportManagerService,
+        )
+
+    def well_manager(self, *, root: Path | str):
+        from services.well_manager_service import WellManagerService
+        return self.ensure_workspace_service(
+            service_name="well_manager", root=root,
+            factory=lambda: WellManagerService(root), expected_type=WellManagerService,
+        )
+
+    def dataset_manager(self, *, root: Path | str):
+        from services.dataset_manager_service import DatasetManagerService
+        return self.ensure_workspace_service(
+            service_name="dataset_manager", root=root,
+            factory=lambda: DatasetManagerService(root), expected_type=DatasetManagerService,
+        )
+
     def correlation(
         self,
         *,

@@ -2655,3 +2655,8 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Migrated Streamlit LAS list/read/save/archive/restore/delete/export workflows to the application-service boundary.
 - Removed direct `LasManagerService` construction from the UI module.
 - Added lifecycle, project-isolation and health-snapshot tests.
+
+## 2026-07-15 — Workspace manager service lifecycle hardening
+- Project, export, well and dataset manager services are now created lazily through `ApplicationServiceContainer`.
+- Added workspace-scoped service lifecycle support to keep live managers out of Streamlit session state.
+- Removed direct manager construction from the Streamlit UI boundary.

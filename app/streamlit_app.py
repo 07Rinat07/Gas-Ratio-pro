@@ -328,10 +328,8 @@ from projects.recent_projects import (
     touch_recent_project,
 )
 from core.application_service_container import application_service_container
-from services.project_manager_service import ProjectManagerService
-from services.export_manager_service import ExportManagerService
-from services.well_manager_service import DEFAULT_WELLS_STORAGE_ROOT, WellManagerService
-from services.dataset_manager_service import DatasetManagerService, StorageDeleteError
+from services.well_manager_service import DEFAULT_WELLS_STORAGE_ROOT
+from services.dataset_manager_service import StorageDeleteError
 from core.storage_lifecycle import IndexManager
 from projects import calculations as project_calculations
 from projects import exports as project_exports
@@ -5239,19 +5237,25 @@ def _dashboard_recent_projects(projects: tuple[ProjectRecord, ...], limit: int =
     return tuple(recent_records[:limit])
 
 
-def _project_manager_service() -> ProjectManagerService:
-    """Return the application-level project manager service for UI workflows."""
-    return ProjectManagerService(LAS_CORRELATION_PROJECTS_ROOT, DEFAULT_PROJECT_ID)
+def _project_manager_service():
+    """Return the lazy workspace-scoped project application service."""
+    return application_service_container(_application_state_controller().state).project_manager(
+        root=LAS_CORRELATION_PROJECTS_ROOT, default_project_id=DEFAULT_PROJECT_ID
+    )
 
 
-def _export_manager_service() -> ExportManagerService:
-    """Return the application-level export manager service for UI workflows."""
-    return ExportManagerService(LAS_CORRELATION_PROJECTS_ROOT)
+def _export_manager_service():
+    """Return the lazy workspace-scoped export application service."""
+    return application_service_container(_application_state_controller().state).export_manager(
+        root=LAS_CORRELATION_PROJECTS_ROOT
+    )
 
 
-def _well_manager_service() -> WellManagerService:
-    """Return the application-level well manager service for UI workflows."""
-    return WellManagerService(WELLS_STORAGE_ROOT)
+def _well_manager_service():
+    """Return the lazy workspace-scoped well application service."""
+    return application_service_container(_application_state_controller().state).well_manager(
+        root=WELLS_STORAGE_ROOT
+    )
 
 
 def _las_workspace_service(project_id: str):
@@ -5262,9 +5266,11 @@ def _las_workspace_service(project_id: str):
     )
 
 
-def _dataset_manager_service() -> DatasetManagerService:
-    """Return the application-level dataset manager service for UI workflows."""
-    return DatasetManagerService(LAS_CORRELATION_PROJECTS_ROOT)
+def _dataset_manager_service():
+    """Return the lazy workspace-scoped dataset application service."""
+    return application_service_container(_application_state_controller().state).dataset_manager(
+        root=LAS_CORRELATION_PROJECTS_ROOT
+    )
 
 
 def _index_manager() -> IndexManager:
