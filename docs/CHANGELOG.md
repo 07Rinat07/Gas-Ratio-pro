@@ -2711,3 +2711,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Preserved the existing Diagnostics Center compatibility key while isolating schedulers per project.
 - Added architecture and lifecycle tests for service reuse, project isolation, and lightweight health diagnostics.
 
+
+## 2026-07-15 — Interpretation presentation runtime application-service boundary
+
+- Added lazy project-scoped `InterpretationPresentationApplicationService`.
+- Moved DataFrame signature/sample caching and Plotly bundle caching behind the application-service container.
+- Removed direct `DataframeRuntimeCache` and `PlotCache` construction from Streamlit UI.
+- Added explicit cache operations, project isolation, lightweight health diagnostics, and UI boundary tests.

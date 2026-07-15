@@ -234,10 +234,8 @@ from core.hydrocarbon_intervals import detect_hydrocarbon_intervals
 from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
 from palettes.plot_engine import PLOTLY_SCREEN_CONFIG, downsample_frame_for_screen, enhance_screen_visibility
-from palettes.plot_cache import PlotCache
 from core.runtime_diagnostics import RuntimeDiagnostics
 from core.rerun_coordinator import begin_rerun_cycle, request_rerun
-from core.dataframe_runtime_cache import DEFAULT_DATAFRAME_CACHE_BYTES, DataframeRuntimeCache
 from core.cache_metrics import CacheMetricsRegistry
 from core.correlation_runtime_cache import CorrelationRenderArtifacts, CorrelationRuntimeCache
 from core.session_state_audit import audit_session_state
@@ -10931,17 +10929,12 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         CacheMetricsRegistry,
         expected_type=CacheMetricsRegistry,
     )
-    dataframe_runtime_cache = state_controller.ensure_runtime_service(
-        "dataframe_runtime_cache",
-        lambda: DataframeRuntimeCache(
-            max_samples=8,
-            max_bytes=DEFAULT_DATAFRAME_CACHE_BYTES,
-            metrics=cache_metrics_registry.counter("dataframe_runtime", max_entries=8),
-        ),
-        expected_type=DataframeRuntimeCache,
-        scope="project",
+    presentation_service = application_service_container(state_controller.state).interpretation_presentation(
+        project_id=str(active_project.id),
+        root=LAS_CORRELATION_PROJECTS_ROOT,
+        metrics_registry=cache_metrics_registry,
     )
-    calculated_signature = dataframe_runtime_cache.signature(
+    calculated_signature = presentation_service.dataframe_signature(
         calculated_df,
         revision=revision_snapshot.calculation,
         builder=dataframe_signature,
@@ -11042,7 +11035,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         revisions = revision_controller_from_state(_application_state_controller().state)
         persist_revisions(_application_state_controller().state, revisions.bump_presentation())
         _application_state_controller().state.pop("interpretation_figure_cache", None)
-        _application_state_controller().remove_runtime_service("interpretation_plot_cache", None)
+        presentation_service.clear_plots()
         logger.info(
             "interpretation_presentation_committed signature=%s calculation_revision=%d tracks=%s",
             safe_log_value(calculated_signature[:12]),
@@ -11077,7 +11070,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         revisions = revision_controller_from_state(_application_state_controller().state)
         persist_revisions(_application_state_controller().state, revisions.bump_presentation())
         _application_state_controller().state.pop("interpretation_figure_cache", None)
-        _application_state_controller().remove_runtime_service("interpretation_plot_cache", None)
+        presentation_service.clear_plots()
         logger.info(
             "interpretation_presentation_auto_committed signature=%s calculation_revision=%d tracks=%s",
             safe_log_value(calculated_signature[:12]),
@@ -11138,14 +11131,14 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     if filtered_df.empty:
         st.error("В примененном диапазоне глубин нет строк. Измените настройки и повторно постройте графики.")
         return
-    screen_filtered_df = dataframe_runtime_cache.screen_sample(
+    screen_filtered_df = presentation_service.screen_sample(
         filtered_df,
         source_signature=calculated_signature,
         depth_range=depth_range,
         max_rows=2200,
         sampler=downsample_frame_for_screen,
     )
-    dataframe_cache_stats = dataframe_runtime_cache.stats()
+    dataframe_cache_stats = presentation_service.dataframe_stats()
     if len(screen_filtered_df) < len(filtered_df):
         logger.info(
             "interpretation_screen_downsample full_rows=%d screen_rows=%d sample_hits=%d sample_misses=%d",
@@ -11191,7 +11184,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         tablet_depth_range[0],
         tablet_depth_range[1],
     )
-    tablet_screen_df = dataframe_runtime_cache.screen_sample(
+    tablet_screen_df = presentation_service.screen_sample(
         tablet_source_df,
         source_signature=f"{calculated_signature}:tablet",
         depth_range=tablet_depth_range,
@@ -11226,11 +11219,6 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         selected_manual_interval_id,
     )
     state = state_controller.state
-    plot_cache = state_controller.ensure_runtime_service(
-        "interpretation_plot_cache",
-        lambda: PlotCache(max_entries=4),
-        expected_type=PlotCache,
-    )
     runtime_diagnostics = state_controller.ensure_runtime_service(
         "runtime_diagnostics",
         lambda: RuntimeDiagnostics(max_events=64),
@@ -11238,7 +11226,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     )
     performance_cycle_marker = runtime_diagnostics.mark()
     cache_lookup_started = perf_counter()
-    cached_bundle = plot_cache.get(figure_cache_key)
+    cached_bundle = presentation_service.get_plot_bundle(figure_cache_key)
     plot_cache_hit = cached_bundle is not None
     if cached_bundle is not None:
         figures = list(cached_bundle.figures)
@@ -11246,7 +11234,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         screen_plot_fingerprints = list(cached_bundle.fingerprints)
         screen_plot_sizes = list(cached_bundle.serialized_sizes)
         tablet_figure = cached_bundle.tablet_figure
-        cache_stats = plot_cache.stats()
+        cache_stats = presentation_service.plot_stats()
         lookup_duration_ms = (perf_counter() - cache_lookup_started) * 1000.0
         runtime_diagnostics.record(
             stage="interpretation_plots",
@@ -11258,7 +11246,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         )
         logger.info(
             "interpretation_plot_cache_hit rows=%d figure_count=%d cache_entries=%d cache_bytes=%d lookup_ms=%.2f",
-            len(filtered_df), len(figures), len(plot_cache), cache_stats.estimated_bytes, lookup_duration_ms,
+            len(filtered_df), len(figures), cache_stats.entries, cache_stats.estimated_bytes, lookup_duration_ms,
         )
     else:
         render_status = st.empty()
@@ -11373,12 +11361,12 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             )
         tablet_result = next((result for result in task_results if result.task_id == "engineering-tablet"), None)
         tablet_figure = tablet_result.value if tablet_result is not None else None
-        cached_bundle = plot_cache.put(figure_cache_key, figures, tablet_figure=tablet_figure)
+        cached_bundle = presentation_service.put_plot_bundle(figure_cache_key, figures, tablet_figure=tablet_figure)
         screen_plot_payloads = list(cached_bundle.screen_payloads)
         screen_plot_fingerprints = list(cached_bundle.fingerprints)
         screen_plot_sizes = list(cached_bundle.serialized_sizes)
         render_duration_ms = (perf_counter() - render_started) * 1000.0
-        cache_stats = plot_cache.stats()
+        cache_stats = presentation_service.plot_stats()
         runtime_diagnostics.record(
             stage="interpretation_plots",
             duration_ms=render_duration_ms,

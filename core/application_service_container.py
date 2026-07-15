@@ -261,6 +261,29 @@ class ApplicationServiceContainer:
             expected_type=PdfPreviewApplicationService,
         )
 
+    def interpretation_presentation(
+        self,
+        *,
+        project_id: str,
+        root: Path | str,
+        metrics_registry=None,
+    ):
+        from services.interpretation_presentation_application_service import (
+            InterpretationPresentationApplicationService,
+        )
+
+        return self.ensure_project_service(
+            service_name="interpretation_presentation",
+            project_id=project_id,
+            root=root,
+            factory=lambda: InterpretationPresentationApplicationService(
+                root=root,
+                project_id=project_id,
+                metrics_registry=metrics_registry,
+            ),
+            expected_type=InterpretationPresentationApplicationService,
+        )
+
     def interpretation_workspace(
         self,
         *,
