@@ -33,8 +33,6 @@ from projects.interpretation_correlation_chart import (
     export_correlation_svg,
 )
 from projects.repository import DEFAULT_PROJECTS_ROOT
-from core.repository_io import RepositoryIOMetrics
-from core.runtime_service_registry import runtime_service_registry
 from core.application_service_container import application_service_container
 
 
@@ -49,12 +47,8 @@ def render_interpretation_correlation_panel(
     project_id: str,
     root: Path | str = DEFAULT_PROJECTS_ROOT,
 ) -> None:
-    registry = runtime_service_registry(state)
-    io_metrics = registry.ensure(
-        "repository_io_metrics", RepositoryIOMetrics, expected_type=RepositoryIOMetrics
-    )
     application = application_service_container(state).correlation(
-        root=root, project_id=project_id, io_metrics=io_metrics
+        root=root, project_id=project_id
     )
     sources = application.list_published_inputs()
     workspaces = application.list_workspaces()

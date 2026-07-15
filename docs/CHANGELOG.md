@@ -2726,3 +2726,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Removed direct `CorrelationRuntimeCache` construction and lookup from Streamlit UI.
 - Isolated correlation render artifacts and cache telemetry by project context.
 - Added lifecycle, bounded-cache, validation, health-snapshot, and UI-boundary tests.
+
+## 2026-07-15 — Correlation diagnostics dependency injection hardening
+
+- Removed direct `RepositoryIOMetrics` construction and runtime-registry access from the interpretation correlation UI.
+- Made `ApplicationServiceContainer.correlation()` resolve repository telemetry through `RuntimeDiagnosticsApplicationService` by default.
+- Preserved optional explicit metrics injection for isolated tests and specialized integrations.
+- Ensured correlation services across projects reuse the single session-scoped telemetry collector.
+- Added architecture and lifecycle tests for the diagnostics dependency boundary.

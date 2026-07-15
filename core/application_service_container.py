@@ -31,9 +31,13 @@ class ApplicationServiceDescriptor:
 class ApplicationServiceContainer:
     """Create and reuse project-scoped application services lazily."""
 
-    def __init__(self, registry: RuntimeServiceRegistry, state: MutableMapping[str, Any]) -> None:
+    def __init__(
+        self,
+        registry: RuntimeServiceRegistry,
+        state: MutableMapping[str, Any] | None = None,
+    ) -> None:
         self._registry = registry
-        self._state = state
+        self._state = state if state is not None else {}
         self._descriptors: dict[str, ApplicationServiceDescriptor] = {}
 
     @staticmethod
@@ -180,6 +184,18 @@ class ApplicationServiceContainer:
             InterpretationCorrelationApplicationService,
         )
 
+        effective_metrics = io_metrics
+        if effective_metrics is None:
+            from services.runtime_diagnostics_application_service import (
+                RuntimeDiagnosticsApplicationService,
+            )
+
+            # Resolve the shared collector through the diagnostics application
+            # boundary without eagerly registering a workspace service descriptor.
+            effective_metrics = RuntimeDiagnosticsApplicationService(
+                root=root, registry=self._registry
+            ).repository_metrics()
+
         return self.ensure_project_service(
             service_name="interpretation_correlation",
             project_id=project_id,
@@ -187,7 +203,7 @@ class ApplicationServiceContainer:
             factory=lambda: InterpretationCorrelationApplicationService(
                 root=root,
                 project_id=project_id,
-                io_metrics=io_metrics,
+                io_metrics=effective_metrics,
             ),
             expected_type=InterpretationCorrelationApplicationService,
         )
