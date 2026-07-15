@@ -15,6 +15,7 @@ from core.project_navigation_runtime_cache import ProjectNavigationRuntimeCache
 from core.repository_health import RepositoryHealthService
 from core.repository_health_scheduler import RepositoryHealthScheduler
 from core.repository_io import RepositoryIOMetrics
+from core.runtime_diagnostics import RuntimeDiagnostics
 from core.runtime_service_registry import RuntimeServiceRegistry
 
 
@@ -32,6 +33,38 @@ class RuntimeDiagnosticsApplicationService:
             "cache_metrics_registry",
             CacheMetricsRegistry,
             expected_type=CacheMetricsRegistry,
+            scope="session",
+        )
+
+
+    def runtime_events(
+        self,
+        channel: str,
+        *,
+        max_events: int = 64,
+    ) -> RuntimeDiagnostics:
+        """Return a bounded session-scoped event collector for one UI channel.
+
+        Channel names isolate interpretation, correlation, export, and other
+        diagnostic streams while keeping their live ring buffers out of
+        serializable session state.
+        """
+        clean_channel = str(channel or "").strip()
+        if not clean_channel:
+            raise ValueError("Diagnostics channel must not be empty.")
+        clean_limit = int(max_events)
+        if clean_limit < 1:
+            raise ValueError("max_events must be positive.")
+        key = f"runtime_diagnostics::{clean_channel}"
+        collector = self._registry.get(key)
+        if collector is not None:
+            if not isinstance(collector, RuntimeDiagnostics):
+                raise TypeError(f"Runtime service {key!r} has unexpected type {type(collector).__name__}.")
+            return collector
+        return self._registry.ensure(
+            key,
+            lambda: RuntimeDiagnostics(max_events=clean_limit),
+            expected_type=RuntimeDiagnostics,
             scope="session",
         )
 
@@ -99,6 +132,10 @@ class RuntimeDiagnosticsApplicationService:
             "active_project_id": self._active_project_id,
             "cache_metrics_ready": self._registry.get("cache_metrics_registry") is not None,
             "repository_metrics_ready": self._registry.get("repository_io_metrics") is not None,
+            "runtime_event_channels": sum(
+                1 for item in self._registry.descriptors()
+                if item.key.startswith("runtime_diagnostics::")
+            ),
             "navigation_cache_ready": self._registry.get("project_navigation_runtime_cache") is not None,
             "project_health_ready": self._registry.get("repository_health_service") is not None,
         }

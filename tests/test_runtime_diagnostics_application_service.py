@@ -52,3 +52,42 @@ def test_project_health_rejects_empty_project_id(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError):
         service.prepare_project_health("  ")
+
+
+def test_runtime_event_collectors_are_lazy_reused_and_channel_isolated(tmp_path: Path) -> None:
+    registry = RuntimeServiceRegistry()
+    service = RuntimeDiagnosticsApplicationService(root=tmp_path, registry=registry)
+
+    interpretation = service.runtime_events("interpretation.presentation", max_events=8)
+    interpretation_again = service.runtime_events("interpretation.presentation", max_events=32)
+    correlation = service.runtime_events("correlation.presentation", max_events=16)
+
+    assert interpretation is interpretation_again
+    assert interpretation.max_events == 8
+    assert correlation is not interpretation
+    assert correlation.max_events == 16
+    assert service.health_snapshot()["runtime_event_channels"] == 2
+    assert all(
+        item.scope == "session"
+        for item in registry.descriptors()
+        if item.key.startswith("runtime_diagnostics::")
+    )
+
+
+def test_runtime_event_collector_rejects_invalid_arguments(tmp_path: Path) -> None:
+    service = RuntimeDiagnosticsApplicationService(root=tmp_path, registry=RuntimeServiceRegistry())
+
+    with pytest.raises(ValueError):
+        service.runtime_events("  ")
+    with pytest.raises(ValueError):
+        service.runtime_events("interpretation", max_events=0)
+
+
+def test_streamlit_ui_resolves_runtime_diagnostics_through_application_service() -> None:
+    source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
+
+    assert "from core.runtime_diagnostics import RuntimeDiagnostics" not in source
+    assert "lambda: RuntimeDiagnostics(" not in source
+    assert '.runtime_events("interpretation.presentation"' not in source  # multiline API remains explicit below
+    assert '"interpretation.presentation", max_events=64' in source
+    assert '"correlation.presentation", max_events=128' in source

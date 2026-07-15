@@ -234,7 +234,6 @@ from core.hydrocarbon_intervals import detect_hydrocarbon_intervals
 from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
 from palettes.plot_engine import PLOTLY_SCREEN_CONFIG, downsample_frame_for_screen, enhance_screen_visibility
-from core.runtime_diagnostics import RuntimeDiagnostics
 from core.rerun_coordinator import begin_rerun_cycle, request_rerun
 from core.session_state_audit import audit_session_state
 from core.performance_audit import build_workspace_performance_gate, evaluate_performance
@@ -11214,10 +11213,10 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         selected_manual_interval_id,
     )
     state = state_controller.state
-    runtime_diagnostics = state_controller.ensure_runtime_service(
-        "runtime_diagnostics",
-        lambda: RuntimeDiagnostics(max_events=64),
-        expected_type=RuntimeDiagnostics,
+    runtime_diagnostics = application_service_container(
+        state_controller.state
+    ).runtime_diagnostics(root=LAS_CORRELATION_PROJECTS_ROOT).runtime_events(
+        "interpretation.presentation", max_events=64
     )
     performance_cycle_marker = runtime_diagnostics.mark()
     cache_lookup_started = perf_counter()
@@ -15024,10 +15023,10 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         tuple(sorted((str(key), repr(value)) for key, value in applied_correlation.studio_settings.items())),
     )
     correlation_state_controller = _application_state_controller()
-    correlation_diagnostics = correlation_state_controller.ensure_runtime_service(
-        "runtime_diagnostics",
-        lambda: RuntimeDiagnostics(max_events=128),
-        expected_type=RuntimeDiagnostics,
+    correlation_diagnostics = application_service_container(
+        correlation_state_controller.state
+    ).runtime_diagnostics(root=LAS_CORRELATION_PROJECTS_ROOT).runtime_events(
+        "correlation.presentation", max_events=128
     )
     correlation_cycle_marker = correlation_diagnostics.mark()
     correlation_presentation_service = application_service_container(

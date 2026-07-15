@@ -1,3 +1,12 @@
+## Unreleased — Runtime diagnostics event-channel boundary
+
+- Added channel-scoped, session-lifecycle `RuntimeDiagnostics` collectors behind `RuntimeDiagnosticsApplicationService`.
+- Removed direct `RuntimeDiagnostics` construction from interpretation and correlation Streamlit presentation paths.
+- Isolated bounded diagnostic ring buffers by explicit channel while keeping live collectors outside serializable session state.
+- Extended lightweight health diagnostics with the number of active runtime event channels.
+- Added lifecycle, validation, architecture, and presentation regression coverage.
+
+
 ## Unreleased — Presentation cache dependency boundary hardening
 
 - Cache telemetry resolution for PDF preview, interpretation presentation, and correlation presentation is now owned by `ApplicationServiceContainer`.
