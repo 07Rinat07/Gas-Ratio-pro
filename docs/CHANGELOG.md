@@ -2633,3 +2633,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added an interpretation-correlation application service facade for workspace, command, profile and audit use cases.
 - Removed direct correlation repository construction from the Streamlit correlation panel.
 - Added lifecycle, reuse and UI architecture boundary tests.
+
+## 2026-07-15 — Interpretation workspace application-service boundary
+
+- Added a lazy, project-scoped `InterpretationWorkspaceApplicationService`.
+- Moved interpretation catalog, interval type, filter preset, and revision repository construction behind the application-service container.
+- Removed direct persistence-repository construction from `ui/interpretation_interval_panel.py`.
+- Added service lifecycle, project-scope, encapsulation, and UI architecture-boundary tests.

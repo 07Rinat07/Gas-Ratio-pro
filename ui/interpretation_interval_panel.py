@@ -8,9 +8,10 @@ are stored in Streamlit session state.
 """
 
 from pathlib import Path
+
+from core.application_service_container import application_service_container
 from typing import Any, MutableMapping
 
-from projects.interpretation_catalog import InterpretationCatalogRepository
 from projects.interpretation_interval_analysis import (
     InterpretationIntervalFilter,
     filter_interpretation_intervals,
@@ -27,7 +28,6 @@ from projects.interpretation_interval_imports import (
     parse_interpretation_interval_import,
 )
 from projects.interpretation_interval_filter_presets import (
-    InterpretationIntervalFilterPresetRepository,
     export_filter_presets_json,
     import_filter_presets_json,
 )
@@ -41,7 +41,6 @@ from projects.interpretation_interval_manager import (
 )
 from projects.interpretation_interval_merge import InterpretationIntervalMergeService
 from projects.interpretation_interval_properties import InterpretationIntervalPropertiesService
-from projects.interpretation_revisions import InterpretationRevisionRepository
 from projects.interpretation_publication import InterpretationPublicationService
 from projects.interpretation_publication_exports import (
     export_publication_audit_csv,
@@ -54,7 +53,6 @@ from projects.interpretation_interval_type_operation_exports import (
     export_type_operations_json,
     export_type_operations_xlsx,
 )
-from projects.interpretation_interval_types import InterpretationIntervalTypeRepository
 from projects.repository import DEFAULT_PROJECTS_ROOT
 
 
@@ -85,11 +83,11 @@ def render_interpretation_interval_panel(
     """Render CRUD and property editing for manually managed intervals."""
 
     well_id = resolve_interpretation_well_id(state)
-    catalog_repository = InterpretationCatalogRepository(
-        root=root,
+    workspace_service = application_service_container(state).interpretation_workspace(
         project_id=project_id,
-        well_id=well_id,
+        root=root,
     )
+    catalog_repository = workspace_service.catalog(well_id=well_id)
     catalog_items = catalog_repository.list()
     interpretation_ids = [item.id for item in catalog_items]
     selector_key = f"manual_interval_interpretation_selector_{project_id}_{well_id}"
@@ -112,11 +110,9 @@ def render_interpretation_interval_panel(
         interpretation_id=selected_interpretation_id,
     )
     properties_service = InterpretationIntervalPropertiesService(manager)
-    type_repository = InterpretationIntervalTypeRepository(root=root, project_id=project_id)
+    type_repository = workspace_service.interval_types()
     interval_types = type_repository.list()
-    preset_repository = InterpretationIntervalFilterPresetRepository(
-        root=root,
-        project_id=project_id,
+    preset_repository = workspace_service.filter_presets(
         well_id=well_id,
         interpretation_id=manager.interpretation_id,
     )
@@ -331,8 +327,8 @@ def render_interpretation_interval_panel(
                         publication_service.approve(comment=workflow_comment)
                         st.rerun()
                 elif publication_state.status == "approved":
-                    approval_revisions = InterpretationRevisionRepository(
-                        root=root, project_id=project_id, well_id=well_id, interpretation_id=manager.interpretation_id
+                    approval_revisions = workspace_service.revisions(
+                        well_id=well_id, interpretation_id=manager.interpretation_id
                     ).list()
                     if approval_revisions:
                         publish_revision_id = st.selectbox(
@@ -408,9 +404,7 @@ def render_interpretation_interval_panel(
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", width="stretch",
                 )
 
-        revision_repository = InterpretationRevisionRepository(
-            root=root,
-            project_id=project_id,
+        revision_repository = workspace_service.revisions(
             well_id=well_id,
             interpretation_id=manager.interpretation_id,
         )

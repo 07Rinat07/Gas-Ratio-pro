@@ -114,6 +114,28 @@ class ApplicationServiceContainer:
             expected_type=PresentationExportApplicationService,
         )
 
+    def interpretation_workspace(
+        self,
+        *,
+        project_id: str,
+        root: Path | str,
+    ):
+        # Local import preserves lazy loading of interpretation persistence.
+        from services.interpretation_workspace_application_service import (
+            InterpretationWorkspaceApplicationService,
+        )
+
+        return self.ensure_project_service(
+            service_name="interpretation_workspace",
+            project_id=project_id,
+            root=root,
+            factory=lambda: InterpretationWorkspaceApplicationService(
+                root=root,
+                project_id=project_id,
+            ),
+            expected_type=InterpretationWorkspaceApplicationService,
+        )
+
     def descriptors(self) -> tuple[ApplicationServiceDescriptor, ...]:
         active_keys = {item.key for item in self._registry.descriptors()}
         stale = tuple(key for key in self._descriptors if key not in active_keys)
