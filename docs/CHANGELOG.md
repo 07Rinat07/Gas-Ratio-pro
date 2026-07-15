@@ -1,5 +1,14 @@
 ## Phase 2 — Depth tablet regression and documentation governance stabilization
 
+## Application service boundary hardening — correlation suggestions
+
+- Removed correlation suggestion repository and acceptance-journal objects from the Streamlit UI contract.
+- Added explicit application use cases for listing, saving and deleting calibration profiles.
+- Added explicit application use cases for recording and reading accepted suggestion batches.
+- Added lazy project-scoped profile storage and workspace-scoped journal reuse inside the application service.
+- Extended service health diagnostics with initialized profile/journal scopes.
+
+
 ## Export progress contract stabilization
 
 - Added a centralized four-stage progress contract for professional background exports.

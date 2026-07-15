@@ -44,6 +44,8 @@ class InterpretationCorrelationApplicationService:
             project_id=self.project_id,
             io_metrics=io_metrics,
         )
+        self._suggestion_profiles: CorrelationSuggestionProfileRepository | None = None
+        self._acceptance_journals: dict[str, CorrelationSuggestionAcceptanceJournal] = {}
 
     def list_published_inputs(self) -> tuple[PublishedInterpretationInput, ...]:
         return discover_published_interpretations(root=self.root, project_id=self.project_id)
@@ -88,20 +90,54 @@ class InterpretationCorrelationApplicationService:
         )
 
 
-    def suggestion_profile_repository(self) -> CorrelationSuggestionProfileRepository:
-        return CorrelationSuggestionProfileRepository(
-            root=self.root, project_id=self.project_id, io_metrics=self.io_metrics
+    def _profile_store(self) -> CorrelationSuggestionProfileRepository:
+        if self._suggestion_profiles is None:
+            self._suggestion_profiles = CorrelationSuggestionProfileRepository(
+                root=self.root, project_id=self.project_id, io_metrics=self.io_metrics
+            )
+        return self._suggestion_profiles
+
+    def list_suggestion_profiles(self) -> tuple[dict[str, Any], ...]:
+        """Return saved calibration profiles without exposing persistence objects."""
+        return tuple(self._profile_store().list())
+
+    def save_suggestion_profile(self, *, name: str, settings: Any) -> dict[str, Any]:
+        """Create or replace one named suggestion-calibration profile."""
+        return self._profile_store().save(name=name, settings=settings)
+
+    def delete_suggestion_profile(self, profile_id: str) -> bool:
+        """Delete a saved calibration profile by identifier."""
+        return self._profile_store().delete(profile_id)
+
+    def _acceptance_journal(self, workspace_id: str) -> CorrelationSuggestionAcceptanceJournal:
+        clean_workspace_id = str(workspace_id).strip()
+        if not clean_workspace_id:
+            raise ValueError("Workspace id must not be empty.")
+        if clean_workspace_id not in self._acceptance_journals:
+            self._acceptance_journals[clean_workspace_id] = CorrelationSuggestionAcceptanceJournal(
+                root=self.root,
+                project_id=self.project_id,
+                workspace_id=clean_workspace_id,
+                io_metrics=self.io_metrics,
+            )
+        return self._acceptance_journals[clean_workspace_id]
+
+    def record_suggestion_acceptance(
+        self,
+        *,
+        workspace_id: str,
+        preview: Any,
+        accepted_ids: Any,
+        added_tie_ids: Any,
+    ) -> dict[str, Any]:
+        """Persist one accepted suggestion batch through the application boundary."""
+        return self._acceptance_journal(workspace_id).append(
+            preview=preview, accepted_ids=accepted_ids, added_tie_ids=added_tie_ids
         )
 
-    def suggestion_acceptance_journal(
-        self, workspace_id: str
-    ) -> CorrelationSuggestionAcceptanceJournal:
-        return CorrelationSuggestionAcceptanceJournal(
-            root=self.root,
-            project_id=self.project_id,
-            workspace_id=workspace_id,
-            io_metrics=self.io_metrics,
-        )
+    def list_suggestion_acceptances(self, *, workspace_id: str) -> tuple[dict[str, Any], ...]:
+        """Return the acceptance history for one correlation workspace."""
+        return tuple(self._acceptance_journal(workspace_id).list())
 
     def health(self) -> dict[str, Any]:
         """Return a compact serializable health description for diagnostics."""
@@ -112,4 +148,6 @@ class InterpretationCorrelationApplicationService:
             "project_id": self.project_id,
             "root": str(self.root),
             "repository_directory_exists": directory.exists(),
+            "suggestion_profiles_initialized": self._suggestion_profiles is not None,
+            "acceptance_journal_scopes": len(self._acceptance_journals),
         }

@@ -191,9 +191,7 @@ def render_interpretation_correlation_panel(
 
         with st.expander("Автоматические предложения связей", expanded=False):
             st.caption("Настраиваемая детерминированная модель по типу, подписи и близости глубин. Сначала preview, затем подтверждение.")
-            profile_repository = application.suggestion_profile_repository()
-            acceptance_journal = application.suggestion_acceptance_journal(workspace.id)
-            profiles = profile_repository.list()
+            profiles = application.list_suggestion_profiles()
             selected_profile_id = st.selectbox(
                 "Профиль калибровки",
                 options=[""] + [str(item["id"]) for item in profiles],
@@ -248,7 +246,7 @@ def render_interpretation_correlation_panel(
             )
             if profile_cols[1].button("Сохранить", key=f"correlation_save_profile_{workspace.id}"):
                 try:
-                    profile_repository.save(name=profile_name, settings=settings)
+                    application.save_suggestion_profile(name=profile_name, settings=settings)
                 except ValueError as exc:
                     st.error(str(exc))
                 else:
@@ -258,7 +256,7 @@ def render_interpretation_correlation_panel(
                 "Удалить", disabled=not selected_profile_id,
                 key=f"correlation_delete_profile_{workspace.id}",
             ):
-                profile_repository.delete(selected_profile_id)
+                application.delete_suggestion_profile(selected_profile_id)
                 st.rerun()
 
             if st.checkbox("Сравнить с базовым сценарием", key=f"correlation_compare_scenarios_{workspace.id}"):
@@ -342,8 +340,9 @@ def render_interpretation_correlation_panel(
                                 before_ids = {item.id for item in current_workspace.ties}
                                 updated_workspace = commands.add_ties(ties)
                                 added_ids = [item.id for item in updated_workspace.ties if item.id not in before_ids]
-                                acceptance_journal.append(
-                                    preview=preview, accepted_ids=selected_suggestions, added_tie_ids=added_ids
+                                application.record_suggestion_acceptance(
+                                    workspace_id=workspace.id, preview=preview,
+                                    accepted_ids=selected_suggestions, added_tie_ids=added_ids,
                                 )
                             except (ValueError, KeyError, OSError) as exc:
                                 st.error(str(exc))
@@ -354,7 +353,7 @@ def render_interpretation_correlation_panel(
                     else:
                         st.info("Подходящие новые связи не найдены.")
 
-            accepted_rows = acceptance_journal.list()
+            accepted_rows = application.list_suggestion_acceptances(workspace_id=workspace.id)
             if accepted_rows:
                 with st.expander("Журнал подтверждённых автокорреляций", expanded=False):
                     st.dataframe(list(reversed(accepted_rows[-20:])), width="stretch", hide_index=True)
