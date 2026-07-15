@@ -127,6 +127,26 @@ class InterpretationWorkspaceApplicationService:
             )
         return self._managers[key]
 
+    def list_intervals(
+        self,
+        *,
+        state: MutableMapping[str, Any],
+        well_id: str,
+        interpretation_id: str,
+    ) -> tuple[Any, ...]:
+        """Return intervals through an explicit application-layer query.
+
+        Presentation code must not construct or retain an
+        ``InterpretationIntervalManager`` merely to read interval overlays.
+        The manager remains an internal coordination dependency owned by this
+        project-scoped application service.
+        """
+        return self.interval_manager(
+            state=state,
+            well_id=well_id,
+            interpretation_id=interpretation_id,
+        ).list_intervals()
+
     def interval_properties(
         self,
         *,

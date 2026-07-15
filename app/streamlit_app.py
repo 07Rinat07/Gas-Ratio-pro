@@ -89,6 +89,7 @@ from core.models import CalculationConfig, STANDARD_FIELDS
 from ui.ux_feedback import REPORT_EXPORT_PROGRESS, tooltip
 from ui.interpretation_interval_panel import (
     render_interpretation_interval_panel,
+    resolve_interpretation_id,
     resolve_interpretation_well_id,
 )
 from ui.interpretation_correlation_panel import render_interpretation_correlation_panel
@@ -96,7 +97,6 @@ from ui.interpretation_interval_navigator import (
     build_manual_interval_navigator,
     selected_interval_id_from_plotly_event,
 )
-from projects.interpretation_interval_manager import InterpretationIntervalManager
 from core.presentation_runtime import (
     AppliedCorrelationState,
     AppliedExportState,
@@ -10692,12 +10692,22 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     manual_overlays = ()
     selected_manual_interval_id = ""
     try:
-        manual_interval_manager = InterpretationIntervalManager(
+        manual_interpretation_id = resolve_interpretation_id(
             state_controller.state,
             project_id=str(active_project.id),
             well_id=manual_well_id,
         )
-        manual_intervals = manual_interval_manager.list_intervals()
+        interpretation_workspace = application_service_container(
+            state_controller.state
+        ).interpretation_workspace(
+            project_id=str(active_project.id),
+            root=PROJECTS_ROOT,
+        )
+        manual_intervals = interpretation_workspace.list_intervals(
+            state=state_controller.state,
+            well_id=manual_well_id,
+            interpretation_id=manual_interpretation_id,
+        )
         raw_manual_overlays = manual_interval_overlays(manual_intervals)
         persisted_overlay_settings = interval_display_settings.load_interpretation_interval_display_settings(
             project_id=str(active_project.id),

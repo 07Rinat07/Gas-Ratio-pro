@@ -1,3 +1,10 @@
+
+## Unreleased — Interpretation overlay application boundary
+
+- Removed the remaining direct `InterpretationIntervalManager` construction from the Streamlit interpretation tablet.
+- Added an explicit `InterpretationWorkspaceApplicationService.list_intervals()` query for presentation overlays.
+- Reused the interpretation selected in the interval workspace when loading tablet overlays, preventing default-scope drift.
+- Added architecture and scope regression tests for the UI → Application Service boundary.
 ## Application service boundary hardening — Modern Workbench
 
 ## 2026-07-15 — Interpretation coordination service lifecycle hardening
