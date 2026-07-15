@@ -114,38 +114,6 @@ def _column_sequence(value: object) -> tuple[str, ...]:
     return ()
 
 
-MUD_GAS_LITERATURE_TRACK_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("GR/lithology", ("gr", "gamma", "gamma_ray", "lithology")),
-    ("Total gas", ("total_gas", "tgas", "gas_total", "totalgas", "gas")),
-    ("C1 methane", ("c1", "methane")),
-    ("C2 ethane", ("c2", "ethane")),
-    ("C3 propane", ("c3", "propane")),
-    ("iC4", ("ic4", "i_c4", "iso_c4", "isobutane")),
-    ("nC4", ("nc4", "n_c4", "normal_c4", "n-butane", "nbutane")),
-    ("iC5", ("ic5", "i_c5", "iso_c5", "isopentane")),
-    ("nC5", ("nc5", "n_c5", "normal_c5", "n-pentane", "npentane")),
-    ("Wh", ("wh", "wetness")),
-    ("Bh", ("bh", "balance")),
-    ("Ch", ("ch", "character")),
-    ("C1/C2", ("c1_c2", "c1/c2", "c1c2")),
-    ("C1/C3", ("c1_c3", "c1/c3", "c1c3")),
-    ("C1/C4", ("c1_c4", "c1/sumc4", "c1_sumc4", "c1c4")),
-    ("C1/C5", ("c1_c5", "c1/sumc5", "c1_sumc5", "c1c5")),
-    ("Inverse oil indicator", ("inverse_oil_indicator", "ioi", "c1_heavy", "c1_over_heavy")),
-    ("Deep resistivity", ("rdeep", "rt", "lld", "resdeep", "deep_resistivity")),
-    ("Shallow resistivity", ("rshallow", "rs", "lls", "resshallow", "shallow_resistivity")),
-    ("Density", ("rhob", "density", "den")),
-    ("Neutron porosity", ("nphi", "neutron", "neutron_porosity")),
-)
-
-MUD_GAS_MARKER_COLUMN_ALIASES: tuple[tuple[str, tuple[str, ...], str], ...] = (
-    ("TG", ("total_gas", "tgas", "gas_total", "totalgas", "gas"), "Максимум total gas: проверить hydrocarbon-bearing interval по ГИС и буровому контексту."),
-    ("Wh", ("wh", "wetness"), "Максимум Wh/wetness: проверить возможное обогащение тяжелыми компонентами."),
-    ("C1/C2", ("c1_c2", "c1/c2", "c1c2"), "Минимум C1/C2: по Pixler может быть связан с более тяжелым флюидом; требуется сверка."),
-    ("IOI", ("inverse_oil_indicator", "ioi", "c1_heavy", "c1_over_heavy"), "Максимум inverse oil indicator: справочный индикатор, не использовать без проверки."),
-)
-
-
 @dataclass(frozen=True)
 class TabletTrackConfig:
     column: str
@@ -1053,7 +1021,7 @@ def build_well_log_tablet(
                 "y0": top_depth,
                 "y1": bottom_depth,
                 "fillcolor": color,
-                "opacity": 0.34 if is_selected else (overlay_opacity if overlay_opacity else (0.16 if is_priority else 0.10)),
+                "opacity": 0.26 if is_selected else (overlay_opacity if overlay_opacity else (0.16 if is_priority else 0.10)),
                 "line": {
                     "color": "#ffffff" if is_selected else ("#f6c344" if is_priority else color),
                     "width": 3.0 if is_selected else (2.4 if is_priority else 1.15),

@@ -1,3 +1,12 @@
+## Phase 2 — Depth tablet regression and documentation governance stabilization
+
+- Repaired the v214 depth-tablet regression tests so they validate semantic traces instead of brittle total Plotly trace counts.
+- Preserved explicit assertions for visible curves, legend proxies, QC markers, interval boundaries and fluid legend entries.
+- Reduced selected reservoir-band opacity to keep analytical curves readable while retaining a strong selection border.
+- Removed duplicated mud-gas alias constant declarations from the tablet renderer.
+- Removed obsolete active planning documents and duplicate versioned roadmaps that violated the single-governance-set policy.
+- Kept archived legacy plans in `docs/archive/legacy_plans` as the historical source of record.
+
 
 ## PDF preview application-service boundary
 

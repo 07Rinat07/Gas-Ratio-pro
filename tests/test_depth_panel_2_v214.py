@@ -64,7 +64,12 @@ def test_depth_panel_adds_interval_track_boundaries_and_selected_depth() -> None
     )
 
     assert figure.layout.title.text == "Интерпретационный планшет"
-    assert len(figure.data) == 6  # three engineering tracks + QC markers + two curves
+    # The renderer intentionally includes hidden engineering anchors and legend
+    # proxy traces. Assert the semantic traces instead of a brittle total count.
+    trace_names = [str(trace.name or "") for trace in figure.data]
+    assert {"c1", "wh", "QC", "Границы интервалов"}.issubset(trace_names)
+    assert trace_names.count("c1") == 2  # visible curve + legend proxy
+    assert trace_names.count("wh") == 2
     annotation_texts = [str(item.text) for item in figure.layout.annotations]
     assert any("HC-001" in text and "Нефть" in text for text in annotation_texts)
     assert any("Выбрано: 1002" in text for text in annotation_texts)
@@ -85,7 +90,10 @@ def test_depth_panel_remains_backward_compatible_without_intervals() -> None:
         (TabletTrackConfig("c1"),),
     )
 
-    assert len(figure.data) == 1
+    visible_curves = [trace for trace in figure.data if trace.name == "c1" and trace.showlegend is False]
+    legend_proxies = [trace for trace in figure.data if trace.name == "c1" and trace.showlegend is True]
+    assert len(visible_curves) == 1
+    assert len(legend_proxies) == 1
     assert not any("HC-" in str(item.text) for item in figure.layout.annotations)
 
 
@@ -112,9 +120,9 @@ def test_depth_panel_adds_confidence_and_recommendation_tracks() -> None:
     texts = [str(annotation.text) for annotation in figure.layout.annotations]
     assert any("82%" in text for text in texts)
     assert any(shape.type == "rect" and shape.xref == "x2" for shape in figure.layout.shapes)
-    qc_trace = figure.data[-1]
-    assert qc_trace.name == "QC"
+    qc_trace = next(trace for trace in figure.data if trace.name == "QC")
     assert any("Сопоставить с ГИС" in str(value) for value in qc_trace.customdata)
+    assert any(trace.name == "Газ" and trace.showlegend is True for trace in figure.data)
 
 
 def test_depth_panel_suppresses_colliding_interval_text_and_full_width_boundaries() -> None:
