@@ -87,6 +87,67 @@ class RuntimeDiagnosticsApplicationService:
         metrics.subscribe_mutations(str(subscriber_id), callback)
         return metrics
 
+
+    def subscribe_project_cache_coherence(
+        self,
+        subscriber_id: str,
+        *,
+        active_project_id: Callable[[], str],
+    ) -> RepositoryIOMetrics:
+        """Invalidate navigation and dataframe caches after repository mutations.
+
+        The UI supplies only a lightweight callback resolving the currently
+        rendered project. Runtime cache lookup remains inside the application
+        boundary.
+        """
+        def _invalidate(event: dict[str, Any]) -> None:
+            changed_project = str(event.get("project_id") or "").strip()
+            if not changed_project:
+                return
+            navigation_cache = self._registry.get("project_navigation_runtime_cache")
+            if navigation_cache is not None:
+                navigation_cache.invalidate(
+                    changed_project,
+                    reason=f"repository-{event.get('operation', 'mutation')}",
+                )
+            dataframe_cache = self._registry.get("dataframe_runtime_cache")
+            if dataframe_cache is not None and str(active_project_id() or "") == changed_project:
+                dataframe_cache.clear()
+
+        return self.subscribe_repository_mutations(subscriber_id, _invalidate)
+
+    def activate_workbench_route(self, route_id: str):
+        """Activate one Workbench route through the centralized lifecycle."""
+        from core.workbench_route_lifecycle import WorkbenchRouteLifecycle
+
+        lifecycle = self._registry.ensure(
+            "workbench_route_lifecycle",
+            WorkbenchRouteLifecycle,
+            expected_type=WorkbenchRouteLifecycle,
+            scope="session",
+        )
+        return lifecycle.activate(str(route_id or ""), self._registry)
+
+    def record_startup_cycle(
+        self,
+        stages_ms: dict[str, float],
+        *,
+        route_id: str = "",
+        project_id: str = "",
+    ) -> dict[str, Any]:
+        """Record one startup/rerun timing cycle behind the service boundary."""
+        from core.startup_diagnostics import StartupDiagnostics
+
+        diagnostics = self._registry.ensure(
+            "startup_diagnostics",
+            StartupDiagnostics,
+            expected_type=StartupDiagnostics,
+            scope="session",
+        )
+        return diagnostics.record_cycle(
+            stages_ms, route_id=route_id, project_id=project_id
+        )
+
     def navigation_cache(self) -> ProjectNavigationRuntimeCache:
         """Return the session-scoped project navigation runtime cache."""
         return self._registry.ensure(
@@ -137,5 +198,7 @@ class RuntimeDiagnosticsApplicationService:
                 if item.key.startswith("runtime_diagnostics::")
             ),
             "navigation_cache_ready": self._registry.get("project_navigation_runtime_cache") is not None,
+            "route_lifecycle_ready": self._registry.get("workbench_route_lifecycle") is not None,
+            "startup_diagnostics_ready": self._registry.get("startup_diagnostics") is not None,
             "project_health_ready": self._registry.get("repository_health_service") is not None,
         }

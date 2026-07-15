@@ -82,7 +82,6 @@ from core.diagnostics import (
 from core.interpretation import INTERPRETATION_NOTE, add_interpretation, engineering_interval_summary
 from core.logging_config import configure_logging, safe_log_value
 from core.workbench_runtime_diagnostics import record_render_audit
-from core.runtime_service_registry import runtime_service_registry
 from core.workbench_context import WorkbenchSelectionService
 from core.application_state import ApplicationStateController
 from core.models import CalculationConfig, STANDARD_FIELDS
@@ -15510,27 +15509,12 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
         navigation_reason = "not-required"
         navigation_token_ms = 0.0
         navigation_metadata_files = 0
-        diagnostics_registry = runtime_service_registry(state)
         diagnostics_service = application_service_container(state).runtime_diagnostics(
             root=LAS_CORRELATION_PROJECTS_ROOT
         )
-
-        def _invalidate_project_runtime_caches(event: dict[str, Any]) -> None:
-            changed_project = str(event.get("project_id") or "")
-            if not changed_project:
-                return
-            navigation_cache_service = diagnostics_registry.get("project_navigation_runtime_cache")
-            if navigation_cache_service is not None:
-                navigation_cache_service.invalidate(
-                    changed_project, reason=f"repository-{event.get('operation', 'mutation')}"
-                )
-            active_id = str(getattr(active_project, "id", "") or "")
-            dataframe_cache_service = diagnostics_registry.get("dataframe_runtime_cache")
-            if dataframe_cache_service is not None and active_id == changed_project:
-                dataframe_cache_service.clear()
-
-        repository_metrics = diagnostics_service.subscribe_repository_mutations(
-            "workbench_project_cache_coherence", _invalidate_project_runtime_caches
+        repository_metrics = diagnostics_service.subscribe_project_cache_coherence(
+            "workbench_project_cache_coherence",
+            active_project_id=lambda: str(getattr(active_project, "id", "") or ""),
         )
         if PROJECT_RECORD in requirements:
             active_project = data_timer.measure_project(lambda: _resolve_active_project_for_workbench(logger))
@@ -15867,7 +15851,7 @@ def _process_workbench_property_action(logger) -> None:
 def _run_modern_workbench() -> None:
     """Render Modern Workbench and record lightweight startup stage timings."""
 
-    from core.startup_diagnostics import StartupDiagnostics, StartupTimer
+    from core.startup_diagnostics import StartupTimer
 
     startup_timer = StartupTimer()
     st.set_page_config(page_title="Gas Ratio Pro", page_icon=_app_icon_data_uri() or None, layout="wide")
@@ -15880,16 +15864,13 @@ def _run_modern_workbench() -> None:
     state_controller = _application_state_controller()
     startup_timer.mark("state_controller")
 
-    registry = runtime_service_registry(state_controller.state)
-    from core.workbench_route_lifecycle import WorkbenchRouteLifecycle
-    route_lifecycle = registry.ensure(
-        "workbench_route_lifecycle", WorkbenchRouteLifecycle,
-        expected_type=WorkbenchRouteLifecycle, scope="session",
-    )
+    diagnostics_service = application_service_container(
+        state_controller.state
+    ).runtime_diagnostics(root=LAS_CORRELATION_PROJECTS_ROOT)
     current_route = str(
         state_controller.state.get("workbench.interaction.active_navigation_id") or "nav.dashboard"
     )
-    transition = route_lifecycle.activate(current_route, registry)
+    transition = diagnostics_service.activate_workbench_route(current_route)
     startup_timer.mark("route_lifecycle")
 
     begin_rerun_cycle(state_controller.state)
@@ -15906,11 +15887,8 @@ def _run_modern_workbench() -> None:
     results = render_streamlit_workbench(state_controller.state, st)
     startup_timer.mark("workbench_render")
 
-    startup_diagnostics = registry.ensure(
-        "startup_diagnostics", StartupDiagnostics, expected_type=StartupDiagnostics, scope="session"
-    )
     context = state_controller.context()
-    startup_record = startup_diagnostics.record_cycle(
+    startup_record = diagnostics_service.record_startup_cycle(
         startup_timer.finish(),
         route_id=str(state_controller.state.get("workbench.interaction.active_navigation_id") or ""),
         project_id=str(context.project_id or ""),

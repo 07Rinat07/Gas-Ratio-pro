@@ -1,3 +1,11 @@
+
+## Runtime diagnostics lifecycle boundary
+
+- Removed the remaining direct `RuntimeServiceRegistry` access from the main Streamlit UI.
+- Centralized Workbench route lifecycle activation and startup-cycle recording in `RuntimeDiagnosticsApplicationService`.
+- Moved repository-mutation cache coherence lookup and invalidation behind the diagnostics application boundary.
+- Added architecture and lifecycle regression tests for route transitions, startup diagnostics, and cache coherence.
+
 ## Unreleased — Runtime diagnostics event-channel boundary
 
 - Added channel-scoped, session-lifecycle `RuntimeDiagnostics` collectors behind `RuntimeDiagnosticsApplicationService`.
