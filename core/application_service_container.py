@@ -208,6 +208,31 @@ class ApplicationServiceContainer:
             expected_type=InterpretationCorrelationApplicationService,
         )
 
+    def background_export(
+        self,
+        *,
+        project_id: str,
+        root: Path | str,
+        metadata_state: MutableMapping[str, Any],
+        max_workers: int = 1,
+    ):
+        """Resolve the project-scoped background export runtime."""
+        from services.background_export_application_service import (
+            BackgroundExportApplicationService,
+        )
+
+        return self.ensure_project_service(
+            service_name="background_export",
+            project_id=project_id,
+            root=root,
+            factory=lambda: BackgroundExportApplicationService(
+                metadata_state,
+                project_id=project_id,
+                max_workers=max_workers,
+            ),
+            expected_type=BackgroundExportApplicationService,
+        )
+
     def presentation_export(
         self,
         *,

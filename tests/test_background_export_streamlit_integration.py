@@ -10,13 +10,14 @@ def _professional_export_body() -> str:
     return APP[start:end]
 
 
-def test_professional_export_panel_uses_background_manager() -> None:
+def test_professional_export_panel_uses_application_service() -> None:
     body = _professional_export_body()
-    assert "BackgroundExportManager(" in body
-    assert "background_manager.submit(" in body
-    assert "background_manager.cancel(" in body
-    assert "background_manager.pop_result(" in body
-    assert "background_manager.dismiss(" in body
+    assert ".background_export(" in body
+    assert "BackgroundExportManager(" not in body
+    assert "background_export.submit(" in body
+    assert "background_export.cancel(" in body
+    assert "background_export.pop_result(" in body
+    assert "background_export.dismiss(" in body
 
 
 def test_background_worker_has_progress_and_cancellation_checkpoints() -> None:
@@ -30,7 +31,7 @@ def test_background_worker_has_progress_and_cancellation_checkpoints() -> None:
 def test_worker_does_not_call_streamlit_rendering_api() -> None:
     body = _professional_export_body()
     worker_start = body.index("def _background_work(report, check_cancelled):")
-    worker_end = body.index("project_jobs = background_manager.list", worker_start)
+    worker_end = body.index("project_jobs = background_export.list", worker_start)
     worker = body[worker_start:worker_end]
     assert "st.progress(" not in worker
     assert "st.empty(" not in worker
@@ -42,14 +43,14 @@ def test_terminal_background_job_can_be_retried_with_current_wizard_state() -> N
     assert '"Повторить экспорт"' in body
     assert "status_view.retryable" in body
     assert "export_state[repeat_autorun_key] = True" in body
-    assert 'artifact_available=background_manager.result_available(relevant_job.id)' in body
+    assert 'artifact_available=background_export.result_available(relevant_job.id)' in body
 
 
 def test_background_history_exposes_individual_and_bulk_cleanup_controls() -> None:
     body = _professional_export_body()
     assert '"Очистить завершённые записи"' in body
     assert '"Удалить"' in body
-    assert "background_manager.dismiss_terminal(" in body
+    assert "background_export.dismiss_terminal(" in body
     assert "preserve_available_results=True" in body
     assert "relevant_job is not None" in body
 

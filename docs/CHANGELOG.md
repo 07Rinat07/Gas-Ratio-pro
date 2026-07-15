@@ -1,4 +1,13 @@
 
+## Unreleased — Background export application boundary
+
+- Added project-scoped `BackgroundExportApplicationService`.
+- Moved ownership of `BackgroundExportManager`, executor, futures, cancellation events, and process-local results out of Streamlit UI.
+- Added project ownership validation for cancellation, result handoff, and history cleanup operations.
+- Added lazy resolution through `ApplicationServiceContainer.background_export(...)`.
+- Added architecture and regression tests for the new UI → Application Service boundary.
+
+
 ## Runtime diagnostics lifecycle boundary
 
 - Removed the remaining direct `RuntimeServiceRegistry` access from the main Streamlit UI.

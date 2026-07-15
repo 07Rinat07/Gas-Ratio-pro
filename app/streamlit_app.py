@@ -395,7 +395,7 @@ from reports.export_controller import (
     ExportRequest,
     normalize_export_form_state,
 )
-from reports.background_export import BackgroundExportManager, ExportJobStatus
+from reports.background_export import ExportJobStatus
 from reports.background_export_ui import (
     BackgroundExportResult,
     build_background_export_performance_summary,
@@ -9087,12 +9087,12 @@ def _render_professional_export_panel(
                 migrated_entries,
             )
         background_state_key = f"background_export_metadata_{active_project.id}"
-        background_manager_key = f"background_export_manager_{active_project.id}"
         background_state = export_state.setdefault(background_state_key, {})
-        background_manager = state_controller.ensure_runtime_service(
-            background_manager_key,
-            lambda: BackgroundExportManager(background_state, max_workers=1),
-            expected_type=BackgroundExportManager,
+        background_export = application_service_container(export_state).background_export(
+            project_id=str(active_project.id),
+            root=PROJECTS_ROOT,
+            metadata_state=background_state,
+            max_workers=1,
         )
         normalized_form = normalize_export_form_state(
             export_state,
@@ -9852,8 +9852,7 @@ def _render_professional_export_panel(
                     retry_context = export_state.pop(background_retry_context_key, {})
                     if not isinstance(retry_context, dict):
                         retry_context = {}
-                    created_job = background_manager.submit(
-                        project_id=str(active_project.id),
+                    created_job = background_export.submit(
                         request_signature=current_export_request.selection_signature,
                         work=_background_work,
                         retry_of_job_id=str(retry_context.get("job_id", "")),
@@ -9872,7 +9871,7 @@ def _render_professional_export_panel(
                 except RuntimeError as exc:
                     st.warning(str(exc))
 
-        project_jobs = background_manager.list(project_id=str(active_project.id))
+        project_jobs = background_export.list()
         relevant_job = latest_relevant_job(
             project_jobs,
             request_signature=current_export_request.selection_signature,
@@ -9880,7 +9879,7 @@ def _render_professional_export_panel(
         if relevant_job is not None:
             status_view = build_background_export_status_view(
                 relevant_job,
-                artifact_available=background_manager.result_available(relevant_job.id),
+                artifact_available=background_export.result_available(relevant_job.id),
             )
             st.progress(status_view.progress / 100.0, text=status_view.detail or status_view.title)
             if status_view.level == "error":
@@ -9898,7 +9897,7 @@ def _render_professional_export_panel(
                 key=f"background_export_cancel_{active_project.id}_{relevant_job.id}",
                 width="stretch",
             ):
-                background_manager.cancel(relevant_job.id)
+                background_export.cancel(relevant_job.id)
                 _request_ui_refresh_and_rerun("background_export_cancel")
                 return
             if status_view.retryable and job_left.button(
@@ -9911,10 +9910,10 @@ def _render_professional_export_panel(
                     "job_id": relevant_job.id,
                     "reason": retry_diagnostic_reason(
                         relevant_job,
-                        artifact_available=background_manager.result_available(relevant_job.id),
+                        artifact_available=background_export.result_available(relevant_job.id),
                     ),
                 }
-                background_manager.dismiss(relevant_job.id)
+                background_export.dismiss(relevant_job.id)
                 export_state[repeat_autorun_key] = True
                 _request_ui_refresh_and_rerun("background_export_retry")
                 return
@@ -9926,7 +9925,7 @@ def _render_professional_export_panel(
         recent_job_history = build_recent_background_job_history(
             project_jobs,
             artifact_availability={
-                item.id: background_manager.result_available(item.id) for item in project_jobs
+                item.id: background_export.result_available(item.id) for item in project_jobs
             },
             limit=5,
         )
@@ -10033,7 +10032,7 @@ def _render_professional_export_panel(
                     ),
                     width="stretch",
                 ):
-                    removed_count = background_manager.dismiss_terminal(
+                    removed_count = background_export.dismiss_terminal(
                         project_id=str(active_project.id),
                         preserve_available_results=True,
                     )
@@ -10075,7 +10074,7 @@ def _render_professional_export_panel(
                         help="Удалить эту завершённую запись из истории.",
                         width="stretch",
                     ):
-                        background_manager.dismiss(history_item.job_id)
+                        background_export.dismiss(history_item.job_id)
                         _request_ui_refresh_and_rerun("background_export_dismiss_history")
                         return
                     if history_item.terminal and not history_item.dismissible:
@@ -10084,9 +10083,9 @@ def _render_professional_export_panel(
             if (
                 relevant_job is not None
                 and relevant_job.status is ExportJobStatus.COMPLETED
-                and background_manager.result_available(relevant_job.id)
+                and background_export.result_available(relevant_job.id)
             ):
-                completed = background_manager.pop_result(relevant_job.id)
+                completed = background_export.pop_result(relevant_job.id)
                 if not isinstance(completed, BackgroundExportResult):
                     raise RuntimeError("Фоновый экспорт вернул неподдерживаемый тип результата.")
                 export_artifact = completed.artifact
@@ -10161,7 +10160,7 @@ def _render_professional_export_panel(
                     len(export_artifact.content),
                     float(export_metrics.get("duration_ms", 0.0)),
                 )
-                background_manager.dismiss(relevant_job.id)
+                background_export.dismiss(relevant_job.id)
 
         cached_export = _application_state_controller().state.get(export_cache_key)
         cached_matches_controls = (
