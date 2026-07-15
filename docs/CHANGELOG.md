@@ -1,3 +1,11 @@
+## Unreleased — Presentation cache dependency boundary hardening
+
+- Cache telemetry resolution for PDF preview, interpretation presentation, and correlation presentation is now owned by `ApplicationServiceContainer`.
+- Streamlit UI no longer imports or constructs `CacheMetricsRegistry`.
+- Correlation UI no longer imports the runtime-cache DTO; render artifacts are created through `CorrelationPresentationApplicationService.put_artifacts()`.
+- `RuntimeDiagnosticsApplicationService` now exposes the shared session-scoped cache telemetry registry and reports its readiness.
+- Added architecture and regression tests for the centralized dependency boundary.
+
 
 ## Unreleased — Interpretation overlay application boundary
 

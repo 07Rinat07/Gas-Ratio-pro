@@ -23,9 +23,11 @@ def test_runtime_diagnostics_creates_shared_metrics_and_navigation_cache(tmp_pat
     registry = RuntimeServiceRegistry()
     service = RuntimeDiagnosticsApplicationService(root=tmp_path, registry=registry)
 
+    assert service.cache_metrics() is service.cache_metrics()
     assert service.repository_metrics() is service.repository_metrics()
     assert service.navigation_cache() is service.navigation_cache()
     snapshot = service.health_snapshot()
+    assert snapshot["cache_metrics_ready"] is True
     assert snapshot["repository_metrics_ready"] is True
     assert snapshot["navigation_cache_ready"] is True
 

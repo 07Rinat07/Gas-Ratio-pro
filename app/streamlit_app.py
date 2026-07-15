@@ -236,8 +236,6 @@ from palettes.config import load_palette_config
 from palettes.plot_engine import PLOTLY_SCREEN_CONFIG, downsample_frame_for_screen, enhance_screen_visibility
 from core.runtime_diagnostics import RuntimeDiagnostics
 from core.rerun_coordinator import begin_rerun_cycle, request_rerun
-from core.cache_metrics import CacheMetricsRegistry
-from core.correlation_runtime_cache import CorrelationRenderArtifacts
 from core.session_state_audit import audit_session_state
 from core.performance_audit import build_workspace_performance_gate, evaluate_performance
 from core.operation_tracing import OperationTraceRegistry, trace_context
@@ -9075,16 +9073,9 @@ def _render_professional_export_panel(
         )
         state_controller = _application_state_controller()
         export_state = state_controller.state
-        cache_metrics_registry = state_controller.ensure_runtime_service(
-            "cache_metrics_registry",
-            CacheMetricsRegistry,
-            expected_type=CacheMetricsRegistry,
-            scope="session",
-        )
         pdf_preview_runtime_cache = application_service_container(export_state).pdf_preview(
             project_id=str(active_project.id),
             root=PROJECTS_ROOT,
-            metrics_registry=cache_metrics_registry,
         )
         # Migrate and immediately remove the legacy Session State payload.
         legacy_pdf_preview_cache = export_state.pop(pdf_preview_cache_key, None)
@@ -10934,15 +10925,9 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     # bottom of a long interpretation page.
     state_controller = _application_state_controller()
     revision_snapshot = revision_controller_from_state(state_controller.state).snapshot
-    cache_metrics_registry = state_controller.ensure_runtime_service(
-        "cache_metrics_registry",
-        CacheMetricsRegistry,
-        expected_type=CacheMetricsRegistry,
-    )
     presentation_service = application_service_container(state_controller.state).interpretation_presentation(
         project_id=str(active_project.id),
         root=LAS_CORRELATION_PROJECTS_ROOT,
-        metrics_registry=cache_metrics_registry,
     )
     calculated_signature = presentation_service.dataframe_signature(
         calculated_df,
@@ -15045,17 +15030,11 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         expected_type=RuntimeDiagnostics,
     )
     correlation_cycle_marker = correlation_diagnostics.mark()
-    cache_metrics_registry = correlation_state_controller.ensure_runtime_service(
-        "cache_metrics_registry",
-        CacheMetricsRegistry,
-        expected_type=CacheMetricsRegistry,
-    )
     correlation_presentation_service = application_service_container(
         correlation_state_controller.state
     ).correlation_presentation(
         project_id=active_project.id,
         root=LAS_CORRELATION_PROJECTS_ROOT,
-        metrics_registry=cache_metrics_registry,
     )
     operation_trace_registry = correlation_state_controller.ensure_runtime_service(
         "operation_trace_registry",
@@ -15157,15 +15136,13 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
                 figure_title = "Gas Ratio Interpreter - LAS correlation"
                 figure_file_name = "las_correlation"
         cache_store_started = perf_counter()
-        correlation_presentation_service.put(
+        correlation_presentation_service.put_artifacts(
             figure_cache_key,
-            CorrelationRenderArtifacts(
-                studio_panel=studio_panel,
-                studio_figure=studio_figure,
-                figure=figure,
-                figure_title=figure_title,
-                figure_file_name=figure_file_name,
-            ),
+            studio_panel=studio_panel,
+            studio_figure=studio_figure,
+            figure=figure,
+            figure_title=figure_title,
+            figure_file_name=figure_file_name,
         )
         correlation_diagnostics.record(
             stage="correlation.cache_store",

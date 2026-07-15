@@ -77,6 +77,25 @@ def test_container_reuses_per_project_and_isolates_projects(tmp_path: Path) -> N
     assert first is not other
 
 
+def test_service_builds_artifacts_behind_application_boundary(tmp_path: Path) -> None:
+    service = CorrelationPresentationApplicationService(
+        root=tmp_path, project_id="project-a"
+    )
+
+    stored = service.put_artifacts(
+        ("render",),
+        studio_panel={"panel": 1},
+        studio_figure={"studio": 1},
+        figure={"main": 1},
+        figure_title="Correlation",
+        figure_file_name="correlation",
+    )
+
+    assert service.get(("render",)) is stored
+    assert stored.figure_title == "Correlation"
+    assert stored.figure_file_name == "correlation"
+
+
 def test_empty_project_id_is_rejected(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         CorrelationPresentationApplicationService(root=tmp_path, project_id=" ")

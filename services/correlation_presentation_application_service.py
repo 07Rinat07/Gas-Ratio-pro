@@ -53,6 +53,27 @@ class CorrelationPresentationApplicationService:
     def get(self, key: Hashable) -> CorrelationRenderArtifacts | None:
         return self._ensure_cache().get(key)
 
+    def put_artifacts(
+        self,
+        key: Hashable,
+        *,
+        studio_panel,
+        studio_figure,
+        figure,
+        figure_title: str,
+        figure_file_name: str,
+    ) -> CorrelationRenderArtifacts:
+        """Build and cache render artifacts without leaking cache DTOs into UI."""
+        artifacts = CorrelationRenderArtifacts(
+            studio_panel=studio_panel,
+            studio_figure=studio_figure,
+            figure=figure,
+            figure_title=str(figure_title),
+            figure_file_name=str(figure_file_name),
+        )
+        self.put(key, artifacts)
+        return artifacts
+
     def put(self, key: Hashable, artifacts: CorrelationRenderArtifacts) -> None:
         if not isinstance(artifacts, CorrelationRenderArtifacts):
             raise TypeError("artifacts must be CorrelationRenderArtifacts")

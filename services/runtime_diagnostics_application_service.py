@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
+from core.cache_metrics import CacheMetricsRegistry
 from core.project_navigation_runtime_cache import ProjectNavigationRuntimeCache
 from core.repository_health import RepositoryHealthService
 from core.repository_health_scheduler import RepositoryHealthScheduler
@@ -24,6 +25,15 @@ class RuntimeDiagnosticsApplicationService:
         self.root = Path(root).resolve()
         self._registry = registry
         self._active_project_id = ""
+
+    def cache_metrics(self) -> CacheMetricsRegistry:
+        """Return the single session-scoped cache telemetry registry."""
+        return self._registry.ensure(
+            "cache_metrics_registry",
+            CacheMetricsRegistry,
+            expected_type=CacheMetricsRegistry,
+            scope="session",
+        )
 
     def repository_metrics(self) -> RepositoryIOMetrics:
         """Return the single session-scoped repository telemetry collector."""
@@ -87,6 +97,7 @@ class RuntimeDiagnosticsApplicationService:
             "status": "ready",
             "root": str(self.root),
             "active_project_id": self._active_project_id,
+            "cache_metrics_ready": self._registry.get("cache_metrics_registry") is not None,
             "repository_metrics_ready": self._registry.get("repository_io_metrics") is not None,
             "navigation_cache_ready": self._registry.get("project_navigation_runtime_cache") is not None,
             "project_health_ready": self._registry.get("repository_health_service") is not None,
