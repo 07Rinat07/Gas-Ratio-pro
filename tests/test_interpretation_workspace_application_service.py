@@ -49,3 +49,49 @@ def test_gateway_does_not_expose_repository_state(tmp_path: Path) -> None:
         _ = gateway.root
     with pytest.raises(AttributeError):
         _ = gateway._load_items
+
+
+def test_service_owns_interval_coordination_lifecycle(tmp_path: Path) -> None:
+    service = InterpretationWorkspaceApplicationService(root=tmp_path, project_id="project-a")
+    state: dict[str, object] = {}
+
+    manager = service.interval_manager(
+        state=state, well_id="well-a", interpretation_id="default"
+    )
+    assert manager is service.interval_manager(
+        state=state, well_id="well-a", interpretation_id="default"
+    )
+    assert service.interval_properties(
+        state=state, well_id="well-a", interpretation_id="default"
+    ) is service.interval_properties(
+        state=state, well_id="well-a", interpretation_id="default"
+    )
+    assert service.interval_batch(
+        state=state, well_id="well-a", interpretation_id="default"
+    ) is service.interval_batch(
+        state=state, well_id="well-a", interpretation_id="default"
+    )
+
+    snapshot = service.health_snapshot()
+    assert snapshot["manager_scopes"] == 1
+    assert snapshot["properties_scopes"] == 1
+    assert snapshot["batch_scopes"] == 1
+
+
+def test_interval_manager_lifecycle_is_isolated_by_state_and_context(tmp_path: Path) -> None:
+    service = InterpretationWorkspaceApplicationService(root=tmp_path, project_id="project-a")
+    first_state: dict[str, object] = {}
+    second_state: dict[str, object] = {}
+
+    first = service.interval_manager(
+        state=first_state, well_id="well-a", interpretation_id="default"
+    )
+    other_state = service.interval_manager(
+        state=second_state, well_id="well-a", interpretation_id="default"
+    )
+    other_well = service.interval_manager(
+        state=first_state, well_id="well-b", interpretation_id="default"
+    )
+
+    assert first is not other_state
+    assert first is not other_well

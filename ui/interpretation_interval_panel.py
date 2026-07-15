@@ -17,7 +17,6 @@ from projects.interpretation_interval_analysis import (
     filter_interpretation_intervals,
     summarize_interpretation_intervals,
 )
-from projects.interpretation_interval_batch import InterpretationIntervalBatchService
 from projects.interpretation_interval_exports import (
     export_interpretation_intervals_csv,
     export_interpretation_intervals_json,
@@ -32,16 +31,12 @@ from projects.interpretation_interval_filter_presets import (
     import_filter_presets_json,
 )
 from projects.interpretation_interval_comparison import (
-    InterpretationIntervalTransferService,
     compare_interpretation_intervals,
 )
 from projects.interpretation_interval_manager import (
     InterpretationIntervalManager,
     InterpretationIntervalOverlapError,
 )
-from projects.interpretation_interval_merge import InterpretationIntervalMergeService
-from projects.interpretation_interval_properties import InterpretationIntervalPropertiesService
-from projects.interpretation_publication import InterpretationPublicationService
 from projects.interpretation_publication_exports import (
     export_publication_audit_csv,
     export_publication_audit_json,
@@ -102,14 +97,16 @@ def render_interpretation_interval_panel(
         ),
         key=selector_key,
     )
-    manager = InterpretationIntervalManager(
-        state,
-        root=root,
-        project_id=project_id,
+    manager = workspace_service.interval_manager(
+        state=state,
         well_id=well_id,
         interpretation_id=selected_interpretation_id,
     )
-    properties_service = InterpretationIntervalPropertiesService(manager)
+    properties_service = workspace_service.interval_properties(
+        state=state,
+        well_id=well_id,
+        interpretation_id=selected_interpretation_id,
+    )
     type_repository = workspace_service.interval_types()
     interval_types = type_repository.list()
     preset_repository = workspace_service.filter_presets(
@@ -267,9 +264,7 @@ def render_interpretation_interval_panel(
         actor_role = str(state.get(actor_role_key, "administrator") or "administrator")
         if actor_role not in ROLES:
             actor_role = "administrator"
-        publication_service = InterpretationPublicationService(
-            root=root,
-            project_id=project_id,
+        publication_service = workspace_service.publication(
             well_id=well_id,
             interpretation_id=manager.interpretation_id,
             actor=InterpretationActor(id="local-user", name=actor_name, role=actor_role),
@@ -297,9 +292,7 @@ def render_interpretation_interval_panel(
             )
             state[actor_name_key] = actor_name
             state[actor_role_key] = actor_role
-            publication_service = InterpretationPublicationService(
-                root=root,
-                project_id=project_id,
+            publication_service = workspace_service.publication(
                 well_id=well_id,
                 interpretation_id=manager.interpretation_id,
                 actor=InterpretationActor(id="local-user", name=actor_name, role=actor_role),
@@ -630,10 +623,8 @@ def render_interpretation_interval_panel(
                     )
                     transfer_preview = None
                     if selected_transfer_ids:
-                        transfer_service = InterpretationIntervalTransferService(
-                            state,
-                            root=root,
-                            project_id=project_id,
+                        transfer_service = workspace_service.interval_transfer(
+                            state=state,
                             well_id=well_id,
                             source_interpretation_id=reference_id,
                             target_interpretation_id=manager.interpretation_id,
@@ -698,10 +689,8 @@ def render_interpretation_interval_panel(
                     ),
                     key=f"interpretation_merge_source_{project_id}_{well_id}_{manager.interpretation_id}",
                 )
-                merge_service = InterpretationIntervalMergeService(
-                    state,
-                    root=root,
-                    project_id=project_id,
+                merge_service = workspace_service.interval_merge(
+                    state=state,
                     well_id=well_id,
                     base_interpretation_id=merge_base_id,
                     source_interpretation_id=merge_source_id,
@@ -1526,7 +1515,11 @@ def render_interpretation_interval_panel(
         selected = properties_service.get(selected_id)
 
         with st.expander("Групповые операции", expanded=False):
-            batch_service = InterpretationIntervalBatchService(manager)
+            batch_service = workspace_service.interval_batch(
+                state=state,
+                well_id=well_id,
+                interpretation_id=manager.interpretation_id,
+            )
             batch_ids = st.multiselect(
                 "Выбранные интервалы",
                 options=option_ids,

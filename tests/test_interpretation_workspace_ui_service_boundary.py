@@ -25,3 +25,25 @@ def test_interpretation_panel_does_not_import_persistence_repositories() -> None
     assert "InterpretationRevisionRepository(" not in source
     assert "InterpretationIntervalTypeRepository(" not in source
     assert "application_service_container(state).interpretation_workspace" in source
+
+
+def test_interpretation_panel_does_not_construct_coordination_services() -> None:
+    source = Path("ui/interpretation_interval_panel.py").read_text(encoding="utf-8")
+    forbidden_constructors = {
+        "InterpretationIntervalManager(",
+        "InterpretationIntervalPropertiesService(",
+        "InterpretationIntervalBatchService(",
+        "InterpretationIntervalTransferService(",
+        "InterpretationIntervalMergeService(",
+        "InterpretationPublicationService(",
+    }
+
+    for constructor in forbidden_constructors:
+        assert constructor not in source
+
+    assert "workspace_service.interval_manager(" in source
+    assert "workspace_service.interval_properties(" in source
+    assert "workspace_service.interval_batch(" in source
+    assert "workspace_service.publication(" in source
+    assert "workspace_service.interval_transfer(" in source
+    assert "workspace_service.interval_merge(" in source

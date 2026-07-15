@@ -1,5 +1,14 @@
 ## Application service boundary hardening — Modern Workbench
 
+## 2026-07-15 — Interpretation coordination service lifecycle hardening
+
+- Перенесено создание `InterpretationIntervalManager` и координационных сервисов интервалов из Streamlit UI в project-scoped `InterpretationWorkspaceApplicationService`.
+- Добавлены ленивые контекстные lifecycle scopes для manager, properties и batch operations.
+- Publication, transfer и merge operations теперь создаются через Application Service Layer с централизованной project/well/interpretation валидацией.
+- Добавлена архитектурная защита от прямого создания interval coordination services внутри UI.
+- Расширена диагностика сервиса количеством активных manager/properties/batch scopes.
+
+
 - Added session-scoped `WorkbenchApplicationService` as the single UI boundary for Workbench entry points, selections, bulk actions and Properties actions.
 - Removed ad-hoc construction of Workbench coordination services from `streamlit_app.py` and `workbench_renderer.py`.
 - Added lazy entry-point initialization and root-aware service isolation in the application-service container.
