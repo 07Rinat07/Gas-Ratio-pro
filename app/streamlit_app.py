@@ -237,7 +237,7 @@ from palettes.plot_engine import PLOTLY_SCREEN_CONFIG, downsample_frame_for_scre
 from core.runtime_diagnostics import RuntimeDiagnostics
 from core.rerun_coordinator import begin_rerun_cycle, request_rerun
 from core.cache_metrics import CacheMetricsRegistry
-from core.correlation_runtime_cache import CorrelationRenderArtifacts, CorrelationRuntimeCache
+from core.correlation_runtime_cache import CorrelationRenderArtifacts
 from core.session_state_audit import audit_session_state
 from core.performance_audit import build_workspace_performance_gate, evaluate_performance
 from core.operation_tracing import OperationTraceRegistry, trace_context
@@ -14970,9 +14970,13 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         )
         revisions = revision_controller_from_state(_application_state_controller().state)
         persist_revisions(_application_state_controller().state, revisions.bump_presentation())
-        correlation_runtime_cache = _application_state_controller().get_runtime_service("correlation_runtime_cache")
-        if isinstance(correlation_runtime_cache, CorrelationRuntimeCache):
-            correlation_runtime_cache.clear()
+        correlation_presentation_service = application_service_container(
+            _application_state_controller().state
+        ).correlation_presentation(
+            project_id=active_project.id,
+            root=LAS_CORRELATION_PROJECTS_ROOT,
+        )
+        correlation_presentation_service.clear()
         logger.info(
             "las_correlation_presentation_committed signature=%s wells=%d markers=%d",
             safe_log_value(correlation_source_signature[:12]),
@@ -15036,14 +15040,12 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         CacheMetricsRegistry,
         expected_type=CacheMetricsRegistry,
     )
-    correlation_runtime_cache = correlation_state_controller.ensure_runtime_service(
-        "correlation_runtime_cache",
-        lambda: CorrelationRuntimeCache(
-            max_entries=3,
-            metrics=cache_metrics_registry.counter("correlation_render", max_entries=3),
-        ),
-        expected_type=CorrelationRuntimeCache,
-        scope="workspace",
+    correlation_presentation_service = application_service_container(
+        correlation_state_controller.state
+    ).correlation_presentation(
+        project_id=active_project.id,
+        root=LAS_CORRELATION_PROJECTS_ROOT,
+        metrics_registry=cache_metrics_registry,
     )
     operation_trace_registry = correlation_state_controller.ensure_runtime_service(
         "operation_trace_registry",
@@ -15052,7 +15054,7 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         scope="session",
     )
     cache_lookup_started = perf_counter()
-    cached_correlation = correlation_runtime_cache.get(figure_cache_key)
+    cached_correlation = correlation_presentation_service.get(figure_cache_key)
     cache_lookup_ms = (perf_counter() - cache_lookup_started) * 1000.0
     correlation_cache_hit = cached_correlation is not None
     correlation_diagnostics.record(
@@ -15145,7 +15147,7 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
                 figure_title = "Gas Ratio Interpreter - LAS correlation"
                 figure_file_name = "las_correlation"
         cache_store_started = perf_counter()
-        correlation_runtime_cache.put(
+        correlation_presentation_service.put(
             figure_cache_key,
             CorrelationRenderArtifacts(
                 studio_panel=studio_panel,

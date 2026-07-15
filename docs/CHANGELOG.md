@@ -2718,3 +2718,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Moved DataFrame signature/sample caching and Plotly bundle caching behind the application-service container.
 - Removed direct `DataframeRuntimeCache` and `PlotCache` construction from Streamlit UI.
 - Added explicit cache operations, project isolation, lightweight health diagnostics, and UI boundary tests.
+
+## 2026-07-15 — Correlation presentation runtime application-service boundary
+
+- Added a lazy project-scoped `CorrelationPresentationApplicationService`.
+- Moved the bounded LAS-correlation render cache behind the application-service container.
+- Removed direct `CorrelationRuntimeCache` construction and lookup from Streamlit UI.
+- Isolated correlation render artifacts and cache telemetry by project context.
+- Added lifecycle, bounded-cache, validation, health-snapshot, and UI-boundary tests.

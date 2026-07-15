@@ -261,6 +261,29 @@ class ApplicationServiceContainer:
             expected_type=PdfPreviewApplicationService,
         )
 
+    def correlation_presentation(
+        self,
+        *,
+        project_id: str,
+        root: Path | str,
+        metrics_registry=None,
+    ):
+        from services.correlation_presentation_application_service import (
+            CorrelationPresentationApplicationService,
+        )
+
+        return self.ensure_project_service(
+            service_name="correlation_presentation",
+            project_id=project_id,
+            root=root,
+            factory=lambda: CorrelationPresentationApplicationService(
+                root=root,
+                project_id=project_id,
+                metrics_registry=metrics_registry,
+            ),
+            expected_type=CorrelationPresentationApplicationService,
+        )
+
     def interpretation_presentation(
         self,
         *,
