@@ -21,7 +21,8 @@ def test_professional_export_panel_uses_background_manager() -> None:
 
 def test_background_worker_has_progress_and_cancellation_checkpoints() -> None:
     body = _professional_export_body()
-    assert "on_progress=report" in body
+    assert "staged_report = staged_progress_reporter(report)" in body
+    assert "on_progress=staged_report" in body
     assert "check_cancelled=check_cancelled" in body
     assert "def _background_work(report, check_cancelled):" in body
 

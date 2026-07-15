@@ -414,6 +414,7 @@ from reports.background_export_ui import (
     latest_relevant_job,
     retry_diagnostic_reason,
 )
+from reports.export_progress import staged_progress_reporter
 from las_editor.las_creation_wizard import (
     DEFAULT_CURVE_LIBRARY,
     build_las_creation_wizard_draft,
@@ -9755,6 +9756,7 @@ def _render_professional_export_panel(
                 frame_snapshot = print_df.copy(deep=False)
 
                 def _background_work(report, check_cancelled):
+                    staged_report = staged_progress_reporter(report)
                     report_document_counts = None
 
                     def _build_export_model(frame, export_request):
@@ -9821,7 +9823,7 @@ def _render_professional_export_panel(
                                 design=report_design,
                                 export_format=export_request.format_id,
                                 base_name=presentation_state.base_name,
-                                on_progress=report,
+                                on_progress=staged_report,
                                 check_cancelled=check_cancelled,
                             )
                             content = rendered.content
@@ -9844,7 +9846,7 @@ def _render_professional_export_panel(
                         frame=frame_snapshot,
                         build_model=_build_export_model,
                         render_artifact=_render_export_artifact,
-                        on_progress=report,
+                        on_progress=staged_report,
                         check_cancelled=check_cancelled,
                     )
                     return BackgroundExportResult(

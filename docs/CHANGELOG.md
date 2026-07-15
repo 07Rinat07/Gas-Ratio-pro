@@ -1,5 +1,13 @@
 ## Phase 2 — Depth tablet regression and documentation governance stabilization
 
+## Export progress contract stabilization
+
+- Added a centralized four-stage progress contract for professional background exports.
+- Preserved detailed renderer messages while exposing stable user-facing stage labels.
+- Removed the brittle test dependency on progress strings being embedded in the Streamlit monolith.
+- Added unit coverage for stage boundaries, clamping, formatting, and reporter decoration.
+
+
 - Repaired the v214 depth-tablet regression tests so they validate semantic traces instead of brittle total Plotly trace counts.
 - Preserved explicit assertions for visible curves, legend proxies, QC markers, interval boundaries and fluid legend entries.
 - Reduced selected reservoir-band opacity to keep analytical curves readable while retaining a strong selection border.

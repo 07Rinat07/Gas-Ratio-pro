@@ -5,8 +5,8 @@ def test_professional_export_is_explicit_and_format_aware():
     source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
     assert "presentation_export_form_" in source
     assert "ПОДГОТОВИТЬ ФАЙЛ ДЛЯ ПЕЧАТИ И СКАЧИВАНИЯ" in source
-    assert "presentation_export_started" in source
-    assert "presentation_export_completed" in source
+    assert "background_export_submitted" in source
+    assert "background_export_completed" in source
     assert "cached_export.get('format_label'" in source
 
 

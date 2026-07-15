@@ -1,6 +1,7 @@
 from pathlib import Path
 
 APP_SOURCE = Path('app/streamlit_app.py').read_text(encoding='utf-8')
+from reports.export_progress import EXPORT_PROGRESS_STAGES
 
 
 def test_export_panel_is_prominent_and_expanded() -> None:
@@ -17,9 +18,14 @@ def test_full_well_atlas_scope_is_available() -> None:
 
 
 def test_export_reports_four_stages() -> None:
-    for stage in ('Шаг 1 из 4', 'Шаг 2 из 4', 'Шаг 3 из 4', 'Шаг 4 из 4'):
-        assert stage in APP_SOURCE
-    assert 'st.progress(5' in APP_SOURCE
+    assert tuple(stage.prefix for stage in EXPORT_PROGRESS_STAGES) == (
+        'Шаг 1 из 4 — Проверка параметров',
+        'Шаг 2 из 4 — Подготовка данных',
+        'Шаг 3 из 4 — Формирование документа',
+        'Шаг 4 из 4 — Финализация файла',
+    )
+    assert 'staged_progress_reporter(report)' in APP_SOURCE
+    assert 'st.progress(status_view.progress / 100.0' in APP_SOURCE
 
 
 def test_export_panel_precedes_screen_graph_settings() -> None:
