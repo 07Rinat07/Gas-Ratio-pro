@@ -2640,3 +2640,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Moved interpretation catalog, interval type, filter preset, and revision repository construction behind the application-service container.
 - Removed direct persistence-repository construction from `ui/interpretation_interval_panel.py`.
 - Added service lifecycle, project-scope, encapsulation, and UI architecture-boundary tests.
+
+## 2026-07-15 — Project-scoped LAS workspace application service
+
+- Added lazy `LasWorkspaceApplicationService` to the application service container.
+- Bound LAS persistence operations to one validated project context.
+- Migrated Streamlit LAS list/read/save/archive/restore/delete/export workflows to the application-service boundary.
+- Removed direct `LasManagerService` construction from the UI module.
+- Added lifecycle, project-isolation and health-snapshot tests.

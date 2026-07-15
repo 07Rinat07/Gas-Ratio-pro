@@ -114,6 +114,28 @@ class ApplicationServiceContainer:
             expected_type=PresentationExportApplicationService,
         )
 
+    def las_workspace(
+        self,
+        *,
+        project_id: str,
+        root: Path | str,
+    ):
+        # Local import keeps LAS storage infrastructure behind the lazy boundary.
+        from services.las_workspace_application_service import (
+            LasWorkspaceApplicationService,
+        )
+
+        return self.ensure_project_service(
+            service_name="las_workspace",
+            project_id=project_id,
+            root=root,
+            factory=lambda: LasWorkspaceApplicationService(
+                root=root,
+                project_id=project_id,
+            ),
+            expected_type=LasWorkspaceApplicationService,
+        )
+
     def interpretation_workspace(
         self,
         *,
