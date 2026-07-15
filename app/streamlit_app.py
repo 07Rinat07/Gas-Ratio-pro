@@ -327,6 +327,7 @@ from projects.recent_projects import (
     set_recent_project_flags,
     touch_recent_project,
 )
+from core.application_service_container import application_service_container
 from services.project_manager_service import ProjectManagerService
 from services.export_manager_service import ExportManagerService
 from services.well_manager_service import DEFAULT_WELLS_STORAGE_ROOT, WellManagerService
@@ -364,7 +365,6 @@ from reports.report_designer import (
     report_templates,
 )
 from reports.report_designer_export import build_designed_report_artifact
-from reports.report_preview_persistence import ReportPreviewCountsRepository
 from reports.pdf_preview import (
     PdfPreviewResult,
     PdfPreviewRuntimeCache,
@@ -387,14 +387,10 @@ from reports.export_wizard import (
     ExportWizardStep,
     build_export_wizard_review,
 )
-from reports.export_wizard_persistence import (
-    ExportWizardDraft,
-    ExportWizardDraftRepository,
-)
+from reports.export_wizard_persistence import ExportWizardDraft
 from reports.export_history import (
     ExportHistoryEntry,
     ExportHistoryFilter,
-    ExportHistoryRepository,
     build_export_data_revision,
     build_repeat_export_confirmation,
     compare_export_data_revision,
@@ -9128,9 +9124,10 @@ def _render_professional_export_panel(
         mode_by_label = {item.label: item for item in designer_modes}
         designer_templates = report_templates()
         template_by_label = {item.label: item for item in designer_templates}
-        draft_repository = ExportWizardDraftRepository(ROOT_DIR / "data" / "projects")
-        history_repository = ExportHistoryRepository(ROOT_DIR / "data" / "projects")
-        preview_counts_repository = ReportPreviewCountsRepository(ROOT_DIR / "data" / "projects")
+        export_application = application_service_container(export_state).presentation_export(
+            project_id=str(active_project.id),
+            root=ROOT_DIR / "data" / "projects",
+        )
         repeat_pending_key = f"export_history_repeat_pending_{active_project.id}"
         repeat_confirm_key = f"export_history_repeat_confirm_{active_project.id}"
         repeat_autorun_key = f"export_history_repeat_autorun_{active_project.id}"
@@ -9214,7 +9211,7 @@ def _render_professional_export_panel(
         draft_key = f"export_wizard_draft_restored_{active_project.id}"
         if not export_state.get(draft_key):
             try:
-                saved_draft = draft_repository.load(str(active_project.id))
+                saved_draft = export_application.load_draft()
             except (OSError, ValueError, TypeError):
                 logger.exception("export_wizard_draft_restore_failed project_id=%s", safe_log_value(active_project.id))
                 saved_draft = None
@@ -9252,7 +9249,7 @@ def _render_professional_export_panel(
         preview_counts_recovery_notice_key = f"report_preview_counts_recovery_notice_{active_project.id}"
         if not export_state.get(preview_counts_restore_key):
             try:
-                preview_counts_load = preview_counts_repository.load_with_recovery(str(active_project.id))
+                preview_counts_load = export_application.load_preview_counts()
                 if preview_counts_load.payload is not None:
                     export_state[report_preview_counts_key] = preview_counts_load.payload
                 if preview_counts_load.recovered or preview_counts_load.source == "quarantined":
@@ -9285,11 +9282,11 @@ def _render_professional_export_panel(
         )
         if reset_draft:
             try:
-                draft_repository.delete(str(active_project.id))
+                export_application.delete_draft()
             except (OSError, ValueError):
                 logger.exception("export_wizard_draft_delete_failed project_id=%s", safe_log_value(active_project.id))
             try:
-                preview_counts_repository.delete(str(active_project.id), include_quarantine=True)
+                export_application.delete_preview_counts(include_quarantine=True)
             except (OSError, ValueError):
                 logger.exception(
                     "report_preview_counts_delete_failed project_id=%s",
@@ -9324,7 +9321,7 @@ def _render_professional_export_panel(
             return
         if clear_history:
             try:
-                history_repository.clear(str(active_project.id))
+                export_application.clear_history()
             except (OSError, ValueError):
                 logger.exception("export_history_clear_failed project_id=%s", safe_log_value(active_project.id))
             _request_ui_refresh_and_rerun("export_history_clear")
@@ -9527,7 +9524,7 @@ def _render_professional_export_panel(
                 if preview_recovery_notice:
                     st.warning(str(preview_recovery_notice))
                 try:
-                    preview_storage_health = preview_counts_repository.storage_health(str(active_project.id))
+                    preview_storage_health = export_application.preview_storage_health()
                 except (OSError, ValueError):
                     preview_storage_health = None
                     logger.exception(
@@ -9698,7 +9695,7 @@ def _render_professional_export_panel(
             max(float(print_top), float(print_bottom)),
         )
         try:
-            draft_repository.save(
+            export_application.save_draft(
                 ExportWizardDraft(
                     project_id=str(active_project.id),
                     wizard=wizard_state,
@@ -10122,8 +10119,7 @@ def _render_professional_export_panel(
                     )
                     export_state[report_preview_counts_key] = report_counts_snapshot
                     try:
-                        preview_counts_repository.save(
-                            str(active_project.id),
+                        export_application.save_preview_counts(
                             report_counts_snapshot,
                         )
                     except (OSError, ValueError, TypeError):
@@ -10145,7 +10141,7 @@ def _render_professional_export_panel(
                 }
                 export_state.pop(export_error_key, None)
                 try:
-                    history_repository.record(
+                    export_application.record_history(
                         ExportHistoryEntry(
                             project_id=str(active_project.id),
                             file_name=export_artifact.file_name,
@@ -10551,7 +10547,7 @@ def _render_professional_export_panel(
                 "Подробности записаны в logs/app.log."
             )
         try:
-            export_history = history_repository.load(str(active_project.id))
+            export_history = export_application.load_history()
         except (OSError, ValueError, TypeError):
             logger.exception("export_history_load_failed project_id=%s", safe_log_value(active_project.id))
             export_history = ()

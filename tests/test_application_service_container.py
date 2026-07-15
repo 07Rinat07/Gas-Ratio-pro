@@ -5,6 +5,7 @@ from core.runtime_service_registry import runtime_service_registry
 from services.interpretation_correlation_application_service import (
     InterpretationCorrelationApplicationService,
 )
+from services.presentation_export_application_service import PresentationExportApplicationService
 
 
 def test_container_reuses_project_scoped_correlation_service(tmp_path: Path) -> None:
@@ -45,3 +46,15 @@ def test_correlation_application_service_manages_workspaces(tmp_path: Path) -> N
     assert service.list_workspaces() == (loaded,)
     assert service.delete_workspace(created.id) is True
     assert service.list_workspaces() == ()
+
+
+def test_container_reuses_project_scoped_presentation_export_service(tmp_path: Path) -> None:
+    state = {}
+    container = application_service_container(state)
+
+    first = container.presentation_export(project_id="demo", root=tmp_path)
+    second = container.presentation_export(project_id="demo", root=tmp_path)
+
+    assert first is second
+    assert isinstance(first, PresentationExportApplicationService)
+    assert first.health()["project_id"] == "demo"

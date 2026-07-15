@@ -93,7 +93,7 @@ def test_cross_project_payload_is_rejected(tmp_path: Path) -> None:
 
 def test_streamlit_panel_restores_and_saves_project_draft() -> None:
     source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
-    assert "ExportWizardDraftRepository(ROOT_DIR / \"data\" / \"projects\")" in source
-    assert "draft_repository.load(str(active_project.id))" in source
-    assert "draft_repository.save(" in source
+    assert "application_service_container(export_state).presentation_export" in source
+    assert "export_application.load_draft()" in source
+    assert "export_application.save_draft(" in source
     assert "export_wizard_draft_restored_" in source

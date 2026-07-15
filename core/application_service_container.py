@@ -92,6 +92,28 @@ class ApplicationServiceContainer:
             expected_type=InterpretationCorrelationApplicationService,
         )
 
+    def presentation_export(
+        self,
+        *,
+        project_id: str,
+        root: Path | str,
+    ):
+        # Local import preserves lazy loading of report persistence dependencies.
+        from services.presentation_export_application_service import (
+            PresentationExportApplicationService,
+        )
+
+        return self.ensure_project_service(
+            service_name="presentation_export",
+            project_id=project_id,
+            root=root,
+            factory=lambda: PresentationExportApplicationService(
+                root=root,
+                project_id=project_id,
+            ),
+            expected_type=PresentationExportApplicationService,
+        )
+
     def descriptors(self) -> tuple[ApplicationServiceDescriptor, ...]:
         active_keys = {item.key for item in self._registry.descriptors()}
         stale = tuple(key for key in self._descriptors if key not in active_keys)

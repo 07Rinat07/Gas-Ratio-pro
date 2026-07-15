@@ -85,8 +85,8 @@ def test_cross_project_history_is_rejected(tmp_path: Path) -> None:
 
 def test_streamlit_panel_records_history_and_exposes_reset_controls() -> None:
     source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
-    assert "ExportHistoryRepository" in source
-    assert "history_repository.record(" in source
+    assert "export_application.load_history()" in source
+    assert "export_application.record_history(" in source
     assert "Сбросить настройки" in source
     assert "Очистить историю" in source
 

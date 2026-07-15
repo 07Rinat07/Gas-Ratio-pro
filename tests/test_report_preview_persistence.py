@@ -62,10 +62,10 @@ def test_repository_sanitizes_project_identifier(tmp_path):
 def test_streamlit_integrates_project_persistence():
     source = open("app/streamlit_app.py", encoding="utf-8").read()
 
-    assert "ReportPreviewCountsRepository(ROOT_DIR / \"data\" / \"projects\")" in source
-    assert "preview_counts_repository.load_with_recovery(str(active_project.id))" in source
-    assert "preview_counts_repository.save(" in source
-    assert "preview_counts_repository.delete(str(active_project.id), include_quarantine=True)" in source
+    assert "application_service_container(export_state).presentation_export" in source
+    assert "export_application.load_preview_counts()" in source
+    assert "export_application.save_preview_counts(" in source
+    assert "export_application.delete_preview_counts(include_quarantine=True)" in source
 
 
 def test_repository_keeps_previous_valid_snapshot_as_backup(tmp_path):
@@ -233,5 +233,5 @@ def test_repository_storage_health_includes_quarantine_usage(tmp_path):
 def test_streamlit_shows_report_preview_storage_health():
     source = open("app/streamlit_app.py", encoding="utf-8").read()
 
-    assert "preview_counts_repository.storage_health(str(active_project.id))" in source
+    assert "export_application.preview_storage_health()" in source
     assert "Состояние хранилища предпросмотра" in source

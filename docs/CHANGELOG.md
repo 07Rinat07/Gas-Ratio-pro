@@ -1,3 +1,12 @@
+## Phase 2 — Presentation Export Application Service Boundary
+
+- Added a lazy project-scoped `PresentationExportApplicationService`.
+- Moved export draft, export history and report-preview persistence behind the application layer.
+- Removed direct repository construction and calls from the Streamlit presentation-export UI.
+- Extended the Application Service Container with a project-scoped presentation export service.
+- Added cross-project write guards, service health reporting and architecture boundary tests.
+- Updated persistence integration tests to assert the new UI → Service → Repository boundary.
+
 ## Phase 2 — Project-scoped DataFrame memory hardening
 
 - Added a strict byte budget in addition to the existing sample-count limit.
