@@ -82,8 +82,7 @@ def render_interpretation_interval_panel(
         project_id=project_id,
         root=root,
     )
-    catalog_repository = workspace_service.catalog(well_id=well_id)
-    catalog_items = catalog_repository.list()
+    catalog_items = workspace_service.list_interpretations(well_id=well_id)
     interpretation_ids = [item.id for item in catalog_items]
     selector_key = f"manual_interval_interpretation_selector_{project_id}_{well_id}"
     if str(state.get(selector_key, "")) not in interpretation_ids:
@@ -107,18 +106,17 @@ def render_interpretation_interval_panel(
         well_id=well_id,
         interpretation_id=selected_interpretation_id,
     )
-    type_repository = workspace_service.interval_types()
-    interval_types = type_repository.list()
-    preset_repository = workspace_service.filter_presets(
+    interval_types = workspace_service.list_interval_types()
+    preset_use_cases = workspace_service.filter_preset_use_cases(
         well_id=well_id,
         interpretation_id=manager.interpretation_id,
     )
-    filter_presets = preset_repository.list()
+    filter_presets = preset_use_cases.list()
     intervals = manager.list_intervals()
     filtered_intervals = intervals
 
     with st.expander("Ручные интервалы интерпретации", expanded=False):
-        active_catalog_item = catalog_repository.get(manager.interpretation_id)
+        active_catalog_item = workspace_service.get_interpretation(manager.interpretation_id, well_id=well_id)
         st.caption(
             f"Область хранения: проект `{project_id}` · скважина `{well_id}` · "
             f"интерпретация `{manager.interpretation_id}`"
@@ -149,7 +147,7 @@ def render_interpretation_interval_panel(
                 create_submitted = st.form_submit_button("Создать интерпретацию", width="stretch")
             if create_submitted:
                 try:
-                    created_interpretation = catalog_repository.create(
+                    created_interpretation = workspace_service.create_interpretation(well_id=well_id, 
                         name=create_name,
                         description=create_description,
                     )
@@ -172,8 +170,8 @@ def render_interpretation_interval_panel(
                 update_submitted = st.form_submit_button("Сохранить метаданные", width="stretch")
             if update_submitted:
                 try:
-                    catalog_repository.update(
-                        manager.interpretation_id,
+                    workspace_service.update_interpretation(
+                        manager.interpretation_id, well_id=well_id,
                         name=update_name,
                         description=update_description,
                     )
@@ -195,8 +193,8 @@ def render_interpretation_interval_panel(
                 duplicate_submitted = st.form_submit_button("Дублировать интерпретацию", width="stretch")
             if duplicate_submitted:
                 try:
-                    duplicated_interpretation = catalog_repository.duplicate(
-                        manager.interpretation_id,
+                    duplicated_interpretation = workspace_service.duplicate_interpretation(
+                        manager.interpretation_id, well_id=well_id,
                         name=duplicate_name,
                         description=duplicate_description,
                     )
@@ -219,16 +217,16 @@ def render_interpretation_interval_panel(
                 width="stretch",
             ):
                 try:
-                    catalog_repository.delete(manager.interpretation_id)
+                    workspace_service.delete_interpretation(manager.interpretation_id, well_id=well_id)
                 except (KeyError, ValueError, OSError) as exc:
                     st.error(str(exc))
                 else:
-                    remaining = catalog_repository.list()
+                    remaining = workspace_service.list_interpretations(well_id=well_id)
                     state[selector_key] = remaining[0].id
                     st.success("Интерпретация перемещена в корзину.")
                     st.rerun()
 
-            deleted_interpretations = catalog_repository.list_deleted()
+            deleted_interpretations = workspace_service.list_deleted_interpretations(well_id=well_id)
             if deleted_interpretations:
                 restore_id = st.selectbox(
                     "Удалённая интерпретация",
@@ -249,7 +247,7 @@ def render_interpretation_interval_panel(
                     width="stretch",
                 ):
                     try:
-                        restored_interpretation = catalog_repository.restore(restore_id)
+                        restored_interpretation = workspace_service.restore_interpretation(restore_id, well_id=well_id)
                     except (KeyError, ValueError, OSError) as exc:
                         st.error(str(exc))
                     else:
@@ -320,9 +318,9 @@ def render_interpretation_interval_panel(
                         publication_service.approve(comment=workflow_comment)
                         st.rerun()
                 elif publication_state.status == "approved":
-                    approval_revisions = workspace_service.revisions(
+                    approval_revisions = workspace_service.list_revisions(
                         well_id=well_id, interpretation_id=manager.interpretation_id
-                    ).list()
+                    )
                     if approval_revisions:
                         publish_revision_id = st.selectbox(
                             "Ревизия для публикации",
@@ -397,12 +395,12 @@ def render_interpretation_interval_panel(
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", width="stretch",
                 )
 
-        revision_repository = workspace_service.revisions(
+        revision_use_cases = workspace_service.revision_use_cases(
             well_id=well_id,
             interpretation_id=manager.interpretation_id,
         )
         with st.expander("Ревизии активной интерпретации", expanded=False):
-            revisions = revision_repository.list()
+            revisions = revision_use_cases.list()
             st.caption(
                 "Ревизия сохраняет интервалы и JSON-настройки активной интерпретации. "
                 "Восстановление защищено от устаревшего предварительного просмотра."
@@ -416,7 +414,7 @@ def render_interpretation_interval_panel(
                 revision_create_submitted = st.form_submit_button("Создать ревизию", width="stretch")
             if revision_create_submitted:
                 try:
-                    created_revision = revision_repository.create(name=revision_name, note=revision_note)
+                    created_revision = revision_use_cases.create(name=revision_name, note=revision_note)
                 except (ValueError, OSError) as exc:
                     st.error(str(exc))
                 else:
@@ -452,7 +450,7 @@ def render_interpretation_interval_panel(
                     key=f"interpretation_revision_select_{project_id}_{well_id}_{manager.interpretation_id}",
                 )
                 try:
-                    revision_diff = revision_repository.compare(selected_revision_id)
+                    revision_diff = revision_use_cases.compare(selected_revision_id)
                 except (KeyError, ValueError, OSError) as exc:
                     st.error(str(exc))
                     revision_diff = None
@@ -492,7 +490,7 @@ def render_interpretation_interval_panel(
                         width="stretch",
                     ):
                         try:
-                            revision_repository.restore(
+                            revision_use_cases.restore(
                                 selected_revision_id,
                                 expected_current_state_token=revision_diff.current_state_token,
                             )
@@ -514,7 +512,7 @@ def render_interpretation_interval_panel(
                     width="stretch",
                 ):
                     try:
-                        deleted = revision_repository.delete(selected_revision_id)
+                        deleted = revision_use_cases.delete(selected_revision_id)
                     except (ValueError, OSError) as exc:
                         st.error(str(exc))
                     else:
@@ -537,7 +535,7 @@ def render_interpretation_interval_panel(
                     width="stretch",
                 ):
                     try:
-                        removed_revision_ids = revision_repository.prune(keep_latest=int(keep_latest))
+                        removed_revision_ids = revision_use_cases.prune(keep_latest=int(keep_latest))
                     except (ValueError, OSError) as exc:
                         st.error(str(exc))
                     else:
@@ -808,7 +806,7 @@ def render_interpretation_interval_panel(
                 type_save_clicked = st.form_submit_button("Добавить или обновить тип", width="stretch")
             if type_save_clicked:
                 try:
-                    type_repository.upsert(
+                    workspace_service.upsert_interval_type(
                         type_id=type_id_input,
                         name=type_name_input,
                         color=type_color_input,
@@ -829,7 +827,7 @@ def render_interpretation_interval_panel(
                     ),
                     key=f"manual_interval_type_delete_select_{project_id}",
                 )
-                type_usage = type_repository.usage(type_delete_id)
+                type_usage = workspace_service.interval_type_usage(type_delete_id)
                 if type_usage.in_use:
                     st.warning(
                         f"Тип используется: {type_usage.interval_count} интервалов · "
@@ -853,7 +851,7 @@ def render_interpretation_interval_panel(
                             key=f"manual_interval_type_reassign_color_{project_id}",
                         )
                         try:
-                            reassignment_preview = type_repository.preview_reassignment(
+                            reassignment_preview = workspace_service.preview_interval_type_reassignment(
                                 type_delete_id,
                                 replacement_type_id,
                                 apply_target_color=apply_replacement_color,
@@ -896,7 +894,7 @@ def render_interpretation_interval_panel(
                             width="stretch",
                         ):
                             try:
-                                reassigned = type_repository.reassign_and_delete(
+                                reassigned = workspace_service.reassign_and_delete_interval_type(
                                     type_delete_id,
                                     replacement_type_id,
                                     apply_target_color=apply_replacement_color,
@@ -917,7 +915,7 @@ def render_interpretation_interval_panel(
                     width="stretch",
                 ):
                     try:
-                        deleted = type_repository.delete(type_delete_id)
+                        deleted = workspace_service.delete_interval_type(type_delete_id)
                     except ValueError as exc:
                         st.error(str(exc))
                     else:
@@ -942,7 +940,7 @@ def render_interpretation_interval_panel(
                     "Отменённые": "undone",
                 }
                 journal_status = status_map[journal_status_label]
-                journal_total = type_repository.count_operations(
+                journal_total = workspace_service.count_interval_type_operations(
                     status=journal_status,
                     query=journal_query,
                 )
@@ -966,7 +964,7 @@ def render_interpretation_interval_panel(
                         key=f"manual_interval_type_journal_page_{project_id}",
                     )
                 )
-                type_operations = type_repository.list_operations(
+                type_operations = workspace_service.list_interval_type_operations(
                     limit=journal_page_size,
                     offset=(journal_page - 1) * journal_page_size,
                     status=journal_status,
@@ -1010,7 +1008,7 @@ def render_interpretation_interval_panel(
                         format_func=lambda value: operation_labels[value],
                         key=f"manual_interval_type_journal_detail_{project_id}",
                     )
-                    selected_operation = type_repository.get_operation(selected_operation_id)
+                    selected_operation = workspace_service.get_interval_type_operation(selected_operation_id)
                     if selected_operation is not None:
                         with st.container(border=True):
                             st.code(selected_operation.id, language=None)
@@ -1065,7 +1063,7 @@ def render_interpretation_interval_panel(
                         width="stretch",
                     )
 
-                    latest_operation = type_repository.list_operations(limit=1)[0]
+                    latest_operation = workspace_service.list_interval_type_operations(limit=1)[0]
                     undo_confirmed = st.checkbox(
                         "Подтверждаю отмену последнего проектного переназначения",
                         value=False,
@@ -1083,7 +1081,7 @@ def render_interpretation_interval_panel(
                         width="stretch",
                     ):
                         try:
-                            restored = type_repository.undo_last_reassignment()
+                            restored = workspace_service.undo_last_interval_type_reassignment()
                         except ValueError as exc:
                             st.error(str(exc))
                         else:
@@ -1098,7 +1096,7 @@ def render_interpretation_interval_panel(
                 key=f"manual_interval_type_reset_{project_id}",
                 width="stretch",
             ):
-                type_repository.reset_defaults()
+                workspace_service.reset_interval_type_defaults()
                 st.success("Справочник типов восстановлен.")
                 st.rerun()
 
@@ -1170,7 +1168,7 @@ def render_interpretation_interval_panel(
                             key=f"manual_interval_filter_preset_apply_{project_id}_{well_id}",
                             width="stretch",
                         ):
-                            selected_preset = preset_repository.get(selected_preset_id)
+                            selected_preset = preset_use_cases.get(selected_preset_id)
                             criteria = selected_preset.criteria
                             st.session_state[filter_keys["query"]] = criteria.query
                             st.session_state[filter_keys["types"]] = list(criteria.interval_types)
@@ -1196,7 +1194,7 @@ def render_interpretation_interval_panel(
                             key=f"manual_interval_filter_preset_delete_{project_id}_{well_id}",
                             width="stretch",
                         ):
-                            preset_repository.delete(selected_preset_id)
+                            preset_use_cases.delete(selected_preset_id)
                             st.success("Представление удалено.")
                             st.rerun()
                     else:
@@ -1230,7 +1228,7 @@ def render_interpretation_interval_panel(
                     ):
                         try:
                             imported_presets = import_filter_presets_json(preset_import.getvalue())
-                            preset_repository.replace_all(imported_presets)
+                            preset_use_cases.replace_all(imported_presets)
                         except ValueError as exc:
                             st.error(str(exc))
                         else:
@@ -1338,7 +1336,7 @@ def render_interpretation_interval_panel(
                     width="stretch",
                 ):
                     try:
-                        preset_repository.save(name=preset_name, criteria=current_filter_criteria)
+                        preset_use_cases.save(name=preset_name, criteria=current_filter_criteria)
                     except ValueError as exc:
                         st.error(str(exc))
                     else:

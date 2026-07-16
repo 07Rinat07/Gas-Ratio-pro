@@ -1,5 +1,13 @@
 ## Application service boundary hardening — Modern Workbench
 
+## Application Service boundary hardening — interpretation persistence
+
+- Removed repository-style gateways from the interpretation interval UI.
+- Added explicit catalog, interval-type, preset and revision application use cases.
+- Kept repository instances private and project-scoped inside `InterpretationWorkspaceApplicationService`.
+- Added architecture regression coverage preventing repository gateway leakage back into UI code.
+
+
 ## 2026-07-15 — Interpretation coordination service lifecycle hardening
 
 - Перенесено создание `InterpretationIntervalManager` и координационных сервисов интервалов из Streamlit UI в project-scoped `InterpretationWorkspaceApplicationService`.

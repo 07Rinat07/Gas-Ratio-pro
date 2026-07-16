@@ -47,3 +47,18 @@ def test_interpretation_panel_does_not_construct_coordination_services() -> None
     assert "workspace_service.publication(" in source
     assert "workspace_service.interval_transfer(" in source
     assert "workspace_service.interval_merge(" in source
+
+
+def test_interval_panel_does_not_receive_repository_gateways() -> None:
+    source = Path("ui/interpretation_interval_panel.py").read_text(encoding="utf-8")
+    forbidden = (
+        ".catalog(",
+        ".interval_types(",
+        ".filter_presets(",
+        ".revisions(",
+        "catalog_repository",
+        "type_repository",
+        "preset_repository",
+        "revision_repository",
+    )
+    assert all(token not in source for token in forbidden)

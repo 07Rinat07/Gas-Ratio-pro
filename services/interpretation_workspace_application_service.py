@@ -32,21 +32,31 @@ from projects.well_cards import safe_well_id
 from projects.interpretation_intervals import _safe_interpretation_id
 
 
-class _RepositoryOperations:
-    """Narrow application-layer gateway around one repository instance."""
-
+class _FilterPresetUseCases:
     __slots__ = ("_repository",)
 
-    def __init__(self, repository: Any) -> None:
+    def __init__(self, repository: InterpretationIntervalFilterPresetRepository) -> None:
         self._repository = repository
 
-    def __getattr__(self, name: str) -> Any:
-        if name.startswith("_"):
-            raise AttributeError(name)
-        attribute = getattr(self._repository, name)
-        if not callable(attribute):
-            raise AttributeError(name)
-        return attribute
+    def list(self): return self._repository.list()
+    def get(self, preset_id: str): return self._repository.get(preset_id)
+    def save(self, **values: Any): return self._repository.save(**values)
+    def delete(self, preset_id: str): return self._repository.delete(preset_id)
+    def replace_all(self, presets: Any): return self._repository.replace_all(presets)
+
+
+class _RevisionUseCases:
+    __slots__ = ("_repository",)
+
+    def __init__(self, repository: InterpretationRevisionRepository) -> None:
+        self._repository = repository
+
+    def list(self): return self._repository.list()
+    def create(self, **values: Any): return self._repository.create(**values)
+    def compare(self, revision_id: str): return self._repository.compare(revision_id)
+    def restore(self, revision_id: str, **values: Any): return self._repository.restore(revision_id, **values)
+    def delete(self, revision_id: str): return self._repository.delete(revision_id)
+    def prune(self, **values: Any): return self._repository.prune(**values)
 
 
 class InterpretationWorkspaceApplicationService:
@@ -60,58 +70,52 @@ class InterpretationWorkspaceApplicationService:
     ) -> None:
         self.root = Path(root)
         self.project_id = safe_project_id(project_id)
-        self._catalogs: dict[str, _RepositoryOperations] = {}
-        self._presets: dict[tuple[str, str], _RepositoryOperations] = {}
-        self._revisions: dict[tuple[str, str], _RepositoryOperations] = {}
-        self._types: _RepositoryOperations | None = None
+        self._catalogs: dict[str, InterpretationCatalogRepository] = {}
+        self._presets: dict[tuple[str, str], InterpretationIntervalFilterPresetRepository] = {}
+        self._revision_scopes: dict[tuple[str, str], InterpretationRevisionRepository] = {}
+        self._types: InterpretationIntervalTypeRepository | None = None
         self._managers: dict[tuple[int, str, str], InterpretationIntervalManager] = {}
         self._properties: dict[tuple[int, str, str], InterpretationIntervalPropertiesService] = {}
         self._batch: dict[tuple[int, str, str], InterpretationIntervalBatchService] = {}
+        self._preset_use_cases: dict[tuple[str, str], _FilterPresetUseCases] = {}
+        self._revision_use_cases: dict[tuple[str, str], _RevisionUseCases] = {}
 
-    def catalog(self, *, well_id: str) -> _RepositoryOperations:
+    def _catalog(self, *, well_id: str) -> InterpretationCatalogRepository:
         clean_well = safe_well_id(well_id)
         if clean_well not in self._catalogs:
-            self._catalogs[clean_well] = _RepositoryOperations(
-                InterpretationCatalogRepository(
+            self._catalogs[clean_well] = InterpretationCatalogRepository(
                     root=self.root,
                     project_id=self.project_id,
                     well_id=clean_well,
                 )
-            )
         return self._catalogs[clean_well]
 
-    def interval_types(self) -> _RepositoryOperations:
+    def _interval_types(self) -> InterpretationIntervalTypeRepository:
         if self._types is None:
-            self._types = _RepositoryOperations(
-                InterpretationIntervalTypeRepository(root=self.root, project_id=self.project_id)
-            )
+            self._types = InterpretationIntervalTypeRepository(root=self.root, project_id=self.project_id)
         return self._types
 
-    def filter_presets(self, *, well_id: str, interpretation_id: str) -> _RepositoryOperations:
+    def _filter_presets(self, *, well_id: str, interpretation_id: str) -> InterpretationIntervalFilterPresetRepository:
         key = (safe_well_id(well_id), _safe_interpretation_id(interpretation_id))
         if key not in self._presets:
-            self._presets[key] = _RepositoryOperations(
-                InterpretationIntervalFilterPresetRepository(
+            self._presets[key] = InterpretationIntervalFilterPresetRepository(
                     root=self.root,
                     project_id=self.project_id,
                     well_id=key[0],
                     interpretation_id=key[1],
                 )
-            )
         return self._presets[key]
 
-    def revisions(self, *, well_id: str, interpretation_id: str) -> _RepositoryOperations:
+    def _revision_repository(self, *, well_id: str, interpretation_id: str) -> InterpretationRevisionRepository:
         key = (safe_well_id(well_id), _safe_interpretation_id(interpretation_id))
-        if key not in self._revisions:
-            self._revisions[key] = _RepositoryOperations(
-                InterpretationRevisionRepository(
+        if key not in self._revision_scopes:
+            self._revision_scopes[key] = InterpretationRevisionRepository(
                     root=self.root,
                     project_id=self.project_id,
                     well_id=key[0],
                     interpretation_id=key[1],
                 )
-            )
-        return self._revisions[key]
+        return self._revision_scopes[key]
 
     def interval_manager(
         self,
@@ -217,6 +221,117 @@ class InterpretationWorkspaceApplicationService:
         )
 
 
+    def filter_preset_use_cases(self, *, well_id: str, interpretation_id: str) -> _FilterPresetUseCases:
+        key = (safe_well_id(well_id), _safe_interpretation_id(interpretation_id))
+        if key not in self._preset_use_cases:
+            self._preset_use_cases[key] = _FilterPresetUseCases(
+                self._filter_presets(well_id=key[0], interpretation_id=key[1])
+            )
+        return self._preset_use_cases[key]
+
+    def revision_use_cases(self, *, well_id: str, interpretation_id: str) -> _RevisionUseCases:
+        key = (safe_well_id(well_id), _safe_interpretation_id(interpretation_id))
+        if key not in self._revision_use_cases:
+            self._revision_use_cases[key] = _RevisionUseCases(
+                self._revision_repository(well_id=key[0], interpretation_id=key[1])
+            )
+        return self._revision_use_cases[key]
+
+    # Catalog use cases -------------------------------------------------
+    def list_interpretations(self, *, well_id: str):
+        return self._catalog(well_id=well_id).list()
+
+    def get_interpretation(self, interpretation_id: str, *, well_id: str):
+        return self._catalog(well_id=well_id).get(interpretation_id)
+
+    def create_interpretation(self, *, well_id: str, **values: Any):
+        return self._catalog(well_id=well_id).create(**values)
+
+    def update_interpretation(self, interpretation_id: str, *, well_id: str, **values: Any):
+        return self._catalog(well_id=well_id).update(interpretation_id, **values)
+
+    def duplicate_interpretation(self, interpretation_id: str, *, well_id: str, **values: Any):
+        return self._catalog(well_id=well_id).duplicate(interpretation_id, **values)
+
+    def delete_interpretation(self, interpretation_id: str, *, well_id: str):
+        return self._catalog(well_id=well_id).delete(interpretation_id)
+
+    def list_deleted_interpretations(self, *, well_id: str):
+        return self._catalog(well_id=well_id).list_deleted()
+
+    def restore_interpretation(self, interpretation_id: str, *, well_id: str):
+        return self._catalog(well_id=well_id).restore(interpretation_id)
+
+    # Interval type use cases ------------------------------------------
+    def list_interval_types(self):
+        return self._interval_types().list()
+
+    def upsert_interval_type(self, *args: Any, **kwargs: Any):
+        return self._interval_types().upsert(*args, **kwargs)
+
+    def interval_type_usage(self, *args: Any, **kwargs: Any):
+        return self._interval_types().usage(*args, **kwargs)
+
+    def preview_interval_type_reassignment(self, *args: Any, **kwargs: Any):
+        return self._interval_types().preview_reassignment(*args, **kwargs)
+
+    def reassign_and_delete_interval_type(self, *args: Any, **kwargs: Any):
+        return self._interval_types().reassign_and_delete(*args, **kwargs)
+
+    def delete_interval_type(self, *args: Any, **kwargs: Any):
+        return self._interval_types().delete(*args, **kwargs)
+
+    def count_interval_type_operations(self, *args: Any, **kwargs: Any):
+        return self._interval_types().count_operations(*args, **kwargs)
+
+    def list_interval_type_operations(self, *args: Any, **kwargs: Any):
+        return self._interval_types().list_operations(*args, **kwargs)
+
+    def get_interval_type_operation(self, *args: Any, **kwargs: Any):
+        return self._interval_types().get_operation(*args, **kwargs)
+
+    def undo_last_interval_type_reassignment(self):
+        return self._interval_types().undo_last_reassignment()
+
+    def reset_interval_type_defaults(self):
+        return self._interval_types().reset_defaults()
+
+    # Filter preset use cases ------------------------------------------
+    def list_filter_presets(self, *, well_id: str, interpretation_id: str):
+        return self._filter_presets(well_id=well_id, interpretation_id=interpretation_id).list()
+
+    def get_filter_preset(self, preset_id: str, *, well_id: str, interpretation_id: str):
+        return self._filter_presets(well_id=well_id, interpretation_id=interpretation_id).get(preset_id)
+
+    def save_filter_preset(self, *, well_id: str, interpretation_id: str, **values: Any):
+        return self._filter_presets(well_id=well_id, interpretation_id=interpretation_id).save(**values)
+
+    def delete_filter_preset(self, preset_id: str, *, well_id: str, interpretation_id: str):
+        return self._filter_presets(well_id=well_id, interpretation_id=interpretation_id).delete(preset_id)
+
+    def replace_filter_presets(self, presets: Any, *, well_id: str, interpretation_id: str):
+        return self._filter_presets(well_id=well_id, interpretation_id=interpretation_id).replace_all(presets)
+
+    # Revision use cases -----------------------------------------------
+    def list_revisions(self, *, well_id: str, interpretation_id: str):
+        return self._revision_repository(well_id=well_id, interpretation_id=interpretation_id).list()
+
+    def create_revision(self, *, well_id: str, interpretation_id: str, **values: Any):
+        return self._revision_repository(well_id=well_id, interpretation_id=interpretation_id).create(**values)
+
+    def compare_revision(self, revision_id: str, *, well_id: str, interpretation_id: str):
+        return self._revision_repository(well_id=well_id, interpretation_id=interpretation_id).compare(revision_id)
+
+    def restore_revision(self, revision_id: str, *, well_id: str, interpretation_id: str, **values: Any):
+        return self._revision_repository(well_id=well_id, interpretation_id=interpretation_id).restore(revision_id, **values)
+
+    def delete_revision(self, revision_id: str, *, well_id: str, interpretation_id: str):
+        return self._revision_repository(well_id=well_id, interpretation_id=interpretation_id).delete(revision_id)
+
+    def prune_revisions(self, *, well_id: str, interpretation_id: str, **values: Any):
+        return self._revision_repository(well_id=well_id, interpretation_id=interpretation_id).prune(**values)
+
+
     def list_intervals(
         self,
         *,
@@ -269,9 +384,11 @@ class InterpretationWorkspaceApplicationService:
             "root": str(self.root.resolve()),
             "catalog_scopes": len(self._catalogs),
             "preset_scopes": len(self._presets),
-            "revision_scopes": len(self._revisions),
+            "revision_scopes": len(self._revision_scopes),
             "interval_types_initialized": self._types is not None,
             "manager_scopes": len(self._managers),
             "properties_scopes": len(self._properties),
             "batch_scopes": len(self._batch),
+            "preset_use_case_scopes": len(self._preset_use_cases),
+            "revision_use_case_scopes": len(self._revision_use_cases),
         }
