@@ -139,5 +139,11 @@
   "workspace.quick.open_reports": "Открыть отчёты",
   "workspace.quick.reports.text": "Просмотреть инженерные отчёты",
   "workspace.quick.reports.title": "Отчёты",
-  "workspace.title": "Рабочая область"
+  "workspace.title": "Рабочая область",
+  "diagnostics.dataset_catalog.title": "Каталог наборов данных",
+  "diagnostics.dataset_catalog.rebuild": "Перестроить SQLite-каталог из manifests",
+  "diagnostics.dataset_catalog.no_project": "Активный проект не выбран.",
+  "diagnostics.dataset_catalog.result": "Статус: {status}; manifests: {manifest_count}; до перестроения: {catalog_count_before}.",
+  "import.validation.las.validation.decimal_comma": "Обнаружена десятичная запятая в архивных LAS-данных.",
+  "import.validation.las.validation.fixed_width_data": "Обнаружен фиксированный формат колонок архивного LAS."
 }

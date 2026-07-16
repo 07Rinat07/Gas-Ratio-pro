@@ -999,6 +999,27 @@ def _render_native_streamlit_layout(
                     if hasattr(st_module, "dataframe"):
                         st_module.dataframe(budgets, width="stretch", hide_index=True)
 
+                st_module.markdown("##### " + i18n("diagnostics.dataset_catalog.title"))
+                active_project_id = str(payload.get("interaction", {}).get("active_project_id", "") or "")
+                if active_project_id:
+                    if st_module.button(
+                        i18n("diagnostics.dataset_catalog.rebuild"),
+                        key="workbench_diagnostics_rebuild_dataset_catalog",
+                        width="stretch",
+                    ):
+                        data_platform = application_service_container(registry.state).data_platform(root=DEFAULT_PROJECTS_ROOT)
+                        reconciliation = data_platform.reconcile_catalog(active_project_id)
+                        st_module.success(
+                            i18n(
+                                "diagnostics.dataset_catalog.result",
+                                status=reconciliation.get("status", "—"),
+                                manifest_count=reconciliation.get("manifest_count", 0),
+                                catalog_count_before=reconciliation.get("catalog_count_before", 0),
+                            )
+                        )
+                else:
+                    st_module.caption(i18n("diagnostics.dataset_catalog.no_project"))
+
                 baseline = dict(center.get("performance_baseline", {}) or {})
                 if baseline:
                     st_module.markdown("##### " + i18n("diagnostics.section.baseline"))

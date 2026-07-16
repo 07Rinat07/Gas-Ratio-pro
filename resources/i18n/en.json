@@ -139,5 +139,11 @@
   "workspace.quick.open_reports": "Open Reports",
   "workspace.quick.reports.text": "Review engineering reports",
   "workspace.quick.reports.title": "Reports",
-  "workspace.title": "Workspace"
+  "workspace.title": "Workspace",
+  "diagnostics.dataset_catalog.title": "Dataset catalog",
+  "diagnostics.dataset_catalog.rebuild": "Rebuild SQLite catalog from manifests",
+  "diagnostics.dataset_catalog.no_project": "No active project is selected.",
+  "diagnostics.dataset_catalog.result": "Status: {status}; manifests: {manifest_count}; before rebuild: {catalog_count_before}.",
+  "import.validation.las.validation.decimal_comma": "A decimal comma was detected in legacy LAS data.",
+  "import.validation.las.validation.fixed_width_data": "Fixed-width legacy LAS columns were detected."
 }

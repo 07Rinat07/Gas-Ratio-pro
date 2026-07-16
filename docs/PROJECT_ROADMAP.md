@@ -1891,3 +1891,9 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Localized LAS import result contract (ru/kk/en).
 - [x] Rebuild/reconcile SQLite metadata catalog from immutable manifests.
 - [x] Detect legacy LAS encodings and non-standard data delimiters with stable warning codes.
+
+
+## v222.30 — Legacy LAS UI and catalog operations
+- Added manual SQLite metadata-catalog reconciliation in Workbench Diagnostics Center.
+- Added bounded decimal-comma and fixed-width legacy LAS diagnostics.
+- Added stable validation codes and synchronized ru/kk/en messages.

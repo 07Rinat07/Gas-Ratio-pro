@@ -124,3 +124,9 @@ Planned diagnostics include old section aliases, absent `VERS`, legacy `WRAP`, u
 
 ### Archival LAS compatibility
 Support LAS older than 2.0, legacy encodings (including Windows-1251), shortened sections, and non-standard data delimiters through bounded tolerant scanning. Preserve original bytes and expose stable machine-readable diagnostics.
+
+
+## v222.30 — Legacy LAS UI and catalog operations
+- Added manual SQLite metadata-catalog reconciliation in Workbench Diagnostics Center.
+- Added bounded decimal-comma and fixed-width legacy LAS diagnostics.
+- Added stable validation codes and synchronized ru/kk/en messages.

@@ -2907,3 +2907,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added localized LAS import feedback to the production open-result contract.
 - Added manifest-to-SQLite reconciliation and deterministic catalog rebuild.
 - Added bounded legacy encoding and non-standard delimiter diagnostics for archival LAS files.
+
+
+## v222.30 — Legacy LAS UI and catalog operations
+- Added manual SQLite metadata-catalog reconciliation in Workbench Diagnostics Center.
+- Added bounded decimal-comma and fixed-width legacy LAS diagnostics.
+- Added stable validation codes and synchronized ru/kk/en messages.

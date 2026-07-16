@@ -40,3 +40,9 @@ Next:
 
 ### v222.29 — LAS import reconciliation and legacy diagnostics
 Implemented localized import feedback, SQLite reconciliation from immutable manifests, and encoding/delimiter diagnostics for archival LAS.
+
+
+## v222.30 — Legacy LAS UI and catalog operations
+- Added manual SQLite metadata-catalog reconciliation in Workbench Diagnostics Center.
+- Added bounded decimal-comma and fixed-width legacy LAS diagnostics.
+- Added stable validation codes and synchronized ru/kk/en messages.

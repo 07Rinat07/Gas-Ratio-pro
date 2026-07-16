@@ -55,8 +55,16 @@ class LasHeaderMetadataScanner:
             warnings.append("las.compatibility.legacy_encoding")
         delimiter = _detect_data_delimiter(first_data_line)
         metadata["data_delimiter"] = delimiter
+        decimal_style = _detect_decimal_style(first_data_line, delimiter)
+        metadata["decimal_style"] = decimal_style
+        fixed_width = _looks_fixed_width(first_data_line, delimiter)
+        metadata["fixed_width_data"] = fixed_width
         if delimiter in {"comma", "semicolon", "tab"}:
             warnings.append("las.compatibility.nonstandard_data_delimiter")
+        if decimal_style == "comma":
+            warnings.append("las.compatibility.decimal_comma")
+        if fixed_width:
+            warnings.append("las.compatibility.fixed_width_data")
         current_section = ""
         curves: list[str] = []
         for line in text.splitlines():
@@ -200,3 +208,25 @@ def _detect_data_delimiter(line: bytes) -> str:
     if any(ch in line for ch in (b" ", b"\t")):
         return "whitespace"
     return "unknown"
+
+
+def _detect_decimal_style(line: bytes, delimiter: str) -> str:
+    """Detect decimal comma without parsing the complete data section."""
+    if not line:
+        return "unknown"
+    text = line.decode("latin-1", errors="replace")
+    if delimiter == "semicolon" and re.search(r"(?<!\d)[+-]?\d+,\d+(?!\d)", text):
+        return "comma"
+    if re.search(r"(?<!\d)[+-]?\d+\.\d+(?!\d)", text):
+        return "dot"
+    return "integer-or-unknown"
+
+
+def _looks_fixed_width(line: bytes, delimiter: str) -> bool:
+    """Conservatively flag fixed-width legacy rows using one bounded sample."""
+    if not line or delimiter != "whitespace":
+        return False
+    text = line.decode("latin-1", errors="replace").rstrip()
+    gaps = re.findall(r" {2,}", text)
+    tokens = re.split(r" {2,}", text.strip())
+    return len(gaps) >= 2 and len(tokens) >= 3 and all(token.strip() for token in tokens)
