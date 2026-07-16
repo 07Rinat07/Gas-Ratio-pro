@@ -195,3 +195,8 @@ The public README entry point now reflects the actual multi-format platform rath
 ## v222.50 status
 
 Professional Import Wizard is now connected to Data Workspace. Multi-file imports run through a bounded background job manager, persist terminal history per project, expose per-file results, and can retry failed items without repeating successful files.
+
+
+## v222.52 status
+
+Import jobs now support cooperative cancellation checkpoints between batch items, explicit resume of interrupted jobs, and a project-scoped retention policy for history and stale staging files. No interrupted job is resumed implicitly.

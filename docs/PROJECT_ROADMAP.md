@@ -2089,3 +2089,14 @@ Next:
 - explicit resume workflow for interrupted jobs;
 - configurable retention and automatic cleanup;
 - Project Explorer import-history branch.
+
+
+### Import Operations Phase IV — completed
+
+- cooperative cancellation between batch items;
+- explicit resume of interrupted jobs;
+- configurable history retention;
+- age-based stale staging cleanup;
+- durable per-item progress updates.
+
+Next: expose Import History as a lazy Project Explorer branch and add a project-level readiness dashboard.

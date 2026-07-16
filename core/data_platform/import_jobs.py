@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import csv
 import io
 import json
@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 from threading import RLock
 from typing import Callable, Iterable
+import inspect
 from uuid import uuid4
 
 from .import_wizard import BatchImportResult
@@ -140,6 +141,42 @@ class ImportHistoryRepository:
             writer.writerow(row)
         return stream.getvalue().encode("utf-8-sig")
 
+    def prune(self, project_id: str, *, retention_days: int = 90, keep_latest: int = 100) -> dict[str, int]:
+        """Rewrite history while retaining recent entries and a minimum tail."""
+        path = self._path(project_id)
+        if not path.exists():
+            return {"removed_entries": 0, "retained_entries": 0}
+        cutoff = datetime.now(timezone.utc) - timedelta(days=max(1, int(retention_days)))
+        rows: list[dict[str, object]] = []
+        with self._lock, path.open("r", encoding="utf-8") as handle:
+            for raw in handle:
+                try:
+                    payload = json.loads(raw)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(payload, dict):
+                    rows.append(payload)
+        keep_tail = max(0, int(keep_latest))
+        retained: list[dict[str, object]] = []
+        for index, payload in enumerate(rows):
+            if index >= max(0, len(rows) - keep_tail):
+                retained.append(payload)
+                continue
+            stamp = str(payload.get("finished_at") or payload.get("created_at") or "")
+            try:
+                when = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+            except ValueError:
+                retained.append(payload)
+                continue
+            if when >= cutoff:
+                retained.append(payload)
+        temp = path.with_suffix(path.suffix + ".tmp")
+        with self._lock, temp.open("w", encoding="utf-8") as handle:
+            for payload in retained:
+                handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n")
+        os.replace(temp, path)
+        return {"removed_entries": len(rows) - len(retained), "retained_entries": len(retained)}
+
 
 class ImportJobManager:
     """Small executor with durable compact snapshots and project-scoped history."""
@@ -239,9 +276,25 @@ class ImportJobManager:
             current = self._jobs[job_id]
             self._persist_project_locked(current.project_id)
         try:
-            result = self._runner(project_id=current.project_id, sources=current.source_paths, actor=current.actor)
-            with self._lock:
-                cancel_requested = self._jobs[job_id].status == "cancel_requested"
+            def should_cancel() -> bool:
+                with self._lock:
+                    return self._jobs[job_id].status == "cancel_requested"
+
+            def progress(completed: int, total: int) -> None:
+                percent = 10 if total <= 0 else min(95, 10 + int((completed / total) * 85))
+                with self._lock:
+                    latest = self._jobs[job_id]
+                    self._jobs[job_id] = replace(latest, progress_percent=percent)
+                    self._persist_project_locked(latest.project_id)
+
+            parameters = inspect.signature(self._runner).parameters
+            kwargs = {"project_id": current.project_id, "sources": current.source_paths, "actor": current.actor}
+            if "should_cancel" in parameters:
+                kwargs["should_cancel"] = should_cancel
+            if "progress_callback" in parameters:
+                kwargs["progress_callback"] = progress
+            result = self._runner(**kwargs)
+            cancel_requested = should_cancel()
             terminal = replace(
                 current,
                 status="cancelled" if cancel_requested else "completed",
@@ -323,6 +376,46 @@ class ImportJobManager:
         if not paths:
             raise ValueError("job has no available failed or interrupted items to retry")
         return self.submit(project_id=snapshot.project_id, sources=paths, actor=actor or snapshot.actor)
+
+    def resume_interrupted(self, job_id: str, *, actor: str = "") -> ImportJobSnapshot:
+        snapshot = self.get(job_id)
+        if snapshot.status != "interrupted":
+            raise ValueError("only interrupted jobs can be resumed")
+        paths = [path for path in snapshot.source_paths if Path(path).exists()]
+        if not paths:
+            raise ValueError("interrupted job has no available source files")
+        return self.submit(project_id=snapshot.project_id, sources=paths, actor=actor or snapshot.actor)
+
+    def apply_retention_policy(
+        self, project_id: str, *, retention_days: int = 90, keep_latest: int = 100, staging_max_age_days: int = 7
+    ) -> dict[str, int]:
+        history = self._history.prune(project_id, retention_days=retention_days, keep_latest=keep_latest)
+        staging = self._root / project_id / "imports" / "staging"
+        removed_files = 0
+        removed_bytes = 0
+        cutoff = datetime.now(timezone.utc) - timedelta(days=max(1, int(staging_max_age_days)))
+        protected = {
+            Path(path).resolve()
+            for item in self.list(project_id=project_id)
+            if item.status in _ACTIVE
+            for path in item.source_paths
+        }
+        if staging.exists():
+            root = staging.resolve()
+            for candidate in staging.iterdir():
+                if not candidate.is_file():
+                    continue
+                resolved = candidate.resolve()
+                if resolved.parent != root or resolved in protected:
+                    continue
+                modified = datetime.fromtimestamp(candidate.stat().st_mtime, tz=timezone.utc)
+                if modified >= cutoff:
+                    continue
+                size = candidate.stat().st_size
+                candidate.unlink()
+                removed_files += 1
+                removed_bytes += size
+        return {**history, "removed_staging_files": removed_files, "removed_staging_bytes": removed_bytes}
 
     def cleanup_staging(self, project_id: str, *, include_terminal: bool = True) -> dict[str, int]:
         staging = self._root / project_id / "imports" / "staging"

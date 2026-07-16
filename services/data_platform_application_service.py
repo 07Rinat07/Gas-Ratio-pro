@@ -262,9 +262,16 @@ class DataPlatformApplicationService:
     def new_import_wizard(self, project_id: str) -> ImportWizardState:
         return ImportWizardState(project_id=project_id)
 
-    def run_batch_import(self, *, project_id: str, sources, actor: str = "", profile: ImportProfile | None = None, import_mode: str = "tolerant") -> BatchImportResult:
+    def run_batch_import(
+        self, *, project_id: str, sources, actor: str = "", profile: ImportProfile | None = None,
+        import_mode: str = "tolerant", should_cancel=None, progress_callback=None,
+    ) -> BatchImportResult:
+        source_items = tuple(sources)
         items = []
-        for raw in sources:
+        total = len(source_items)
+        for index, raw in enumerate(source_items):
+            if should_cancel is not None and bool(should_cancel()):
+                break
             source = Path(raw)
             try:
                 format_id = profile.format_id if profile is not None else None
@@ -272,6 +279,8 @@ class DataPlatformApplicationService:
                 items.append(BatchImportItemResult(source_name=source.name, status="success", dataset_id=result.manifest.dataset_id, format_id=result.manifest.format_id, readiness_score=int(result.manifest.metadata.get("readiness_score", 0) or 0)))
             except Exception as exc:
                 items.append(BatchImportItemResult(source_name=source.name, status="failed", error_code=type(exc).__name__, message=str(exc)))
+            if progress_callback is not None:
+                progress_callback(index + 1, total)
         return BatchImportResult(tuple(items))
 
 
@@ -302,6 +311,16 @@ class DataPlatformApplicationService:
 
     def retry_failed_import_job(self, job_id: str, *, actor: str = "") -> dict[str, object]:
         return self.import_jobs.retry_failed(job_id, actor=actor).to_dict()
+
+    def resume_interrupted_import_job(self, job_id: str, *, actor: str = "") -> dict[str, object]:
+        return self.import_jobs.resume_interrupted(job_id, actor=actor).to_dict()
+
+    def apply_import_retention_policy(
+        self, project_id: str, *, retention_days: int = 90, keep_latest: int = 100, staging_max_age_days: int = 7
+    ) -> dict[str, int]:
+        return self.import_jobs.apply_retention_policy(
+            project_id, retention_days=retention_days, keep_latest=keep_latest, staging_max_age_days=staging_max_age_days
+        )
 
     def capability_matrix(self) -> dict[str, object]:
         return self.plugins.capability_matrix()

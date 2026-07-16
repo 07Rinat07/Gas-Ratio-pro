@@ -3076,3 +3076,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added status/search filters and JSON/CSV export for import history.
 - Added safe staging cleanup that preserves files referenced by active jobs.
 - Updated RU/KK/EN Import Wizard instructions and regression coverage.
+
+
+## v222.52 — Cooperative import cancellation and retention
+
+- Added cancellation checkpoints between individual files in a batch import.
+- Added explicit resume for interrupted jobs without automatic hidden re-execution.
+- Added history retention and stale staging cleanup policies.
+- Added durable progress updates during batch execution.
