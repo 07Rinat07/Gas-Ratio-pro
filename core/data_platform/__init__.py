@@ -7,6 +7,8 @@ from .format_registry import DataFormatCapability, DataFormatRegistry, default_f
 from .manifest_repository import DatasetManifestRepository
 from .metadata_scanner import MetadataScanResult, MetadataScanner
 from .las_metadata_scanner import LasHeaderMetadataScanner
+from .las_validation import LasValidationFinding, validate_las_metadata
+from .metadata_catalog import DatasetMetadataCatalog
 
 __all__ = [
     "ArtifactLocation",
@@ -17,6 +19,9 @@ __all__ = [
     "DatasetManifestRepository",
     "DatasetProvenance",
     "LasHeaderMetadataScanner",
+    "LasValidationFinding",
+    "validate_las_metadata",
+    "DatasetMetadataCatalog",
     "MetadataScanResult",
     "MetadataScanner",
     "default_format_registry",

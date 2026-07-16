@@ -8,11 +8,13 @@ UI session state.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from tempfile import NamedTemporaryFile
 from pathlib import Path
 from typing import Any, BinaryIO, Mapping
 
 from importers.las_importer import read_las
 from projects.repository import DEFAULT_PROJECTS_ROOT, safe_project_id
+from services.data_platform_application_service import DataPlatformApplicationService
 from services.las_curve_metadata_service import DEPTH_MNEMONICS
 from services.las_manager_service import LasManagerService
 from services.las_viewer_session import LasViewerSession
@@ -30,6 +32,10 @@ class LasViewerOpenResult:
     quality_flags: tuple[str, ...]
     payload: Mapping[str, Any]
     viewer_state: Mapping[str, Any]
+    dataset_id: str = ""
+    dataset_version: int = 0
+    dataset_validation_codes: tuple[str, ...] = ()
+    dataset_duplicate_ids: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -44,6 +50,10 @@ class LasViewerOpenResult:
             "quality_flags": list(self.quality_flags),
             "payload": dict(self.payload),
             "viewer_state": dict(self.viewer_state),
+            "dataset_id": self.dataset_id,
+            "dataset_version": self.dataset_version,
+            "dataset_validation_codes": list(self.dataset_validation_codes),
+            "dataset_duplicate_ids": list(self.dataset_duplicate_ids),
             "raw_dataframe_included": False,
         }
 
@@ -78,6 +88,7 @@ class LasViewerOpenWorkflow:
         self.root = Path(root)
         self.manager = LasManagerService(self.root)
         self.payload_service = LasVisualizationPayloadService(self.root, manager=self.manager)
+        self.data_platform = DataPlatformApplicationService(self.root)
 
     def open(
         self,
@@ -112,6 +123,33 @@ class LasViewerOpenWorkflow:
             metadata={"source": "las_viewer_open_workflow"},
         )
         las_id = save_result.record.id
+        temp_path: Path | None = None
+        try:
+            if isinstance(source, (str, Path)):
+                registration_source = Path(source)
+            else:
+                suffix = Path(resolved_name).suffix or ".las"
+                with NamedTemporaryFile(mode="wb", suffix=suffix, delete=False) as handle:
+                    handle.write(data)
+                    temp_path = Path(handle.name)
+                registration_source = temp_path
+            registration = self.data_platform.register_source_file_result(
+                project_id=clean_project_id,
+                source=registration_source,
+                format_id="las",
+                well_id="",
+                metadata={
+                    "source": "las_viewer_open_workflow",
+                    "las_record_id": las_id,
+                    "well_name_override": well_name,
+                },
+            )
+        except Exception:
+            self.manager.delete_file(clean_project_id, las_id)
+            raise
+        finally:
+            if temp_path is not None:
+                temp_path.unlink(missing_ok=True)
         payload_model = self.payload_service.build(
             clean_project_id,
             las_id,
@@ -137,4 +175,8 @@ class LasViewerOpenWorkflow:
             quality_flags=payload_model.quality_flags,
             payload=payload,
             viewer_state=viewer_state,
+            dataset_id=registration.manifest.dataset_id,
+            dataset_version=registration.manifest.version,
+            dataset_validation_codes=tuple(item.code for item in registration.validation_findings),
+            dataset_duplicate_ids=registration.duplicate_dataset_ids,
         )

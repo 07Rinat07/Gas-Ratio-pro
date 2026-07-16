@@ -1,3 +1,20 @@
+# Current increment: v222.28 — Production LAS Dataset registration and metadata catalog
+
+Implemented:
+- production LAS Viewer open workflow registers an immutable Data Platform Dataset Manifest;
+- SHA-256 duplicate information and stable validation codes are returned with the viewer result;
+- project-scoped SQLite metadata catalog projection is maintained beside JSON manifests;
+- LAS 1.x and tolerant legacy imports remain explicitly classified and queryable;
+- validation includes legacy format, missing version, incomplete header, WRAP=YES, missing curves/depth/NULL/STEP and bounded-header conditions;
+- import result messages are localized independently for Russian, Kazakh and English;
+- machine-readable codes remain language-independent.
+
+Next:
+- expose localized import summary in the Streamlit LAS upload surface;
+- add reconciliation/rebuild of SQLite projection from immutable manifests;
+- add encoding and delimiter diagnostics for archival LAS;
+- migrate remaining LAS save/import entry points to the Dataset registration boundary.
+
 # Current increment: v222.27 — Legacy LAS compatibility foundation
 
 ## Completed

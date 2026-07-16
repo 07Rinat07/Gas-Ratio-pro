@@ -1,3 +1,12 @@
+## v222.28 — Production LAS Dataset registration
+
+- Connected the production LAS Viewer open workflow to immutable Dataset Manifest registration.
+- Added project-scoped SQLite metadata catalog projection with indexes for checksum, lineage and format.
+- Added stable LAS validation findings and JSON-safe import result contracts.
+- Added localized Russian, Kazakh and English import summaries without localizing machine codes.
+- Extended legacy LAS diagnostics with `WRAP=YES`, missing version, header limits and NUL-byte findings.
+- Added regression coverage for LAS 1.x catalog projection, localization and production workflow compatibility.
+
 # v222.27
 
 - Added explicit LAS pre-2.0 / LAS 1.x compatibility policy.

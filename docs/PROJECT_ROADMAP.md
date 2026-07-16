@@ -1,3 +1,14 @@
+# Latest increment — Production LAS Dataset workflow (v222.28)
+
+- [x] Register production LAS Viewer opens in Data Platform.
+- [x] Maintain a project-scoped SQLite metadata projection while JSON manifests remain authoritative.
+- [x] Return stable LAS validation codes and localized `ru/kk/en` import summaries.
+- [x] Preserve explicit LAS 1.x and pre-2.0 compatibility metadata.
+- [x] Detect legacy `WRAP=YES` and bounded-header anomalies.
+- [ ] Render localized import summaries in every LAS upload entry point.
+- [ ] Rebuild/reconcile SQLite projection from manifests.
+- [ ] Add legacy encoding, delimiter and column-count validation.
+
 # Latest increment — Legacy LAS compatibility foundation
 
 Status: IMPLEMENTED / EXPANSION PLANNED

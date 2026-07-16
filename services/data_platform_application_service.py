@@ -9,13 +9,16 @@ from core.data_platform import (
     ArtifactStore,
     DatasetManifest,
     DatasetManifestRepository,
+    DatasetMetadataCatalog,
     DatasetProvenance,
     DataFormatRegistry,
     LasHeaderMetadataScanner,
+    LasValidationFinding,
     MetadataScanResult,
     MetadataScanner,
     default_format_registry,
     sha256_file,
+    validate_las_metadata,
 )
 
 
@@ -24,10 +27,30 @@ class DatasetRegistrationResult:
     manifest: DatasetManifest
     duplicate_dataset_ids: tuple[str, ...] = ()
     metadata_scan: MetadataScanResult | None = None
+    validation_findings: tuple[LasValidationFinding, ...] = ()
 
     @property
     def is_duplicate(self) -> bool:
         return bool(self.duplicate_dataset_ids)
+
+    def localized_messages(self, translate) -> tuple[str, ...]:
+        """Build user-facing messages without changing stable machine codes."""
+        source_name = self.manifest.source_name or self.manifest.dataset_id
+        metadata = dict(self.manifest.metadata)
+        messages: list[str] = []
+        if bool(metadata.get("legacy_las", False)):
+            messages.append(translate("import.dataset.legacy_las", source_name=source_name))
+        elif self.is_duplicate:
+            messages.append(translate("import.dataset.duplicate", source_name=source_name, count=len(self.duplicate_dataset_ids)))
+        else:
+            messages.append(translate("import.dataset.success", source_name=source_name))
+        blocking = sum(1 for item in self.validation_findings if item.blocking)
+        warnings = sum(1 for item in self.validation_findings if not item.blocking)
+        if blocking:
+            messages.append(translate("import.dataset.validation_blocked"))
+        elif warnings:
+            messages.append(translate("import.dataset.validation_warning", count=warnings))
+        return tuple(messages)
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -37,6 +60,9 @@ class DatasetRegistrationResult:
             "duplicate_dataset_ids": list(self.duplicate_dataset_ids),
             "is_duplicate": self.is_duplicate,
             "metadata_scan": self.metadata_scan.to_dict() if self.metadata_scan else None,
+            "validation_findings": [item.to_dict() for item in self.validation_findings],
+            "validation_codes": [item.code for item in self.validation_findings],
+            "import_allowed": not any(item.blocking for item in self.validation_findings),
         }
 
 
@@ -46,6 +72,7 @@ class DataPlatformApplicationService:
         self.formats = formats or default_format_registry()
         self.artifacts = ArtifactStore(self.projects_root)
         self.manifests = DatasetManifestRepository(self.projects_root)
+        self.catalog = DatasetMetadataCatalog(self.projects_root)
         scanner_items = scanners if scanners is not None else (LasHeaderMetadataScanner(),)
         self._scanners = {item.format_id: item for item in scanner_items}
 
@@ -71,7 +98,10 @@ class DataPlatformApplicationService:
         checksum = sha256_file(source_path)
         duplicates = self.manifests.find_by_checksum(project_id, checksum)
         scan = self.scan_metadata(source_path, capability.format_id) if capability.supports_metadata_scan else None
+        validation_findings = validate_las_metadata(scan) if capability.format_id == "las" else ()
         merged_metadata = dict(scan.metadata) if scan else {}
+        if validation_findings:
+            merged_metadata["validation_codes"] = ",".join(item.code for item in validation_findings)
         merged_metadata.update(metadata or {})
 
         lineage_id = ""
@@ -103,10 +133,12 @@ class DataPlatformApplicationService:
             provenance=DatasetProvenance(operation="import" if version == 1 else "version-import", actor=actor, source_dataset_ids=source_dataset_ids, application_version=BUILD_VERSION),
         )
         self.manifests.save(manifest)
+        self.catalog.project(manifest)
         return DatasetRegistrationResult(
             manifest=manifest,
             duplicate_dataset_ids=tuple(item.dataset_id for item in duplicates),
             metadata_scan=scan,
+            validation_findings=tuple(validation_findings),
         )
 
     def scan_metadata(self, source: Path | str, format_id: str | None = None) -> MetadataScanResult | None:
@@ -123,4 +155,5 @@ class DataPlatformApplicationService:
             "formats": self.formats.snapshot(),
             "datasets": self.manifests.snapshot(project_id),
             "metadata_scanners": sorted(self._scanners),
+            "metadata_catalog": self.catalog.snapshot(project_id),
         }

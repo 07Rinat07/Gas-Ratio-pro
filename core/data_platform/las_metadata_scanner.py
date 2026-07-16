@@ -61,6 +61,8 @@ class LasHeaderMetadataScanner:
             value = (parsed.group(3) or "").strip()
             if current_section.startswith("v") and mnemonic == "VERS":
                 metadata["las_version"] = value
+            elif current_section.startswith("v") and mnemonic == "WRAP":
+                metadata["wrap_mode"] = value.strip().upper()
             elif current_section.startswith("w"):
                 mapping = {
                     "WELL": "well_name",
@@ -85,6 +87,10 @@ class LasHeaderMetadataScanner:
         metadata["curve_count"] = len(curves)
         metadata["curve_mnemonics"] = ",".join(curves[:256])
         _apply_las_compatibility_metadata(metadata, warnings, current_section=current_section)
+        if str(metadata.get("wrap_mode", "")).upper().startswith("Y"):
+            warnings.append("las.compatibility.wrap_yes")
+        if b"\x00" in raw:
+            warnings.append("las.header.nul_bytes_detected")
         if not reached_ascii:
             warnings.append("las.header.ascii_section_not_reached")
         if len(raw) >= self.max_header_bytes and not reached_ascii:
