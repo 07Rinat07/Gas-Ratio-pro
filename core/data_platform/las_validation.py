@@ -41,6 +41,8 @@ def validate_las_metadata(scan: MetadataScanResult | None) -> tuple[LasValidatio
         findings.append(LasValidationFinding("las.validation.decimal_comma", "warning"))
     if "las.compatibility.fixed_width_data" in warning_codes:
         findings.append(LasValidationFinding("las.validation.fixed_width_data", "warning"))
+    if "las.compatibility.curve_data_column_mismatch" in warning_codes:
+        findings.append(LasValidationFinding("las.validation.curve_data_column_mismatch", "warning"))
     if bool(metadata.get("legacy_las", False)):
         findings.append(LasValidationFinding("las.validation.legacy_format", "warning"))
     if not str(metadata.get("well_name", "")).strip():

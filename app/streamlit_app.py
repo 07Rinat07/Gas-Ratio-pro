@@ -6493,6 +6493,45 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
         st.error("LAS прочитан, но после строки заголовков не осталось данных.")
         return
 
+    # Register the uploaded source once per session/file checksum so the editor
+    # can expose localized Data Platform validation without duplicate writes on rerun.
+    upload_bytes = bytes(uploaded_file.getvalue())
+    upload_checksum = hashlib.sha256(upload_bytes).hexdigest()
+    state_controller = _application_state_controller()
+    registration_key = f"las_editor.dataset_registration.{active_project.id}.{upload_checksum}"
+    registration_payload = state_controller.get_value(registration_key)
+    if not isinstance(registration_payload, dict):
+        from tempfile import NamedTemporaryFile
+        temp_path = None
+        try:
+            with NamedTemporaryFile(mode="wb", suffix=".las", delete=False) as handle:
+                handle.write(upload_bytes)
+                temp_path = Path(handle.name)
+            i18n = _dashboard_localization()
+            registration = application_service_container(state_controller.state).data_platform(
+                root=LAS_CORRELATION_PROJECTS_ROOT
+            ).register_source_file_result(
+                project_id=active_project.id,
+                source=temp_path,
+                format_id="las",
+                metadata={"source": "las_editor_upload", "original_name": uploaded_file.name},
+            )
+            registration_payload = {
+                "dataset_id": registration.manifest.dataset_id,
+                "dataset_version": registration.manifest.version,
+                "messages": list(registration.localized_messages(i18n.translate)),
+                "validation_codes": [item.code for item in registration.validation_findings],
+            }
+            state_controller.set_value(registration_key, registration_payload)
+        except Exception:
+            logger.exception("las_editor_dataset_registration_failed")
+            registration_payload = {"dataset_id": "", "dataset_version": 0, "messages": [], "validation_codes": []}
+        finally:
+            if temp_path is not None:
+                temp_path.unlink(missing_ok=True)
+    for message in registration_payload.get("messages", []):
+        st.info(str(message))
+
     st.markdown("### Исходные кривые")
     st.dataframe(prepared_df.head(20), width="stretch")
 
@@ -7083,6 +7122,34 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
                         ],
                     },
                 )
+                # Persist the edited export as an immutable Dataset version linked
+                # to the source upload when that lineage is available.
+                from tempfile import NamedTemporaryFile
+                version_temp_path = None
+                try:
+                    with NamedTemporaryFile(mode="wb", suffix=".las", delete=False) as handle:
+                        handle.write(las_bytes)
+                        version_temp_path = Path(handle.name)
+                    previous_dataset_id = str(registration_payload.get("dataset_id", "") or "")
+                    version_registration = application_service_container(
+                        _application_state_controller().state
+                    ).data_platform(root=LAS_CORRELATION_PROJECTS_ROOT).register_source_file_result(
+                        project_id=active_project.id,
+                        source=version_temp_path,
+                        format_id="las",
+                        well_id=saved_las_result.record.well_id or "",
+                        previous_dataset_id=previous_dataset_id,
+                        metadata={
+                            "source": "las_editor_save",
+                            "las_record_id": saved_las_result.record.id,
+                            "version_label": version_label.strip() or "Подготовленный LAS",
+                        },
+                    )
+                    for message in version_registration.localized_messages(_dashboard_localization().translate):
+                        st.info(message)
+                finally:
+                    if version_temp_path is not None:
+                        version_temp_path.unlink(missing_ok=True)
             except Exception:
                 logger.exception("project_las_prepared_save_failed project_id=%s", safe_log_value(active_project.id))
                 st.error("Не удалось сохранить подготовленный LAS в проект. Подробности записаны в logs/app.log.")

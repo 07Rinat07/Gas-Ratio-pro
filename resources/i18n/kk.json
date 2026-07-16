@@ -145,5 +145,6 @@
   "diagnostics.dataset_catalog.no_project": "Белсенді жоба таңдалмаған.",
   "diagnostics.dataset_catalog.result": "Күйі: {status}; manifests: {manifest_count}; қайта құруға дейін: {catalog_count_before}.",
   "import.validation.las.validation.decimal_comma": "Мұрағаттық LAS деректерінде ондық үтір анықталды.",
-  "import.validation.las.validation.fixed_width_data": "Мұрағаттық LAS файлында бекітілген енді бағандар анықталды."
+  "import.validation.las.validation.fixed_width_data": "Мұрағаттық LAS файлында бекітілген енді бағандар анықталды.",
+  "import.validation.las.validation.curve_data_column_mismatch": "Деректердің бірінші жолындағы бағандар саны Curve Information бөліміндегі қисықтар санына сәйкес келмейді."
 }

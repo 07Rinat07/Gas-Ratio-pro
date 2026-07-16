@@ -59,6 +59,8 @@ class LasHeaderMetadataScanner:
         metadata["decimal_style"] = decimal_style
         fixed_width = _looks_fixed_width(first_data_line, delimiter)
         metadata["fixed_width_data"] = fixed_width
+        data_column_count = _count_data_columns(first_data_line, delimiter)
+        metadata["data_column_count"] = data_column_count
         if delimiter in {"comma", "semicolon", "tab"}:
             warnings.append("las.compatibility.nonstandard_data_delimiter")
         if decimal_style == "comma":
@@ -109,6 +111,9 @@ class LasHeaderMetadataScanner:
                 curves.append(mnemonic)
 
         metadata["curve_count"] = len(curves)
+        metadata["curve_data_column_match"] = (len(curves) == int(metadata.get("data_column_count", 0) or 0)) if first_data_line and curves else None
+        if first_data_line and curves and metadata["curve_data_column_match"] is False:
+            warnings.append("las.compatibility.curve_data_column_mismatch")
         metadata["curve_mnemonics"] = ",".join(curves[:256])
         _apply_las_compatibility_metadata(metadata, warnings, current_section=current_section)
         if str(metadata.get("wrap_mode", "")).upper().startswith("Y"):
@@ -230,3 +235,21 @@ def _looks_fixed_width(line: bytes, delimiter: str) -> bool:
     gaps = re.findall(r" {2,}", text)
     tokens = re.split(r" {2,}", text.strip())
     return len(gaps) >= 2 and len(tokens) >= 3 and all(token.strip() for token in tokens)
+
+
+def _count_data_columns(line: bytes, delimiter: str) -> int:
+    """Count columns from one bounded data row without parsing the dataset."""
+    if not line:
+        return 0
+    text = line.decode("latin-1", errors="replace").strip()
+    if not text:
+        return 0
+    if delimiter == "tab":
+        return len([item for item in text.split("\t") if item.strip()])
+    if delimiter == "semicolon":
+        return len([item for item in text.split(";") if item.strip()])
+    if delimiter == "comma":
+        return len([item for item in text.split(",") if item.strip()])
+    if delimiter == "whitespace":
+        return len(re.findall(r"\S+", text))
+    return 1

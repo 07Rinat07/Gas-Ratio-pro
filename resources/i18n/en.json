@@ -145,5 +145,6 @@
   "diagnostics.dataset_catalog.no_project": "No active project is selected.",
   "diagnostics.dataset_catalog.result": "Status: {status}; manifests: {manifest_count}; before rebuild: {catalog_count_before}.",
   "import.validation.las.validation.decimal_comma": "A decimal comma was detected in legacy LAS data.",
-  "import.validation.las.validation.fixed_width_data": "Fixed-width legacy LAS columns were detected."
+  "import.validation.las.validation.fixed_width_data": "Fixed-width legacy LAS columns were detected.",
+  "import.validation.las.validation.curve_data_column_mismatch": "The first data-row column count does not match the curve count in the Curve Information section."
 }

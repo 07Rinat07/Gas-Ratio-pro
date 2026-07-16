@@ -145,5 +145,6 @@
   "diagnostics.dataset_catalog.no_project": "Активный проект не выбран.",
   "diagnostics.dataset_catalog.result": "Статус: {status}; manifests: {manifest_count}; до перестроения: {catalog_count_before}.",
   "import.validation.las.validation.decimal_comma": "Обнаружена десятичная запятая в архивных LAS-данных.",
-  "import.validation.las.validation.fixed_width_data": "Обнаружен фиксированный формат колонок архивного LAS."
+  "import.validation.las.validation.fixed_width_data": "Обнаружен фиксированный формат колонок архивного LAS.",
+  "import.validation.las.validation.curve_data_column_mismatch": "Количество колонок первой строки данных не совпадает с количеством кривых в разделе Curve Information."
 }

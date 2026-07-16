@@ -46,3 +46,9 @@ Implemented localized import feedback, SQLite reconciliation from immutable mani
 - Added manual SQLite metadata-catalog reconciliation in Workbench Diagnostics Center.
 - Added bounded decimal-comma and fixed-width legacy LAS diagnostics.
 - Added stable validation codes and synchronized ru/kk/en messages.
+
+
+## v222.31 — LAS Editor Dataset lineage
+- LAS Editor uploads are registered once per session/checksum and show localized import findings.
+- Edited LAS exports become immutable Dataset versions linked to the uploaded source.
+- Header scanner compares Curve Information count with the first bounded data-row column count.

@@ -2913,3 +2913,9 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added manual SQLite metadata-catalog reconciliation in Workbench Diagnostics Center.
 - Added bounded decimal-comma and fixed-width legacy LAS diagnostics.
 - Added stable validation codes and synchronized ru/kk/en messages.
+
+
+## v222.31 — LAS Editor Dataset lineage and bounded column validation
+- Displayed localized Data Platform messages in the production LAS Editor uploader.
+- Registered saved editor output as the next immutable Dataset version.
+- Added curve/data column mismatch metadata, warning and localized validation message.

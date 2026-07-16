@@ -1897,3 +1897,18 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - Added manual SQLite metadata-catalog reconciliation in Workbench Diagnostics Center.
 - Added bounded decimal-comma and fixed-width legacy LAS diagnostics.
 - Added stable validation codes and synchronized ru/kk/en messages.
+
+
+# Latest increment — LAS Editor Dataset lineage and column validation
+
+Status: COMPLETED
+
+Implemented:
+- localized Data Platform registration feedback directly in the LAS Editor upload surface;
+- session/checksum deduplication so Streamlit reruns do not register the same upload repeatedly;
+- immutable Dataset version creation when an edited LAS is saved to the project;
+- lineage linkage from the editor output to the uploaded source Dataset;
+- bounded first-row column counting and comparison with Curve Information;
+- stable `las.validation.curve_data_column_mismatch` diagnostics in ru/kk/en.
+
+Next priority: expose Dataset lineage/history in Project Explorer and add a deliberate strict/tolerant import-mode selector for legacy LAS.
