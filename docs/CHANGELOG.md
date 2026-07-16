@@ -1,5 +1,15 @@
 # v222.42 — Interpretation export project-root bugfix
 
+## v222.43 — Interpretation scope and background export compatibility
+
+- Restored the shared `resolve_interpretation_id()` contract used by interval and overlay application boundaries.
+- Updated the interval panel to reuse the same selected interpretation scope instead of duplicating widget-key resolution.
+- Restored optional `metadata_state` injection on the background-export container boundary for non-Streamlit hosts and regression tests.
+- Restored the legacy positional metadata-state constructor while preserving the current project-root and container-state API.
+- Preserved separate unknown-job and foreign-project result-access behavior.
+- Interpretation, route, and background-export regression profile: 223 tests passed.
+
+
 - Fixed `NameError: PROJECTS_ROOT is not defined` in the professional export fragment.
 - Unified PDF preview and background export services on the defined project root used by the rest of Workbench.
 - Added a regression test preventing undefined project-root globals in the Interpretation export panel.

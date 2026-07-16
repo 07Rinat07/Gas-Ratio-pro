@@ -294,8 +294,14 @@ class ApplicationServiceContainer:
         project_id: str,
         root: Path | str,
         max_workers: int = 1,
+        metadata_state: MutableMapping[str, Any] | None = None,
     ):
-        """Return the project-scoped background export execution boundary."""
+        """Return the project-scoped background export execution boundary.
+
+        ``metadata_state`` is a compatibility injection point for tests and
+        non-Streamlit hosts. Production callers normally rely on the container
+        state. Only compact job metadata is stored in either mapping.
+        """
         from services.background_export_application_service import (
             BackgroundExportApplicationService,
         )
@@ -307,7 +313,7 @@ class ApplicationServiceContainer:
             factory=lambda: BackgroundExportApplicationService(
                 root=root,
                 project_id=project_id,
-                state=self._state,
+                state=metadata_state if metadata_state is not None else self._state,
                 max_workers=max_workers,
             ),
             expected_type=BackgroundExportApplicationService,

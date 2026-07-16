@@ -145,3 +145,8 @@ Next: add report-template profiles, localized QC history labels, and interactive
 ### v222.40 — Subsurface binary metadata adapters
 
 DLIS, LIS79, and SEG-Y now have explicit metadata-scanner boundaries. SEG-Y baseline scanning is dependency-free and bounded to 3600 bytes. `dlisio` and `segyio` are approved as optional lazy adapters after source/license review; neither is vendored or imported during application startup.
+
+
+## v222.43 — Interpretation and export compatibility stabilization
+
+The missing `resolve_interpretation_id` application-boundary contract has been restored and is now reused by the interval panel. Background export again accepts optional externally supplied compact metadata state while production callers continue to use the application-service container state. The focused interpretation, Workbench route, and background-export profile passes 223 tests.

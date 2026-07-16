@@ -33,6 +33,7 @@ from projects.interpretation_interval_filter_presets import (
 from projects.interpretation_interval_comparison import (
     compare_interpretation_intervals,
 )
+from projects.interpretation_intervals import DEFAULT_INTERPRETATION_ID
 from projects.interpretation_interval_manager import (
     InterpretationIntervalManager,
     InterpretationIntervalOverlapError,
@@ -68,6 +69,24 @@ def resolve_interpretation_well_id(state: MutableMapping[str, Any]) -> str:
     return DEFAULT_MANUAL_WELL_ID
 
 
+def resolve_interpretation_id(
+    state: MutableMapping[str, Any],
+    *,
+    project_id: str,
+    well_id: str,
+) -> str:
+    """Resolve the selected interpretation scope shared by intervals and overlays.
+
+    Only a compact identifier is read from UI state. Empty or malformed values
+    fall back to the stable default interpretation instead of leaking widget
+    state details into application-service queries.
+    """
+
+    selector_key = f"manual_interval_interpretation_selector_{project_id}_{well_id}"
+    selected = str(state.get(selector_key, "") or "").strip()
+    return selected or DEFAULT_INTERPRETATION_ID
+
+
 def render_interpretation_interval_panel(
     st: Any,
     *,
@@ -85,7 +104,12 @@ def render_interpretation_interval_panel(
     catalog_items = workspace_service.list_interpretations(well_id=well_id)
     interpretation_ids = [item.id for item in catalog_items]
     selector_key = f"manual_interval_interpretation_selector_{project_id}_{well_id}"
-    if str(state.get(selector_key, "")) not in interpretation_ids:
+    selected_interpretation_id = resolve_interpretation_id(
+        state,
+        project_id=project_id,
+        well_id=well_id,
+    )
+    if selected_interpretation_id not in interpretation_ids:
         state[selector_key] = interpretation_ids[0]
     selected_interpretation_id = st.selectbox(
         "Активная интерпретация",
