@@ -10,7 +10,7 @@ from palettes.plot_engine import (
     engineering_hover, normalize_trace_style,
 )
 
-ENGINEERING_GRAPH_MARGIN = {"l": 76, "r": 30, "t": 112, "b": 62}
+ENGINEERING_GRAPH_MARGIN = {"l": 82, "r": 30, "t": 92, "b": 58}
 ENGINEERING_LEGEND = {
     **dict(LEGEND_HORIZONTAL),
     "y": 1.13,
@@ -18,7 +18,7 @@ ENGINEERING_LEGEND = {
     "x": 0.0,
     "xanchor": "left",
     "bgcolor": "rgba(11,18,32,0.96)",
-    "font": {"size": 11},
+    "font": {"size": 13},
 }
 
 CURVE_LABELS = {
@@ -161,7 +161,7 @@ def _add_interval_overlays(fig: go.Figure, intervals: Sequence[object], selected
 
 
 def _build_depth_tracks(df, columns, title, x_title, *, depth_range=None, x_range=None,
-                        height=520, reservoir_intervals=(), selected_interval_id=""):
+                        height=420, reservoir_intervals=(), selected_interval_id=""):
     fig = go.Figure()
     plot_df = _prepare_depth_frame(df)
     if plot_df.empty:
@@ -192,26 +192,26 @@ def _build_depth_tracks(df, columns, title, x_title, *, depth_range=None, x_rang
     return fig
 
 
-def build_depth_gas_tracks(df, *, depth_range=None, x_range=None, height=520, reservoir_intervals=(), selected_interval_id=""):
+def build_depth_gas_tracks(df, *, depth_range=None, x_range=None, height=420, reservoir_intervals=(), selected_interval_id=""):
     return _build_depth_tracks(df, ("c1", "c2", "c3", "ic4", "nc4", "ic5", "nc5"),
         "Компоненты газа по глубине", "Содержание компонента", depth_range=depth_range,
         x_range=x_range, height=height, reservoir_intervals=reservoir_intervals,
         selected_interval_id=selected_interval_id)
 
 
-def build_depth_ratio_tracks(df, *, depth_range=None, x_range=None, height=520, reservoir_intervals=(), selected_interval_id=""):
+def build_depth_ratio_tracks(df, *, depth_range=None, x_range=None, height=420, reservoir_intervals=(), selected_interval_id=""):
     return _build_depth_tracks(df, ("wh", "bh", "ch", "bar2"), "Газовые коэффициенты по глубине",
         "Значение коэффициента", depth_range=depth_range, x_range=x_range, height=height,
         reservoir_intervals=reservoir_intervals, selected_interval_id=selected_interval_id)
 
 
-def build_depth_pixler_tracks(df, *, depth_range=None, x_range=None, height=520, reservoir_intervals=(), selected_interval_id=""):
+def build_depth_pixler_tracks(df, *, depth_range=None, x_range=None, height=420, reservoir_intervals=(), selected_interval_id=""):
     return _build_depth_tracks(df, ("c1_c2", "c1_c3", "c1_c4", "c1_c5"), "Коэффициенты Pixler по глубине",
         "Значение коэффициента Pixler", depth_range=depth_range, x_range=x_range, height=height,
         reservoir_intervals=reservoir_intervals, selected_interval_id=selected_interval_id)
 
 
-def build_depth_interpretation_track(df, *, depth_range=None, height=520, reservoir_intervals=(), selected_interval_id=""):
+def build_depth_interpretation_track(df, *, depth_range=None, height=420, reservoir_intervals=(), selected_interval_id=""):
     fig = go.Figure()
     plot_df = _prepare_depth_frame(df)
     if plot_df.empty or "interpretation" not in plot_df.columns:

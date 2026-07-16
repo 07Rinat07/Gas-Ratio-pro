@@ -49,7 +49,7 @@ CURVE_PRINT_SPECS: Mapping[str, Mapping[str, str]] = {
     "ch": {"label": "Ch", "description": "Характер газа (Character)", "color": "#f43f5e"},
     "c1_c2": {"label": "C1/C2", "description": "Отношение метана к этану", "color": "#84cc16"},
     "c1_c3": {"label": "C1/C3", "description": "Отношение метана к пропану", "color": "#d946ef"},
-    "inverse_oil_indicator": {"label": "Обратный нефтяной индикатор", "description": "Расчётный индикатор нефтяного отклика", "color": "#f59e0b"},
+    "inverse_oil_indicator": {"label": "Oil Inv.", "description": "Расчётный индикатор нефтяного отклика", "color": "#f59e0b"},
 }
 
 FLUID_PRINT_SPECS: Mapping[str, Mapping[str, str]] = {
@@ -321,7 +321,7 @@ def build_professional_well_log_plot(
         max_points=cfg.max_points_per_track,
     )
 
-    column_titles = (["Интервалы"] if cfg.show_interval_track else []) + list(plotted_columns)
+    column_titles = (["Интервалы"] if cfg.show_interval_track else []) + [CURVE_PRINT_SPECS.get(c, {}).get("label", c) for c in plotted_columns]
     if not column_titles:
         fig = go.Figure()
         fig.update_layout(title=cfg.title, height=cfg.height, annotations=[{"text": "Нет числовых треков для планшета", "showarrow": False}])
@@ -363,7 +363,7 @@ def build_professional_well_log_plot(
                 x=values,
                 y=depth,
                 mode="lines",
-                name=f"{CURVE_PRINT_SPECS.get(column, {}).get('label', column)} — {CURVE_PRINT_SPECS.get(column, {}).get('description', 'Кривая')}",
+                name=CURVE_PRINT_SPECS.get(column, {}).get("label", column),
                 line={"width": max(float(THEME.line_width), 2.8), "color": CURVE_PRINT_SPECS.get(column, {}).get("color", "#334155")},
                 connectgaps=False,
                 hovertemplate=engineering_hover(column),
@@ -513,30 +513,30 @@ def build_professional_well_log_plot(
 
     apply_engineering_layout(
         fig, title=cfg.title, height=max(cfg.height, 980),
-        margin={"l": 78, "r": 30, "t": 142, "b": 58}, showlegend=True,
+        margin={"l": 92, "r": 34, "t": 96, "b": 74}, showlegend=False,
     )
     fig.update_layout(
         shapes=shapes,
         annotations=annotations,
         meta={"gas_ratio_report_legend": report_meta},
         legend={
-            "orientation": "h", "yanchor": "bottom", "y": 1.055,
-            "xanchor": "left", "x": 0.02, "font": {"size": 14, "color": "#0f172a"},
+            "orientation": "h", "yanchor": "bottom", "y": 1.02,
+            "xanchor": "left", "x": 0.02, "font": {"size": 20, "color": "#0f172a"},
             "bgcolor": "rgba(255,255,255,1)", "bordercolor": "#cbd5e1", "borderwidth": 1,
             "itemsizing": "constant", "itemwidth": 42,
         },
-        font={"size": 14, "color": "#0f172a"},
+        font={"size": 20, "color": "#0f172a"},
         plot_bgcolor="#ffffff",
         paper_bgcolor="#ffffff",
         hovermode="y unified",
     )
-    fig.update_annotations(font={"size": 14, "color": "#0f172a"})
+    fig.update_annotations(font={"size": 20, "color": "#0f172a"})
     # A professional well-log uses one common depth scale, not a repeated
     # "Глубина, м" title inside every track.
     for subplot_col in range(1, len(column_titles) + 1):
         fig.update_yaxes(title_text="", row=1, col=subplot_col)
     fig.update_yaxes(title_text=DEPTH_AXIS_TITLE, row=1, col=1)
-    fig.update_yaxes(showgrid=True, gridcolor="rgba(70,90,100,0.18)", minor={"showgrid": True, "gridcolor": "rgba(70,90,100,0.08)", "griddash": "dot"})
-    fig.update_xaxes(showgrid=True, gridcolor="rgba(70,90,100,0.12)")
+    fig.update_yaxes(showgrid=True, gridcolor="rgba(70,90,100,0.18)", tickfont={"size": 18}, title_font={"size": 20}, automargin=True, minor={"showgrid": True, "gridcolor": "rgba(70,90,100,0.08)", "griddash": "dot"})
+    fig.update_xaxes(showgrid=True, gridcolor="rgba(70,90,100,0.12)", tickfont={"size": 18}, title_font={"size": 20}, automargin=True)
     normalize_trace_style(fig)
     return WellLogPlotResult(fig, plotted_columns, summary, len(visible_intervals))

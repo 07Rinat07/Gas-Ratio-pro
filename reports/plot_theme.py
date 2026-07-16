@@ -23,13 +23,14 @@ def apply_report_plot_theme(figure: Any) -> Any:
     update_layout = getattr(themed, "update_layout", None)
     if callable(update_layout):
         update_layout(
+            showlegend=False,
             template="plotly_white",
             paper_bgcolor="#ffffff",
             plot_bgcolor="#ffffff",
-            font={"family": "Arial, DejaVu Sans, sans-serif", "size": 15, "color": "#172033"},
-            title={"font": {"size": 20, "color": "#111827"}, "x": 0.02, "xanchor": "left"},
+            font={"family": "Arial, DejaVu Sans, sans-serif", "size": 26, "color": "#172033"},
+            title={"font": {"size": 32, "color": "#111827"}, "x": 0.02, "xanchor": "left"},
             legend={
-                "font": {"size": 14, "color": "#172033"},
+                "font": {"size": 22, "color": "#172033"},
                 "bgcolor": "rgba(255,255,255,0.94)",
                 "bordercolor": "#cbd5e1",
                 "borderwidth": 1,
@@ -39,7 +40,7 @@ def apply_report_plot_theme(figure: Any) -> Any:
                 "xanchor": "left",
                 "x": 0.0,
             },
-            margin={"l": 78, "r": 36, "t": 120, "b": 72},
+            margin={"l": 96, "r": 42, "t": 88, "b": 88},
         )
         # Plotly accepts these magic-underscore properties for all axes.
         update_layout(
@@ -48,8 +49,8 @@ def apply_report_plot_theme(figure: Any) -> Any:
                 "gridcolor": "#dbe3ec",
                 "gridwidth": 1,
                 "zeroline": False,
-                "tickfont": {"size": 13},
-                "title": {"font": {"size": 15}},
+                "tickfont": {"size": 22},
+                "title": {"font": {"size": 24}},
                 "linecolor": "#64748b",
                 "linewidth": 1,
                 "mirror": True,
@@ -59,8 +60,8 @@ def apply_report_plot_theme(figure: Any) -> Any:
                 "gridcolor": "#dbe3ec",
                 "gridwidth": 1,
                 "zeroline": False,
-                "tickfont": {"size": 13},
-                "title": {"font": {"size": 15}},
+                "tickfont": {"size": 22},
+                "title": {"font": {"size": 24}},
                 "linecolor": "#64748b",
                 "linewidth": 1,
                 "mirror": True,
