@@ -13,3 +13,7 @@ Report configuration must be collapsed by default and expose one visually domina
 ## Developer diagnostics
 
 The properties pane shows only a concise health summary by default. Runtime lifecycle, routing, cache, repository, memory and session tables are available only after the user explicitly enables advanced diagnostics.
+
+## Print & Export Center
+
+Печать является действием над текущим Workspace, а не постоянно занимающей место страницей настроек. На панели инструментов используется компактная команда с иконкой принтера. Настройки графика не смешиваются с настройками документа и принтера. Язык документа выбирается независимо от языка интерфейса.

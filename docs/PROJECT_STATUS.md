@@ -234,3 +234,7 @@ The first UI abstraction layer is operational. Design tokens, theme selection, J
 ## v222.57 — Report & Diagnostics UX Hardening
 
 The report panel no longer occupies most of the page by default. Printed PDF and DOCX outputs use larger legends, larger supporting text, higher-resolution figures and a shared corporate plot theme. Developer diagnostics now show a concise health summary first; detailed lifecycle, cache, repository and session tables are opt-in.
+
+### v222.58 — Document Platform Foundation
+
+Реализован первый этап единого Print & Export Center. На рабочем экране остаётся компактная команда с иконкой принтера; настройки формата, шаблона, диапазона и языка открываются только по запросу. Добавлен независимый язык документа RU/KK/EN и renderer-neutral контракт сессии печати.

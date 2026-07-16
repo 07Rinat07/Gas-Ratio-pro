@@ -2161,3 +2161,15 @@ Next:
 - add an explicit operating-system print action after artifact generation;
 - migrate report controls to UI Platform component contracts;
 - standardize chart palettes and line semantics across all engineering workspaces.
+
+### Document Platform / Print & Export Center
+
+- [x] Компактная глобальная команда `🖨 Печать и экспорт` вместо постоянно раскрытой формы.
+- [x] Независимый язык документа RU / KK / EN.
+- [x] Базовый `PrintCenterSession` без зависимости от Streamlit.
+- [x] Язык документа входит в экспортную сигнатуру и кэш-контекст.
+- [ ] Полноэкранный/модальный предпросмотр страниц.
+- [ ] Разделение настроек документа, графика и печати на независимые панели.
+- [ ] Полная локализация таблиц, легенд, рекомендаций и заключений во всех renderer-ах.
+- [ ] Явные действия `Сформировать`, `Скачать`, `Печать` после подготовки документа.
+- [ ] Менеджер пользовательских шаблонов и история документов.

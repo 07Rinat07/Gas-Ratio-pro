@@ -3127,3 +3127,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 
 ### Documentation
 - Updated roadmap and project status with the Report & Diagnostics UX hardening milestone.
+
+## v222.58 — Document Platform Foundation
+
+- Рабочая страница освобождена от постоянно раскрытой панели отчётов: печать и экспорт открываются через компактную команду `🖨 Печать и экспорт`.
+- Добавлен framework-neutral контракт `PrintCenterSession`.
+- Язык документа выбирается независимо от языка интерфейса: русский, казахский или английский.
+- Добавлены локализованные базовые заголовки, подзаголовки, классификация и колонтитулы отчёта.
+- Язык документа включён в сигнатуру экспортного контекста, чтобы кэш не смешивал разные языковые версии.

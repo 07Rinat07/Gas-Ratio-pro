@@ -72,6 +72,7 @@ class ReportDesign:
     document_code: str = "GRP-REPORT"
     classification: str = "ENGINEERING USE"
     footer_text: str = "Gas Ratio Pro · Engineering report"
+    document_locale: str = "ru"
     sections: tuple[ReportSectionId, ...] = ()
     include_figures: bool | None = None
     include_technical_appendix: bool | None = None

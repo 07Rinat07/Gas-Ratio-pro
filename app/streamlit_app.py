@@ -414,6 +414,7 @@ from reports.export_static import (
     export_plotly_static_bytes,
 )
 
+from reports.print_center import default_report_copy, document_locale_options, normalize_document_locale
 project_calculations = importlib.reload(project_calculations)
 project_exports = importlib.reload(project_exports)
 project_datasets = importlib.reload(project_datasets)
@@ -9506,6 +9507,15 @@ def _streamlit_fragment(function=None, *, run_every: str | None = None):
     return decorate(function) if function is not None else decorate
 
 
+
+
+def _print_center_container(streamlit_module):
+    """Return a compact Print Center container without occupying the workspace."""
+    popover = getattr(streamlit_module, "popover", None)
+    if callable(popover):
+        return popover("🖨 Печать и экспорт", help="Шаблоны, язык документа, предпросмотр, печать и экспорт")
+    return streamlit_module.expander("🖨 Печать и экспорт", expanded=False)
+
 @_streamlit_fragment(run_every="2s")
 def _render_professional_export_panel(
     logger,
@@ -9527,8 +9537,8 @@ def _render_professional_export_panel(
     versions that support fragments, so the surrounding Plotly charts are not
     serialized and sent to the browser again.
     """
-    with st.expander("Отчёт и печать", expanded=False):
-        st.markdown("### Сформировать инженерный отчёт")
+    with _print_center_container(st):
+        st.markdown("### Центр печати и экспорта")
         st.caption(
             "Выберите формат и область данных, затем нажмите основную кнопку формирования. "
             "После подготовки файла появятся отдельные действия «Скачать» и «Печать»."
@@ -9808,6 +9818,21 @@ def _render_professional_export_panel(
         # before widgets are created so a new LAS cannot leave stale out-of-
         # range depth values in Streamlit session state.
         with st.form(key=f"presentation_export_form_{active_project.id}", clear_on_submit=False):
+            locale_widget_key = f"report_document_locale_{active_project.id}"
+            locale_pairs = document_locale_options()
+            locale_labels = [label for _, label in locale_pairs]
+            locale_by_label = {label: code for code, label in locale_pairs}
+            if locale_widget_key not in export_state:
+                export_state[locale_widget_key] = locale_labels[0]
+            selected_locale_label = st.selectbox(
+                "Язык документа",
+                options=locale_labels,
+                key=locale_widget_key,
+                help="Язык отчёта выбирается независимо от языка интерфейса.",
+            )
+            selected_document_locale = normalize_document_locale(locale_by_label[selected_locale_label])
+            localized_copy = default_report_copy(selected_document_locale)
+
             profile_widget_kwargs = {"index": 0} if form_keys["profile"] not in export_state else {}
             selected_profile_label = st.selectbox(
                 "Профиль отчета",
@@ -9846,7 +9871,7 @@ def _render_professional_export_panel(
             selected_template = template_by_label[selected_template_label]
             title_widget_key = f"report_designer_title_{active_project.id}"
             title_widget_kwargs = (
-                {"value": "Gas Ratio Professional Report"}
+                {"value": localized_copy["title"]}
                 if title_widget_key not in export_state
                 else {}
             )
@@ -9963,6 +9988,10 @@ def _render_professional_export_panel(
                 template_id=selected_template.id,
                 title=str(report_title or "").strip(),
                 document_code=f"GRP-{str(active_project.id).upper()[:16]}",
+                subtitle=localized_copy["subtitle"],
+                classification=localized_copy["classification"],
+                footer_text=localized_copy["footer"],
+                document_locale=selected_document_locale,
                 sections=tuple(
                     section_id_by_label_preview[label]
                     for label in selected_section_labels
@@ -10162,6 +10191,10 @@ def _render_professional_export_panel(
             template_id=selected_template.id,
             title=str(report_title or "").strip(),
             document_code=f"GRP-{str(active_project.id).upper()[:16]}",
+            subtitle=localized_copy["subtitle"],
+            classification=localized_copy["classification"],
+            footer_text=localized_copy["footer"],
+            document_locale=selected_document_locale,
             sections=tuple(section_id_by_label[label] for label in selected_section_labels),
             include_technical_appendix=bool(include_technical_design),
             show_page_chrome=bool(show_page_chrome_design),
@@ -10208,7 +10241,7 @@ def _render_professional_export_panel(
                 (
                     f"ranking={export_state.get('active_reservoir_ranking_profile', '')}|"
                     f"interval={selected_interval_id or ''}|scope={print_mode}|"
-                    f"mode={report_design.mode_id}|template={report_design.template_id}|title={report_design.title}|"
+                    f"mode={report_design.mode_id}|template={report_design.template_id}|title={report_design.title}|locale={report_design.document_locale}|"
                     f"sections={','.join(report_design.sections)}|technical={report_design.include_technical_appendix}|"
                     f"chrome={report_design.show_page_chrome}"
                 ).encode("utf-8")
