@@ -36,6 +36,7 @@ from core.workbench_runtime_diagnostics import (
     diagnostics_enabled, diagnostics_snapshot, record_binding_state, record_runtime_exception,
 )
 from core.workbench_error_boundary import capture_workbench_exception
+from ui_platform import ButtonSpec, StreamlitUIAdapter
 from core.workbench_shell import (
     WorkbenchRendererContract,
     WorkbenchShellBuilder,
@@ -67,17 +68,18 @@ def _localization_context(registry: WorkbenchCommandRegistry, st_module: Any):
     if callable(columns) and callable(button):
         labels = {"ru": "RU", "kk": "ҚАЗ", "en": "EN"}
         st_module.markdown("<div class='workbench-language-switcher-label'>" + localization("language.label") + "</div>", unsafe_allow_html=True)
-        language_columns = columns(3, gap="small")
+        language_columns = columns([1, 1, 1, 6], gap="small")[:3]
         selected = language
+        ui = StreamlitUIAdapter(st_module)
         for code, column in zip(tuple(SUPPORTED_LANGUAGES), language_columns):
             with column:
-                if st_module.button(
-                    labels[code],
+                if ui.button(ButtonSpec(
+                    label=labels[code],
                     key=f"workbench_language_button_{code}",
-                    width="stretch",
-                    type="primary" if code == language else "secondary",
-                    help=localization(f"language.{code}"),
-                ):
+                    variant="primary" if code == language else "ghost",
+                    help_text=localization(f"language.{code}"),
+                    compact=True,
+                )):
                     selected = code
         selected = normalize_language(selected)
         if selected != language:

@@ -2130,3 +2130,18 @@ Next: add readiness filters to Dataset history, direct navigation from import jo
 - Import History jobs now expose links to datasets created by each job.
 - Added project-level correlation-readiness analysis based on LAS manifests, shared curves and depth metadata.
 - No LAS rows or SEG-Y/DLIS payloads are loaded by these projections.
+
+### Completed in v222.56
+
+- Initial UI Platform package and Streamlit adapter.
+- Central design tokens and Theme Engine foundation.
+- Framework-neutral button and empty-state contracts.
+- Compact global language switcher migration.
+- UI Platform quality check.
+
+### Next stabilization increment
+
+- Migrate common notifications and empty states to the UI SDK.
+- Introduce icon and layout registries.
+- Audit hardcoded user-facing strings and route smoke coverage.
+- Measure Workbench render cost before Workbench 2.0 redesign.

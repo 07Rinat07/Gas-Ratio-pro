@@ -226,3 +226,7 @@ Import History is now available as a lazy Project Explorer branch. The Professio
 - Import History jobs now expose links to datasets created by each job.
 - Added project-level correlation-readiness analysis based on LAS manifests, shared curves and depth metadata.
 - No LAS rows or SEG-Y/DLIS payloads are loaded by these projections.
+
+## v222.56 — UI Platform Foundation
+
+The first UI abstraction layer is operational. Design tokens, theme selection, JSON-safe component contracts and a thin Streamlit adapter are available. The global RU/ҚАЗ/EN switcher is the first production control migrated to this layer and no longer uses stretched full-width buttons.

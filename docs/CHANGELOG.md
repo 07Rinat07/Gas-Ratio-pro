@@ -3107,3 +3107,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Import History jobs now expose links to datasets created by each job.
 - Added project-level correlation-readiness analysis based on LAS manifests, shared curves and depth metadata.
 - No LAS rows or SEG-Y/DLIS payloads are loaded by these projections.
+
+## v222.56
+
+- Added the initial framework-neutral `ui_platform` package.
+- Added centralized dark-theme design tokens and theme registry.
+- Added `ButtonSpec`, `EmptyStateSpec` and the Streamlit UI adapter.
+- Replaced stretched language buttons with compact content-width SDK controls.
+- Added UI Platform health and regression tests.
