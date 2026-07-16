@@ -3039,3 +3039,12 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added atomic project import profiles.
 - Added explainable readiness scoring.
 - Added synchronized import-profile and plugin-registry documentation in ru/kk/en.
+
+## v222.47
+
+- Added immutable JSON-safe Import Wizard state machine.
+- Added failure-isolated batch import results.
+- Added metadata-only quick QC providers for LAS, DLIS, LIS79 and SEG-Y.
+- Persisted readiness and quick-QC status in Dataset Manifest metadata.
+- Added readiness indicators to Dataset lineage nodes in Project Explorer.
+- Added synchronized RU/KK/EN Import Wizard and pipeline documentation.

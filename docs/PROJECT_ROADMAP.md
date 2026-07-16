@@ -2047,3 +2047,13 @@ Next: QC history in Project Explorer, direct downloads, Dataset comparison badge
 - [x] Add an explainable Dataset readiness score (0–100).
 - [x] Add synchronized ru/kk/en user and developer documentation.
 - [ ] Next: production Import Wizard state machine, batch import and readiness badges in Project Explorer.
+
+### v222.47 — Professional Import Platform foundation — completed
+
+- [x] JSON-safe production Import Wizard state machine.
+- [x] Failure-isolated batch import service.
+- [x] Metadata-only quick QC for LAS, DLIS, LIS79 and SEG-Y.
+- [x] Persisted readiness fields in Dataset Manifest.
+- [x] Readiness projection in Project Explorer.
+- [x] RU/KK/EN user and developer documentation.
+- [ ] Next: bind the wizard state machine to a full step-by-step Workbench UI, add background batch jobs and import history views.

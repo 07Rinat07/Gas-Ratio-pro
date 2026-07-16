@@ -376,6 +376,9 @@ def build_project_tree(
                         "application_version": item.provenance.application_version,
                         "import_mode": str(item.metadata.get("import_mode", "tolerant")),
                         "compatibility_mode": str(item.metadata.get("las_compatibility_mode", "")),
+                        "readiness_score": int(item.metadata.get("readiness_score", 0) or 0),
+                        "readiness_status": str(item.metadata.get("readiness_status", "")),
+                        "quick_qc_status": str(item.metadata.get("quick_qc_status", "")),
                     },
                 )
                 for item in versions
@@ -384,7 +387,7 @@ def build_project_tree(
                 id=f"dataset_lineage:{lineage_id}",
                 label=latest.source_name or lineage_id,
                 kind="dataset_lineage",
-                status=f"{len(versions)} version(s) · {latest.format_id.upper()}",
+                status=f"{len(versions)} version(s) · {latest.format_id.upper()} · readiness {int(latest.metadata.get('readiness_score', 0) or 0)}%",
                 children=version_nodes,
                 metadata={
                     "lineage_id": lineage_id,
@@ -392,6 +395,8 @@ def build_project_tree(
                     "latest_version": latest.version,
                     "version_count": len(versions),
                     "format_id": latest.format_id,
+                    "readiness_score": int(latest.metadata.get("readiness_score", 0) or 0),
+                    "readiness_status": str(latest.metadata.get("readiness_status", "")),
                 },
             ))
 

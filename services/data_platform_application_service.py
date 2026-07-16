@@ -31,6 +31,10 @@ from core.data_platform import (
     ImportProfile,
     ImportProfileRepository,
     compute_readiness_score,
+    ImportWizardState,
+    BatchImportItemResult,
+    BatchImportResult,
+    metadata_quick_qc,
 )
 
 
@@ -112,6 +116,7 @@ class DataPlatformApplicationService:
                 FormatPlugin(
                     capability=capability,
                     scanner=self._scanners.get(capability.format_id),
+                    quick_qc=(metadata_quick_qc if capability.format_id in {"las", "dlis", "lis79", "segy"} else None),
                     importer_id=(f"{capability.format_id}-importer" if capability.supports_import else ""),
                     exporter_id=(f"{capability.format_id}-exporter" if capability.supports_export else ""),
                 )
@@ -147,6 +152,23 @@ class DataPlatformApplicationService:
             raise ValueError("import_mode must be tolerant or strict")
         validation_findings = validate_las_metadata(scan, mode=normalized_import_mode) if capability.format_id == "las" else ()
         merged_metadata = dict(scan.metadata) if scan else {}
+        if scan is not None:
+            plugin = self.plugins.get(capability.format_id)
+            quick_qc = dict(plugin.quick_qc(scan)) if plugin and plugin.quick_qc else {"warning_count": 0, "error_count": 0}
+            readiness = compute_readiness_score(
+                preview_complete=scan.complete,
+                warning_count=int(quick_qc.get("warning_count", 0) or 0),
+                error_count=int(quick_qc.get("error_count", 0) or 0),
+                metadata_field_count=len(scan.metadata),
+                qc_available=bool(plugin and plugin.quick_qc),
+            )
+            merged_metadata.update({
+                "readiness_score": int(readiness["score"]),
+                "readiness_status": str(readiness["status"]),
+                "quick_qc_status": str(quick_qc.get("status", "unavailable")),
+                "quick_qc_warning_count": int(quick_qc.get("warning_count", 0) or 0),
+                "quick_qc_error_count": int(quick_qc.get("error_count", 0) or 0),
+            })
         merged_metadata["import_mode"] = normalized_import_mode
         if validation_findings:
             merged_metadata["validation_codes"] = ",".join(item.code for item in validation_findings)
@@ -221,15 +243,34 @@ class DataPlatformApplicationService:
             raise ValueError("format does not support metadata preview")
         preview = build_metadata_import_preview(result, translate)
         preview["profile"] = selected_profile.to_dict()
+        plugin = self.plugins.require(capability.format_id)
+        quick_qc = dict(plugin.quick_qc(result)) if plugin.quick_qc is not None else {"status": "unavailable", "warning_count": 0, "error_count": 0, "warning_codes": [], "error_codes": []}
+        preview["quick_qc"] = quick_qc
         preview["readiness"] = compute_readiness_score(
             preview_complete=bool(preview.get("complete", False)),
-            warning_count=len(preview.get("warnings", []) or []),
+            warning_count=int(quick_qc.get("warning_count", len(preview.get("warnings", []) or [])) or 0),
+            error_count=int(quick_qc.get("error_count", 0) or 0),
             metadata_field_count=len(preview.get("fields", []) or []),
-            qc_available=False,
+            qc_available=plugin.quick_qc is not None,
         )
         preview["cache"] = {"hit": False, "key": cache_key}
         self.preview_cache.put(cache_key, preview)
         return preview
+
+    def new_import_wizard(self, project_id: str) -> ImportWizardState:
+        return ImportWizardState(project_id=project_id)
+
+    def run_batch_import(self, *, project_id: str, sources, actor: str = "", profile: ImportProfile | None = None, import_mode: str = "tolerant") -> BatchImportResult:
+        items = []
+        for raw in sources:
+            source = Path(raw)
+            try:
+                format_id = profile.format_id if profile is not None else None
+                result = self.register_source_file_result(project_id=project_id, source=source, format_id=format_id, actor=actor, import_mode=import_mode)
+                items.append(BatchImportItemResult(source_name=source.name, status="success", dataset_id=result.manifest.dataset_id, format_id=result.manifest.format_id, readiness_score=int(result.manifest.metadata.get("readiness_score", 0) or 0)))
+            except Exception as exc:
+                items.append(BatchImportItemResult(source_name=source.name, status="failed", error_code=type(exc).__name__, message=str(exc)))
+        return BatchImportResult(tuple(items))
 
     def capability_matrix(self) -> dict[str, object]:
         return self.plugins.capability_matrix()

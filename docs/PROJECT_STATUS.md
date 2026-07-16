@@ -164,3 +164,7 @@ The language selector is now a persistent website-style RU / ҚАЗ / EN control
 ## v222.46 — Unified Import Pipeline foundation
 
 Implemented the lightweight plugin registry, capability matrix, preview cache, project-scoped import profiles and explainable readiness scoring. These contracts reuse the existing scanners and keep optional DLIS/SEG-Y dependencies behind adapter boundaries.
+
+## v222.47 — Import Wizard and Batch Foundation
+
+The production import backend now provides a JSON-safe wizard state machine, per-file batch failure isolation, metadata-only quick QC and persisted Dataset readiness. Project Explorer exposes readiness without opening source artifacts.
