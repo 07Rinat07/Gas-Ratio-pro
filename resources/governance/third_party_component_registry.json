@@ -1,0 +1,26 @@
+{
+  "schema": "gas-ratio-pro/third-party-component-registry/v1",
+  "policy": "docs/LICENSE_POLICY.md",
+  "components": [],
+  "candidate_domains": [
+    "las",
+    "dlis-lis79",
+    "segy",
+    "gis",
+    "resqml-grdecl",
+    "hdf5-netcdf",
+    "3d-visualization",
+    "geological-modeling"
+  ],
+  "required_fields": [
+    "name",
+    "purpose",
+    "upstream",
+    "version",
+    "license_spdx",
+    "source_url",
+    "review_status",
+    "integration_type",
+    "notices"
+  ]
+}

@@ -20,6 +20,26 @@
         "kk": "developer/kk/qc_architecture.md",
         "en": "developer/en/qc_architecture.md"
       }
+    },
+    {
+      "id": "supported_formats_and_legal_sources",
+      "revision": 1,
+      "audience": "user",
+      "languages": {
+        "ru": "user/ru/supported_formats_and_legal_sources.md",
+        "kk": "user/kk/supported_formats_and_legal_sources.md",
+        "en": "user/en/supported_formats_and_legal_sources.md"
+      }
+    },
+    {
+      "id": "external_standard_integration",
+      "revision": 1,
+      "audience": "developer",
+      "languages": {
+        "ru": "developer/ru/external_standard_integration.md",
+        "kk": "developer/kk/external_standard_integration.md",
+        "en": "developer/en/external_standard_integration.md"
+      }
     }
   ]
 }

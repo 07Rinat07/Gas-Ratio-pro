@@ -1,3 +1,16 @@
+
+# Latest increment — Open Standards and Legal Research Governance (v222.39)
+
+Status: IMPLEMENTED / MANDATORY POLICY
+
+- [x] Adopted an official open-standards and interoperability policy.
+- [x] Adopted a third-party license policy and external research workflow.
+- [x] Added a machine-readable third-party component evaluation registry.
+- [x] Added synchronized ru/kk/en user guidance for supported formats and lawful external sources.
+- [x] Added synchronized ru/kk/en developer guidance for integrating standards and libraries.
+- [x] Added release tests for required policy files, documentation parity and registry structure.
+
+All future LAS, DLIS/LIS79, SEG-Y, GIS, RESQML/GRDECL, HDF5/NetCDF, 3D and modeling integrations must pass this governance gate before adoption.
 # Latest increment — Production LAS Dataset workflow (v222.28)
 
 - [x] Register production LAS Viewer opens in Data Platform.

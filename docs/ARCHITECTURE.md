@@ -1,3 +1,8 @@
+
+
+## External standards and dependency isolation
+
+External file formats and third-party libraries are integrated only through project-owned adapters. Domain entities, Dataset Manifests, QC reports and Workbench contracts must remain independent from parser-specific objects. Heavy dependencies are loaded lazily. Source bytes are preserved before conversion, and every derived artifact records provenance. Adoption is governed by `OPEN_STANDARDS_POLICY.md`, `LICENSE_POLICY.md`, `RESEARCH_POLICY.md` and the machine-readable component registry.
 # GAS RATIO PRO — Active Architecture
 
 Status: Active  

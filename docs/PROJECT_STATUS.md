@@ -1,3 +1,15 @@
+
+# Current increment: v222.39 — Open standards and legal research governance
+
+Implemented:
+- mandatory policies for open standards, lawful research and third-party licensing;
+- machine-readable component review registry;
+- synchronized ru/kk/en user and developer instructions;
+- documentation-manifest and release-gate coverage.
+
+Next:
+- evaluate the first concrete external candidates for DLIS/LIS79 and SEG-Y using primary specifications and the new registry;
+- continue QC template profiles and Dataset comparison UI.
 # Current increment: v222.37 — Workbench state-controller bugfix
 
 Implemented:

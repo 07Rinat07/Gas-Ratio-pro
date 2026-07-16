@@ -1,3 +1,11 @@
+
+# v222.39 — Open Standards and Legal Research Governance
+
+- Added mandatory Open Standards, License and Research policies.
+- Added a third-party component evaluation registry with required evidence fields.
+- Added ru/kk/en user guidance for supported formats and lawful external materials.
+- Added ru/kk/en developer guidance for integrating standards and libraries.
+- Added automated governance tests and updated the documentation manifest.
 # v222.37 — Application state compatibility bugfix
 
 - Fixed route-wide Workbench failures caused by calling a missing `ApplicationStateController.get()` method.
