@@ -143,8 +143,8 @@ Migrate, in order:
 1. language selector and user preference persistence — implemented in v222.21;
 2. Dashboard and Workbench shell — primary Project Workspace dashboard and Workbench status bar migrated through v222.23;
 3. Project Explorer root actions — search, results, empty state and collapse/restore migrated in v222.22;
-4. global dialogs, confirmations and validation — next;
-5. Diagnostics user-facing labels.
+4. global confirmations and property-panel validation — migrated through v222.24;
+5. Diagnostics user-facing labels — primary Workbench diagnostics shell migrated in v222.24; remaining engineering diagnostics continue module by module.
 
 ### Phase III — engineering workspaces
 

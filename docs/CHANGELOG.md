@@ -1,3 +1,10 @@
+## v222.24 — Localized Diagnostics and Global Validation
+
+- Added Russian, Kazakh and English labels for the Workbench diagnostics shell.
+- Localized diagnostics headings, incident-empty state, repository scan warnings and performance-baseline download.
+- Localized Properties pane collapse/restore help and technical-property feedback.
+- Added i18n placeholder-parity and renderer-contract tests.
+
 ## v222.23 — Localized Dashboard and status bar
 
 - Migrated the primary Project Workspace dashboard to `ru`/`kk`/`en` catalogs.

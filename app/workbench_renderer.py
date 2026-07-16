@@ -749,7 +749,7 @@ def _render_native_streamlit_layout(
                             )
                             executed.append(CommandExecutionResult(
                                 WORKBENCH_PROPERTY_ACTION_COMMAND_ID, True,
-                                message="Technical properties toggled.", result={"technical": True}
+                                message=i18n("properties.technical_toggled"), result={"technical": True}
                             ))
                         else:
                             executed.append(registry.execute(
@@ -763,33 +763,28 @@ def _render_native_streamlit_layout(
                                 },
                             ))
             collapse = {"id":"action.collapse_dock_pane", "payload":{"pane_id":"dock.properties"}}
-            if st_module.button("›", key="workbench_native_collapse_properties", help="Collapse Properties"):
+            if st_module.button("›", key="workbench_native_collapse_properties", help=i18n("properties.collapse")):
                 executed.append(_dispatch_action(contract, registry, collapse))
         else:
             restore = {"id":"action.restore_dock_pane", "payload":{"pane_id":"dock.properties"}}
-            if st_module.button("‹", key="workbench_native_restore_properties", help="Restore Properties"):
+            if st_module.button("‹", key="workbench_native_restore_properties", help=i18n("properties.restore")):
                 executed.append(_dispatch_action(contract, registry, restore))
 
         if properties_open and diagnostics_enabled() and hasattr(st_module, "expander"):
             snapshot = diagnostics_snapshot(registry.state)
-            with st_module.expander("Developer Diagnostics", expanded=False):
+            with st_module.expander(i18n("diagnostics.title"), expanded=False):
                 binding = snapshot.get("binding", {})
                 render_audit = snapshot.get("render_audit", {})
                 st_module.caption(
-                    "Route: " + str(binding.get("route_id") or "—")
-                    + " | Renderer: " + str(binding.get("renderer") or "—")
-                    + " | Provider: " + str(binding.get("provider") or "—")
-                    + " | Loaded: " + ("YES" if binding.get("module_loaded") else "NO")
+                    i18n("diagnostics.binding", route=binding.get("route_id") or "—", renderer=binding.get("renderer") or "—", provider=binding.get("provider") or "—", loaded=i18n("common.yes") if binding.get("module_loaded") else i18n("common.no"))
                 )
                 if render_audit:
                     st_module.caption(
-                        "Render phase: " + str(render_audit.get("phase") or "—")
-                        + " | Success: " + ("YES" if render_audit.get("success") else "NO")
-                        + " | Duration: " + str(render_audit.get("duration_ms") or "—") + " ms"
+                        i18n("diagnostics.render", phase=render_audit.get("phase") or "—", success=i18n("common.yes") if render_audit.get("success") else i18n("common.no"), duration=render_audit.get("duration_ms") or "—")
                     )
                     controls = tuple(render_audit.get("expected_controls", ()) or ())
                     if controls:
-                        st_module.caption("Expected controls: " + ", ".join(map(str, controls)))
+                        st_module.caption(i18n("diagnostics.expected_controls", controls=", ".join(map(str, controls))))
                 incidents = list(snapshot.get("incidents", ()))
                 if incidents:
                     latest = incidents[-1]
@@ -797,7 +792,7 @@ def _render_native_streamlit_layout(
                         f"{latest.get('correlation_id')}: {latest.get('exception_type')} — {latest.get('message')}"
                     )
                 else:
-                    st_module.success("No captured runtime incidents.")
+                    st_module.success(i18n("diagnostics.no_incidents"))
 
                 center = build_diagnostics_center_snapshot(
                     registry.state,
@@ -823,7 +818,7 @@ def _render_native_streamlit_layout(
                 startup = dict(center.get("startup", {}) or {})
                 latest_startup = dict(startup.get("latest", {}) or {})
                 if latest_startup:
-                    st_module.markdown("##### Workbench startup")
+                    st_module.markdown("##### " + i18n("diagnostics.section.startup"))
                     st_module.caption(
                         "Status: " + str(latest_startup.get("status", "—"))
                         + " | Total: " + str(latest_startup.get("total_ms", 0.0)) + " ms"
@@ -833,7 +828,7 @@ def _render_native_streamlit_layout(
                     if startup_stages and hasattr(st_module, "dataframe"):
                         st_module.dataframe(startup_stages, width="stretch", hide_index=True)
 
-                st_module.markdown("##### Route lifecycle")
+                st_module.markdown("##### " + i18n("diagnostics.section.route_lifecycle"))
                 st_module.caption(
                     "Active: " + str(route_lifecycle.get("active_route") or "—")
                     + " | Switches: " + str(route_lifecycle.get("transition_count", 0))
@@ -845,7 +840,7 @@ def _render_native_streamlit_layout(
                 if route_events and hasattr(st_module, "dataframe"):
                     st_module.dataframe(route_events, width="stretch", hide_index=True)
 
-                st_module.markdown("##### Route data loading")
+                st_module.markdown("##### " + i18n("diagnostics.section.route_data"))
                 st_module.caption(
                     "Events: " + str(route_data.get("event_count", 0))
                     + " | Slow: " + str(route_data.get("slow_count", 0))
@@ -865,7 +860,7 @@ def _render_native_streamlit_layout(
                     + " | Last reason: " + str(project_navigation_cache.get("last_reason", "not-used"))
                 )
 
-                st_module.markdown("##### Runtime")
+                st_module.markdown("##### " + i18n("diagnostics.section.runtime"))
                 st_module.caption(
                     "Services: " + str(registry_stats.get("active", 0))
                     + " | Created: " + str(registry_stats.get("created", 0))
@@ -881,7 +876,7 @@ def _render_native_streamlit_layout(
                     ]
                     st_module.dataframe(service_rows, width="stretch", hide_index=True)
 
-                st_module.markdown("##### Cache")
+                st_module.markdown("##### " + i18n("diagnostics.section.cache"))
                 st_module.caption(
                     "Hit rate: " + str(cache_summary.get("hit_rate", 0.0)) + "%"
                     + " | Hits: " + str(cache_summary.get("hits", 0))
@@ -892,7 +887,7 @@ def _render_native_streamlit_layout(
                 if caches and hasattr(st_module, "dataframe"):
                     st_module.dataframe(caches, width="stretch", hide_index=True)
 
-                st_module.markdown("##### DataFrame memory")
+                st_module.markdown("##### " + i18n("diagnostics.section.dataframe_memory"))
                 st_module.caption(
                     "Entries: " + str(dataframe_memory.get("sample_entries", 0))
                     + " | Current: " + str(round(float(dataframe_memory.get("sample_bytes", 0)) / 1048576.0, 2)) + " MiB"
@@ -901,12 +896,9 @@ def _render_native_streamlit_layout(
                     + " | Utilization: " + str(dataframe_memory.get("memory_utilization_percent", 0.0)) + "%"
                 )
                 if int(dataframe_memory.get("oversized_skips", 0) or 0):
-                    st_module.warning(
-                        "Oversized DataFrame samples skipped: "
-                        + str(dataframe_memory.get("oversized_skips", 0))
-                    )
+                    st_module.warning(i18n("diagnostics.oversized_samples", count=dataframe_memory.get("oversized_skips", 0)))
 
-                st_module.markdown("##### Repository I/O")
+                st_module.markdown("##### " + i18n("diagnostics.section.repository_io"))
                 st_module.caption(
                     "Reads: " + str(repository_io.get("reads", 0))
                     + " | Writes: " + str(repository_io.get("writes", 0))
@@ -942,7 +934,7 @@ def _render_native_streamlit_layout(
                 if repository_events and hasattr(st_module, "dataframe"):
                     st_module.dataframe(repository_events, width="stretch", hide_index=True)
 
-                st_module.markdown("##### Repository health")
+                st_module.markdown("##### " + i18n("diagnostics.section.repository_health"))
                 severity_counts = dict(repository_health.get("severity_counts", {}) or {})
                 st_module.caption(
                     "Status: " + ("healthy" if repository_health.get("healthy", True) else "issues detected")
@@ -966,9 +958,9 @@ def _render_native_streamlit_layout(
                     + " | Failures: " + str(schedule.get("failure_count", 0))
                 )
                 if repository_health.get("truncated"):
-                    st_module.warning("Repository health scan reached its configured file limit.")
+                    st_module.warning(i18n("diagnostics.repository_scan_truncated"))
 
-                st_module.markdown("##### Operation traces")
+                st_module.markdown("##### " + i18n("diagnostics.section.traces"))
                 trace_summary = dict(traces.get("summary", {}) or {})
                 st_module.caption(
                     "Events: " + str(trace_summary.get("events", 0))
@@ -980,7 +972,7 @@ def _render_native_streamlit_layout(
                 if trace_events and hasattr(st_module, "dataframe"):
                     st_module.dataframe(trace_events, width="stretch", hide_index=True)
 
-                st_module.markdown("##### Session State")
+                st_module.markdown("##### " + i18n("diagnostics.section.session"))
                 st_module.caption(
                     "Keys: " + str(session.get("total_keys", 0))
                     + " | Runtime: " + str(session.get("runtime_count", 0))
@@ -999,17 +991,17 @@ def _render_native_streamlit_layout(
                     )
                 unregistered = list(session.get("unregistered_keys", ()) or ())
                 if unregistered:
-                    st_module.warning("Unregistered keys: " + ", ".join(unregistered[:12]))
+                    st_module.warning(i18n("diagnostics.unregistered_keys", keys=", ".join(unregistered[:12])))
 
                 budgets = list(center.get("budgets", ()) or ())
                 if budgets:
-                    st_module.markdown("##### Performance budgets")
+                    st_module.markdown("##### " + i18n("diagnostics.section.budgets"))
                     if hasattr(st_module, "dataframe"):
                         st_module.dataframe(budgets, width="stretch", hide_index=True)
 
                 baseline = dict(center.get("performance_baseline", {}) or {})
                 if baseline:
-                    st_module.markdown("##### Performance baseline")
+                    st_module.markdown("##### " + i18n("diagnostics.section.baseline"))
                     st_module.caption(
                         "Stages: " + str(len(baseline.get("stages", {}) or {}))
                         + " | Cache hit rate: " + str(baseline.get("cache_hit_rate", 0.0)) + "%"
@@ -1018,7 +1010,7 @@ def _render_native_streamlit_layout(
                     )
                     if hasattr(st_module, "download_button"):
                         st_module.download_button(
-                            "Download performance baseline",
+                            i18n("diagnostics.download_baseline"),
                             data=json.dumps(baseline, ensure_ascii=False, indent=2),
                             file_name="gasratio-performance-baseline.json",
                             mime="application/json",
