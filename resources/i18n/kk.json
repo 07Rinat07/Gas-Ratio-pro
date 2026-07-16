@@ -154,6 +154,8 @@
   "qc.finding.qc_range_003": "Мән күтілетін ауқымнан жоғары.",
   "qc.finding.qc_range_004": "Статистикалық ауытқу анықталды.",
   "qc.finding.qc_units_002": "Өлшем бірлігі күтілетін мәнге сәйкес келмейді.",
+  "qc.panel.download_export": "Тіркелген экспортты жүктеп алу",
+  "qc.panel.download_failed": "Жүктеуді дайындау мүмкін болмады: {error}",
   "qc.panel.export.docx": "DOCX экспорттау",
   "qc.panel.export.pdf": "PDF экспорттау",
   "qc.panel.export_failed": "{format} есебін құру мүмкін болмады.",

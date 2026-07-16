@@ -102,3 +102,9 @@ QC Platform Phase II started. QC reports are now persistable as derived Dataset 
 QC Platform Phase III completed. The production LAS Editor now exposes localized QC status, filters, findings and curve statistics. QC reports can be persisted as derived Datasets and PDF/DOCX outputs are registered as immutable export artifacts linked by provenance.
 
 Next: expose saved QC reports and exports in Project Explorer, add downloadable export actions, and attach QC summaries to Dataset version comparison.
+
+## v222.38 — QC Explorer and downloads
+
+QC reports and QC exports are now visible in dedicated lazy Project Explorer folders. Registered PDF/DOCX artifacts can be downloaded through a bounded Data Platform service, and Dataset version comparisons include the latest QC status/count summary for each side.
+
+Next: add report-template profiles, localized QC history labels, and interactive rendering of the QC comparison summary.

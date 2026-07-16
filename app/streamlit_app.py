@@ -15591,6 +15591,8 @@ def _build_workbench_project_navigation(
             "export": "nav.exports",
             "dataset_lineage": "nav.data",
             "dataset_version": "nav.data",
+            "qc_report": "nav.data",
+            "qc_export": "nav.exports",
         }
         route_by_id = {
             "folder:wells": "nav.data",
@@ -15605,6 +15607,8 @@ def _build_workbench_project_navigation(
             "export": "export",
             "dataset_lineage": "dataset",
             "dataset_version": "dataset",
+            "qc_report": "dataset",
+            "qc_export": "dataset",
             "folder_item": "collection",
             "custom_folder": "collection",
             "well_group": "collection",

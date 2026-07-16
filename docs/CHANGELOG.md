@@ -2964,3 +2964,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added UI actions to persist QC reports as derived Datasets.
 - Added registered PDF/DOCX export artifacts with SHA-256 and provenance to the source QC Dataset.
 - Added synchronized ru/kk/en panel feedback and regression coverage.
+
+## v222.38 — QC Explorer and registered downloads
+
+- Exposed immutable QC report Datasets and registered PDF/DOCX export Datasets in the lazy Dataset branch of Project Explorer.
+- Added QC status metadata for explorer badges and source/provenance links for QC report nodes.
+- Added a bounded, path-contained application-service operation for downloading registered artifacts.
+- Added direct registered-export download controls in the Workbench Properties pane.
+- Added latest QC summaries to immutable Dataset version comparison results.

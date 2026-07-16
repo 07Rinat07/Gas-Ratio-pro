@@ -1968,3 +1968,12 @@ Status: COMPLETED
 - Registered PDF/DOCX export artifacts with provenance.
 
 Next: QC history in Project Explorer, direct downloads, Dataset comparison badges and report-template profiles.
+
+### QC Platform Phase IV — Project Explorer and registered downloads (completed v222.38)
+
+- [x] Expose saved QC report Datasets in a dedicated lazy Project Explorer folder.
+- [x] Expose registered PDF/DOCX QC exports with downloadable metadata.
+- [x] Add a bounded and path-contained registered-artifact read boundary.
+- [x] Add QC status badges through stable metadata, without reading report payloads.
+- [x] Attach latest QC summaries to Dataset version comparisons.
+- [ ] Next: report-template profiles and localized interactive QC comparison presentation.

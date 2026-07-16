@@ -722,6 +722,40 @@ def _render_native_streamlit_layout(
             target = str(selection.get("target") or "")
             object_id = str(selection.get("object_id") or "")
             metadata = dict(selection.get("metadata", {}) or {})
+            if (
+                target == "dataset"
+                and object_id
+                and bool(metadata.get("downloadable"))
+                and hasattr(st_module, "download_button")
+            ):
+                try:
+                    from app.streamlit_app import LAS_CORRELATION_PROJECTS_ROOT, _application_state_controller
+                    from core.application_service_container import application_service_container
+
+                    active_project_id = str(payload.get("interaction", {}).get("active_project_id", "") or "")
+                    if active_project_id:
+                        data_platform = application_service_container(
+                            _application_state_controller().state
+                        ).data_platform(root=LAS_CORRELATION_PROJECTS_ROOT)
+                        file_name, format_id, content = data_platform.read_registered_artifact(
+                            active_project_id, object_id
+                        )
+                        mime_by_format = {
+                            "pdf": "application/pdf",
+                            "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        }
+                        st_module.download_button(
+                            i18n("qc.panel.download_export"),
+                            data=content,
+                            file_name=file_name,
+                            mime=mime_by_format.get(format_id, "application/octet-stream"),
+                            key=f"workbench_download_dataset_{object_id}",
+                            width="stretch",
+                        )
+                except Exception as exc:
+                    if hasattr(st_module, "warning"):
+                        st_module.warning(i18n("qc.panel.download_failed", error=str(exc)))
+
             property_actions = tuple(layout.get("property_actions", ()) or ())
             if property_actions and target and object_id:
                 st_module.markdown(f"#### {i18n('properties.actions')}")

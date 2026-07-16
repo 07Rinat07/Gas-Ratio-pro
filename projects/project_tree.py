@@ -339,8 +339,16 @@ def build_project_tree(
     if "datasets" in requested_sections:
         repository = DatasetManifestRepository(root_path)
         manifests = _measure("datasets", lambda: repository.list(clean_project_id))
+        source_manifests = [
+            item for item in manifests
+            if str(item.metadata.get("dataset_kind", "")) not in {"qc-report-export"}
+            and item.provenance.operation != "quality-control"
+        ]
+        qc_reports = [item for item in manifests if item.provenance.operation == "quality-control"]
+        qc_exports = [item for item in manifests if str(item.metadata.get("dataset_kind", "")) == "qc-report-export"]
+
         grouped: dict[str, list[object]] = {}
-        for manifest in manifests:
+        for manifest in source_manifests:
             grouped.setdefault(manifest.lineage_id, []).append(manifest)
         lineage_nodes: list[ProjectTreeNode] = []
         for lineage_id, items in sorted(grouped.items(), key=lambda pair: pair[0]):
@@ -386,10 +394,70 @@ def build_project_tree(
                     "format_id": latest.format_id,
                 },
             ))
-        dataset_lineage_children = tuple(lineage_nodes)
+
+        qc_report_nodes = tuple(
+            ProjectTreeNode(
+                id=f"dataset:{item.dataset_id}",
+                label=item.source_name or item.dataset_id,
+                kind="qc_report",
+                status=f"{str(item.metadata.get('qc_status', 'unknown'))} · {item.created_at}",
+                metadata={
+                    "dataset_id": item.dataset_id,
+                    "format_id": item.format_id,
+                    "artifact_path": item.artifact_path,
+                    "size_bytes": item.size_bytes,
+                    "checksum_sha256": item.checksum_sha256,
+                    "qc_status": str(item.metadata.get("qc_status", "")),
+                    "finding_count": int(item.metadata.get("finding_count", 0) or 0),
+                    "error_count": int(item.metadata.get("error_count", 0) or 0),
+                    "warning_count": int(item.metadata.get("warning_count", 0) or 0),
+                    "source_dataset_id": str(item.metadata.get("source_dataset_id", "")),
+                    "provenance_operation": item.provenance.operation,
+                },
+            )
+            for item in sorted(qc_reports, key=lambda value: value.created_at, reverse=True)
+        )
+        qc_export_nodes = tuple(
+            ProjectTreeNode(
+                id=f"dataset:{item.dataset_id}",
+                label=item.source_name or item.dataset_id,
+                kind="qc_export",
+                status=f"{item.format_id.upper()} · {item.created_at}",
+                metadata={
+                    "dataset_id": item.dataset_id,
+                    "format_id": item.format_id,
+                    "artifact_path": item.artifact_path,
+                    "size_bytes": item.size_bytes,
+                    "checksum_sha256": item.checksum_sha256,
+                    "qc_status": str(item.metadata.get("qc_status", "")),
+                    "report_format": str(item.metadata.get("report_format", item.format_id)),
+                    "source_qc_dataset_id": str(item.metadata.get("source_qc_dataset_id", "")),
+                    "downloadable": 1,
+                    "provenance_operation": item.provenance.operation,
+                },
+            )
+            for item in sorted(qc_exports, key=lambda value: value.created_at, reverse=True)
+        )
+
+        source_folder = _folder_node(
+            "folder:datasets:source", "Source datasets",
+            tuple(lineage_nodes) or (_empty_node("folder:datasets:source:empty", "No source datasets"),),
+        )
+        reports_folder = _folder_node(
+            "folder:datasets:qc_reports", "QC reports",
+            qc_report_nodes or (_empty_node("folder:datasets:qc_reports:empty", "No QC reports"),),
+        )
+        exports_folder_node = _folder_node(
+            "folder:datasets:qc_exports", "QC exports",
+            qc_export_nodes or (_empty_node("folder:datasets:qc_exports:empty", "No QC exports"),),
+        )
+        dataset_lineage_children = (source_folder, reports_folder, exports_folder_node)
         for node in dataset_lineage_children:
             indexed_nodes[node.id] = node
-            indexed_nodes.update((child.id, child) for child in node.children)
+            for child in node.children:
+                indexed_nodes[child.id] = child
+                for grandchild in child.children:
+                    indexed_nodes[grandchild.id] = grandchild
 
     custom_folder_children = tuple(
         _custom_folder_node(folder, indexed_nodes)

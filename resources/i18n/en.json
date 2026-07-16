@@ -154,6 +154,8 @@
   "qc.finding.qc_range_003": "A value is above the expected range.",
   "qc.finding.qc_range_004": "A statistical outlier was detected.",
   "qc.finding.qc_units_002": "The measurement unit does not match the expected unit.",
+  "qc.panel.download_export": "Download registered export",
+  "qc.panel.download_failed": "Unable to prepare the download: {error}",
   "qc.panel.export.docx": "Export DOCX",
   "qc.panel.export.pdf": "Export PDF",
   "qc.panel.export_failed": "The {format} report could not be generated.",

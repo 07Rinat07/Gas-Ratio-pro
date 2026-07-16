@@ -31,6 +31,8 @@ _KIND_ICONS = {
     "collection": "▸",
     "dataset_lineage": "⛓",
     "dataset_version": "◫",
+    "qc_report": "✓",
+    "qc_export": "⇩",
 }
 
 
@@ -43,6 +45,13 @@ def explorer_status_marker(node: Mapping[str, Any]) -> str:
     kind = str(node.get("kind") or "")
     status = str(node.get("status") or "").lower()
     metadata = dict(node.get("metadata", {}) or {})
+    qc_status = str(metadata.get("qc_status") or "").lower()
+    if qc_status == "failed":
+        return "🔴"
+    if qc_status == "warning":
+        return "🟡"
+    if qc_status == "passed":
+        return "🟢"
     warnings = metadata.get("warnings_count", 0)
     try:
         warnings_count = int(warnings or 0)

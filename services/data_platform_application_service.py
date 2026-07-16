@@ -195,6 +195,25 @@ class DataPlatformApplicationService:
             for item in self.manifests.list_lineage(project_id, lineage_id)
         )
 
+    def _qc_summary_for_source(self, project_id: str, source_dataset_id: str) -> dict[str, object]:
+        """Return the latest lightweight QC summary linked to one source Dataset."""
+        candidates = [
+            item for item in self.manifests.list(project_id)
+            if item.provenance.operation == "quality-control"
+            and source_dataset_id in item.provenance.source_dataset_ids
+        ]
+        if not candidates:
+            return {"available": False, "status": "", "dataset_id": "", "finding_count": 0, "error_count": 0, "warning_count": 0}
+        latest = max(candidates, key=lambda item: (item.created_at, item.dataset_id))
+        return {
+            "available": True,
+            "status": str(latest.metadata.get("qc_status", "")),
+            "dataset_id": latest.dataset_id,
+            "finding_count": int(latest.metadata.get("finding_count", 0) or 0),
+            "error_count": int(latest.metadata.get("error_count", 0) or 0),
+            "warning_count": int(latest.metadata.get("warning_count", 0) or 0),
+        }
+
     def compare_dataset_versions(self, project_id: str, left_dataset_id: str, right_dataset_id: str) -> dict[str, object]:
         """Compare two immutable versions from the same lineage using metadata only."""
         left = self.manifests.load(project_id, left_dataset_id)
@@ -219,7 +238,19 @@ class DataPlatformApplicationService:
             "source_name_changed": left.source_name != right.source_name,
             "metadata_change_count": len(metadata_changes),
             "metadata_changes": metadata_changes,
+            "left_qc": self._qc_summary_for_source(project_id, left.dataset_id),
+            "right_qc": self._qc_summary_for_source(project_id, right.dataset_id),
         }
+
+    def read_registered_artifact(self, project_id: str, dataset_id: str, *, max_bytes: int = 64 * 1024 * 1024) -> tuple[str, str, bytes]:
+        """Read one registered artifact through the manifest/path-containment boundary."""
+        manifest = self.manifests.load(project_id, dataset_id)
+        if manifest.size_bytes > max_bytes:
+            raise ValueError("artifact exceeds the bounded download size")
+        path = self.artifacts.resolve(project_id=project_id, relative_path=manifest.artifact_path)
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        return manifest.source_name or path.name, manifest.format_id, path.read_bytes()
 
     def list_project_lineages(self, project_id: str) -> tuple[dict[str, object], ...]:
         """Return one lightweight record per dataset lineage for Project Explorer."""

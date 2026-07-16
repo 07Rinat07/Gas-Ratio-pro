@@ -154,6 +154,8 @@
   "qc.finding.qc_range_003": "Значение выше ожидаемого диапазона.",
   "qc.finding.qc_range_004": "Обнаружен статистический выброс.",
   "qc.finding.qc_units_002": "Единица измерения не соответствует ожидаемой.",
+  "qc.panel.download_export": "Скачать зарегистрированный экспорт",
+  "qc.panel.download_failed": "Не удалось подготовить загрузку: {error}",
   "qc.panel.export.docx": "Экспорт DOCX",
   "qc.panel.export.pdf": "Экспорт PDF",
   "qc.panel.export_failed": "Не удалось сформировать отчёт {format}.",
