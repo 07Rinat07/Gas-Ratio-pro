@@ -1,3 +1,10 @@
+# Latest increment — Interpretation export project-root bugfix (v222.42)
+
+- [x] Remove undefined `PROJECTS_ROOT` usage from the professional export fragment.
+- [x] Use the shared Workbench project repository root for PDF preview and background export services.
+- [x] Add regression coverage for the Interpretation export fragment and primary route declarations.
+- [ ] Continue production Data Workspace import preview integration after the stability patch.
+
 # Open Standards and Legal Research Governance
 
 This roadmap is governed by `OPEN_STANDARDS_POLICY.md`, `LICENSE_POLICY.md`, and `RESEARCH_POLICY.md`. External code or data enters the project only after source, license, adapter isolation, security, testing, and ru/kk/en documentation review.

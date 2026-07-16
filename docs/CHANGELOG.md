@@ -1,3 +1,9 @@
+# v222.42 — Interpretation export project-root bugfix
+
+- Fixed `NameError: PROJECTS_ROOT is not defined` in the professional export fragment.
+- Unified PDF preview and background export services on the defined project root used by the rest of Workbench.
+- Added a regression test preventing undefined project-root globals in the Interpretation export panel.
+
 # v222.41 — Industry import preview and optional trace inventory
 
 - Added legally generated conformance-fixture policy and synthetic fixture provenance.

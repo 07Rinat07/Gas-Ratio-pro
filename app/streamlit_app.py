@@ -9293,7 +9293,7 @@ def _render_professional_export_panel(
         )
         pdf_preview_runtime_cache = application_service_container(export_state).pdf_preview(
             project_id=str(active_project.id),
-            root=PROJECTS_ROOT,
+            root=LAS_CORRELATION_PROJECTS_ROOT,
             metrics_registry=cache_metrics_registry,
         )
         # Migrate and immediately remove the legacy Session State payload.
@@ -9309,7 +9309,7 @@ def _render_professional_export_panel(
             )
         background_manager = application_service_container(export_state).background_export(
             project_id=str(active_project.id),
-            root=PROJECTS_ROOT,
+            root=LAS_CORRELATION_PROJECTS_ROOT,
             max_workers=1,
         )
         normalized_form = normalize_export_form_state(

@@ -1,3 +1,9 @@
+# Current increment: v222.42 — Interpretation export project-root bugfix
+
+- Interpretation Workspace export no longer references the undefined `PROJECTS_ROOT` global.
+- PDF preview and background export now use `LAS_CORRELATION_PROJECTS_ROOT`, matching the active project repository boundary.
+- Regression coverage verifies the export fragment and primary Workbench routes.
+
 # Current increment: v222.41 — Industry import preview and optional trace inventory
 
 Implemented:

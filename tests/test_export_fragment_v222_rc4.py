@@ -28,7 +28,9 @@ def test_fragment_keeps_expensive_rendering_outside_its_body() -> None:
     assert "st.plotly_chart(" not in fragment_body
     assert "build_depth_gas_tracks(" not in fragment_body
     assert "build_well_log_tablet(" not in fragment_body
-    assert "ExportController(" in fragment_body
+    assert ".presentation_export(" in fragment_body
+    assert ".pdf_preview(" in fragment_body
+    assert ".background_export(" in fragment_body
 
 
 def test_streamlit_version_supports_fragments() -> None:
