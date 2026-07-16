@@ -543,6 +543,7 @@ def _render_native_streamlit_layout(
                                     "folder:custom": "custom",
                                     "folder:wells": "wells",
                                     "folder:calculations": "calculations",
+                                    "folder:datasets": "datasets",
                                     "folder:exports": "exports",
                                 }
                                 requested_section = section_by_folder.get(item_id)

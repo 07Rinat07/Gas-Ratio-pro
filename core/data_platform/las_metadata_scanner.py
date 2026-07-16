@@ -13,16 +13,19 @@ _PARAMETER_RE = re.compile(r"^\s*([^.#:\s]+)\s*(?:\.([^\s:]*))?\s*([^:]*)\s*(?::
 class LasHeaderMetadataScanner:
     format_id = "las"
 
-    def __init__(self, *, max_header_bytes: int = 2 * 1024 * 1024) -> None:
+    def __init__(self, *, max_header_bytes: int = 2 * 1024 * 1024, max_sample_rows: int = 8) -> None:
         if max_header_bytes < 1024:
             raise ValueError("max_header_bytes must be at least 1024")
+        if max_sample_rows < 1 or max_sample_rows > 64:
+            raise ValueError("max_sample_rows must be between 1 and 64")
         self.max_header_bytes = int(max_header_bytes)
+        self.max_sample_rows = int(max_sample_rows)
 
     def scan(self, source: Path | str) -> MetadataScanResult:
         path = Path(source)
         raw = bytearray()
         reached_ascii = False
-        first_data_line = b""
+        data_sample_lines: list[bytes] = []
         with path.open("rb") as handle:
             while len(raw) < self.max_header_bytes:
                 line = handle.readline(min(64 * 1024, self.max_header_bytes - len(raw)))
@@ -33,14 +36,13 @@ class LasHeaderMetadataScanner:
                 section = _SECTION_RE.match(probe)
                 if section and section.group(1).strip().lower().startswith("a"):
                     reached_ascii = True
-                    # Read only one bounded data row for delimiter diagnostics.
-                    while True:
+                    # Read only a small bounded sample for structural diagnostics.
+                    while len(data_sample_lines) < self.max_sample_rows:
                         candidate = handle.readline(64 * 1024)
                         if not candidate:
                             break
                         if candidate.strip() and not candidate.lstrip().startswith(b"#"):
-                            first_data_line = candidate.rstrip(b"\r\n")
-                            break
+                            data_sample_lines.append(candidate.rstrip(b"\r\n"))
                     break
 
         encoding, text = _decode_header(bytes(raw))
@@ -53,14 +55,21 @@ class LasHeaderMetadataScanner:
         warnings: list[str] = []
         if encoding not in {"utf-8", "utf-8-sig", "ascii"}:
             warnings.append("las.compatibility.legacy_encoding")
+        first_data_line = data_sample_lines[0] if data_sample_lines else b""
         delimiter = _detect_data_delimiter(first_data_line)
         metadata["data_delimiter"] = delimiter
         decimal_style = _detect_decimal_style(first_data_line, delimiter)
         metadata["decimal_style"] = decimal_style
         fixed_width = _looks_fixed_width(first_data_line, delimiter)
         metadata["fixed_width_data"] = fixed_width
-        data_column_count = _count_data_columns(first_data_line, delimiter)
+        column_counts = tuple(_count_data_columns(line, delimiter) for line in data_sample_lines)
+        data_column_count = column_counts[0] if column_counts else 0
         metadata["data_column_count"] = data_column_count
+        metadata["data_sample_row_count"] = len(data_sample_lines)
+        metadata["data_column_counts"] = ",".join(str(item) for item in column_counts)
+        metadata["data_column_count_stable"] = len(set(column_counts)) <= 1 if column_counts else None
+        metadata["data_column_count_min"] = min(column_counts) if column_counts else 0
+        metadata["data_column_count_max"] = max(column_counts) if column_counts else 0
         if delimiter in {"comma", "semicolon", "tab"}:
             warnings.append("las.compatibility.nonstandard_data_delimiter")
         if decimal_style == "comma":
@@ -114,6 +123,8 @@ class LasHeaderMetadataScanner:
         metadata["curve_data_column_match"] = (len(curves) == int(metadata.get("data_column_count", 0) or 0)) if first_data_line and curves else None
         if first_data_line and curves and metadata["curve_data_column_match"] is False:
             warnings.append("las.compatibility.curve_data_column_mismatch")
+        if column_counts and len(set(column_counts)) > 1:
+            warnings.append("las.compatibility.inconsistent_data_columns")
         metadata["curve_mnemonics"] = ",".join(curves[:256])
         _apply_las_compatibility_metadata(metadata, warnings, current_section=current_section)
         if str(metadata.get("wrap_mode", "")).upper().startswith("Y"):

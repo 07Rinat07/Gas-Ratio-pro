@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from time import perf_counter
 
+from core.data_platform.manifest_repository import DatasetManifestRepository
 from projects.calculations import list_project_calculations
 from projects.exports import list_project_exports
 from projects.las_files import ProjectLasWellCard, list_project_las_wells
@@ -253,14 +254,14 @@ def build_project_tree(
 
     project = _measure("project", lambda: load_project(root_path, clean_project_id))
     requested_sections = (
-        frozenset({"custom", "wells", "calculations", "exports"})
+        frozenset({"custom", "wells", "calculations", "exports", "datasets"})
         if include_sections is None
         else frozenset(str(item).strip() for item in include_sections)
     )
     # Custom folders may reference any object type, therefore their expansion
     # materializes the indexed source sections as one coherent metadata view.
     if "custom" in requested_sections:
-        requested_sections = requested_sections | {"wells", "calculations", "exports"}
+        requested_sections = requested_sections | {"wells", "calculations", "exports", "datasets"}
 
     indexed_nodes: dict[str, ProjectTreeNode] = {}
     well_cards = (
@@ -334,6 +335,55 @@ def build_project_tree(
     )
     indexed_nodes.update((node.id, node) for node in export_children)
 
+    dataset_lineage_children: tuple[ProjectTreeNode, ...] = ()
+    if "datasets" in requested_sections:
+        repository = DatasetManifestRepository(root_path)
+        manifests = _measure("datasets", lambda: repository.list(clean_project_id))
+        grouped: dict[str, list[object]] = {}
+        for manifest in manifests:
+            grouped.setdefault(manifest.lineage_id, []).append(manifest)
+        lineage_nodes: list[ProjectTreeNode] = []
+        for lineage_id, items in sorted(grouped.items(), key=lambda pair: pair[0]):
+            versions = sorted(items, key=lambda item: item.version)
+            latest = versions[-1]
+            version_nodes = tuple(
+                ProjectTreeNode(
+                    id=f"dataset:{item.dataset_id}",
+                    label=f"v{item.version} · {item.source_name or item.dataset_id}",
+                    kind="dataset_version",
+                    status=str(item.created_at),
+                    metadata={
+                        "dataset_id": item.dataset_id,
+                        "lineage_id": item.lineage_id,
+                        "version": item.version,
+                        "format_id": item.format_id,
+                        "well_id": item.well_id,
+                        "size_bytes": item.size_bytes,
+                        "import_mode": str(item.metadata.get("import_mode", "tolerant")),
+                        "compatibility_mode": str(item.metadata.get("las_compatibility_mode", "")),
+                    },
+                )
+                for item in versions
+            )
+            lineage_nodes.append(ProjectTreeNode(
+                id=f"dataset_lineage:{lineage_id}",
+                label=latest.source_name or lineage_id,
+                kind="dataset_lineage",
+                status=f"{len(versions)} version(s) · {latest.format_id.upper()}",
+                children=version_nodes,
+                metadata={
+                    "lineage_id": lineage_id,
+                    "latest_dataset_id": latest.dataset_id,
+                    "latest_version": latest.version,
+                    "version_count": len(versions),
+                    "format_id": latest.format_id,
+                },
+            ))
+        dataset_lineage_children = tuple(lineage_nodes)
+        for node in dataset_lineage_children:
+            indexed_nodes[node.id] = node
+            indexed_nodes.update((child.id, child) for child in node.children)
+
     custom_folder_children = tuple(
         _custom_folder_node(folder, indexed_nodes)
         for folder in (
@@ -375,6 +425,14 @@ def build_project_tree(
             if "calculations" in requested_sections else _deferred("folder:calculations", "Раскройте ветку для загрузки")[0]
         ,),
     )
+    datasets_folder = _folder_node(
+        "folder:datasets",
+        "Dataset history",
+        dataset_lineage_children or (
+            _empty_node("folder:datasets:empty", "No registered datasets")
+            if "datasets" in requested_sections else _deferred("folder:datasets", "Expand to load dataset history")[0]
+        ,),
+    )
     exports_folder = _folder_node(
         "folder:exports",
         "Отчеты и экспорты",
@@ -389,7 +447,7 @@ def build_project_tree(
         label=project.name,
         kind="project",
         status=project.updated_at,
-        children=(custom_folders_folder, wells_folder, calculations_folder, exports_folder),
+        children=(custom_folders_folder, wells_folder, calculations_folder, datasets_folder, exports_folder),
         metadata={
             "project_id": project.id,
             "description": project.description,

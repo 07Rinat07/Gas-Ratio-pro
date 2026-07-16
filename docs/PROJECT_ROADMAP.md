@@ -1912,3 +1912,19 @@ Implemented:
 - stable `las.validation.curve_data_column_mismatch` diagnostics in ru/kk/en.
 
 Next priority: expose Dataset lineage/history in Project Explorer and add a deliberate strict/tolerant import-mode selector for legacy LAS.
+
+
+# Latest increment — Dataset lineage explorer and deliberate LAS import modes
+
+Completed in v222.32:
+
+- lazy `datasets` branch in Project Explorer with one node per immutable lineage and chronological version children;
+- lightweight lineage application-service projections without artifact payloads;
+- explicit `tolerant` and `strict` LAS import modes in LAS Editor;
+- strict mode blocks legacy/structural deviations before artifact or manifest persistence;
+- tolerant mode preserves archival LAS behaviour and records warnings;
+- bounded multi-row LAS sampling (up to eight rows by default);
+- stable `las.validation.inconsistent_data_columns` diagnostics when sampled row widths differ;
+- ru/kk/en labels and messages for import-mode selection and inconsistent-column validation.
+
+Next priority: expose selected Dataset version properties and provenance in the Properties pane, add a lineage comparison action, and validate depth monotonicity/step stability from a bounded sample.

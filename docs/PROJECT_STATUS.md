@@ -52,3 +52,12 @@ Implemented localized import feedback, SQLite reconciliation from immutable mani
 - LAS Editor uploads are registered once per session/checksum and show localized import findings.
 - Edited LAS exports become immutable Dataset versions linked to the uploaded source.
 - Header scanner compares Curve Information count with the first bounded data-row column count.
+
+
+## v222.32 — Dataset lineage explorer and LAS import modes
+
+- Project Explorer has a lazy Dataset history branch with immutable lineage/version nodes.
+- LAS Editor exposes tolerant and strict import modes on ru/kk/en.
+- Strict mode performs pre-persistence blocking; tolerant mode keeps archival compatibility.
+- Header scanner samples several bounded rows and detects unstable column counts.
+- Profile regression: 60 tests passed.

@@ -2919,3 +2919,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Displayed localized Data Platform messages in the production LAS Editor uploader.
 - Registered saved editor output as the next immutable Dataset version.
 - Added curve/data column mismatch metadata, warning and localized validation message.
+
+
+## v222.32
+
+- Added lazy Dataset lineage/history nodes to Project Explorer.
+- Added strict/tolerant LAS import selector and pre-persistence strict validation.
+- Added bounded multi-row column stability diagnostics.
+- Added localized ru/kk/en import-mode and validation messages.

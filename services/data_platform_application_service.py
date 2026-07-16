@@ -71,6 +71,15 @@ class DatasetRegistrationResult:
         }
 
 
+class LasImportValidationError(ValueError):
+    """Raised before persistence when strict LAS validation blocks import."""
+
+    def __init__(self, findings: tuple[LasValidationFinding, ...]) -> None:
+        self.findings = tuple(findings)
+        codes = ", ".join(item.code for item in self.findings if item.blocking)
+        super().__init__(f"strict LAS validation blocked import: {codes}")
+
+
 class DataPlatformApplicationService:
     def __init__(self, projects_root: Path | str, *, formats: DataFormatRegistry | None = None, scanners: tuple[MetadataScanner, ...] | None = None) -> None:
         self.projects_root = Path(projects_root)
@@ -81,7 +90,7 @@ class DataPlatformApplicationService:
         scanner_items = scanners if scanners is not None else (LasHeaderMetadataScanner(),)
         self._scanners = {item.format_id: item for item in scanner_items}
 
-    def register_source_file(self, *, project_id: str, source: Path | str, format_id: str | None = None, well_id: str = "", actor: str = "", metadata: dict[str, str | int | float | bool | None] | None = None, previous_dataset_id: str = "") -> DatasetManifest:
+    def register_source_file(self, *, project_id: str, source: Path | str, format_id: str | None = None, well_id: str = "", actor: str = "", metadata: dict[str, str | int | float | bool | None] | None = None, previous_dataset_id: str = "", import_mode: str = "tolerant") -> DatasetManifest:
         return self.register_source_file_result(
             project_id=project_id,
             source=source,
@@ -90,9 +99,10 @@ class DataPlatformApplicationService:
             actor=actor,
             metadata=metadata,
             previous_dataset_id=previous_dataset_id,
+            import_mode=import_mode,
         ).manifest
 
-    def register_source_file_result(self, *, project_id: str, source: Path | str, format_id: str | None = None, well_id: str = "", actor: str = "", metadata: dict[str, str | int | float | bool | None] | None = None, previous_dataset_id: str = "") -> DatasetRegistrationResult:
+    def register_source_file_result(self, *, project_id: str, source: Path | str, format_id: str | None = None, well_id: str = "", actor: str = "", metadata: dict[str, str | int | float | bool | None] | None = None, previous_dataset_id: str = "", import_mode: str = "tolerant") -> DatasetRegistrationResult:
         source_path = Path(source)
         capability = self.formats.require(format_id) if format_id else self.formats.detect(source_path)
         if capability is None:
@@ -103,11 +113,17 @@ class DataPlatformApplicationService:
         checksum = sha256_file(source_path)
         duplicates = self.manifests.find_by_checksum(project_id, checksum)
         scan = self.scan_metadata(source_path, capability.format_id) if capability.supports_metadata_scan else None
-        validation_findings = validate_las_metadata(scan) if capability.format_id == "las" else ()
+        normalized_import_mode = str(import_mode or "tolerant").strip().lower()
+        if normalized_import_mode not in {"tolerant", "strict"}:
+            raise ValueError("import_mode must be tolerant or strict")
+        validation_findings = validate_las_metadata(scan, mode=normalized_import_mode) if capability.format_id == "las" else ()
         merged_metadata = dict(scan.metadata) if scan else {}
+        merged_metadata["import_mode"] = normalized_import_mode
         if validation_findings:
             merged_metadata["validation_codes"] = ",".join(item.code for item in validation_findings)
         merged_metadata.update(metadata or {})
+        if normalized_import_mode == "strict" and any(item.blocking for item in validation_findings):
+            raise LasImportValidationError(tuple(validation_findings))
 
         lineage_id = ""
         version = 1
@@ -153,6 +169,48 @@ class DataPlatformApplicationService:
             return None
         scanner = self._scanners.get(capability.format_id)
         return scanner.scan(source_path) if scanner else None
+
+
+    def list_dataset_lineage(self, project_id: str, lineage_id: str) -> tuple[dict[str, object], ...]:
+        """Return a lightweight, chronological lineage projection for UI use."""
+        return tuple(
+            {
+                "dataset_id": item.dataset_id,
+                "lineage_id": item.lineage_id,
+                "version": item.version,
+                "previous_dataset_id": item.previous_dataset_id,
+                "format_id": item.format_id,
+                "source_name": item.source_name,
+                "created_at": item.created_at,
+                "size_bytes": item.size_bytes,
+                "well_id": item.well_id,
+                "compatibility_mode": str(item.metadata.get("las_compatibility_mode", "")),
+                "import_mode": str(item.metadata.get("import_mode", "tolerant")),
+            }
+            for item in self.manifests.list_lineage(project_id, lineage_id)
+        )
+
+    def list_project_lineages(self, project_id: str) -> tuple[dict[str, object], ...]:
+        """Return one lightweight record per dataset lineage for Project Explorer."""
+        grouped: dict[str, list[DatasetManifest]] = {}
+        for manifest in self.manifests.list(project_id):
+            grouped.setdefault(manifest.lineage_id, []).append(manifest)
+        rows: list[dict[str, object]] = []
+        for lineage_id, items in grouped.items():
+            versions = sorted(items, key=lambda item: item.version)
+            latest = versions[-1]
+            rows.append({
+                "lineage_id": lineage_id,
+                "format_id": latest.format_id,
+                "source_name": latest.source_name,
+                "well_id": latest.well_id,
+                "version_count": len(versions),
+                "latest_version": latest.version,
+                "latest_dataset_id": latest.dataset_id,
+                "created_at": latest.created_at,
+                "compatibility_mode": str(latest.metadata.get("las_compatibility_mode", "")),
+            })
+        return tuple(sorted(rows, key=lambda row: (str(row["source_name"]).casefold(), str(row["lineage_id"]))))
 
     def reconcile_catalog(self, project_id: str) -> dict[str, object]:
         return self.catalog.reconcile(project_id, self.manifests.list(project_id))

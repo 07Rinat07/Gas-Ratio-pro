@@ -6472,6 +6472,20 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
         st.info("Загрузите LAS-файл, чтобы проверить глубины и подготовить данные перед расчетом.")
         return
 
+    i18n = _dashboard_localization()
+    import_mode_labels = {
+        "tolerant": i18n("las.import.mode.tolerant"),
+        "strict": i18n("las.import.mode.strict"),
+    }
+    las_import_mode = st.radio(
+        i18n("las.import.mode.label"),
+        options=("tolerant", "strict"),
+        format_func=lambda value: import_mode_labels[value],
+        horizontal=True,
+        key="las_editor_import_mode",
+        help=i18n("las.import.mode.help"),
+    )
+
     try:
         sheets = load_las_sheets(uploaded_file)
         raw_df = sheets["LAS"]
@@ -6498,7 +6512,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     upload_bytes = bytes(uploaded_file.getvalue())
     upload_checksum = hashlib.sha256(upload_bytes).hexdigest()
     state_controller = _application_state_controller()
-    registration_key = f"las_editor.dataset_registration.{active_project.id}.{upload_checksum}"
+    registration_key = f"las_editor.dataset_registration.{active_project.id}.{upload_checksum}.{las_import_mode}"
     registration_payload = state_controller.get_value(registration_key)
     if not isinstance(registration_payload, dict):
         from tempfile import NamedTemporaryFile
@@ -6507,7 +6521,6 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
             with NamedTemporaryFile(mode="wb", suffix=".las", delete=False) as handle:
                 handle.write(upload_bytes)
                 temp_path = Path(handle.name)
-            i18n = _dashboard_localization()
             registration = application_service_container(state_controller.state).data_platform(
                 root=LAS_CORRELATION_PROJECTS_ROOT
             ).register_source_file_result(
@@ -6515,17 +6528,34 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
                 source=temp_path,
                 format_id="las",
                 metadata={"source": "las_editor_upload", "original_name": uploaded_file.name},
+                import_mode=las_import_mode,
             )
             registration_payload = {
                 "dataset_id": registration.manifest.dataset_id,
                 "dataset_version": registration.manifest.version,
                 "messages": list(registration.localized_messages(i18n.translate)),
                 "validation_codes": [item.code for item in registration.validation_findings],
+                "import_mode": las_import_mode,
             }
             state_controller.set_value(registration_key, registration_payload)
-        except Exception:
-            logger.exception("las_editor_dataset_registration_failed")
-            registration_payload = {"dataset_id": "", "dataset_version": 0, "messages": [], "validation_codes": []}
+        except Exception as exc:
+            from services.data_platform_application_service import LasImportValidationError
+            if isinstance(exc, LasImportValidationError):
+                validation_codes = [item.code for item in exc.findings]
+                messages = [i18n("las.import.strict_blocked")]
+                for finding in exc.findings:
+                    key = f"import.validation.{finding.code}"
+                    translated = i18n(key)
+                    if translated != key:
+                        messages.append(translated)
+                registration_payload = {
+                    "dataset_id": "", "dataset_version": 0, "messages": messages,
+                    "validation_codes": validation_codes, "import_mode": las_import_mode,
+                    "blocked": True,
+                }
+            else:
+                logger.exception("las_editor_dataset_registration_failed")
+                registration_payload = {"dataset_id": "", "dataset_version": 0, "messages": [], "validation_codes": [], "import_mode": las_import_mode}
         finally:
             if temp_path is not None:
                 temp_path.unlink(missing_ok=True)
@@ -7139,6 +7169,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
                         format_id="las",
                         well_id=saved_las_result.record.well_id or "",
                         previous_dataset_id=previous_dataset_id,
+                        import_mode=str(registration_payload.get("import_mode", "tolerant") or "tolerant"),
                         metadata={
                             "source": "las_editor_save",
                             "las_record_id": saved_las_result.record.id,
@@ -15417,7 +15448,7 @@ def _workbench_project_navigation_sections() -> frozenset[str]:
         if str(item).strip()
     }
     if str(state.get("workbench_project_explorer_search") or "").strip():
-        requested.update({"custom", "wells", "calculations", "exports"})
+        requested.update({"custom", "wells", "calculations", "datasets", "exports"})
     return frozenset(requested)
 
 
@@ -15451,6 +15482,8 @@ def _build_workbench_project_navigation(
             "las_version": "nav.las_workspace",
             "calculation": "nav.data",
             "export": "nav.exports",
+            "dataset_lineage": "nav.data",
+            "dataset_version": "nav.data",
         }
         route_by_id = {
             "folder:wells": "nav.data",
@@ -15463,6 +15496,8 @@ def _build_workbench_project_navigation(
             "las_version": "las",
             "calculation": "calculation",
             "export": "export",
+            "dataset_lineage": "dataset",
+            "dataset_version": "dataset",
             "folder_item": "collection",
             "custom_folder": "collection",
             "well_group": "collection",
@@ -15476,6 +15511,8 @@ def _build_workbench_project_navigation(
             or metadata.get("las_file_id")
             or metadata.get("calculation_id")
             or metadata.get("export_id")
+            or metadata.get("dataset_id")
+            or metadata.get("lineage_id")
             or metadata.get("folder_id")
             or node.id
         )

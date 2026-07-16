@@ -17,7 +17,10 @@ class LasValidationFinding:
         return {"code": self.code, "severity": self.severity, "blocking": self.blocking}
 
 
-def validate_las_metadata(scan: MetadataScanResult | None) -> tuple[LasValidationFinding, ...]:
+def validate_las_metadata(scan: MetadataScanResult | None, *, mode: str = "tolerant") -> tuple[LasValidationFinding, ...]:
+    normalized_mode = str(mode or "tolerant").strip().lower()
+    if normalized_mode not in {"tolerant", "strict"}:
+        raise ValueError("LAS validation mode must be tolerant or strict")
     if scan is None:
         return (LasValidationFinding("las.validation.metadata_scan_unavailable", "warning"),)
     metadata: Mapping[str, object] = scan.metadata
@@ -43,6 +46,8 @@ def validate_las_metadata(scan: MetadataScanResult | None) -> tuple[LasValidatio
         findings.append(LasValidationFinding("las.validation.fixed_width_data", "warning"))
     if "las.compatibility.curve_data_column_mismatch" in warning_codes:
         findings.append(LasValidationFinding("las.validation.curve_data_column_mismatch", "warning"))
+    if "las.compatibility.inconsistent_data_columns" in warning_codes:
+        findings.append(LasValidationFinding("las.validation.inconsistent_data_columns", "warning"))
     if bool(metadata.get("legacy_las", False)):
         findings.append(LasValidationFinding("las.validation.legacy_format", "warning"))
     if not str(metadata.get("well_name", "")).strip():
@@ -55,4 +60,20 @@ def validate_las_metadata(scan: MetadataScanResult | None) -> tuple[LasValidatio
         findings.append(LasValidationFinding("las.validation.null_value_missing", "warning"))
     if metadata.get("step", "") == "":
         findings.append(LasValidationFinding("las.validation.step_missing", "warning"))
+    if normalized_mode == "strict":
+        strict_codes = {
+            "las.validation.version_missing_or_invalid",
+            "las.validation.legacy_format",
+            "las.validation.wrap_yes",
+            "las.validation.legacy_encoding",
+            "las.validation.nonstandard_data_delimiter",
+            "las.validation.decimal_comma",
+            "las.validation.fixed_width_data",
+            "las.validation.curve_data_column_mismatch",
+            "las.validation.inconsistent_data_columns",
+        }
+        findings = [
+            LasValidationFinding(item.code, "error" if item.code in strict_codes else item.severity, item.blocking or item.code in strict_codes)
+            for item in findings
+        ]
     return tuple(findings)

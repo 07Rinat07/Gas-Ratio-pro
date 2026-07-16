@@ -29,6 +29,8 @@ _KIND_ICONS = {
     "missing": "!",
     "empty": "·",
     "collection": "▸",
+    "dataset_lineage": "⛓",
+    "dataset_version": "◫",
 }
 
 
