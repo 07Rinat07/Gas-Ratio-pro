@@ -73,6 +73,10 @@ def test_project_tree_returns_empty_folders_for_new_project(tmp_path):
         "Нет сохраненных скважин",
         "Нет сохраненных расчетов",
         "Нет сохраненных экспортов",
+        "No source datasets",
+        "No QC reports",
+        "No QC exports",
+        "No import history",
     }
     assert rows[0]["label"] == "Empty Project"
 

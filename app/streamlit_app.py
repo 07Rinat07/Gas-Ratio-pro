@@ -7536,6 +7536,37 @@ def _render_professional_import_wizard(logger, active_project: ProjectRecord) ->
                 i18n("import.wizard.readiness_formats") + ": "
                 + ", ".join(f"{key.upper()} — {value}" for key, value in formats.items())
             )
+        readiness_filter_columns = st.columns(2)
+        readiness_statuses = set(readiness_filter_columns[0].multiselect(
+            i18n("import.wizard.readiness_filter_status"),
+            ["ready", "review", "blocked", "unknown"],
+            key=f"readiness_filter_status_{active_project.id}",
+        ))
+        readiness_formats = set(readiness_filter_columns[1].multiselect(
+            i18n("import.wizard.readiness_filter_format"),
+            sorted(formats),
+            key=f"readiness_filter_format_{active_project.id}",
+        ))
+        readiness_items = service.list_project_readiness_items(
+            active_project.id, statuses=(readiness_statuses or None), formats=(readiness_formats or None)
+        )
+        if readiness_items:
+            st.dataframe(pd.DataFrame(readiness_items), width="stretch", hide_index=True)
+
+        correlation = service.project_correlation_readiness(active_project.id)
+        st.markdown(f"**{i18n('import.wizard.correlation_readiness')}**")
+        correlation_columns = st.columns(4)
+        correlation_columns[0].metric(i18n("import.wizard.correlation_wells"), correlation.get("well_count", 0))
+        correlation_columns[1].metric(i18n("import.wizard.readiness_ready"), correlation.get("ready_count", 0))
+        correlation_columns[2].metric(i18n("import.wizard.readiness_review"), correlation.get("review_count", 0))
+        correlation_columns[3].metric(i18n("import.wizard.readiness_blocked"), correlation.get("blocked_count", 0))
+        shared_curves = list(correlation.get("shared_curves", []) or [])
+        if shared_curves:
+            st.caption(i18n("import.wizard.correlation_shared_curves") + ": " + ", ".join(shared_curves))
+        if correlation.get("eligible_for_correlation"):
+            st.success(i18n("import.wizard.correlation_ready"))
+        elif correlation.get("well_count", 0):
+            st.warning(i18n("import.wizard.correlation_review"))
 
         st.markdown(f"**{i18n('import.wizard.history')}**")
         filter_columns = st.columns([2, 2, 1, 1])

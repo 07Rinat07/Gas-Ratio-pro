@@ -469,8 +469,28 @@ def build_project_tree(
     if "imports" in requested_sections:
         history_repository = ImportHistoryRepository(root_path)
         history_items = _measure("imports", lambda: history_repository.list(clean_project_id, limit=100))
-        import_history_children = tuple(
-            ProjectTreeNode(
+        import_nodes: list[ProjectTreeNode] = []
+        for item in history_items:
+            result = item.get("result") if isinstance(item.get("result"), dict) else {}
+            result_items = result.get("items", []) if isinstance(result, dict) else []
+            dataset_children = tuple(
+                ProjectTreeNode(
+                    id=f"import_job:{str(item.get('job_id', ''))}:dataset:{str(result_item.get('dataset_id', ''))}",
+                    label=str(result_item.get("source_name") or result_item.get("dataset_id") or "Dataset"),
+                    kind="imported_dataset_reference",
+                    status=f"{str(result_item.get('status', ''))} · readiness {int(result_item.get('readiness_score', 0) or 0)}%",
+                    metadata={
+                        "job_id": str(item.get("job_id", "")),
+                        "dataset_id": str(result_item.get("dataset_id", "")),
+                        "format_id": str(result_item.get("format_id", "")),
+                        "readiness_score": int(result_item.get("readiness_score", 0) or 0),
+                        "import_status": str(result_item.get("status", "")),
+                    },
+                )
+                for result_item in result_items
+                if isinstance(result_item, dict) and str(result_item.get("dataset_id", ""))
+            )
+            import_nodes.append(ProjectTreeNode(
                 id=f"import_job:{str(item.get('job_id', ''))}",
                 label=(
                     ", ".join(str(value) for value in (item.get("source_names", []) or [])[:3])
@@ -478,6 +498,7 @@ def build_project_tree(
                 ),
                 kind="import_job",
                 status=f"{str(item.get('status', ''))} · {str(item.get('finished_at') or item.get('created_at') or '')}",
+                children=dataset_children,
                 metadata={
                     "job_id": str(item.get("job_id", "")),
                     "actor": str(item.get("actor", "")),
@@ -488,10 +509,10 @@ def build_project_tree(
                     "created_at": str(item.get("created_at", "")),
                     "finished_at": str(item.get("finished_at", "")),
                     "source_count": len(item.get("source_names", []) or []),
+                    "dataset_count": len(dataset_children),
                 },
-            )
-            for item in history_items
-        )
+            ))
+        import_history_children = tuple(import_nodes)
         indexed_nodes.update((node.id, node) for node in import_history_children)
 
     custom_folder_children = tuple(

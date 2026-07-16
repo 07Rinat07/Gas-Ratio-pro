@@ -337,6 +337,105 @@ class DataPlatformApplicationService:
             "formats": dict(sorted(formats.items())),
         }
 
+    def list_project_readiness_items(
+        self,
+        project_id: str,
+        *,
+        statuses: set[str] | None = None,
+        formats: set[str] | None = None,
+    ) -> tuple[dict[str, object], ...]:
+        """Return manifest-only dataset rows filtered by readiness and format."""
+        wanted_statuses = {str(value).strip().lower() for value in (statuses or set()) if str(value).strip()}
+        wanted_formats = {str(value).strip().lower() for value in (formats or set()) if str(value).strip()}
+        rows: list[dict[str, object]] = []
+        for item in self.manifests.list(project_id):
+            if item.provenance.operation in {"quality-control", "quality-control-export"}:
+                continue
+            if str(item.metadata.get("dataset_kind", "")) in {"qc-report", "qc-report-export"}:
+                continue
+            status = str(item.metadata.get("readiness_status", "") or "unknown").lower()
+            format_id = str(item.format_id).lower()
+            if wanted_statuses and status not in wanted_statuses:
+                continue
+            if wanted_formats and format_id not in wanted_formats:
+                continue
+            try:
+                score = max(0, min(100, int(item.metadata.get("readiness_score", 0) or 0)))
+            except (TypeError, ValueError):
+                score = 0
+            rows.append({
+                "dataset_id": item.dataset_id,
+                "lineage_id": item.lineage_id,
+                "version": item.version,
+                "source_name": item.source_name,
+                "format_id": item.format_id,
+                "well_id": item.well_id,
+                "readiness_status": status,
+                "readiness_score": score,
+                "quick_qc_status": str(item.metadata.get("quick_qc_status", "")),
+                "created_at": item.created_at,
+            })
+        return tuple(sorted(rows, key=lambda row: (str(row["source_name"]), int(row["version"]))))
+
+    def project_correlation_readiness(self, project_id: str) -> dict[str, object]:
+        """Estimate well-log correlation readiness using manifest metadata only."""
+        wells: dict[str, list[DatasetManifest]] = {}
+        for item in self.manifests.list(project_id):
+            if item.format_id != "las" or not item.well_id:
+                continue
+            if item.provenance.operation in {"quality-control", "quality-control-export"}:
+                continue
+            wells.setdefault(item.well_id, []).append(item)
+        well_rows: list[dict[str, object]] = []
+        curve_sets: list[set[str]] = []
+        ready_count = 0
+        review_count = 0
+        blocked_count = 0
+        for well_id, versions in sorted(wells.items()):
+            latest = max(versions, key=lambda item: item.version)
+            raw_curves = latest.metadata.get("curve_mnemonics", "")
+            if isinstance(raw_curves, str):
+                curves = {value.strip().upper() for value in raw_curves.replace(";", ",").split(",") if value.strip()}
+            elif isinstance(raw_curves, (list, tuple, set)):
+                curves = {str(value).strip().upper() for value in raw_curves if str(value).strip()}
+            else:
+                curves = set()
+            curve_sets.append(curves)
+            try:
+                base_score = max(0, min(100, int(latest.metadata.get("readiness_score", 0) or 0)))
+            except (TypeError, ValueError):
+                base_score = 0
+            depth_available = all(latest.metadata.get(key) not in (None, "") for key in ("start_depth", "stop_depth"))
+            curve_component = min(20, len(curves) * 4)
+            score = min(100, round(base_score * 0.7 + curve_component + (10 if depth_available else 0)))
+            status = "ready" if score >= 70 and len(curves) >= 2 else "review" if score >= 40 else "blocked"
+            if status == "ready": ready_count += 1
+            elif status == "review": review_count += 1
+            else: blocked_count += 1
+            well_rows.append({
+                "well_id": well_id,
+                "dataset_id": latest.dataset_id,
+                "version": latest.version,
+                "score": score,
+                "status": status,
+                "curve_count": len(curves),
+                "curves": sorted(curves),
+                "depth_available": depth_available,
+            })
+        shared = sorted(set.intersection(*curve_sets)) if curve_sets and all(curve_sets) else []
+        eligible = ready_count >= 2 and bool(shared)
+        return {
+            "schema": "gas-ratio-pro/correlation-readiness/v1",
+            "project_id": project_id,
+            "well_count": len(well_rows),
+            "ready_count": ready_count,
+            "review_count": review_count,
+            "blocked_count": blocked_count,
+            "shared_curves": shared,
+            "eligible_for_correlation": eligible,
+            "wells": well_rows,
+        }
+
     def export_import_history(
         self, project_id: str, *, format_id: str = "json", statuses: set[str] | None = None, query: str = ""
     ) -> bytes:

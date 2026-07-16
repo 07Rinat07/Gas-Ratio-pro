@@ -63,7 +63,7 @@
     },
     {
       "id": "import_wizard",
-      "revision": 4,
+      "revision": 5,
       "audience": "user",
       "languages": {
         "ru": "user/ru/import_wizard.md",

@@ -205,3 +205,11 @@ Import jobs now support cooperative cancellation checkpoints between batch items
 ## v222.53 status
 
 Import History is now available as a lazy Project Explorer branch. The Professional Import Wizard exposes a project-level readiness dashboard built only from Dataset Manifest metadata. No source artifact, LAS table, DLIS frame, or SEG-Y trace sample is opened for these summaries.
+
+
+## v222.54 — Readiness filters and correlation preparation
+
+- Added manifest-only readiness filters by status and format.
+- Import History jobs now expose links to datasets created by each job.
+- Added project-level correlation-readiness analysis based on LAS manifests, shared curves and depth metadata.
+- No LAS rows or SEG-Y/DLIS payloads are loaded by these projections.

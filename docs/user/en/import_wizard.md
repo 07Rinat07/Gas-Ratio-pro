@@ -27,3 +27,8 @@ After restart, an unfinished job becomes `interrupted` and is not silently execu
 ## Project readiness and Project Explorer history
 
 The wizard shows average readiness for registered datasets and counts for Ready, Needs review, Blocked, and Not assessed. In Project Explorer, import history is loaded only after the **Import history** branch is expanded.
+
+
+## Readiness filters and correlation
+
+The readiness panel can filter datasets by status and format. Correlation readiness reports prepared wells and shared curves without reading full LAS payloads. Import History exposes the datasets created by each import operation.

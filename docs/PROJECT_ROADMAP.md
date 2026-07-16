@@ -2112,3 +2112,11 @@ Next: expose Import History as a lazy Project Explorer branch and add a project-
 - [x] Add regression coverage for lazy history loading and readiness aggregation.
 
 Next: add readiness filters to Dataset history, direct navigation from import jobs to registered datasets, and project-level correlation-readiness analysis.
+
+
+## v222.54 — Readiness filters and correlation preparation
+
+- Added manifest-only readiness filters by status and format.
+- Import History jobs now expose links to datasets created by each job.
+- Added project-level correlation-readiness analysis based on LAS manifests, shared curves and depth metadata.
+- No LAS rows or SEG-Y/DLIS payloads are loaded by these projections.

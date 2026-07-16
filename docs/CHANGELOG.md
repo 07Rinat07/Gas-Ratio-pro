@@ -3092,3 +3092,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added explicit resume for interrupted jobs without automatic hidden re-execution.
 - Added history retention and stale staging cleanup policies.
 - Added durable progress updates during batch execution.
+
+
+## v222.54 — Readiness filters and correlation preparation
+
+- Added manifest-only readiness filters by status and format.
+- Import History jobs now expose links to datasets created by each job.
+- Added project-level correlation-readiness analysis based on LAS manifests, shared curves and depth metadata.
+- No LAS rows or SEG-Y/DLIS payloads are loaded by these projections.
