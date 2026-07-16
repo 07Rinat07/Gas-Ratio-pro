@@ -15301,34 +15301,59 @@ WORKBENCH_LAS_MODES: tuple[str, ...] = (
 
 
 def _resolve_active_project_for_workbench(logger) -> ProjectRecord:
-    """Resolve only the active project record for the selected route."""
+    """Resolve one active project record; enumerate all projects only for recovery."""
 
-    projects = _load_project_records_for_ui(logger)
-    projects_by_id = {project.id: project for project in projects}
     state = _application_state_controller()
     state.consume_pending_project_activation()
-    project_id = state.context().project_id
-    if project_id not in projects_by_id:
-        project_id = DEFAULT_PROJECT_ID if DEFAULT_PROJECT_ID in projects_by_id else projects[0].id
-        state.ensure_project(project_id)
-    project = projects_by_id[project_id]
+    requested_project_id = state.context().project_id
+    project_service = _project_manager_service()
     try:
-        _project_manager_service().touch_recent(project)
+        project = project_service.resolve_active_project(requested_project_id)
+    except Exception:
+        logger.exception(
+            "workbench_active_project_resolve_failed project_id=%s",
+            safe_log_value(requested_project_id),
+        )
+        project = ProjectRecord(id=DEFAULT_PROJECT_ID, name="Основной проект")
+
+    if project.id != requested_project_id:
+        state.ensure_project(project.id)
+    try:
+        project_service.touch_recent(project)
     except Exception:
         logger.exception("workbench_recent_project_touch_failed project_id=%s", safe_log_value(project.id))
     return project
 
 
-def _build_workbench_project_navigation(project: ProjectRecord) -> tuple[dict[str, int], list[dict[str, object]]]:
-    """Build primitive project navigation data without mutating Session State."""
+def _workbench_project_navigation_sections() -> frozenset[str]:
+    """Resolve the metadata branches currently requested by Project Explorer."""
 
+    state = _application_state_controller()
+    requested = {
+        str(item).strip()
+        for item in (state.get("workbench_project_explorer_requested_sections", ()) or ())
+        if str(item).strip()
+    }
+    if str(state.get("workbench_project_explorer_search") or "").strip():
+        requested.update({"custom", "wells", "calculations", "exports"})
+    return frozenset(requested)
+
+
+def _build_workbench_project_navigation(project: ProjectRecord) -> tuple[dict[str, int], list[dict[str, object]]]:
+    """Build only the Project Explorer metadata branches requested by the UI."""
+
+    requested_sections = _workbench_project_navigation_sections()
+    project_tree = build_project_tree(
+        LAS_CORRELATION_PROJECTS_ROOT,
+        project.id,
+        include_sections=set(requested_sections),
+    )
     counts = {
-        "calculations": len(list_project_calculations(LAS_CORRELATION_PROJECTS_ROOT, project.id)),
+        "calculations": 0,
         "correlations": 0,
         "reports": 0,
         "exports": 0,
     }
-    project_tree = build_project_tree(LAS_CORRELATION_PROJECTS_ROOT, project.id)
     serialized_tree: list[dict[str, object]] = []
 
     def _serialize_project_tree_node(node, *, level: int = 0, parent_id: str = "") -> None:
@@ -15357,6 +15382,7 @@ def _build_workbench_project_navigation(project: ProjectRecord) -> tuple[dict[st
             "folder": "collection",
         }
         metadata = dict(node.metadata or {})
+        deferred = bool(metadata.get("deferred"))
         object_id = str(
             metadata.get("project_id")
             or metadata.get("well_id")
@@ -15366,6 +15392,10 @@ def _build_workbench_project_navigation(project: ProjectRecord) -> tuple[dict[st
             or metadata.get("folder_id")
             or node.id
         )
+        if kind == "calculation":
+            counts["calculations"] += 1
+        elif kind == "export":
+            counts["exports"] += 1
         serialized_tree.append(
             {
                 "id": str(node.id),
@@ -15373,7 +15403,7 @@ def _build_workbench_project_navigation(project: ProjectRecord) -> tuple[dict[st
                 "title": str(node.label),
                 "kind": kind,
                 "level": int(level),
-                "count": len(tuple(node.children or ())),
+                "count": None if deferred else len(tuple(node.children or ())),
                 "has_children": bool(node.children),
                 "selectable": kind not in {"empty", "missing"},
                 "target": target_by_kind.get(kind, "collection"),
@@ -15548,7 +15578,13 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
             diagnostics_service.prepare_project_health(str(active_project.id))
         if PROJECT_NAVIGATION in requirements and active_project is not None:
             navigation_runtime_cache = diagnostics_service.navigation_cache()
-            lookup = navigation_runtime_cache.lookup(LAS_CORRELATION_PROJECTS_ROOT, active_project.id)
+            requested_sections = _workbench_project_navigation_sections()
+            navigation_profile = ",".join(sorted(requested_sections)) or "root-only"
+            lookup = navigation_runtime_cache.lookup(
+                LAS_CORRELATION_PROJECTS_ROOT,
+                active_project.id,
+                profile=navigation_profile,
+            )
             navigation_cache = lookup.status
             navigation_reason = lookup.reason
             navigation_token_ms = lookup.token_ms

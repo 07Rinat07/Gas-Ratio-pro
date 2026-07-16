@@ -109,8 +109,16 @@ class ProjectNavigationRuntimeCache:
         self._evictions = 0
         self._last_reason = "not-used"
 
-    def lookup(self, root: Path | str, project_id: str) -> ProjectNavigationLookup:
+    def lookup(
+        self,
+        root: Path | str,
+        project_id: str,
+        *,
+        profile: str = "full",
+    ) -> ProjectNavigationLookup:
         token, token_ms, metadata_files = project_navigation_token(root, project_id)
+        clean_profile = str(profile or "full").strip() or "full"
+        token = f"{token}:{clean_profile}"
         clean_id = str(project_id or "").strip()
         with self._lock:
             entry = self._entries.get(clean_id)

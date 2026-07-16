@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from typing import Any
 from pathlib import Path
 
@@ -144,6 +145,30 @@ class ProjectManagerService:
         """Compatibility alias for load_project()."""
 
         return self.load_project(project_id)
+
+    def resolve_active_project(self, project_id: str) -> ProjectRecord:
+        """Resolve the active project with a single-record fast path.
+
+        Normal Workbench reruns already know the active project identifier, so
+        scanning every ``project.json`` file is unnecessary.  The broader
+        project listing is reserved for recovery when the requested record is
+        missing, malformed or has an invalid identifier.
+        """
+
+        clean_project_id = str(project_id or "").strip()
+        if clean_project_id:
+            try:
+                return self.load_project(clean_project_id)
+            except (FileNotFoundError, OSError, ValueError, TypeError, json.JSONDecodeError):
+                pass
+
+        projects = self.list_projects()
+        by_id = {project.id: project for project in projects}
+        if self.default_project_id in by_id:
+            return by_id[self.default_project_id]
+        if projects:
+            return projects[0]
+        return self.ensure_default()
 
     def record_recent_project(self, project: ProjectRecord) -> None:
         """Compatibility alias for touch_recent()."""

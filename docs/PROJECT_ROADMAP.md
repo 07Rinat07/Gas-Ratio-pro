@@ -1,3 +1,20 @@
+# Latest increment — Lazy Active Project Resolution
+
+Status: COMPLETED
+
+Implemented:
+- single-record fast path for resolving the active Workbench project;
+- eliminated full `project.json` enumeration on normal route reruns;
+- fallback enumeration only when the requested project is missing, malformed or invalid;
+- active-project recovery remains synchronized with application state;
+- focused regression coverage for fast-path, missing-record and malformed-JSON recovery.
+
+Validation:
+- `python -m py_compile services/project_manager_service.py app/streamlit_app.py`;
+- `78 passed` in focused Project Manager, Workbench route, entry-point, diagnostics and Dashboard tests.
+
+Next priority: use route-data timings to isolate the next repository-heavy operation, with project-navigation metadata scanning as the leading candidate for finer-grained lazy loading.
+
 # Latest increment — Project Open Stage Profiling
 
 Status: COMPLETED
@@ -1715,3 +1732,12 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Add architecture tests preventing direct repository construction in correlation UI.
 - [ ] Migrate interpretation workspace, revision and publication UI to application services.
 - [ ] Add service dependency and health diagnostics.
+
+### Phase 2 increment — Lazy Project Explorer branches (completed v222.15)
+
+- [x] Build the initial Explorer root without reading collapsed well, calculation, export or custom-folder repositories.
+- [x] Materialize only the metadata branch explicitly expanded by the operator.
+- [x] Force a complete metadata view while Project Explorer search is active.
+- [x] Include the requested branch profile in the runtime navigation-cache token.
+- [x] Preserve the legacy full-tree contract for callers that do not request lazy sections.
+- [ ] Next: add branch-level load timing and per-section cache hit diagnostics.

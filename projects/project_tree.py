@@ -229,6 +229,8 @@ def _well_node(well: ProjectLasWellCard, card: ProjectWellCard | None = None) ->
 def build_project_tree(
     root: Path | str = DEFAULT_PROJECTS_ROOT,
     project_id: str = DEFAULT_PROJECT_ID,
+    *,
+    include_sections: set[str] | frozenset[str] | None = None,
 ) -> ProjectTreeNode:
     """Build a read-only Project Explorer tree for the selected project.
 
@@ -240,11 +242,27 @@ def build_project_tree(
     root_path = Path(root)
     clean_project_id = safe_project_id(project_id)
     project = load_project(root_path, clean_project_id)
+    requested_sections = (
+        frozenset({"custom", "wells", "calculations", "exports"})
+        if include_sections is None
+        else frozenset(str(item).strip() for item in include_sections)
+    )
+    # Custom folders may reference any object type, therefore their expansion
+    # materializes the indexed source sections as one coherent metadata view.
+    if "custom" in requested_sections:
+        requested_sections = requested_sections | {"wells", "calculations", "exports"}
 
     indexed_nodes: dict[str, ProjectTreeNode] = {}
-    well_cards = project_well_cards_by_id(root_path, clean_project_id)
+    well_cards = (
+        project_well_cards_by_id(root_path, clean_project_id)
+        if "wells" in requested_sections else {}
+    )
     well_children: list[ProjectTreeNode] = []
-    for group, wells in list_grouped_project_wells(root_path, clean_project_id):
+    grouped_wells = (
+        list_grouped_project_wells(root_path, clean_project_id)
+        if "wells" in requested_sections else ()
+    )
+    for group, wells in grouped_wells:
         group_well_nodes = tuple(_well_node(well, well_cards.get(well.id)) for well in wells)
         for well_node in group_well_nodes:
             indexed_nodes[well_node.id] = well_node
@@ -279,7 +297,10 @@ def build_project_tree(
                 "ch_mode": record.ch_mode,
             },
         )
-        for record in list_project_calculations(root_path, clean_project_id)
+        for record in (
+            list_project_calculations(root_path, clean_project_id)
+            if "calculations" in requested_sections else ()
+        )
     )
     indexed_nodes.update((node.id, node) for node in calculation_children)
 
@@ -296,34 +317,61 @@ def build_project_tree(
                 "mime_type": record.mime_type,
             },
         )
-        for record in list_project_exports(root_path, clean_project_id)
+        for record in (
+            list_project_exports(root_path, clean_project_id)
+            if "exports" in requested_sections else ()
+        )
     )
     indexed_nodes.update((node.id, node) for node in export_children)
 
     custom_folder_children = tuple(
         _custom_folder_node(folder, indexed_nodes)
-        for folder in list_project_folders(root_path, clean_project_id)
+        for folder in (
+            list_project_folders(root_path, clean_project_id)
+            if "custom" in requested_sections else ()
+        )
     )
+
+    def _deferred(folder_id: str, label: str) -> tuple[ProjectTreeNode, ...]:
+        return (ProjectTreeNode(
+            id=f"{folder_id}:deferred",
+            label=label,
+            kind="empty",
+            status="загрузится при раскрытии",
+            metadata={"deferred": 1},
+        ),)
 
     custom_folders_folder = _folder_node(
         "folder:custom",
         "Папки",
-        custom_folder_children or (_empty_node("folder:custom:empty", "Нет пользовательских папок"),),
+        custom_folder_children or (
+            _empty_node("folder:custom:empty", "Нет пользовательских папок")
+            if "custom" in requested_sections else _deferred("folder:custom", "Раскройте ветку для загрузки")[0]
+        ,),
     )
     wells_folder = _folder_node(
         "folder:wells",
         "Скважины",
-        tuple(well_children) or (_empty_node("folder:wells:empty", "Нет сохраненных скважин"),),
+        tuple(well_children) or (
+            _empty_node("folder:wells:empty", "Нет сохраненных скважин")
+            if "wells" in requested_sections else _deferred("folder:wells", "Раскройте ветку для загрузки")[0]
+        ,),
     )
     calculations_folder = _folder_node(
         "folder:calculations",
         "Расчеты",
-        calculation_children or (_empty_node("folder:calculations:empty", "Нет сохраненных расчетов"),),
+        calculation_children or (
+            _empty_node("folder:calculations:empty", "Нет сохраненных расчетов")
+            if "calculations" in requested_sections else _deferred("folder:calculations", "Раскройте ветку для загрузки")[0]
+        ,),
     )
     exports_folder = _folder_node(
         "folder:exports",
         "Отчеты и экспорты",
-        export_children or (_empty_node("folder:exports:empty", "Нет сохраненных экспортов"),),
+        export_children or (
+            _empty_node("folder:exports:empty", "Нет сохраненных экспортов")
+            if "exports" in requested_sections else _deferred("folder:exports", "Раскройте ветку для загрузки")[0]
+        ,),
     )
 
     tree = ProjectTreeNode(

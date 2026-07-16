@@ -2790,3 +2790,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Removed direct Project Manager persistence-function calls from Streamlit UI.
 - Added serializable backup/history row use cases so UI does not receive persistence records.
 - Added architecture and regression tests for the new service boundary.
+
+## v222.15 — Lazy Project Explorer branches
+
+- Added optional section-scoped construction to `build_project_tree`.
+- Avoided eager reads of collapsed wells, calculations, exports and custom folders.
+- Connected Explorer expansion state to requested metadata sections.
+- Added navigation-cache profiles for root-only and partially hydrated trees.
+- Added regression tests proving unrequested repositories are not called.

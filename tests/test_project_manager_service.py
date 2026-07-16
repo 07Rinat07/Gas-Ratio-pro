@@ -88,3 +88,47 @@ def test_project_manager_service_saves_recovery_checkpoint(tmp_path):
     assert checkpoint.project_id == project.id
     assert checkpoint.active_step == "import"
     assert checkpoint.payload == {"step": 2}
+
+
+def test_resolve_active_project_uses_single_record_fast_path(tmp_path, monkeypatch):
+    service = ProjectManagerService(tmp_path)
+    project = service.create_project("Fast Path").project
+
+    def fail_list_projects(*, include_archived=False):
+        raise AssertionError("full project enumeration must not run for a valid active project")
+
+    monkeypatch.setattr(service, "list_projects", fail_list_projects)
+
+    resolved = service.resolve_active_project(project.id)
+
+    assert resolved == project
+
+
+def test_resolve_active_project_enumerates_only_for_missing_record(tmp_path, monkeypatch):
+    service = ProjectManagerService(tmp_path)
+    fallback = service.ensure_default()
+    calls = {"count": 0}
+    original = service.list_projects
+
+    def tracked_list_projects(*, include_archived=False):
+        calls["count"] += 1
+        return original(include_archived=include_archived)
+
+    monkeypatch.setattr(service, "list_projects", tracked_list_projects)
+
+    resolved = service.resolve_active_project("missing-project")
+
+    assert resolved == fallback
+    assert calls["count"] == 1
+
+
+def test_resolve_active_project_recovers_from_malformed_project_json(tmp_path):
+    service = ProjectManagerService(tmp_path)
+    fallback = service.ensure_default()
+    broken_dir = tmp_path / "broken"
+    broken_dir.mkdir()
+    (broken_dir / "project.json").write_text("{not-json", encoding="utf-8")
+
+    resolved = service.resolve_active_project("broken")
+
+    assert resolved == fallback

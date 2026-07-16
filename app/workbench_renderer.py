@@ -504,6 +504,23 @@ def _render_native_streamlit_layout(
                                 expanded_ids.remove(item_id)
                             else:
                                 expanded_ids.add(item_id)
+                                section_by_folder = {
+                                    "folder:custom": "custom",
+                                    "folder:wells": "wells",
+                                    "folder:calculations": "calculations",
+                                    "folder:exports": "exports",
+                                }
+                                requested_section = section_by_folder.get(item_id)
+                                if requested_section:
+                                    requested_sections = set(
+                                        registry.state.get(
+                                            "workbench_project_explorer_requested_sections", ()
+                                        ) or ()
+                                    )
+                                    requested_sections.add(requested_section)
+                                    registry.state[
+                                        "workbench_project_explorer_requested_sections"
+                                    ] = sorted(requested_sections)
                             registry.state[expanded_key] = sorted(expanded_ids)
                         controller = WorkbenchController(
                             registry.state,

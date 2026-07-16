@@ -1,3 +1,13 @@
+# Latest increment — Lazy Active Project Resolution
+
+Status: COMPLETED
+
+The Workbench active-project resolver now reads only the requested project record during normal reruns. Full project enumeration is reserved for recovery from missing, malformed or invalid project identifiers. This removes repeated O(project-count) metadata reads from every project-backed route while preserving fallback behavior.
+
+Validation: 78 focused tests passed.
+
+Next priority: profile and split project-navigation metadata loading behind narrower lazy boundaries.
+
 ## Current increment: Project Open Stage Profiling
 
 Status: **COMPLETED**
@@ -602,3 +612,13 @@ Current build: v222.8 stable. Export format isolation and printable tablet clari
 
 ## v222.14
 Печать и профессиональный экспорт вынесены в заметную раскрытую панель перед графиками. Полный режим скважины активирует Multi-Interval Report Atlas; выбранный пласт формирует только одиночный детальный отчёт. Добавлены пошаговые статусы и прогресс подготовки файла.
+
+## v222.15 — Lazy Project Explorer branches
+
+Статус: реализовано и проверено.
+
+- Начальное дерево Project Explorer больше не читает репозитории закрытых веток.
+- Ветки скважин, расчетов, экспортов и пользовательских папок загружаются после раскрытия.
+- Поиск по Explorer автоматически использует полный metadata-only профиль.
+- Профиль загруженных веток включен в token runtime-кэша, поэтому частичное дерево не подменяет полное.
+- Сохранена обратная совместимость `build_project_tree()` без параметра `include_sections`.
