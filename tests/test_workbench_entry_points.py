@@ -56,3 +56,30 @@ def test_entry_payload_is_renderer_safe(tmp_path: Path):
     assert project.id in text
     assert "DataFrame" not in text
     assert "WorkbenchEntryPointService" not in text
+
+
+def test_open_project_records_payload_free_stage_timings(tmp_path) -> None:
+    from core.project_open_diagnostics import ProjectOpenDiagnostics
+    from core.runtime_service_registry import runtime_service_registry
+
+    projects = tmp_path / "projects"
+    sessions = tmp_path / "sessions"
+    project = create_project(projects, name="Profiled")
+    state: dict[str, object] = {}
+
+    result = WorkbenchEntryPointService(
+        state, projects_root=projects, sessions_dir=sessions
+    ).open_project(project.id)
+
+    diagnostics = runtime_service_registry(state).get("project_open_diagnostics")
+    assert isinstance(diagnostics, ProjectOpenDiagnostics)
+    snapshot = diagnostics.snapshot()
+    assert result.project_id == project.id
+    assert snapshot["event_count"] == 1
+    assert snapshot["latest"]["project_id"] == project.id
+    assert snapshot["latest"]["total_ms"] >= 0.0
+    assert set(snapshot["latest"]) == {
+        "project_id", "project_load_ms", "recent_project_ms",
+        "workspace_open_ms", "navigation_ms", "total_ms",
+        "budget_ms", "status",
+    }

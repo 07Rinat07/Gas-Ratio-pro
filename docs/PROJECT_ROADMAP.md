@@ -1,3 +1,20 @@
+# Latest increment — Project Open Stage Profiling
+
+Status: COMPLETED
+
+Implemented:
+- payload-free project-opening diagnostics at the Workbench command boundary;
+- separate timing for project metadata load, recent-project update, workspace opening and Dashboard navigation;
+- bounded session-local history with an explicit slow-opening budget;
+- Diagnostics Center exposure without retaining ProjectRecord, DataFrame or Streamlit objects;
+- focused regression coverage for bounded retention and command integration.
+
+Validation:
+- `python -m py_compile core/project_open_diagnostics.py core/workbench_entry_points.py core/diagnostics_center.py`;
+- `10 passed` in focused Workbench entry, route-data and diagnostics tests.
+
+Next priority: use the new stage profile to identify remaining eager project-data reads and move the first confirmed heavy read behind a lazy application-service boundary.
+
 # Latest increment — Project loading and DataFrame memory hardening
 
 Status: COMPLETED

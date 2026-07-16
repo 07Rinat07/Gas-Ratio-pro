@@ -1,3 +1,15 @@
+## Current increment: Project Open Stage Profiling
+
+Status: **COMPLETED**
+
+Implemented:
+- bounded, payload-free profiling of the Workbench open-project command;
+- stage timings for metadata loading, recent-project persistence, workspace lifecycle and initial navigation;
+- Diagnostics Center snapshot integration;
+- focused tests confirming no project payload is retained.
+
+Next: inspect the new timing profile and migrate the first confirmed eager heavy-data read behind a lazy application service.
+
 ## Current increment: v222.12 — Professional Report Visualization Renderer
 
 Status: **STABLE BUGFIX CANDIDATE**

@@ -7,11 +7,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 from typing import Any, MutableMapping
 
 from core.command_framework import WorkbenchCommand
 from core.workbench_controller import WorkbenchController, build_workbench_controller
 from core.workspace_session import WorkspaceSessionManager
+from core.project_open_diagnostics import ProjectOpenDiagnostics
+from core.runtime_service_registry import runtime_service_registry
 from projects.recent_projects import list_recent_projects, touch_recent_project
 from projects.repository import DEFAULT_PROJECTS_ROOT, load_project
 
@@ -110,15 +113,43 @@ class WorkbenchEntryPointService:
         return result.result
 
     def _handle_open_project(self, payload: dict[str, Any]) -> WorkbenchEntryResult:
+        total_started = perf_counter()
         project_id = str(payload.get("project_id", "")).strip()
+
+        stage_started = perf_counter()
         project = load_project(self.projects_root, project_id)
+        project_load_ms = (perf_counter() - stage_started) * 1000.0
         self.state["active_project_id"] = project.id
+
+        stage_started = perf_counter()
         touch_recent_project(self.projects_root, project)
+        recent_project_ms = (perf_counter() - stage_started) * 1000.0
+
+        stage_started = perf_counter()
         self.controller.lifecycle().open_workspace()
+        workspace_open_ms = (perf_counter() - stage_started) * 1000.0
+
+        stage_started = perf_counter()
         navigation = self.controller.select_navigation("nav.dashboard")
+        navigation_ms = (perf_counter() - stage_started) * 1000.0
         shell = navigation.shell
         result = WorkbenchEntryResult("project", project.id, active_navigation_id=shell.interaction.active_navigation_id, active_tool_id=shell.active_tool_id)
         self.state[ENTRY_STATE_KEY] = result.to_dict()
+
+        diagnostics = runtime_service_registry(self.state).ensure(
+            "project_open_diagnostics",
+            ProjectOpenDiagnostics,
+            expected_type=ProjectOpenDiagnostics,
+            scope="session",
+        )
+        diagnostics.record(
+            project_id=project.id,
+            project_load_ms=project_load_ms,
+            recent_project_ms=recent_project_ms,
+            workspace_open_ms=workspace_open_ms,
+            navigation_ms=navigation_ms,
+            total_ms=(perf_counter() - total_started) * 1000.0,
+        )
         return result
 
     def _handle_restore_recent_session(self, payload: dict[str, Any]) -> WorkbenchEntryResult:
