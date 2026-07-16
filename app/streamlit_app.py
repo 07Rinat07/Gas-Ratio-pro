@@ -293,17 +293,11 @@ from projects import (
     move_project_explorer_item_to_folder,
     move_project_explorer_well_to_group,
     project_tree_table_rows,
-    append_project_history,
-    archive_project,
-    build_project_backups_table,
-    build_project_history_table,
     build_project_templates_table,
     clear_project_recovery_state,
     create_project_backup,
     create_project_from_template,
     create_project_template,
-    list_project_backups,
-    list_project_history,
     list_project_templates,
     load_project_recovery_state,
     project_manager_status,
@@ -12837,30 +12831,30 @@ def _render_project_manager_tools(project: ProjectRecord, logger) -> None:
         else:
             st.caption("Шаблонов пока нет. Создайте шаблон из активного проекта.")
 
-        backups = list_project_backups(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-        if backups:
+        project_manager = _project_manager_service()
+        backup_rows = project_manager.list_backup_rows(project.id)
+        if backup_rows:
             st.markdown("#### Резервные копии активного проекта")
-            st.dataframe(pd.DataFrame(build_project_backups_table(backups)), width="stretch", height=180)
+            st.dataframe(pd.DataFrame(backup_rows), width="stretch", height=180)
         else:
             st.caption("Резервных ZIP-копий активного проекта пока нет.")
 
         if st.button("Архивировать проект metadata-only", key=f"project_manager_archive_{project.id}"):
             try:
-                archive = archive_project(LAS_CORRELATION_PROJECTS_ROOT, project.id, "Archived from Project Manager 2.0")
+                archive = project_manager.archive_project(project.id, "Archived from Project Manager 2.0")
             except Exception:
                 logger.exception("project_archive_failed project_id=%s", safe_log_value(project.id))
                 st.error("Не удалось архивировать проект. Подробности записаны в logs/app.log.")
             else:
                 st.success(f"Архивная backup-копия создана: {archive.file_name}.")
 
-        history = list_project_history(LAS_CORRELATION_PROJECTS_ROOT, project.id)
-        if history:
+        history_rows = project_manager.list_history_rows(project.id, limit=20)
+        if history_rows:
             st.markdown("#### История изменений проекта")
-            st.dataframe(pd.DataFrame(build_project_history_table(history[:20])), width="stretch", height=260)
+            st.dataframe(pd.DataFrame(history_rows), width="stretch", height=260)
         else:
             if st.button("Добавить стартовую запись истории", key=f"project_manager_history_seed_{project.id}"):
-                append_project_history(
-                    LAS_CORRELATION_PROJECTS_ROOT,
+                project_manager.append_history(
                     project.id,
                     "project-manager-opened",
                     "Project Manager 2.0 initialized for active project",

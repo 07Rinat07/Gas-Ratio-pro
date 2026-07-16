@@ -15,7 +15,13 @@ from projects.recent_projects import (
 )
 from projects.project_manager import (
     ProjectRestoreResult,
+    append_project_history,
+    archive_project,
+    build_project_backups_table,
+    build_project_history_table,
     create_project_backup,
+    list_project_backups,
+    list_project_history,
     restore_project_backup,
     save_project_recovery_state,
 )
@@ -168,6 +174,56 @@ class ProjectManagerService:
 
     def set_recent_flags(self, project_id: str, *, pinned: bool | None = None, favorite: bool | None = None):
         return set_recent_project_flags(self.root, safe_project_id(project_id), pinned=pinned, favorite=favorite)
+
+    def list_backup_rows(self, project_id: str) -> list[dict[str, str]]:
+        """Return presentation-ready backup metadata for one project.
+
+        The UI receives plain serializable rows instead of persistence records.
+        """
+        clean_project_id = safe_project_id(project_id)
+        return build_project_backups_table(list_project_backups(self.root, clean_project_id))
+
+    def archive_project(self, project_id: str, description: str = "") -> ProjectBackupResult:
+        """Create an archive backup and record the archive event atomically."""
+        clean_project_id = safe_project_id(project_id)
+        record = archive_project(self.root, clean_project_id, description)
+        return ProjectBackupResult(
+            project_id=record.project_id,
+            backup_id=record.id,
+            file_name=record.file_name,
+            size_bytes=record.size_bytes,
+        )
+
+    def list_history_rows(self, project_id: str, *, limit: int = 20) -> list[dict[str, str]]:
+        """Return newest project-history entries as serializable UI rows."""
+        clean_project_id = safe_project_id(project_id)
+        safe_limit = max(0, int(limit))
+        entries = list_project_history(self.root, clean_project_id)
+        selected = entries[:safe_limit] if safe_limit else ()
+        return build_project_history_table(selected)
+
+    def append_history(
+        self,
+        project_id: str,
+        action: str,
+        description: str,
+        *,
+        author: str = "local-user",
+        object_type: str = "project",
+        object_id: str = "",
+    ) -> dict[str, str]:
+        """Append one project event and return a serializable representation."""
+        clean_project_id = safe_project_id(project_id)
+        entry = append_project_history(
+            self.root,
+            clean_project_id,
+            action,
+            description,
+            author=author,
+            object_type=object_type,
+            object_id=object_id,
+        )
+        return build_project_history_table((entry,))[0]
 
     def create_backup(self, project_id: str, description: str = "") -> ProjectBackupResult:
         """Create a managed Project Manager 2.0 backup for a project."""

@@ -2783,3 +2783,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Moved bounded presentation-model and rendered-artifact caches out of Streamlit session state.
 - Removed direct `ExportController` construction and project cache dictionaries from the UI.
 - Added project validation, explicit cache invalidation, lightweight diagnostics, and architecture tests.
+
+## 2026-07-16 — Project Manager history and backup application boundary
+
+- Moved Project Manager backup listing, archive creation, history listing, and history append operations behind `ProjectManagerService`.
+- Removed direct Project Manager persistence-function calls from Streamlit UI.
+- Added serializable backup/history row use cases so UI does not receive persistence records.
+- Added architecture and regression tests for the new service boundary.
