@@ -1,3 +1,11 @@
+## v222.21 — Persisted three-language Workbench shell
+
+- added atomic user locale preference storage with safe fallback;
+- connected the `ru`/`kk`/`en` selector to the Workbench renderer;
+- localized the title bar, main menu, command label and Project Explorer title;
+- preserved independent report-language ownership;
+- added persistence and renderer-boundary regression tests.
+
 ## v222.19 — Industry data roadmap and navigation byte budget
 
 - Added `docs/INDUSTRY_DATA_PLATFORM_ROADMAP.md` with prioritized DLIS, SEG-Y, GIS, HDF5/NetCDF, GRDECL, RESQML, 3D, database and regulatory-report workstreams.

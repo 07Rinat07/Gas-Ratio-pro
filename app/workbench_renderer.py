@@ -20,6 +20,7 @@ from core.build_info import runtime_build_info
 from core.workbench_controller import WorkbenchController, build_workbench_controller
 from core.application_service_container import application_service_container
 from projects.repository import DEFAULT_PROJECTS_ROOT
+from core.internationalization.language_registry import SUPPORTED_LANGUAGES, normalize_language
 from core.workbench_ui_layout import build_workbench_ui_layout
 from core.workbench_property_actions import (
     WORKBENCH_PROPERTY_ACTION_COMMAND_ID, WORKBENCH_PROPERTY_TECHNICAL_KEY,
@@ -44,6 +45,39 @@ WORKBENCH_RENDERER_NAME = "streamlit-modern"
 WORKBENCH_RENDERER_CONTRACT_VERSION = "workbench-renderer-contract"
 WORKBENCH_LAST_UI_ACTION_KEY = "workbench_last_ui_action"
 WORKBENCH_MENU_PANEL_KEY = "workbench_menu_panel"
+WORKBENCH_LANGUAGE_KEY = "user_settings.interface_language"
+_I18N_DIR = Path(__file__).resolve().parents[1] / "resources" / "i18n"
+_USER_LOCALE_PATH = Path(__file__).resolve().parents[1] / "data" / "user_preferences" / "locale.json"
+
+
+def _localization_context(registry: WorkbenchCommandRegistry, st_module: Any):
+    """Resolve, persist and return the session localization service."""
+    container = application_service_container(registry.state)
+    preferences = container.user_locale_preferences(path=_USER_LOCALE_PATH)
+    stored = registry.state.get(WORKBENCH_LANGUAGE_KEY)
+    language = normalize_language(stored if stored is not None else preferences.load())
+    localization = container.localization(catalogs_dir=_I18N_DIR, language=language)
+    localization.set_language(language)
+
+    selectbox = getattr(st_module, "selectbox", None)
+    if callable(selectbox):
+        codes = tuple(SUPPORTED_LANGUAGES)
+        selected = selectbox(
+            localization("language.label"),
+            options=codes,
+            index=codes.index(language),
+            format_func=lambda code: localization(f"language.{code}"),
+            key="workbench_language_selector",
+            help=localization("language.preference.help"),
+        )
+        selected = normalize_language(selected)
+        if selected != language:
+            language = preferences.save(selected)
+            registry.state[WORKBENCH_LANGUAGE_KEY] = language
+            localization.set_language(language)
+    else:
+        registry.state[WORKBENCH_LANGUAGE_KEY] = language
+    return localization
 
 
 def _branding_logo_data_uri() -> str:
@@ -252,6 +286,7 @@ def _render_native_streamlit_layout(
     """Render the professional five-region Workbench with native Streamlit containers."""
 
     executed: list[CommandExecutionResult] = []
+    i18n = _localization_context(registry, st_module)
     active_workspace = payload.get("interaction", {}).get("active_workspace") or "dashboard"
     build = runtime_build_info()
     logo_uri = _branding_logo_data_uri()
@@ -262,23 +297,23 @@ def _render_native_streamlit_layout(
     st_module.markdown(
         "<header class='workbench-titlebar'>"
         f"<div class='workbench-brand'>{logo_html}<div>"
-        "<h1>Gas Ratio Pro — Modern Workbench</h1>"
-        "<div class='workbench-subtitle'>Well-log analysis and interpretation workspace</div>"
+        f"<h1>{_html(i18n('app.workbench.title'))}</h1>"
+        f"<div class='workbench-subtitle'>{_html(i18n('app.workbench.subtitle'))}</div>"
         "</div></div>"
-        f"<div class='workbench-build'>Build <b>{_html(build.version)}</b><br>Workspace: <b>{_html(active_workspace)}</b></div>"
+        f"<div class='workbench-build'>{_html(i18n('app.build'))} <b>{_html(build.version)}</b><br>{_html(i18n('app.workspace'))}: <b>{_html(active_workspace)}</b></div>"
         "</header>", unsafe_allow_html=True,
     )
     menu_items = (
-        ("File", "menu.file"),
-        ("Project", "menu.project"),
-        ("Data", "nav.data"),
-        ("LAS", "nav.las_workspace"),
-        ("Correlation", "nav.correlation"),
-        ("Interpretation", "nav.interpretation"),
-        ("Reports", "nav.reports"),
-        ("Export", "nav.exports"),
-        ("Settings", "nav.dashboard"),
-        ("Help", "nav.documentation"),
+        (i18n("menu.file"), "menu.file"),
+        (i18n("menu.project"), "menu.project"),
+        (i18n("menu.data"), "nav.data"),
+        (i18n("menu.las"), "nav.las_workspace"),
+        (i18n("menu.correlation"), "nav.correlation"),
+        (i18n("menu.interpretation"), "nav.interpretation"),
+        (i18n("menu.reports"), "nav.reports"),
+        (i18n("menu.export"), "nav.exports"),
+        (i18n("menu.settings"), "nav.dashboard"),
+        (i18n("menu.help"), "nav.documentation"),
     )
     active_navigation_id = str(payload.get("interaction", {}).get("active_navigation_id", "") or "")
     menu_columns = st_module.columns(len(menu_items), gap="small")
@@ -378,7 +413,7 @@ def _render_native_streamlit_layout(
             groups.append(group)
 
     if groups:
-        st_module.markdown("<div class='workbench-ribbon'><div class='workbench-ribbon-label'>Commands</div></div>", unsafe_allow_html=True)
+        st_module.markdown(f"<div class='workbench-ribbon'><div class='workbench-ribbon-label'>{_html(i18n('common.commands'))}</div></div>", unsafe_allow_html=True)
         for group in groups:
             actions = list(group.get("actions", ()))
             st_module.markdown(
@@ -412,7 +447,7 @@ def _render_native_streamlit_layout(
     if isinstance(feedback, dict) and feedback.get("executed"):
         st_module.markdown(
             "<div class='workbench-command-feedback'>✓ "
-            f"{_html(feedback.get('title', 'Command'))}: {_html(feedback.get('message') or 'Completed')}</div>",
+            f"{_html(feedback.get('title', 'Command'))}: {_html(feedback.get('message') or i18n('common.completed'))}</div>",
             unsafe_allow_html=True,
         )
 
@@ -426,7 +461,7 @@ def _render_native_streamlit_layout(
 
     with left:
         if explorer_open:
-            st_module.markdown("<div class='workbench-pane-title'><span>Project Explorer</span><span>⌕</span></div>", unsafe_allow_html=True)
+            st_module.markdown(f"<div class='workbench-pane-title'><span>{_html(i18n('project.explorer.title'))}</span><span>⌕</span></div>", unsafe_allow_html=True)
             raw_tree = tuple(dict(item) for item in layout.get("project_tree", ()) or ())
             query = ""
             if hasattr(st_module, "text_input"):

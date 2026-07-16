@@ -1,3 +1,13 @@
+# Current increment: v222.21 — Persisted Three-language Workbench Shell
+
+Status: **IMPLEMENTED / SHELL MIGRATION IN PROGRESS**
+
+- Added atomic persisted user interface locale preference with strict `ru`/`kk`/`en` normalization.
+- Added a Workbench language selector backed by the localization application service.
+- Localized the Workbench title, subtitle, build/workspace labels, top menu, command heading and Project Explorer heading.
+- Kept report language independent from the user interface locale.
+- Next target: localize File/Project menus, empty states, status bar and Dashboard route payloads.
+
 # Current increment: v222.20 — Three-language Internationalization Foundation
 
 Status: **IMPLEMENTED / MIGRATION STARTED**

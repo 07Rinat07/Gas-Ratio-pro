@@ -1,6 +1,6 @@
 # GAS RATIO PRO — Three-language Internationalization Roadmap
 
-Status: **APPROVED / FOUNDATION IMPLEMENTED**
+Status: **APPROVED / PHASE II SHELL MIGRATION STARTED**
 
 Supported product languages:
 
@@ -140,7 +140,7 @@ Requirements:
 
 Migrate, in order:
 
-1. language selector and user preference persistence;
+1. language selector and user preference persistence — implemented in v222.21;
 2. Dashboard and Workbench shell;
 3. Project Explorer root actions;
 4. global dialogs, confirmations and validation;

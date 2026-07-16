@@ -169,6 +169,17 @@ class ApplicationServiceContainer:
             factory=lambda: DatasetManagerService(root), expected_type=DatasetManagerService,
         )
 
+    def user_locale_preferences(self, *, path: Path | str):
+        """Return the session-scoped persistent locale preference boundary."""
+        from services.user_locale_preference_service import UserLocalePreferenceService
+
+        return self.ensure_session_service(
+            service_name="user_locale_preferences",
+            factory=lambda: UserLocalePreferenceService(path),
+            expected_type=UserLocalePreferenceService,
+            instance_key=str(Path(path).resolve()),
+        )
+
     def localization(
         self,
         *,
