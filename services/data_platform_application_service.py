@@ -184,11 +184,42 @@ class DataPlatformApplicationService:
                 "created_at": item.created_at,
                 "size_bytes": item.size_bytes,
                 "well_id": item.well_id,
+                "checksum_sha256": item.checksum_sha256,
+                "provenance_operation": item.provenance.operation,
+                "provenance_actor": item.provenance.actor,
+                "provenance_created_at": item.provenance.created_at,
+                "application_version": item.provenance.application_version,
                 "compatibility_mode": str(item.metadata.get("las_compatibility_mode", "")),
                 "import_mode": str(item.metadata.get("import_mode", "tolerant")),
             }
             for item in self.manifests.list_lineage(project_id, lineage_id)
         )
+
+    def compare_dataset_versions(self, project_id: str, left_dataset_id: str, right_dataset_id: str) -> dict[str, object]:
+        """Compare two immutable versions from the same lineage using metadata only."""
+        left = self.manifests.load(project_id, left_dataset_id)
+        right = self.manifests.load(project_id, right_dataset_id)
+        if left.lineage_id != right.lineage_id:
+            raise ValueError("dataset versions must belong to the same lineage")
+        keys = sorted(set(left.metadata) | set(right.metadata))
+        metadata_changes = {
+            key: {"left": left.metadata.get(key), "right": right.metadata.get(key)}
+            for key in keys
+            if left.metadata.get(key) != right.metadata.get(key)
+        }
+        return {
+            "project_id": project_id,
+            "lineage_id": left.lineage_id,
+            "left_dataset_id": left.dataset_id,
+            "right_dataset_id": right.dataset_id,
+            "left_version": left.version,
+            "right_version": right.version,
+            "checksum_changed": left.checksum_sha256 != right.checksum_sha256,
+            "size_delta_bytes": right.size_bytes - left.size_bytes,
+            "source_name_changed": left.source_name != right.source_name,
+            "metadata_change_count": len(metadata_changes),
+            "metadata_changes": metadata_changes,
+        }
 
     def list_project_lineages(self, project_id: str) -> tuple[dict[str, object], ...]:
         """Return one lightweight record per dataset lineage for Project Explorer."""

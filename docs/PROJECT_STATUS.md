@@ -61,3 +61,10 @@ Implemented localized import feedback, SQLite reconciliation from immutable mani
 - Strict mode performs pre-persistence blocking; tolerant mode keeps archival compatibility.
 - Header scanner samples several bounded rows and detects unstable column counts.
 - Profile regression: 60 tests passed.
+
+
+### v222.33 — Dataset Version Properties and bounded LAS depth QC
+
+- Dataset version selection exposes SHA-256, provenance, artifact reference and previous-version metadata without reading LAS payloads.
+- Application service can compare two immutable versions from one lineage using manifest metadata only.
+- LAS scanner validates monotonic depth and STEP stability over the bounded sample rows.

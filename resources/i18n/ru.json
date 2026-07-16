@@ -153,5 +153,8 @@
   "workspace.quick.open_reports": "Открыть отчёты",
   "workspace.quick.reports.text": "Просмотреть инженерные отчёты",
   "workspace.quick.reports.title": "Отчёты",
-  "workspace.title": "Рабочая область"
+  "workspace.title": "Рабочая область",
+  "import.validation.las.validation.non_monotonic_depth": "Глубина немонотонна в проверенной выборке строк LAS.",
+  "import.validation.las.validation.unstable_step": "Шаг глубины нестабилен в проверенной выборке строк LAS.",
+  "import.validation.las.validation.declared_step_mismatch": "Заявленный STEP не совпадает с наблюдаемым шагом глубины."
 }

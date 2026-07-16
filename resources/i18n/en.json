@@ -153,5 +153,8 @@
   "workspace.quick.open_reports": "Open Reports",
   "workspace.quick.reports.text": "Review engineering reports",
   "workspace.quick.reports.title": "Reports",
-  "workspace.title": "Workspace"
+  "workspace.title": "Workspace",
+  "import.validation.las.validation.non_monotonic_depth": "Depth is non-monotonic in the sampled LAS rows.",
+  "import.validation.las.validation.unstable_step": "The depth step is unstable in the sampled LAS rows.",
+  "import.validation.las.validation.declared_step_mismatch": "The declared STEP does not match the observed depth step."
 }

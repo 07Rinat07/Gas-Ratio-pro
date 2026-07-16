@@ -63,6 +63,7 @@ class LasHeaderMetadataScanner:
         fixed_width = _looks_fixed_width(first_data_line, delimiter)
         metadata["fixed_width_data"] = fixed_width
         column_counts = tuple(_count_data_columns(line, delimiter) for line in data_sample_lines)
+        sampled_depths = tuple(value for value in (_first_numeric_value(line, delimiter, decimal_style) for line in data_sample_lines) if value is not None)
         data_column_count = column_counts[0] if column_counts else 0
         metadata["data_column_count"] = data_column_count
         metadata["data_sample_row_count"] = len(data_sample_lines)
@@ -70,6 +71,7 @@ class LasHeaderMetadataScanner:
         metadata["data_column_count_stable"] = len(set(column_counts)) <= 1 if column_counts else None
         metadata["data_column_count_min"] = min(column_counts) if column_counts else 0
         metadata["data_column_count_max"] = max(column_counts) if column_counts else 0
+        _apply_depth_sample_diagnostics(metadata, warnings, sampled_depths)
         if delimiter in {"comma", "semicolon", "tab"}:
             warnings.append("las.compatibility.nonstandard_data_delimiter")
         if decimal_style == "comma":
@@ -119,6 +121,7 @@ class LasHeaderMetadataScanner:
             elif current_section.startswith("c"):
                 curves.append(mnemonic)
 
+        _apply_declared_step_diagnostic(metadata, warnings)
         metadata["curve_count"] = len(curves)
         metadata["curve_data_column_match"] = (len(curves) == int(metadata.get("data_column_count", 0) or 0)) if first_data_line and curves else None
         if first_data_line and curves and metadata["curve_data_column_match"] is False:
@@ -210,6 +213,72 @@ def _decode_header(raw: bytes) -> tuple[str, str]:
             return "cp1251", raw.decode("cp1251")
         except UnicodeDecodeError:
             return "latin-1", raw.decode("latin-1", errors="replace")
+
+
+
+
+def _apply_declared_step_diagnostic(metadata: dict[str, str | int | float | bool | None], warnings: list[str]) -> None:
+    declared = metadata.get("step")
+    observed = metadata.get("observed_step")
+    try:
+        declared_number = abs(float(declared))
+        observed_number = abs(float(observed))
+    except (TypeError, ValueError):
+        return
+    matches = abs(declared_number - observed_number) <= max(1e-9, declared_number * 1e-6)
+    metadata["declared_step_matches_observed"] = matches
+    if not matches:
+        warnings.append("las.compatibility.declared_step_mismatch")
+
+
+def _first_numeric_value(line: bytes, delimiter: str, decimal_style: str) -> float | None:
+    if not line:
+        return None
+    text = line.decode("latin-1", errors="replace").strip()
+    if delimiter == "semicolon":
+        token = text.split(";", 1)[0]
+    elif delimiter == "comma" and decimal_style != "comma":
+        token = text.split(",", 1)[0]
+    elif delimiter == "tab":
+        token = text.split("\t", 1)[0]
+    else:
+        parts = text.split()
+        token = parts[0] if parts else ""
+    token = token.strip().replace(",", ".")
+    try:
+        return float(token)
+    except ValueError:
+        return None
+
+
+def _apply_depth_sample_diagnostics(metadata: dict[str, str | int | float | bool | None], warnings: list[str], depths: tuple[float, ...]) -> None:
+    metadata["depth_sample_count"] = len(depths)
+    if len(depths) < 2:
+        metadata["depth_monotonic"] = None
+        metadata["observed_step_stable"] = None
+        return
+    deltas = tuple(depths[i + 1] - depths[i] for i in range(len(depths) - 1))
+    increasing = all(delta > 0 for delta in deltas)
+    decreasing = all(delta < 0 for delta in deltas)
+    monotonic = increasing or decreasing
+    metadata["depth_monotonic"] = monotonic
+    metadata["depth_direction"] = "increasing" if increasing else ("decreasing" if decreasing else "mixed")
+    if not monotonic:
+        warnings.append("las.compatibility.non_monotonic_depth")
+    absolute = tuple(abs(delta) for delta in deltas if delta != 0)
+    if not absolute:
+        metadata["observed_step_stable"] = False
+        warnings.append("las.compatibility.unstable_step")
+        return
+    reference = absolute[0]
+    tolerance = max(1e-9, abs(reference) * 1e-6)
+    stable = all(abs(value - reference) <= tolerance for value in absolute[1:])
+    metadata["observed_step"] = reference
+    metadata["observed_step_min"] = min(absolute)
+    metadata["observed_step_max"] = max(absolute)
+    metadata["observed_step_stable"] = stable
+    if not stable:
+        warnings.append("las.compatibility.unstable_step")
 
 
 def _detect_data_delimiter(line: bytes) -> str:

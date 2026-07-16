@@ -1,3 +1,10 @@
+## v222.33 — Dataset Version Properties and Bounded LAS Depth QC
+
+- Added SHA-256, provenance and immutable version metadata to Dataset version nodes in Project Explorer Properties.
+- Added metadata-only comparison for two versions in the same Dataset lineage.
+- Added bounded LAS depth monotonicity, observed STEP stability and declared STEP consistency diagnostics.
+- Added stable validation codes and ru/kk/en messages for the new LAS QC findings.
+
 ## v222.28 — Production LAS Dataset registration
 
 - Connected the production LAS Viewer open workflow to immutable Dataset Manifest registration.

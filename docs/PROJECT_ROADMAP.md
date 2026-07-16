@@ -1928,3 +1928,10 @@ Completed in v222.32:
 - ru/kk/en labels and messages for import-mode selection and inconsistent-column validation.
 
 Next priority: expose selected Dataset version properties and provenance in the Properties pane, add a lineage comparison action, and validate depth monotonicity/step stability from a bounded sample.
+
+
+### v222.33 — Dataset Version Properties and bounded LAS depth QC
+
+- Dataset version selection exposes SHA-256, provenance, artifact reference and previous-version metadata without reading LAS payloads.
+- Application service can compare two immutable versions from one lineage using manifest metadata only.
+- LAS scanner validates monotonic depth and STEP stability over the bounded sample rows.

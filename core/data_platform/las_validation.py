@@ -48,6 +48,12 @@ def validate_las_metadata(scan: MetadataScanResult | None, *, mode: str = "toler
         findings.append(LasValidationFinding("las.validation.curve_data_column_mismatch", "warning"))
     if "las.compatibility.inconsistent_data_columns" in warning_codes:
         findings.append(LasValidationFinding("las.validation.inconsistent_data_columns", "warning"))
+    if "las.compatibility.non_monotonic_depth" in warning_codes:
+        findings.append(LasValidationFinding("las.validation.non_monotonic_depth", "warning"))
+    if "las.compatibility.unstable_step" in warning_codes:
+        findings.append(LasValidationFinding("las.validation.unstable_step", "warning"))
+    if "las.compatibility.declared_step_mismatch" in warning_codes:
+        findings.append(LasValidationFinding("las.validation.declared_step_mismatch", "warning"))
     if bool(metadata.get("legacy_las", False)):
         findings.append(LasValidationFinding("las.validation.legacy_format", "warning"))
     if not str(metadata.get("well_name", "")).strip():
@@ -71,6 +77,9 @@ def validate_las_metadata(scan: MetadataScanResult | None, *, mode: str = "toler
             "las.validation.fixed_width_data",
             "las.validation.curve_data_column_mismatch",
             "las.validation.inconsistent_data_columns",
+            "las.validation.non_monotonic_depth",
+            "las.validation.unstable_step",
+            "las.validation.declared_step_mismatch",
         }
         findings = [
             LasValidationFinding(item.code, "error" if item.code in strict_codes else item.severity, item.blocking or item.code in strict_codes)

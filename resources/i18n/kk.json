@@ -153,5 +153,8 @@
   "workspace.quick.open_reports": "Есептерді ашу",
   "workspace.quick.reports.text": "Инженерлік есептерді қарау",
   "workspace.quick.reports.title": "Есептер",
-  "workspace.title": "Жұмыс аймағы"
+  "workspace.title": "Жұмыс аймағы",
+  "import.validation.las.validation.non_monotonic_depth": "Тексерілген LAS жолдарында тереңдік монотонды емес.",
+  "import.validation.las.validation.unstable_step": "Тексерілген LAS жолдарында тереңдік қадамы тұрақсыз.",
+  "import.validation.las.validation.declared_step_mismatch": "Көрсетілген STEP бақыланған тереңдік қадамына сәйкес келмейді."
 }
