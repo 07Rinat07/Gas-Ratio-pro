@@ -1758,4 +1758,13 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Keep capacity bounded by project count rather than by profile count.
 - [x] Remove all profiles coherently on project invalidation, metadata change or LRU eviction.
 - [x] Expose payload-free project-to-profile occupancy diagnostics.
-- [ ] Next: add a bounded per-project profile cap and profile-level memory estimates before large custom Explorer profiles are introduced.
+- [x] Add a bounded per-project profile cap and profile-level memory estimates before large custom Explorer profiles are introduced.
+
+### Phase 2 increment — Bounded Project Explorer profile cache (completed v222.18)
+
+- [x] Limit cached branch profiles independently for each project.
+- [x] Evict the least recently used profile without evicting the whole project.
+- [x] Estimate serialized cache memory without retaining duplicate payload objects.
+- [x] Expose total, per-project and per-profile byte diagnostics.
+- [x] Keep existing project-level LRU and repository invalidation semantics intact.
+- [ ] Next: add an optional global byte budget and byte-aware eviction for unusually large full-search profiles.

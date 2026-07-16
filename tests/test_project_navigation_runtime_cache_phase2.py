@@ -117,3 +117,61 @@ def test_navigation_cache_project_eviction_removes_all_profiles(tmp_path: Path) 
     assert snapshot["entries"] == 1
     assert snapshot["evictions"] == 2
     assert not cache.lookup(tmp_path, "p1", profile="root-only").hit
+
+
+def test_navigation_cache_limits_profiles_per_project_by_lru(tmp_path: Path) -> None:
+    _write_metadata(tmp_path, "p1", "project.json", {"id": "p1"})
+    cache = ProjectNavigationRuntimeCache(max_projects=2, max_profiles_per_project=2)
+
+    for profile in ("root-only", "wells"):
+        lookup = cache.lookup(tmp_path, "p1", profile=profile)
+        cache.store(
+            project_id="p1",
+            profile=profile,
+            token=lookup.token,
+            tree=({"id": profile},),
+            counts={},
+            metadata_files=lookup.metadata_files,
+        )
+
+    # Refresh root-only so wells becomes the least recently used profile.
+    assert cache.lookup(tmp_path, "p1", profile="root-only").hit
+    lookup = cache.lookup(tmp_path, "p1", profile="calculations")
+    cache.store(
+        project_id="p1",
+        profile="calculations",
+        token=lookup.token,
+        tree=({"id": "calculations"},),
+        counts={},
+        metadata_files=lookup.metadata_files,
+    )
+
+    snapshot = cache.snapshot()
+    assert snapshot["project_profiles"] == {"p1": ["calculations", "root-only"]}
+    assert snapshot["profile_evictions"] == 1
+    assert cache.lookup(tmp_path, "p1", profile="root-only").hit
+    assert not cache.lookup(tmp_path, "p1", profile="wells").hit
+
+
+def test_navigation_cache_reports_primitive_memory_estimates(tmp_path: Path) -> None:
+    _write_metadata(tmp_path, "p1", "project.json", {"id": "p1"})
+    cache = ProjectNavigationRuntimeCache(max_projects=2, max_profiles_per_project=3)
+
+    for profile, title in (("root-only", "Проект"), ("wells", "Скважина №1")):
+        lookup = cache.lookup(tmp_path, "p1", profile=profile)
+        cache.store(
+            project_id="p1",
+            profile=profile,
+            token=lookup.token,
+            tree=({"id": profile, "title": title},),
+            counts={"items": 1},
+            metadata_files=lookup.metadata_files,
+        )
+
+    snapshot = cache.snapshot()
+    assert snapshot["estimated_bytes"] > 0
+    assert snapshot["estimated_kib"] > 0
+    assert snapshot["project_estimated_bytes"]["p1"] == snapshot["estimated_bytes"]
+    assert set(snapshot["profile_estimated_bytes"]) == {"root-only", "wells"}
+    assert sum(snapshot["profile_estimated_bytes"].values()) == snapshot["estimated_bytes"]
+    json.dumps(snapshot)

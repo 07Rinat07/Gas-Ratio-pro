@@ -2813,3 +2813,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Evicting or invalidating a project removes all of its cached profiles coherently.
 - Added `project_count` and `project_profiles` to payload-free cache diagnostics.
 - Added regression coverage for profile coexistence, profile-cold misses and multi-profile project eviction.
+
+## v222.18 — Bounded Project Explorer profile cache
+
+- Added an LRU profile cap per project to prevent unbounded growth when custom Explorer branch combinations are introduced.
+- Preserved project-level LRU semantics: profile eviction removes only the least recently used profile of the active project.
+- Added primitive UTF-8 JSON size estimates for each serialized navigation entry without retaining duplicate payloads.
+- Exposed total, per-project and per-profile estimated byte diagnostics.
+- Added separate profile-eviction counters and regression tests for LRU ordering, memory estimates and JSON-serializable snapshots.

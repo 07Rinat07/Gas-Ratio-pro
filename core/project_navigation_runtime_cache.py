@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from dataclasses import dataclass
 from hashlib import blake2b
+import json
 from pathlib import Path
 from threading import RLock
 from time import perf_counter
@@ -80,6 +81,7 @@ class ProjectNavigationCacheEntry:
     tree: tuple[dict[str, Any], ...]
     counts: dict[str, int]
     metadata_files: int
+    estimated_bytes: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,8 +102,9 @@ class ProjectNavigationLookup:
 class ProjectNavigationRuntimeCache:
     """Small process-local LRU cache keyed by project id and metadata token."""
 
-    def __init__(self, *, max_projects: int = 4) -> None:
+    def __init__(self, *, max_projects: int = 4, max_profiles_per_project: int = 6) -> None:
         self._max_projects = max(1, int(max_projects))
+        self._max_profiles_per_project = max(1, int(max_profiles_per_project))
         self._entries: OrderedDict[tuple[str, str], ProjectNavigationCacheEntry] = OrderedDict()
         self._project_lru: OrderedDict[str, None] = OrderedDict()
         self._lock = RLock()
@@ -109,6 +112,7 @@ class ProjectNavigationRuntimeCache:
         self._misses = 0
         self._invalidations = 0
         self._evictions = 0
+        self._profile_evictions = 0
         self._last_reason = "not-used"
         self._profile_stats: dict[str, dict[str, Any]] = {}
         self._latest_branch_timings_ms: dict[str, float] = {}
@@ -116,6 +120,31 @@ class ProjectNavigationRuntimeCache:
     def _touch_project(self, project_id: str) -> None:
         self._project_lru[project_id] = None
         self._project_lru.move_to_end(project_id)
+
+    @staticmethod
+    def _estimate_entry_bytes(
+        *,
+        project_id: str,
+        profile: str,
+        token: str,
+        tree: tuple[dict[str, Any], ...],
+        counts: Mapping[str, int],
+    ) -> int:
+        """Return a stable UTF-8 JSON size estimate for one primitive cache entry."""
+        payload = {
+            "project_id": project_id,
+            "profile": profile,
+            "token": token,
+            "tree": tree,
+            "counts": dict(counts),
+        }
+        try:
+            encoded = json.dumps(
+                payload, ensure_ascii=False, separators=(",", ":"), default=str
+            ).encode("utf-8")
+        except (TypeError, ValueError):
+            encoded = repr(payload).encode("utf-8", errors="replace")
+        return len(encoded)
 
     def _remove_project_entries(self, project_id: str) -> int:
         keys = [key for key in self._entries if key[0] == project_id]
@@ -181,13 +210,22 @@ class ProjectNavigationRuntimeCache:
         clean_profile = str(profile or "full").strip() or "full"
         normalized_tree = tuple(dict(item) for item in tree)
         normalized_counts = {str(key): int(value) for key, value in counts.items()}
+        clean_token = str(token or "")
+        estimated_bytes = self._estimate_entry_bytes(
+            project_id=clean_id,
+            profile=clean_profile,
+            token=clean_token,
+            tree=normalized_tree,
+            counts=normalized_counts,
+        )
         entry = ProjectNavigationCacheEntry(
             project_id=clean_id,
             profile=clean_profile,
-            token=str(token or ""),
+            token=clean_token,
             tree=normalized_tree,
             counts=normalized_counts,
             metadata_files=max(0, int(metadata_files)),
+            estimated_bytes=estimated_bytes,
         )
         normalized_timings = {
             str(key): round(max(0.0, float(value)), 3)
@@ -205,6 +243,14 @@ class ProjectNavigationRuntimeCache:
             self._entries[cache_key] = entry
             self._entries.move_to_end(cache_key)
             self._touch_project(clean_id)
+
+            project_keys = [key for key in self._entries if key[0] == clean_id]
+            while len(project_keys) > self._max_profiles_per_project:
+                oldest_profile_key = project_keys.pop(0)
+                # The just-stored key is newest, so normal LRU order keeps it.
+                if self._entries.pop(oldest_profile_key, None) is not None:
+                    self._evictions += 1
+                    self._profile_evictions += 1
             while len(self._project_lru) > self._max_projects:
                 oldest_project, _ = self._project_lru.popitem(last=False)
                 removed = self._remove_project_entries(oldest_project)
@@ -227,16 +273,30 @@ class ProjectNavigationRuntimeCache:
         with self._lock:
             total = self._hits + self._misses
             project_profiles: dict[str, list[str]] = {}
-            for project_id, profile in self._entries:
+            project_estimated_bytes: dict[str, int] = {}
+            profile_estimated_bytes: dict[str, int] = {}
+            total_estimated_bytes = 0
+            for (project_id, profile), entry in self._entries.items():
                 project_profiles.setdefault(project_id, []).append(profile)
+                project_estimated_bytes[project_id] = (
+                    project_estimated_bytes.get(project_id, 0) + entry.estimated_bytes
+                )
+                profile_estimated_bytes[profile] = (
+                    profile_estimated_bytes.get(profile, 0) + entry.estimated_bytes
+                )
+                total_estimated_bytes += entry.estimated_bytes
             return {
                 "entries": len(self._entries),
                 "project_count": len(self._project_lru),
                 "max_projects": self._max_projects,
+                "max_profiles_per_project": self._max_profiles_per_project,
                 "hits": self._hits,
                 "misses": self._misses,
                 "invalidations": self._invalidations,
                 "evictions": self._evictions,
+                "profile_evictions": self._profile_evictions,
+                "estimated_bytes": total_estimated_bytes,
+                "estimated_kib": round(total_estimated_bytes / 1024.0, 3),
                 "hit_rate_percent": round((self._hits / total * 100.0) if total else 0.0, 2),
                 "last_reason": self._last_reason,
                 "projects": list(self._project_lru.keys()),
@@ -244,6 +304,8 @@ class ProjectNavigationRuntimeCache:
                     project_id: sorted(profiles)
                     for project_id, profiles in project_profiles.items()
                 },
+                "project_estimated_bytes": dict(sorted(project_estimated_bytes.items())),
+                "profile_estimated_bytes": dict(sorted(profile_estimated_bytes.items())),
                 "profiles": {
                     profile: {
                         **dict(values),

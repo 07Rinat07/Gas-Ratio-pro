@@ -636,3 +636,19 @@ Current build: v222.8 stable. Export format isolation and printable tablet clari
 ## v222.17 — Multi-profile Project Explorer cache
 
 The Workbench navigation cache can retain `root-only`, partial branch and full-search profiles for one project at the same time. Switching between previously visited Explorer states no longer rebuilds or replaces the prior profile. The LRU limit remains project-based: all profiles of the least recently used project are removed together. Diagnostics expose only project identifiers, profile names and numeric counters.
+
+## v222.18 — Bounded Project Explorer profile cache
+
+Status: **COMPLETED**
+
+Implemented:
+- configurable `max_profiles_per_project` with profile-level LRU eviction;
+- coexistence of project-level and profile-level capacity controls;
+- estimated serialized bytes for the current navigation-cache payload;
+- total, per-project and per-profile memory diagnostics;
+- separate profile-eviction accounting;
+- regression coverage for LRU refresh, bounded occupancy and diagnostic serialization.
+
+Validation: 24 focused integration tests passed.
+
+Next priority: introduce an optional global byte budget so unusually large full-search profiles can be evicted based on estimated memory rather than entry count alone.
