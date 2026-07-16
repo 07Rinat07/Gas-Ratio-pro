@@ -1,5 +1,5 @@
 
-# Latest increment — Open Standards and Legal Research Governance (v222.39)
+# Latest increment — DLIS/LIS79 and SEG-Y Metadata Adapter Foundation (v222.40)
 
 Status: IMPLEMENTED / MANDATORY POLICY
 
@@ -1990,3 +1990,14 @@ Next: QC history in Project Explorer, direct downloads, Dataset comparison badge
 - [x] Add QC status badges through stable metadata, without reading report payloads.
 - [x] Attach latest QC summaries to Dataset version comparisons.
 - [ ] Next: report-template profiles and localized interactive QC comparison presentation.
+
+## v222.40 — DLIS/LIS79 and SEG-Y metadata adapter foundation
+
+- [x] Formally evaluate official specifications and open-source candidates.
+- [x] Approve `dlisio` and `segyio` only as lazy optional LGPL adapters.
+- [x] Add a dependency-free bounded SEG-Y textual/binary-header scanner.
+- [x] Add DLIS/LIS79 scanner boundaries with graceful dependency-unavailable diagnostics.
+- [x] Register LIS79 as a separate format capability.
+- [ ] Add conformance fixtures with legally redistributable sample files.
+- [ ] Add a SEG-Y trace-header inventory adapter using `segyio`.
+- [ ] Add DLIS logical-file/frame/channel metadata projection using installed `dlisio` in CI.

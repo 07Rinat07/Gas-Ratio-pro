@@ -1,5 +1,5 @@
 
-# Current increment: v222.39 — Open standards and legal research governance
+# Current increment: v222.40 — DLIS/LIS79 and SEG-Y metadata adapter foundation
 
 Implemented:
 - mandatory policies for open standards, lawful research and third-party licensing;
@@ -120,3 +120,7 @@ Next: expose saved QC reports and exports in Project Explorer, add downloadable 
 QC reports and QC exports are now visible in dedicated lazy Project Explorer folders. Registered PDF/DOCX artifacts can be downloaded through a bounded Data Platform service, and Dataset version comparisons include the latest QC status/count summary for each side.
 
 Next: add report-template profiles, localized QC history labels, and interactive rendering of the QC comparison summary.
+
+### v222.40 — Subsurface binary metadata adapters
+
+DLIS, LIS79, and SEG-Y now have explicit metadata-scanner boundaries. SEG-Y baseline scanning is dependency-free and bounded to 3600 bytes. `dlisio` and `segyio` are approved as optional lazy adapters after source/license review; neither is vendored or imported during application startup.

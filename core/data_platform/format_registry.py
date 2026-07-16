@@ -96,6 +96,7 @@ def default_format_registry() -> DataFormatRegistry:
         (
             DataFormatCapability("las", "LAS", (".las",), supports_export=True, supports_metadata_scan=True, supports_preview=True, category="well-log"),
             DataFormatCapability("dlis", "DLIS", (".dlis",), supports_metadata_scan=True, supports_streaming=True, supports_preview=True, category="well-log"),
+            DataFormatCapability("lis79", "LIS79", (".lis",), supports_metadata_scan=True, supports_streaming=True, supports_preview=True, category="well-log"),
             DataFormatCapability("segy", "SEG-Y", (".sgy", ".segy"), supports_metadata_scan=True, supports_streaming=True, supports_preview=True, category="seismic"),
             DataFormatCapability("resqml", "RESQML", (".epc",), supports_export=True, supports_metadata_scan=True, supports_streaming=True, category="subsurface-model"),
             DataFormatCapability("grdecl", "GRDECL", (".grdecl",), supports_export=True, supports_metadata_scan=True, category="simulation"),

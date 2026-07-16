@@ -1,5 +1,5 @@
 
-# v222.39 — Open Standards and Legal Research Governance
+# v222.40 — DLIS/LIS79 and SEG-Y Metadata Adapter Foundation
 
 - Added mandatory Open Standards, License and Research policies.
 - Added a third-party component evaluation registry with required evidence fields.
@@ -2980,3 +2980,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added a bounded, path-contained application-service operation for downloading registered artifacts.
 - Added direct registered-export download controls in the Workbench Properties pane.
 - Added latest QC summaries to immutable Dataset version comparison results.
+
+## v222.40
+
+- Added dependency-free SEG-Y textual/binary header scanner.
+- Added optional DLIS and LIS79 scanners with graceful `dlisio`-unavailable diagnostics.
+- Registered LIS79 as an independent Data Platform format.
+- Added formal adapter evaluations and populated the third-party component registry.

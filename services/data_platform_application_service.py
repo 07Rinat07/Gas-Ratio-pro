@@ -12,7 +12,9 @@ from core.data_platform import (
     DatasetMetadataCatalog,
     DatasetProvenance,
     DataFormatRegistry,
+    DlisLisMetadataScanner,
     LasHeaderMetadataScanner,
+    SegyHeaderMetadataScanner,
     LasValidationFinding,
     MetadataScanResult,
     MetadataScanner,
@@ -87,7 +89,12 @@ class DataPlatformApplicationService:
         self.artifacts = ArtifactStore(self.projects_root)
         self.manifests = DatasetManifestRepository(self.projects_root)
         self.catalog = DatasetMetadataCatalog(self.projects_root)
-        scanner_items = scanners if scanners is not None else (LasHeaderMetadataScanner(),)
+        scanner_items = scanners if scanners is not None else (
+            LasHeaderMetadataScanner(),
+            DlisLisMetadataScanner("dlis"),
+            DlisLisMetadataScanner("lis79"),
+            SegyHeaderMetadataScanner(),
+        )
         self._scanners = {item.format_id: item for item in scanner_items}
 
     def register_source_file(self, *, project_id: str, source: Path | str, format_id: str | None = None, well_id: str = "", actor: str = "", metadata: dict[str, str | int | float | bool | None] | None = None, previous_dataset_id: str = "", import_mode: str = "tolerant") -> DatasetManifest:

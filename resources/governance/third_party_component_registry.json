@@ -1,7 +1,41 @@
 {
   "schema": "gas-ratio-pro/third-party-component-registry/v1",
   "policy": "docs/LICENSE_POLICY.md",
-  "components": [],
+  "components": [
+    {
+      "name": "dlisio",
+      "purpose": "Optional DLIS V1 and LIS79 metadata/data adapter",
+      "upstream": "Equinor/dlisio",
+      "version": "1.0.x evaluation baseline; pin during packaging",
+      "license_spdx": "LGPL-3.0-or-later",
+      "source_url": "https://github.com/equinor/dlisio",
+      "review_status": "approved-for-optional-adapter",
+      "integration_type": "lazy-optional-runtime-adapter",
+      "notices": "Keep dlisio objects inside adapter boundary; do not vendor; preserve LGPL notices; LIS84 is not supported by the evaluated adapter."
+    },
+    {
+      "name": "segyio",
+      "purpose": "Optional high-performance SEG-Y trace/header adapter",
+      "upstream": "Equinor/segyio",
+      "version": "1.x evaluation baseline; pin during packaging",
+      "license_spdx": "LGPL-3.0-or-later",
+      "source_url": "https://github.com/equinor/segyio",
+      "review_status": "approved-for-optional-adapter",
+      "integration_type": "lazy-optional-runtime-adapter",
+      "notices": "Use behind adapter boundary; do not vendor; base metadata scan remains dependency-free; validate SEG-Y revision and geometry assumptions."
+    },
+    {
+      "name": "SEG-Y Revision 2.1",
+      "purpose": "Normative seismic exchange specification",
+      "upstream": "Society of Exploration Geophysicists",
+      "version": "2.1",
+      "license_spdx": "LicenseRef-SEG-Standard-Terms",
+      "source_url": "https://seg.org/publications/seg-technical-standards/",
+      "review_status": "approved-reference-only",
+      "integration_type": "official-specification",
+      "notices": "Use as normative reference; do not redistribute the standard PDF unless its terms explicitly allow redistribution."
+    }
+  ],
   "candidate_domains": [
     "las",
     "dlis-lis79",
