@@ -1,3 +1,7 @@
+# Current increment: v222.22 — Localized Workbench Navigation States
+
+Implemented the first complete three-language Workbench user journey: File and Project panels, Project Explorer search and empty states, workspace empty state and quick actions, Properties empty state and destructive-action confirmation, and localized workspace-open errors. Stable identifiers and imported engineering data remain untranslated.
+
 # Current increment: v222.21 — Persisted Three-language Workbench Shell
 
 Status: **IMPLEMENTED / SHELL MIGRATION IN PROGRESS**

@@ -327,7 +327,7 @@ def _render_native_streamlit_layout(
                 width="stretch",
                 disabled=False,
                 type="primary" if active else "secondary",
-                help=f"Open {title}",
+                help=i18n("menu.open_help", title=title),
             ):
                 if is_panel:
                     registry.state[WORKBENCH_MENU_PANEL_KEY] = "" if active else navigation_id
@@ -347,25 +347,25 @@ def _render_native_streamlit_layout(
 
     panel_id = str(registry.state.get(WORKBENCH_MENU_PANEL_KEY, "") or "")
     if panel_id == "menu.file":
-        st_module.markdown("### File")
+        st_module.markdown(f"### {i18n('menu.file.title')}")
         file_cols = st_module.columns(3, gap="small")
         with file_cols[0]:
-            if st_module.button("Open Project", key="workbench_file_open_project", width="stretch"):
+            if st_module.button(i18n("menu.file.open_project"), key="workbench_file_open_project", width="stretch"):
                 registry.state[WORKBENCH_MENU_PANEL_KEY] = "menu.project"
         with file_cols[1]:
-            if st_module.button("Restore Recent Session", key="workbench_file_restore_session", width="stretch"):
+            if st_module.button(i18n("menu.file.restore_session"), key="workbench_file_restore_session", width="stretch"):
                 try:
                     service = application_service_container(registry.state).workbench(projects_root=DEFAULT_PROJECTS_ROOT)
                     result = service.restore_recent_session()
-                    registry.state[WORKBENCH_LAST_UI_ACTION_KEY] = {"action_id":"restore_recent_session","title":"Restore Recent Session","executed":True,"message":result.kind}
+                    registry.state[WORKBENCH_LAST_UI_ACTION_KEY] = {"action_id":"restore_recent_session","title":i18n("menu.file.restore_session"),"executed":True,"message":result.kind}
                 except Exception as exc:
                     incident = record_runtime_exception(registry.state, exc, boundary="file_menu", operation="restore_recent_session")
-                    st_module.error(f"Unable to restore session. Error ID: {incident['correlation_id']}")
+                    st_module.error(i18n("menu.file.restore_error", error_id=incident["correlation_id"]))
         with file_cols[2]:
-            if st_module.button("Close Menu", key="workbench_file_close", width="stretch"):
+            if st_module.button(i18n("menu.file.close"), key="workbench_file_close", width="stretch"):
                 registry.state[WORKBENCH_MENU_PANEL_KEY] = ""
     elif panel_id == "menu.project":
-        st_module.markdown("### Project")
+        st_module.markdown(f"### {i18n('menu.project.title')}")
         try:
             service = application_service_container(registry.state).workbench(projects_root=DEFAULT_PROJECTS_ROOT)
             entries = service.project_entries()
@@ -375,15 +375,15 @@ def _render_native_streamlit_layout(
                     with cols[0]:
                         st_module.caption(f"{entry['project_name']} · {entry['project_id']}")
                     with cols[1]:
-                        if st_module.button("Open", key=f"workbench_project_open_{entry['project_id']}", width="stretch", disabled=not entry['available']):
+                        if st_module.button(i18n("common.open"), key=f"workbench_project_open_{entry['project_id']}", width="stretch", disabled=not entry['available']):
                             result = service.open_project(entry['project_id'])
-                            registry.state[WORKBENCH_LAST_UI_ACTION_KEY] = {"action_id":"open_project","title":"Open Project","executed":True,"message":result.project_id}
+                            registry.state[WORKBENCH_LAST_UI_ACTION_KEY] = {"action_id":"open_project","title":i18n("menu.file.open_project"),"executed":True,"message":result.project_id}
                             registry.state[WORKBENCH_MENU_PANEL_KEY] = ""
             else:
-                st_module.info("No recent projects. Use Data or LAS Workspace to create project content.")
+                st_module.info(i18n("menu.project.no_recent"))
         except Exception as exc:
             incident = record_runtime_exception(registry.state, exc, boundary="project_menu", operation="list_projects")
-            st_module.error(f"Unable to load projects. Error ID: {incident['correlation_id']}")
+            st_module.error(i18n("menu.project.load_error", error_id=incident["correlation_id"]))
 
     # Show only commands that are meaningful in the current presentation state.
     # Active navigation is highlighted, redundant tool activation is hidden, and
@@ -467,9 +467,9 @@ def _render_native_streamlit_layout(
             if hasattr(st_module, "text_input"):
                 query = str(
                     st_module.text_input(
-                        "Search project",
+                        i18n("project.explorer.search.label"),
                         key="workbench_project_explorer_search",
-                        placeholder="well, LAS, calculation, export",
+                        placeholder=i18n("project.explorer.search.placeholder"),
                         label_visibility="collapsed",
                     )
                     or ""
@@ -492,11 +492,11 @@ def _render_native_streamlit_layout(
             )
             if query.strip() and hasattr(st_module, "caption"):
                 st_module.caption(
-                    f"Matches: {filtered_view.matched_nodes} · Project objects: {filtered_view.total_nodes}"
+                    i18n("project.explorer.matches", matched=filtered_view.matched_nodes, total=filtered_view.total_nodes)
                 )
             if query.strip() and not filtered_view.nodes:
                 if hasattr(st_module, "info"):
-                    st_module.info("No project objects found.")
+                    st_module.info(i18n("project.explorer.no_results"))
             selected_state = dict(registry.state.get("workbench_selection", {}) or {})
             selected_target = str(selected_state.get("target") or "")
             selected_object_id = str(selected_state.get("object_id") or "")
@@ -532,7 +532,7 @@ def _render_native_streamlit_layout(
                         key=f"workbench_tree_{item_id.replace('.', '_').replace(':', '_')}",
                         width="stretch",
                         type="primary" if active_object else "secondary",
-                        help=str(item.get("status") or "Select project object"),
+                        help=str(item.get("status") or i18n("project.explorer.select_help")),
                     ):
                         if has_children:
                             if item_id in expanded_ids:
@@ -574,18 +574,18 @@ def _render_native_streamlit_layout(
                 else:
                     st_module.markdown(f"<div class='workbench-tree-item'>{_html(label)}</div>", unsafe_allow_html=True)
             collapse = {"id":"action.collapse_dock_pane", "payload":{"pane_id":"dock.project_explorer"}}
-            if st_module.button("‹", key="workbench_native_collapse_explorer", help="Collapse Project Explorer"):
+            if st_module.button("‹", key="workbench_native_collapse_explorer", help=i18n("project.explorer.collapse")):
                 executed.append(_dispatch_action(contract, registry, collapse))
         else:
             restore = {"id":"action.restore_dock_pane", "payload":{"pane_id":"dock.project_explorer"}}
-            if st_module.button("›", key="workbench_native_restore_explorer", help="Restore Project Explorer"):
+            if st_module.button("›", key="workbench_native_restore_explorer", help=i18n("project.explorer.restore")):
                 executed.append(_dispatch_action(contract, registry, restore))
 
     workspace = dict(layout.get("workspace", {}) or {})
     with center:
-        st_module.markdown(f"<div class='workbench-pane-title'><span>{_html(workspace.get('title', 'Workspace'))}</span><span>×</span></div>", unsafe_allow_html=True)
+        st_module.markdown(f"<div class='workbench-pane-title'><span>{_html(workspace.get('title') or i18n('workspace.title'))}</span><span>×</span></div>", unsafe_allow_html=True)
         st_module.markdown(
-            "<div class='workbench-workspace-context'>Workspace host: "
+            f"<div class='workbench-workspace-context'>{_html(i18n('workspace.host'))}: "
             f"<b>{_html(payload.get('interaction', {}).get('active_navigation_id', '') or 'dashboard')}</b></div>",
             unsafe_allow_html=True,
         )
@@ -625,8 +625,7 @@ def _render_native_streamlit_layout(
                     details={"correlation_id": incident["correlation_id"]},
                 )
                 st_module.error(
-                    "Не удалось открыть рабочий модуль. "
-                    f"Код ошибки: {incident['correlation_id']}. Подробности: logs/app.log"
+                    i18n("error.workspace_open", error_id=incident["correlation_id"])
                 )
         if module_rendered:
             pass
@@ -659,10 +658,10 @@ def _render_native_streamlit_layout(
                 st_module.info("LAS is open, but no visible tracks are available.")
         else:
             workspace_id = str(workspace.get("active_workspace") or active_workspace or "dashboard")
-            empty_title = str(workspace.get("title") or "Modern Workbench")
-            empty_text = str(workspace.get("empty_state") or "Select a module or open a project to begin.")
+            empty_title = str(workspace.get("title") or i18n("workspace.empty.title"))
+            empty_text = str(workspace.get("empty_state") or i18n("workspace.empty.text"))
             st_module.markdown(
-                "<div class='workbench-workspace-context'>Active workspace: "
+                f"<div class='workbench-workspace-context'>{_html(i18n('workspace.active'))}: "
                 f"<b>{_html(workspace_id)}</b></div>",
                 unsafe_allow_html=True,
             )
@@ -670,15 +669,15 @@ def _render_native_streamlit_layout(
                 "<div class='workbench-workspace-empty'><div class='hero-icon'>⌁</div>"
                 f"<h2>{_html(empty_title)}</h2><p>{_html(empty_text)}</p>"
                 "<div class='workbench-quick-actions'>"
-                "<div class='workbench-quick-card'><b>LAS Workspace</b><br><small>Inspect tracks and curves</small></div>"
-                "<div class='workbench-quick-card'><b>Interpretation</b><br><small>Open interpretation tools</small></div>"
-                "<div class='workbench-quick-card'><b>Reports</b><br><small>Review engineering reports</small></div>"
+                f"<div class='workbench-quick-card'><b>{_html(i18n('workspace.quick.las.title'))}</b><br><small>{_html(i18n('workspace.quick.las.text'))}</small></div>"
+                f"<div class='workbench-quick-card'><b>{_html(i18n('workspace.quick.interpretation.title'))}</b><br><small>{_html(i18n('workspace.quick.interpretation.text'))}</small></div>"
+                f"<div class='workbench-quick-card'><b>{_html(i18n('workspace.quick.reports.title'))}</b><br><small>{_html(i18n('workspace.quick.reports.text'))}</small></div>"
                 "</div></div>", unsafe_allow_html=True,
             )
             quick_actions = (
-                ("Open LAS Workspace", "nav.las_workspace"),
-                ("Open Interpretation", "nav.interpretation"),
-                ("Open Reports", "nav.reports"),
+                (i18n("workspace.quick.open_las"), "nav.las_workspace"),
+                (i18n("workspace.quick.open_interpretation"), "nav.interpretation"),
+                (i18n("workspace.quick.open_reports"), "nav.reports"),
             )
             st_module.markdown("<div class='workbench-empty-actions'>", unsafe_allow_html=True)
             quick_columns = st_module.columns(3, gap="small")
@@ -700,14 +699,14 @@ def _render_native_streamlit_layout(
 
     with right:
         if properties_open:
-            st_module.markdown("<div class='workbench-pane-title'><span>Properties</span><span>⌘</span></div>", unsafe_allow_html=True)
+            st_module.markdown(f"<div class='workbench-pane-title'><span>{_html(i18n('common.properties'))}</span><span>⌘</span></div>", unsafe_allow_html=True)
             props_html = "".join(
                 "<div class='workbench-property'>"
                 f"<span>{_html(item.get('label',''))}</span><b>{_html(item.get('value',''))}</b></div>"
                 for item in layout.get("properties", ())
             )
             st_module.markdown(
-                props_html or "<div class='workbench-properties-empty'><b>Nothing selected</b><br><small>Choose an object in Project Explorer or the active workspace.</small></div>",
+                props_html or (f"<div class='workbench-properties-empty'><b>{_html(i18n('properties.empty.title'))}</b><br><small>{_html(i18n('properties.empty.text'))}</small></div>"),
                 unsafe_allow_html=True,
             )
 
@@ -724,13 +723,13 @@ def _render_native_streamlit_layout(
             metadata = dict(selection.get("metadata", {}) or {})
             property_actions = tuple(layout.get("property_actions", ()) or ())
             if property_actions and target and object_id:
-                st_module.markdown("#### Действия")
+                st_module.markdown(f"#### {i18n('properties.actions')}")
                 confirmation = st_module.text_input(
-                    "Подтверждение удаления/архивирования",
+                    i18n("properties.confirmation"),
                     value="",
                     key=f"workbench_properties_confirm_{target}_{object_id}",
                     placeholder=object_id,
-                    help="Для опасного действия введите точный ID выбранного объекта.",
+                    help=i18n("properties.confirmation.help"),
                 )
                 for action in property_actions:
                     action_id = str(action.get("id") or "")

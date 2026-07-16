@@ -1,3 +1,11 @@
+## v222.22 — Localized Workbench navigation states
+
+- Localized File and Project menu panels for Russian, Kazakh and English.
+- Localized Project Explorer search, match counters, no-results state and pane controls.
+- Localized Workbench empty state, quick actions, Properties empty state and confirmation labels.
+- Added aligned catalog keys with placeholder parity across all three languages.
+- Kept project names, object IDs, LAS mnemonics and imported values unchanged.
+
 ## v222.21 — Persisted three-language Workbench shell
 
 - added atomic user locale preference storage with safe fallback;

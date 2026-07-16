@@ -141,8 +141,8 @@ Requirements:
 Migrate, in order:
 
 1. language selector and user preference persistence — implemented in v222.21;
-2. Dashboard and Workbench shell;
-3. Project Explorer root actions;
+2. Dashboard and Workbench shell — Workbench File/Project menus, Explorer search, empty workspace and Properties migrated in v222.22;
+3. Project Explorer root actions — search, results, empty state and collapse/restore migrated in v222.22;
 4. global dialogs, confirmations and validation;
 5. Diagnostics user-facing labels.
 

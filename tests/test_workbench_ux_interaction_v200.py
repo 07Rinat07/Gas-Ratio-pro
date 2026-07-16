@@ -37,7 +37,7 @@ class FakeStreamlit:
 
 
 def test_current_build_identity_keeps_v200_interaction_contract():
-    assert BUILD_VERSION == "v222"
+    assert BUILD_VERSION == "v222.22"
     assert BUILD_CHANNEL == "stable"
 
 
@@ -80,6 +80,6 @@ def test_toolbar_hides_redundant_activate_and_mutually_exclusive_restore_actions
 def test_current_navigation_is_highlighted_in_single_top_menu():
     fake = FakeStreamlit()
     render_streamlit_workbench({}, fake)
-    settings = next(item for item in fake.button_calls if item[0] == "Settings")
+    settings = next(item for item in fake.button_calls if item[0] == "Настройки")
     assert settings[2]["type"] == "primary"
     assert settings[2]["disabled"] is False

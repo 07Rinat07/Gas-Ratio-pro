@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_v208_build_identity():
-    assert BUILD_VERSION == "v222"
+    assert BUILD_VERSION == "v222.22"
 
 
 def test_title_bar_uses_real_brand_logo():
@@ -19,8 +19,8 @@ def test_title_bar_uses_real_brand_logo():
 
 def test_file_and_project_are_interactive_panels():
     source = (ROOT / "app" / "workbench_renderer.py").read_text(encoding="utf-8")
-    assert '("File", "menu.file")' in source
-    assert '("Project", "menu.project")' in source
+    assert '(i18n("menu.file"), "menu.file")' in source
+    assert '(i18n("menu.project"), "menu.project")' in source
     assert WORKBENCH_MENU_PANEL_KEY == "workbench_menu_panel"
     assert "workbench_file_open_project" in source
     assert "workbench_project_open_" in source
