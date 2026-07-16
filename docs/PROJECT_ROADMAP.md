@@ -1,3 +1,7 @@
+# Open Standards and Legal Research Governance
+
+This roadmap is governed by `OPEN_STANDARDS_POLICY.md`, `LICENSE_POLICY.md`, and `RESEARCH_POLICY.md`. External code or data enters the project only after source, license, adapter isolation, security, testing, and ru/kk/en documentation review.
+
 
 # Latest increment — DLIS/LIS79 and SEG-Y Metadata Adapter Foundation (v222.40)
 
@@ -1998,6 +2002,9 @@ Next: QC history in Project Explorer, direct downloads, Dataset comparison badge
 - [x] Add a dependency-free bounded SEG-Y textual/binary-header scanner.
 - [x] Add DLIS/LIS79 scanner boundaries with graceful dependency-unavailable diagnostics.
 - [x] Register LIS79 as a separate format capability.
-- [ ] Add conformance fixtures with legally redistributable sample files.
-- [ ] Add a SEG-Y trace-header inventory adapter using `segyio`.
-- [ ] Add DLIS logical-file/frame/channel metadata projection using installed `dlisio` in CI.
+- [x] Add generated conformance fixtures with explicit legal provenance.
+- [x] Add a SEG-Y trace-header inventory adapter using `segyio` with configurable byte mapping.
+- [x] Add DLIS logical-file/frame/channel metadata projection behind the installed `dlisio` boundary.
+- [x] Add localized ru/kk/en metadata import previews.
+- [ ] Wire previews and DLIS frame/channel selection into the production Data workspace.
+- [ ] Add coordinate scalar and trace-coordinate geometry diagnostics for SEG-Y.

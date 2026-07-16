@@ -1,5 +1,7 @@
 from .dlis_lis_metadata_scanner import DlisLisMetadataScanner
 from .segy_metadata_scanner import SegyHeaderMetadataScanner
+from .segy_trace_header_inventory import SegyTraceHeaderInventoryAdapter
+from .import_preview import build_metadata_import_preview
 """Core contracts for the GAS RATIO PRO industry data platform."""
 
 from .artifact_store import ArtifactLocation, ArtifactStore
@@ -17,6 +19,8 @@ __all__ = [
     "ArtifactStore",
     "DlisLisMetadataScanner",
     "SegyHeaderMetadataScanner",
+    "SegyTraceHeaderInventoryAdapter",
+    "build_metadata_import_preview",
     "DataFormatCapability",
     "DataFormatRegistry",
     "DatasetManifest",

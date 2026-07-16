@@ -15,6 +15,8 @@ from core.data_platform import (
     DlisLisMetadataScanner,
     LasHeaderMetadataScanner,
     SegyHeaderMetadataScanner,
+    SegyTraceHeaderInventoryAdapter,
+    build_metadata_import_preview,
     LasValidationFinding,
     MetadataScanResult,
     MetadataScanner,
@@ -176,6 +178,21 @@ class DataPlatformApplicationService:
             return None
         scanner = self._scanners.get(capability.format_id)
         return scanner.scan(source_path) if scanner else None
+
+    def build_import_preview(self, source: Path | str, *, format_id: str | None = None, translate=lambda key, **kwargs: key) -> dict[str, object]:
+        """Return a localized metadata-only preview before persistence."""
+        result = self.scan_metadata(source, format_id)
+        if result is None:
+            raise ValueError("format does not support metadata preview")
+        return build_metadata_import_preview(result, translate)
+
+    def scan_segy_trace_headers(self, source: Path | str, *, inline_byte: int = 189, crossline_byte: int = 193, max_traces: int = 100_000) -> MetadataScanResult:
+        """Run the optional segyio trace-header inventory behind a lazy boundary."""
+        return SegyTraceHeaderInventoryAdapter(
+            inline_byte=inline_byte,
+            crossline_byte=crossline_byte,
+            max_traces=max_traces,
+        ).scan(source)
 
 
     def list_dataset_lineage(self, project_id: str, lineage_id: str) -> tuple[dict[str, object], ...]:

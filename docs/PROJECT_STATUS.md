@@ -1,3 +1,18 @@
+# Current increment: v222.41 — Industry import preview and optional trace inventory
+
+Implemented:
+- generated, legally redistributable conformance-fixture policy;
+- optional `segyio` trace-header inventory with manual inline/crossline byte mapping;
+- DLIS/LIS79 logical-file summaries through the lazy `dlisio` boundary;
+- localized metadata-only import preview contracts for ru/kk/en;
+- adapter/service regression tests without trace or curve-array materialization.
+
+Next:
+- wire the import preview into the production Data workspace;
+- add legal CI fixtures for installed `dlisio` and `segyio`;
+- add coordinate scalar/trace-coordinate inventory and geometry confidence diagnostics;
+- add DLIS frame/channel selection before import.
+
 
 # Current increment: v222.40 — DLIS/LIS79 and SEG-Y metadata adapter foundation
 

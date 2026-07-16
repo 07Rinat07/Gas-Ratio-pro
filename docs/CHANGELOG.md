@@ -1,3 +1,11 @@
+# v222.41 — Industry import preview and optional trace inventory
+
+- Added legally generated conformance-fixture policy and synthetic fixture provenance.
+- Added a lazy `segyio` trace-header inventory adapter with configurable inline/crossline byte mapping.
+- Added bounded DLIS/LIS79 logical-file, frame and channel projections without curve-array materialization.
+- Added localized ru/kk/en metadata import-preview projections.
+- Added application-service boundaries and regression coverage for optional adapters.
+
 
 # v222.40 — DLIS/LIS79 and SEG-Y Metadata Adapter Foundation
 
