@@ -50,6 +50,11 @@ class DatasetRegistrationResult:
             messages.append(translate("import.dataset.validation_blocked"))
         elif warnings:
             messages.append(translate("import.dataset.validation_warning", count=warnings))
+        for finding in self.validation_findings:
+            key = f"import.validation.{finding.code}"
+            translated = translate(key)
+            if translated != key:
+                messages.append(translated)
         return tuple(messages)
 
     def to_dict(self) -> dict[str, object]:
@@ -148,6 +153,9 @@ class DataPlatformApplicationService:
             return None
         scanner = self._scanners.get(capability.format_id)
         return scanner.scan(source_path) if scanner else None
+
+    def reconcile_catalog(self, project_id: str) -> dict[str, object]:
+        return self.catalog.reconcile(project_id, self.manifests.list(project_id))
 
     def snapshot(self, project_id: str) -> dict[str, object]:
         return {

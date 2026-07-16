@@ -33,6 +33,10 @@ def validate_las_metadata(scan: MetadataScanResult | None) -> tuple[LasValidatio
         findings.append(LasValidationFinding("las.validation.wrap_yes", "warning"))
     if "las.header.nul_bytes_detected" in warning_codes:
         findings.append(LasValidationFinding("las.validation.nul_bytes_detected", "warning"))
+    if "las.compatibility.legacy_encoding" in warning_codes:
+        findings.append(LasValidationFinding("las.validation.legacy_encoding", "warning"))
+    if "las.compatibility.nonstandard_data_delimiter" in warning_codes:
+        findings.append(LasValidationFinding("las.validation.nonstandard_data_delimiter", "warning"))
     if bool(metadata.get("legacy_las", False)):
         findings.append(LasValidationFinding("las.validation.legacy_format", "warning"))
     if not str(metadata.get("well_name", "")).strip():

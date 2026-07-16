@@ -78,6 +78,8 @@
   "import.dataset.success": "«{source_name}» деректер жинағы тіркелді.",
   "import.dataset.validation_blocked": "Деректерді тексеру импортты бұғаттады.",
   "import.dataset.validation_warning": "Импорт ескертулермен аяқталды: {count}.",
+  "import.validation.las.validation.legacy_encoding": "LAS файлының ескі кодтамасы анықталды; файл үйлесімділік режимінде оқылды.",
+  "import.validation.las.validation.nonstandard_data_delimiter": "LAS деректер жолдарының стандартты емес бөлгіші анықталды.",
   "language.en": "English",
   "language.kk": "Қазақша",
   "language.label": "Тіл",

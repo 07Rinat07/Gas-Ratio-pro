@@ -2902,3 +2902,8 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added catalog completeness and JSON-serializable health diagnostics.
 - Added a lazy session-scoped localization application service.
 - Added the phased internationalization, terminology and document-localization roadmap.
+
+## v222.29
+- Added localized LAS import feedback to the production open-result contract.
+- Added manifest-to-SQLite reconciliation and deterministic catalog rebuild.
+- Added bounded legacy encoding and non-standard delimiter diagnostics for archival LAS files.

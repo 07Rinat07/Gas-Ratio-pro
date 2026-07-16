@@ -22,25 +22,41 @@ class LasHeaderMetadataScanner:
         path = Path(source)
         raw = bytearray()
         reached_ascii = False
+        first_data_line = b""
         with path.open("rb") as handle:
             while len(raw) < self.max_header_bytes:
                 line = handle.readline(min(64 * 1024, self.max_header_bytes - len(raw)))
                 if not line:
                     break
                 raw.extend(line)
-                text = line.decode("latin-1", errors="replace")
-                section = _SECTION_RE.match(text)
+                probe = line.decode("latin-1", errors="replace")
+                section = _SECTION_RE.match(probe)
                 if section and section.group(1).strip().lower().startswith("a"):
                     reached_ascii = True
+                    # Read only one bounded data row for delimiter diagnostics.
+                    while True:
+                        candidate = handle.readline(64 * 1024)
+                        if not candidate:
+                            break
+                        if candidate.strip() and not candidate.lstrip().startswith(b"#"):
+                            first_data_line = candidate.rstrip(b"\r\n")
+                            break
                     break
 
-        text = bytes(raw).decode("latin-1", errors="replace")
+        encoding, text = _decode_header(bytes(raw))
         metadata: dict[str, str | int | float | bool | None] = {
             "header_bytes": len(raw),
             "header_complete": reached_ascii,
             "curve_count": 0,
+            "header_encoding": encoding,
         }
         warnings: list[str] = []
+        if encoding not in {"utf-8", "utf-8-sig", "ascii"}:
+            warnings.append("las.compatibility.legacy_encoding")
+        delimiter = _detect_data_delimiter(first_data_line)
+        metadata["data_delimiter"] = delimiter
+        if delimiter in {"comma", "semicolon", "tab"}:
+            warnings.append("las.compatibility.nonstandard_data_delimiter")
         current_section = ""
         curves: list[str] = []
         for line in text.splitlines():
@@ -157,3 +173,30 @@ def _parse_las_version(value: str) -> float | None:
         return float(match.group(1).replace(",", "."))
     except ValueError:
         return None
+
+
+def _decode_header(raw: bytes) -> tuple[str, str]:
+    if raw.startswith(b"\xef\xbb\xbf"):
+        return "utf-8-sig", raw.decode("utf-8-sig", errors="replace")
+    try:
+        text = raw.decode("utf-8")
+        return ("ascii" if raw.isascii() else "utf-8"), text
+    except UnicodeDecodeError:
+        try:
+            return "cp1251", raw.decode("cp1251")
+        except UnicodeDecodeError:
+            return "latin-1", raw.decode("latin-1", errors="replace")
+
+
+def _detect_data_delimiter(line: bytes) -> str:
+    if not line:
+        return "unknown"
+    if b"\t" in line:
+        return "tab"
+    if b";" in line:
+        return "semicolon"
+    if b"," in line and b" " not in line.strip():
+        return "comma"
+    if any(ch in line for ch in (b" ", b"\t")):
+        return "whitespace"
+    return "unknown"

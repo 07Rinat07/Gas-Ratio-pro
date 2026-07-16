@@ -45,3 +45,14 @@ def test_missing_depth_channel_is_rejected_and_rolled_back(tmp_path):
 def test_non_las_extension_is_rejected(tmp_path):
     with pytest.raises(ValueError, match="only .las"):
         LasViewerOpenWorkflow(tmp_path).open("project-1", BytesIO(b"x"), file_name="data.txt")
+
+
+def test_open_result_exposes_localized_dataset_messages(tmp_path):
+    from services.localization_application_service import LocalizationApplicationService
+    i18n = LocalizationApplicationService(catalogs_dir="resources/i18n", language="en")
+    result = LasViewerOpenWorkflow(tmp_path).open(
+        "project-1", "examples/sample_gas_data.las", translate=i18n.translate
+    )
+    assert result.dataset_messages
+    assert "registered" in result.dataset_messages[0].lower() or "imported" in result.dataset_messages[0].lower()
+    assert result.to_dict()["dataset_messages"] == list(result.dataset_messages)

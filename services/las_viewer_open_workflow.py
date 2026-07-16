@@ -36,6 +36,7 @@ class LasViewerOpenResult:
     dataset_version: int = 0
     dataset_validation_codes: tuple[str, ...] = ()
     dataset_duplicate_ids: tuple[str, ...] = ()
+    dataset_messages: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -54,6 +55,7 @@ class LasViewerOpenResult:
             "dataset_version": self.dataset_version,
             "dataset_validation_codes": list(self.dataset_validation_codes),
             "dataset_duplicate_ids": list(self.dataset_duplicate_ids),
+            "dataset_messages": list(self.dataset_messages),
             "raw_dataframe_included": False,
         }
 
@@ -99,6 +101,7 @@ class LasViewerOpenWorkflow:
         well_name: str = "",
         curve_limit: int = 8,
         sample_limit: int = 240,
+        translate=None,
     ) -> LasViewerOpenResult:
         clean_project_id = safe_project_id(project_id)
         resolved_name = _source_name(source, file_name)
@@ -179,4 +182,5 @@ class LasViewerOpenWorkflow:
             dataset_version=registration.manifest.version,
             dataset_validation_codes=tuple(item.code for item in registration.validation_findings),
             dataset_duplicate_ids=registration.duplicate_dataset_ids,
+            dataset_messages=registration.localized_messages(translate) if translate is not None else (),
         )

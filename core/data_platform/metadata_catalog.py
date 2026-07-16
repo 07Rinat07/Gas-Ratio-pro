@@ -99,6 +99,34 @@ class DatasetMetadataCatalog:
             count += 1
         return count
 
+
+    def dataset_ids(self, project_id: str) -> tuple[str, ...]:
+        path = self._path(project_id)
+        if not path.exists():
+            return ()
+        with self._connect(project_id) as connection:
+            rows = connection.execute("SELECT dataset_id FROM datasets ORDER BY dataset_id").fetchall()
+        return tuple(str(row[0]) for row in rows)
+
+    def reconcile(self, project_id: str, manifests: Iterable[DatasetManifest]) -> dict[str, object]:
+        items = tuple(manifests)
+        manifest_ids = {item.dataset_id for item in items}
+        catalog_ids = set(self.dataset_ids(project_id))
+        missing = sorted(manifest_ids - catalog_ids)
+        stale = sorted(catalog_ids - manifest_ids)
+        rebuilt = bool(missing or stale)
+        if rebuilt:
+            self.rebuild(project_id, items)
+        return {
+            "project_id": project_id,
+            "status": "rebuilt" if rebuilt else "consistent",
+            "manifest_count": len(manifest_ids),
+            "catalog_count_before": len(catalog_ids),
+            "missing_dataset_ids": missing,
+            "stale_dataset_ids": stale,
+            "rebuilt": rebuilt,
+        }
+
     def snapshot(self, project_id: str) -> dict[str, object]:
         path = self._path(project_id)
         if not path.exists():

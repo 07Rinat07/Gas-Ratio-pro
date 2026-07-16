@@ -78,6 +78,8 @@
   "import.dataset.success": "Набор данных «{source_name}» зарегистрирован.",
   "import.dataset.validation_blocked": "Импорт заблокирован проверкой данных.",
   "import.dataset.validation_warning": "Импорт завершён с предупреждениями: {count}.",
+  "import.validation.las.validation.legacy_encoding": "Обнаружена устаревшая кодировка LAS; файл прочитан в режиме совместимости.",
+  "import.validation.las.validation.nonstandard_data_delimiter": "Обнаружен нестандартный разделитель строк данных LAS.",
   "language.en": "English",
   "language.kk": "Қазақша",
   "language.label": "Язык",

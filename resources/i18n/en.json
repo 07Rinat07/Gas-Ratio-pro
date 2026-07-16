@@ -78,6 +78,8 @@
   "import.dataset.success": "Dataset “{source_name}” was registered.",
   "import.dataset.validation_blocked": "Import was blocked by data validation.",
   "import.dataset.validation_warning": "Import completed with warnings: {count}.",
+  "import.validation.las.validation.legacy_encoding": "A legacy LAS encoding was detected; the file was read in compatibility mode.",
+  "import.validation.las.validation.nonstandard_data_delimiter": "A non-standard LAS data-row delimiter was detected.",
   "language.en": "English",
   "language.kk": "Қазақша",
   "language.label": "Language",

@@ -37,3 +37,6 @@ Next:
 - Add detailed legacy LAS validation codes for WRAP, delimiters, malformed parameter cards and encoding anomalies.
 - Add SQLite metadata catalog projection.
 - Connect Dataset registration to the production LAS import workflow.
+
+### v222.29 — LAS import reconciliation and legacy diagnostics
+Implemented localized import feedback, SQLite reconciliation from immutable manifests, and encoding/delimiter diagnostics for archival LAS.

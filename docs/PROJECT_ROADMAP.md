@@ -1887,3 +1887,7 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Expose total, per-project and per-profile byte diagnostics.
 - [x] Keep existing project-level LRU and repository invalidation semantics intact.
 - [ ] Next: add an optional global byte budget and byte-aware eviction for unusually large full-search profiles.
+
+- [x] Localized LAS import result contract (ru/kk/en).
+- [x] Rebuild/reconcile SQLite metadata catalog from immutable manifests.
+- [x] Detect legacy LAS encodings and non-standard data delimiters with stable warning codes.

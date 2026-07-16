@@ -121,3 +121,6 @@ Principles:
 - Russian, Kazakh and English explanations are generated from the same language-neutral codes.
 
 Planned diagnostics include old section aliases, absent `VERS`, legacy `WRAP`, unusual delimiters, DOS/legacy encodings, malformed parameter cards, missing `NULL`, non-monotonic depth and inconsistent curve counts.
+
+### Archival LAS compatibility
+Support LAS older than 2.0, legacy encodings (including Windows-1251), shortened sections, and non-standard data delimiters through bounded tolerant scanning. Preserve original bytes and expose stable machine-readable diagnostics.
