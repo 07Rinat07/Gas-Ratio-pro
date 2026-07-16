@@ -256,3 +256,6 @@ The report panel no longer occupies most of the page by default. Printed PDF and
 
 ### v222.59 — Plot readability
 Завершён срочный инкремент читаемости планшетов: увеличена печатная типографика, устранено повторение легенды внутри изображения, сокращены длинные подписи треков и уменьшена высота экранных графиков. Следующий этап — Track Layout Engine с адаптивной шириной дорожек.
+
+### Hotfix v222.64
+Print Center снова открывается: устранён schema-drift между `streamlit_app.py` и `ReportDesign`.

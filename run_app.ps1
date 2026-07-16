@@ -51,9 +51,14 @@ if ($null -ne $owner) {
     }
 }
 
-Write-Host "Starting Gas Ratio Pro v222.63" -ForegroundColor Green
+Write-Host "Starting Gas Ratio Pro v222.64" -ForegroundColor Green
 Write-Host "Source: $ProjectRoot" -ForegroundColor Cyan
 Write-Host "URL: http://localhost:$Port" -ForegroundColor Cyan
+
+if ($ForceRestart) {
+    Get-ChildItem -Path $ProjectRoot -Directory -Recurse -Filter "__pycache__" -ErrorAction SilentlyContinue |
+        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+}
 
 $env:GAS_RATIO_PRO_LEGACY_UI = ""
 $env:GAS_RATIO_PRO_DIAGNOSTICS = if ($Diagnostics) { "1" } else { "" }

@@ -2201,3 +2201,5 @@ Next:
 - отсутствие дублирующей микролегенды внутри печатного изображения;
 - уменьшенная высота экранных depth-графиков;
 - подготовка к адаптивному Track Layout Engine.
+
+- [x] v222.64: ReportDesign schema compatibility and Print Center crash regression.

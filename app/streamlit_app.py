@@ -349,6 +349,7 @@ from reports.report_designer import (
     report_templates,
 )
 from reports.report_designer_export import build_designed_report_artifact
+from reports.report_design_compat import build_report_design
 from reports.pdf_preview import (
     PdfPreviewResult,
     PdfPreviewUnavailableError,
@@ -9984,7 +9985,7 @@ def _render_professional_export_panel(
                 "Расчётные результаты": "results",
                 "Заключение и ограничения": "conclusion",
             }
-            preview_design = ReportDesign(
+            preview_design = build_report_design(
                 mode_id=selected_mode.id,
                 template_id=selected_template.id,
                 title=str(report_title or "").strip(),
@@ -10187,7 +10188,7 @@ def _render_professional_export_panel(
             "Расчётные результаты": "results",
             "Заключение и ограничения": "conclusion",
         }
-        report_design = ReportDesign(
+        report_design = build_report_design(
             mode_id=selected_mode.id,
             template_id=selected_template.id,
             title=str(report_title or "").strip(),

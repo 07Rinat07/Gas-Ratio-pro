@@ -3164,3 +3164,8 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Длинное техническое имя `inverse_oil_indicator` заменено компактным отображаемым названием `Oil Inv.`.
 - Экранные графики по глубине стали компактнее по высоте и получили увеличенную легенду.
 - Сокращены верхние поля печатного планшета, чтобы увеличить полезную площадь графика.
+
+## v222.64 — ReportDesign compatibility hotfix
+- Исправлен аварийный запуск Print Center при несовпадении схемы `ReportDesign` и UI.
+- Добавлен совместимый конструктор, сохраняющий `document_locale` даже для соседней legacy-схемы.
+- Добавлена регрессия для точной ошибки `unexpected keyword argument document_locale`.
