@@ -3066,3 +3066,13 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added bounded background batch-import jobs and project-scoped JSONL history.
 - Added retry of failed items only and per-file readiness/result tables.
 - Updated import-wizard documentation in Russian, Kazakh, and English.
+
+
+## v222.51 — Recoverable import jobs and history operations
+
+- Persisted compact import job snapshots per project in `imports/jobs.json`.
+- Recovered queued/running jobs after restart as explicit `interrupted` jobs instead of silently re-running imports.
+- Added cancellation requests for queued/running jobs.
+- Added status/search filters and JSON/CSV export for import history.
+- Added safe staging cleanup that preserves files referenced by active jobs.
+- Updated RU/KK/EN Import Wizard instructions and regression coverage.

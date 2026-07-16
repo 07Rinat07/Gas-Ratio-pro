@@ -2073,3 +2073,19 @@ Next: QC history in Project Explorer, direct downloads, Dataset comparison badge
 - [x] Updated user documentation in ru/kk/en.
 
 Next: persistent job recovery after application restart, cancellation, and import-history filtering/export.
+
+
+## Import operations hardening — v222.51
+
+Completed:
+- durable project-scoped import job snapshots;
+- restart recovery into an explicit interrupted state;
+- queued/running cancellation contract;
+- history filters and JSON/CSV export;
+- staging cleanup with active-job protection.
+
+Next:
+- cooperative cancellation between individual batch items;
+- explicit resume workflow for interrupted jobs;
+- configurable retention and automatic cleanup;
+- Project Explorer import-history branch.

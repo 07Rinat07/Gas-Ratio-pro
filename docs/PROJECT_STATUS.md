@@ -1,3 +1,19 @@
+# Current increment: v222.51 — Recoverable import operations
+
+Implemented:
+- durable compact job snapshots in each project;
+- restart recovery as `interrupted` without hidden re-execution;
+- cancellation requests for active jobs;
+- filtered history and JSON/CSV export;
+- safe cleanup of unreferenced staging files;
+- synchronized RU/KK/EN Import Wizard documentation.
+
+Next:
+- cooperative per-file cancellation inside batch runners;
+- resumable jobs with explicit user confirmation;
+- retention policy for history and staging;
+- readiness dashboard and import-history navigation in Project Explorer.
+
 # Current increment: v222.42 — Interpretation export project-root bugfix
 
 - Interpretation Workspace export no longer references the undefined `PROJECTS_ROOT` global.

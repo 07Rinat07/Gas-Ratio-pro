@@ -281,11 +281,24 @@ class DataPlatformApplicationService:
     def get_import_job(self, job_id: str) -> dict[str, object]:
         return self.import_jobs.get(job_id).to_dict()
 
-    def list_import_jobs(self, *, project_id: str = "") -> tuple[dict[str, object], ...]:
-        return tuple(item.to_dict() for item in self.import_jobs.list(project_id=project_id))
+    def list_import_jobs(self, *, project_id: str = "", statuses: set[str] | None = None) -> tuple[dict[str, object], ...]:
+        return tuple(item.to_dict() for item in self.import_jobs.list(project_id=project_id, statuses=statuses))
 
-    def list_import_history(self, project_id: str, *, limit: int = 100) -> tuple[dict[str, object], ...]:
-        return self.import_jobs.history(project_id, limit=limit)
+    def cancel_import_job(self, job_id: str) -> dict[str, object]:
+        return self.import_jobs.cancel(job_id).to_dict()
+
+    def list_import_history(
+        self, project_id: str, *, limit: int = 100, statuses: set[str] | None = None, query: str = ""
+    ) -> tuple[dict[str, object], ...]:
+        return self.import_jobs.history(project_id, limit=limit, statuses=statuses, query=query)
+
+    def export_import_history(
+        self, project_id: str, *, format_id: str = "json", statuses: set[str] | None = None, query: str = ""
+    ) -> bytes:
+        return self.import_jobs.export_history(project_id, format_id=format_id, statuses=statuses, query=query)
+
+    def cleanup_import_staging(self, project_id: str, *, include_terminal: bool = True) -> dict[str, int]:
+        return self.import_jobs.cleanup_staging(project_id, include_terminal=include_terminal)
 
     def retry_failed_import_job(self, job_id: str, *, actor: str = "") -> dict[str, object]:
         return self.import_jobs.retry_failed(job_id, actor=actor).to_dict()

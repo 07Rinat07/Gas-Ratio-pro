@@ -17,3 +17,8 @@ Source files are preserved as immutable artifacts. Wizard state never contains f
 ## Batch import and background jobs
 
 In Data Workspace, open the Professional Import Wizard, select multiple files, and press Start import. Each file is processed independently. The jobs table shows status, progress, successful items, and failed items. A completed job can retry only its failed files. Terminal history is stored in the project at `imports/history.jsonl`.
+
+
+## Recovery, cancellation, and history
+
+After restart, an unfinished job becomes `interrupted` and is not silently executed again. The user may explicitly retry it. Active jobs can be cancelled. History supports filters, search, and JSON/CSV export. Staging cleanup removes only files that are not referenced by active jobs.

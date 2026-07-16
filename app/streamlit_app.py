@@ -7489,7 +7489,9 @@ def _render_professional_import_wizard(logger, active_project: ProjectRecord) ->
                     i18n("import.wizard.error"): item.get("error_code", ""),
                 } for item in items if isinstance(item, dict)]
                 st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
-            if int(latest.get("failed_count", 0) or 0) > 0 and st.button(
+            retryable = int(latest.get("failed_count", 0) or 0) > 0 or latest.get("status") == "interrupted"
+            action_columns = st.columns(2)
+            if retryable and action_columns[0].button(
                 i18n("import.wizard.retry"), key=f"professional_import_retry_{active_project.id}"
             ):
                 try:
@@ -7499,9 +7501,30 @@ def _render_professional_import_wizard(logger, active_project: ProjectRecord) ->
                 except Exception:
                     logger.exception("professional_import_retry_failed job_id=%s", latest.get("job_id"))
                     st.error(i18n("import.preview.panel.failed"))
+            if latest.get("status") in {"queued", "running", "cancel_requested"} and action_columns[1].button(
+                i18n("import.wizard.cancel"), key=f"professional_import_cancel_{active_project.id}"
+            ):
+                try:
+                    cancelled = service.cancel_import_job(str(latest["job_id"]))
+                    st.info(i18n("import.wizard.cancelled", status=cancelled.get("status", "")))
+                    st.rerun()
+                except Exception:
+                    logger.exception("professional_import_cancel_failed job_id=%s", latest.get("job_id"))
+                    st.error(i18n("import.preview.panel.failed"))
 
         st.markdown(f"**{i18n('import.wizard.history')}**")
-        history = list(service.list_import_history(active_project.id, limit=25))
+        filter_columns = st.columns([2, 2, 1, 1])
+        history_query = filter_columns[0].text_input(
+            i18n("import.wizard.history_search"), key=f"import_history_query_{active_project.id}"
+        )
+        status_options = ["completed", "failed", "cancelled", "interrupted"]
+        selected_statuses = set(filter_columns[1].multiselect(
+            i18n("import.wizard.history_status"), status_options,
+            key=f"import_history_status_{active_project.id}",
+        ))
+        history = list(service.list_import_history(
+            active_project.id, limit=100, statuses=(selected_statuses or None), query=history_query
+        ))
         if history:
             st.dataframe(pd.DataFrame([{
                 "job_id": item.get("job_id", ""),
@@ -7511,8 +7534,30 @@ def _render_professional_import_wizard(logger, active_project: ProjectRecord) ->
                 "created_at": item.get("created_at", ""),
                 "finished_at": item.get("finished_at", ""),
             } for item in history]), width="stretch", hide_index=True)
+            json_payload = service.export_import_history(
+                active_project.id, format_id="json", statuses=(selected_statuses or None), query=history_query
+            )
+            csv_payload = service.export_import_history(
+                active_project.id, format_id="csv", statuses=(selected_statuses or None), query=history_query
+            )
+            filter_columns[2].download_button(
+                "JSON", data=json_payload, file_name=f"{active_project.id}-import-history.json", mime="application/json",
+                key=f"import_history_json_{active_project.id}",
+            )
+            filter_columns[3].download_button(
+                "CSV", data=csv_payload, file_name=f"{active_project.id}-import-history.csv", mime="text/csv",
+                key=f"import_history_csv_{active_project.id}",
+            )
         else:
             st.caption(i18n("import.wizard.history_empty"))
+
+        if st.button(i18n("import.wizard.cleanup_staging"), key=f"import_cleanup_staging_{active_project.id}"):
+            cleanup = service.cleanup_import_staging(active_project.id)
+            st.success(i18n(
+                "import.wizard.cleanup_result",
+                count=cleanup.get("removed_files", 0),
+                size=cleanup.get("removed_bytes", 0),
+            ))
 
 def _render_subsurface_import_preview(logger, active_project: ProjectRecord) -> None:
     """Render bounded DLIS/LIS79/SEG-Y metadata preview outside tabular parsing."""
