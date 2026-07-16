@@ -82,13 +82,13 @@ from core.diagnostics import (
 from core.interpretation import INTERPRETATION_NOTE, add_interpretation, engineering_interval_summary
 from core.logging_config import configure_logging, safe_log_value
 from core.workbench_runtime_diagnostics import record_render_audit
+from core.runtime_service_registry import runtime_service_registry
 from core.workbench_context import WorkbenchSelectionService
 from core.application_state import ApplicationStateController
 from core.models import CalculationConfig, STANDARD_FIELDS
 from ui.ux_feedback import REPORT_EXPORT_PROGRESS, tooltip
 from ui.interpretation_interval_panel import (
     render_interpretation_interval_panel,
-    resolve_interpretation_id,
     resolve_interpretation_well_id,
 )
 from ui.interpretation_correlation_panel import render_interpretation_correlation_panel
@@ -141,8 +141,6 @@ from las_correlation import (
     curve_group_rows,
     curve_names_for_comparison,
     prepare_las_correlation_wells,
-    load_project_correlation_settings,
-    save_project_correlation_settings,
     settings_from_dict,
     settings_summary,
     settings_to_dict,
@@ -233,7 +231,10 @@ from core.hydrocarbon_intervals import detect_hydrocarbon_intervals
 from mapping.mapper import apply_mapping, auto_map_columns
 from palettes.config import load_palette_config
 from palettes.plot_engine import PLOTLY_SCREEN_CONFIG, downsample_frame_for_screen, enhance_screen_visibility
+from core.runtime_diagnostics import RuntimeDiagnostics
 from core.rerun_coordinator import begin_rerun_cycle, request_rerun
+from core.cache_metrics import CacheMetricsRegistry
+from core.correlation_runtime_cache import CorrelationRenderArtifacts
 from core.session_state_audit import audit_session_state
 from core.performance_audit import build_workspace_performance_gate, evaluate_performance
 from core.operation_tracing import OperationTraceRegistry, trace_context
@@ -328,7 +329,6 @@ from core.storage_lifecycle import IndexManager
 from projects import calculations as project_calculations
 from projects import exports as project_exports
 from projects import graph_settings as project_graph_settings
-from projects import interpretation_interval_display_settings as interval_display_settings
 from projects import datasets as project_datasets
 from projects import project_labels as project_labels
 from projects import project_index as project_index
@@ -395,7 +395,7 @@ from reports.export_controller import (
     ExportRequest,
     normalize_export_form_state,
 )
-from reports.background_export import ExportJobStatus
+from reports.background_export import BackgroundExportManager, ExportJobStatus
 from reports.background_export_ui import (
     BackgroundExportResult,
     build_background_export_performance_summary,
@@ -9071,9 +9071,16 @@ def _render_professional_export_panel(
         )
         state_controller = _application_state_controller()
         export_state = state_controller.state
+        cache_metrics_registry = state_controller.ensure_runtime_service(
+            "cache_metrics_registry",
+            CacheMetricsRegistry,
+            expected_type=CacheMetricsRegistry,
+            scope="session",
+        )
         pdf_preview_runtime_cache = application_service_container(export_state).pdf_preview(
             project_id=str(active_project.id),
             root=PROJECTS_ROOT,
+            metrics_registry=cache_metrics_registry,
         )
         # Migrate and immediately remove the legacy Session State payload.
         legacy_pdf_preview_cache = export_state.pop(pdf_preview_cache_key, None)
@@ -9087,12 +9094,12 @@ def _render_professional_export_panel(
                 migrated_entries,
             )
         background_state_key = f"background_export_metadata_{active_project.id}"
+        background_manager_key = f"background_export_manager_{active_project.id}"
         background_state = export_state.setdefault(background_state_key, {})
-        background_export = application_service_container(export_state).background_export(
-            project_id=str(active_project.id),
-            root=PROJECTS_ROOT,
-            metadata_state=background_state,
-            max_workers=1,
+        background_manager = state_controller.ensure_runtime_service(
+            background_manager_key,
+            lambda: BackgroundExportManager(background_state, max_workers=1),
+            expected_type=BackgroundExportManager,
         )
         normalized_form = normalize_export_form_state(
             export_state,
@@ -9852,7 +9859,8 @@ def _render_professional_export_panel(
                     retry_context = export_state.pop(background_retry_context_key, {})
                     if not isinstance(retry_context, dict):
                         retry_context = {}
-                    created_job = background_export.submit(
+                    created_job = background_manager.submit(
+                        project_id=str(active_project.id),
                         request_signature=current_export_request.selection_signature,
                         work=_background_work,
                         retry_of_job_id=str(retry_context.get("job_id", "")),
@@ -9871,7 +9879,7 @@ def _render_professional_export_panel(
                 except RuntimeError as exc:
                     st.warning(str(exc))
 
-        project_jobs = background_export.list()
+        project_jobs = background_manager.list(project_id=str(active_project.id))
         relevant_job = latest_relevant_job(
             project_jobs,
             request_signature=current_export_request.selection_signature,
@@ -9879,7 +9887,7 @@ def _render_professional_export_panel(
         if relevant_job is not None:
             status_view = build_background_export_status_view(
                 relevant_job,
-                artifact_available=background_export.result_available(relevant_job.id),
+                artifact_available=background_manager.result_available(relevant_job.id),
             )
             st.progress(status_view.progress / 100.0, text=status_view.detail or status_view.title)
             if status_view.level == "error":
@@ -9897,7 +9905,7 @@ def _render_professional_export_panel(
                 key=f"background_export_cancel_{active_project.id}_{relevant_job.id}",
                 width="stretch",
             ):
-                background_export.cancel(relevant_job.id)
+                background_manager.cancel(relevant_job.id)
                 _request_ui_refresh_and_rerun("background_export_cancel")
                 return
             if status_view.retryable and job_left.button(
@@ -9910,10 +9918,10 @@ def _render_professional_export_panel(
                     "job_id": relevant_job.id,
                     "reason": retry_diagnostic_reason(
                         relevant_job,
-                        artifact_available=background_export.result_available(relevant_job.id),
+                        artifact_available=background_manager.result_available(relevant_job.id),
                     ),
                 }
-                background_export.dismiss(relevant_job.id)
+                background_manager.dismiss(relevant_job.id)
                 export_state[repeat_autorun_key] = True
                 _request_ui_refresh_and_rerun("background_export_retry")
                 return
@@ -9925,7 +9933,7 @@ def _render_professional_export_panel(
         recent_job_history = build_recent_background_job_history(
             project_jobs,
             artifact_availability={
-                item.id: background_export.result_available(item.id) for item in project_jobs
+                item.id: background_manager.result_available(item.id) for item in project_jobs
             },
             limit=5,
         )
@@ -10032,7 +10040,7 @@ def _render_professional_export_panel(
                     ),
                     width="stretch",
                 ):
-                    removed_count = background_export.dismiss_terminal(
+                    removed_count = background_manager.dismiss_terminal(
                         project_id=str(active_project.id),
                         preserve_available_results=True,
                     )
@@ -10074,7 +10082,7 @@ def _render_professional_export_panel(
                         help="Удалить эту завершённую запись из истории.",
                         width="stretch",
                     ):
-                        background_export.dismiss(history_item.job_id)
+                        background_manager.dismiss(history_item.job_id)
                         _request_ui_refresh_and_rerun("background_export_dismiss_history")
                         return
                     if history_item.terminal and not history_item.dismissible:
@@ -10083,9 +10091,9 @@ def _render_professional_export_panel(
             if (
                 relevant_job is not None
                 and relevant_job.status is ExportJobStatus.COMPLETED
-                and background_export.result_available(relevant_job.id)
+                and background_manager.result_available(relevant_job.id)
             ):
-                completed = background_export.pop_result(relevant_job.id)
+                completed = background_manager.pop_result(relevant_job.id)
                 if not isinstance(completed, BackgroundExportResult):
                     raise RuntimeError("Фоновый экспорт вернул неподдерживаемый тип результата.")
                 export_artifact = completed.artifact
@@ -10160,7 +10168,7 @@ def _render_professional_export_panel(
                     len(export_artifact.content),
                     float(export_metrics.get("duration_ms", 0.0)),
                 )
-                background_export.dismiss(relevant_job.id)
+                background_manager.dismiss(relevant_job.id)
 
         cached_export = _application_state_controller().state.get(export_cache_key)
         cached_matches_controls = (
@@ -10680,26 +10688,21 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     manual_overlays = ()
     selected_manual_interval_id = ""
     try:
-        manual_interpretation_id = resolve_interpretation_id(
-            state_controller.state,
-            project_id=str(active_project.id),
-            well_id=manual_well_id,
-        )
         interpretation_workspace = application_service_container(
             state_controller.state
         ).interpretation_workspace(
             project_id=str(active_project.id),
-            root=PROJECTS_ROOT,
+            root=LAS_CORRELATION_PROJECTS_ROOT,
         )
         manual_intervals = interpretation_workspace.list_intervals(
             state=state_controller.state,
             well_id=manual_well_id,
-            interpretation_id=manual_interpretation_id,
+            interpretation_id="default",
         )
         raw_manual_overlays = manual_interval_overlays(manual_intervals)
-        persisted_overlay_settings = interval_display_settings.load_interpretation_interval_display_settings(
-            project_id=str(active_project.id),
+        persisted_overlay_settings = interpretation_workspace.load_display_settings(
             well_id=manual_well_id,
+            interpretation_id="default",
         )
         manual_overlay_visible = persisted_overlay_settings.visible
         manual_overlay_opacity = persisted_overlay_settings.opacity
@@ -10794,9 +10797,15 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         overlay_visible_key = f"interpretation_manual_overlay_visible_{overlay_scope}"
         overlay_opacity_key = f"interpretation_manual_overlay_opacity_{overlay_scope}"
         application_state = _application_state_controller().state
-        persisted_overlay_settings = interval_display_settings.load_interpretation_interval_display_settings(
+        interpretation_workspace = application_service_container(
+            application_state
+        ).interpretation_workspace(
             project_id=str(active_project.id),
+            root=LAS_CORRELATION_PROJECTS_ROOT,
+        )
+        persisted_overlay_settings = interpretation_workspace.load_display_settings(
             well_id=manual_well_id,
+            interpretation_id="default",
         )
         if overlay_visible_key not in application_state:
             application_state[overlay_visible_key] = persisted_overlay_settings.visible
@@ -10815,16 +10824,15 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             key=overlay_opacity_key,
             disabled=not manual_overlay_visible,
         ))
-        updated_overlay_settings = interval_display_settings.normalize_interval_display_settings(
+        updated_overlay_settings = interpretation_workspace.save_display_settings(
+            well_id=manual_well_id,
+            interpretation_id="default",
             visible=manual_overlay_visible,
             opacity=manual_overlay_opacity,
-        )
-        if updated_overlay_settings != persisted_overlay_settings:
-            interval_display_settings.save_interpretation_interval_display_settings(
-                updated_overlay_settings,
-                project_id=str(active_project.id),
-                well_id=manual_well_id,
-            )
+        ) if (
+            manual_overlay_visible != persisted_overlay_settings.visible
+            or manual_overlay_opacity != persisted_overlay_settings.opacity
+        ) else persisted_overlay_settings
         manual_overlays = configure_manual_interval_overlays(
             manual_interval_overlays(manual_intervals),
             visible=manual_overlay_visible,
@@ -10922,9 +10930,15 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     # bottom of a long interpretation page.
     state_controller = _application_state_controller()
     revision_snapshot = revision_controller_from_state(state_controller.state).snapshot
+    cache_metrics_registry = state_controller.ensure_runtime_service(
+        "cache_metrics_registry",
+        CacheMetricsRegistry,
+        expected_type=CacheMetricsRegistry,
+    )
     presentation_service = application_service_container(state_controller.state).interpretation_presentation(
         project_id=str(active_project.id),
         root=LAS_CORRELATION_PROJECTS_ROOT,
+        metrics_registry=cache_metrics_registry,
     )
     calculated_signature = presentation_service.dataframe_signature(
         calculated_df,
@@ -11211,10 +11225,10 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         selected_manual_interval_id,
     )
     state = state_controller.state
-    runtime_diagnostics = application_service_container(
-        state_controller.state
-    ).runtime_diagnostics(root=LAS_CORRELATION_PROJECTS_ROOT).runtime_events(
-        "interpretation.presentation", max_events=64
+    runtime_diagnostics = state_controller.ensure_runtime_service(
+        "runtime_diagnostics",
+        lambda: RuntimeDiagnostics(max_events=64),
+        expected_type=RuntimeDiagnostics,
     )
     performance_cycle_marker = runtime_diagnostics.mark()
     cache_lookup_started = perf_counter()
@@ -12440,10 +12454,12 @@ def _render_project_explorer(project: ProjectRecord, logger) -> None:
 
 def _load_project_las_correlation_settings(project_id: str) -> LasCorrelationSettings | None:
     try:
-        return load_project_correlation_settings(
-            root=LAS_CORRELATION_PROJECTS_ROOT,
+        return application_service_container(
+            _application_state_controller().state
+        ).las_workspace(
             project_id=project_id,
-        )
+            root=LAS_CORRELATION_PROJECTS_ROOT,
+        ).load_correlation_settings()
     except Exception:
         st.warning("Не удалось прочитать настройки проекта. Проверьте файл настроек.")
         return None
@@ -14679,11 +14695,12 @@ def _render_las_correlation_settings_saver(settings: LasCorrelationSettings, pro
         project_col, session_col = st.columns(2)
         if project_col.button("Сохранить в проект", width="stretch", key="las_correlation_save_project_settings"):
             try:
-                save_project_correlation_settings(
-                    settings,
-                    root=LAS_CORRELATION_PROJECTS_ROOT,
+                application_service_container(
+                    controller.state
+                ).las_workspace(
                     project_id=project_id,
-                )
+                    root=LAS_CORRELATION_PROJECTS_ROOT,
+                ).save_correlation_settings(settings)
                 controller.set_value(_project_settings_session_key(project_id), settings_to_dict(settings))
                 st.success("Настройки корреляции сохранены в проект.")
             except Exception:
@@ -15021,17 +15038,23 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         tuple(sorted((str(key), repr(value)) for key, value in applied_correlation.studio_settings.items())),
     )
     correlation_state_controller = _application_state_controller()
-    correlation_diagnostics = application_service_container(
-        correlation_state_controller.state
-    ).runtime_diagnostics(root=LAS_CORRELATION_PROJECTS_ROOT).runtime_events(
-        "correlation.presentation", max_events=128
+    correlation_diagnostics = correlation_state_controller.ensure_runtime_service(
+        "runtime_diagnostics",
+        lambda: RuntimeDiagnostics(max_events=128),
+        expected_type=RuntimeDiagnostics,
     )
     correlation_cycle_marker = correlation_diagnostics.mark()
+    cache_metrics_registry = correlation_state_controller.ensure_runtime_service(
+        "cache_metrics_registry",
+        CacheMetricsRegistry,
+        expected_type=CacheMetricsRegistry,
+    )
     correlation_presentation_service = application_service_container(
         correlation_state_controller.state
     ).correlation_presentation(
         project_id=active_project.id,
         root=LAS_CORRELATION_PROJECTS_ROOT,
+        metrics_registry=cache_metrics_registry,
     )
     operation_trace_registry = correlation_state_controller.ensure_runtime_service(
         "operation_trace_registry",
@@ -15133,13 +15156,15 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
                 figure_title = "Gas Ratio Interpreter - LAS correlation"
                 figure_file_name = "las_correlation"
         cache_store_started = perf_counter()
-        correlation_presentation_service.put_artifacts(
+        correlation_presentation_service.put(
             figure_cache_key,
-            studio_panel=studio_panel,
-            studio_figure=studio_figure,
-            figure=figure,
-            figure_title=figure_title,
-            figure_file_name=figure_file_name,
+            CorrelationRenderArtifacts(
+                studio_panel=studio_panel,
+                studio_figure=studio_figure,
+                figure=figure,
+                figure_title=figure_title,
+                figure_file_name=figure_file_name,
+            ),
         )
         correlation_diagnostics.record(
             stage="correlation.cache_store",
@@ -15508,12 +15533,27 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
         navigation_reason = "not-required"
         navigation_token_ms = 0.0
         navigation_metadata_files = 0
+        diagnostics_registry = runtime_service_registry(state)
         diagnostics_service = application_service_container(state).runtime_diagnostics(
             root=LAS_CORRELATION_PROJECTS_ROOT
         )
-        repository_metrics = diagnostics_service.subscribe_project_cache_coherence(
-            "workbench_project_cache_coherence",
-            active_project_id=lambda: str(getattr(active_project, "id", "") or ""),
+
+        def _invalidate_project_runtime_caches(event: dict[str, Any]) -> None:
+            changed_project = str(event.get("project_id") or "")
+            if not changed_project:
+                return
+            navigation_cache_service = diagnostics_registry.get("project_navigation_runtime_cache")
+            if navigation_cache_service is not None:
+                navigation_cache_service.invalidate(
+                    changed_project, reason=f"repository-{event.get('operation', 'mutation')}"
+                )
+            active_id = str(getattr(active_project, "id", "") or "")
+            dataframe_cache_service = diagnostics_registry.get("dataframe_runtime_cache")
+            if dataframe_cache_service is not None and active_id == changed_project:
+                dataframe_cache_service.clear()
+
+        repository_metrics = diagnostics_service.subscribe_repository_mutations(
+            "workbench_project_cache_coherence", _invalidate_project_runtime_caches
         )
         if PROJECT_RECORD in requirements:
             active_project = data_timer.measure_project(lambda: _resolve_active_project_for_workbench(logger))
@@ -15850,7 +15890,7 @@ def _process_workbench_property_action(logger) -> None:
 def _run_modern_workbench() -> None:
     """Render Modern Workbench and record lightweight startup stage timings."""
 
-    from core.startup_diagnostics import StartupTimer
+    from core.startup_diagnostics import StartupDiagnostics, StartupTimer
 
     startup_timer = StartupTimer()
     st.set_page_config(page_title="Gas Ratio Pro", page_icon=_app_icon_data_uri() or None, layout="wide")
@@ -15863,13 +15903,16 @@ def _run_modern_workbench() -> None:
     state_controller = _application_state_controller()
     startup_timer.mark("state_controller")
 
-    diagnostics_service = application_service_container(
-        state_controller.state
-    ).runtime_diagnostics(root=LAS_CORRELATION_PROJECTS_ROOT)
+    registry = runtime_service_registry(state_controller.state)
+    from core.workbench_route_lifecycle import WorkbenchRouteLifecycle
+    route_lifecycle = registry.ensure(
+        "workbench_route_lifecycle", WorkbenchRouteLifecycle,
+        expected_type=WorkbenchRouteLifecycle, scope="session",
+    )
     current_route = str(
         state_controller.state.get("workbench.interaction.active_navigation_id") or "nav.dashboard"
     )
-    transition = diagnostics_service.activate_workbench_route(current_route)
+    transition = route_lifecycle.activate(current_route, registry)
     startup_timer.mark("route_lifecycle")
 
     begin_rerun_cycle(state_controller.state)
@@ -15886,8 +15929,11 @@ def _run_modern_workbench() -> None:
     results = render_streamlit_workbench(state_controller.state, st)
     startup_timer.mark("workbench_render")
 
+    startup_diagnostics = registry.ensure(
+        "startup_diagnostics", StartupDiagnostics, expected_type=StartupDiagnostics, scope="session"
+    )
     context = state_controller.context()
-    startup_record = diagnostics_service.record_startup_cycle(
+    startup_record = startup_diagnostics.record_cycle(
         startup_timer.finish(),
         route_id=str(state_controller.state.get("workbench.interaction.active_navigation_id") or ""),
         project_id=str(context.project_id or ""),

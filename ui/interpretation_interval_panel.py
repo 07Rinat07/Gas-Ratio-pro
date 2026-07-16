@@ -49,7 +49,6 @@ from projects.interpretation_interval_type_operation_exports import (
     export_type_operations_xlsx,
 )
 from projects.repository import DEFAULT_PROJECTS_ROOT
-from projects.interpretation_intervals import DEFAULT_INTERPRETATION_ID
 
 
 DEFAULT_MANUAL_WELL_ID = "active-well"
@@ -67,18 +66,6 @@ def resolve_interpretation_well_id(state: MutableMapping[str, Any]) -> str:
         if contract_well_id:
             return contract_well_id
     return DEFAULT_MANUAL_WELL_ID
-
-
-def resolve_interpretation_id(
-    state: MutableMapping[str, Any],
-    *,
-    project_id: str,
-    well_id: str,
-) -> str:
-    """Resolve the interpretation selected by the interval workspace UI."""
-
-    selector_key = f"manual_interval_interpretation_selector_{project_id}_{well_id}"
-    return str(state.get(selector_key, DEFAULT_INTERPRETATION_ID) or DEFAULT_INTERPRETATION_ID)
 
 
 def render_interpretation_interval_panel(

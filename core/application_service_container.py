@@ -208,31 +208,6 @@ class ApplicationServiceContainer:
             expected_type=InterpretationCorrelationApplicationService,
         )
 
-    def background_export(
-        self,
-        *,
-        project_id: str,
-        root: Path | str,
-        metadata_state: MutableMapping[str, Any],
-        max_workers: int = 1,
-    ):
-        """Resolve the project-scoped background export runtime."""
-        from services.background_export_application_service import (
-            BackgroundExportApplicationService,
-        )
-
-        return self.ensure_project_service(
-            service_name="background_export",
-            project_id=project_id,
-            root=root,
-            factory=lambda: BackgroundExportApplicationService(
-                metadata_state,
-                project_id=project_id,
-                max_workers=max_workers,
-            ),
-            expected_type=BackgroundExportApplicationService,
-        )
-
     def presentation_export(
         self,
         *,
@@ -278,18 +253,6 @@ class ApplicationServiceContainer:
         )
 
 
-    def _cache_metrics_registry(self, *, root: Path | str, override=None):
-        """Resolve shared cache telemetry without exposing runtime infrastructure to UI."""
-        if override is not None:
-            return override
-        from services.runtime_diagnostics_application_service import (
-            RuntimeDiagnosticsApplicationService,
-        )
-
-        return RuntimeDiagnosticsApplicationService(
-            root=root, registry=self._registry
-        ).cache_metrics()
-
     def pdf_preview(
         self,
         *,
@@ -302,10 +265,6 @@ class ApplicationServiceContainer:
             PdfPreviewApplicationService,
         )
 
-        effective_metrics = self._cache_metrics_registry(
-            root=root, override=metrics_registry
-        )
-
         return self.ensure_project_service(
             service_name="pdf_preview",
             project_id=project_id,
@@ -313,7 +272,7 @@ class ApplicationServiceContainer:
             factory=lambda: PdfPreviewApplicationService(
                 root=root,
                 project_id=project_id,
-                metrics_registry=effective_metrics,
+                metrics_registry=metrics_registry,
             ),
             expected_type=PdfPreviewApplicationService,
         )
@@ -329,10 +288,6 @@ class ApplicationServiceContainer:
             CorrelationPresentationApplicationService,
         )
 
-        effective_metrics = self._cache_metrics_registry(
-            root=root, override=metrics_registry
-        )
-
         return self.ensure_project_service(
             service_name="correlation_presentation",
             project_id=project_id,
@@ -340,7 +295,7 @@ class ApplicationServiceContainer:
             factory=lambda: CorrelationPresentationApplicationService(
                 root=root,
                 project_id=project_id,
-                metrics_registry=effective_metrics,
+                metrics_registry=metrics_registry,
             ),
             expected_type=CorrelationPresentationApplicationService,
         )
@@ -356,10 +311,6 @@ class ApplicationServiceContainer:
             InterpretationPresentationApplicationService,
         )
 
-        effective_metrics = self._cache_metrics_registry(
-            root=root, override=metrics_registry
-        )
-
         return self.ensure_project_service(
             service_name="interpretation_presentation",
             project_id=project_id,
@@ -367,7 +318,7 @@ class ApplicationServiceContainer:
             factory=lambda: InterpretationPresentationApplicationService(
                 root=root,
                 project_id=project_id,
-                metrics_registry=effective_metrics,
+                metrics_registry=metrics_registry,
             ),
             expected_type=InterpretationPresentationApplicationService,
         )

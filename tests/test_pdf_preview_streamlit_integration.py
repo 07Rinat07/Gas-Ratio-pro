@@ -48,8 +48,7 @@ def test_pdf_preview_ui_contains_opt_in_adjacent_range_prefetch() -> None:
     assert "pdf_preview_runtime_cache.store(" in source
     assert "pdf_preview_runtime_cache.inspect(" in source
     assert "pdf_preview_prefetched" in source
-    assert "metrics_registry=cache_metrics_registry" not in source
-    assert "CacheMetricsRegistry" not in source
+    assert "metrics_registry=cache_metrics_registry" in source
 
 
 def test_pdf_preview_cache_and_prefetch_telemetry_are_logged() -> None:

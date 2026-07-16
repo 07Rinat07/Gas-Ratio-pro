@@ -21,6 +21,12 @@ from projects.interpretation_publication import InterpretationPublicationService
 from projects.interpretation_interval_filter_presets import InterpretationIntervalFilterPresetRepository
 from projects.interpretation_interval_types import InterpretationIntervalTypeRepository
 from projects.interpretation_revisions import InterpretationRevisionRepository
+from projects.interpretation_interval_display_settings import (
+    InterpretationIntervalDisplaySettings,
+    load_interpretation_interval_display_settings,
+    normalize_interval_display_settings,
+    save_interpretation_interval_display_settings,
+)
 from projects.repository import DEFAULT_PROJECTS_ROOT, safe_project_id
 from projects.well_cards import safe_well_id
 from projects.interpretation_intervals import _safe_interpretation_id
@@ -127,26 +133,6 @@ class InterpretationWorkspaceApplicationService:
             )
         return self._managers[key]
 
-    def list_intervals(
-        self,
-        *,
-        state: MutableMapping[str, Any],
-        well_id: str,
-        interpretation_id: str,
-    ) -> tuple[Any, ...]:
-        """Return intervals through an explicit application-layer query.
-
-        Presentation code must not construct or retain an
-        ``InterpretationIntervalManager`` merely to read interval overlays.
-        The manager remains an internal coordination dependency owned by this
-        project-scoped application service.
-        """
-        return self.interval_manager(
-            state=state,
-            well_id=well_id,
-            interpretation_id=interpretation_id,
-        ).list_intervals()
-
     def interval_properties(
         self,
         *,
@@ -229,6 +215,52 @@ class InterpretationWorkspaceApplicationService:
             conflict_policy=conflict_policy,
             reject_overlaps=reject_overlaps,
         )
+
+
+    def list_intervals(
+        self,
+        *,
+        state: MutableMapping[str, Any],
+        well_id: str,
+        interpretation_id: str,
+    ):
+        """Return manual intervals without exposing the coordination manager to UI code."""
+        return self.interval_manager(
+            state=state, well_id=well_id, interpretation_id=interpretation_id
+        ).list_intervals()
+
+    def load_display_settings(
+        self,
+        *,
+        well_id: str,
+        interpretation_id: str,
+    ) -> InterpretationIntervalDisplaySettings:
+        return load_interpretation_interval_display_settings(
+            root=self.root,
+            project_id=self.project_id,
+            well_id=safe_well_id(well_id),
+            interpretation_id=_safe_interpretation_id(interpretation_id),
+        )
+
+    def save_display_settings(
+        self,
+        *,
+        well_id: str,
+        interpretation_id: str,
+        visible: object,
+        opacity: object,
+    ) -> InterpretationIntervalDisplaySettings:
+        normalized = normalize_interval_display_settings(
+            visible=visible, opacity=opacity
+        )
+        save_interpretation_interval_display_settings(
+            normalized,
+            root=self.root,
+            project_id=self.project_id,
+            well_id=safe_well_id(well_id),
+            interpretation_id=_safe_interpretation_id(interpretation_id),
+        )
+        return normalized
 
     def health_snapshot(self) -> dict[str, Any]:
         return {

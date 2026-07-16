@@ -1,44 +1,3 @@
-
-## Unreleased — Background export application boundary
-
-- Added project-scoped `BackgroundExportApplicationService`.
-- Moved ownership of `BackgroundExportManager`, executor, futures, cancellation events, and process-local results out of Streamlit UI.
-- Added project ownership validation for cancellation, result handoff, and history cleanup operations.
-- Added lazy resolution through `ApplicationServiceContainer.background_export(...)`.
-- Added architecture and regression tests for the new UI → Application Service boundary.
-
-
-## Runtime diagnostics lifecycle boundary
-
-- Removed the remaining direct `RuntimeServiceRegistry` access from the main Streamlit UI.
-- Centralized Workbench route lifecycle activation and startup-cycle recording in `RuntimeDiagnosticsApplicationService`.
-- Moved repository-mutation cache coherence lookup and invalidation behind the diagnostics application boundary.
-- Added architecture and lifecycle regression tests for route transitions, startup diagnostics, and cache coherence.
-
-## Unreleased — Runtime diagnostics event-channel boundary
-
-- Added channel-scoped, session-lifecycle `RuntimeDiagnostics` collectors behind `RuntimeDiagnosticsApplicationService`.
-- Removed direct `RuntimeDiagnostics` construction from interpretation and correlation Streamlit presentation paths.
-- Isolated bounded diagnostic ring buffers by explicit channel while keeping live collectors outside serializable session state.
-- Extended lightweight health diagnostics with the number of active runtime event channels.
-- Added lifecycle, validation, architecture, and presentation regression coverage.
-
-
-## Unreleased — Presentation cache dependency boundary hardening
-
-- Cache telemetry resolution for PDF preview, interpretation presentation, and correlation presentation is now owned by `ApplicationServiceContainer`.
-- Streamlit UI no longer imports or constructs `CacheMetricsRegistry`.
-- Correlation UI no longer imports the runtime-cache DTO; render artifacts are created through `CorrelationPresentationApplicationService.put_artifacts()`.
-- `RuntimeDiagnosticsApplicationService` now exposes the shared session-scoped cache telemetry registry and reports its readiness.
-- Added architecture and regression tests for the centralized dependency boundary.
-
-
-## Unreleased — Interpretation overlay application boundary
-
-- Removed the remaining direct `InterpretationIntervalManager` construction from the Streamlit interpretation tablet.
-- Added an explicit `InterpretationWorkspaceApplicationService.list_intervals()` query for presentation overlays.
-- Reused the interpretation selected in the interval workspace when loading tablet overlays, preventing default-scope drift.
-- Added architecture and scope regression tests for the UI → Application Service boundary.
 ## Application service boundary hardening — Modern Workbench
 
 ## 2026-07-15 — Interpretation coordination service lifecycle hardening
@@ -2775,3 +2734,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Preserved optional explicit metrics injection for isolated tests and specialized integrations.
 - Ensured correlation services across projects reuse the single session-scoped telemetry collector.
 - Added architecture and lifecycle tests for the diagnostics dependency boundary.
+
+## 2026-07-16 — Project presentation settings application boundary
+
+- Moved LAS correlation settings persistence behind `LasWorkspaceApplicationService`.
+- Moved manual interpretation interval listing and overlay display settings behind `InterpretationWorkspaceApplicationService`.
+- Removed direct `InterpretationIntervalManager` and interpretation display-settings persistence access from Streamlit UI.
+- Added typed validation for correlation settings and centralized project/well/interpretation scoping.
+- Added application-boundary, round-trip, normalization, and UI architecture tests.

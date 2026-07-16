@@ -6,6 +6,11 @@ from typing import Any
 
 from projects.repository import DEFAULT_PROJECTS_ROOT, safe_project_id
 from services.las_manager_service import LasManagerService
+from las_correlation.settings import LasCorrelationSettings
+from las_correlation.settings_store import (
+    load_project_correlation_settings,
+    save_project_correlation_settings,
+)
 
 
 class LasWorkspaceApplicationService:
@@ -52,6 +57,19 @@ class LasWorkspaceApplicationService:
 
     def export_zip(self, las_file_ids, formats=("LAS", "CSV", "XLSX")) -> bytes:
         return self._manager.export_zip(self.project_id, las_file_ids, formats=formats)
+
+
+    def load_correlation_settings(self) -> LasCorrelationSettings | None:
+        """Load project-scoped LAS correlation settings through the application boundary."""
+        return load_project_correlation_settings(root=self.root, project_id=self.project_id)
+
+    def save_correlation_settings(self, settings: LasCorrelationSettings):
+        """Persist project-scoped LAS correlation settings through the application boundary."""
+        if not isinstance(settings, LasCorrelationSettings):
+            raise TypeError("settings must be LasCorrelationSettings")
+        return save_project_correlation_settings(
+            settings, root=self.root, project_id=self.project_id
+        )
 
     def health_snapshot(self) -> dict[str, Any]:
         return {"service": type(self).__name__, "project_id": self.project_id, "root": str(self.root.resolve()), "files": len(self.list_files(include_archived=True))}
