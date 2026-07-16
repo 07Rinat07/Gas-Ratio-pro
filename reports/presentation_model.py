@@ -107,6 +107,11 @@ class PresentationModel:
         return self.engineering_tables + self.technical_tables
 
 
+def _track_chunks(columns: Sequence[str], size: int = 5) -> tuple[tuple[str, ...], ...]:
+    clean = tuple(str(c) for c in columns if str(c))
+    return tuple(clean[i:i + max(1, size)] for i in range(0, len(clean), max(1, size))) or ((),)
+
+
 def build_presentation_model(
     *,
     result: HydrocarbonIntervalResult,
@@ -136,7 +141,7 @@ def build_presentation_model(
     if include_plot and source_df is not None and not source_df.empty:
         cfg = plot_config or WellLogPlotConfig(depth_column=depth_column)
         overview_cfg = WellLogPlotConfig(
-            depth_column=cfg.depth_column, track_columns=cfg.track_columns,
+            depth_column=cfg.depth_column, track_columns=tuple(cfg.track_columns[:6]),
             max_points_per_track=cfg.max_points_per_track, height=cfg.height,
             title=cfg.title, show_interval_track=cfg.show_interval_track,
             auto_crop_to_active_data=cfg.auto_crop_to_active_data,
@@ -150,19 +155,22 @@ def build_presentation_model(
         groups = group_intervals_for_report(result.intervals, max_groups=max_groups) if len(result.intervals) > 1 else ()
         for group in groups:
             fluids = ", ".join(dict.fromkeys(FLUID_PLOT_LABELS.get(str(i.fluid_type), str(i.fluid_type)) for i in group.intervals))
-            detail_cfg = WellLogPlotConfig(
-                depth_column=cfg.depth_column, track_columns=cfg.track_columns,
-                max_points_per_track=min(cfg.max_points_per_track, 1400), height=max(cfg.height, 900),
-                title=f"Детальный планшет {group.index}: {group.top:g}–{group.base:g} м",
-                show_interval_track=True, auto_crop_to_active_data=False,
-                max_interval_overlays=max(4, len(group.intervals) + 1),
-                crop_top=group.top, crop_base=group.base,
-                crop_padding_m=adaptive_detail_padding(group.top, group.base),
-                report_kind="detail",
-                report_title=f"Интервал {group.index}: {group.top:g}–{group.base:g} м · {fluids}",
-                report_group_index=group.index,
-            )
-            detail_results.append(build_professional_well_log_plot(source_df, group.intervals, config=detail_cfg))
+            chunks = _track_chunks(cfg.track_columns, 5)
+            for part_index, track_chunk in enumerate(chunks, start=1):
+                part_suffix = f" · часть {part_index}/{len(chunks)}" if len(chunks) > 1 else ""
+                detail_cfg = WellLogPlotConfig(
+                    depth_column=cfg.depth_column, track_columns=track_chunk,
+                    max_points_per_track=min(cfg.max_points_per_track, 1400), height=max(cfg.height, 1100),
+                    title=f"Детальный планшет {group.index}{part_suffix}: {group.top:g}–{group.base:g} м",
+                    show_interval_track=True, auto_crop_to_active_data=False,
+                    max_interval_overlays=max(4, len(group.intervals) + 1),
+                    crop_top=group.top, crop_base=group.base,
+                    crop_padding_m=adaptive_detail_padding(group.top, group.base),
+                    report_kind="detail",
+                    report_title=f"Интервал {group.index}: {group.top:g}–{group.base:g} м · {fluids}{part_suffix}",
+                    report_group_index=group.index, layout_profile="print", show_curve_legend=False,
+                )
+                detail_results.append(build_professional_well_log_plot(source_df, group.intervals, config=detail_cfg))
 
     return PresentationModel(
         result=result,

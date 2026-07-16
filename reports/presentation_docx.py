@@ -320,16 +320,16 @@ def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
     _add_report_legend_table(doc, "Маркеры интервалов", list(legend.get("markers", []) or []))
     try:
         if hasattr(figure, "to_image"):
-            png = figure.to_image(format="png", width=2600, height=1700, scale=1)
+            png = figure.to_image(format="png", width=3200, height=2200, scale=1)
         elif hasattr(figure, "write_image"):
             buffer = BytesIO()
-            figure.write_image(buffer, format="png", width=2600, height=1700)
+            figure.write_image(buffer, format="png", width=3200, height=2200)
             png = buffer.getvalue()
         else:
             raise TypeError("Figure backend does not support raster export")
         paragraph = doc.add_paragraph()
         paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        paragraph.add_run().add_picture(BytesIO(png), width=Inches(7.0))
+        paragraph.add_run().add_picture(BytesIO(png), width=Inches(7.35))
     except Exception as exc:
         paragraph = doc.add_paragraph()
         paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER

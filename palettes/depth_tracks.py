@@ -10,15 +10,15 @@ from palettes.plot_engine import (
     engineering_hover, normalize_trace_style,
 )
 
-ENGINEERING_GRAPH_MARGIN = {"l": 82, "r": 30, "t": 92, "b": 58}
+ENGINEERING_GRAPH_MARGIN = {"l": 82, "r": 30, "t": 126, "b": 64}
 ENGINEERING_LEGEND = {
     **dict(LEGEND_HORIZONTAL),
-    "y": 1.13,
+    "y": 1.015,
     "yanchor": "bottom",
     "x": 0.0,
     "xanchor": "left",
     "bgcolor": "rgba(11,18,32,0.96)",
-    "font": {"size": 13},
+    "font": {"size": 12},
 }
 
 CURVE_LABELS = {
@@ -181,9 +181,16 @@ def _build_depth_tracks(df, columns, title, x_title, *, depth_range=None, x_rang
         ))
     _add_interval_overlays(fig, reservoir_intervals, selected_interval_id)
     _add_curve_legend(fig, active_columns)
-    apply_engineering_layout(fig, title=title, height=height, margin=ENGINEERING_GRAPH_MARGIN,
-                             legend=ENGINEERING_LEGEND, hovermode="y unified")
-    fig.update_xaxes(title=x_title, zeroline=False)
+    apply_engineering_layout(
+        fig,
+        title={"text": title, "x": 0.0, "xanchor": "left", "y": 0.995, "yanchor": "top", "font": {"size": 17}},
+        height=height,
+        margin=ENGINEERING_GRAPH_MARGIN,
+        legend=ENGINEERING_LEGEND,
+        hovermode="y unified",
+    )
+    fig.update_xaxes(title=x_title, zeroline=False, title_font={"size": 14}, tickfont={"size": 11})
+    fig.update_yaxes(title_font={"size": 14}, tickfont={"size": 11})
     if x_range is not None:
         fig.update_xaxes(range=list(x_range))
     top_depth, bottom_depth = (float(depth.min()), float(depth.max())) if depth_range is None else depth_range

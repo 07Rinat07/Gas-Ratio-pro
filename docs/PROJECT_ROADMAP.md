@@ -1,4 +1,6 @@
 
+- [x] M3-S01.4: collision-free screen headers and grouped print tablets (v222.62).
+
 ## M3-S01.2 — Track Layout Engine Foundation — завершено
 
 - [x] Семантические ширины дорожек.

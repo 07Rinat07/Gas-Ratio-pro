@@ -88,6 +88,7 @@ class WellLogPlotConfig:
     report_title: str = ""
     report_group_index: int = 0
     layout_profile: str = "print"
+    show_curve_legend: bool = False
 
 
 
@@ -420,7 +421,7 @@ def build_professional_well_log_plot(
                 x=values,
                 y=depth,
                 mode="lines",
-                name=CURVE_PRINT_SPECS.get(column, {}).get("label", column),
+                name=(f"{CURVE_PRINT_SPECS.get(column, {}).get('label', column)} — {CURVE_PRINT_SPECS.get(column, {}).get('description', 'Расчётная кривая')}"),
                 line={"width": max(float(THEME.line_width), 2.8), "color": CURVE_PRINT_SPECS.get(column, {}).get("color", "#334155")},
                 connectgaps=False,
                 hovertemplate=engineering_hover(column),
@@ -572,8 +573,8 @@ def build_professional_well_log_plot(
     is_screen = profile == "screen"
     title_size = track_title_font_size(len(column_titles), profile=profile)
     apply_engineering_layout(
-        fig, title=cfg.title, height=max(cfg.height, 620 if is_screen else 980),
-        margin={"l": 76 if is_screen else 92, "r": 24 if is_screen else 34, "t": 74 if is_screen else 104, "b": 58 if is_screen else 82}, showlegend=False,
+        fig, title={"text": cfg.title, "x": 0.0, "xanchor": "left", "font": {"size": 18 if is_screen else 28}}, height=max(cfg.height, 620 if is_screen else 1100),
+        margin={"l": 76 if is_screen else 104, "r": 24 if is_screen else 42, "t": 96 if is_screen else 132, "b": 68 if is_screen else 96}, showlegend=bool(cfg.show_curve_legend),
     )
     fig.update_layout(
         shapes=shapes,
@@ -601,8 +602,8 @@ def build_professional_well_log_plot(
     for subplot_col in range(1, len(column_titles) + 1):
         fig.update_yaxes(title_text="", row=1, col=subplot_col)
     fig.update_yaxes(title_text=DEPTH_AXIS_TITLE, row=1, col=1)
-    axis_tick_size = 13 if is_screen else 18
-    axis_title_size = 15 if is_screen else 20
+    axis_tick_size = 12 if is_screen else 22
+    axis_title_size = 15 if is_screen else 24
     fig.update_yaxes(showgrid=True, gridcolor="rgba(70,90,100,0.18)", tickfont={"size": axis_tick_size}, title_font={"size": axis_title_size}, automargin=True, minor={"showgrid": True, "gridcolor": "rgba(70,90,100,0.08)", "griddash": "dot"})
     fig.update_xaxes(showgrid=True, gridcolor="rgba(70,90,100,0.12)", tickfont={"size": axis_tick_size}, title_font={"size": axis_title_size}, automargin=True, tickangle=0)
     normalize_trace_style(fig)

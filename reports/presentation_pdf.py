@@ -608,16 +608,16 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
     items.extend(_legend_table_pdf("Маркеры", list(legend.get("markers", []) or []), styles, marker_mode=True))
     try:
         if hasattr(figure, "to_image"):
-            png = figure.to_image(format="png", width=2600, height=1700, scale=1)
+            png = figure.to_image(format="png", width=3200, height=2200, scale=1)
         elif hasattr(figure, "write_image"):
             buffer = BytesIO()
-            figure.write_image(buffer, format="png", width=2600, height=1700)
+            figure.write_image(buffer, format="png", width=3200, height=2200)
             png = buffer.getvalue()
         else:
             raise TypeError("Figure backend does not support raster export")
         image = Image(BytesIO(png))
         max_width = 185 * mm
-        max_height = 142 * mm
+        max_height = 156 * mm
         ratio = min(max_width / image.imageWidth, max_height / image.imageHeight)
         image.drawWidth = image.imageWidth * ratio
         image.drawHeight = image.imageHeight * ratio
