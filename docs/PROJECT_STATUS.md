@@ -168,3 +168,6 @@ Implemented the lightweight plugin registry, capability matrix, preview cache, p
 ## v222.47 — Import Wizard and Batch Foundation
 
 The production import backend now provides a JSON-safe wizard state machine, per-file batch failure isolation, metadata-only quick QC and persisted Dataset readiness. Project Explorer exposes readiness without opening source artifacts.
+
+## v222.48 status
+Multilingual README and documentation entry points are implemented and guarded by release tests.

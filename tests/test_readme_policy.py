@@ -19,18 +19,12 @@ def test_readme_is_project_overview_not_development_diary():
         assert fragment not in readme
 
 
-def test_readme_does_not_publish_internal_documentation_map():
+def test_readme_exposes_only_public_multilingual_documentation_entrypoints():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    forbidden_fragments = [
-        "## Документация",
-        "docs/CHANGELOG.md",
-        "docs/formulas.md",
-        "docs/user_guide.md",
-        "docs/PROJECT_STATUS.md",
-        "docs/PROJECT_ROADMAP.md",
-    ]
-    for fragment in forbidden_fragments:
-        assert fragment not in readme
+    for path in ("docs/user/ru/index.md", "docs/user/kk/index.md", "docs/user/en/index.md"):
+        assert path in readme
+    for internal in ("docs/CHANGELOG.md", "docs/PROJECT_STATUS.md", "docs/PROJECT_ROADMAP.md"):
+        assert internal not in readme
 
 
 def test_readme_policy_document_exists():

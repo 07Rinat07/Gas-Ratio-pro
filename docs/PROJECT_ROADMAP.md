@@ -2057,3 +2057,8 @@ Next: QC history in Project Explorer, direct downloads, Dataset comparison badge
 - [x] Readiness projection in Project Explorer.
 - [x] RU/KK/EN user and developer documentation.
 - [ ] Next: bind the wizard state machine to a full step-by-step Workbench UI, add background batch jobs and import history views.
+
+### Completed in v222.48
+- Public README links for Russian, Kazakh and English.
+- Language-specific user and developer documentation indexes.
+- Release gate for multilingual links and documentation manifest consistency.

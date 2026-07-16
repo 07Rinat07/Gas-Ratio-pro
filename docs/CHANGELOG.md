@@ -3048,3 +3048,8 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Persisted readiness and quick-QC status in Dataset Manifest metadata.
 - Added readiness indicators to Dataset lineage nodes in Project Explorer.
 - Added synchronized RU/KK/EN Import Wizard and pipeline documentation.
+
+## v222.48 — Multilingual public documentation entry
+- Added Russian, Kazakh and English project overview files.
+- Added user/developer documentation indexes for all three languages.
+- Added README language links and release tests for link/manifest integrity.

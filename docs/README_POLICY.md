@@ -25,4 +25,4 @@ README.md must not be used as a development diary.
 
 ## Internal documentation rule
 
-Internal files from `docs/` are maintained independently and must not be listed in `README.md` unless the project owner explicitly requests it.
+Public multilingual documentation entry points may be listed in `README.md`. Internal status, roadmap, audit and changelog files remain excluded unless the project owner explicitly requests otherwise.

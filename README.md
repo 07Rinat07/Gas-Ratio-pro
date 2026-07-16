@@ -1,5 +1,8 @@
 # GAS RATIO PRO
 
+**Пользовательские руководства / Пайдаланушы нұсқаулықтары / User guides:** [Русский](docs/user/ru/index.md) · [Қазақша](docs/user/kk/index.md) · [English](docs/user/en/index.md)
+
+**Описание проекта / Жоба сипаттамасы / Project overview:** [Русский](README.ru.md) · [Қазақша](README.kk.md) · [English](README.en.md)
 ![Интерфейс инженерной платформы GAS RATIO PRO](assets/branding/GASRATIOpro.png)
 
 **GAS RATIO PRO** — профессиональная инженерная платформа для обработки, анализа, интерпретации и визуализации данных нефтегазовых скважин.

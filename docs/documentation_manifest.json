@@ -80,6 +80,26 @@
         "kk": "developer/kk/import_pipeline.md",
         "en": "developer/en/import_pipeline.md"
       }
+    },
+    {
+      "id": "user_documentation_index",
+      "revision": 1,
+      "audience": "user",
+      "languages": {
+        "ru": "user/ru/index.md",
+        "kk": "user/kk/index.md",
+        "en": "user/en/index.md"
+      }
+    },
+    {
+      "id": "developer_documentation_index",
+      "revision": 1,
+      "audience": "developer",
+      "languages": {
+        "ru": "developer/ru/index.md",
+        "kk": "developer/kk/index.md",
+        "en": "developer/en/index.md"
+      }
     }
   ]
 }
