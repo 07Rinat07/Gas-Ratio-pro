@@ -6049,6 +6049,20 @@ def _close_page_shell() -> None:
     """Close the shared page shell opened for the active workspace."""
     st.markdown("</section>", unsafe_allow_html=True)
 
+def _dashboard_localization():
+    """Return the session localization service used by Dashboard.
+
+    Dashboard shares the same normalized interface-language code as Workbench.
+    The service is runtime-owned; only the compact locale code is kept in state.
+    """
+    state = _application_state_controller().state
+    language = str(state.get("user_settings.interface_language") or "ru")
+    return application_service_container(state).localization(
+        catalogs_dir=ROOT_DIR / "resources" / "i18n",
+        language=language,
+    )
+
+
 def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[ProjectRecord, ...]) -> None:
     """Render Project Workspace 1.0 as the application home screen.
 
@@ -6057,6 +6071,7 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
     the central area is reserved for engineering work context: recent projects,
     LAS files, calculations, reports, favorites, activity and universal search.
     """
+    i18n = _dashboard_localization()
     background_uri = _dashboard_background_data_uri()
     style = f"--global-bg-image: url('{background_uri}');" if background_uri else ""
     recent_projects = _dashboard_recent_projects(projects, limit=5)
@@ -6079,59 +6094,59 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
     recent_html = "".join(
         _row(
             project.name,
-            f"Изменен: {project.updated_at or 'без даты'} · ID: {project.id}",
-            "проект",
+            i18n("dashboard.updated", date=project.updated_at or "—", project_id=project.id),
+            i18n("dashboard.badge.project"),
         )
         for project in recent_projects
-    ) or "<div class='dashboard-empty-state'>Проекты пока не найдены.</div>"
+    ) or f"<div class='dashboard-empty-state'>{_html_escape(i18n("dashboard.projects.empty"))}</div>"
 
     recent_las_html = "".join(
         _row(
             getattr(item, "file_name", "") or getattr(item, "original_file_name", "") or getattr(item, "name", "") or getattr(item, "id", "LAS файл"),
-            f"Скважина: {getattr(item, 'well_name', '') or getattr(item, 'well_id', '') or 'не указана'} · Кривые: {getattr(item, 'curve_count', '—')}",
+            i18n("dashboard.well", well=getattr(item, "well_name", "") or getattr(item, "well_id", "") or i18n("dashboard.well.unknown"), curves=getattr(item, "curve_count", "—")),
             getattr(item, "saved_at", "") or getattr(item, "updated_at", "") or "LAS",
         )
         for item in las_files
-    ) or "<div class='dashboard-empty-state'>LAS-файлы пока не импортированы.</div>"
+    ) or f"<div class='dashboard-empty-state'>{_html_escape(i18n("dashboard.las.empty"))}</div>"
 
     calculations_html = "".join(
         _row(
             getattr(item, "name", "") or getattr(item, "source_label", "") or getattr(item, "id", "Расчет"),
-            f"Тип: {getattr(item, 'ch_mode_label', '') or getattr(item, 'ch_mode', '') or 'gas ratio'} · Проект: {active_project.name}",
+            i18n("dashboard.calculation.meta", kind=getattr(item, "ch_mode_label", "") or getattr(item, "ch_mode", "") or "gas ratio", project=active_project.name),
             getattr(item, "saved_at", "") or getattr(item, "created_at", "") or "готов",
         )
         for item in calculations
-    ) or "<div class='dashboard-empty-state'>Расчеты появятся после сохранения интерпретации.</div>"
+    ) or f"<div class='dashboard-empty-state'>{_html_escape(i18n("dashboard.calculations.empty"))}</div>"
 
     reports_html = "".join(
         _row(
             getattr(item, "label", "") or getattr(item, "file_name", "") or getattr(item, "id", "Отчет"),
-            f"Формат: {getattr(item, 'kind', '') or getattr(item, 'mime_type', '') or 'export'} · Файл: {getattr(item, 'file_name', '') or '—'}",
+            i18n("dashboard.report.meta", kind=getattr(item, "kind", "") or getattr(item, "mime_type", "") or "export", file=getattr(item, "file_name", "") or "—"),
             getattr(item, "saved_at", "") or "отчет",
         )
         for item in exports
-    ) or "<div class='dashboard-empty-state'>Отчеты и экспорты пока не созданы.</div>"
+    ) or f"<div class='dashboard-empty-state'>{_html_escape(i18n("dashboard.reports.empty"))}</div>"
 
     activity_html = "".join(
-        _row(item, f"Проект: {active_project.name}", "history")
+        _row(item, i18n("dashboard.activity.meta", project=active_project.name), "history")
         for item in activity_items
-    ) or "<div class='dashboard-empty-state'>Пока нет проектной активности.</div>"
+    ) or f"<div class='dashboard-empty-state'>{_html_escape(i18n("dashboard.activity.empty"))}</div>"
 
     favorite_entries = _workspace_favorite_entries(active_project)
     favorites_html = "".join(
         _row(
-            entry.get("title", "Закрепленный объект"),
-            entry.get("description", "Workspace favorite"),
+            entry.get("title", i18n("dashboard.favorite.default")),
+            entry.get("description", i18n("dashboard.favorite.description")),
             _command_palette_entry_category(entry),
         )
         for entry in favorite_entries
-    ) or "<div class='dashboard-empty-state'>Закрепите команды и объекты через Ctrl+K.</div>"
+    ) or f"<div class='dashboard-empty-state'>{_html_escape(i18n("dashboard.favorites.empty"))}</div>"
 
     workspace_query = st.text_input(
-        "Глобальный поиск workspace",
+        i18n("dashboard.search.label"),
         key="workspace_universal_search_query",
-        placeholder="Поиск: проект, скважина, LAS, кривая, расчет, отчет, документация, история",
-        help="Поиск использует единый индекс Workspace и Ctrl+K: проекты, скважины, LAS, кривые, расчеты, отчеты, документация, история и избранное.",
+        placeholder=i18n("dashboard.search.placeholder"),
+        help=i18n("dashboard.search.help"),
     )
     workspace_search_results = _workspace_universal_search_results(active_project, workspace_query)
     workspace_search_results_html = _workspace_search_results_html(workspace_search_results, workspace_query)
@@ -6140,11 +6155,11 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
 
     metrics_html = f"""
       <div class='dashboard-status-grid dashboard-metrics'>
-        <div class='dashboard-status-pill dashboard-metric'><b>{stats['projects']}</b><span>Проекты</span></div>
-        <div class='dashboard-status-pill dashboard-metric'><b>{stats['wells']}</b><span>Скважины</span></div>
-        <div class='dashboard-status-pill dashboard-metric'><b>{stats['las_files']}</b><span>LAS-файлы</span></div>
-        <div class='dashboard-status-pill dashboard-metric'><b>{stats['calculations']}</b><span>Расчеты</span></div>
-        <div class='dashboard-status-pill dashboard-metric'><b>{stats['exports']}</b><span>Отчеты</span></div>
+        <div class='dashboard-status-pill dashboard-metric'><b>{stats['projects']}</b><span>{_html_escape(i18n('dashboard.metric.projects'))}</span></div>
+        <div class='dashboard-status-pill dashboard-metric'><b>{stats['wells']}</b><span>{_html_escape(i18n('dashboard.metric.wells'))}</span></div>
+        <div class='dashboard-status-pill dashboard-metric'><b>{stats['las_files']}</b><span>{_html_escape(i18n('dashboard.metric.las'))}</span></div>
+        <div class='dashboard-status-pill dashboard-metric'><b>{stats['calculations']}</b><span>{_html_escape(i18n('dashboard.metric.calculations'))}</span></div>
+        <div class='dashboard-status-pill dashboard-metric'><b>{stats['exports']}</b><span>{_html_escape(i18n('dashboard.metric.reports'))}</span></div>
       </div>
     """
 
@@ -6153,7 +6168,7 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
     # as plain text on the page (<section>/<article>/<div> visible to the user).
     workspace_component_html = dedent(f"""
     <!doctype html>
-    <html lang="ru">
+    <html lang="{_html_escape(i18n.language)}">
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -6210,25 +6225,25 @@ def _render_dashboard_shell(active_project: ProjectRecord, projects: tuple[Proje
             <div class="dashboard-navbar glass-navbar">
               <div class="dashboard-title-row">
                 <div class="dashboard-title-icon">▦</div>
-                <div><h1 class="dashboard-page-title">Project Workspace</h1><p class="dashboard-page-subtitle">Инженерный обзор: проекты, LAS, расчеты, отчеты, избранное и история.</p></div>
+                <div><h1 class="dashboard-page-title">{_html_escape(i18n("dashboard.title"))}</h1><p class="dashboard-page-subtitle">{_html_escape(i18n("dashboard.subtitle"))}</p></div>
               </div>
               <div class="dashboard-search"><span class="dashboard-search-chip">Ctrl+K</span><span class="dashboard-search-chip">{_html_escape(active_project.name)}</span></div>
             </div>
-            <div class="dashboard-card workspace-search-card" aria-label="Universal search">
-              <h3>Глобальный поиск <span>Universal Search</span></h3>
-              <div class="workspace-search-box"><b>🔎 Поиск по проектам, скважинам, LAS, кривым, расчетам, отчетам, документации и истории</b><span>Введите запрос в поле выше или используйте Ctrl+K.</span></div>
+            <div class="dashboard-card workspace-search-card" aria-label="{_html_escape(i18n("dashboard.search.title"))}">
+              <h3>{_html_escape(i18n("dashboard.search.title"))} <span>Ctrl+K</span></h3>
+              <div class="workspace-search-box"><b>🔎 {_html_escape(i18n("dashboard.search.instruction"))}</b><span>{_html_escape(i18n("dashboard.search.prompt"))}</span></div>
             </div>
             {workspace_search_results_html}
             <div class="dashboard-layout dashboard-information-priority" data-dashboard-information-hierarchy="workspace-v1">
-              <div class="dashboard-card stats" id="dashboard-project-status"><h3>Сводка workspace <span>{now_label}</span></h3>{metrics_html}</div>
-              <div class="dashboard-card projects" id="dashboard-projects"><h3>Последние проекты <span>recent</span></h3>{recent_html}</div>
-              <div class="dashboard-card recent-las" id="dashboard-recent-las"><h3>Последние LAS <span>files</span></h3>{recent_las_html}</div>
-              <div class="dashboard-card calculations" id="dashboard-calculations"><h3>Последние расчеты <span>calc</span></h3>{calculations_html}</div>
-              <div class="dashboard-card reports" id="dashboard-reports"><h3>Последние отчеты <span>export</span></h3>{reports_html}</div>
-              <div class="dashboard-card activity" id="dashboard-activity"><h3>Недавние действия <span>history</span></h3>{activity_html}</div>
-              <div class="dashboard-card favorites" id="dashboard-favorites"><h3>Избранное <span>pinned</span></h3>{favorites_html}</div>
+              <div class="dashboard-card stats" id="dashboard-project-status"><h3>{_html_escape(i18n("dashboard.section.status"))} <span>{now_label}</span></h3>{metrics_html}</div>
+              <div class="dashboard-card projects" id="dashboard-projects"><h3>{_html_escape(i18n("dashboard.section.projects"))} <span>recent</span></h3>{recent_html}</div>
+              <div class="dashboard-card recent-las" id="dashboard-recent-las"><h3>{_html_escape(i18n("dashboard.section.las"))} <span>LAS</span></h3>{recent_las_html}</div>
+              <div class="dashboard-card calculations" id="dashboard-calculations"><h3>{_html_escape(i18n("dashboard.section.calculations"))} <span>calc</span></h3>{calculations_html}</div>
+              <div class="dashboard-card reports" id="dashboard-reports"><h3>{_html_escape(i18n("dashboard.section.reports"))} <span>export</span></h3>{reports_html}</div>
+              <div class="dashboard-card activity" id="dashboard-activity"><h3>{_html_escape(i18n("dashboard.section.activity"))} <span>history</span></h3>{activity_html}</div>
+              <div class="dashboard-card favorites" id="dashboard-favorites"><h3>{_html_escape(i18n("dashboard.section.favorites"))} <span>pinned</span></h3>{favorites_html}</div>
             </div>
-            <div class="dashboard-footer"><span>Готов к работе · навигация только в Sidebar</span><span>Версия: 2.0.0 · {now_label}</span></div>
+            <div class="dashboard-footer"><span>{_html_escape(i18n("dashboard.footer.ready"))}</span><span>{_html_escape(i18n("dashboard.footer.version", version="2.0.0", time=now_label))}</span></div>
           </div>
         </div>
       </body>

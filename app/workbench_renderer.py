@@ -1027,7 +1027,11 @@ def _render_native_streamlit_layout(
 
     status_items = list(layout.get("status_items", ()))
     status_html = "".join(f"<span><strong>{_html(i.get('label',''))}:</strong> {_html(i.get('value',''))}</span>" for i in status_items)
-    st_module.markdown(f"<footer class='workbench-statusbar' aria-label='Status bar'>{status_html}<span class='workbench-status-ready'>● Ready</span></footer>", unsafe_allow_html=True)
+    st_module.markdown(
+        f"<footer class='workbench-statusbar' aria-label='{_html(i18n('status.bar.label'))}'>"
+        f"{status_html}<span class='workbench-status-ready'>● {_html(i18n('status.ready'))}</span></footer>",
+        unsafe_allow_html=True,
+    )
     return tuple(executed)
 
 def render_streamlit_workbench_contract(

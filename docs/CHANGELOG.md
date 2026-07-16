@@ -1,3 +1,10 @@
+## v222.23 — Localized Dashboard and status bar
+
+- Migrated the primary Project Workspace dashboard to `ru`/`kk`/`en` catalogs.
+- Localized dashboard search, metrics, section headings, metadata labels, empty states and footer.
+- Localized the Workbench status-bar label and ready indicator.
+- Added three-language placeholder and source-contract tests.
+
 ## v222.22 — Localized Workbench navigation states
 
 - Localized File and Project menu panels for Russian, Kazakh and English.

@@ -11,12 +11,12 @@ def test_dashboard_information_hierarchy_marker_and_core_sections():
     assert 'id="dashboard-calculations"' in SOURCE
     assert 'id="dashboard-reports"' in SOURCE
     assert 'id="dashboard-favorites"' in SOURCE
-    assert 'Последние проекты' in SOURCE
-    assert 'Последние LAS' in SOURCE
-    assert 'Последние расчеты' in SOURCE
-    assert 'Последние отчеты' in SOURCE
-    assert 'Недавние действия' in SOURCE
-    assert 'Избранное' in SOURCE
+    assert 'i18n("dashboard.section.projects")' in SOURCE
+    assert 'i18n("dashboard.section.las")' in SOURCE
+    assert 'i18n("dashboard.section.calculations")' in SOURCE
+    assert 'i18n("dashboard.section.reports")' in SOURCE
+    assert 'i18n("dashboard.section.activity")' in SOURCE
+    assert 'i18n("dashboard.section.favorites")' in SOURCE
 
 
 def test_dashboard_removes_decorative_panels_from_hierarchy():

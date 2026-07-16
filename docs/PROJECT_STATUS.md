@@ -1,3 +1,13 @@
+# Current increment: v222.23 — Localized Dashboard and Status Bar
+
+Status: **IMPLEMENTED / SHELL MIGRATION CONTINUES**
+
+- Localized Project Workspace dashboard title, search, metrics, section headings, empty states and footer for Russian, Kazakh and English.
+- Localized the Workbench status-bar accessibility label and ready state.
+- Dashboard and Workbench share the persisted normalized interface locale; project names, well names, mnemonics and imported values remain unchanged.
+- Added catalog and renderer regression tests with placeholder parity.
+- Next target: global confirmation/validation dialogs and Dashboard auxiliary expanders.
+
 # Current increment: v222.22 — Localized Workbench Navigation States
 
 Implemented the first complete three-language Workbench user journey: File and Project panels, Project Explorer search and empty states, workspace empty state and quick actions, Properties empty state and destructive-action confirmation, and localized workspace-open errors. Stable identifiers and imported engineering data remain untranslated.
