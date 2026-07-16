@@ -171,3 +171,7 @@ The production import backend now provides a JSON-safe wizard state machine, per
 
 ## v222.48 status
 Multilingual README and documentation entry points are implemented and guarded by release tests.
+
+## v222.49 status
+
+The public README entry point now reflects the actual multi-format platform rather than the earlier LAS/Excel-only scope. Russian, Kazakh, and English overview files are synchronized and protected by a format-coverage release test.

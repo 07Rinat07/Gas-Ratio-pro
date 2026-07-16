@@ -1,6 +1,6 @@
 # GAS RATIO PRO
 
-Профессиональная инженерная платформа для импорта, контроля качества, анализа, интерпретации и визуализации данных нефтегазовых скважин.
+Профессиональная трёхъязычная инженерная платформа для импорта, контроля качества, управления версиями, анализа, интерпретации и визуализации скважинных, геолого-геофизических и проектных данных нефтегазовой отрасли.
 
 **Язык:** Русский · [Қазақша](README.kk.md) · [English](README.en.md)
 
@@ -8,14 +8,28 @@
 
 - [Пользовательское руководство](docs/user/ru/index.md)
 - [Документация разработчика](docs/developer/ru/index.md)
+- [Поддерживаемые форматы](docs/user/ru/supported_formats_and_legal_sources.md)
 - [План проекта](docs/PROJECT_ROADMAP.md)
+- [Текущий статус](docs/PROJECT_STATUS.md)
 
-## Основные возможности
+## Поддерживаемые и развиваемые форматы
 
-- LAS 1.x/2.x/3.x, DLIS/LIS79 и SEG-Y metadata preview;
-- Data Platform, immutable artifacts, Dataset Manifest, lineage и provenance;
-- LAS QC, отчёты PDF/DOCX, корреляция и интерпретация;
-- интерфейс и инструкции на русском, казахском и английском языках.
+- **LAS 1.x/2.x/3.x** — импорт, legacy compatibility, редактирование, QC, версии, визуализация и экспорт;
+- **Excel/CSV** — импорт, mapping, расчёты и визуализация;
+- **DLIS/LIS79** — metadata preview через optional `dlisio` adapter;
+- **SEG-Y** — header preview, trace-header inventory и geometry diagnostics;
+- **PDF/DOCX** — инженерные и QC-отчёты;
+- **GeoPackage/Shapefile/GeoTIFF, GRDECL/RESQML, HDF5/NetCDF** — следующие этапы Data/GIS/Reservoir Platform.
+
+## Основные подсистемы
+
+- Workbench и Project Explorer;
+- Unified Import Pipeline, профили импорта и readiness score;
+- Data Platform: immutable artifacts, Dataset Manifest, SHA-256, provenance и lineage;
+- LAS QC Platform и локализованные PDF/DOCX-отчёты;
+- газогеохимические расчёты и интерпретация интервалов;
+- корреляция скважин и подготовка к многоскважинным планшетам;
+- интерфейс и документация на русском, казахском и английском языках.
 
 ## Установка и запуск
 

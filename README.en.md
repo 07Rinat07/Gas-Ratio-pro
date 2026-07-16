@@ -1,6 +1,6 @@
 # GAS RATIO PRO
 
-A professional engineering platform for importing, quality-controlling, analysing, interpreting, and visualising oil-and-gas well data.
+A professional trilingual engineering platform for importing, quality-controlling, versioning, analysing, interpreting, and visualising well, subsurface, geophysical, and project data for the oil-and-gas industry.
 
 **Language:** [Русский](README.ru.md) · [Қазақша](README.kk.md) · English
 
@@ -8,14 +8,28 @@ A professional engineering platform for importing, quality-controlling, analysin
 
 - [User guide](docs/user/en/index.md)
 - [Developer documentation](docs/developer/en/index.md)
+- [Supported formats](docs/user/en/supported_formats_and_legal_sources.md)
 - [Project roadmap](docs/PROJECT_ROADMAP.md)
+- [Current status](docs/PROJECT_STATUS.md)
 
-## Key capabilities
+## Supported and planned formats
 
-- LAS 1.x/2.x/3.x, DLIS/LIS79, and SEG-Y metadata preview;
-- Data Platform, immutable artifacts, Dataset Manifest, lineage, and provenance;
-- LAS QC, PDF/DOCX reports, correlation, and interpretation;
-- interface and instructions in Russian, Kazakh, and English.
+- **LAS 1.x/2.x/3.x** — import, legacy compatibility, editing, QC, versioning, visualisation, and export;
+- **Excel/CSV** — import, mapping, calculations, and visualisation;
+- **DLIS/LIS79** — metadata preview through the optional `dlisio` adapter;
+- **SEG-Y** — header preview, trace-header inventory, and geometry diagnostics;
+- **PDF/DOCX** — engineering and QC reports;
+- **GeoPackage/Shapefile/GeoTIFF, GRDECL/RESQML, HDF5/NetCDF** — planned Data/GIS/Reservoir Platform stages.
+
+## Main subsystems
+
+- Workbench and Project Explorer;
+- Unified Import Pipeline, import profiles, and readiness scores;
+- Data Platform with immutable artifacts, Dataset Manifest, SHA-256, provenance, and lineage;
+- LAS QC Platform and localised PDF/DOCX reporting;
+- gas-geochemistry calculations and interval interpretation;
+- well correlation and preparation for multi-well log panels;
+- Russian, Kazakh, and English interface and documentation.
 
 ## Installation and launch
 
