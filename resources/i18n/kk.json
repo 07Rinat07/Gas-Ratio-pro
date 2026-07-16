@@ -1,0 +1,14 @@
+{
+  "app.name": "GAS RATIO PRO",
+  "language.label": "Тіл",
+  "language.ru": "Русский",
+  "language.kk": "Қазақша",
+  "language.en": "English",
+  "common.open": "Ашу",
+  "common.save": "Сақтау",
+  "common.cancel": "Бас тарту",
+  "common.close": "Жабу",
+  "project.explorer.title": "Жоба навигаторы",
+  "project.open.success": "«{project_name}» жобасы ашылды",
+  "error.translation_missing": "Аударма қолжетімсіз"
+}

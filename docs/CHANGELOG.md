@@ -2828,3 +2828,14 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added primitive UTF-8 JSON size estimates for each serialized navigation entry without retaining duplicate payloads.
 - Exposed total, per-project and per-profile estimated byte diagnostics.
 - Added separate profile-eviction counters and regression tests for LRU ordering, memory estimates and JSON-serializable snapshots.
+
+
+## v222.20 — Three-language internationalization foundation
+
+- Approved Russian, Kazakh and English as first-class application, instruction and report languages.
+- Added an allow-listed language registry with normalization for regional locale variants.
+- Added UTF-8 JSON translation catalogs with deterministic Russian fallback.
+- Added safe named-placeholder formatting that never evaluates catalog or user content.
+- Added catalog completeness and JSON-serializable health diagnostics.
+- Added a lazy session-scoped localization application service.
+- Added the phased internationalization, terminology and document-localization roadmap.

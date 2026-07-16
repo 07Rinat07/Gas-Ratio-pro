@@ -1,0 +1,14 @@
+{
+  "app.name": "GAS RATIO PRO",
+  "language.label": "Language",
+  "language.ru": "Русский",
+  "language.kk": "Қазақша",
+  "language.en": "English",
+  "common.open": "Open",
+  "common.save": "Save",
+  "common.cancel": "Cancel",
+  "common.close": "Close",
+  "project.explorer.title": "Project Explorer",
+  "project.open.success": "Project “{project_name}” opened",
+  "error.translation_missing": "Translation unavailable"
+}

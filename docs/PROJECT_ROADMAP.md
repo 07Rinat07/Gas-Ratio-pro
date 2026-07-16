@@ -1,3 +1,25 @@
+# Latest increment — Three-language Internationalization Foundation
+
+Status: IMPLEMENTED / MIGRATION STARTED
+
+Implemented:
+- approved Russian (`ru`), Kazakh (`kk`) and English (`en`) as first-class product languages;
+- defined separate localization scope for UI, instructions, reports and user-facing diagnostics;
+- added an allow-listed language registry and deterministic Russian fallback;
+- added safe JSON catalog loading and named-placeholder formatting;
+- added catalog completeness diagnostics and a lazy application-service boundary;
+- documented terminology governance, report-language separation and phased UI migration.
+
+Validation target:
+- aligned UTF-8 catalogs for all three languages;
+- safe fallback and parameter handling;
+- JSON-serializable health snapshot;
+- application-service reuse without storing live services in session state.
+
+Next priority: add persisted user-language preference and migrate the Dashboard/Workbench shell before implementing Data Format Registry UI.
+
+See: `docs/INTERNATIONALIZATION_ROADMAP.md`.
+
 # Latest increment — Industry Data Platform Plan + Global Navigation Byte Budget
 
 Status: IMPLEMENTED / STRATEGIC PLAN UPDATED

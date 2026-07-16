@@ -1,3 +1,15 @@
+# Current increment: v222.20 — Three-language Internationalization Foundation
+
+Status: **IMPLEMENTED / MIGRATION STARTED**
+
+- Russian, Kazakh and English are approved as first-class product languages.
+- Added safe locale normalization, aligned translation catalogs and deterministic Russian fallback.
+- Added a lazy localization application service with payload-free catalog health diagnostics.
+- Defined separate UI and report language settings, terminology governance and phased migration gates.
+- Next implementation target: persisted user preference plus Dashboard/Workbench shell migration.
+
+See `docs/INTERNATIONALIZATION_ROADMAP.md`.
+
 # Current increment: v222.19 — Industry Data Platform Planning and Navigation Memory Budget
 
 Status: **IMPLEMENTED**

@@ -169,6 +169,30 @@ class ApplicationServiceContainer:
             factory=lambda: DatasetManagerService(root), expected_type=DatasetManagerService,
         )
 
+    def localization(
+        self,
+        *,
+        catalogs_dir: Path | str,
+        language: str = "ru",
+    ):
+        """Return the session-scoped localization boundary.
+
+        The service is keyed by catalog directory; the active language remains
+        mutable inside the service and is never encoded into the registry key.
+        """
+        from services.localization_application_service import (
+            LocalizationApplicationService,
+        )
+
+        return self.ensure_session_service(
+            service_name="localization",
+            factory=lambda: LocalizationApplicationService(
+                catalogs_dir=catalogs_dir, language=language
+            ),
+            expected_type=LocalizationApplicationService,
+            instance_key=str(Path(catalogs_dir).resolve()),
+        )
+
     def runtime_diagnostics(self, *, root: Path | str):
         # Local import keeps diagnostics infrastructure behind a lazy boundary.
         from services.runtime_diagnostics_application_service import (
