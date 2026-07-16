@@ -1,3 +1,11 @@
+# v222.26
+
+- Added project-scoped SHA-256 duplicate detection with payload-free registration results.
+- Added immutable dataset lineage with strict sequential versions and latest-version references.
+- Added the metadata scanner protocol and bounded LAS header-only scanner.
+- Added collision-safe artifact naming so new source versions cannot overwrite previous bytes.
+- Added lineage, duplicate and scanner diagnostics plus regression tests.
+
 # v222.25
 
 - Added the first Data Platform Foundation implementation.

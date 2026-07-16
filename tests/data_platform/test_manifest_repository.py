@@ -34,6 +34,8 @@ def test_repository_saves_loads_and_summarizes_manifests(tmp_path):
         "dataset_count": 2,
         "total_size_bytes": 100,
         "formats": ["las", "segy"],
+        "lineage_count": 2,
+        "duplicate_checksum_groups": 0,
     }
     json.dumps(snapshot)
 

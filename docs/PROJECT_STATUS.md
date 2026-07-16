@@ -1,16 +1,17 @@
-# Current increment: v222.25 — Data Platform Foundation I
+# Current increment: v222.26 — Data Platform Foundation II
 
 ## Completed
 
-- Added an allow-listed Data Format Registry for LAS, DLIS, SEG-Y, RESQML, GRDECL, GIS, HDF5/NetCDF, tabular and report formats.
-- Added versioned, JSON-safe Dataset Manifest and provenance contracts.
-- Added streaming SHA-256 calculation and project-contained Artifact Store with atomic writes.
-- Added atomic project-scoped Dataset Manifest Repository and payload-free summaries.
-- Added a lazy workspace-scoped Data Platform Application Service and container boundary.
-- Kept all heavy parser dependencies out of the foundation layer.
+- Added project-scoped duplicate detection by streaming SHA-256.
+- Added immutable Dataset lineage with `lineage_id`, `previous_dataset_id` and sequential versions.
+- Prevented existing manifest mutation and source-artifact overwrite.
+- Added a lightweight metadata-scanner protocol.
+- Added the first bounded LAS header-only scanner that stops at `~ASCII`.
+- Added JSON-safe registration results and scanner inventory diagnostics.
 
 ## Next
 
-- Add duplicate detection and immutable dataset version lineage.
-- Add metadata-scanner adapter contracts and implement the LAS header scanner first.
-- Expose a localized dataset registration/import result without putting file payloads in session state.
+- Add localized dataset import outcomes for `ru`/`kk`/`en`.
+- Add validation/error codes for malformed LAS headers.
+- Add a SQLite metadata catalog projection without moving large artifacts into SQL.
+- Connect dataset registration to the import workflow behind the application-service boundary.

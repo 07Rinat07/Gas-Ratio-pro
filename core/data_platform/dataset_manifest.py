@@ -45,6 +45,8 @@ class DatasetManifest:
     checksum_sha256: str
     size_bytes: int
     version: int = 1
+    lineage_id: str = ""
+    previous_dataset_id: str = ""
     well_id: str = ""
     source_name: str = ""
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
@@ -61,6 +63,12 @@ class DatasetManifest:
         object.__setattr__(self, "format_id", _required_identifier("format_id", self.format_id).lower())
         if self.well_id:
             object.__setattr__(self, "well_id", _required_identifier("well_id", self.well_id))
+        lineage_id = self.lineage_id or self.dataset_id
+        object.__setattr__(self, "lineage_id", _required_identifier("lineage_id", lineage_id))
+        if self.previous_dataset_id:
+            object.__setattr__(self, "previous_dataset_id", _required_identifier("previous_dataset_id", self.previous_dataset_id))
+            if self.previous_dataset_id == self.dataset_id:
+                raise ValueError("previous_dataset_id must differ from dataset_id")
         artifact = PurePosixPath(str(self.artifact_path))
         if artifact.is_absolute() or ".." in artifact.parts or not artifact.parts:
             raise ValueError("artifact_path must be a relative normalized path")
@@ -100,6 +108,8 @@ class DatasetManifest:
             "checksum_sha256": self.checksum_sha256,
             "size_bytes": self.size_bytes,
             "version": self.version,
+            "lineage_id": self.lineage_id,
+            "previous_dataset_id": self.previous_dataset_id,
             "source_name": self.source_name,
             "created_at": self.created_at,
             "coordinate_reference_system": self.coordinate_reference_system,
@@ -134,6 +144,8 @@ class DatasetManifest:
             checksum_sha256=str(payload.get("checksum_sha256", "")),
             size_bytes=int(payload.get("size_bytes", -1)),
             version=int(payload.get("version", 0)),
+            lineage_id=str(payload.get("lineage_id", "")),
+            previous_dataset_id=str(payload.get("previous_dataset_id", "")),
             source_name=str(payload.get("source_name", "")),
             created_at=str(payload.get("created_at", "")),
             coordinate_reference_system=str(payload.get("coordinate_reference_system", "")),

@@ -47,6 +47,18 @@ class ArtifactStore:
         destination_dir = self.project_artifacts_root(project_id) / safe_kind
         destination_dir.mkdir(parents=True, exist_ok=True)
         destination = destination_dir / safe_name
+        source_checksum = sha256_file(source_path)
+        if destination.exists():
+            if sha256_file(destination) == source_checksum:
+                project_root = self.project_artifacts_root(project_id)
+                return ArtifactLocation(
+                    project_id=str(project_id).strip(),
+                    kind=safe_kind,
+                    relative_path=destination.relative_to(project_root).as_posix(),
+                    size_bytes=destination.stat().st_size,
+                    checksum_sha256=source_checksum,
+                )
+            destination = destination_dir / f"{Path(safe_name).stem}-{source_checksum[:12]}{Path(safe_name).suffix}"
         with NamedTemporaryFile(dir=destination_dir, prefix=f".{safe_name}.", suffix=".tmp", delete=False) as handle:
             temp_path = Path(handle.name)
             with source_path.open("rb") as input_handle:

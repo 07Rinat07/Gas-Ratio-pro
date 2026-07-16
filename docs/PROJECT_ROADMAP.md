@@ -1,3 +1,21 @@
+# Latest increment — Data Platform Foundation II
+
+Status: IMPLEMENTED
+
+Implemented:
+- project-scoped SHA-256 duplicate discovery;
+- immutable sequential Dataset lineage;
+- collision-safe source artifact retention;
+- generic metadata-scanner protocol;
+- bounded LAS header-only metadata scanner;
+- payload-free registration and scanner diagnostics.
+
+Validation:
+- focused Data Platform and application-service container tests;
+- Python compilation for all changed modules.
+
+Next priority: localized import outcomes, stable LAS validation codes and SQLite metadata catalog projection.
+
 # Latest increment — Data Platform Foundation I
 
 Status: IMPLEMENTED

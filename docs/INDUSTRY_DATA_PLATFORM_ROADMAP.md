@@ -81,8 +81,8 @@ PDF/DOCX остаются форматами представления, но н
 
 ## 6. Последовательность реализации
 
-1. Data Format Registry и Dataset Manifest.
-2. Artifact Store + SQLite metadata catalog schema.
+1. Data Format Registry, Dataset Manifest, duplicate detection, immutable lineage и metadata-scanner protocol — реализовано.
+2. Artifact Store — реализовано; далее SQLite metadata catalog schema.
 3. DLIS metadata/channel inventory importer.
 4. GIS foundation: CRS, GeoPackage/Shape/GeoTIFF metadata and map preview.
 5. SEG-Y header/geometry/QC importer с decimated preview.
