@@ -1,3 +1,14 @@
+# Current increment: v222.19 — Industry Data Platform Planning and Navigation Memory Budget
+
+Status: **IMPLEMENTED**
+
+- Industry formats are now prioritized through a staged architecture roadmap.
+- RESQML 2.2 is the preferred open model-exchange target; RESCUE is treated as a legacy adapter.
+- SEG-Y support targets metadata-first, decimated and bounded-memory workflows.
+- Regulatory PDF/DOCX output is planned as versioned jurisdiction-specific templates.
+- Project Explorer navigation cache now has a global estimated-byte budget in addition to project/profile limits.
+- Oversized profiles are not retained and global LRU eviction keeps the cache within budget.
+
 # Latest increment — Lazy Active Project Resolution
 
 Status: COMPLETED

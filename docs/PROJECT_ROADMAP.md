@@ -1,3 +1,24 @@
+# Latest increment — Industry Data Platform Plan + Global Navigation Byte Budget
+
+Status: IMPLEMENTED / STRATEGIC PLAN UPDATED
+
+Implemented:
+- approved a staged industry-data roadmap for DLIS, SEG-Y 2.1, GIS, HDF5/NetCDF, GRDECL and RESQML 2.2;
+- separated open exchange standards from proprietary vendor project access;
+- defined metadata catalog, artifact store, provenance, CRS/units and chunked-I/O foundations;
+- defined versioned KZ/RU regulatory report profiles instead of hard-coded forms;
+- added a global estimated-byte budget to Project Navigation Runtime Cache;
+- added LRU byte eviction and rejection of a single oversized navigation profile;
+- exposed payload-free budget utilization, byte eviction and oversized rejection diagnostics.
+
+Validation target:
+- focused navigation-cache, Workbench route, repository invalidation and Diagnostics Center tests;
+- Python compilation and JSON-serializable diagnostics.
+
+Next priority: implement the Data Format Registry and Dataset Manifest contracts without adding heavy parser dependencies yet.
+
+See: `docs/INDUSTRY_DATA_PLATFORM_ROADMAP.md`.
+
 # Latest increment — Lazy Active Project Resolution
 
 Status: COMPLETED

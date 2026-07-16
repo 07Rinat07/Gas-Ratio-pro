@@ -1,3 +1,10 @@
+## v222.19 — Industry data roadmap and navigation byte budget
+
+- Added `docs/INDUSTRY_DATA_PLATFORM_ROADMAP.md` with prioritized DLIS, SEG-Y, GIS, HDF5/NetCDF, GRDECL, RESQML, 3D, database and regulatory-report workstreams.
+- Added a global estimated-byte budget to `ProjectNavigationRuntimeCache`.
+- Added global LRU byte eviction, oversized-entry rejection and budget utilization diagnostics.
+- Preserved project-level and profile-level LRU behavior and payload-free snapshots.
+
 ## Application Service Layer — background export runtime boundary
 
 - Added project-scoped `BackgroundExportApplicationService`.

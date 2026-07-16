@@ -175,3 +175,82 @@ def test_navigation_cache_reports_primitive_memory_estimates(tmp_path: Path) -> 
     assert set(snapshot["profile_estimated_bytes"]) == {"root-only", "wells"}
     assert sum(snapshot["profile_estimated_bytes"].values()) == snapshot["estimated_bytes"]
     json.dumps(snapshot)
+
+
+def test_navigation_cache_enforces_global_byte_budget_by_lru(tmp_path: Path) -> None:
+    _write_metadata(tmp_path, "p1", "project.json", {"id": "p1"})
+    cache = ProjectNavigationRuntimeCache(
+        max_projects=4,
+        max_profiles_per_project=6,
+        max_estimated_bytes=520,
+    )
+
+    for profile, marker in (("root-only", "A" * 120), ("wells", "B" * 120)):
+        lookup = cache.lookup(tmp_path, "p1", profile=profile)
+        cache.store(
+            project_id="p1",
+            profile=profile,
+            token=lookup.token,
+            tree=({"id": profile, "title": marker},),
+            counts={"items": 1},
+            metadata_files=lookup.metadata_files,
+        )
+
+    snapshot = cache.snapshot()
+    assert snapshot["estimated_bytes"] <= snapshot["max_estimated_bytes"]
+    assert snapshot["byte_evictions"] == 1
+    assert snapshot["project_profiles"] == {"p1": ["wells"]}
+    assert not cache.lookup(tmp_path, "p1", profile="root-only").hit
+    assert cache.lookup(tmp_path, "p1", profile="wells").hit
+
+
+def test_navigation_cache_rejects_single_profile_larger_than_budget(tmp_path: Path) -> None:
+    _write_metadata(tmp_path, "p1", "project.json", {"id": "p1"})
+    cache = ProjectNavigationRuntimeCache(max_estimated_bytes=128)
+    lookup = cache.lookup(tmp_path, "p1", profile="full")
+    cache.store(
+        project_id="p1",
+        profile="full",
+        token=lookup.token,
+        tree=({"id": "full", "title": "X" * 1000},),
+        counts={"items": 1},
+        metadata_files=lookup.metadata_files,
+    )
+
+    snapshot = cache.snapshot()
+    assert snapshot["entries"] == 0
+    assert snapshot["project_count"] == 0
+    assert snapshot["estimated_bytes"] == 0
+    assert snapshot["oversized_rejections"] == 1
+    assert snapshot["last_reason"] == "profile-over-byte-budget"
+
+
+def test_navigation_cache_byte_budget_refreshes_global_lru(tmp_path: Path) -> None:
+    _write_metadata(tmp_path, "p1", "project.json", {"id": "p1"})
+    cache = ProjectNavigationRuntimeCache(max_estimated_bytes=760)
+
+    for profile in ("root-only", "wells"):
+        lookup = cache.lookup(tmp_path, "p1", profile=profile)
+        cache.store(
+            project_id="p1",
+            profile=profile,
+            token=lookup.token,
+            tree=({"id": profile, "title": profile * 8},),
+            counts={},
+            metadata_files=lookup.metadata_files,
+        )
+
+    assert cache.lookup(tmp_path, "p1", profile="root-only").hit
+    lookup = cache.lookup(tmp_path, "p1", profile="calculations")
+    cache.store(
+        project_id="p1",
+        profile="calculations",
+        token=lookup.token,
+        tree=({"id": "calculations", "title": "C" * 180},),
+        counts={},
+        metadata_files=lookup.metadata_files,
+    )
+
+    profiles = cache.snapshot()["project_profiles"]["p1"]
+    assert "root-only" in profiles
+    assert "calculations" in profiles

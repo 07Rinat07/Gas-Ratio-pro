@@ -102,9 +102,16 @@ class ProjectNavigationLookup:
 class ProjectNavigationRuntimeCache:
     """Small process-local LRU cache keyed by project id and metadata token."""
 
-    def __init__(self, *, max_projects: int = 4, max_profiles_per_project: int = 6) -> None:
+    def __init__(
+        self,
+        *,
+        max_projects: int = 4,
+        max_profiles_per_project: int = 6,
+        max_estimated_bytes: int = 4 * 1024 * 1024,
+    ) -> None:
         self._max_projects = max(1, int(max_projects))
         self._max_profiles_per_project = max(1, int(max_profiles_per_project))
+        self._max_estimated_bytes = max(1, int(max_estimated_bytes))
         self._entries: OrderedDict[tuple[str, str], ProjectNavigationCacheEntry] = OrderedDict()
         self._project_lru: OrderedDict[str, None] = OrderedDict()
         self._lock = RLock()
@@ -113,6 +120,9 @@ class ProjectNavigationRuntimeCache:
         self._invalidations = 0
         self._evictions = 0
         self._profile_evictions = 0
+        self._byte_evictions = 0
+        self._oversized_rejections = 0
+        self._estimated_bytes = 0
         self._last_reason = "not-used"
         self._profile_stats: dict[str, dict[str, Any]] = {}
         self._latest_branch_timings_ms: dict[str, float] = {}
@@ -146,12 +156,22 @@ class ProjectNavigationRuntimeCache:
             encoded = repr(payload).encode("utf-8", errors="replace")
         return len(encoded)
 
+    def _pop_entry(self, key: tuple[str, str]) -> ProjectNavigationCacheEntry | None:
+        entry = self._entries.pop(key, None)
+        if entry is not None:
+            self._estimated_bytes = max(0, self._estimated_bytes - entry.estimated_bytes)
+        return entry
+
     def _remove_project_entries(self, project_id: str) -> int:
         keys = [key for key in self._entries if key[0] == project_id]
         for key in keys:
-            self._entries.pop(key, None)
+            self._pop_entry(key)
         self._project_lru.pop(project_id, None)
         return len(keys)
+
+    def _drop_project_lru_if_empty(self, project_id: str) -> None:
+        if not any(key[0] == project_id for key in self._entries):
+            self._project_lru.pop(project_id, None)
 
     def lookup(
         self,
@@ -240,7 +260,15 @@ class ProjectNavigationRuntimeCache:
             profile_stats["branch_timings_ms"] = normalized_timings
             self._latest_branch_timings_ms = normalized_timings
             cache_key = (clean_id, clean_profile)
+            previous = self._pop_entry(cache_key)
+            if entry.estimated_bytes > self._max_estimated_bytes:
+                self._oversized_rejections += 1
+                self._last_reason = "profile-over-byte-budget"
+                self._drop_project_lru_if_empty(clean_id)
+                return
+
             self._entries[cache_key] = entry
+            self._estimated_bytes += entry.estimated_bytes
             self._entries.move_to_end(cache_key)
             self._touch_project(clean_id)
 
@@ -248,7 +276,7 @@ class ProjectNavigationRuntimeCache:
             while len(project_keys) > self._max_profiles_per_project:
                 oldest_profile_key = project_keys.pop(0)
                 # The just-stored key is newest, so normal LRU order keeps it.
-                if self._entries.pop(oldest_profile_key, None) is not None:
+                if self._pop_entry(oldest_profile_key) is not None:
                     self._evictions += 1
                     self._profile_evictions += 1
             while len(self._project_lru) > self._max_projects:
@@ -256,12 +284,20 @@ class ProjectNavigationRuntimeCache:
                 removed = self._remove_project_entries(oldest_project)
                 self._evictions += removed
 
+            while self._estimated_bytes > self._max_estimated_bytes and self._entries:
+                oldest_key = next(iter(self._entries))
+                if self._pop_entry(oldest_key) is not None:
+                    self._evictions += 1
+                    self._byte_evictions += 1
+                    self._drop_project_lru_if_empty(oldest_key[0])
+
     def invalidate(self, project_id: str | None = None, *, reason: str = "explicit") -> int:
         with self._lock:
             if project_id is None:
                 removed = len(self._entries)
                 self._entries.clear()
                 self._project_lru.clear()
+                self._estimated_bytes = 0
             else:
                 removed = self._remove_project_entries(str(project_id or "").strip())
             if removed:
@@ -290,13 +326,18 @@ class ProjectNavigationRuntimeCache:
                 "project_count": len(self._project_lru),
                 "max_projects": self._max_projects,
                 "max_profiles_per_project": self._max_profiles_per_project,
+                "max_estimated_bytes": self._max_estimated_bytes,
+                "max_estimated_kib": round(self._max_estimated_bytes / 1024.0, 3),
                 "hits": self._hits,
                 "misses": self._misses,
                 "invalidations": self._invalidations,
                 "evictions": self._evictions,
                 "profile_evictions": self._profile_evictions,
+                "byte_evictions": self._byte_evictions,
+                "oversized_rejections": self._oversized_rejections,
                 "estimated_bytes": total_estimated_bytes,
                 "estimated_kib": round(total_estimated_bytes / 1024.0, 3),
+                "budget_utilization_percent": round(total_estimated_bytes / self._max_estimated_bytes * 100.0, 2),
                 "hit_rate_percent": round((self._hits / total * 100.0) if total else 0.0, 2),
                 "last_reason": self._last_reason,
                 "projects": list(self._project_lru.keys()),
