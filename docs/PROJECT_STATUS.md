@@ -68,3 +68,13 @@ Implemented localized import feedback, SQLite reconciliation from immutable mani
 - Dataset version selection exposes SHA-256, provenance, artifact reference and previous-version metadata without reading LAS payloads.
 - Application service can compare two immutable versions from one lineage using manifest metadata only.
 - LAS scanner validates monotonic depth and STEP stability over the bounded sample rows.
+
+## v222.34 — LAS QC Platform Foundation
+
+- Added `core/qc` as a stable, format-independent QC boundary over the professional LAS QC implementation.
+- Added language-independent `QC-*` finding codes and JSON-safe curve statistics.
+- Added `QCApplicationService` and lazy application-service-container integration.
+- Added synchronized ru/kk/en QC messages, terminology, user guidance, developer guidance and documentation manifest revision checks.
+- Source LAS data remains immutable; QC is analytical and non-destructive.
+
+Next: persist QC reports as derived Dataset artifacts and expose a localized QC summary in Workbench.

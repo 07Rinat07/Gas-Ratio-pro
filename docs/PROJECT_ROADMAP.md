@@ -1935,3 +1935,15 @@ Next priority: expose selected Dataset version properties and provenance in the 
 - Dataset version selection exposes SHA-256, provenance, artifact reference and previous-version metadata without reading LAS payloads.
 - Application service can compare two immutable versions from one lineage using manifest metadata only.
 - LAS scanner validates monotonic depth and STEP stability over the bounded sample rows.
+
+## v222.34 — LAS Quality Control Foundation
+
+Status: COMPLETED
+
+- [x] Stable platform-level `QC-*` codes independent from UI language.
+- [x] Depth, NULL, range, spike, flat-line and unit checks through a reusable QC engine.
+- [x] JSON-safe per-curve statistics.
+- [x] Lazy `QCApplicationService` boundary.
+- [x] User and developer documentation in Russian, Kazakh and English.
+- [x] Documentation manifest and petroleum terminology foundation.
+- [ ] Next: register QC output as a derived Dataset version/artifact and add Workbench QC presentation.

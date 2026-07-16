@@ -477,6 +477,15 @@ class ApplicationServiceContainer:
             self._descriptors.pop(key, None)
         return tuple(self._descriptors[key] for key in sorted(self._descriptors))
 
+    def quality_control(self):
+        """Return the session-scoped QC application service."""
+        from services.qc_application_service import QCApplicationService
+        return self.ensure_session_service(
+            service_name="quality_control",
+            factory=QCApplicationService,
+            expected_type=QCApplicationService,
+        )
+
     def snapshot(self) -> dict[str, Any]:
         descriptors = self.descriptors()
         return {

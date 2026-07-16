@@ -1,0 +1,25 @@
+{
+  "schema": "gas-ratio-pro/documentation-manifest/v1",
+  "documents": [
+    {
+      "id": "las_qc_user_guide",
+      "revision": 1,
+      "audience": "user",
+      "languages": {
+        "ru": "user/ru/las_qc.md",
+        "kk": "user/kk/las_qc.md",
+        "en": "user/en/las_qc.md"
+      }
+    },
+    {
+      "id": "qc_architecture",
+      "revision": 1,
+      "audience": "developer",
+      "languages": {
+        "ru": "developer/ru/qc_architecture.md",
+        "kk": "developer/kk/qc_architecture.md",
+        "en": "developer/en/qc_architecture.md"
+      }
+    }
+  ]
+}

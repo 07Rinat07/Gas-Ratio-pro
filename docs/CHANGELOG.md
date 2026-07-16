@@ -1,3 +1,9 @@
+## v222.34 — LAS QC Platform Foundation
+
+- Added stable platform-level QC reports with language-independent `QC-*` codes.
+- Added per-curve statistics and a lazy QC application-service boundary.
+- Added synchronized ru/kk/en QC messages, documentation and terminology manifest.
+
 ## v222.33 — Dataset Version Properties and Bounded LAS Depth QC
 
 - Added SHA-256, provenance and immutable version metadata to Dataset version nodes in Project Explorer Properties.

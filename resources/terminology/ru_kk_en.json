@@ -1,0 +1,9 @@
+{
+  "schema": "gas-ratio-pro/terminology/v1",
+  "terms": {
+    "quality_control": {"ru": "Контроль качества", "kk": "Сапаны бақылау", "en": "Quality Control"},
+    "depth_curve": {"ru": "Кривая глубины", "kk": "Тереңдік қисығы", "en": "Depth curve"},
+    "null_value": {"ru": "NULL-значение", "kk": "NULL мәні", "en": "NULL value"},
+    "measurement_unit": {"ru": "Единица измерения", "kk": "Өлшем бірлігі", "en": "Measurement unit"}
+  }
+}
