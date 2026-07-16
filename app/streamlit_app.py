@@ -7424,6 +7424,96 @@ def _selected_interval_id_from_table(event: object, table: pd.DataFrame) -> str:
     return str(table.iloc[index]["ID"])
 
 
+
+def _render_professional_import_wizard(logger, active_project: ProjectRecord) -> None:
+    """Render a compact multilingual batch-import wizard backed by background jobs."""
+    i18n = _dashboard_localization()
+    service = application_service_container(_application_state_controller().state).data_platform(
+        root=LAS_CORRELATION_PROJECTS_ROOT
+    )
+    with st.expander(i18n("import.wizard.title"), expanded=False):
+        st.caption(i18n("import.wizard.caption"))
+        uploads = st.file_uploader(
+            i18n("import.wizard.files"),
+            type=["las", "dlis", "lis", "sgy", "segy", "csv", "xlsx", "xls"],
+            accept_multiple_files=True,
+            key=f"professional_import_wizard_{active_project.id}",
+        )
+        if st.button(i18n("import.wizard.start"), key=f"professional_import_start_{active_project.id}"):
+            if not uploads:
+                st.warning(i18n("import.wizard.no_files"))
+            else:
+                staging = LAS_CORRELATION_PROJECTS_ROOT / active_project.id / "imports" / "staging"
+                staging.mkdir(parents=True, exist_ok=True)
+                staged_paths = []
+                for uploaded in uploads:
+                    safe_name = Path(str(uploaded.name)).name
+                    target = staging / f"{uuid4().hex[:10]}-{safe_name}"
+                    target.write_bytes(bytes(uploaded.getvalue()))
+                    staged_paths.append(target)
+                try:
+                    job = service.submit_batch_import_job(
+                        project_id=active_project.id, sources=staged_paths, actor="workbench-user"
+                    )
+                    _application_state_controller().set_value(
+                        f"import_wizard.active_job.{active_project.id}", str(job["job_id"])
+                    )
+                    st.success(i18n("import.wizard.submitted", job_id=job["job_id"]))
+                    st.rerun()
+                except Exception:
+                    logger.exception("professional_import_job_submit_failed project_id=%s", active_project.id)
+                    st.error(i18n("import.preview.panel.failed"))
+
+        st.markdown(f"**{i18n('import.wizard.jobs')}**")
+        jobs = list(service.list_import_jobs(project_id=active_project.id))
+        if not jobs:
+            st.caption(i18n("import.wizard.empty"))
+        else:
+            job_rows = [{
+                "job_id": item.get("job_id", ""),
+                i18n("import.wizard.status"): item.get("status", ""),
+                i18n("import.wizard.progress"): item.get("progress_percent", 0),
+                i18n("import.wizard.success"): item.get("success_count", 0),
+                i18n("import.wizard.failed"): item.get("failed_count", 0),
+            } for item in jobs]
+            st.dataframe(pd.DataFrame(job_rows), width="stretch", hide_index=True)
+            latest = jobs[0]
+            result = latest.get("result") or {}
+            items = result.get("items", []) if isinstance(result, dict) else []
+            if items:
+                rows = [{
+                    i18n("import.wizard.file"): item.get("source_name", ""),
+                    i18n("import.wizard.status"): item.get("status", ""),
+                    i18n("import.wizard.format"): item.get("format_id", ""),
+                    i18n("import.wizard.readiness"): item.get("readiness_score", 0),
+                    i18n("import.wizard.error"): item.get("error_code", ""),
+                } for item in items if isinstance(item, dict)]
+                st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+            if int(latest.get("failed_count", 0) or 0) > 0 and st.button(
+                i18n("import.wizard.retry"), key=f"professional_import_retry_{active_project.id}"
+            ):
+                try:
+                    retry = service.retry_failed_import_job(str(latest["job_id"]), actor="workbench-user")
+                    st.success(i18n("import.wizard.retry_submitted", job_id=retry["job_id"]))
+                    st.rerun()
+                except Exception:
+                    logger.exception("professional_import_retry_failed job_id=%s", latest.get("job_id"))
+                    st.error(i18n("import.preview.panel.failed"))
+
+        st.markdown(f"**{i18n('import.wizard.history')}**")
+        history = list(service.list_import_history(active_project.id, limit=25))
+        if history:
+            st.dataframe(pd.DataFrame([{
+                "job_id": item.get("job_id", ""),
+                i18n("import.wizard.status"): item.get("status", ""),
+                i18n("import.wizard.success"): item.get("success_count", 0),
+                i18n("import.wizard.failed"): item.get("failed_count", 0),
+                "created_at": item.get("created_at", ""),
+                "finished_at": item.get("finished_at", ""),
+            } for item in history]), width="stretch", hide_index=True)
+        else:
+            st.caption(i18n("import.wizard.history_empty"))
+
 def _render_subsurface_import_preview(logger, active_project: ProjectRecord) -> None:
     """Render bounded DLIS/LIS79/SEG-Y metadata preview outside tabular parsing."""
     i18n = _dashboard_localization()
@@ -7535,6 +7625,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
     _render_project_workspace_loader(active_project, logger)
     _render_project_calculations_panel(active_project, logger)
     _render_project_exports_panel(active_project, logger)
+    _render_professional_import_wizard(logger, active_project)
     _render_subsurface_import_preview(logger, active_project)
 
     state_controller = _application_state_controller()

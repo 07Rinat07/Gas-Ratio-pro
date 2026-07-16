@@ -2062,3 +2062,14 @@ Next: QC history in Project Explorer, direct downloads, Dataset comparison badge
 - Public README links for Russian, Kazakh and English.
 - Language-specific user and developer documentation indexes.
 - Release gate for multilingual links and documentation manifest consistency.
+
+## Завершено — Professional Import Wizard UI and Background Jobs (v222.50)
+
+- [x] Multilingual multi-file Import Wizard in Data Workspace.
+- [x] Bounded session-local background import job manager.
+- [x] Project-scoped append-only import history.
+- [x] Independent per-file results and readiness display.
+- [x] Retry of failed batch items only.
+- [x] Updated user documentation in ru/kk/en.
+
+Next: persistent job recovery after application restart, cancellation, and import-history filtering/export.

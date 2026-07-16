@@ -175,3 +175,7 @@ Multilingual README and documentation entry points are implemented and guarded b
 ## v222.49 status
 
 The public README entry point now reflects the actual multi-format platform rather than the earlier LAS/Excel-only scope. Russian, Kazakh, and English overview files are synchronized and protected by a format-coverage release test.
+
+## v222.50 status
+
+Professional Import Wizard is now connected to Data Workspace. Multi-file imports run through a bounded background job manager, persist terminal history per project, expose per-file results, and can retry failed items without repeating successful files.

@@ -50,3 +50,5 @@ __all__ = [
     "default_format_registry",
     "sha256_file",
 ]
+
+from .import_jobs import ImportHistoryRepository, ImportJobManager, ImportJobSnapshot

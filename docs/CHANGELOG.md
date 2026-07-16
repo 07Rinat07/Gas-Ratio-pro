@@ -3059,3 +3059,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Updated the root README to reflect LAS 1.x/2.x/3.x, DLIS, LIS79, SEG-Y, Data Platform, QC, lineage, correlation, and the GIS/Reservoir roadmap.
 - Synchronized Russian, Kazakh, and English project overview README files.
 - Added a release regression test that requires current and planned industry formats and live documentation links to remain visible from the public project entry point.
+
+## v222.50
+
+- Added multilingual Professional Import Wizard UI.
+- Added bounded background batch-import jobs and project-scoped JSONL history.
+- Added retry of failed items only and per-file readiness/result tables.
+- Updated import-wizard documentation in Russian, Kazakh, and English.

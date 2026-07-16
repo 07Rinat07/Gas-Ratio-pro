@@ -35,6 +35,7 @@ from core.data_platform import (
     BatchImportItemResult,
     BatchImportResult,
     metadata_quick_qc,
+    ImportJobManager,
 )
 
 
@@ -123,6 +124,7 @@ class DataPlatformApplicationService:
             )
         self.preview_cache = ImportPreviewCache(max_entries=32)
         self.import_profiles = ImportProfileRepository(self.projects_root)
+        self.import_jobs = ImportJobManager(self.projects_root, self.run_batch_import)
 
     def register_source_file(self, *, project_id: str, source: Path | str, format_id: str | None = None, well_id: str = "", actor: str = "", metadata: dict[str, str | int | float | bool | None] | None = None, previous_dataset_id: str = "", import_mode: str = "tolerant") -> DatasetManifest:
         return self.register_source_file_result(
@@ -271,6 +273,22 @@ class DataPlatformApplicationService:
             except Exception as exc:
                 items.append(BatchImportItemResult(source_name=source.name, status="failed", error_code=type(exc).__name__, message=str(exc)))
         return BatchImportResult(tuple(items))
+
+
+    def submit_batch_import_job(self, *, project_id: str, sources, actor: str = "") -> dict[str, object]:
+        return self.import_jobs.submit(project_id=project_id, sources=sources, actor=actor).to_dict()
+
+    def get_import_job(self, job_id: str) -> dict[str, object]:
+        return self.import_jobs.get(job_id).to_dict()
+
+    def list_import_jobs(self, *, project_id: str = "") -> tuple[dict[str, object], ...]:
+        return tuple(item.to_dict() for item in self.import_jobs.list(project_id=project_id))
+
+    def list_import_history(self, project_id: str, *, limit: int = 100) -> tuple[dict[str, object], ...]:
+        return self.import_jobs.history(project_id, limit=limit)
+
+    def retry_failed_import_job(self, job_id: str, *, actor: str = "") -> dict[str, object]:
+        return self.import_jobs.retry_failed(job_id, actor=actor).to_dict()
 
     def capability_matrix(self) -> dict[str, object]:
         return self.plugins.capability_matrix()

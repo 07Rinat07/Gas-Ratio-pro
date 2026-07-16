@@ -13,3 +13,7 @@ A readiness score from 0 to 100 is calculated from metadata preview and quick QC
 ## Safety
 
 Source files are preserved as immutable artifacts. Wizard state never contains file payloads, DataFrames, or third-party parser objects.
+
+## Batch import and background jobs
+
+In Data Workspace, open the Professional Import Wizard, select multiple files, and press Start import. Each file is processed independently. The jobs table shows status, progress, successful items, and failed items. A completed job can retry only its failed files. Terminal history is stored in the project at `imports/history.jsonl`.
