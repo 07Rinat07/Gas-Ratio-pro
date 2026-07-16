@@ -2798,3 +2798,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Connected Explorer expansion state to requested metadata sections.
 - Added navigation-cache profiles for root-only and partially hydrated trees.
 - Added regression tests proving unrequested repositories are not called.
+
+## v222.16
+
+- Added payload-free Project Explorer branch timing diagnostics.
+- Added per-navigation-profile cache hit/miss/load statistics.
+- Exposed latest branch timings in the shared Diagnostics Center snapshot.
+- Added regression tests proving that collapsed branches are neither read nor timed.

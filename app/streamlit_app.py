@@ -15339,7 +15339,11 @@ def _workbench_project_navigation_sections() -> frozenset[str]:
     return frozenset(requested)
 
 
-def _build_workbench_project_navigation(project: ProjectRecord) -> tuple[dict[str, int], list[dict[str, object]]]:
+def _build_workbench_project_navigation(
+    project: ProjectRecord,
+    *,
+    section_timings_ms: dict[str, float] | None = None,
+) -> tuple[dict[str, int], list[dict[str, object]]]:
     """Build only the Project Explorer metadata branches requested by the UI."""
 
     requested_sections = _workbench_project_navigation_sections()
@@ -15347,6 +15351,7 @@ def _build_workbench_project_navigation(project: ProjectRecord) -> tuple[dict[st
         LAS_CORRELATION_PROJECTS_ROOT,
         project.id,
         include_sections=set(requested_sections),
+        section_timings_ms=section_timings_ms,
     )
     counts = {
         "calculations": 0,
@@ -15602,13 +15607,21 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
                     navigation_reason = "runtime-hit-state-restored"
             else:
                 def _rebuild_navigation() -> None:
-                    counts, serialized_tree = _build_workbench_project_navigation(active_project)
+                    branch_timings_ms: dict[str, float] = {}
+                    rebuild_started = perf_counter()
+                    counts, serialized_tree = _build_workbench_project_navigation(
+                        active_project, section_timings_ms=branch_timings_ms
+                    )
+                    rebuild_ms = (perf_counter() - rebuild_started) * 1000.0
                     navigation_runtime_cache.store(
                         project_id=active_project.id,
                         token=lookup.token,
                         tree=serialized_tree,
                         counts=counts,
                         metadata_files=lookup.metadata_files,
+                        profile=navigation_profile,
+                        load_ms=rebuild_ms,
+                        branch_timings_ms=branch_timings_ms,
                     )
                     _apply_workbench_project_navigation(
                         active_project, counts, serialized_tree, token=lookup.token,

@@ -138,6 +138,7 @@ def _project_navigation_cache_snapshot(service: Any) -> dict[str, Any]:
             "entries": 0, "max_projects": 0, "hits": 0, "misses": 0,
             "invalidations": 0, "evictions": 0, "hit_rate_percent": 0.0,
             "last_reason": "not-used", "projects": [],
+            "profiles": {}, "latest_branch_timings_ms": {},
         }
     return service.snapshot()
 

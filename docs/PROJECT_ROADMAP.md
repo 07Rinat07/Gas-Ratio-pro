@@ -1741,3 +1741,12 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Include the requested branch profile in the runtime navigation-cache token.
 - [x] Preserve the legacy full-tree contract for callers that do not request lazy sections.
 - [ ] Next: add branch-level load timing and per-section cache hit diagnostics.
+
+### Phase 2 increment — Project Explorer branch diagnostics (completed v222.16)
+
+- [x] Measure metadata loading at the `project`, `well_cards`, `wells`, `calculations`, `exports`, `custom` and `labels` boundaries.
+- [x] Keep timing payloads primitive and bounded; no project objects, DataFrames or repository payloads are retained.
+- [x] Record cache hits, misses, loads and hit rate independently for each requested branch profile.
+- [x] Surface the latest per-branch timings through the shared Project Navigation cache diagnostics snapshot.
+- [x] Verify that collapsed branches do not appear in timing events and therefore are not read eagerly.
+- [ ] Next: preserve multiple branch profiles concurrently instead of replacing the active project's previous profile entry.

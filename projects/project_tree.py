@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from time import perf_counter
 
 from projects.calculations import list_project_calculations
 from projects.exports import list_project_exports
@@ -231,6 +232,7 @@ def build_project_tree(
     project_id: str = DEFAULT_PROJECT_ID,
     *,
     include_sections: set[str] | frozenset[str] | None = None,
+    section_timings_ms: dict[str, float] | None = None,
 ) -> ProjectTreeNode:
     """Build a read-only Project Explorer tree for the selected project.
 
@@ -241,7 +243,15 @@ def build_project_tree(
 
     root_path = Path(root)
     clean_project_id = safe_project_id(project_id)
-    project = load_project(root_path, clean_project_id)
+    def _measure(section: str, operation):
+        started = perf_counter()
+        try:
+            return operation()
+        finally:
+            if section_timings_ms is not None:
+                section_timings_ms[section] = round((perf_counter() - started) * 1000.0, 3)
+
+    project = _measure("project", lambda: load_project(root_path, clean_project_id))
     requested_sections = (
         frozenset({"custom", "wells", "calculations", "exports"})
         if include_sections is None
@@ -254,12 +264,12 @@ def build_project_tree(
 
     indexed_nodes: dict[str, ProjectTreeNode] = {}
     well_cards = (
-        project_well_cards_by_id(root_path, clean_project_id)
+        _measure("well_cards", lambda: project_well_cards_by_id(root_path, clean_project_id))
         if "wells" in requested_sections else {}
     )
     well_children: list[ProjectTreeNode] = []
     grouped_wells = (
-        list_grouped_project_wells(root_path, clean_project_id)
+        _measure("wells", lambda: list_grouped_project_wells(root_path, clean_project_id))
         if "wells" in requested_sections else ()
     )
     for group, wells in grouped_wells:
@@ -298,7 +308,7 @@ def build_project_tree(
             },
         )
         for record in (
-            list_project_calculations(root_path, clean_project_id)
+            _measure("calculations", lambda: list_project_calculations(root_path, clean_project_id))
             if "calculations" in requested_sections else ()
         )
     )
@@ -318,7 +328,7 @@ def build_project_tree(
             },
         )
         for record in (
-            list_project_exports(root_path, clean_project_id)
+            _measure("exports", lambda: list_project_exports(root_path, clean_project_id))
             if "exports" in requested_sections else ()
         )
     )
@@ -327,7 +337,7 @@ def build_project_tree(
     custom_folder_children = tuple(
         _custom_folder_node(folder, indexed_nodes)
         for folder in (
-            list_project_folders(root_path, clean_project_id)
+            _measure("custom", lambda: list_project_folders(root_path, clean_project_id))
             if "custom" in requested_sections else ()
         )
     )
@@ -387,7 +397,12 @@ def build_project_tree(
             "updated_at": project.updated_at,
         },
     )
-    return _apply_project_labels(tree, project_explorer_labels_by_object(root_path, clean_project_id))
+    return _measure(
+        "labels",
+        lambda: _apply_project_labels(
+            tree, project_explorer_labels_by_object(root_path, clean_project_id)
+        ),
+    )
 
 
 def project_tree_table_rows(tree: ProjectTreeNode) -> tuple[dict[str, str | int], ...]:

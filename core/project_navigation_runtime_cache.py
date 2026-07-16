@@ -108,6 +108,8 @@ class ProjectNavigationRuntimeCache:
         self._invalidations = 0
         self._evictions = 0
         self._last_reason = "not-used"
+        self._profile_stats: dict[str, dict[str, Any]] = {}
+        self._latest_branch_timings_ms: dict[str, float] = {}
 
     def lookup(
         self,
@@ -121,19 +123,25 @@ class ProjectNavigationRuntimeCache:
         token = f"{token}:{clean_profile}"
         clean_id = str(project_id or "").strip()
         with self._lock:
+            profile_stats = self._profile_stats.setdefault(
+                clean_profile, {"hits": 0, "misses": 0, "loads": 0, "last_load_ms": 0.0, "branch_timings_ms": {}}
+            )
             entry = self._entries.get(clean_id)
             if entry is None:
                 self._misses += 1
+                profile_stats["misses"] += 1
                 self._last_reason = "cold"
                 return ProjectNavigationLookup("miss", "cold", token, token_ms, metadata_files)
             if entry.token != token:
                 self._entries.pop(clean_id, None)
                 self._misses += 1
+                profile_stats["misses"] += 1
                 self._invalidations += 1
                 self._last_reason = "metadata-changed"
                 return ProjectNavigationLookup("miss", "metadata-changed", token, token_ms, metadata_files)
             self._entries.move_to_end(clean_id)
             self._hits += 1
+            profile_stats["hits"] += 1
             self._last_reason = "token-match"
             return ProjectNavigationLookup(
                 "hit", "token-match", token, token_ms, metadata_files,
@@ -149,6 +157,9 @@ class ProjectNavigationRuntimeCache:
         tree: Iterable[Mapping[str, Any]],
         counts: Mapping[str, int],
         metadata_files: int,
+        profile: str = "full",
+        load_ms: float = 0.0,
+        branch_timings_ms: Mapping[str, float] | None = None,
     ) -> None:
         clean_id = str(project_id or "").strip()
         normalized_tree = tuple(dict(item) for item in tree)
@@ -160,7 +171,19 @@ class ProjectNavigationRuntimeCache:
             counts=normalized_counts,
             metadata_files=max(0, int(metadata_files)),
         )
+        clean_profile = str(profile or "full").strip() or "full"
+        normalized_timings = {
+            str(key): round(max(0.0, float(value)), 3)
+            for key, value in dict(branch_timings_ms or {}).items()
+        }
         with self._lock:
+            profile_stats = self._profile_stats.setdefault(
+                clean_profile, {"hits": 0, "misses": 0, "loads": 0, "last_load_ms": 0.0, "branch_timings_ms": {}}
+            )
+            profile_stats["loads"] += 1
+            profile_stats["last_load_ms"] = round(max(0.0, float(load_ms)), 3)
+            profile_stats["branch_timings_ms"] = normalized_timings
+            self._latest_branch_timings_ms = normalized_timings
             self._entries[clean_id] = entry
             self._entries.move_to_end(clean_id)
             while len(self._entries) > self._max_projects:
@@ -192,6 +215,17 @@ class ProjectNavigationRuntimeCache:
                 "hit_rate_percent": round((self._hits / total * 100.0) if total else 0.0, 2),
                 "last_reason": self._last_reason,
                 "projects": list(self._entries.keys()),
+                "profiles": {
+                    profile: {
+                        **dict(values),
+                        "hit_rate_percent": round(
+                            (int(values.get("hits", 0)) / max(1, int(values.get("hits", 0)) + int(values.get("misses", 0))) * 100.0),
+                            2,
+                        ),
+                    }
+                    for profile, values in sorted(self._profile_stats.items())
+                },
+                "latest_branch_timings_ms": dict(self._latest_branch_timings_ms),
             }
 
     def close(self) -> None:
