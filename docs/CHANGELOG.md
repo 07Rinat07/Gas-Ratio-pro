@@ -1,5 +1,13 @@
 ## Application service boundary hardening — Modern Workbench
 
+## Application Service Layer — project storage maintenance boundary
+
+- Added project-scoped `ProjectStorageApplicationService`.
+- Moved Project Database index synchronization out of Streamlit UI.
+- Added lazy ownership of `IndexManager` behind explicit storage use cases.
+- Added project isolation, health diagnostics, and architecture regression tests.
+
+
 ## Application Service boundary hardening — interpretation persistence
 
 - Removed repository-style gateways from the interpretation interval UI.

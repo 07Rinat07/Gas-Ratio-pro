@@ -325,7 +325,6 @@ from projects.recent_projects import (
 from core.application_service_container import application_service_container
 from services.well_manager_service import DEFAULT_WELLS_STORAGE_ROOT
 from services.dataset_manager_service import StorageDeleteError
-from core.storage_lifecycle import IndexManager
 from projects import calculations as project_calculations
 from projects import exports as project_exports
 from projects import graph_settings as project_graph_settings
@@ -5274,9 +5273,12 @@ def _dataset_manager_service():
     )
 
 
-def _index_manager() -> IndexManager:
-    """Return the project storage index manager used by Project Database UI."""
-    return IndexManager(LAS_CORRELATION_PROJECTS_ROOT)
+def _project_storage_service(project_id: str):
+    """Return the project-scoped storage maintenance application service."""
+    return application_service_container(_application_state_controller().state).project_storage(
+        project_id=project_id,
+        root=LAS_CORRELATION_PROJECTS_ROOT,
+    )
 
 
 def _application_state_controller() -> ApplicationStateController:
@@ -13121,7 +13123,7 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
         with actions[0]:
             if st.button("Синхронизировать таблицы", key=f"project_database_sync_{project.id}"):
                 try:
-                    result = _index_manager().sync_project_storage(project.id)
+                    result = _project_storage_service(project.id).sync_storage()
                     uuid_summary = update_project_uuid_registry(LAS_CORRELATION_PROJECTS_ROOT, project.id)
                 except Exception:
                     logger.exception("project_database_sync_failed project_id=%s", safe_log_value(project.id))
@@ -13176,7 +13178,7 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
             "Индекс собирает metadata файлов активного проекта: путь, тип, размер, "
             "время изменения и SHA-256. Файлы не копируются и datasets не изменяются."
         )
-        index_manager = _index_manager()
+        storage_service = _project_storage_service(project.id)
         columns = st.columns(3)
         with columns[0]:
             if st.button("Обновить индекс файлов", key=f"project_file_index_refresh_{project.id}"):
@@ -13202,7 +13204,7 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
         with columns[2]:
             if st.button("🧹 Перестроить индекс", key=f"project_file_index_rebuild_{project.id}"):
                 try:
-                    result = index_manager.sync_project_storage(project.id)
+                    result = storage_service.sync_storage()
                 except Exception:
                     logger.exception("project_file_index_rebuild_failed project_id=%s", safe_log_value(project.id))
                     st.error("Не удалось перестроить индекс файлов проекта. Подробности записаны в logs/app.log.")
@@ -13298,7 +13300,7 @@ def _render_project_file_index(project: ProjectRecord, logger) -> None:
         )
         if st.button("Обновить версии файлов", key=f"project_file_versions_refresh_{project.id}"):
             try:
-                result = _index_manager().sync_project_storage(project.id)
+                result = _project_storage_service(project.id).sync_storage()
             except Exception:
                 logger.exception("project_file_versions_update_failed project_id=%s", safe_log_value(project.id))
                 st.error("Не удалось обновить версии файлов проекта. Подробности записаны в logs/app.log.")
@@ -15757,7 +15759,7 @@ def _process_workbench_bulk_action(logger) -> None:
             elif target == "calculation":
                 for item in object_ids:
                     deleted += int(project_calculations.delete_project_calculation(LAS_CORRELATION_PROJECTS_ROOT, project_id, item))
-                _index_manager().sync_project_storage(project_id)
+                _project_storage_service(project_id).sync_storage()
             elif target == "export":
                 for item in object_ids:
                     deleted += int(_export_manager_service().delete_export(project_id, item).deleted)
@@ -15876,7 +15878,7 @@ def _process_workbench_property_action(logger) -> None:
             message = ("Экспорт удалён." if result.deleted else "Экспорт уже отсутствует.") + f" Backup: {backup.file_name}."
         elif action_id == "delete" and target == "calculation":
             deleted = project_calculations.delete_project_calculation(LAS_CORRELATION_PROJECTS_ROOT, project_id, object_id)
-            _index_manager().sync_project_storage(project_id)
+            _project_storage_service(project_id).sync_storage()
             message = ("Расчёт удалён." if deleted else "Расчёт уже отсутствует.") + f" Backup: {backup.file_name}."
         else:
             raise ValueError(f"Действие пока не поддерживается: {target}/{action_id}")

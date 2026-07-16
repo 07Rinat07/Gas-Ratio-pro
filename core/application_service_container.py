@@ -208,6 +208,28 @@ class ApplicationServiceContainer:
             expected_type=InterpretationCorrelationApplicationService,
         )
 
+    def project_storage(
+        self,
+        *,
+        project_id: str,
+        root: Path | str,
+    ):
+        """Return the lazy project-scoped storage maintenance boundary."""
+        from services.project_storage_application_service import (
+            ProjectStorageApplicationService,
+        )
+
+        return self.ensure_project_service(
+            service_name="project_storage",
+            project_id=project_id,
+            root=root,
+            factory=lambda: ProjectStorageApplicationService(
+                root=root,
+                project_id=project_id,
+            ),
+            expected_type=ProjectStorageApplicationService,
+        )
+
     def presentation_export(
         self,
         *,
