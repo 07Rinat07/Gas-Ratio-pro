@@ -1,3 +1,24 @@
+# Latest increment — Data Platform Foundation I
+
+Status: IMPLEMENTED
+
+Implemented:
+- lightweight Data Format Registry with collision-safe ids/extensions;
+- versioned Dataset Manifest and provenance contracts;
+- streaming SHA-256 checksums;
+- project-contained Artifact Store with atomic writes and path traversal protection;
+- atomic Dataset Manifest Repository with JSON-safe diagnostics;
+- lazy Data Platform Application Service in the application-service container;
+- initial contracts for LAS, DLIS, SEG-Y, RESQML, GRDECL, GIS, HDF5/NetCDF, CSV/Excel and PDF/DOCX.
+
+Validation:
+- focused Data Platform and application-service container tests;
+- Python compilation for all new modules.
+
+Next priority: duplicate detection, immutable dataset version lineage and the metadata-scanner adapter contract, starting with LAS header-only scanning.
+
+See: `docs/INDUSTRY_DATA_PLATFORM_ROADMAP.md`.
+
 # Latest increment — Three-language Internationalization Foundation
 
 Status: IMPLEMENTED / MIGRATION STARTED

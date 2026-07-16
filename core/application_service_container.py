@@ -204,6 +204,17 @@ class ApplicationServiceContainer:
             instance_key=str(Path(catalogs_dir).resolve()),
         )
 
+    def data_platform(self, *, root: Path | str):
+        """Return the workspace-scoped industry data-platform boundary."""
+        from services.data_platform_application_service import DataPlatformApplicationService
+
+        return self.ensure_workspace_service(
+            service_name="data_platform",
+            root=root,
+            factory=lambda: DataPlatformApplicationService(root),
+            expected_type=DataPlatformApplicationService,
+        )
+
     def runtime_diagnostics(self, *, root: Path | str):
         # Local import keeps diagnostics infrastructure behind a lazy boundary.
         from services.runtime_diagnostics_application_service import (

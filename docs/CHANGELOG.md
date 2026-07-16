@@ -1,3 +1,11 @@
+# v222.25
+
+- Added the first Data Platform Foundation implementation.
+- Added safe format capability registration for current and planned industry formats.
+- Added dataset manifests, provenance, streaming checksums and project artifact storage.
+- Added atomic manifest persistence and a lazy Data Platform application-service boundary.
+- Added regression tests for path containment, format collisions, JSON round-trips and service reuse.
+
 ## v222.24 — Localized Diagnostics and Global Validation
 
 - Added Russian, Kazakh and English labels for the Workbench diagnostics shell.

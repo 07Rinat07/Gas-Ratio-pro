@@ -1,15 +1,16 @@
-# Current increment: v222.24 — Localized Diagnostics and Global Validation
+# Current increment: v222.25 — Data Platform Foundation I
 
 ## Completed
 
-- Localized the Workbench developer diagnostics shell for Russian, Kazakh and English.
-- Localized diagnostics section headings, runtime incident states, repository-health warnings and baseline download action.
-- Localized Properties collapse/restore help and technical-property confirmation feedback.
-- Preserved language-neutral runtime codes, identifiers, traces and engineering payloads.
-- Added catalog placeholder-parity and renderer-contract tests.
+- Added an allow-listed Data Format Registry for LAS, DLIS, SEG-Y, RESQML, GRDECL, GIS, HDF5/NetCDF, tabular and report formats.
+- Added versioned, JSON-safe Dataset Manifest and provenance contracts.
+- Added streaming SHA-256 calculation and project-contained Artifact Store with atomic writes.
+- Added atomic project-scoped Dataset Manifest Repository and payload-free summaries.
+- Added a lazy workspace-scoped Data Platform Application Service and container boundary.
+- Kept all heavy parser dependencies out of the foundation layer.
 
 ## Next
 
-- Continue validation-message migration in LAS Editor and import workflows.
-- Introduce stable validation/error codes so engineering services return language-neutral outcomes.
-- Add localized Diagnostics Center table-column presentation without changing raw diagnostic snapshots.
+- Add duplicate detection and immutable dataset version lineage.
+- Add metadata-scanner adapter contracts and implement the LAS header scanner first.
+- Expose a localized dataset registration/import result without putting file payloads in session state.
