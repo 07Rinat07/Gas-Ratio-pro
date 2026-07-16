@@ -1,17 +1,22 @@
-# Current increment: v222.26 — Data Platform Foundation II
+# Current increment: v222.27 — Legacy LAS compatibility foundation
 
 ## Completed
 
-- Added project-scoped duplicate detection by streaming SHA-256.
-- Added immutable Dataset lineage with `lineage_id`, `previous_dataset_id` and sequential versions.
-- Prevented existing manifest mutation and source-artifact overwrite.
-- Added a lightweight metadata-scanner protocol.
-- Added the first bounded LAS header-only scanner that stops at `~ASCII`.
-- Added JSON-safe registration results and scanner inventory diagnostics.
+- Added explicit support policy for LAS files older than 2.0, including LAS 1.x archives.
+- Added tolerant metadata classification for files with missing or non-standard version headers.
+- Added stable compatibility warning codes without rewriting source data.
+- Preserved bounded header-only scanning and immutable source artifacts.
+
+## Compatibility contract
+
+- LAS 1.x is accepted in `legacy-pre-2.0` mode.
+- Files without a parseable `VERS` value are accepted in `legacy-tolerant` mode when recognizable LAS sections are present.
+- Original bytes, mnemonics, units and project/well names are never translated or silently normalized.
+- Compatibility warnings are stored as stable machine-readable codes.
 
 ## Next
 
-- Add localized dataset import outcomes for `ru`/`kk`/`en`.
-- Add validation/error codes for malformed LAS headers.
-- Add a SQLite metadata catalog projection without moving large artifacts into SQL.
-- Connect dataset registration to the import workflow behind the application-service boundary.
+- Localize import outcomes for `ru`/`kk`/`en`.
+- Add detailed legacy LAS validation codes for WRAP, delimiters, malformed parameter cards and encoding anomalies.
+- Add SQLite metadata catalog projection.
+- Connect Dataset registration to the production LAS import workflow.

@@ -1,3 +1,11 @@
+# v222.27
+
+- Added explicit LAS pre-2.0 / LAS 1.x compatibility policy.
+- Added legacy and tolerant compatibility metadata to the bounded LAS scanner.
+- Added stable warning codes for old or missing LAS version declarations.
+- Added regression coverage for LAS 1.2 and archival files without `VERS`.
+- Updated Data Platform roadmap for safe legacy import and multilingual compatibility reports.
+
 # v222.26
 
 - Added project-scoped SHA-256 duplicate detection with payload-free registration results.

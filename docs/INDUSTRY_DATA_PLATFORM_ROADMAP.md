@@ -105,3 +105,19 @@ PDF/DOCX остаются форматами представления, но н
 - preview/navigation integration;
 - unit, malformed-file, large-file and round-trip tests;
 - документация ограничений и совместимости.
+
+
+## Legacy LAS compatibility (pre-2.0)
+
+GAS RATIO PRO must support archival LAS files older than LAS 2.0, including LAS 1.x and field files that only partially follow the specification. Legacy support is a first-class compatibility requirement, not an optional conversion utility.
+
+Principles:
+- tolerant read, strict write;
+- original files remain immutable;
+- no silent unit, mnemonic or depth correction;
+- every heuristic produces a stable warning code;
+- users can review a compatibility report before normalization or export;
+- strict modern validation remains available separately;
+- Russian, Kazakh and English explanations are generated from the same language-neutral codes.
+
+Planned diagnostics include old section aliases, absent `VERS`, legacy `WRAP`, unusual delimiters, DOS/legacy encodings, malformed parameter cards, missing `NULL`, non-monotonic depth and inconsistent curve counts.

@@ -1,3 +1,29 @@
+# Latest increment — Legacy LAS compatibility foundation
+
+Status: IMPLEMENTED / EXPANSION PLANNED
+
+Required product capability:
+- support LAS files older than 2.0, including LAS 1.x archive files;
+- use a dedicated tolerant compatibility mode instead of rejecting old files;
+- preserve original source bytes, mnemonics, units and headers;
+- emit stable machine-readable warnings for legacy or malformed structures;
+- separate safe heuristics from strict validation;
+- never silently rewrite an old LAS during import;
+- provide explicit user-visible compatibility reports in Russian, Kazakh and English.
+
+Implemented in v222.27:
+- `legacy-pre-2.0` classification for parseable LAS versions below 2.0;
+- `legacy-tolerant` classification for recognizable LAS files without a usable `VERS` value;
+- stable warning codes and bounded header-only detection;
+- regression tests for LAS 1.2 and missing-version archival files.
+
+Next priority:
+- legacy WRAP and delimiter diagnostics;
+- old encoding detection;
+- malformed card recovery;
+- localized import outcome and compatibility report;
+- production import-workflow integration.
+
 # Latest increment — Data Platform Foundation II
 
 Status: IMPLEMENTED

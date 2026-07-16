@@ -84,6 +84,7 @@ class LasHeaderMetadataScanner:
 
         metadata["curve_count"] = len(curves)
         metadata["curve_mnemonics"] = ",".join(curves[:256])
+        _apply_las_compatibility_metadata(metadata, warnings, current_section=current_section)
         if not reached_ascii:
             warnings.append("las.header.ascii_section_not_reached")
         if len(raw) >= self.max_header_bytes and not reached_ascii:
@@ -104,3 +105,49 @@ def _number_or_text(value: str) -> str | int | float:
     except ValueError:
         return candidate
     return int(number) if number.is_integer() else number
+
+
+def _apply_las_compatibility_metadata(
+    metadata: dict[str, str | int | float | bool | None],
+    warnings: list[str],
+    *,
+    current_section: str,
+) -> None:
+    """Classify LAS compatibility without mutating source content.
+
+    LAS files older than 2.0 are accepted in tolerant legacy mode.  The
+    scanner records stable warning codes instead of rewriting headers or
+    guessing missing engineering values.
+    """
+    raw_version = str(metadata.get("las_version") or "").strip()
+    parsed_version = _parse_las_version(raw_version)
+    metadata["las_version_normalized"] = parsed_version if parsed_version is not None else ""
+
+    if parsed_version is not None and parsed_version < 2.0:
+        metadata["las_compatibility_mode"] = "legacy-pre-2.0"
+        metadata["legacy_las"] = True
+        metadata["las_version_family"] = "1.x"
+        warnings.append("las.compatibility.legacy_pre_2_0")
+        return
+
+    if parsed_version is None:
+        metadata["las_compatibility_mode"] = "legacy-tolerant"
+        metadata["legacy_las"] = True
+        metadata["las_version_family"] = "unknown"
+        warnings.append("las.version.missing_or_unparseable")
+        warnings.append("las.compatibility.legacy_tolerant_mode")
+        return
+
+    metadata["las_compatibility_mode"] = "standard"
+    metadata["legacy_las"] = False
+    metadata["las_version_family"] = "2.x+"
+
+
+def _parse_las_version(value: str) -> float | None:
+    match = re.search(r"(?<!\d)(\d+(?:[.,]\d+)?)", value)
+    if not match:
+        return None
+    try:
+        return float(match.group(1).replace(",", "."))
+    except ValueError:
+        return None

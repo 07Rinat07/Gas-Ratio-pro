@@ -36,3 +36,42 @@ def test_las_scanner_is_bounded_when_ascii_section_is_missing(tmp_path: Path) ->
     assert result.complete is False
     assert result.bytes_read == 1024
     assert "las.header.byte_limit_reached" in result.warnings
+
+
+def test_las_scanner_accepts_pre_2_0_legacy_file(tmp_path: Path) -> None:
+    source = tmp_path / "archive_legacy.las"
+    source.write_text(
+        "~V\nVERS. 1.2 : legacy version\n"
+        "~W\nWELL. Archive-17 : well\nSTRT.M 1200 : start\nSTOP.M 1201 : stop\n"
+        "~C\nDEPT.M : depth\nGR.API : gamma ray\n"
+        "~A\n1200 42\n",
+        encoding="latin-1",
+    )
+
+    result = LasHeaderMetadataScanner().scan(source)
+
+    assert result.complete is True
+    assert result.metadata["las_version"] == "1.2"
+    assert result.metadata["las_version_normalized"] == 1.2
+    assert result.metadata["las_version_family"] == "1.x"
+    assert result.metadata["legacy_las"] is True
+    assert result.metadata["las_compatibility_mode"] == "legacy-pre-2.0"
+    assert "las.compatibility.legacy_pre_2_0" in result.warnings
+
+
+def test_las_scanner_uses_tolerant_mode_when_version_is_missing(tmp_path: Path) -> None:
+    source = tmp_path / "archive_without_version.las"
+    source.write_text(
+        "~WELL\nWELL. Archive-Unknown : well\n"
+        "~CURVE\nDEPT.M : depth\n"
+        "~ASCII\n1000\n",
+        encoding="latin-1",
+    )
+
+    result = LasHeaderMetadataScanner().scan(source)
+
+    assert result.complete is True
+    assert result.metadata["legacy_las"] is True
+    assert result.metadata["las_compatibility_mode"] == "legacy-tolerant"
+    assert "las.version.missing_or_unparseable" in result.warnings
+    assert "las.compatibility.legacy_tolerant_mode" in result.warnings
