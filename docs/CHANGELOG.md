@@ -3115,3 +3115,15 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added `ButtonSpec`, `EmptyStateSpec` and the Streamlit UI adapter.
 - Replaced stretched language buttons with compact content-width SDK controls.
 - Added UI Platform health and regression tests.
+
+## v222.57
+
+### Changed
+- Collapsed the professional report configuration by default and replaced the visually noisy introduction with a concise action sequence.
+- Added `reports.plot_theme.apply_report_plot_theme` for consistent print-ready chart typography, grids, margins, legends and trace widths.
+- Increased PDF/DOCX legend and table typography and changed PDF legends to one entry per row.
+- Increased embedded report figure export resolution to 2600×1700.
+- Hid advanced developer diagnostics behind an explicit opt-in control while retaining the incident summary.
+
+### Documentation
+- Updated roadmap and project status with the Report & Diagnostics UX hardening milestone.

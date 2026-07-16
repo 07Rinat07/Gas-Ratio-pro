@@ -2145,3 +2145,19 @@ Next: add readiness filters to Dataset history, direct navigation from import jo
 - Introduce icon and layout registries.
 - Audit hardcoded user-facing strings and route smoke coverage.
 - Measure Workbench render cost before Workbench 2.0 redesign.
+
+## v222.57 — Report & Diagnostics UX Hardening
+
+Completed:
+- compact, collapsed-by-default Report & Print workspace;
+- clear action-oriented report instructions instead of a long multicolour introduction;
+- GAS RATIO PRO corporate print theme for Plotly-compatible report figures;
+- larger PDF/DOCX typography and one-item-per-row printed legends;
+- higher-resolution report chart export;
+- concise developer diagnostics summary with detailed tables hidden by default.
+
+Next:
+- split Report Workspace into four guided steps: source, settings, preview, export;
+- add an explicit operating-system print action after artifact generation;
+- migrate report controls to UI Platform component contracts;
+- standardize chart palettes and line semantics across all engineering workspaces.

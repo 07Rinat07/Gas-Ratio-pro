@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-BUILD_VERSION = "v222.56"
+BUILD_VERSION = "v222.57"
 BUILD_CHANNEL = "stable"
 
 

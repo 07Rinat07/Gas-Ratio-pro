@@ -298,5 +298,7 @@
   "workspace.quick.open_reports": "Открыть отчёты",
   "workspace.quick.reports.text": "Просмотреть инженерные отчёты",
   "workspace.quick.reports.title": "Отчёты",
-  "workspace.title": "Рабочая область"
+  "workspace.title": "Рабочая область",
+  "diagnostics.summary_hint": "Подробные таблицы предназначены для разработчиков и скрыты по умолчанию.",
+  "diagnostics.show_advanced": "Показать подробную диагностику"
 }

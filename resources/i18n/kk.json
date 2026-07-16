@@ -298,5 +298,7 @@
   "workspace.quick.open_reports": "Есептерді ашу",
   "workspace.quick.reports.text": "Инженерлік есептерді қарау",
   "workspace.quick.reports.title": "Есептер",
-  "workspace.title": "Жұмыс аймағы"
+  "workspace.title": "Жұмыс аймағы",
+  "diagnostics.summary_hint": "Толық кестелер әзірлеушілерге арналған және әдепкіде жасырылған.",
+  "diagnostics.show_advanced": "Толық диагностиканы көрсету"
 }

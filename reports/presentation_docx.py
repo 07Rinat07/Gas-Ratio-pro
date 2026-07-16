@@ -27,6 +27,7 @@ from reports.document_model import (
     build_engineering_document,
 )
 from reports.presentation_model import PresentationModel
+from reports.plot_theme import apply_report_plot_theme
 
 
 @dataclass(frozen=True)
@@ -115,7 +116,7 @@ def _configure_document(doc: Document, options: PresentationDocxOptions) -> None
 
     styles = doc.styles
     styles["Normal"].font.name = "Arial"
-    styles["Normal"].font.size = Pt(9)
+    styles["Normal"].font.size = Pt(10)
     for style_name, size in (("Title", 18), ("Heading 1", 14), ("Heading 2", 12)):
         try:
             styles[style_name].font.name = "Arial"
@@ -247,7 +248,7 @@ def _add_report_legend_table(doc: Document, title: str, entries: Sequence[dict[s
     paragraph = doc.add_paragraph()
     run = paragraph.add_run(title)
     run.bold = True
-    run.font.size = Pt(9)
+    run.font.size = Pt(11)
     table = doc.add_table(rows=1, cols=3)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.style = "Table Grid"
@@ -257,7 +258,7 @@ def _add_report_legend_table(doc: Document, title: str, entries: Sequence[dict[s
         cell.text = header
         for cell_run in cell.paragraphs[0].runs:
             cell_run.bold = True
-            cell_run.font.size = Pt(8)
+            cell_run.font.size = Pt(10)
     for entry in entries:
         cells = table.add_row().cells
         symbol = str(entry.get("symbol", "■"))
@@ -271,7 +272,7 @@ def _add_report_legend_table(doc: Document, title: str, entries: Sequence[dict[s
         cells[2].text = str(entry.get("description", ""))
         for cell in cells[1:]:
             for cell_run in cell.paragraphs[0].runs:
-                cell_run.font.size = Pt(8)
+                cell_run.font.size = Pt(10)
         for cell in cells:
             cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     doc.add_paragraph()
@@ -280,7 +281,7 @@ def _add_report_legend_table(doc: Document, title: str, entries: Sequence[dict[s
 def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
     """Embed the shared Plotly figure into DOCX; never expose renderer placeholders."""
     _add_paragraph(doc, block.title or "Планшет", style="Heading 2")
-    figure = block.figure
+    figure = apply_report_plot_theme(block.figure)
     legend = _figure_report_legend(figure)
     depth_range = legend.get("depth_range", {}) if isinstance(legend.get("depth_range", {}), dict) else {}
     if depth_range:
@@ -319,10 +320,10 @@ def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
     _add_report_legend_table(doc, "Маркеры интервалов", list(legend.get("markers", []) or []))
     try:
         if hasattr(figure, "to_image"):
-            png = figure.to_image(format="png", width=2400, height=1500, scale=1)
+            png = figure.to_image(format="png", width=2600, height=1700, scale=1)
         elif hasattr(figure, "write_image"):
             buffer = BytesIO()
-            figure.write_image(buffer, format="png", width=2400, height=1500)
+            figure.write_image(buffer, format="png", width=2600, height=1700)
             png = buffer.getvalue()
         else:
             raise TypeError("Figure backend does not support raster export")

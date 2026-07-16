@@ -859,249 +859,258 @@ def _render_native_streamlit_layout(
                 else:
                     st_module.success(i18n("diagnostics.no_incidents"))
 
-                center = build_diagnostics_center_snapshot(
-                    registry.state,
-                    performance_budgets_ms={
-                        "las_correlation.total": 10000.0,
-                        "las_correlation.figure": 5000.0,
-                        "las_correlation.frontend": 3000.0,
-                    },
-                )
-                runtime = dict(center.get("runtime", {}) or {})
-                cache = dict(center.get("cache", {}) or {})
-                repository_io = dict(center.get("repository", {}) or {})
-                traces = dict(center.get("traces", {}) or {})
-                session = dict(center.get("session", {}) or {})
-                dataframe_memory = dict(center.get("dataframe_memory", {}) or {})
-                route_lifecycle = dict(center.get("route_lifecycle", {}) or {})
-                route_data = dict(center.get("route_data", {}) or {})
-                project_navigation_cache = dict(center.get("project_navigation_cache", {}) or {})
-                repository_health = dict(center.get("repository_health", {}) or {})
-                registry_stats = dict(runtime.get("registry", {}) or {})
-                cache_summary = dict(cache.get("summary", {}) or {})
-
-                startup = dict(center.get("startup", {}) or {})
-                latest_startup = dict(startup.get("latest", {}) or {})
-                if latest_startup:
-                    st_module.markdown("##### " + i18n("diagnostics.section.startup"))
-                    st_module.caption(
-                        "Status: " + str(latest_startup.get("status", "—"))
-                        + " | Total: " + str(latest_startup.get("total_ms", 0.0)) + " ms"
-                        + " | Slow stages: " + str(len(latest_startup.get("slow_stages", ()) or ()))
+                st_module.caption(i18n("diagnostics.summary_hint"))
+                show_advanced = False
+                if hasattr(st_module, "checkbox"):
+                    show_advanced = bool(st_module.checkbox(
+                        i18n("diagnostics.show_advanced"),
+                        value=False,
+                        key="workbench_diagnostics_show_advanced",
+                    ))
+                if show_advanced:
+                    center = build_diagnostics_center_snapshot(
+                        registry.state,
+                        performance_budgets_ms={
+                            "las_correlation.total": 10000.0,
+                            "las_correlation.figure": 5000.0,
+                            "las_correlation.frontend": 3000.0,
+                        },
                     )
-                    startup_stages = list(latest_startup.get("stages", ()) or ())
-                    if startup_stages and hasattr(st_module, "dataframe"):
-                        st_module.dataframe(startup_stages, width="stretch", hide_index=True)
+                    runtime = dict(center.get("runtime", {}) or {})
+                    cache = dict(center.get("cache", {}) or {})
+                    repository_io = dict(center.get("repository", {}) or {})
+                    traces = dict(center.get("traces", {}) or {})
+                    session = dict(center.get("session", {}) or {})
+                    dataframe_memory = dict(center.get("dataframe_memory", {}) or {})
+                    route_lifecycle = dict(center.get("route_lifecycle", {}) or {})
+                    route_data = dict(center.get("route_data", {}) or {})
+                    project_navigation_cache = dict(center.get("project_navigation_cache", {}) or {})
+                    repository_health = dict(center.get("repository_health", {}) or {})
+                    registry_stats = dict(runtime.get("registry", {}) or {})
+                    cache_summary = dict(cache.get("summary", {}) or {})
 
-                st_module.markdown("##### " + i18n("diagnostics.section.route_lifecycle"))
-                st_module.caption(
-                    "Active: " + str(route_lifecycle.get("active_route") or "—")
-                    + " | Switches: " + str(route_lifecycle.get("transition_count", 0))
-                    + " | Slow: " + str(route_lifecycle.get("slow_transition_count", 0))
-                    + " | Cleanup failures: " + str(route_lifecycle.get("cleanup_failures", 0))
-                    + " | Budget: " + str(route_lifecycle.get("switch_budget_ms", 0.0)) + " ms"
-                )
-                route_events = list(route_lifecycle.get("events", ()) or ())
-                if route_events and hasattr(st_module, "dataframe"):
-                    st_module.dataframe(route_events, width="stretch", hide_index=True)
+                    startup = dict(center.get("startup", {}) or {})
+                    latest_startup = dict(startup.get("latest", {}) or {})
+                    if latest_startup:
+                        st_module.markdown("##### " + i18n("diagnostics.section.startup"))
+                        st_module.caption(
+                            "Status: " + str(latest_startup.get("status", "—"))
+                            + " | Total: " + str(latest_startup.get("total_ms", 0.0)) + " ms"
+                            + " | Slow stages: " + str(len(latest_startup.get("slow_stages", ()) or ()))
+                        )
+                        startup_stages = list(latest_startup.get("stages", ()) or ())
+                        if startup_stages and hasattr(st_module, "dataframe"):
+                            st_module.dataframe(startup_stages, width="stretch", hide_index=True)
 
-                st_module.markdown("##### " + i18n("diagnostics.section.route_data"))
-                st_module.caption(
-                    "Events: " + str(route_data.get("event_count", 0))
-                    + " | Slow: " + str(route_data.get("slow_count", 0))
-                    + " | Navigation hits: " + str(route_data.get("navigation_cache_hits", 0))
-                    + " | Misses: " + str(route_data.get("navigation_cache_misses", 0))
-                    + " | Budget: " + str(route_data.get("budget_ms", 0.0)) + " ms"
-                )
-                route_data_events = list(route_data.get("events", ()) or ())
-                if route_data_events and hasattr(st_module, "dataframe"):
-                    st_module.dataframe(route_data_events, width="stretch", hide_index=True)
-                st_module.caption(
-                    "Navigation runtime cache: " + str(project_navigation_cache.get("entries", 0))
-                    + "/" + str(project_navigation_cache.get("max_projects", 0))
-                    + " projects | Hit rate: " + str(project_navigation_cache.get("hit_rate_percent", 0.0)) + "%"
-                    + " | Invalidations: " + str(project_navigation_cache.get("invalidations", 0))
-                    + " | Evictions: " + str(project_navigation_cache.get("evictions", 0))
-                    + " | Last reason: " + str(project_navigation_cache.get("last_reason", "not-used"))
-                )
-
-                st_module.markdown("##### " + i18n("diagnostics.section.runtime"))
-                st_module.caption(
-                    "Services: " + str(registry_stats.get("active", 0))
-                    + " | Created: " + str(registry_stats.get("created", 0))
-                    + " | Replaced: " + str(registry_stats.get("replaced", 0))
-                    + " | Events: " + str(runtime.get("event_count", 0))
-                )
-                services = list(runtime.get("services", ()) or ())
-                service_scopes = dict(runtime.get("service_scopes", {}) or {})
-                if services and hasattr(st_module, "dataframe"):
-                    service_rows = [
-                        {**item, "scope": service_scopes.get(str(item.get("key") or ""), "session")}
-                        for item in services
-                    ]
-                    st_module.dataframe(service_rows, width="stretch", hide_index=True)
-
-                st_module.markdown("##### " + i18n("diagnostics.section.cache"))
-                st_module.caption(
-                    "Hit rate: " + str(cache_summary.get("hit_rate", 0.0)) + "%"
-                    + " | Hits: " + str(cache_summary.get("hits", 0))
-                    + " | Misses: " + str(cache_summary.get("misses", 0))
-                    + " | Entries: " + str(cache_summary.get("entries", 0))
-                )
-                caches = list(cache.get("caches", ()) or ())
-                if caches and hasattr(st_module, "dataframe"):
-                    st_module.dataframe(caches, width="stretch", hide_index=True)
-
-                st_module.markdown("##### " + i18n("diagnostics.section.dataframe_memory"))
-                st_module.caption(
-                    "Entries: " + str(dataframe_memory.get("sample_entries", 0))
-                    + " | Current: " + str(round(float(dataframe_memory.get("sample_bytes", 0)) / 1048576.0, 2)) + " MiB"
-                    + " | Peak: " + str(round(float(dataframe_memory.get("peak_sample_bytes", 0)) / 1048576.0, 2)) + " MiB"
-                    + " | Budget: " + str(round(float(dataframe_memory.get("max_sample_bytes", 0)) / 1048576.0, 2)) + " MiB"
-                    + " | Utilization: " + str(dataframe_memory.get("memory_utilization_percent", 0.0)) + "%"
-                )
-                if int(dataframe_memory.get("oversized_skips", 0) or 0):
-                    st_module.warning(i18n("diagnostics.oversized_samples", count=dataframe_memory.get("oversized_skips", 0)))
-
-                st_module.markdown("##### " + i18n("diagnostics.section.repository_io"))
-                st_module.caption(
-                    "Reads: " + str(repository_io.get("reads", 0))
-                    + " | Writes: " + str(repository_io.get("writes", 0))
-                    + " | Failures: " + str(repository_io.get("failures", 0))
-                    + " | Avg: " + str(repository_io.get("average_duration_ms", 0.0)) + " ms"
-                )
-                mutation_info = dict(repository_io.get("mutations", {}) or {})
-                st_module.caption(
-                    "Mutations: " + str(mutation_info.get("mutation_count", 0))
-                    + " | Subscribers: " + str(mutation_info.get("subscriber_count", 0))
-                    + " | Notification failures: " + str(mutation_info.get("mutation_failures", 0))
-                )
-                st_module.caption(
-                    "Transactions: " + str(mutation_info.get("transaction_count", 0))
-                    + " | Rollbacks: " + str(mutation_info.get("transaction_failures", 0))
-                    + " | Last ID: "
-                    + str(dict(mutation_info.get("last_transaction", {}) or {}).get("transaction_id", ""))[:12]
-                )
-                st_module.caption(
-                    "Recovered after interruption: " + str(mutation_info.get("recovery_count", 0))
-                    + " | Recovery failures: " + str(mutation_info.get("recovery_failures", 0))
-                )
-                st_module.caption(
-                    "Integrity checks: " + str(mutation_info.get("integrity_checks", 0))
-                    + " | Integrity failures: " + str(mutation_info.get("integrity_failures", 0))
-                    + " | Quarantined journals: " + str(mutation_info.get("quarantined_transactions", 0))
-                    + " | Cleaned journals: " + str(mutation_info.get("cleaned_transactions", 0))
-                )
-                transaction_rows = list(mutation_info.get("recent_transactions", ()) or ())
-                if transaction_rows and hasattr(st_module, "dataframe"):
-                    st_module.dataframe(transaction_rows[-10:], width="stretch", hide_index=True)
-                repository_events = list(repository_io.get("events", ()) or ())
-                if repository_events and hasattr(st_module, "dataframe"):
-                    st_module.dataframe(repository_events, width="stretch", hide_index=True)
-
-                st_module.markdown("##### " + i18n("diagnostics.section.repository_health"))
-                severity_counts = dict(repository_health.get("severity_counts", {}) or {})
-                st_module.caption(
-                    "Status: " + ("healthy" if repository_health.get("healthy", True) else "issues detected")
-                    + " | Files: " + str(repository_health.get("files_scanned", 0))
-                    + " | JSON: " + str(repository_health.get("json_files", 0))
-                    + " | Errors: " + str(severity_counts.get("error", 0))
-                    + " | Warnings: " + str(severity_counts.get("warning", 0))
-                    + " | Repairable: " + str(repository_health.get("repairable_count", 0))
-                    + " | Scan: " + str(repository_health.get("duration_ms", 0.0)) + " ms"
-                )
-                health_issues = list(repository_health.get("issues", ()) or ())
-                if health_issues and hasattr(st_module, "dataframe"):
-                    st_module.dataframe(health_issues[:50], width="stretch", hide_index=True)
-                readiness = dict(repository_health.get("readiness", {}) or {})
-                schedule = dict(repository_health.get("schedule", {}) or {})
-                st_module.caption(
-                    "Recovery readiness: " + str(readiness.get("score", 100)) + "/100"
-                    + " (" + str(readiness.get("status", "ready")) + ")"
-                    + " | Scheduled scans: " + str(schedule.get("scan_count", 0))
-                    + " | Skipped: " + str(schedule.get("skipped_count", 0))
-                    + " | Failures: " + str(schedule.get("failure_count", 0))
-                )
-                if repository_health.get("truncated"):
-                    st_module.warning(i18n("diagnostics.repository_scan_truncated"))
-
-                st_module.markdown("##### " + i18n("diagnostics.section.traces"))
-                trace_summary = dict(traces.get("summary", {}) or {})
-                st_module.caption(
-                    "Events: " + str(trace_summary.get("events", 0))
-                    + " | Slow: " + str(trace_summary.get("slow_events", 0))
-                    + " | Failed: " + str(trace_summary.get("failed_events", 0))
-                    + " | Max: " + str(trace_summary.get("maximum_duration_ms", 0.0)) + " ms"
-                )
-                trace_events = list(traces.get("events", ()) or ())
-                if trace_events and hasattr(st_module, "dataframe"):
-                    st_module.dataframe(trace_events, width="stretch", hide_index=True)
-
-                st_module.markdown("##### " + i18n("diagnostics.section.session"))
-                st_module.caption(
-                    "Keys: " + str(session.get("total_keys", 0))
-                    + " | Runtime: " + str(session.get("runtime_count", 0))
-                    + " | Transient: " + str(session.get("transient_count", 0))
-                    + " | Unscoped: " + str(len(session.get("unscoped_keys", ()) or ()))
-                )
-                owner_counts = dict(session.get("owner_counts", {}) or {})
-                lifecycle_counts = dict(session.get("lifecycle_counts", {}) or {})
-                if owner_counts:
+                    st_module.markdown("##### " + i18n("diagnostics.section.route_lifecycle"))
                     st_module.caption(
-                        "Owners: " + ", ".join(f"{key}={value}" for key, value in owner_counts.items())
+                        "Active: " + str(route_lifecycle.get("active_route") or "—")
+                        + " | Switches: " + str(route_lifecycle.get("transition_count", 0))
+                        + " | Slow: " + str(route_lifecycle.get("slow_transition_count", 0))
+                        + " | Cleanup failures: " + str(route_lifecycle.get("cleanup_failures", 0))
+                        + " | Budget: " + str(route_lifecycle.get("switch_budget_ms", 0.0)) + " ms"
                     )
-                if lifecycle_counts:
+                    route_events = list(route_lifecycle.get("events", ()) or ())
+                    if route_events and hasattr(st_module, "dataframe"):
+                        st_module.dataframe(route_events, width="stretch", hide_index=True)
+
+                    st_module.markdown("##### " + i18n("diagnostics.section.route_data"))
                     st_module.caption(
-                        "Lifecycle: " + ", ".join(f"{key}={value}" for key, value in lifecycle_counts.items())
+                        "Events: " + str(route_data.get("event_count", 0))
+                        + " | Slow: " + str(route_data.get("slow_count", 0))
+                        + " | Navigation hits: " + str(route_data.get("navigation_cache_hits", 0))
+                        + " | Misses: " + str(route_data.get("navigation_cache_misses", 0))
+                        + " | Budget: " + str(route_data.get("budget_ms", 0.0)) + " ms"
                     )
-                unregistered = list(session.get("unregistered_keys", ()) or ())
-                if unregistered:
-                    st_module.warning(i18n("diagnostics.unregistered_keys", keys=", ".join(unregistered[:12])))
+                    route_data_events = list(route_data.get("events", ()) or ())
+                    if route_data_events and hasattr(st_module, "dataframe"):
+                        st_module.dataframe(route_data_events, width="stretch", hide_index=True)
+                    st_module.caption(
+                        "Navigation runtime cache: " + str(project_navigation_cache.get("entries", 0))
+                        + "/" + str(project_navigation_cache.get("max_projects", 0))
+                        + " projects | Hit rate: " + str(project_navigation_cache.get("hit_rate_percent", 0.0)) + "%"
+                        + " | Invalidations: " + str(project_navigation_cache.get("invalidations", 0))
+                        + " | Evictions: " + str(project_navigation_cache.get("evictions", 0))
+                        + " | Last reason: " + str(project_navigation_cache.get("last_reason", "not-used"))
+                    )
 
-                budgets = list(center.get("budgets", ()) or ())
-                if budgets:
-                    st_module.markdown("##### " + i18n("diagnostics.section.budgets"))
-                    if hasattr(st_module, "dataframe"):
-                        st_module.dataframe(budgets, width="stretch", hide_index=True)
+                    st_module.markdown("##### " + i18n("diagnostics.section.runtime"))
+                    st_module.caption(
+                        "Services: " + str(registry_stats.get("active", 0))
+                        + " | Created: " + str(registry_stats.get("created", 0))
+                        + " | Replaced: " + str(registry_stats.get("replaced", 0))
+                        + " | Events: " + str(runtime.get("event_count", 0))
+                    )
+                    services = list(runtime.get("services", ()) or ())
+                    service_scopes = dict(runtime.get("service_scopes", {}) or {})
+                    if services and hasattr(st_module, "dataframe"):
+                        service_rows = [
+                            {**item, "scope": service_scopes.get(str(item.get("key") or ""), "session")}
+                            for item in services
+                        ]
+                        st_module.dataframe(service_rows, width="stretch", hide_index=True)
 
-                st_module.markdown("##### " + i18n("diagnostics.dataset_catalog.title"))
-                active_project_id = str(payload.get("interaction", {}).get("active_project_id", "") or "")
-                if active_project_id:
-                    if st_module.button(
-                        i18n("diagnostics.dataset_catalog.rebuild"),
-                        key="workbench_diagnostics_rebuild_dataset_catalog",
-                        width="stretch",
-                    ):
-                        data_platform = application_service_container(registry.state).data_platform(root=DEFAULT_PROJECTS_ROOT)
-                        reconciliation = data_platform.reconcile_catalog(active_project_id)
-                        st_module.success(
-                            i18n(
-                                "diagnostics.dataset_catalog.result",
-                                status=reconciliation.get("status", "—"),
-                                manifest_count=reconciliation.get("manifest_count", 0),
-                                catalog_count_before=reconciliation.get("catalog_count_before", 0),
+                    st_module.markdown("##### " + i18n("diagnostics.section.cache"))
+                    st_module.caption(
+                        "Hit rate: " + str(cache_summary.get("hit_rate", 0.0)) + "%"
+                        + " | Hits: " + str(cache_summary.get("hits", 0))
+                        + " | Misses: " + str(cache_summary.get("misses", 0))
+                        + " | Entries: " + str(cache_summary.get("entries", 0))
+                    )
+                    caches = list(cache.get("caches", ()) or ())
+                    if caches and hasattr(st_module, "dataframe"):
+                        st_module.dataframe(caches, width="stretch", hide_index=True)
+
+                    st_module.markdown("##### " + i18n("diagnostics.section.dataframe_memory"))
+                    st_module.caption(
+                        "Entries: " + str(dataframe_memory.get("sample_entries", 0))
+                        + " | Current: " + str(round(float(dataframe_memory.get("sample_bytes", 0)) / 1048576.0, 2)) + " MiB"
+                        + " | Peak: " + str(round(float(dataframe_memory.get("peak_sample_bytes", 0)) / 1048576.0, 2)) + " MiB"
+                        + " | Budget: " + str(round(float(dataframe_memory.get("max_sample_bytes", 0)) / 1048576.0, 2)) + " MiB"
+                        + " | Utilization: " + str(dataframe_memory.get("memory_utilization_percent", 0.0)) + "%"
+                    )
+                    if int(dataframe_memory.get("oversized_skips", 0) or 0):
+                        st_module.warning(i18n("diagnostics.oversized_samples", count=dataframe_memory.get("oversized_skips", 0)))
+
+                    st_module.markdown("##### " + i18n("diagnostics.section.repository_io"))
+                    st_module.caption(
+                        "Reads: " + str(repository_io.get("reads", 0))
+                        + " | Writes: " + str(repository_io.get("writes", 0))
+                        + " | Failures: " + str(repository_io.get("failures", 0))
+                        + " | Avg: " + str(repository_io.get("average_duration_ms", 0.0)) + " ms"
+                    )
+                    mutation_info = dict(repository_io.get("mutations", {}) or {})
+                    st_module.caption(
+                        "Mutations: " + str(mutation_info.get("mutation_count", 0))
+                        + " | Subscribers: " + str(mutation_info.get("subscriber_count", 0))
+                        + " | Notification failures: " + str(mutation_info.get("mutation_failures", 0))
+                    )
+                    st_module.caption(
+                        "Transactions: " + str(mutation_info.get("transaction_count", 0))
+                        + " | Rollbacks: " + str(mutation_info.get("transaction_failures", 0))
+                        + " | Last ID: "
+                        + str(dict(mutation_info.get("last_transaction", {}) or {}).get("transaction_id", ""))[:12]
+                    )
+                    st_module.caption(
+                        "Recovered after interruption: " + str(mutation_info.get("recovery_count", 0))
+                        + " | Recovery failures: " + str(mutation_info.get("recovery_failures", 0))
+                    )
+                    st_module.caption(
+                        "Integrity checks: " + str(mutation_info.get("integrity_checks", 0))
+                        + " | Integrity failures: " + str(mutation_info.get("integrity_failures", 0))
+                        + " | Quarantined journals: " + str(mutation_info.get("quarantined_transactions", 0))
+                        + " | Cleaned journals: " + str(mutation_info.get("cleaned_transactions", 0))
+                    )
+                    transaction_rows = list(mutation_info.get("recent_transactions", ()) or ())
+                    if transaction_rows and hasattr(st_module, "dataframe"):
+                        st_module.dataframe(transaction_rows[-10:], width="stretch", hide_index=True)
+                    repository_events = list(repository_io.get("events", ()) or ())
+                    if repository_events and hasattr(st_module, "dataframe"):
+                        st_module.dataframe(repository_events, width="stretch", hide_index=True)
+
+                    st_module.markdown("##### " + i18n("diagnostics.section.repository_health"))
+                    severity_counts = dict(repository_health.get("severity_counts", {}) or {})
+                    st_module.caption(
+                        "Status: " + ("healthy" if repository_health.get("healthy", True) else "issues detected")
+                        + " | Files: " + str(repository_health.get("files_scanned", 0))
+                        + " | JSON: " + str(repository_health.get("json_files", 0))
+                        + " | Errors: " + str(severity_counts.get("error", 0))
+                        + " | Warnings: " + str(severity_counts.get("warning", 0))
+                        + " | Repairable: " + str(repository_health.get("repairable_count", 0))
+                        + " | Scan: " + str(repository_health.get("duration_ms", 0.0)) + " ms"
+                    )
+                    health_issues = list(repository_health.get("issues", ()) or ())
+                    if health_issues and hasattr(st_module, "dataframe"):
+                        st_module.dataframe(health_issues[:50], width="stretch", hide_index=True)
+                    readiness = dict(repository_health.get("readiness", {}) or {})
+                    schedule = dict(repository_health.get("schedule", {}) or {})
+                    st_module.caption(
+                        "Recovery readiness: " + str(readiness.get("score", 100)) + "/100"
+                        + " (" + str(readiness.get("status", "ready")) + ")"
+                        + " | Scheduled scans: " + str(schedule.get("scan_count", 0))
+                        + " | Skipped: " + str(schedule.get("skipped_count", 0))
+                        + " | Failures: " + str(schedule.get("failure_count", 0))
+                    )
+                    if repository_health.get("truncated"):
+                        st_module.warning(i18n("diagnostics.repository_scan_truncated"))
+
+                    st_module.markdown("##### " + i18n("diagnostics.section.traces"))
+                    trace_summary = dict(traces.get("summary", {}) or {})
+                    st_module.caption(
+                        "Events: " + str(trace_summary.get("events", 0))
+                        + " | Slow: " + str(trace_summary.get("slow_events", 0))
+                        + " | Failed: " + str(trace_summary.get("failed_events", 0))
+                        + " | Max: " + str(trace_summary.get("maximum_duration_ms", 0.0)) + " ms"
+                    )
+                    trace_events = list(traces.get("events", ()) or ())
+                    if trace_events and hasattr(st_module, "dataframe"):
+                        st_module.dataframe(trace_events, width="stretch", hide_index=True)
+
+                    st_module.markdown("##### " + i18n("diagnostics.section.session"))
+                    st_module.caption(
+                        "Keys: " + str(session.get("total_keys", 0))
+                        + " | Runtime: " + str(session.get("runtime_count", 0))
+                        + " | Transient: " + str(session.get("transient_count", 0))
+                        + " | Unscoped: " + str(len(session.get("unscoped_keys", ()) or ()))
+                    )
+                    owner_counts = dict(session.get("owner_counts", {}) or {})
+                    lifecycle_counts = dict(session.get("lifecycle_counts", {}) or {})
+                    if owner_counts:
+                        st_module.caption(
+                            "Owners: " + ", ".join(f"{key}={value}" for key, value in owner_counts.items())
+                        )
+                    if lifecycle_counts:
+                        st_module.caption(
+                            "Lifecycle: " + ", ".join(f"{key}={value}" for key, value in lifecycle_counts.items())
+                        )
+                    unregistered = list(session.get("unregistered_keys", ()) or ())
+                    if unregistered:
+                        st_module.warning(i18n("diagnostics.unregistered_keys", keys=", ".join(unregistered[:12])))
+
+                    budgets = list(center.get("budgets", ()) or ())
+                    if budgets:
+                        st_module.markdown("##### " + i18n("diagnostics.section.budgets"))
+                        if hasattr(st_module, "dataframe"):
+                            st_module.dataframe(budgets, width="stretch", hide_index=True)
+
+                    st_module.markdown("##### " + i18n("diagnostics.dataset_catalog.title"))
+                    active_project_id = str(payload.get("interaction", {}).get("active_project_id", "") or "")
+                    if active_project_id:
+                        if st_module.button(
+                            i18n("diagnostics.dataset_catalog.rebuild"),
+                            key="workbench_diagnostics_rebuild_dataset_catalog",
+                            width="stretch",
+                        ):
+                            data_platform = application_service_container(registry.state).data_platform(root=DEFAULT_PROJECTS_ROOT)
+                            reconciliation = data_platform.reconcile_catalog(active_project_id)
+                            st_module.success(
+                                i18n(
+                                    "diagnostics.dataset_catalog.result",
+                                    status=reconciliation.get("status", "—"),
+                                    manifest_count=reconciliation.get("manifest_count", 0),
+                                    catalog_count_before=reconciliation.get("catalog_count_before", 0),
+                                )
                             )
-                        )
-                else:
-                    st_module.caption(i18n("diagnostics.dataset_catalog.no_project"))
+                    else:
+                        st_module.caption(i18n("diagnostics.dataset_catalog.no_project"))
 
-                baseline = dict(center.get("performance_baseline", {}) or {})
-                if baseline:
-                    st_module.markdown("##### " + i18n("diagnostics.section.baseline"))
-                    st_module.caption(
-                        "Stages: " + str(len(baseline.get("stages", {}) or {}))
-                        + " | Cache hit rate: " + str(baseline.get("cache_hit_rate", 0.0)) + "%"
-                        + " | Session keys: " + str(baseline.get("session_keys", 0))
-                        + " | Failed events: " + str(baseline.get("failed_events", 0))
-                    )
-                    if hasattr(st_module, "download_button"):
-                        st_module.download_button(
-                            i18n("diagnostics.download_baseline"),
-                            data=json.dumps(baseline, ensure_ascii=False, indent=2),
-                            file_name="gasratio-performance-baseline.json",
-                            mime="application/json",
-                            key="workbench_diagnostics_performance_baseline_download",
+                    baseline = dict(center.get("performance_baseline", {}) or {})
+                    if baseline:
+                        st_module.markdown("##### " + i18n("diagnostics.section.baseline"))
+                        st_module.caption(
+                            "Stages: " + str(len(baseline.get("stages", {}) or {}))
+                            + " | Cache hit rate: " + str(baseline.get("cache_hit_rate", 0.0)) + "%"
+                            + " | Session keys: " + str(baseline.get("session_keys", 0))
+                            + " | Failed events: " + str(baseline.get("failed_events", 0))
                         )
+                        if hasattr(st_module, "download_button"):
+                            st_module.download_button(
+                                i18n("diagnostics.download_baseline"),
+                                data=json.dumps(baseline, ensure_ascii=False, indent=2),
+                                file_name="gasratio-performance-baseline.json",
+                                mime="application/json",
+                                key="workbench_diagnostics_performance_baseline_download",
+                            )
 
     status_items = list(layout.get("status_items", ()))
     status_html = "".join(f"<span><strong>{_html(i.get('label',''))}:</strong> {_html(i.get('value',''))}</span>" for i in status_items)

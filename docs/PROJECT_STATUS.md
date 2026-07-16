@@ -230,3 +230,7 @@ Import History is now available as a lazy Project Explorer branch. The Professio
 ## v222.56 — UI Platform Foundation
 
 The first UI abstraction layer is operational. Design tokens, theme selection, JSON-safe component contracts and a thin Streamlit adapter are available. The global RU/ҚАЗ/EN switcher is the first production control migrated to this layer and no longer uses stretched full-width buttons.
+
+## v222.57 — Report & Diagnostics UX Hardening
+
+The report panel no longer occupies most of the page by default. Printed PDF and DOCX outputs use larger legends, larger supporting text, higher-resolution figures and a shared corporate plot theme. Developer diagnostics now show a concise health summary first; detailed lifecycle, cache, repository and session tables are opt-in.

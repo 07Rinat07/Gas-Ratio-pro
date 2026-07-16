@@ -298,5 +298,7 @@
   "workspace.quick.open_reports": "Open Reports",
   "workspace.quick.reports.text": "Review engineering reports",
   "workspace.quick.reports.title": "Reports",
-  "workspace.title": "Workspace"
+  "workspace.title": "Workspace",
+  "diagnostics.summary_hint": "Detailed tables are intended for developers and are hidden by default.",
+  "diagnostics.show_advanced": "Show advanced diagnostics"
 }

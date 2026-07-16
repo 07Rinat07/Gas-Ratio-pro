@@ -49,6 +49,7 @@ from reports.document_model import (
     build_engineering_document,
 )
 from reports.presentation_model import PresentationModel
+from reports.plot_theme import apply_report_plot_theme
 
 
 @dataclass(frozen=True)
@@ -373,23 +374,23 @@ def _styles() -> dict[str, ParagraphStyle]:
             "GasRatioSmall",
             parent=base["BodyText"],
             fontName=regular,
-            fontSize=8,
-            leading=10,
+            fontSize=9.5,
+            leading=12,
             textColor=colors.HexColor("#4b5870"),
         ),
         "table_cell": ParagraphStyle(
             "GasRatioTableCell",
             parent=base["BodyText"],
             fontName=regular,
-            fontSize=7,
-            leading=9,
+            fontSize=8.5,
+            leading=10.5,
         ),
         "table_header": ParagraphStyle(
             "GasRatioTableHeader",
             parent=base["BodyText"],
             fontName=bold,
-            fontSize=7,
-            leading=9,
+            fontSize=8.5,
+            leading=10.5,
         ),
     }
 
@@ -515,44 +516,40 @@ def _legend_table_pdf(
     *,
     marker_mode: bool = False,
 ) -> list[object]:
-    """Render a compact two-item-per-row legend for portrait reports."""
+    """Render a readable one-item-per-row legend for printed reports."""
 
     if not entries:
         return []
-    normalized = list(entries)
-    rows: list[list[object]] = []
+    rows: list[list[object]] = [[
+        _paragraph("Знак", styles["table_header"]),
+        _paragraph("Обозначение", styles["table_header"]),
+        _paragraph("Инженерное значение", styles["table_header"]),
+    ]]
     style_commands: list[tuple[object, ...]] = [
-        ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
-        ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#dbe3ec")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#eaf0f7")),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#94a3b8")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#cbd5e1")),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-        ("TOPPADDING", (0, 0), (-1, -1), 2.5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]
-    for row_index in range(0, len(normalized), 2):
-        row: list[object] = []
-        for pair_index, entry in enumerate(normalized[row_index:row_index + 2]):
-            color = str(entry.get("color", "#64748b"))
-            symbol = str(entry.get("symbol", "◆" if marker_mode else "●"))
-            label = str(entry.get("label", ""))
-            description = str(entry.get("description", ""))
-            row.extend([
-                symbol,
-                _paragraph(label, styles["small"]),
-                _paragraph(description, styles["small"]),
-            ])
-            cell_col = pair_index * 3
-            try:
-                style_commands.append(("TEXTCOLOR", (cell_col, len(rows)), (cell_col, len(rows)), colors.HexColor(color)))
-            except ValueError:
-                pass
-        while len(row) < 6:
-            row.extend(["", "", ""])
-        rows.append(row)
-    table = Table(rows, colWidths=[8 * mm, 24 * mm, 56 * mm, 8 * mm, 24 * mm, 56 * mm], hAlign="LEFT")
+    for row_index, entry in enumerate(entries, start=1):
+        color = str(entry.get("color", "#64748b"))
+        symbol = str(entry.get("symbol", "◆" if marker_mode else "●"))
+        rows.append([
+            symbol,
+            _paragraph(str(entry.get("label", "")), styles["small"]),
+            _paragraph(str(entry.get("description", "")), styles["small"]),
+        ])
+        try:
+            style_commands.append(("TEXTCOLOR", (0, row_index), (0, row_index), colors.HexColor(color)))
+        except ValueError:
+            pass
+    table = Table(rows, colWidths=[12 * mm, 42 * mm, 114 * mm], hAlign="LEFT", repeatRows=1)
     table.setStyle(TableStyle(style_commands))
-    return [_paragraph(title, styles["small"]), table, Spacer(1, 5)]
+    return [_paragraph(title, styles["h2"]), table, Spacer(1, 7)]
 
 
 def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> list[object]:
@@ -565,7 +562,7 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
 
     title = block.title or "Профессиональный планшет интерпретации"
     items: list[object] = [_paragraph(title, styles["h2"])]
-    figure = block.figure
+    figure = apply_report_plot_theme(block.figure)
     legend = _figure_report_legend(figure)
     depth_range = legend.get("depth_range", {}) if isinstance(legend.get("depth_range", {}), dict) else {}
     if depth_range:
@@ -611,10 +608,10 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
     items.extend(_legend_table_pdf("Маркеры", list(legend.get("markers", []) or []), styles, marker_mode=True))
     try:
         if hasattr(figure, "to_image"):
-            png = figure.to_image(format="png", width=2400, height=1500, scale=1)
+            png = figure.to_image(format="png", width=2600, height=1700, scale=1)
         elif hasattr(figure, "write_image"):
             buffer = BytesIO()
-            figure.write_image(buffer, format="png", width=2400, height=1500)
+            figure.write_image(buffer, format="png", width=2600, height=1700)
             png = buffer.getvalue()
         else:
             raise TypeError("Figure backend does not support raster export")

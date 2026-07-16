@@ -9527,14 +9527,12 @@ def _render_professional_export_panel(
     versions that support fragments, so the surrounding Plotly charts are not
     serialized and sent to the browser again.
     """
-    with st.expander("🖨️ ПЕЧАТЬ И ПРОФЕССИОНАЛЬНЫЙ ЭКСПОРТ", expanded=True):
-        st.markdown("### Подготовка PDF, DOCX, PNG, SVG или XLSX")
-        st.info(
-            "Здесь настраивается печать отчёта. Для полного отчёта по скважине "
-            "выберите режим «Вся скважина и все УВ-интервалы». "
-            "После запуска приложение покажет текущий этап подготовки файла."
+    with st.expander("Отчёт и печать", expanded=False):
+        st.markdown("### Сформировать инженерный отчёт")
+        st.caption(
+            "Выберите формат и область данных, затем нажмите основную кнопку формирования. "
+            "После подготовки файла появятся отдельные действия «Скачать» и «Печать»."
         )
-        st.caption("Шаги: профиль → формат → область печати → подготовить → скачать.")
         profile_options = report_profile_options()
         format_options = export_format_options()
         export_cache_key = f"presentation_export_artifact_{active_project.id}"
