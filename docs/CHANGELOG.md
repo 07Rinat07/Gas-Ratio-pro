@@ -2805,3 +2805,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added per-navigation-profile cache hit/miss/load statistics.
 - Exposed latest branch timings in the shared Diagnostics Center snapshot.
 - Added regression tests proving that collapsed branches are neither read nor timed.
+
+## v222.17
+
+- Project Navigation Runtime Cache now preserves multiple lazy Explorer profiles for the same project concurrently.
+- Cache entries are keyed by `(project_id, profile)` while the configured bound remains project-based.
+- Evicting or invalidating a project removes all of its cached profiles coherently.
+- Added `project_count` and `project_profiles` to payload-free cache diagnostics.
+- Added regression coverage for profile coexistence, profile-cold misses and multi-profile project eviction.

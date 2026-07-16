@@ -1749,4 +1749,13 @@ Next priority: direct page-jump feedback and optional bounded adjacent-window pr
 - [x] Record cache hits, misses, loads and hit rate independently for each requested branch profile.
 - [x] Surface the latest per-branch timings through the shared Project Navigation cache diagnostics snapshot.
 - [x] Verify that collapsed branches do not appear in timing events and therefore are not read eagerly.
-- [ ] Next: preserve multiple branch profiles concurrently instead of replacing the active project's previous profile entry.
+- [x] Preserve multiple branch profiles concurrently instead of replacing the active project's previous profile entry.
+
+### Phase 2 increment — Multi-profile Project Explorer cache (completed v222.17)
+
+- [x] Key serialized navigation entries by both project and requested branch profile.
+- [x] Preserve root-only, partial and full-search profiles concurrently for one active project.
+- [x] Keep capacity bounded by project count rather than by profile count.
+- [x] Remove all profiles coherently on project invalidation, metadata change or LRU eviction.
+- [x] Expose payload-free project-to-profile occupancy diagnostics.
+- [ ] Next: add a bounded per-project profile cap and profile-level memory estimates before large custom Explorer profiles are introduced.

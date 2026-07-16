@@ -632,3 +632,7 @@ Current build: v222.8 stable. Export format isolation and printable tablet clari
 - Диагностика хранит только числовые значения и строковые идентификаторы, без DataFrame и содержимого репозиториев.
 - Закрытые ветки отсутствуют в timing-снимке, что позволяет выявлять случайный eager-read.
 - Профильные и интеграционные тесты: 60 passed.
+
+## v222.17 — Multi-profile Project Explorer cache
+
+The Workbench navigation cache can retain `root-only`, partial branch and full-search profiles for one project at the same time. Switching between previously visited Explorer states no longer rebuilds or replaces the prior profile. The LRU limit remains project-based: all profiles of the least recently used project are removed together. Diagnostics expose only project identifiers, profile names and numeric counters.

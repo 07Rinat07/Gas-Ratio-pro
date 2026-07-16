@@ -75,6 +75,7 @@ def project_navigation_token(root: Path | str, project_id: str) -> tuple[str, fl
 @dataclass(frozen=True, slots=True)
 class ProjectNavigationCacheEntry:
     project_id: str
+    profile: str
     token: str
     tree: tuple[dict[str, Any], ...]
     counts: dict[str, int]
@@ -101,7 +102,8 @@ class ProjectNavigationRuntimeCache:
 
     def __init__(self, *, max_projects: int = 4) -> None:
         self._max_projects = max(1, int(max_projects))
-        self._entries: OrderedDict[str, ProjectNavigationCacheEntry] = OrderedDict()
+        self._entries: OrderedDict[tuple[str, str], ProjectNavigationCacheEntry] = OrderedDict()
+        self._project_lru: OrderedDict[str, None] = OrderedDict()
         self._lock = RLock()
         self._hits = 0
         self._misses = 0
@@ -111,6 +113,17 @@ class ProjectNavigationRuntimeCache:
         self._profile_stats: dict[str, dict[str, Any]] = {}
         self._latest_branch_timings_ms: dict[str, float] = {}
 
+    def _touch_project(self, project_id: str) -> None:
+        self._project_lru[project_id] = None
+        self._project_lru.move_to_end(project_id)
+
+    def _remove_project_entries(self, project_id: str) -> int:
+        keys = [key for key in self._entries if key[0] == project_id]
+        for key in keys:
+            self._entries.pop(key, None)
+        self._project_lru.pop(project_id, None)
+        return len(keys)
+
     def lookup(
         self,
         root: Path | str,
@@ -118,28 +131,31 @@ class ProjectNavigationRuntimeCache:
         *,
         profile: str = "full",
     ) -> ProjectNavigationLookup:
-        token, token_ms, metadata_files = project_navigation_token(root, project_id)
+        base_token, token_ms, metadata_files = project_navigation_token(root, project_id)
         clean_profile = str(profile or "full").strip() or "full"
-        token = f"{token}:{clean_profile}"
+        token = f"{base_token}:{clean_profile}"
         clean_id = str(project_id or "").strip()
+        cache_key = (clean_id, clean_profile)
         with self._lock:
             profile_stats = self._profile_stats.setdefault(
                 clean_profile, {"hits": 0, "misses": 0, "loads": 0, "last_load_ms": 0.0, "branch_timings_ms": {}}
             )
-            entry = self._entries.get(clean_id)
+            entry = self._entries.get(cache_key)
             if entry is None:
                 self._misses += 1
                 profile_stats["misses"] += 1
-                self._last_reason = "cold"
-                return ProjectNavigationLookup("miss", "cold", token, token_ms, metadata_files)
+                has_other_profile = any(key[0] == clean_id for key in self._entries)
+                self._last_reason = "profile-cold" if has_other_profile else "cold"
+                return ProjectNavigationLookup("miss", self._last_reason, token, token_ms, metadata_files)
             if entry.token != token:
-                self._entries.pop(clean_id, None)
+                removed = self._remove_project_entries(clean_id)
                 self._misses += 1
                 profile_stats["misses"] += 1
-                self._invalidations += 1
+                self._invalidations += removed
                 self._last_reason = "metadata-changed"
                 return ProjectNavigationLookup("miss", "metadata-changed", token, token_ms, metadata_files)
-            self._entries.move_to_end(clean_id)
+            self._entries.move_to_end(cache_key)
+            self._touch_project(clean_id)
             self._hits += 1
             profile_stats["hits"] += 1
             self._last_reason = "token-match"
@@ -162,16 +178,17 @@ class ProjectNavigationRuntimeCache:
         branch_timings_ms: Mapping[str, float] | None = None,
     ) -> None:
         clean_id = str(project_id or "").strip()
+        clean_profile = str(profile or "full").strip() or "full"
         normalized_tree = tuple(dict(item) for item in tree)
         normalized_counts = {str(key): int(value) for key, value in counts.items()}
         entry = ProjectNavigationCacheEntry(
             project_id=clean_id,
+            profile=clean_profile,
             token=str(token or ""),
             tree=normalized_tree,
             counts=normalized_counts,
             metadata_files=max(0, int(metadata_files)),
         )
-        clean_profile = str(profile or "full").strip() or "full"
         normalized_timings = {
             str(key): round(max(0.0, float(value)), 3)
             for key, value in dict(branch_timings_ms or {}).items()
@@ -184,19 +201,23 @@ class ProjectNavigationRuntimeCache:
             profile_stats["last_load_ms"] = round(max(0.0, float(load_ms)), 3)
             profile_stats["branch_timings_ms"] = normalized_timings
             self._latest_branch_timings_ms = normalized_timings
-            self._entries[clean_id] = entry
-            self._entries.move_to_end(clean_id)
-            while len(self._entries) > self._max_projects:
-                self._entries.popitem(last=False)
-                self._evictions += 1
+            cache_key = (clean_id, clean_profile)
+            self._entries[cache_key] = entry
+            self._entries.move_to_end(cache_key)
+            self._touch_project(clean_id)
+            while len(self._project_lru) > self._max_projects:
+                oldest_project, _ = self._project_lru.popitem(last=False)
+                removed = self._remove_project_entries(oldest_project)
+                self._evictions += removed
 
     def invalidate(self, project_id: str | None = None, *, reason: str = "explicit") -> int:
         with self._lock:
             if project_id is None:
                 removed = len(self._entries)
                 self._entries.clear()
+                self._project_lru.clear()
             else:
-                removed = int(self._entries.pop(str(project_id or "").strip(), None) is not None)
+                removed = self._remove_project_entries(str(project_id or "").strip())
             if removed:
                 self._invalidations += removed
             self._last_reason = str(reason or "explicit")
@@ -205,8 +226,12 @@ class ProjectNavigationRuntimeCache:
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
             total = self._hits + self._misses
+            project_profiles: dict[str, list[str]] = {}
+            for project_id, profile in self._entries:
+                project_profiles.setdefault(project_id, []).append(profile)
             return {
                 "entries": len(self._entries),
+                "project_count": len(self._project_lru),
                 "max_projects": self._max_projects,
                 "hits": self._hits,
                 "misses": self._misses,
@@ -214,7 +239,11 @@ class ProjectNavigationRuntimeCache:
                 "evictions": self._evictions,
                 "hit_rate_percent": round((self._hits / total * 100.0) if total else 0.0, 2),
                 "last_reason": self._last_reason,
-                "projects": list(self._entries.keys()),
+                "projects": list(self._project_lru.keys()),
+                "project_profiles": {
+                    project_id: sorted(profiles)
+                    for project_id, profiles in project_profiles.items()
+                },
                 "profiles": {
                     profile: {
                         **dict(values),
