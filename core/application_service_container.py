@@ -242,6 +242,31 @@ class ApplicationServiceContainer:
             expected_type=ProjectStorageApplicationService,
         )
 
+    def background_export(
+        self,
+        *,
+        project_id: str,
+        root: Path | str,
+        max_workers: int = 1,
+    ):
+        """Return the project-scoped background export execution boundary."""
+        from services.background_export_application_service import (
+            BackgroundExportApplicationService,
+        )
+
+        return self.ensure_project_service(
+            service_name="background_export",
+            project_id=project_id,
+            root=root,
+            factory=lambda: BackgroundExportApplicationService(
+                root=root,
+                project_id=project_id,
+                state=self._state,
+                max_workers=max_workers,
+            ),
+            expected_type=BackgroundExportApplicationService,
+        )
+
     def presentation_export_runtime(
         self,
         *,

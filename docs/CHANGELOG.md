@@ -1,3 +1,12 @@
+## Application Service Layer — background export runtime boundary
+
+- Added project-scoped `BackgroundExportApplicationService`.
+- Removed direct `BackgroundExportManager` construction and runtime registration from Streamlit UI.
+- Centralized project ownership validation for submit, cancellation, result retrieval and history cleanup.
+- Kept futures, cancellation events and completed artifacts process-local while persisting metadata-only snapshots.
+- Added service lifecycle, project isolation, lightweight health and UI architecture regression tests.
+
+
 ## Application Service Layer — Modern Workbench runtime boundary
 
 - Added session-scoped `WorkbenchRuntimeApplicationService`.

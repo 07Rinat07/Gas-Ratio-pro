@@ -12,7 +12,8 @@ def _professional_export_body() -> str:
 
 def test_professional_export_panel_uses_background_manager() -> None:
     body = _professional_export_body()
-    assert "BackgroundExportManager(" in body
+    assert ".background_export(" in body
+    assert "BackgroundExportManager(" not in body
     assert "background_manager.submit(" in body
     assert "background_manager.cancel(" in body
     assert "background_manager.pop_result(" in body

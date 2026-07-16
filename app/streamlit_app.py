@@ -392,7 +392,7 @@ from reports.export_controller import (
     ExportRequest,
     normalize_export_form_state,
 )
-from reports.background_export import BackgroundExportManager, ExportJobStatus
+from reports.background_export import ExportJobStatus
 from reports.background_export_ui import (
     BackgroundExportResult,
     build_background_export_performance_summary,
@@ -9093,13 +9093,10 @@ def _render_professional_export_panel(
                 safe_log_value(active_project.id),
                 migrated_entries,
             )
-        background_state_key = f"background_export_metadata_{active_project.id}"
-        background_manager_key = f"background_export_manager_{active_project.id}"
-        background_state = export_state.setdefault(background_state_key, {})
-        background_manager = state_controller.ensure_runtime_service(
-            background_manager_key,
-            lambda: BackgroundExportManager(background_state, max_workers=1),
-            expected_type=BackgroundExportManager,
+        background_manager = application_service_container(export_state).background_export(
+            project_id=str(active_project.id),
+            root=PROJECTS_ROOT,
+            max_workers=1,
         )
         normalized_form = normalize_export_form_state(
             export_state,
@@ -9861,7 +9858,6 @@ def _render_professional_export_panel(
                     if not isinstance(retry_context, dict):
                         retry_context = {}
                     created_job = background_manager.submit(
-                        project_id=str(active_project.id),
                         request_signature=current_export_request.selection_signature,
                         work=_background_work,
                         retry_of_job_id=str(retry_context.get("job_id", "")),
@@ -9880,7 +9876,7 @@ def _render_professional_export_panel(
                 except RuntimeError as exc:
                     st.warning(str(exc))
 
-        project_jobs = background_manager.list(project_id=str(active_project.id))
+        project_jobs = background_manager.list()
         relevant_job = latest_relevant_job(
             project_jobs,
             request_signature=current_export_request.selection_signature,
@@ -10042,7 +10038,6 @@ def _render_professional_export_panel(
                     width="stretch",
                 ):
                     removed_count = background_manager.dismiss_terminal(
-                        project_id=str(active_project.id),
                         preserve_available_results=True,
                     )
                     if removed_count:
