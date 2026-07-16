@@ -389,7 +389,6 @@ from reports.export_las import export_las_bytes
 from reports.export_xlsx import export_xlsx_bytes
 from reports.export_controller import (
     ExportArtifact as ControlledExportArtifact,
-    ExportController,
     ExportControllerError,
     ExportRequest,
     normalize_export_form_state,
@@ -9753,8 +9752,10 @@ def _render_professional_export_panel(
                 ranking_profile_snapshot = export_state.get("active_reservoir_ranking_profile")
                 selected_profile_label_snapshot = selected_profile.label
                 selected_interval_id_snapshot = selected_interval_id or ""
-                controller_cache_key = f"background_export_controller_cache_{active_project.id}"
-                controller_cache = export_state.setdefault(controller_cache_key, {})
+                export_runtime = application_service_container(export_state).presentation_export_runtime(
+                    project_id=str(active_project.id),
+                    root=LAS_CORRELATION_PROJECTS_ROOT,
+                )
                 frame_snapshot = print_df.copy(deep=False)
 
                 def _background_work(report, check_cancelled):
@@ -9842,8 +9843,7 @@ def _render_professional_export_panel(
                             profile_id=export_request.profile_id,
                         )
 
-                    controller = ExportController(controller_cache)
-                    artifact, metrics = controller.prepare(
+                    artifact, metrics = export_runtime.prepare(
                         request,
                         frame=frame_snapshot,
                         build_model=_build_export_model,

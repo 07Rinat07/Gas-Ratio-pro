@@ -230,6 +230,26 @@ class ApplicationServiceContainer:
             expected_type=ProjectStorageApplicationService,
         )
 
+    def presentation_export_runtime(
+        self,
+        *,
+        project_id: str,
+        root: Path | str,
+    ):
+        from services.presentation_export_runtime_application_service import (
+            PresentationExportRuntimeApplicationService,
+        )
+
+        return self.ensure_project_service(
+            service_name="presentation_export_runtime",
+            project_id=project_id,
+            root=root,
+            factory=lambda: PresentationExportRuntimeApplicationService(
+                root=root, project_id=project_id
+            ),
+            expected_type=PresentationExportRuntimeApplicationService,
+        )
+
     def presentation_export(
         self,
         *,

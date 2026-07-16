@@ -2758,3 +2758,10 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Removed direct `InterpretationIntervalManager` and interpretation display-settings persistence access from Streamlit UI.
 - Added typed validation for correlation settings and centralized project/well/interpretation scoping.
 - Added application-boundary, round-trip, normalization, and UI architecture tests.
+
+## 2026-07-16 — Presentation export runtime application-service boundary
+
+- Added a lazy project-scoped `PresentationExportRuntimeApplicationService`.
+- Moved bounded presentation-model and rendered-artifact caches out of Streamlit session state.
+- Removed direct `ExportController` construction and project cache dictionaries from the UI.
+- Added project validation, explicit cache invalidation, lightweight diagnostics, and architecture tests.
