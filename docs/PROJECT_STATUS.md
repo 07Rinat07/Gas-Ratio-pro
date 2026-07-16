@@ -150,3 +150,8 @@ DLIS, LIS79, and SEG-Y now have explicit metadata-scanner boundaries. SEG-Y base
 ## v222.43 — Interpretation and export compatibility stabilization
 
 The missing `resolve_interpretation_id` application-boundary contract has been restored and is now reused by the interval panel. Background export again accepts optional externally supplied compact metadata state while production callers continue to use the application-service container state. The focused interpretation, Workbench route, and background-export profile passes 223 tests.
+
+
+## v222.44 — Production subsurface metadata preview
+
+Data Workspace now contains a separate bounded preview surface for DLIS, LIS79 and SEG-Y. SEG-Y trace-header diagnostics support configurable inline/crossline and coordinate byte mappings, coordinate-scalar application, X/Y extents, valid-coordinate coverage and geometry confidence. Binary payloads and seismic amplitudes are not sent through the tabular calculation importer. Focused Data Platform, i18n and container regression: 67 tests passed.

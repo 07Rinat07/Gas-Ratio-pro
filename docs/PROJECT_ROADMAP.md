@@ -2015,3 +2015,14 @@ Next: QC history in Project Explorer, direct downloads, Dataset comparison badge
 - [x] Add localized ru/kk/en metadata import previews.
 - [ ] Wire previews and DLIS frame/channel selection into the production Data workspace.
 - [ ] Add coordinate scalar and trace-coordinate geometry diagnostics for SEG-Y.
+
+
+## v222.44 — Production subsurface import preview and SEG-Y geometry diagnostics
+
+- [x] Wire bounded DLIS/LIS79/SEG-Y metadata preview into Data Workspace.
+- [x] Keep binary subsurface files outside the tabular CSV/Excel/LAS calculation parser.
+- [x] Add configurable SEG-Y inline, crossline, coordinate-scalar, X and Y header-byte mapping.
+- [x] Apply SEG-Y coordinate scalar semantics without reading trace amplitudes.
+- [x] Add geometry confidence and stable diagnostics for missing or implausible coordinate mappings.
+- [x] Localize preview controls, fields and warnings in ru/kk/en.
+- [ ] Next: interactive DLIS logical-file/frame/channel selection and persisted preview manifests.

@@ -1,3 +1,13 @@
+# Changelog
+
+## v222.44
+
+- Added production DLIS/LIS79/SEG-Y metadata preview in Data Workspace.
+- Added SEG-Y coordinate scalar and X/Y trace-header diagnostics.
+- Added configurable inline/crossline/scalar/X/Y byte mapping.
+- Added geometry confidence and stable missing-coordinate diagnostics.
+- Added synchronized ru/kk/en preview controls and messages.
+
 # v222.42 — Interpretation export project-root bugfix
 
 ## v222.43 — Interpretation scope and background export compatibility

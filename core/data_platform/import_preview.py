@@ -21,7 +21,9 @@ def build_metadata_import_preview(result: MetadataScanResult, translate) -> dict
         "logical_file_count", "frame_count", "channel_count", "trace_count",
         "trace_count_estimate", "samples_per_trace", "sample_interval_us",
         "segy_revision_major", "segy_revision_minor", "inline_min", "inline_max",
-        "crossline_min", "crossline_max", "adapter_available", "file_size_bytes",
+        "crossline_min", "crossline_max", "coordinate_valid_count",
+        "coordinate_valid_fraction", "x_min", "x_max", "y_min", "y_max",
+        "geometry_confidence", "adapter_available", "file_size_bytes",
     )
     fields = [
         {"key": key, "label": translate(f"import.preview.field.{key}"), "value": metadata[key]}

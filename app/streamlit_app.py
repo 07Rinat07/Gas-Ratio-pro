@@ -7438,6 +7438,68 @@ def _selected_interval_id_from_table(event: object, table: pd.DataFrame) -> str:
     return str(table.iloc[index]["ID"])
 
 
+def _render_subsurface_import_preview(logger, active_project: ProjectRecord) -> None:
+    """Render bounded DLIS/LIS79/SEG-Y metadata preview outside tabular parsing."""
+    i18n = _dashboard_localization()
+    with st.expander(i18n("import.preview.panel.title"), expanded=False):
+        st.caption(i18n("import.preview.panel.caption"))
+        uploaded = st.file_uploader(
+            i18n("import.preview.panel.upload"),
+            type=["dlis", "lis", "sgy", "segy"],
+            key=f"subsurface_import_preview_{active_project.id}",
+        )
+        if uploaded is None:
+            return
+        suffix = Path(str(uploaded.name)).suffix.lower()
+        format_id = {".dlis": "dlis", ".lis": "lis79", ".sgy": "segy", ".segy": "segy"}.get(suffix)
+        if not format_id:
+            st.error(i18n("import.preview.panel.unsupported"))
+            return
+        from tempfile import NamedTemporaryFile
+        temp_path = None
+        try:
+            with NamedTemporaryFile(mode="wb", suffix=suffix, delete=False) as handle:
+                handle.write(bytes(uploaded.getvalue()))
+                temp_path = Path(handle.name)
+            service = application_service_container(_application_state_controller().state).data_platform(
+                root=LAS_CORRELATION_PROJECTS_ROOT
+            )
+            preview = service.build_import_preview(temp_path, format_id=format_id, translate=i18n.translate)
+            st.info(str(preview["summary"]))
+            if preview["fields"]:
+                st.dataframe(pd.DataFrame(preview["fields"]), width="stretch", hide_index=True)
+            for warning in preview["warnings"]:
+                st.warning(str(warning["message"]))
+            if format_id == "segy":
+                cols = st.columns(5)
+                inline_byte = int(cols[0].number_input(i18n("import.preview.segy.inline_byte"), 1, 237, 189))
+                crossline_byte = int(cols[1].number_input(i18n("import.preview.segy.crossline_byte"), 1, 237, 193))
+                scalar_byte = int(cols[2].number_input(i18n("import.preview.segy.scalar_byte"), 1, 237, 71))
+                x_byte = int(cols[3].number_input(i18n("import.preview.segy.x_byte"), 1, 237, 73))
+                y_byte = int(cols[4].number_input(i18n("import.preview.segy.y_byte"), 1, 237, 77))
+                if st.button(i18n("import.preview.segy.scan_geometry"), key=f"segy_geometry_scan_{active_project.id}"):
+                    inventory = service.scan_segy_trace_headers(
+                        temp_path, inline_byte=inline_byte, crossline_byte=crossline_byte,
+                        coordinate_scalar_byte=scalar_byte, x_byte=x_byte, y_byte=y_byte,
+                    )
+                    geometry_preview = __import__(
+                        "core.data_platform.import_preview", fromlist=["build_metadata_import_preview"]
+                    ).build_metadata_import_preview(inventory, i18n.translate)
+                    if geometry_preview["fields"]:
+                        st.dataframe(pd.DataFrame(geometry_preview["fields"]), width="stretch", hide_index=True)
+                    for warning in geometry_preview["warnings"]:
+                        st.warning(str(warning["message"]))
+        except Exception:
+            logger.exception("subsurface_import_preview_failed format=%s", format_id)
+            st.error(i18n("import.preview.panel.failed"))
+        finally:
+            if temp_path is not None:
+                try:
+                    temp_path.unlink(missing_ok=True)
+                except OSError:
+                    logger.warning("subsurface_import_preview_temp_cleanup_failed path=%s", temp_path)
+
+
 def _render_workspace(logger, active_project: ProjectRecord) -> None:
     try:
         palette_config = load_palette_config()
@@ -7454,6 +7516,7 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
     _render_project_workspace_loader(active_project, logger)
     _render_project_calculations_panel(active_project, logger)
     _render_project_exports_panel(active_project, logger)
+    _render_subsurface_import_preview(logger, active_project)
 
     state_controller = _application_state_controller()
     editor_sheets = state_controller.get_value(LAS_EDITOR_SESSION_SHEETS_KEY)

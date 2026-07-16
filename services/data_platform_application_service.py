@@ -186,11 +186,18 @@ class DataPlatformApplicationService:
             raise ValueError("format does not support metadata preview")
         return build_metadata_import_preview(result, translate)
 
-    def scan_segy_trace_headers(self, source: Path | str, *, inline_byte: int = 189, crossline_byte: int = 193, max_traces: int = 100_000) -> MetadataScanResult:
-        """Run the optional segyio trace-header inventory behind a lazy boundary."""
+    def scan_segy_trace_headers(
+        self, source: Path | str, *, inline_byte: int = 189, crossline_byte: int = 193,
+        coordinate_scalar_byte: int = 71, x_byte: int = 73, y_byte: int = 77,
+        max_traces: int = 100_000,
+    ) -> MetadataScanResult:
+        """Run bounded SEG-Y trace-header and coordinate diagnostics lazily."""
         return SegyTraceHeaderInventoryAdapter(
             inline_byte=inline_byte,
             crossline_byte=crossline_byte,
+            coordinate_scalar_byte=coordinate_scalar_byte,
+            x_byte=x_byte,
+            y_byte=y_byte,
             max_traces=max_traces,
         ).scan(source)
 
