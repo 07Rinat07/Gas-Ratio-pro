@@ -25,6 +25,12 @@ from core.data_platform import (
     default_format_registry,
     sha256_file,
     validate_las_metadata,
+    FormatPlugin,
+    FormatPluginRegistry,
+    ImportPreviewCache,
+    ImportProfile,
+    ImportProfileRepository,
+    compute_readiness_score,
 )
 
 
@@ -100,6 +106,18 @@ class DataPlatformApplicationService:
             SegyHeaderMetadataScanner(),
         )
         self._scanners = {item.format_id: item for item in scanner_items}
+        self.plugins = FormatPluginRegistry(self.formats)
+        for capability in self.formats.list():
+            self.plugins.register(
+                FormatPlugin(
+                    capability=capability,
+                    scanner=self._scanners.get(capability.format_id),
+                    importer_id=(f"{capability.format_id}-importer" if capability.supports_import else ""),
+                    exporter_id=(f"{capability.format_id}-exporter" if capability.supports_export else ""),
+                )
+            )
+        self.preview_cache = ImportPreviewCache(max_entries=32)
+        self.import_profiles = ImportProfileRepository(self.projects_root)
 
     def register_source_file(self, *, project_id: str, source: Path | str, format_id: str | None = None, well_id: str = "", actor: str = "", metadata: dict[str, str | int | float | bool | None] | None = None, previous_dataset_id: str = "", import_mode: str = "tolerant") -> DatasetManifest:
         return self.register_source_file_result(
@@ -181,12 +199,54 @@ class DataPlatformApplicationService:
         scanner = self._scanners.get(capability.format_id)
         return scanner.scan(source_path) if scanner else None
 
-    def build_import_preview(self, source: Path | str, *, format_id: str | None = None, translate=lambda key, **kwargs: key) -> dict[str, object]:
-        """Return a localized metadata-only preview before persistence."""
-        result = self.scan_metadata(source, format_id)
+    def build_import_preview(self, source: Path | str, *, format_id: str | None = None, translate=lambda key, **kwargs: key, profile: ImportProfile | None = None) -> dict[str, object]:
+        """Return a cached localized metadata-only preview before persistence."""
+        source_path = Path(source)
+        capability = self.formats.require(format_id) if format_id else self.formats.detect(source_path)
+        if capability is None:
+            raise ValueError("unable to detect format")
+        selected_profile = profile or ImportProfile(
+            profile_id=f"{capability.format_id}-default",
+            name=f"{capability.display_name} Default",
+            format_id=capability.format_id,
+        )
+        checksum = sha256_file(source_path)
+        cache_key = self.preview_cache.key(checksum, selected_profile.profile_id, selected_profile.scanner_version)
+        cached = self.preview_cache.get(cache_key)
+        if cached is not None:
+            cached["cache"] = {"hit": True, "key": cache_key}
+            return cached
+        result = self.scan_metadata(source_path, capability.format_id)
         if result is None:
             raise ValueError("format does not support metadata preview")
-        return build_metadata_import_preview(result, translate)
+        preview = build_metadata_import_preview(result, translate)
+        preview["profile"] = selected_profile.to_dict()
+        preview["readiness"] = compute_readiness_score(
+            preview_complete=bool(preview.get("complete", False)),
+            warning_count=len(preview.get("warnings", []) or []),
+            metadata_field_count=len(preview.get("fields", []) or []),
+            qc_available=False,
+        )
+        preview["cache"] = {"hit": False, "key": cache_key}
+        self.preview_cache.put(cache_key, preview)
+        return preview
+
+    def capability_matrix(self) -> dict[str, object]:
+        return self.plugins.capability_matrix()
+
+    def save_import_profile(self, project_id: str, profile: ImportProfile) -> dict[str, object]:
+        self.formats.require(profile.format_id)
+        path = self.import_profiles.save(project_id, profile)
+        return {"project_id": project_id, "profile": profile.to_dict(), "path": str(path.relative_to(self.projects_root))}
+
+    def list_import_profiles(self, project_id: str) -> tuple[dict[str, object], ...]:
+        return tuple(item.to_dict() for item in self.import_profiles.list(project_id))
+
+    def import_pipeline_snapshot(self) -> dict[str, object]:
+        return {
+            "capabilities": self.capability_matrix(),
+            "preview_cache": self.preview_cache.snapshot(),
+        }
 
 
     def build_dlis_selection_projection(self, source: Path | str, *, format_id: str | None = None) -> dict[str, object]:

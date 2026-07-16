@@ -160,3 +160,7 @@ Data Workspace now contains a separate bounded preview surface for DLIS, LIS79 a
 ## v222.45 — Localization consistency and preview persistence
 
 The language selector is now a persistent website-style RU / ҚАЗ / EN control available throughout Workbench. Documentation Center reads the same locale and resolves only the matching manifest-backed documents, with an explicit fallback notice when a translation is absent. Data Workspace can persist bounded subsurface metadata previews as immutable preview Datasets and exposes DLIS/LIS79 logical-file/frame/channel choices through the optional adapter boundary.
+
+## v222.46 — Unified Import Pipeline foundation
+
+Implemented the lightweight plugin registry, capability matrix, preview cache, project-scoped import profiles and explainable readiness scoring. These contracts reuse the existing scanners and keep optional DLIS/SEG-Y dependencies behind adapter boundaries.

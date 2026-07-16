@@ -40,6 +40,26 @@
         "kk": "developer/kk/external_standard_integration.md",
         "en": "developer/en/external_standard_integration.md"
       }
+    },
+    {
+      "id": "import_profiles",
+      "revision": 1,
+      "audience": "user",
+      "languages": {
+        "ru": "user/ru/import_profiles.md",
+        "kk": "user/kk/import_profiles.md",
+        "en": "user/en/import_profiles.md"
+      }
+    },
+    {
+      "id": "plugin_registry",
+      "revision": 1,
+      "audience": "developer",
+      "languages": {
+        "ru": "developer/ru/plugin_registry.md",
+        "kk": "developer/kk/plugin_registry.md",
+        "en": "developer/en/plugin_registry.md"
+      }
     }
   ]
 }

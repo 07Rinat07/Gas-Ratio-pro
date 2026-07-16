@@ -2037,3 +2037,13 @@ Next: QC history in Project Explorer, direct downloads, Dataset comparison badge
 - [x] Add DLIS/LIS79 logical-file/frame/channel selection projection.
 - [x] Persist bounded import previews as immutable Dataset Manifest records.
 - [ ] Next: render SEG-Y geometry preview on an interactive map/schematic and add optional-adapter CI jobs.
+
+## v222.46 — Unified Import Pipeline foundation
+
+- [x] Add a format-plugin registry layered on the existing Format Registry.
+- [x] Publish a JSON-safe capability matrix for Workbench decisions.
+- [x] Add preview cache keys based on SHA-256, profile and scanner version.
+- [x] Add project-scoped, atomic import-profile persistence.
+- [x] Add an explainable Dataset readiness score (0–100).
+- [x] Add synchronized ru/kk/en user and developer documentation.
+- [ ] Next: production Import Wizard state machine, batch import and readiness badges in Project Explorer.

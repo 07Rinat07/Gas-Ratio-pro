@@ -3031,3 +3031,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added manifest-backed localized document resolution for ru/kk/en.
 - Added interactive DLIS/LIS79 logical-file/frame/channel projection when `dlisio` is installed.
 - Added immutable metadata-preview Dataset persistence for DLIS/LIS79/SEG-Y previews.
+
+## v222.46
+
+- Added `FormatPluginRegistry` and a JSON-safe capability matrix.
+- Added checksum/profile/scanner-version preview caching.
+- Added atomic project import profiles.
+- Added explainable readiness scoring.
+- Added synchronized import-profile and plugin-registry documentation in ru/kk/en.

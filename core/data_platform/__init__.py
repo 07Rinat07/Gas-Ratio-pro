@@ -1,3 +1,7 @@
+from .unified_import import (
+    FormatPlugin, FormatPluginRegistry, ImportPreviewCache, ImportProfile,
+    ImportProfileRepository, compute_readiness_score,
+)
 from .dlis_lis_metadata_scanner import DlisLisMetadataScanner
 from .segy_metadata_scanner import SegyHeaderMetadataScanner
 from .segy_trace_header_inventory import SegyTraceHeaderInventoryAdapter
@@ -15,6 +19,12 @@ from .las_validation import LasValidationFinding, validate_las_metadata
 from .metadata_catalog import DatasetMetadataCatalog
 
 __all__ = [
+    "compute_readiness_score",
+    "ImportProfileRepository",
+    "ImportProfile",
+    "ImportPreviewCache",
+    "FormatPluginRegistry",
+    "FormatPlugin",
     "ArtifactLocation",
     "ArtifactStore",
     "DlisLisMetadataScanner",
