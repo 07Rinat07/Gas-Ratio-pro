@@ -6,6 +6,7 @@ import base64
 import html
 import hashlib
 import importlib
+import json
 import os
 import random
 import sys
@@ -6312,141 +6313,126 @@ def _documentation_table_of_contents() -> tuple[dict[str, str], ...]:
     return DOCUMENTATION_TOC
 
 
+def _documentation_locale_payload(language: str) -> dict[str, object]:
+    """Return localized Documentation Center copy without mixing languages."""
+    payloads: dict[str, dict[str, object]] = {
+        "ru": {
+            "title": "Инструкции и документация",
+            "subtitle": "Быстрый старт, рабочий процесс, LAS, FAQ, горячие клавиши и диагностика.",
+            "caption": "Справочный центр использует язык интерфейса. Русский fallback применяется только при отсутствии перевода и явно отмечается.",
+            "contents": "Содержание раздела", "quick": "Быстрый запуск", "verify": "Проверка готовности",
+            "workflow": "Основной рабочий сценарий", "data": "Формат данных и mapping", "las": "LAS workflow",
+            "shortcuts": "Горячие клавиши", "faq": "FAQ", "troubleshooting": "Диагностика и устранение проблем",
+            "full_docs": "Полные документы проекта", "fallback": "Перевод отсутствует; показана версия на другом языке: {language}.",
+            "quick_steps": "1. Запустите проект командой `./run_app.ps1` или `python -m streamlit run app/streamlit_app.py`.\n2. Откройте `http://localhost:8501`.\n3. Загрузите LAS, CSV, XLSX или XLSM.\n4. Проверьте заголовки, mapping и предупреждения.\n5. Выберите интервал и откройте расчёты и графики.",
+            "verify_text": "Preflight проверяет Python, зависимости, ключевые файлы, конфигурацию, экспортные зависимости и папку логов.",
+            "workflow_text": "1. Загрузите файл и выберите набор данных.\n2. Проверьте первые строки и заголовки.\n3. Исправьте mapping при необходимости.\n4. Проверьте предупреждения и режим Ch.\n5. Выберите интервал и изучите графики.\n6. Сохраните результат и экспортируйте документ.",
+            "data_text": "Поддерживаются LAS, CSV, XLSX и XLSM. Проверьте depth-колонку, газовые компоненты, единицы и пропуски.",
+            "las_text": "LAS-редактор проверяет глубину, STEP, NULL и ручные правки. Корреляция сравнивает скважины и готовит печатные материалы.",
+            "trouble_text": "При ошибке выполните `python scripts/preflight.py`, проверьте `requirements.txt` и последние строки `logs/app.log`.",
+            "quick_links": (("Быстрый старт","docs-quick-start","Запуск приложения и первый расчёт","🚀"),("Формат данных","docs-data-format","LAS/CSV/Excel, mapping и обязательные поля","📄"),("LAS workflow","docs-las-workflow","Редактор, корреляция и версии","🧰"),("Диагностика","docs-troubleshooting","Preflight, тесты и логи","🩺")),
+            "toc": (("Быстрый запуск","docs-quick-start"),("Проверка готовности","docs-verification"),("Рабочий сценарий","docs-workflow"),("Формат данных","docs-data-format"),("LAS workflow","docs-las-workflow"),("Горячие клавиши","docs-shortcuts"),("FAQ","docs-faq"),("Диагностика","docs-troubleshooting")),
+            "shortcuts_items": (("Ctrl+K","Открыть командную палитру."),("Esc","Закрыть активное окно или выйти из поиска."),("Enter","Подтвердить активное поле или команду.")),
+            "faq_items": (("Почему документация имеет отдельный фон?","Это справочный экран; инженерные графики остаются на контрастном рабочем фоне."),("Что проверить перед расчётом?","Заголовки, обязательные колонки, предупреждения, режим Ch и интервал глубин."),("Что делать при ошибке запуска?","Проверьте окружение, зависимости, preflight и logs/app.log.")),
+            "doc_titles": {"las_qc_user_guide":"Руководство LAS QC","qc_architecture":"Архитектура QC","supported_formats_and_legal_sources":"Форматы и легальные источники","external_standard_integration":"Интеграция внешних стандартов"},
+        },
+        "kk": {
+            "title": "Нұсқаулықтар мен құжаттама",
+            "subtitle": "Жылдам бастау, жұмыс үдерісі, LAS, FAQ, пернелер тіркесімі және диагностика.",
+            "caption": "Анықтама орталығы интерфейс тілін қолданады. Аударма жоқ болса, fallback анық белгіленеді.",
+            "contents": "Бөлім мазмұны", "quick": "Жылдам іске қосу", "verify": "Дайындықты тексеру",
+            "workflow": "Негізгі жұмыс сценарийі", "data": "Деректер пішімі және mapping", "las": "LAS жұмыс үдерісі",
+            "shortcuts": "Пернелер тіркесімі", "faq": "Жиі қойылатын сұрақтар", "troubleshooting": "Диагностика және ақауларды жою",
+            "full_docs": "Жобаның толық құжаттары", "fallback": "Аударма жоқ; басқа тілдегі нұсқа көрсетілді: {language}.",
+            "quick_steps": "1. Жобаны `./run_app.ps1` немесе `python -m streamlit run app/streamlit_app.py` командасымен іске қосыңыз.\n2. `http://localhost:8501` мекенжайын ашыңыз.\n3. LAS, CSV, XLSX немесе XLSM файлын жүктеңіз.\n4. Тақырыптарды, mapping және ескертулерді тексеріңіз.\n5. Аралықты таңдап, есептеулер мен графиктерді ашыңыз.",
+            "verify_text": "Preflight Python, тәуелділіктер, негізгі файлдар, конфигурация, экспорт тәуелділіктері және лог бумасын тексереді.",
+            "workflow_text": "1. Файлды жүктеп, деректер жиынын таңдаңыз.\n2. Алғашқы жолдар мен тақырыптарды тексеріңіз.\n3. Қажет болса mapping түзетіңіз.\n4. Ескертулер мен Ch режимін тексеріңіз.\n5. Аралықты таңдап, графиктерді зерттеңіз.\n6. Нәтижені сақтап, құжатты экспорттаңыз.",
+            "data_text": "LAS, CSV, XLSX және XLSM қолдау көрсетіледі. Тереңдік бағанын, газ компоненттерін, өлшем бірліктерін және бос мәндерді тексеріңіз.",
+            "las_text": "LAS редакторы тереңдікті, STEP, NULL және қолмен енгізілген түзетулерді тексереді. Корреляция ұңғымаларды салыстырады және баспа материалдарын дайындайды.",
+            "trouble_text": "Қате кезінде `python scripts/preflight.py` орындаңыз, `requirements.txt` және `logs/app.log` соңғы жолдарын тексеріңіз.",
+            "quick_links": (("Жылдам бастау","docs-quick-start","Қосымшаны іске қосу және алғашқы есептеу","🚀"),("Деректер пішімі","docs-data-format","LAS/CSV/Excel, mapping және міндетті өрістер","📄"),("LAS жұмыс үдерісі","docs-las-workflow","Редактор, корреляция және нұсқалар","🧰"),("Диагностика","docs-troubleshooting","Preflight, тесттер және логтар","🩺")),
+            "toc": (("Жылдам іске қосу","docs-quick-start"),("Дайындықты тексеру","docs-verification"),("Жұмыс сценарийі","docs-workflow"),("Деректер пішімі","docs-data-format"),("LAS жұмыс үдерісі","docs-las-workflow"),("Пернелер тіркесімі","docs-shortcuts"),("FAQ","docs-faq"),("Диагностика","docs-troubleshooting")),
+            "shortcuts_items": (("Ctrl+K","Командалар палитрасын ашу."),("Esc","Белсенді терезені жабу немесе іздеуден шығу."),("Enter","Белсенді өрісті немесе команданы растау.")),
+            "faq_items": (("Неліктен құжаттаманың жеке фоны бар?","Бұл анықтама экраны; инженерлік графиктер контрастты жұмыс фонында қалады."),("Есептеу алдында нені тексеру керек?","Тақырыптар, міндетті бағандар, ескертулер, Ch режимі және тереңдік аралығы."),("Іске қосу қатесі кезінде не істеу керек?","Ортаны, тәуелділіктерді, preflight және logs/app.log файлын тексеріңіз.")),
+            "doc_titles": {"las_qc_user_guide":"LAS QC пайдаланушы нұсқаулығы","qc_architecture":"QC архитектурасы","supported_formats_and_legal_sources":"Пішімдер және заңды дереккөздер","external_standard_integration":"Сыртқы стандарттарды интеграциялау"},
+        },
+        "en": {
+            "title": "Instructions and documentation", "subtitle": "Quick start, workflow, LAS, FAQ, shortcuts, and troubleshooting.",
+            "caption": "The Documentation Center follows the interface language. Any fallback is used only when a translation is missing and is clearly marked.",
+            "contents": "Section contents", "quick": "Quick start", "verify": "Readiness check", "workflow": "Main workflow",
+            "data": "Data format and mapping", "las": "LAS workflow", "shortcuts": "Keyboard shortcuts", "faq": "FAQ",
+            "troubleshooting": "Troubleshooting", "full_docs": "Full project documents", "fallback": "Translation unavailable; showing another language: {language}.",
+            "quick_steps": "1. Start the project with `./run_app.ps1` or `python -m streamlit run app/streamlit_app.py`.\n2. Open `http://localhost:8501`.\n3. Upload LAS, CSV, XLSX, or XLSM.\n4. Check headers, mapping, and warnings.\n5. Select an interval and open calculations and plots.",
+            "verify_text": "Preflight checks Python, dependencies, key files, configuration, export dependencies, and the log directory.",
+            "workflow_text": "1. Upload a file and select a dataset.\n2. Review the first rows and headers.\n3. Correct mapping when required.\n4. Review warnings and the Ch mode.\n5. Select an interval and inspect plots.\n6. Save the result and export a document.",
+            "data_text": "LAS, CSV, XLSX, and XLSM are supported. Check the depth column, gas components, units, and missing values.",
+            "las_text": "The LAS editor checks depth, STEP, NULL, and manual edits. Correlation compares wells and prepares printable material.",
+            "trouble_text": "When an error occurs, run `python scripts/preflight.py`, review `requirements.txt`, and inspect the latest lines of `logs/app.log`.",
+            "quick_links": (("Quick start","docs-quick-start","Launch the application and run the first calculation","🚀"),("Data format","docs-data-format","LAS/CSV/Excel, mapping, and required fields","📄"),("LAS workflow","docs-las-workflow","Editor, correlation, and versions","🧰"),("Troubleshooting","docs-troubleshooting","Preflight, tests, and logs","🩺")),
+            "toc": (("Quick start","docs-quick-start"),("Readiness check","docs-verification"),("Workflow","docs-workflow"),("Data format","docs-data-format"),("LAS workflow","docs-las-workflow"),("Keyboard shortcuts","docs-shortcuts"),("FAQ","docs-faq"),("Troubleshooting","docs-troubleshooting")),
+            "shortcuts_items": (("Ctrl+K","Open the command palette."),("Esc","Close the active dialog or leave search."),("Enter","Confirm the active field or command.")),
+            "faq_items": (("Why does documentation have a separate background?","It is a reference screen; engineering plots remain on a high-contrast workspace."),("What should be checked before calculation?","Headers, required columns, warnings, Ch mode, and the depth interval."),("What should I do when startup fails?","Check the environment, dependencies, preflight, and logs/app.log.")),
+            "doc_titles": {"las_qc_user_guide":"LAS QC User Guide","qc_architecture":"QC Architecture","supported_formats_and_legal_sources":"Formats and Legal Sources","external_standard_integration":"External Standard Integration"},
+        },
+    }
+    return payloads.get(language, payloads["ru"])
+
+
+def _localized_documentation_documents(language: str) -> tuple[tuple[str, str, str], ...]:
+    """Resolve manifest-backed documentation for the requested language."""
+    manifest_path = ROOT_DIR / "docs" / "documentation_manifest.json"
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    copy = _documentation_locale_payload(language)
+    titles = dict(copy.get("doc_titles", {}))
+    resolved: list[tuple[str, str, str]] = []
+    for document in payload.get("documents", []):
+        languages = dict(document.get("languages", {}) or {})
+        selected_language = language if language in languages else ("ru" if "ru" in languages else next(iter(languages), ""))
+        relative = str(languages.get(selected_language, ""))
+        if relative:
+            resolved.append((str(titles.get(document.get("id"), document.get("id", "Document"))), f"docs/{relative}", selected_language))
+    return tuple(resolved)
+
+
 def _render_documentation_tab() -> None:
+    i18n = _dashboard_localization()
+    language = i18n.language
+    copy = _documentation_locale_payload(language)
     hero_uri = _documentation_hero_data_uri() or _dashboard_background_data_uri()
-    logo_html = ""
-    image_html = (
-        f'<img class="docs-hero-image" src="{hero_uri}" alt="Gas Ratio Pro documentation banner">'
-        if hero_uri
-        else ""
-    )
-    hero_html = f"""
-        <div class="docs-hero">
-          <section class="docs-hero-banner">
-            {image_html}
-            <div class="docs-hero-content">
-              <div class="docs-hero-kicker">Gas Ratio Pro Documentation Center v2</div>
-              <h1 class="docs-hero-title">Инструкции и документация</h1>
-              <p class="docs-hero-subtitle">Быстрый старт, методика работы, LAS workflow, FAQ, горячие клавиши и troubleshooting в одном справочном центре.</p>
-            </div>
-          </section>
-        """
-    st.markdown(hero_html, unsafe_allow_html=True)
+    image_html = f'<img class="docs-hero-image" src="{hero_uri}" alt="Gas Ratio Pro documentation banner">' if hero_uri else ""
+    st.markdown(f"<div class='docs-hero'><section class='docs-hero-banner'>{image_html}<div class='docs-hero-content'><div class='docs-hero-kicker'>Gas Ratio Pro Documentation Center</div><h1 class='docs-hero-title'>{_html_escape(str(copy['title']))}</h1><p class='docs-hero-subtitle'>{_html_escape(str(copy['subtitle']))}</p></div></section>", unsafe_allow_html=True)
     st.markdown('<div class="docs-panel">', unsafe_allow_html=True)
-    st.caption(
-        "Documentation Center v2 объединяет вводные инструкции, быстрые переходы, "
-        "таблицу содержания и встроенные документы проекта без пустых темных блоков."
-    )
-
-    quick_cards = "".join(
-        "<a href='#{anchor}' class='docs-v2-card'><div class='docs-v2-icon'>{icon}</div>"
-        "<b>{title}</b><span>{description}</span></a>".format(
-            anchor=_html_escape(item["anchor"]),
-            icon=_html_escape(item["icon"]),
-            title=_html_escape(item["title"]),
-            description=_html_escape(item["description"]),
-        )
-        for item in DOCUMENTATION_QUICK_LINKS
-    )
+    st.caption(str(copy["caption"]))
+    quick_cards = "".join(f"<a href='#{_html_escape(anchor)}' class='docs-v2-card'><div class='docs-v2-icon'>{icon}</div><b>{_html_escape(title)}</b><span>{_html_escape(description)}</span></a>" for title,anchor,description,icon in copy["quick_links"])
     st.markdown(f'<div class="docs-v2-grid">{quick_cards}</div>', unsafe_allow_html=True)
-
-    toc_links = "".join(
-        "<a href='#{anchor}'>{title}</a>".format(
-            anchor=_html_escape(item["anchor"]),
-            title=_html_escape(item["title"]),
-        )
-        for item in DOCUMENTATION_TOC
-    )
-    st.markdown("### Содержание раздела")
+    toc_links = "".join(f"<a href='#{_html_escape(anchor)}'>{_html_escape(title)}</a>" for title,anchor in copy["toc"])
+    st.markdown(f"### {copy['contents']}")
     st.markdown(f'<nav class="docs-toc">{toc_links}</nav>', unsafe_allow_html=True)
-
     quick_start, verification = st.columns(2)
     with quick_start:
-        _render_docs_anchor("docs-quick-start")
-        st.markdown("### Быстрый запуск")
-        st.code(
-            "cd C:\\OSPanel\\home\\gas-ratio-pro\n"
-            f"{APP_LAUNCH_SCRIPT}\n"
-            f"# или без скрипта:\n"
-            f"{APP_LAUNCH_COMMAND}",
-            language="powershell",
-        )
-        st.markdown(
-            "1. Запустите проект командой `./run_app.ps1` или `python -m streamlit run app/streamlit_app.py`.\n"
-            "2. Откройте в браузере `http://localhost:8501`.\n"
-            "3. Загрузите LAS, CSV, XLSX или XLSM.\n"
-            "4. Проверьте строку заголовков, mapping и предупреждения.\n"
-            "5. Выберите интервал и откройте расчеты, палетки и графики."
-        )
-
+        _render_docs_anchor("docs-quick-start"); st.markdown(f"### {copy['quick']}")
+        st.code("cd C:\\OSPanel\\home\\gas-ratio-pro\n" + APP_LAUNCH_SCRIPT + "\n# alternative:\n" + APP_LAUNCH_COMMAND, language="powershell")
+        st.markdown(str(copy["quick_steps"]))
     with verification:
-        _render_docs_anchor("docs-verification")
-        st.markdown("### Проверка готовности")
-        st.code(
-            "python -m pytest\n"
-            "python scripts/preflight.py",
-            language="powershell",
-        )
-        st.markdown(
-            "Preflight проверяет Python, зависимости, ключевые файлы, конфиг палеток, "
-            "экспортные зависимости и доступность папки логов."
-        )
-
-    _render_docs_anchor("docs-workflow")
-    st.markdown("### Основной рабочий сценарий")
-    st.markdown(
-        "1. Загрузите LAS, CSV или Excel-файл и выберите набор данных.\n"
-        "2. Проверьте первые строки и строку заголовков.\n"
-        "3. Исправьте сопоставление колонок, если auto-mapping ошибся.\n"
-        "4. Проверьте предупреждения и режим `Ch`.\n"
-        "5. Выберите интервал, проверьте Pixler/ternary и depth-графики.\n"
-        "6. Сохраните snapshot в проект и скачайте CSV/XLSX/PDF/DOCX, если результат нужен для отчета."
-    )
-
-    _render_docs_anchor("docs-data-format")
-    st.markdown("### Формат данных и mapping")
-    st.markdown(
-        "Документация принимает LAS, CSV, XLSX и XLSM. Для надежного расчета проверьте depth-колонку, "
-        "газовые компоненты, автоматический mapping, единицы и предупреждения о пропусках."
-    )
-
-    _render_docs_anchor("docs-las-workflow")
-    st.markdown("### LAS workflow")
-    st.markdown(
-        "LAS-редактор используется для проверки глубины, шага, NULL-значений и ручных правок. "
-        "LAS-корреляция нужна для сравнения скважин, группировки кривых, подготовки интервала и печатного PDF- или DOCX-отчета."
-    )
-
-    _render_docs_anchor("docs-shortcuts")
-    st.markdown("### Горячие клавиши")
-    for shortcut in DOCUMENTATION_SHORTCUTS:
-        st.markdown(
-            f"<div class='docs-info-row'><b>{_html_escape(shortcut['keys'])}</b><br>"
-            f"<span>{_html_escape(shortcut['action'])}</span></div>",
-            unsafe_allow_html=True,
-        )
-
-    _render_docs_anchor("docs-faq")
-    st.markdown("### FAQ")
-    for item in DOCUMENTATION_FAQ:
-        with st.expander(item["question"], expanded=False):
-            st.markdown(item["answer"])
-
-    _render_docs_anchor("docs-troubleshooting")
-    st.markdown("### Troubleshooting")
-    st.markdown(
-        "Если приложение показывает ошибку, сначала проверьте `python scripts/preflight.py`, "
-        "затем установку зависимостей из `requirements.txt` и последние строки `logs/app.log`. "
-        "Для статического экспорта PNG/PDF/SVG нужна зависимость `kaleido`."
-    )
+        _render_docs_anchor("docs-verification"); st.markdown(f"### {copy['verify']}")
+        st.code("python -m pytest\npython scripts/preflight.py", language="powershell"); st.markdown(str(copy["verify_text"]))
+    for anchor,key,text_key in (("docs-workflow","workflow","workflow_text"),("docs-data-format","data","data_text"),("docs-las-workflow","las","las_text")):
+        _render_docs_anchor(anchor); st.markdown(f"### {copy[key]}"); st.markdown(str(copy[text_key]))
+    _render_docs_anchor("docs-shortcuts"); st.markdown(f"### {copy['shortcuts']}")
+    for keys, action in copy["shortcuts_items"]:
+        st.markdown(f"<div class='docs-info-row'><b>{_html_escape(keys)}</b><br><span>{_html_escape(action)}</span></div>", unsafe_allow_html=True)
+    _render_docs_anchor("docs-faq"); st.markdown(f"### {copy['faq']}")
+    for question, answer in copy["faq_items"]:
+        with st.expander(question, expanded=False): st.markdown(answer)
+    _render_docs_anchor("docs-troubleshooting"); st.markdown(f"### {copy['troubleshooting']}"); st.markdown(str(copy["trouble_text"]))
     st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown("### Полные документы проекта")
-    for index, (title, relative_path) in enumerate(DOCUMENTATION_TAB_DOCS):
+    st.markdown(f"### {copy['full_docs']}")
+    for index, (title, relative_path, source_language) in enumerate(_localized_documentation_documents(language)):
         with st.expander(title, expanded=index == 0):
+            if source_language != language:
+                st.warning(str(copy["fallback"]).format(language=source_language.upper()))
             st.markdown(_read_documentation_markdown(relative_path))
     st.markdown('</div>', unsafe_allow_html=True)
-
 
 
 
@@ -7470,6 +7456,39 @@ def _render_subsurface_import_preview(logger, active_project: ProjectRecord) -> 
                 st.dataframe(pd.DataFrame(preview["fields"]), width="stretch", hide_index=True)
             for warning in preview["warnings"]:
                 st.warning(str(warning["message"]))
+            if format_id in {"dlis", "lis79"}:
+                projection = service.build_dlis_selection_projection(temp_path, format_id=format_id)
+                logical_files = list(projection.get("logical_files", []) or [])
+                if not bool(projection.get("adapter_available", False)):
+                    st.info(i18n("import.preview.dlis.adapter_required"))
+                elif logical_files:
+                    logical_options = list(range(len(logical_files)))
+                    selected_index = st.selectbox(
+                        i18n("import.preview.dlis.logical_file"),
+                        logical_options,
+                        format_func=lambda idx: f"{idx}: logical file",
+                        key=f"dlis_logical_file_{active_project.id}",
+                    )
+                    selected = dict(logical_files[int(selected_index)])
+                    frame_names = list(selected.get("frame_names", []) or [])
+                    channel_names = list(selected.get("channel_names", []) or [])
+                    if frame_names:
+                        st.selectbox(i18n("import.preview.dlis.frame"), frame_names, key=f"dlis_frame_{active_project.id}")
+                    if channel_names:
+                        st.multiselect(i18n("import.preview.dlis.channels"), channel_names, default=channel_names[: min(8, len(channel_names))], key=f"dlis_channels_{active_project.id}")
+            if st.button(i18n("import.preview.panel.save"), key=f"save_subsurface_preview_{active_project.id}_{format_id}"):
+                try:
+                    manifest = service.persist_import_preview(
+                        project_id=active_project.id,
+                        source=temp_path,
+                        actor="workbench-user",
+                        format_id=format_id,
+                        translate=i18n.translate,
+                    )
+                    st.success(i18n("import.preview.panel.saved", dataset_id=manifest.dataset_id))
+                except Exception:
+                    logger.exception("subsurface_import_preview_save_failed format=%s", format_id)
+                    st.error(i18n("import.preview.panel.save_failed"))
             if format_id == "segy":
                 cols = st.columns(5)
                 inline_byte = int(cols[0].number_input(i18n("import.preview.segy.inline_byte"), 1, 237, 189))

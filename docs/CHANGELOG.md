@@ -3021,3 +3021,13 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added optional DLIS and LIS79 scanners with graceful `dlisio`-unavailable diagnostics.
 - Registered LIS79 as an independent Data Platform format.
 - Added formal adapter evaluations and populated the third-party component registry.
+
+
+## v222.45 — Global language switcher, localized Documentation Center, and preview persistence
+
+- Replaced the page-local language selectbox in real Streamlit sessions with persistent RU / ҚАЗ / EN buttons rendered on every Workbench page.
+- Documentation Center now follows the current interface locale and no longer presents Russian content as Kazakh or English.
+- Added explicit fallback disclosure when a requested document translation is genuinely unavailable.
+- Added manifest-backed localized document resolution for ru/kk/en.
+- Added interactive DLIS/LIS79 logical-file/frame/channel projection when `dlisio` is installed.
+- Added immutable metadata-preview Dataset persistence for DLIS/LIS79/SEG-Y previews.

@@ -155,3 +155,8 @@ The missing `resolve_interpretation_id` application-boundary contract has been r
 ## v222.44 — Production subsurface metadata preview
 
 Data Workspace now contains a separate bounded preview surface for DLIS, LIS79 and SEG-Y. SEG-Y trace-header diagnostics support configurable inline/crossline and coordinate byte mappings, coordinate-scalar application, X/Y extents, valid-coordinate coverage and geometry confidence. Binary payloads and seismic amplitudes are not sent through the tabular calculation importer. Focused Data Platform, i18n and container regression: 67 tests passed.
+
+
+## v222.45 — Localization consistency and preview persistence
+
+The language selector is now a persistent website-style RU / ҚАЗ / EN control available throughout Workbench. Documentation Center reads the same locale and resolves only the matching manifest-backed documents, with an explicit fallback notice when a translation is absent. Data Workspace can persist bounded subsurface metadata previews as immutable preview Datasets and exposes DLIS/LIS79 logical-file/frame/channel choices through the optional adapter boundary.

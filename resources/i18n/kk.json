@@ -249,5 +249,12 @@
   "import.preview.field.y_max": "Y максимумы",
   "import.preview.field.geometry_confidence": "Геометрия сенімділігі",
   "import.preview.warning.segy.geometry.coordinates_unavailable": "Тексерілген тақырыптарда нөлден өзге X/Y координаталары табылмады.",
-  "import.preview.warning.segy.geometry.low_confidence": "SEG-Y геометриясының сенімділігі төмен; тақырып байттарының орындарын тексеріңіз."
+  "import.preview.warning.segy.geometry.low_confidence": "SEG-Y геометриясының сенімділігі төмен; тақырып байттарының орындарын тексеріңіз.",
+  "import.preview.panel.save": "Preview metadata сақтау",
+  "import.preview.panel.saved": "Preview metadata Dataset ретінде сақталды: {dataset_id}",
+  "import.preview.panel.save_failed": "Preview metadata сақтау мүмкін болмады.",
+  "import.preview.dlis.logical_file": "Логикалық файл",
+  "import.preview.dlis.frame": "Frame",
+  "import.preview.dlis.channels": "Арналар",
+  "import.preview.dlis.adapter_required": "Logical file/frame/channel таңдау үшін optional dlisio адаптерін орнатыңыз."
 }

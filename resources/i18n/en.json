@@ -249,5 +249,12 @@
   "import.preview.field.y_max": "Y maximum",
   "import.preview.field.geometry_confidence": "Geometry confidence",
   "import.preview.warning.segy.geometry.coordinates_unavailable": "No non-zero X/Y coordinates were found in the inspected headers.",
-  "import.preview.warning.segy.geometry.low_confidence": "SEG-Y geometry confidence is low; verify the configured header byte locations."
+  "import.preview.warning.segy.geometry.low_confidence": "SEG-Y geometry confidence is low; verify the configured header byte locations.",
+  "import.preview.panel.save": "Save preview metadata",
+  "import.preview.panel.saved": "Preview metadata was saved as Dataset: {dataset_id}",
+  "import.preview.panel.save_failed": "Failed to save preview metadata.",
+  "import.preview.dlis.logical_file": "Logical file",
+  "import.preview.dlis.frame": "Frame",
+  "import.preview.dlis.channels": "Channels",
+  "import.preview.dlis.adapter_required": "Install the optional dlisio adapter to select a logical file, frame, and channels."
 }

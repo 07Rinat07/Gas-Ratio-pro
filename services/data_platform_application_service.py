@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import json
+from tempfile import NamedTemporaryFile
 
 from core.build_info import BUILD_VERSION
 from core.data_platform import (
@@ -185,6 +187,74 @@ class DataPlatformApplicationService:
         if result is None:
             raise ValueError("format does not support metadata preview")
         return build_metadata_import_preview(result, translate)
+
+
+    def build_dlis_selection_projection(self, source: Path | str, *, format_id: str | None = None) -> dict[str, object]:
+        """Return bounded logical-file/frame/channel choices for DLIS/LIS79 UI."""
+        result = self.scan_metadata(source, format_id)
+        if result is None or result.format_id not in {"dlis", "lis79"}:
+            raise ValueError("DLIS/LIS79 metadata is required")
+        raw = str(result.metadata.get("logical_files_json", "") or "")
+        logical_files = json.loads(raw) if raw else []
+        if not isinstance(logical_files, list):
+            logical_files = []
+        return {
+            "format_id": result.format_id,
+            "adapter_available": bool(result.metadata.get("adapter_available", False)),
+            "logical_files": logical_files,
+            "warnings": list(result.warnings),
+        }
+
+    def persist_import_preview(
+        self, *, project_id: str, source: Path | str, actor: str = "",
+        format_id: str | None = None, translate=lambda key, **kwargs: key,
+    ) -> DatasetManifest:
+        """Persist one metadata-only preview as an immutable preview Dataset."""
+        source_path = Path(source)
+        capability = self.formats.require(format_id) if format_id else self.formats.detect(source_path)
+        if capability is None:
+            raise ValueError("unable to detect preview format")
+        preview = self.build_import_preview(source_path, format_id=capability.format_id, translate=translate)
+        payload = {
+            "schema": "gas-ratio-pro/import-preview/v1",
+            "source_name": source_path.name,
+            "source_size_bytes": source_path.stat().st_size,
+            "preview": preview,
+        }
+        with NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as handle:
+            json.dump(payload, handle, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            temp_path = Path(handle.name)
+        try:
+            location = self.artifacts.store_file(
+                project_id=project_id,
+                source=temp_path,
+                kind="preview",
+                filename=f"{source_path.stem}-{capability.format_id}-preview.json",
+            )
+        finally:
+            temp_path.unlink(missing_ok=True)
+        manifest = DatasetManifest.create(
+            project_id=project_id,
+            format_id=capability.format_id,
+            artifact_path=location.relative_path,
+            checksum_sha256=location.checksum_sha256,
+            size_bytes=location.size_bytes,
+            source_name=source_path.name,
+            metadata={
+                "dataset_kind": "metadata-preview",
+                "source_format_id": capability.format_id,
+                "preview_complete": bool(preview.get("complete", False)),
+                "warning_count": len(preview.get("warnings", []) or []),
+            },
+            provenance=DatasetProvenance(
+                operation="metadata-preview",
+                actor=actor,
+                application_version=BUILD_VERSION,
+            ),
+        )
+        self.manifests.save(manifest)
+        self.catalog.project(manifest)
+        return manifest
 
     def scan_segy_trace_headers(
         self, source: Path | str, *, inline_byte: int = 189, crossline_byte: int = 193,

@@ -249,5 +249,12 @@
   "import.preview.field.y_max": "Y максимум",
   "import.preview.field.geometry_confidence": "Достоверность геометрии",
   "import.preview.warning.segy.geometry.coordinates_unavailable": "В проверенных заголовках не обнаружены ненулевые X/Y координаты.",
-  "import.preview.warning.segy.geometry.low_confidence": "Геометрия SEG-Y имеет низкую достоверность; проверьте номера байтов заголовков."
+  "import.preview.warning.segy.geometry.low_confidence": "Геометрия SEG-Y имеет низкую достоверность; проверьте номера байтов заголовков.",
+  "import.preview.panel.save": "Сохранить preview metadata",
+  "import.preview.panel.saved": "Preview metadata сохранено как Dataset: {dataset_id}",
+  "import.preview.panel.save_failed": "Не удалось сохранить preview metadata.",
+  "import.preview.dlis.logical_file": "Логический файл",
+  "import.preview.dlis.frame": "Frame",
+  "import.preview.dlis.channels": "Каналы",
+  "import.preview.dlis.adapter_required": "Для выбора logical file/frame/channel установите optional adapter dlisio."
 }

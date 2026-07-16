@@ -2026,3 +2026,14 @@ Next: QC history in Project Explorer, direct downloads, Dataset comparison badge
 - [x] Add geometry confidence and stable diagnostics for missing or implausible coordinate mappings.
 - [x] Localize preview controls, fields and warnings in ru/kk/en.
 - [ ] Next: interactive DLIS logical-file/frame/channel selection and persisted preview manifests.
+
+
+## v222.45 — Global locale and subsurface preview completion
+
+- [x] Add persistent RU / ҚАЗ / EN buttons to every Workbench page.
+- [x] Bind Documentation Center content and documents to the active interface locale.
+- [x] Verify Russian, Kazakh and English document resolution independently.
+- [x] Add explicit fallback disclosure instead of silently showing Russian content.
+- [x] Add DLIS/LIS79 logical-file/frame/channel selection projection.
+- [x] Persist bounded import previews as immutable Dataset Manifest records.
+- [ ] Next: render SEG-Y geometry preview on an interactive map/schematic and add optional-adapter CI jobs.

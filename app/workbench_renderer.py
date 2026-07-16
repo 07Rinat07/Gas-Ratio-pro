@@ -59,24 +59,52 @@ def _localization_context(registry: WorkbenchCommandRegistry, st_module: Any):
     localization = container.localization(catalogs_dir=_I18N_DIR, language=language)
     localization.set_language(language)
 
-    selectbox = getattr(st_module, "selectbox", None)
-    if callable(selectbox):
-        codes = tuple(SUPPORTED_LANGUAGES)
-        selected = selectbox(
-            localization("language.label"),
-            options=codes,
-            index=codes.index(language),
-            format_func=lambda code: localization(f"language.{code}"),
-            key="workbench_language_selector",
-            help=localization("language.preference.help"),
-        )
+    # Real Streamlit pages use a persistent website-style RU / ҚАЗ / EN switcher.
+    # Small test doubles that do not expose columns/button keep the selectbox fallback.
+    columns = getattr(st_module, "columns", None)
+    button = getattr(st_module, "button", None)
+    if callable(columns) and callable(button):
+        labels = {"ru": "RU", "kk": "ҚАЗ", "en": "EN"}
+        st_module.markdown("<div class='workbench-language-switcher-label'>" + localization("language.label") + "</div>", unsafe_allow_html=True)
+        language_columns = columns(3, gap="small")
+        selected = language
+        for code, column in zip(tuple(SUPPORTED_LANGUAGES), language_columns):
+            with column:
+                if st_module.button(
+                    labels[code],
+                    key=f"workbench_language_button_{code}",
+                    width="stretch",
+                    type="primary" if code == language else "secondary",
+                    help=localization(f"language.{code}"),
+                ):
+                    selected = code
         selected = normalize_language(selected)
         if selected != language:
             language = preferences.save(selected)
             registry.state[WORKBENCH_LANGUAGE_KEY] = language
             localization.set_language(language)
+            rerun = getattr(st_module, "rerun", None)
+            if callable(rerun):
+                rerun()
     else:
-        registry.state[WORKBENCH_LANGUAGE_KEY] = language
+        selectbox = getattr(st_module, "selectbox", None)
+        if callable(selectbox):
+            codes = tuple(SUPPORTED_LANGUAGES)
+            selected = selectbox(
+                localization("language.label"),
+                options=codes,
+                index=codes.index(language),
+                format_func=lambda code: localization(f"language.{code}"),
+                key="workbench_language_selector",
+                help=localization("language.preference.help"),
+            )
+            selected = normalize_language(selected)
+            if selected != language:
+                language = preferences.save(selected)
+                registry.state[WORKBENCH_LANGUAGE_KEY] = language
+                localization.set_language(language)
+        else:
+            registry.state[WORKBENCH_LANGUAGE_KEY] = language
     return localization
 
 
