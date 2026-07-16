@@ -2940,3 +2940,11 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added strict/tolerant LAS import selector and pre-persistence strict validation.
 - Added bounded multi-row column stability diagnostics.
 - Added localized ru/kk/en import-mode and validation messages.
+
+## v222.35 — QC report artifacts and export foundation
+
+- QC reports can be persisted as immutable derived Dataset artifacts.
+- QC manifests retain provenance to the exact source LAS Dataset version.
+- Added JSON-safe severity/code filtering for Workbench QC panels.
+- Added lazy PDF and DOCX QC export operations.
+- Added synchronized ru/kk/en QC report and panel labels.

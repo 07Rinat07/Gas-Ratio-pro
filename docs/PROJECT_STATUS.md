@@ -78,3 +78,7 @@ Implemented localized import feedback, SQLite reconciliation from immutable mani
 - Source LAS data remains immutable; QC is analytical and non-destructive.
 
 Next: persist QC reports as derived Dataset artifacts and expose a localized QC summary in Workbench.
+
+## v222.35 status
+
+QC Platform Phase II started. QC reports are now persistable as derived Dataset artifacts linked to the source Dataset through provenance. A JSON-safe filtered projection and lazy PDF/DOCX export boundary are available. Native Workbench panel wiring remains the next UI increment.

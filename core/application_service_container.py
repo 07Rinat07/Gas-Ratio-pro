@@ -477,12 +477,19 @@ class ApplicationServiceContainer:
             self._descriptors.pop(key, None)
         return tuple(self._descriptors[key] for key in sorted(self._descriptors))
 
-    def quality_control(self):
-        """Return the session-scoped QC application service."""
+    def quality_control(self, *, root: Path | str | None = None):
+        """Return the lazy QC boundary; pass root to enable artifact persistence."""
         from services.qc_application_service import QCApplicationService
-        return self.ensure_session_service(
+        if root is None:
+            return self.ensure_session_service(
+                service_name="quality_control",
+                factory=QCApplicationService,
+                expected_type=QCApplicationService,
+            )
+        return self.ensure_workspace_service(
             service_name="quality_control",
-            factory=QCApplicationService,
+            root=root,
+            factory=lambda: QCApplicationService(root),
             expected_type=QCApplicationService,
         )
 

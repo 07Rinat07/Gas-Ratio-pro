@@ -1947,3 +1947,13 @@ Status: COMPLETED
 - [x] User and developer documentation in Russian, Kazakh and English.
 - [x] Documentation manifest and petroleum terminology foundation.
 - [ ] Next: register QC output as a derived Dataset version/artifact and add Workbench QC presentation.
+
+## QC Platform Phase II
+
+- [x] Persist QC Report as immutable derived Dataset artifact.
+- [x] Link QC provenance to the exact source Dataset version.
+- [x] Add severity/code filtering projection.
+- [x] Add lazy PDF/DOCX export boundary.
+- [ ] Wire the localized QC panel into the production Workbench route.
+- [ ] Add interactive curve-statistics table and finding filters.
+- [ ] Register exported PDF/DOCX files as export artifacts.
