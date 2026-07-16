@@ -1,3 +1,13 @@
+# Current milestone — v222.55 Stabilization & Hardening
+
+- [x] Fix Workbench project-menu `application_service_container` scope defect.
+- [x] Introduce a centralized UI-neutral Workbench error-boundary contract.
+- [x] Approve ADR-001 for a framework-independent UI Platform.
+- [x] Add Platform, Engineering and UI/UX roadmaps.
+- [x] Add API stability, production readiness and technical-debt policies.
+- [ ] Complete route/language smoke regression and performance audit in v222.56.
+- [ ] Complete production-readiness release audit in v222.57.
+
 # Latest increment — Interpretation export project-root bugfix (v222.42)
 
 - [x] Remove undefined `PROJECTS_ROOT` usage from the professional export fragment.

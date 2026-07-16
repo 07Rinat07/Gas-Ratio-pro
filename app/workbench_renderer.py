@@ -35,6 +35,7 @@ from core.diagnostics_center import build_diagnostics_center_snapshot
 from core.workbench_runtime_diagnostics import (
     diagnostics_enabled, diagnostics_snapshot, record_binding_state, record_runtime_exception,
 )
+from core.workbench_error_boundary import capture_workbench_exception
 from core.workbench_shell import (
     WorkbenchRendererContract,
     WorkbenchShellBuilder,
@@ -387,8 +388,8 @@ def _render_native_streamlit_layout(
                     result = service.restore_recent_session()
                     registry.state[WORKBENCH_LAST_UI_ACTION_KEY] = {"action_id":"restore_recent_session","title":i18n("menu.file.restore_session"),"executed":True,"message":result.kind}
                 except Exception as exc:
-                    incident = record_runtime_exception(registry.state, exc, boundary="file_menu", operation="restore_recent_session")
-                    st_module.error(i18n("menu.file.restore_error", error_id=incident["correlation_id"]))
+                    incident = capture_workbench_exception(registry.state, exc, boundary="file_menu", operation="restore_recent_session")
+                    st_module.error(i18n("menu.file.restore_error", error_id=incident.correlation_id))
         with file_cols[2]:
             if st_module.button(i18n("menu.file.close"), key="workbench_file_close", width="stretch"):
                 registry.state[WORKBENCH_MENU_PANEL_KEY] = ""
@@ -410,8 +411,8 @@ def _render_native_streamlit_layout(
             else:
                 st_module.info(i18n("menu.project.no_recent"))
         except Exception as exc:
-            incident = record_runtime_exception(registry.state, exc, boundary="project_menu", operation="list_projects")
-            st_module.error(i18n("menu.project.load_error", error_id=incident["correlation_id"]))
+            incident = capture_workbench_exception(registry.state, exc, boundary="project_menu", operation="list_projects")
+            st_module.error(i18n("menu.project.load_error", error_id=incident.correlation_id))
 
     # Show only commands that are meaningful in the current presentation state.
     # Active navigation is highlighted, redundant tool activation is hidden, and
@@ -759,8 +760,6 @@ def _render_native_streamlit_layout(
             ):
                 try:
                     from app.streamlit_app import LAS_CORRELATION_PROJECTS_ROOT, _application_state_controller
-                    from core.application_service_container import application_service_container
-
                     active_project_id = str(payload.get("interaction", {}).get("active_project_id", "") or "")
                     if active_project_id:
                         data_platform = application_service_container(

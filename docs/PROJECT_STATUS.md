@@ -1,3 +1,16 @@
+# Current increment: v222.55 — Stabilization & Hardening I
+
+Implemented:
+- fixed the project-menu UnboundLocalError caused by a function-local import shadowing the module service-container factory;
+- added a centralized Workbench incident boundary;
+- added UI Platform ADR and platform-quality governance documents;
+- synchronized runtime and launcher versions.
+
+Next:
+- full route/language smoke audit;
+- localized empty states;
+- renderer performance and UI consistency audit.
+
 # Current increment: v222.51 — Recoverable import operations
 
 Implemented:

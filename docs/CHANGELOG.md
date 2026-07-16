@@ -1,3 +1,10 @@
+## v222.55
+
+- Fixed Workbench Project Menu `UnboundLocalError` caused by local shadowing of `application_service_container`.
+- Added a centralized UI-neutral Workbench error-boundary contract.
+- Added ADR-001 and initial Platform/UI/Quality governance documents.
+- Started the stabilization and hardening milestone.
+
 ## v222.53
 
 - Added lazy Import History branch to Project Explorer.
