@@ -415,6 +415,7 @@ from reports.export_static import (
 )
 
 from reports.print_center import default_report_copy, document_locale_options, normalize_document_locale
+from core.build_info import BUILD_VERSION
 project_calculations = importlib.reload(project_calculations)
 project_exports = importlib.reload(project_exports)
 project_datasets = importlib.reload(project_datasets)
@@ -10243,7 +10244,7 @@ def _render_professional_export_panel(
                     f"interval={selected_interval_id or ''}|scope={print_mode}|"
                     f"mode={report_design.mode_id}|template={report_design.template_id}|title={report_design.title}|locale={report_design.document_locale}|"
                     f"sections={','.join(report_design.sections)}|technical={report_design.include_technical_appendix}|"
-                    f"chrome={report_design.show_page_chrome}"
+                    f"chrome={report_design.show_page_chrome}|build={BUILD_VERSION}"
                 ).encode("utf-8")
             ).hexdigest(),
         )

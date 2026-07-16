@@ -10,11 +10,11 @@ from palettes.plot_engine import (
     engineering_hover, normalize_trace_style,
 )
 
-ENGINEERING_GRAPH_MARGIN = {"l": 82, "r": 30, "t": 126, "b": 64}
+ENGINEERING_GRAPH_MARGIN = {"l": 82, "r": 30, "t": 78, "b": 118}
 ENGINEERING_LEGEND = {
     **dict(LEGEND_HORIZONTAL),
-    "y": 1.015,
-    "yanchor": "bottom",
+    "y": -0.22,
+    "yanchor": "top",
     "x": 0.0,
     "xanchor": "left",
     "bgcolor": "rgba(11,18,32,0.96)",
@@ -183,7 +183,7 @@ def _build_depth_tracks(df, columns, title, x_title, *, depth_range=None, x_rang
     _add_curve_legend(fig, active_columns)
     apply_engineering_layout(
         fig,
-        title={"text": title, "x": 0.0, "xanchor": "left", "y": 0.995, "yanchor": "top", "font": {"size": 17}},
+        title={"text": title, "x": 0.0, "xanchor": "left", "y": 0.985, "yanchor": "top", "font": {"size": 17}},
         height=height,
         margin=ENGINEERING_GRAPH_MARGIN,
         legend=ENGINEERING_LEGEND,

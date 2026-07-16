@@ -1,4 +1,12 @@
 
+### M3-S01.5 — Plot Header Separation & Cache Invalidation — завершено
+
+- [x] Легенды depth-графиков перенесены ниже области построения.
+- [x] Дублирующая легенда планшета скрыта.
+- [x] Заголовки дорожек и заголовок планшета разведены.
+- [x] Pixler/Ternary annotations перемещены внутрь карточки графика.
+- [x] Экспортный кэш инвалидируется при смене версии приложения.
+
 - [x] M3-S01.4: collision-free screen headers and grouped print tablets (v222.62).
 
 ## M3-S01.2 — Track Layout Engine Foundation — завершено

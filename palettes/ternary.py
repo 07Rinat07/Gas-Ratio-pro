@@ -302,11 +302,11 @@ def build_ternary_palette(
             }]
         ),
     )
-    apply_engineering_layout(fig, height=500, legend=LEGEND_HORIZONTAL, margin={"l": 20, "r": 20, "t": 85, "b": 60})
+    apply_engineering_layout(fig, height=500, legend={**dict(LEGEND_HORIZONTAL), "y": -0.18, "yanchor": "top"}, margin={"l": 20, "r": 20, "t": 72, "b": 104})
     normalize_trace_style(fig)
     if fluid_label:
         fig.add_annotation(
-            x=0.98, y=1.08, xref="paper", yref="paper",
+            x=0.98, y=0.98, xref="paper", yref="paper",
             text=f"<b>Вероятный флюид: {fluid_label}</b>",
             showarrow=False, xanchor="right",
             bgcolor="rgba(15,23,42,0.82)", bordercolor="rgba(255,255,255,0.25)",

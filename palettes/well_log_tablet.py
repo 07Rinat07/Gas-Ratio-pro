@@ -1329,19 +1329,22 @@ def build_well_log_tablet(
         )
 
     apply_engineering_layout(
-        fig, title="Интерпретационный планшет", height=height,
-        margin={"l": 104, "r": 112, "t": 196, "b": 72}, showlegend=True,
+        fig,
+        title={
+            "text": "Интерпретационный планшет",
+            "x": 0.0, "xanchor": "left",
+            "y": 0.995, "yanchor": "top",
+            "font": {"size": 18},
+        },
+        height=height,
+        margin={"l": 104, "r": 112, "t": 118, "b": 72},
+        showlegend=False,
     )
     fig.update_layout(
         plot_bgcolor="#0b1220",
         paper_bgcolor="#0b1220",
         hovermode="y unified",
-        legend={
-            "orientation": "h", "yanchor": "bottom", "y": 1.145,
-            "xanchor": "left", "x": 0.0, "font": {"size": 11},
-            "bgcolor": "rgba(11,18,32,0.82)",
-            "bordercolor": "rgba(148,163,184,0.35)", "borderwidth": 1,
-        }
+        showlegend=False,
     )
     fig.update_layout(shapes=shapes, annotations=list(fig.layout.annotations) + annotations)
     # Subplot titles are generated as annotations. Narrow engineering tracks
@@ -1355,7 +1358,7 @@ def build_well_log_tablet(
                 "size": 9 if is_engineering_title else 11,
                 "color": "#f8fafc",
             }
-            annotation.y = 1.105 if is_engineering_title else 1.070
+            annotation.y = 1.035 if is_engineering_title else 1.020
             annotation.yanchor = "bottom"
             annotation.align = "center"
             if is_engineering_title:

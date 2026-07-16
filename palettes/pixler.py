@@ -183,9 +183,9 @@ def build_pixler_palette(
 
     apply_engineering_layout(
         fig,
-        title={"text": f"Pixler — {interval_label}<br><sup>{summary.conclusion}</sup>", "x": 0.01},
-        margin={"l": 65, "r": 20, "t": 88, "b": 55},
-        showlegend=True, legend=LEGEND_HORIZONTAL, height=500,
+        title={"text": f"Pixler — {interval_label}", "x": 0.01, "y": 0.98, "yanchor": "top"},
+        margin={"l": 65, "r": 20, "t": 78, "b": 108},
+        showlegend=True, legend={**dict(LEGEND_HORIZONTAL), "y": -0.20, "yanchor": "top"}, height=500,
     )
     yaxis_options = {
         "title": "Отношение компонентов (логарифмическая шкала)",
@@ -198,7 +198,7 @@ def build_pixler_palette(
     fig.update_yaxes(**yaxis_options)
     if fluid_label:
         fig.add_annotation(
-            x=0.99, y=1.13, xref="paper", yref="paper",
+            x=0.99, y=0.99, xref="paper", yref="paper",
             text=f"<b>Вероятный флюид: {fluid_label}</b>",
             showarrow=False, xanchor="right",
             bgcolor="rgba(15,23,42,0.82)", bordercolor="rgba(255,255,255,0.25)",
