@@ -7512,6 +7512,31 @@ def _render_professional_import_wizard(logger, active_project: ProjectRecord) ->
                     logger.exception("professional_import_cancel_failed job_id=%s", latest.get("job_id"))
                     st.error(i18n("import.preview.panel.failed"))
 
+        readiness = service.project_readiness_dashboard(active_project.id)
+        st.markdown(f"**{i18n('import.wizard.readiness_dashboard')}**")
+        readiness_columns = st.columns(5)
+        readiness_columns[0].metric(
+            i18n("import.wizard.readiness_average"), f"{readiness.get('average_score', 0)}%"
+        )
+        readiness_columns[1].metric(
+            i18n("import.wizard.readiness_ready"), int(readiness.get("ready_count", 0) or 0)
+        )
+        readiness_columns[2].metric(
+            i18n("import.wizard.readiness_review"), int(readiness.get("review_count", 0) or 0)
+        )
+        readiness_columns[3].metric(
+            i18n("import.wizard.readiness_blocked"), int(readiness.get("blocked_count", 0) or 0)
+        )
+        readiness_columns[4].metric(
+            i18n("import.wizard.readiness_unknown"), int(readiness.get("unknown_count", 0) or 0)
+        )
+        formats = dict(readiness.get("formats", {}) or {})
+        if formats:
+            st.caption(
+                i18n("import.wizard.readiness_formats") + ": "
+                + ", ".join(f"{key.upper()} — {value}" for key, value in formats.items())
+            )
+
         st.markdown(f"**{i18n('import.wizard.history')}**")
         filter_columns = st.columns([2, 2, 1, 1])
         history_query = filter_columns[0].text_input(
@@ -15773,7 +15798,7 @@ def _workbench_project_navigation_sections() -> frozenset[str]:
         if str(item).strip()
     }
     if str(state.get_value("workbench_project_explorer_search") or "").strip():
-        requested.update({"custom", "wells", "calculations", "datasets", "exports"})
+        requested.update({"custom", "wells", "calculations", "datasets", "imports", "exports"})
     return frozenset(requested)
 
 
@@ -15811,10 +15836,12 @@ def _build_workbench_project_navigation(
             "dataset_version": "nav.data",
             "qc_report": "nav.data",
             "qc_export": "nav.exports",
+            "import_job": "nav.data",
         }
         route_by_id = {
             "folder:wells": "nav.data",
             "folder:calculations": "nav.data",
+            "folder:imports": "nav.data",
             "folder:exports": "nav.exports",
         }
         target_by_kind = {
@@ -15827,6 +15854,7 @@ def _build_workbench_project_navigation(
             "dataset_version": "dataset",
             "qc_report": "dataset",
             "qc_export": "dataset",
+            "import_job": "import_job",
             "folder_item": "collection",
             "custom_folder": "collection",
             "well_group": "collection",
@@ -15842,6 +15870,7 @@ def _build_workbench_project_navigation(
             or metadata.get("export_id")
             or metadata.get("dataset_id")
             or metadata.get("lineage_id")
+            or metadata.get("job_id")
             or metadata.get("folder_id")
             or node.id
         )

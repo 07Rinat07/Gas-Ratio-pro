@@ -28,6 +28,8 @@ def test_root_only_project_tree_skips_heavy_section_repositories(tmp_path, monke
         "folder:custom:deferred",
         "folder:wells:deferred",
         "folder:calculations:deferred",
+        "folder:datasets:deferred",
+        "folder:imports:deferred",
         "folder:exports:deferred",
     }
 

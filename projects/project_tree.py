@@ -5,6 +5,7 @@ from pathlib import Path
 from time import perf_counter
 
 from core.data_platform.manifest_repository import DatasetManifestRepository
+from core.data_platform.import_jobs import ImportHistoryRepository
 from projects.calculations import list_project_calculations
 from projects.exports import list_project_exports
 from projects.las_files import ProjectLasWellCard, list_project_las_wells
@@ -254,14 +255,14 @@ def build_project_tree(
 
     project = _measure("project", lambda: load_project(root_path, clean_project_id))
     requested_sections = (
-        frozenset({"custom", "wells", "calculations", "exports", "datasets"})
+        frozenset({"custom", "wells", "calculations", "exports", "datasets", "imports"})
         if include_sections is None
         else frozenset(str(item).strip() for item in include_sections)
     )
     # Custom folders may reference any object type, therefore their expansion
     # materializes the indexed source sections as one coherent metadata view.
     if "custom" in requested_sections:
-        requested_sections = requested_sections | {"wells", "calculations", "exports", "datasets"}
+        requested_sections = requested_sections | {"wells", "calculations", "exports", "datasets", "imports"}
 
     indexed_nodes: dict[str, ProjectTreeNode] = {}
     well_cards = (
@@ -464,6 +465,35 @@ def build_project_tree(
                 for grandchild in child.children:
                     indexed_nodes[grandchild.id] = grandchild
 
+    import_history_children: tuple[ProjectTreeNode, ...] = ()
+    if "imports" in requested_sections:
+        history_repository = ImportHistoryRepository(root_path)
+        history_items = _measure("imports", lambda: history_repository.list(clean_project_id, limit=100))
+        import_history_children = tuple(
+            ProjectTreeNode(
+                id=f"import_job:{str(item.get('job_id', ''))}",
+                label=(
+                    ", ".join(str(value) for value in (item.get("source_names", []) or [])[:3])
+                    or str(item.get("job_id", "import"))
+                ),
+                kind="import_job",
+                status=f"{str(item.get('status', ''))} · {str(item.get('finished_at') or item.get('created_at') or '')}",
+                metadata={
+                    "job_id": str(item.get("job_id", "")),
+                    "actor": str(item.get("actor", "")),
+                    "status": str(item.get("status", "")),
+                    "success_count": int(item.get("success_count", 0) or 0),
+                    "failed_count": int(item.get("failed_count", 0) or 0),
+                    "progress_percent": int(item.get("progress_percent", 0) or 0),
+                    "created_at": str(item.get("created_at", "")),
+                    "finished_at": str(item.get("finished_at", "")),
+                    "source_count": len(item.get("source_names", []) or []),
+                },
+            )
+            for item in history_items
+        )
+        indexed_nodes.update((node.id, node) for node in import_history_children)
+
     custom_folder_children = tuple(
         _custom_folder_node(folder, indexed_nodes)
         for folder in (
@@ -513,6 +543,14 @@ def build_project_tree(
             if "datasets" in requested_sections else _deferred("folder:datasets", "Expand to load dataset history")[0]
         ,),
     )
+    imports_folder = _folder_node(
+        "folder:imports",
+        "Import history",
+        import_history_children or (
+            _empty_node("folder:imports:empty", "No import history")
+            if "imports" in requested_sections else _deferred("folder:imports", "Expand to load import history")[0]
+        ,),
+    )
     exports_folder = _folder_node(
         "folder:exports",
         "Отчеты и экспорты",
@@ -527,7 +565,7 @@ def build_project_tree(
         label=project.name,
         kind="project",
         status=project.updated_at,
-        children=(custom_folders_folder, wells_folder, calculations_folder, datasets_folder, exports_folder),
+        children=(custom_folders_folder, wells_folder, calculations_folder, datasets_folder, imports_folder, exports_folder),
         metadata={
             "project_id": project.id,
             "description": project.description,

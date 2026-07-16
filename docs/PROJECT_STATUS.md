@@ -200,3 +200,8 @@ Professional Import Wizard is now connected to Data Workspace. Multi-file import
 ## v222.52 status
 
 Import jobs now support cooperative cancellation checkpoints between batch items, explicit resume of interrupted jobs, and a project-scoped retention policy for history and stale staging files. No interrupted job is resumed implicitly.
+
+
+## v222.53 status
+
+Import History is now available as a lazy Project Explorer branch. The Professional Import Wizard exposes a project-level readiness dashboard built only from Dataset Manifest metadata. No source artifact, LAS table, DLIS frame, or SEG-Y trace sample is opened for these summaries.

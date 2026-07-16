@@ -1,3 +1,11 @@
+## v222.53
+
+- Added lazy Import History branch to Project Explorer.
+- Added compact import-job properties and route integration.
+- Added project-level readiness dashboard and format aggregates.
+- Added RU/KK/EN labels for readiness metrics.
+- Updated lazy-section regression expectations for Dataset and Import History branches.
+
 # Changelog
 
 ## v222.44

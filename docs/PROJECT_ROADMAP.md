@@ -2100,3 +2100,15 @@ Next:
 - durable per-item progress updates.
 
 Next: expose Import History as a lazy Project Explorer branch and add a project-level readiness dashboard.
+
+
+## v222.53 — Import History Explorer and Project Readiness Dashboard
+
+- [x] Add a lazy `Import history` branch to Project Explorer.
+- [x] Load compact import job metadata only when the branch is expanded.
+- [x] Add a manifest-only project readiness aggregate.
+- [x] Show average readiness and Ready/Review/Blocked/Unknown counts in Professional Import Wizard.
+- [x] Aggregate registered source datasets by format without reading artifacts.
+- [x] Add regression coverage for lazy history loading and readiness aggregation.
+
+Next: add readiness filters to Dataset history, direct navigation from import jobs to registered datasets, and project-level correlation-readiness analysis.

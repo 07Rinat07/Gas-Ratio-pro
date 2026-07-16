@@ -22,3 +22,8 @@ In Data Workspace, open the Professional Import Wizard, select multiple files, a
 ## Recovery, cancellation, and history
 
 After restart, an unfinished job becomes `interrupted` and is not silently executed again. The user may explicitly retry it. Active jobs can be cancelled. History supports filters, search, and JSON/CSV export. Staging cleanup removes only files that are not referenced by active jobs.
+
+
+## Project readiness and Project Explorer history
+
+The wizard shows average readiness for registered datasets and counts for Ready, Needs review, Blocked, and Not assessed. In Project Explorer, import history is loaded only after the **Import history** branch is expanded.

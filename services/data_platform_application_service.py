@@ -301,6 +301,42 @@ class DataPlatformApplicationService:
     ) -> tuple[dict[str, object], ...]:
         return self.import_jobs.history(project_id, limit=limit, statuses=statuses, query=query)
 
+    def project_readiness_dashboard(self, project_id: str) -> dict[str, object]:
+        """Return a manifest-only readiness aggregate for one project."""
+        manifests = tuple(self.manifests.list(project_id))
+        source_items = [
+            item for item in manifests
+            if item.provenance.operation not in {"quality-control", "quality-control-export"}
+            and str(item.metadata.get("dataset_kind", "")) not in {"qc-report", "qc-report-export"}
+        ]
+        buckets = {"ready": 0, "review": 0, "blocked": 0, "unknown": 0}
+        formats: dict[str, int] = {}
+        scores: list[int] = []
+        for item in source_items:
+            status = str(item.metadata.get("readiness_status", "") or "unknown").lower()
+            if status not in buckets:
+                status = "unknown"
+            buckets[status] += 1
+            formats[item.format_id] = formats.get(item.format_id, 0) + 1
+            raw_score = item.metadata.get("readiness_score")
+            if raw_score not in (None, ""):
+                try:
+                    scores.append(max(0, min(100, int(raw_score))))
+                except (TypeError, ValueError):
+                    pass
+        average = round(sum(scores) / len(scores), 1) if scores else 0.0
+        return {
+            "schema": "gas-ratio-pro/project-readiness-dashboard/v1",
+            "project_id": project_id,
+            "dataset_count": len(source_items),
+            "average_score": average,
+            "ready_count": buckets["ready"],
+            "review_count": buckets["review"],
+            "blocked_count": buckets["blocked"],
+            "unknown_count": buckets["unknown"],
+            "formats": dict(sorted(formats.items())),
+        }
+
     def export_import_history(
         self, project_id: str, *, format_id: str = "json", statuses: set[str] | None = None, query: str = ""
     ) -> bytes:
