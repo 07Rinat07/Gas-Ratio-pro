@@ -1,3 +1,14 @@
+
+## M3-S01.2 — Track Layout Engine Foundation — завершено
+
+- [x] Семантические ширины дорожек.
+- [x] Профили `screen` / `print`.
+- [x] Адаптивная типографика заголовков.
+- [x] Регрессионные тесты компоновки.
+- [ ] Автоматическое разбиение плотного планшета на группы.
+- [ ] Пользовательское изменение порядка и ширины треков.
+- [ ] Сохранение layout-шаблонов в проекте.
+
 # Current milestone — v222.55 Stabilization & Hardening
 
 - [x] Fix Workbench project-menu `application_service_container` scope defect.

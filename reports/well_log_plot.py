@@ -87,7 +87,60 @@ class WellLogPlotConfig:
     report_kind: str = "overview"
     report_title: str = ""
     report_group_index: int = 0
+    layout_profile: str = "print"
 
+
+
+TRACK_WIDTH_WEIGHTS: Mapping[str, float] = {
+    "c1": 1.25,
+    "c2": 0.95,
+    "c3": 0.95,
+    "ic4": 0.85,
+    "nc4": 0.85,
+    "ic5": 0.85,
+    "nc5": 0.85,
+    "wh": 1.05,
+    "bh": 1.05,
+    "ch": 1.05,
+    "c1_c2": 1.10,
+    "c1_c3": 1.10,
+    "c1_c4": 1.10,
+    "c1_c5": 1.10,
+    "inverse_oil_indicator": 1.30,
+}
+
+
+def track_layout_widths(
+    columns: Sequence[str],
+    *,
+    show_interval_track: bool = True,
+    profile: str = "print",
+) -> tuple[float, ...]:
+    """Return semantic track widths instead of equal-width columns.
+
+    Important analytical tracks receive more room while compact component
+    tracks stay narrow.  The values are relative weights accepted by Plotly.
+    """
+    normalized = str(profile or "print").strip().lower()
+    interval_weight = 1.55 if normalized == "print" else 1.35
+    weights = [interval_weight] if show_interval_track else []
+    for column in columns:
+        weight = float(TRACK_WIDTH_WEIGHTS.get(str(column), 1.0))
+        if normalized == "screen":
+            # Screen mode favours a compact tablet; print keeps more space for
+            # long labels and interval annotations.
+            weight = max(0.78, weight * 0.92)
+        weights.append(weight)
+    return tuple(weights)
+
+
+def track_title_font_size(track_count: int, *, profile: str = "print") -> int:
+    """Choose a readable title size without allowing title collisions."""
+    count = max(1, int(track_count))
+    normalized = str(profile or "print").strip().lower()
+    if normalized == "screen":
+        return 14 if count <= 8 else 12 if count <= 12 else 11
+    return 22 if count <= 8 else 19 if count <= 12 else 17
 
 
 @dataclass(frozen=True)
@@ -327,7 +380,11 @@ def build_professional_well_log_plot(
         fig.update_layout(title=cfg.title, height=cfg.height, annotations=[{"text": "Нет числовых треков для планшета", "showarrow": False}])
         return WellLogPlotResult(fig, plotted_columns, summary, len(intervals))
 
-    widths = ([0.34] if cfg.show_interval_track else []) + [1.0] * len(plotted_columns)
+    widths = list(track_layout_widths(
+        plotted_columns,
+        show_interval_track=cfg.show_interval_track,
+        profile=cfg.layout_profile,
+    ))
     fig = make_subplots(
         rows=1,
         cols=len(column_titles),
@@ -511,9 +568,12 @@ def build_professional_well_log_plot(
         ],
     }
 
+    profile = str(cfg.layout_profile or "print").strip().lower()
+    is_screen = profile == "screen"
+    title_size = track_title_font_size(len(column_titles), profile=profile)
     apply_engineering_layout(
-        fig, title=cfg.title, height=max(cfg.height, 980),
-        margin={"l": 92, "r": 34, "t": 96, "b": 74}, showlegend=False,
+        fig, title=cfg.title, height=max(cfg.height, 620 if is_screen else 980),
+        margin={"l": 76 if is_screen else 92, "r": 24 if is_screen else 34, "t": 74 if is_screen else 104, "b": 58 if is_screen else 82}, showlegend=False,
     )
     fig.update_layout(
         shapes=shapes,
@@ -530,13 +590,20 @@ def build_professional_well_log_plot(
         paper_bgcolor="#ffffff",
         hovermode="y unified",
     )
-    fig.update_annotations(font={"size": 20, "color": "#0f172a"})
+    # Subplot titles are the first annotations created by make_subplots.
+    # Apply a collision-aware size only to those titles; interval annotations
+    # retain their dedicated size and background.
+    layout_annotations = list(fig.layout.annotations or ())
+    for annotation in layout_annotations[: len(column_titles)]:
+        annotation.update(font={"size": title_size, "color": "#0f172a"}, yshift=8 if not is_screen else 4)
     # A professional well-log uses one common depth scale, not a repeated
     # "Глубина, м" title inside every track.
     for subplot_col in range(1, len(column_titles) + 1):
         fig.update_yaxes(title_text="", row=1, col=subplot_col)
     fig.update_yaxes(title_text=DEPTH_AXIS_TITLE, row=1, col=1)
-    fig.update_yaxes(showgrid=True, gridcolor="rgba(70,90,100,0.18)", tickfont={"size": 18}, title_font={"size": 20}, automargin=True, minor={"showgrid": True, "gridcolor": "rgba(70,90,100,0.08)", "griddash": "dot"})
-    fig.update_xaxes(showgrid=True, gridcolor="rgba(70,90,100,0.12)", tickfont={"size": 18}, title_font={"size": 20}, automargin=True)
+    axis_tick_size = 13 if is_screen else 18
+    axis_title_size = 15 if is_screen else 20
+    fig.update_yaxes(showgrid=True, gridcolor="rgba(70,90,100,0.18)", tickfont={"size": axis_tick_size}, title_font={"size": axis_title_size}, automargin=True, minor={"showgrid": True, "gridcolor": "rgba(70,90,100,0.08)", "griddash": "dot"})
+    fig.update_xaxes(showgrid=True, gridcolor="rgba(70,90,100,0.12)", tickfont={"size": axis_tick_size}, title_font={"size": axis_title_size}, automargin=True, tickangle=0)
     normalize_trace_style(fig)
     return WellLogPlotResult(fig, plotted_columns, summary, len(visible_intervals))
