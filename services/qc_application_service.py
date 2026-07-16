@@ -54,3 +54,12 @@ class QCApplicationService:
         if self._artifacts is None:
             raise RuntimeError("QC export requires a projects_root")
         return self._artifacts.export_pdf(report=report, destination=destination, translate=translate)
+
+    def export_and_register(self, *, project_id: str, source_qc_dataset_id: str, report, format_id: str, translate, actor: str = ""):
+        if self._artifacts is None:
+            raise RuntimeError("QC export registration requires a projects_root")
+        return self._artifacts.export_and_register(
+            project_id=project_id, source_qc_dataset_id=source_qc_dataset_id, report=report,
+            format_id=format_id, translate=translate, actor=actor,
+        )
+

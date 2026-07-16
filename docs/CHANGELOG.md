@@ -2948,3 +2948,12 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Added JSON-safe severity/code filtering for Workbench QC panels.
 - Added lazy PDF and DOCX QC export operations.
 - Added synchronized ru/kk/en QC report and panel labels.
+
+
+## v222.36 — Production QC Workbench panel
+
+- Added a localized LAS QC panel to the production LAS Editor.
+- Added severity/code filters, findings table and curve-statistics table.
+- Added UI actions to persist QC reports as derived Datasets.
+- Added registered PDF/DOCX export artifacts with SHA-256 and provenance to the source QC Dataset.
+- Added synchronized ru/kk/en panel feedback and regression coverage.

@@ -36,6 +36,27 @@ class QCPersistenceResult:
         }
 
 
+
+
+@dataclass(frozen=True, slots=True)
+class QCExportResult:
+    manifest: DatasetManifest
+    export_relative_path: str
+    format_id: str
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "dataset_id": self.manifest.dataset_id,
+            "lineage_id": self.manifest.lineage_id,
+            "version": self.manifest.version,
+            "source_dataset_ids": list(self.manifest.provenance.source_dataset_ids),
+            "artifact_path": self.export_relative_path,
+            "format_id": self.format_id,
+            "checksum_sha256": self.manifest.checksum_sha256,
+            "size_bytes": self.manifest.size_bytes,
+        }
+
+
 class QCReportArtifactService:
     """Store QC results without mutating the source Dataset lineage."""
 
@@ -131,6 +152,62 @@ class QCReportArtifactService:
                 cell.text = "" if value is None else str(value)
         doc.save(path)
         return path
+
+
+    def export_and_register(
+        self,
+        *,
+        project_id: str,
+        source_qc_dataset_id: str,
+        report: QCReport,
+        format_id: str,
+        translate: Callable[[str], str],
+        actor: str = "",
+    ) -> QCExportResult:
+        """Create a report file and register it as an immutable export Dataset."""
+        normalized = str(format_id).strip().lower()
+        if normalized not in {"pdf", "docx"}:
+            raise ValueError("QC export format must be pdf or docx")
+        source = self.manifests.load(project_id, source_qc_dataset_id)
+        suffix = f".{normalized}"
+        with NamedTemporaryFile(suffix=suffix, delete=False) as handle:
+            temp_path = Path(handle.name)
+        try:
+            if normalized == "pdf":
+                self.export_pdf(report=report, destination=temp_path, translate=translate)
+            else:
+                self.export_docx(report=report, destination=temp_path, translate=translate)
+            filename = f"{source.dataset_id}-qc-report{suffix}"
+            location = self.artifacts.store_file(
+                project_id=project_id, source=temp_path, kind="exports", filename=filename
+            )
+        finally:
+            temp_path.unlink(missing_ok=True)
+
+        manifest = DatasetManifest.create(
+            project_id=project_id,
+            well_id=source.well_id,
+            format_id=normalized,
+            artifact_path=location.relative_path,
+            checksum_sha256=location.checksum_sha256,
+            size_bytes=location.size_bytes,
+            source_name=filename,
+            metadata={
+                "dataset_kind": "qc-report-export",
+                "report_format": normalized,
+                "qc_status": report.status,
+                "source_qc_dataset_id": source.dataset_id,
+            },
+            provenance=DatasetProvenance(
+                operation="quality-control-export",
+                actor=actor,
+                source_dataset_ids=(source.dataset_id,),
+                application_version=BUILD_VERSION,
+            ),
+        )
+        self.manifests.save(manifest)
+        self.catalog.project(manifest)
+        return QCExportResult(manifest, location.relative_path, normalized)
 
     def export_pdf(self, *, report: QCReport, destination: Path | str, translate: Callable[[str], str]) -> Path:
         try:

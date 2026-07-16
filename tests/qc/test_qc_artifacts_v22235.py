@@ -58,3 +58,50 @@ def test_qc_container_root_enables_workspace_persistence(tmp_path):
     from core.runtime_service_registry import RuntimeServiceRegistry
     container = ApplicationServiceContainer(RuntimeServiceRegistry(), {})
     assert container.quality_control(root=tmp_path) is container.quality_control(root=tmp_path)
+
+
+def test_qc_export_is_registered_as_immutable_export_dataset(tmp_path):
+    source = _source_manifest(tmp_path)
+    service = QCApplicationService(tmp_path)
+    report = _report(service)
+    qc_dataset = service.persist_report(
+        project_id=source.project_id,
+        source_dataset_id=source.dataset_id,
+        report=report,
+        actor="engineer",
+    )
+    result = service.export_and_register(
+        project_id=source.project_id,
+        source_qc_dataset_id=qc_dataset.manifest.dataset_id,
+        report=report,
+        format_id="docx",
+        translate=lambda key: key,
+        actor="engineer",
+    )
+    assert result.manifest.format_id == "docx"
+    assert result.manifest.provenance.operation == "quality-control-export"
+    assert result.manifest.provenance.source_dataset_ids == (qc_dataset.manifest.dataset_id,)
+    export_path = tmp_path / source.project_id / "artifacts" / result.export_relative_path
+    assert export_path.is_file()
+    assert export_path.stat().st_size > 0
+    assert result.export_relative_path.startswith("exports/")
+
+
+def test_qc_export_rejects_unknown_format(tmp_path):
+    source = _source_manifest(tmp_path)
+    service = QCApplicationService(tmp_path)
+    report = _report(service)
+    qc_dataset = service.persist_report(
+        project_id=source.project_id,
+        source_dataset_id=source.dataset_id,
+        report=report,
+    )
+    import pytest
+    with pytest.raises(ValueError):
+        service.export_and_register(
+            project_id=source.project_id,
+            source_qc_dataset_id=qc_dataset.manifest.dataset_id,
+            report=report,
+            format_id="html",
+            translate=lambda key: key,
+        )

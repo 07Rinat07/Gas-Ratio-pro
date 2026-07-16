@@ -1957,3 +1957,14 @@ Status: COMPLETED
 - [ ] Wire the localized QC panel into the production Workbench route.
 - [ ] Add interactive curve-statistics table and finding filters.
 - [ ] Register exported PDF/DOCX files as export artifacts.
+
+
+### QC Workbench production integration — completed in v222.36
+
+- Localized QC panel in LAS Editor.
+- Severity and stable-code filters.
+- Findings and curve-statistics tables.
+- Derived QC Dataset persistence.
+- Registered PDF/DOCX export artifacts with provenance.
+
+Next: QC history in Project Explorer, direct downloads, Dataset comparison badges and report-template profiles.

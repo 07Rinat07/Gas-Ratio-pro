@@ -82,3 +82,10 @@ Next: persist QC reports as derived Dataset artifacts and expose a localized QC 
 ## v222.35 status
 
 QC Platform Phase II started. QC reports are now persistable as derived Dataset artifacts linked to the source Dataset through provenance. A JSON-safe filtered projection and lazy PDF/DOCX export boundary are available. Native Workbench panel wiring remains the next UI increment.
+
+
+## v222.36 status
+
+QC Platform Phase III completed. The production LAS Editor now exposes localized QC status, filters, findings and curve statistics. QC reports can be persisted as derived Datasets and PDF/DOCX outputs are registered as immutable export artifacts linked by provenance.
+
+Next: expose saved QC reports and exports in Project Explorer, add downloadable export actions, and attach QC summaries to Dataset version comparison.

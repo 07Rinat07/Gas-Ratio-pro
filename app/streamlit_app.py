@@ -6448,6 +6448,102 @@ def _render_documentation_tab() -> None:
     st.markdown('</div>', unsafe_allow_html=True)
 
 
+
+
+def _render_las_qc_panel(
+    *, logger, active_project: ProjectRecord, dataframe: pd.DataFrame, depth_column: str,
+    expected_step: object, source_dataset_id: str, i18n,
+) -> None:
+    """Render the production QC panel without storing DataFrames or service objects in state."""
+    st.markdown(f"### {i18n('qc.panel.title')}")
+    if not source_dataset_id:
+        st.info(i18n('qc.panel.source_required'))
+        return
+    try:
+        step_value = float(str(expected_step).replace(',', '.'))
+    except (TypeError, ValueError):
+        step_value = None
+    qc = application_service_container(_application_state_controller().state).quality_control(
+        root=LAS_CORRELATION_PROJECTS_ROOT
+    )
+    try:
+        report = qc.run_las(dataframe, depth_curve=depth_column, expected_step=step_value)
+    except Exception:
+        logger.exception('las_editor_qc_failed')
+        st.error(i18n('qc.panel.run_failed'))
+        return
+
+    summary = report.to_dict()['summary']
+    metrics = st.columns(4)
+    metrics[0].metric(i18n('qc.report.status'), i18n(f'qc.status.{report.status}'))
+    metrics[1].metric(i18n('qc.report.findings'), summary['finding_count'])
+    metrics[2].metric(i18n('qc.severity.error'), summary['error_count'])
+    metrics[3].metric(i18n('qc.severity.warning'), summary['warning_count'])
+
+    severity_options = sorted({item.severity for item in report.findings})
+    code_options = sorted({item.code for item in report.findings})
+    filters = st.columns(2)
+    severities = set(filters[0].multiselect(
+        i18n('qc.panel.filter.severity'), severity_options, default=severity_options,
+        key='las_editor_qc_severity_filter',
+    ))
+    codes = set(filters[1].multiselect(
+        i18n('qc.panel.filter.code'), code_options, default=code_options,
+        key='las_editor_qc_code_filter',
+    ))
+    filtered = qc.filter_report(report, severities=severities, codes=codes)
+    finding_rows = []
+    for item in filtered['findings']:
+        key = str(item['message_key'])
+        translated = i18n(key)
+        finding_rows.append({
+            i18n('qc.report.column.severity'): item['severity'],
+            i18n('qc.report.column.code'): item['code'],
+            i18n('qc.report.column.curve'): item.get('curve', ''),
+            i18n('qc.report.column.message'): translated if translated != key else key,
+        })
+    if finding_rows:
+        st.dataframe(pd.DataFrame(finding_rows), width='stretch', hide_index=True)
+    else:
+        st.success(i18n('qc.panel.no_findings'))
+
+    with st.expander(i18n('qc.report.statistics'), expanded=False):
+        stats = report.to_dict()['curve_statistics']
+        st.dataframe(pd.DataFrame(stats), width='stretch', hide_index=True)
+
+    state = _application_state_controller()
+    report_key = f"las_editor.qc_report_dataset.{active_project.id}.{source_dataset_id}"
+    saved = state.get_value(report_key)
+    actions = st.columns(3)
+    if actions[0].button(i18n('qc.panel.save'), width='stretch', key='las_editor_qc_save'):
+        try:
+            saved = qc.persist_report(
+                project_id=active_project.id, source_dataset_id=source_dataset_id, report=report, actor='',
+            ).to_dict()
+            state.set_value(report_key, saved)
+            st.success(i18n('qc.panel.saved'))
+        except Exception:
+            logger.exception('las_editor_qc_persist_failed')
+            st.error(i18n('qc.panel.save_failed'))
+    for index, format_id in enumerate(('pdf', 'docx'), start=1):
+        label = i18n(f'qc.panel.export.{format_id}')
+        if actions[index].button(label, width='stretch', key=f'las_editor_qc_export_{format_id}'):
+            try:
+                if not isinstance(saved, dict) or not saved.get('dataset_id'):
+                    saved = qc.persist_report(
+                        project_id=active_project.id, source_dataset_id=source_dataset_id, report=report, actor='',
+                    ).to_dict()
+                    state.set_value(report_key, saved)
+                exported = qc.export_and_register(
+                    project_id=active_project.id, source_qc_dataset_id=str(saved['dataset_id']),
+                    report=report, format_id=format_id, translate=i18n.translate, actor='',
+                ).to_dict()
+                st.success(i18n('qc.panel.exported', format=format_id.upper(), path=exported['artifact_path']))
+            except Exception:
+                logger.exception('las_editor_qc_export_failed format=%s', format_id)
+                st.error(i18n('qc.panel.export_failed', format=format_id.upper()))
+
+
 def _render_las_editor(logger, active_project: ProjectRecord) -> None:
     # Repository mutations in this panel must use _request_ui_refresh_and_rerun.
     st.subheader("LAS-редактор")
@@ -7006,6 +7102,17 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
             ),
             width="stretch",
         )
+
+
+    _render_las_qc_panel(
+        logger=logger,
+        active_project=active_project,
+        dataframe=edited_df,
+        depth_column=depth_column,
+        expected_step=target_step,
+        source_dataset_id=str(registration_payload.get("dataset_id", "")),
+        i18n=i18n,
+    )
 
     save_col, export_col = st.columns(2)
     if save_col.button("Сохранить для расчетов", type="primary", width="stretch"):
