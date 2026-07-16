@@ -82,7 +82,6 @@ from core.diagnostics import (
 from core.interpretation import INTERPRETATION_NOTE, add_interpretation, engineering_interval_summary
 from core.logging_config import configure_logging, safe_log_value
 from core.workbench_runtime_diagnostics import record_render_audit
-from core.runtime_service_registry import runtime_service_registry
 from core.workbench_context import WorkbenchSelectionService
 from core.application_state import ApplicationStateController
 from core.models import CalculationConfig, STANDARD_FIELDS
@@ -15500,7 +15499,7 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
     logger = configure_logging()
     state = _application_state_controller().state
     from core.workbench_route_data import (
-        PROJECT_NAVIGATION, PROJECT_RECORD, RouteDataTimer, WorkbenchRouteDataDiagnostics,
+        PROJECT_NAVIGATION, PROJECT_RECORD, RouteDataTimer,
     )
     routes_registry = LazyWorkspaceRegistry({
         "nav.dashboard": WorkspaceRoute("nav.dashboard", "dashboard", lambda project: _render_start_tab(project), WORKBENCH_ROUTE_EXPECTED_CONTROLS.get("nav.dashboard", ()), (PROJECT_RECORD, PROJECT_NAVIGATION)),
@@ -15535,24 +15534,21 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
         navigation_reason = "not-required"
         navigation_token_ms = 0.0
         navigation_metadata_files = 0
-        diagnostics_registry = runtime_service_registry(state)
-        diagnostics_service = application_service_container(state).runtime_diagnostics(
+        app_services = application_service_container(state)
+        diagnostics_service = app_services.runtime_diagnostics(
             root=LAS_CORRELATION_PROJECTS_ROOT
         )
+        workbench_runtime = app_services.workbench_runtime()
 
         def _invalidate_project_runtime_caches(event: dict[str, Any]) -> None:
             changed_project = str(event.get("project_id") or "")
             if not changed_project:
                 return
-            navigation_cache_service = diagnostics_registry.get("project_navigation_runtime_cache")
-            if navigation_cache_service is not None:
-                navigation_cache_service.invalidate(
-                    changed_project, reason=f"repository-{event.get('operation', 'mutation')}"
-                )
-            active_id = str(getattr(active_project, "id", "") or "")
-            dataframe_cache_service = diagnostics_registry.get("dataframe_runtime_cache")
-            if dataframe_cache_service is not None and active_id == changed_project:
-                dataframe_cache_service.clear()
+            workbench_runtime.invalidate_project_runtime_caches(
+                changed_project,
+                active_project_id=str(getattr(active_project, "id", "") or ""),
+                reason=f"repository-{event.get('operation', 'mutation')}",
+            )
 
         repository_metrics = diagnostics_service.subscribe_repository_mutations(
             "workbench_project_cache_coherence", _invalidate_project_runtime_caches
@@ -15594,11 +15590,7 @@ def render_modern_workbench_workspace(navigation_id: str) -> bool:
                     )
 
                 data_timer.measure_navigation(_rebuild_navigation)
-        route_data_diagnostics = diagnostics_registry.ensure(
-            "workbench_route_data_diagnostics", WorkbenchRouteDataDiagnostics,
-            expected_type=WorkbenchRouteDataDiagnostics, scope="session",
-        )
-        data_record = route_data_diagnostics.record(
+        data_record = workbench_runtime.record_route_data(
             route_id=clean_id,
             project_id=str(getattr(active_project, "id", "") or ""),
             requirements=requirements,
@@ -15892,7 +15884,7 @@ def _process_workbench_property_action(logger) -> None:
 def _run_modern_workbench() -> None:
     """Render Modern Workbench and record lightweight startup stage timings."""
 
-    from core.startup_diagnostics import StartupDiagnostics, StartupTimer
+    from core.startup_diagnostics import StartupTimer
 
     startup_timer = StartupTimer()
     st.set_page_config(page_title="Gas Ratio Pro", page_icon=_app_icon_data_uri() or None, layout="wide")
@@ -15905,16 +15897,11 @@ def _run_modern_workbench() -> None:
     state_controller = _application_state_controller()
     startup_timer.mark("state_controller")
 
-    registry = runtime_service_registry(state_controller.state)
-    from core.workbench_route_lifecycle import WorkbenchRouteLifecycle
-    route_lifecycle = registry.ensure(
-        "workbench_route_lifecycle", WorkbenchRouteLifecycle,
-        expected_type=WorkbenchRouteLifecycle, scope="session",
-    )
+    workbench_runtime = application_service_container(state_controller.state).workbench_runtime()
     current_route = str(
         state_controller.state.get("workbench.interaction.active_navigation_id") or "nav.dashboard"
     )
-    transition = route_lifecycle.activate(current_route, registry)
+    transition = workbench_runtime.activate_route(current_route)
     startup_timer.mark("route_lifecycle")
 
     begin_rerun_cycle(state_controller.state)
@@ -15931,11 +15918,8 @@ def _run_modern_workbench() -> None:
     results = render_streamlit_workbench(state_controller.state, st)
     startup_timer.mark("workbench_render")
 
-    startup_diagnostics = registry.ensure(
-        "startup_diagnostics", StartupDiagnostics, expected_type=StartupDiagnostics, scope="session"
-    )
     context = state_controller.context()
-    startup_record = startup_diagnostics.record_cycle(
+    startup_record = workbench_runtime.record_startup_cycle(
         startup_timer.finish(),
         route_id=str(state_controller.state.get("workbench.interaction.active_navigation_id") or ""),
         project_id=str(context.project_id or ""),

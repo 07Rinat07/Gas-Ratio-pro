@@ -98,6 +98,18 @@ class ApplicationServiceContainer:
         )
         return service
 
+    def workbench_runtime(self):
+        """Return the session-scoped Modern Workbench runtime boundary."""
+        from services.workbench_runtime_application_service import (
+            WorkbenchRuntimeApplicationService,
+        )
+
+        return self.ensure_session_service(
+            service_name="workbench_runtime",
+            factory=lambda: WorkbenchRuntimeApplicationService(registry=self._registry),
+            expected_type=WorkbenchRuntimeApplicationService,
+        )
+
     def workbench(self, *, projects_root: Path | str, sessions_dir: Path | str = "data/sessions"):
         from services.workbench_application_service import WorkbenchApplicationService
         return self.ensure_session_service(

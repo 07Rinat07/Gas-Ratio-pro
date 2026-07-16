@@ -1,3 +1,12 @@
+## Application Service Layer — Modern Workbench runtime boundary
+
+- Added session-scoped `WorkbenchRuntimeApplicationService`.
+- Removed direct `RuntimeServiceRegistry` access from Streamlit UI.
+- Moved route lifecycle activation, startup diagnostics, route-data diagnostics, and project runtime-cache invalidation behind explicit application use cases.
+- Preserved lazy initialization and route-scoped cleanup semantics.
+- Added architecture and lifecycle regression tests for the new boundary.
+
+
 ## Application service boundary hardening — Modern Workbench
 
 ## Application Service Layer — project storage maintenance boundary
