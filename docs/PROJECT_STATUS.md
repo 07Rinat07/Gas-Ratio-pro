@@ -1,3 +1,16 @@
+# Current increment: v222.37 — Workbench state-controller bugfix
+
+Implemented:
+- fixed `AttributeError: ApplicationStateController has no attribute get`;
+- restored the shared project-navigation preparation path used by Dashboard, Data, LAS, Correlation and Reports;
+- retained `get_value()` as the preferred API and added a read-only compatibility alias;
+- added route/state regression tests.
+
+Next:
+- expose QC reports and registered exports in Project Explorer;
+- add direct download actions for registered PDF/DOCX artifacts;
+- add QC badges and summary data to Dataset version comparison.
+
 # Current increment: v222.28 — Production LAS Dataset registration and metadata catalog
 
 Implemented:

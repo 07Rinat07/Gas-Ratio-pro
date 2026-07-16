@@ -105,6 +105,18 @@ class ApplicationStateController:
 
         return self.state.get(str(key), default)
 
+    def get(self, key: str, default: Any = None) -> Any:
+        """Return a state value using the standard mapping-compatible API.
+
+        ``ApplicationStateController`` is deliberately not a mutable mapping, but
+        older UI helpers historically received ``st.session_state`` directly and
+        therefore call ``get``.  Keeping this read-only compatibility alias avoids
+        route-wide failures during the state-controller migration while all new
+        code continues to use :meth:`get_value`.
+        """
+
+        return self.get_value(key, default)
+
     def set_value(self, key: str, value: Any) -> None:
         """Write a serializable session value through the application-state boundary."""
 

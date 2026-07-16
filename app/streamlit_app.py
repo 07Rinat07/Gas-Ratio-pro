@@ -15551,10 +15551,10 @@ def _workbench_project_navigation_sections() -> frozenset[str]:
     state = _application_state_controller()
     requested = {
         str(item).strip()
-        for item in (state.get("workbench_project_explorer_requested_sections", ()) or ())
+        for item in (state.get_value("workbench_project_explorer_requested_sections", ()) or ())
         if str(item).strip()
     }
-    if str(state.get("workbench_project_explorer_search") or "").strip():
+    if str(state.get_value("workbench_project_explorer_search") or "").strip():
         requested.update({"custom", "wells", "calculations", "datasets", "exports"})
     return frozenset(requested)
 

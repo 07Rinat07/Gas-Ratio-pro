@@ -1,3 +1,10 @@
+# v222.37 — Application state compatibility bugfix
+
+- Fixed route-wide Workbench failures caused by calling a missing `ApplicationStateController.get()` method.
+- Migrated Project Explorer requested-section reads to the official `get_value()` API.
+- Added a read-only mapping-compatible `get()` alias for safe migration of older UI helpers.
+- Added regression coverage for Dashboard/Data/LAS/Correlation/Reports shared navigation-state preparation.
+
 ## v222.34 — LAS QC Platform Foundation
 
 - Added stable platform-level QC reports with language-independent `QC-*` codes.
