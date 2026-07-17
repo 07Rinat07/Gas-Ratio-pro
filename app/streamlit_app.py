@@ -9547,33 +9547,56 @@ def _selected_numeric_point_from_plotly_event(event: object) -> dict[str, object
 
 
 
-def _apply_persisted_plot_selection(render_value: object, selection: object) -> object:
-    """Return a render payload with a persistent selected-depth marker.
+def _normalize_plot_selections(selection: object) -> list[dict[str, object]]:
+    if isinstance(selection, dict) and selection:
+        return [dict(selection)]
+    if isinstance(selection, (list, tuple)):
+        return [dict(item) for item in selection if isinstance(item, dict) and item]
+    return []
 
-    Streamlit selection events are transient.  The stored report selection is
-    therefore reapplied on every rerun so the user can see exactly which point
-    will be exported.
-    """
-    if not isinstance(selection, dict) or not selection:
-        return render_value
-    try:
-        depth = float(selection.get("depth"))
-        value = float(selection.get("x"))
-    except (TypeError, ValueError):
+
+def _apply_persisted_plot_selection(render_value: object, selection: object, *, figure_index: int | None = None) -> object:
+    """Render collision-aware pinned measurement cards on a Plotly figure."""
+    selections = _normalize_plot_selections(selection)
+    if figure_index is not None:
+        selections = [item for item in selections if int(item.get("figure_index", -1)) == int(figure_index)]
+    if not selections:
         return render_value
     try:
         figure = go.Figure(render_value)
     except Exception:
         return render_value
-    figure.add_hline(
-        y=depth, line_width=2.5, line_dash="dash", line_color="#06b6d4",
-        annotation_text=f"Зафиксировано: {depth:.2f} м · {value:.5g}",
-        annotation_position="top right",
-        annotation_font={"size": 14, "color": "#67e8f9"},
-        annotation_bgcolor="rgba(8,47,73,0.92)",
-        annotation_bordercolor="#06b6d4",
-        annotation_borderwidth=1,
-    )
+    valid=[]
+    for item in selections[-8:]:
+        try:
+            valid.append((float(item.get("depth")), float(item.get("x")), item))
+        except (TypeError, ValueError):
+            continue
+    valid.sort(key=lambda row: row[0])
+    lane_last_y=[None, None, None]
+    for idx,(depth,value,item) in enumerate(valid):
+        lane=idx % 3
+        # Spread neighbouring cards vertically and across three paper lanes.
+        yshift=(idx//3 % 3 - 1) * 36
+        x_positions=(0.99, 0.73, 0.47)
+        x=x_positions[lane]
+        curve=str(item.get("curve_name") or item.get("parameter") or "Параметр")
+        fluid=str(item.get("fluid_label") or "").strip()
+        confidence=item.get("fluid_percent")
+        details=f"{curve}<br><b>{depth:.2f} м</b> · {value:.5g}"
+        if fluid:
+            details += f"<br>{fluid}"
+            if confidence not in (None, ""):
+                try: details += f" · {float(confidence):.0f}%"
+                except (TypeError, ValueError): pass
+        figure.add_hline(y=depth, line_width=1.8, line_dash="dot", line_color="#22d3ee")
+        figure.add_annotation(
+            xref="paper", x=x, xanchor="right", yref="y", y=depth, yshift=yshift,
+            text=details, showarrow=True, arrowhead=2, arrowsize=0.8, arrowwidth=1.5,
+            arrowcolor="#22d3ee", ax=-28, ay=0,
+            font={"size": 13, "color": "#e6f7ff"}, align="left",
+            bgcolor="rgba(8,30,48,0.94)", bordercolor="#22d3ee", borderwidth=1.2, borderpad=6,
+        )
     return figure
 def _render_professional_export_panel(
     logger,
@@ -9597,14 +9620,15 @@ def _render_professional_export_panel(
     """
     state_controller = _application_state_controller()
     selected_plot_point = state_controller.get_value(f"report_plot_selection_{active_project.id}")
-    if isinstance(selected_plot_point, dict) and selected_plot_point:
-        calculated_df.attrs["report_plot_selection"] = dict(selected_plot_point)
+    selected_plot_points = _normalize_plot_selections(selected_plot_point)
+    if selected_plot_points:
+        calculated_df.attrs["report_plot_selection"] = list(selected_plot_points)
     with _print_center_container(st):
         st.markdown("### Центр печати и экспорта")
-        if isinstance(selected_plot_point, dict) and selected_plot_point:
+        if selected_plot_points:
             st.caption(
-                f"Зафиксированная точка для печати: глубина {float(selected_plot_point.get('depth', 0)):.2f} м; "
-                f"значение {float(selected_plot_point.get('x', 0)):.5g}."
+                f"Зафиксированная точка для печати: глубина {float(selected_plot_points[-1].get('depth', 0)):.2f} м; "
+                f"значение {float(selected_plot_points[-1].get('x', 0)):.5g}."
             )
         st.caption(
             "Выберите формат и область данных, затем нажмите основную кнопку формирования. "
@@ -12022,7 +12046,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         persisted_plot_selection = state_controller.get_value(
             f"report_plot_selection_{active_project.id}"
         )
-        render_value = _apply_persisted_plot_selection(render_value, persisted_plot_selection)
+        render_value = _apply_persisted_plot_selection(render_value, persisted_plot_selection, figure_index=figure_index)
         try:
             plot_event = st.plotly_chart(
                 render_value,
@@ -12044,12 +12068,32 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         selected_numeric_point = _selected_numeric_point_from_plotly_event(plot_event)
         if selected_numeric_point:
             selected_numeric_point["figure_index"] = figure_index
-            state_controller.set_value(
-                f"report_plot_selection_{active_project.id}", selected_numeric_point
-            )
+            curve_number = int(selected_numeric_point.get("curve_number", -1))
+            try:
+                source_figure = go.Figure(figure)
+                selected_numeric_point["curve_name"] = str(source_figure.data[curve_number].name or f"Кривая {curve_number + 1}")
+            except Exception:
+                selected_numeric_point["curve_name"] = f"Кривая {curve_number + 1}"
+            depth_value = float(selected_numeric_point["depth"])
+            try:
+                nearest_index = (pd.to_numeric(filtered_df["depth"], errors="coerce") - depth_value).abs().idxmin()
+                nearest_row = filtered_df.loc[nearest_index]
+                selected_numeric_point["fluid_label"] = str(nearest_row.get("interpretation", "") or "")
+                for confidence_key in ("gas_percent", "gas_probability", "confidence_score", "confidence"):
+                    if confidence_key in nearest_row.index and pd.notna(nearest_row.get(confidence_key)):
+                        selected_numeric_point["fluid_percent"] = float(nearest_row.get(confidence_key))
+                        break
+            except Exception:
+                pass
+            selection_key = f"report_plot_selection_{active_project.id}"
+            pinned = _normalize_plot_selections(state_controller.get_value(selection_key))
+            signature = (int(selected_numeric_point.get("figure_index", -1)), str(selected_numeric_point.get("curve_name", "")), round(depth_value, 3))
+            pinned = [item for item in pinned if (int(item.get("figure_index", -1)), str(item.get("curve_name", "")), round(float(item.get("depth", -1e30)), 3)) != signature]
+            pinned.append(selected_numeric_point)
+            state_controller.set_value(selection_key, pinned[-8:])
             st.caption(
-                f"Выбрано для отчёта: глубина {float(selected_numeric_point['depth']):.2f} м; "
-                f"значение {float(selected_numeric_point['x']):.5g}."
+                f"Закреплено: {selected_numeric_point.get('curve_name', 'Параметр')} · "
+                f"{depth_value:.2f} м · {float(selected_numeric_point['x']):.5g}."
             )
         chart_selected_manual_id = selected_interval_id_from_plotly_event(
             plot_event,

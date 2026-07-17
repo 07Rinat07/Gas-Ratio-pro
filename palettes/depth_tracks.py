@@ -10,11 +10,11 @@ from palettes.plot_engine import (
     engineering_hover, normalize_trace_style,
 )
 
-ENGINEERING_GRAPH_MARGIN = {"l": 82, "r": 30, "t": 78, "b": 118}
+ENGINEERING_GRAPH_MARGIN = {"l": 88, "r": 34, "t": 142, "b": 72}
 ENGINEERING_LEGEND = {
     **dict(LEGEND_HORIZONTAL),
-    "y": -0.22,
-    "yanchor": "top",
+    "y": 1.10,
+    "yanchor": "bottom",
     "x": 0.0,
     "xanchor": "left",
     "bgcolor": "rgba(11,18,32,0.96)",
@@ -28,10 +28,10 @@ CURVE_LABELS = {
     "c1_c4": "C1/C4", "c1_c5": "C1/C5",
 }
 CURVE_COLORS = {
-    "c1": "#ff5a47", "c2": "#10c997", "c3": "#9b5cff", "ic4": "#ff9f43",
-    "nc4": "#16c7e8", "ic5": "#ff5c93", "nc5": "#f4c430", "wh": "#f3a58f",
-    "bh": "#26c6da", "ch": "#ff5c93", "bar2": "#b8e986", "c1_c5_total": "#ffffff", "c1_c2": "#9ee35d",
-    "c1_c3": "#f36df0", "c1_c4": "#f5a623", "c1_c5": "#29b6f6",
+    "c1": "#ef4444", "c2": "#0f766e", "c3": "#7c3aed", "ic4": "#c2410c",
+    "nc4": "#0369a1", "ic5": "#be185d", "nc5": "#a16207", "wh": "#92400e",
+    "bh": "#0284c7", "ch": "#e11d48", "bar2": "#4d7c0f", "c1_c5_total": "#f8fafc", "c1_c2": "#65a30d",
+    "c1_c3": "#a21caf", "c1_c4": "#d97706", "c1_c5": "#0891b2",
 }
 FLUID_STYLES = {
     "oil": ("Нефть", "#22c55e"), "gas": ("Газ", "#ef4444"),
@@ -174,16 +174,16 @@ def _build_depth_tracks(df, columns, title, x_title, *, depth_range=None, x_rang
             continue
         active_columns.append(column)
         fig.add_trace(go.Scattergl(
-            x=pd.to_numeric(plot_df[column], errors="coerce"), y=depth, mode="lines", showlegend=False,
+            x=pd.to_numeric(plot_df[column], errors="coerce"), y=depth, mode="lines+markers", showlegend=False,
             name=CURVE_LABELS.get(column, column),
-            line={"width": 2.6, "color": CURVE_COLORS.get(column)}, connectgaps=False,
+            line={"width": 2.4, "color": CURVE_COLORS.get(column)}, marker={"size": 3, "opacity": 0.38, "color": CURVE_COLORS.get(column)}, connectgaps=False,
             hovertemplate=engineering_hover(CURVE_LABELS.get(column, column)),
         ))
     _add_interval_overlays(fig, reservoir_intervals, selected_interval_id)
     _add_curve_legend(fig, active_columns)
     apply_engineering_layout(
         fig,
-        title={"text": title, "x": 0.0, "xanchor": "left", "y": 0.985, "yanchor": "top", "font": {"size": 17}},
+        title={"text": title, "x": 0.0, "xanchor": "left", "y": 0.995, "yanchor": "top", "font": {"size": 18}},
         height=height,
         margin=ENGINEERING_GRAPH_MARGIN,
         legend=ENGINEERING_LEGEND,
@@ -242,13 +242,24 @@ def build_depth_interpretation_track(df, *, depth_range=None, height=420, reserv
     categories = list(dict.fromkeys(interpretations.tolist()))
     category_index = {name: index for index, name in enumerate(categories)}
     colors = [INTERPRETATION_COLORS.get(name, "#4ea1ff") for name in interpretations]
-    fig.add_trace(go.Scatter(x=[category_index[name] for name in interpretations], y=plot_df["_plot_depth"],
-        mode="markers", marker={"size": 11, "color": colors, "line": {"width": .8, "color": "#fff"}},
-        text=interpretations, hovertemplate="Глубина: %{y:.2f} м<br>%{text}<extra></extra>", name="Интерпретация"))
+    counts = interpretations.value_counts()
+    fig.add_trace(go.Scatter(
+        x=[category_index[name] for name in interpretations], y=plot_df["_plot_depth"],
+        mode="lines+markers", line={"width": 1.2, "color": "rgba(148,163,184,0.55)", "shape": "hv"},
+        marker={"size": 10, "color": colors, "symbol": "diamond", "line": {"width": 1.2, "color": "#f8fafc"}},
+        text=interpretations, customdata=[[int(counts.get(name, 0))] for name in interpretations],
+        hovertemplate="<b>%{text}</b><br>Глубина: %{y:.2f} м<br>Точек класса: %{customdata[0]}<extra></extra>",
+        name="Интерпретация"))
+    summary = " · ".join(f"{name}: {int(counts.get(name, 0))}" for name in categories[:5])
+    fig.add_annotation(xref="paper", yref="paper", x=0.0, y=1.03, xanchor="left", yanchor="bottom",
+                       text=summary, showarrow=False, font={"size": 12, "color": "#cbd5e1"},
+                       bgcolor="rgba(15,23,42,0.85)", bordercolor="#475569", borderwidth=1, borderpad=5)
     _add_interval_overlays(fig, reservoir_intervals, selected_interval_id)
     apply_engineering_layout(fig, title="Индикаторы флюидов по глубине", height=height,
                              margin=ENGINEERING_GRAPH_MARGIN, legend=ENGINEERING_LEGEND)
-    fig.update_xaxes(title="Интерпретация", tickmode="array", tickvals=list(category_index.values()), ticktext=categories)
+    short_labels = [name.replace(" / ", "<br>").replace(" ", "<br>", 1) if len(name) > 18 else name for name in categories]
+    fig.update_xaxes(title="Класс флюида", tickmode="array", tickvals=list(category_index.values()), ticktext=short_labels, tickangle=0, automargin=True, showgrid=True, gridcolor="rgba(148,163,184,0.14)")
+    fig.update_layout(clickmode="event+select", hovermode="closest", uirevision="gas-ratio-interpretation-v3")
     top_depth, bottom_depth = (float(plot_df["_plot_depth"].min()), float(plot_df["_plot_depth"].max())) if depth_range is None else depth_range
     apply_depth_axis(fig, top_depth, bottom_depth)
     normalize_trace_style(fig)

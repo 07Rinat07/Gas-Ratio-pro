@@ -353,7 +353,11 @@ def build_professional_well_log_plot(
     """
 
     cfg = config or WellLogPlotConfig()
-    selected_plot_point = dict(getattr(df, "attrs", {}).get("report_plot_selection", {}) or {})
+    raw_selected_plot_points = getattr(df, "attrs", {}).get("report_plot_selection", ()) or ()
+    if isinstance(raw_selected_plot_points, dict):
+        selected_plot_points = [dict(raw_selected_plot_points)]
+    else:
+        selected_plot_points = [dict(item) for item in raw_selected_plot_points if isinstance(item, dict)]
     prepared = _numeric_depth_frame(df, cfg.depth_column)
     if prepared.empty:
         fig = go.Figure()
@@ -571,25 +575,40 @@ def build_professional_well_log_plot(
                 }
             )
 
-    try:
-        selected_depth = float(selected_plot_point.get("depth"))
-        selected_value = float(selected_plot_point.get("x"))
-    except (TypeError, ValueError):
-        selected_depth = selected_value = None
-    if selected_depth is not None and top_depth <= selected_depth <= bottom_depth:
+    printable_points=[]
+    for item in selected_plot_points[-8:]:
+        try:
+            selected_depth=float(item.get("depth")); selected_value=float(item.get("x"))
+        except (TypeError, ValueError):
+            continue
+        if top_depth <= selected_depth <= bottom_depth:
+            printable_points.append((selected_depth, selected_value, item))
+    printable_points.sort(key=lambda row: row[0])
+    for marker_index, (selected_depth, selected_value, item) in enumerate(printable_points):
         shapes.append({
             "type": "line", "xref": "paper", "x0": 0, "x1": 1,
             "yref": "y", "y0": selected_depth, "y1": selected_depth,
-            "line": {"color": "#0891b2", "width": 3, "dash": "dash"},
+            "line": {"color": "#0891b2", "width": 2.4, "dash": "dot"},
             "layer": "above",
         })
+        curve_name=str(item.get("curve_name") or "Параметр")
+        fluid_label=str(item.get("fluid_label") or "").strip()
+        confidence=item.get("fluid_percent")
+        text=f"<b>{curve_name}</b><br>{selected_depth:.2f} м · {selected_value:.5g}"
+        if fluid_label:
+            text += f"<br>{fluid_label}"
+            try:
+                if confidence not in (None, ""): text += f" · {float(confidence):.0f}%"
+            except (TypeError, ValueError):
+                pass
+        lane=marker_index % 3
         annotations.append({
-            "xref": "paper", "x": 0.995, "xanchor": "right",
-            "yref": "y", "y": selected_depth,
-            "text": f"Выбрано: {selected_depth:.2f} м · {selected_value:.5g}",
-            "showarrow": False, "font": {"size": 20 if not is_screen else 13, "color": "#0e7490"},
-            "bgcolor": "rgba(236,254,255,0.96)", "bordercolor": "#0891b2",
-            "borderwidth": 1.5, "borderpad": 5,
+            "xref": "paper", "x": (0.995, 0.73, 0.47)[lane], "xanchor": "right",
+            "yref": "y", "y": selected_depth, "yshift": ((marker_index // 3) % 3 - 1) * 42,
+            "text": text, "showarrow": True, "arrowhead": 2, "arrowcolor": "#0891b2",
+            "ax": -26, "ay": 0, "font": {"size": 22 if not is_screen else 13, "color": "#0e7490"},
+            "bgcolor": "rgba(236,254,255,0.97)", "bordercolor": "#0891b2",
+            "borderwidth": 1.5, "borderpad": 6, "align": "left",
         })
 
     visible_curve_specs = [
@@ -678,7 +697,9 @@ def build_professional_well_log_plot(
     fig.update_yaxes(title_text=DEPTH_AXIS_TITLE, row=1, col=1)
     axis_tick_size = 12 if is_screen else 30
     axis_title_size = 15 if is_screen else 34
-    fig.update_yaxes(showgrid=True, gridcolor="rgba(70,90,100,0.18)", tickfont={"size": axis_tick_size}, title_font={"size": axis_title_size}, automargin=True, minor={"showgrid": True, "gridcolor": "rgba(70,90,100,0.08)", "griddash": "dot"})
-    fig.update_xaxes(showgrid=True, gridcolor="rgba(70,90,100,0.12)", tickfont={"size": axis_tick_size}, title_font={"size": axis_title_size}, automargin=True, tickangle=0)
+    depth_span=max(bottom_depth-top_depth, 1.0)
+    major_step = 5.0 if depth_span <= 80 else 10.0 if depth_span <= 180 else 20.0
+    fig.update_yaxes(showgrid=True, gridcolor="rgba(51,65,85,0.30)", gridwidth=1.1, dtick=major_step, tick0=float(top_depth), ticks="outside", ticklen=8, tickwidth=1.4, tickcolor="#334155", tickfont={"size": axis_tick_size}, title_font={"size": axis_title_size}, automargin=True, minor={"showgrid": True, "dtick": major_step/5.0, "gridcolor": "rgba(100,116,139,0.16)", "griddash": "dot"})
+    fig.update_xaxes(showgrid=True, gridcolor="rgba(100,116,139,0.18)", gridwidth=1, showline=True, linewidth=1.2, linecolor="#475569", mirror=True, tickfont={"size": axis_tick_size}, title_font={"size": axis_title_size}, automargin=True, tickangle=0)
     normalize_trace_style(fig)
     return WellLogPlotResult(fig, plotted_columns, summary, len(visible_intervals))

@@ -1,3 +1,14 @@
+## v222.70 - Engineering plot value & annotation hardening
+
+- Added multi-point pinned measurements for interactive plots.
+- Added collision-aware annotation lanes with automatic repositioning on resize/zoom.
+- Pinned cards now include curve name, depth, value, interpretation and confidence when available.
+- Persisted up to eight measurements per project and exported them to PDF/DOCX.
+- Restored strong major/minor depth grids and explicit depth ticks in printable well logs.
+- Added professional fluid interval stripes and safer print markers.
+- Reworked the fluid interpretation chart with engineering markers, class counts and useful hover data.
+- Refined the screen palette and point markers for gas-component curves.
+
 
 ## v222.69 - Plot selection and print readability completion
 
