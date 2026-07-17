@@ -306,7 +306,7 @@ def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
     if hasattr(block.figure, "svg"):
         from cairosvg import svg2png
         figure = block.figure
-        _add_paragraph(doc, f"Диапазон глубин: {figure.depth_start:g}–{figure.depth_stop:g} м. Единый Composite Log v4 используется в приложении и отчёте.")
+        _add_paragraph(doc, f"Диапазон глубин: {figure.depth_start:g}–{figure.depth_stop:g} м.")
         png = svg2png(bytestring=figure.svg.encode("utf-8"), output_width=max(3200, int(figure.width * 2.0)))
         stream = BytesIO(png)
         paragraph = doc.add_paragraph()

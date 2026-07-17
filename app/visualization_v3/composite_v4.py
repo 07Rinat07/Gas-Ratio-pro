@@ -78,7 +78,7 @@ def build_composite_log_v4(
     intervals: Iterable[Any] = (),
     title: str = "Engineering Composite Log v4",
     height: int = 1180,
-    target_width: int = 2380,
+    target_width: int = 1600,
     include_keys: Iterable[str] | None = None,
     report_kind: str = "overview",
     report_title: str | None = None,
@@ -102,10 +102,10 @@ def build_composite_log_v4(
     if not selected:
         raise ValueError("No supported engineering curves found")
 
-    depth_width = 108
-    available_width = max(900, int(target_width) - depth_width - 28)
+    depth_width = 104
+    available_width = max(1100, int(target_width) - depth_width - 28)
     # Adaptive widths: preserve readable tracks and allow a wide vector canvas when many curves exist.
-    base_width = max(112, min(176, available_width // len(selected)))
+    base_width = max(78, min(132, available_width // len(selected)))
     actual_target = depth_width + base_width * len(selected) + 28
     tracks = tuple(
         CurveTrackSpec(
@@ -115,7 +115,7 @@ def build_composite_log_v4(
             width=base_width,
             scale=scale,
             stroke=stroke,
-            stroke_width=1.45,
+            stroke_width=1.8,
         )
         for column, title_text, unit, stroke, scale in selected
     )
@@ -126,8 +126,8 @@ def build_composite_log_v4(
         tracks=tracks,
         intervals=_bands(intervals),
         height=max(760, int(height)),
-        header_height=104,
-        footer_height=34,
+        header_height=118,
+        footer_height=92,
         left_padding=14,
         right_padding=14,
     )

@@ -615,11 +615,10 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
         from svglib.svglib import svg2rlg
         from reportlab.graphics import renderPDF
         figure = block.figure
-        title = block.title or getattr(figure, "report_title", "Инженерный Composite Log v4")
+        title = block.title or getattr(figure, "report_title", "Инженерный планшет")
         items: list[object] = [_paragraph(title, styles["h2"])]
         items.extend([_paragraph(
-            f"Диапазон глубин: {figure.depth_start:g}–{figure.depth_stop:g} м. "
-            "Шкалы, сетка, интервалы и кривые сформированы единым векторным движком Composite Log v4.",
+            f"Диапазон глубин: {figure.depth_start:g}–{figure.depth_stop:g} м.",
             styles["small"],
         ), Spacer(1, 5)])
         drawing = svg2rlg(_BytesIO(figure.svg.encode("utf-8")))

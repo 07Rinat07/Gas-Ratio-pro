@@ -68,7 +68,7 @@ if ($MissingReportDependencies.Count -gt 0) {
     }
 }
 
-Write-Host "Starting Gas Ratio Pro v223.5" -ForegroundColor Green
+Write-Host "Starting Gas Ratio Pro v223.6" -ForegroundColor Green
 Write-Host "Source: $ProjectRoot" -ForegroundColor Cyan
 Write-Host "URL: http://localhost:$Port" -ForegroundColor Cyan
 

@@ -78,8 +78,8 @@ class CompositeLogEngine:
         parts: list[str] = [
             f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
             f'<rect x="0" y="0" width="{width}" height="{height}" fill="{spec.background}"/>',
-            f'<style>text{{font-family:{html.escape(spec.font_family)};fill:#0f172a}} .small{{font-size:11px}} .axis{{font-size:12px;font-weight:600}} .title{{font-size:18px;font-weight:700}}</style>',
-            f'<text x="{spec.left_padding}" y="24" class="title">{html.escape(spec.title)}</text>',
+            f'<style>text{{font-family:{html.escape(spec.font_family)};fill:#111827}} .small{{font-size:14px;font-weight:600}} .scale{{font-size:15px;font-weight:600}} .axis{{font-size:17px;font-weight:700}} .title{{font-size:24px;font-weight:800}} .interval-id{{font-size:14px;font-weight:700}} .interval-fluid{{font-size:14px;font-weight:800}} .stats-label{{font-size:14px;font-weight:800}} .stats-value{{font-size:13px;font-weight:700}}</style>',
+            f'<text x="{spec.left_padding}" y="28" class="title">{html.escape(spec.title)}</text>',
         ]
 
         # Interval bands span all curve tracks and remain subordinate to curves.
@@ -94,14 +94,6 @@ class CompositeLogEngine:
             fill, stroke = self._fluid_style(interval.fluid)
             parts.append(
                 f'<rect x="{data_x}" y="{y1:.2f}" width="{data_width}" height="{max(1.0, y2-y1):.2f}" fill="{fill}" fill-opacity="0.14" stroke="{stroke}" stroke-width="0.8"/>'
-            )
-            label = interval.label
-            if interval.fluid:
-                label += f" · {interval.fluid}"
-            if interval.confidence is not None:
-                label += f" · {interval.confidence:.0f}%"
-            parts.append(
-                f'<text x="{data_x + 6}" y="{min(y2 - 4, y1 + 15):.2f}" class="small" font-weight="700">{html.escape(label)}</text>'
             )
 
         # Shared depth grid across all tracks.
@@ -131,8 +123,8 @@ class CompositeLogEngine:
         parts.extend([
             f'<rect x="{spec.left_padding}" y="{plot_top}" width="{depth_width}" height="{plot_height}" fill="none" stroke="{spec.border}" stroke-width="1.2"/>',
             f'<rect x="{spec.left_padding}" y="34" width="{depth_width}" height="{spec.header_height-34}" fill="#f8fafc" stroke="{spec.border}" stroke-width="1"/>',
-            f'<text x="{spec.left_padding + depth_width/2}" y="55" text-anchor="middle" class="axis">{html.escape(spec.depth_track.title)}</text>',
-            f'<text x="{spec.left_padding + depth_width/2}" y="72" text-anchor="middle" class="small">{html.escape(spec.depth_track.unit)}</text>',
+            f'<text x="{spec.left_padding + depth_width/2}" y="59" text-anchor="middle" class="axis">{html.escape(spec.depth_track.title)}</text>',
+            f'<text x="{spec.left_padding + depth_width/2}" y="82" text-anchor="middle" class="scale">{html.escape(spec.depth_track.unit)}</text>',
         ])
 
         x = data_x
@@ -168,11 +160,11 @@ class CompositeLogEngine:
 
             # Header and explicit independent scale.
             parts.append(f'<rect x="{x}" y="34" width="{track.width}" height="{spec.header_height-34}" fill="#f8fafc" stroke="{spec.border}" stroke-width="1"/>')
-            parts.append(f'<text x="{x + track.width/2:.2f}" y="51" text-anchor="middle" class="axis">{html.escape(track.title)}</text>')
-            scale_text = f"{minimum:.3g} — {maximum:.3g}"
+            parts.append(f'<text x="{x + track.width/2:.2f}" y="55" text-anchor="middle" class="axis">{html.escape(track.title)}</text>')
             if track.unit:
-                scale_text += f" {track.unit}"
-            parts.append(f'<text x="{x + track.width/2:.2f}" y="68" text-anchor="middle" class="small">{html.escape(scale_text)}</text>')
+                parts.append(f'<text x="{x + track.width/2:.2f}" y="73" text-anchor="middle" class="scale">{html.escape(track.unit)}</text>')
+            parts.append(f'<text x="{x + 6:.2f}" y="94" class="scale">{minimum:.3g}</text>')
+            parts.append(f'<text x="{x + track.width - 6:.2f}" y="94" text-anchor="end" class="scale">{maximum:.3g}</text>')
 
             points: list[str] = []
             for depth, value in zip(frame[depth_key], values):
@@ -186,9 +178,39 @@ class CompositeLogEngine:
 
             if track.show_statistics:
                 avg = float(finite.mean())
-                stats = f"min {minimum:.3g}  avg {avg:.3g}  max {maximum:.3g}"
-                parts.append(f'<text x="{x + track.width/2:.2f}" y="{height-7}" text-anchor="middle" class="small">{html.escape(stats)}</text>')
+                stats_top = plot_bottom + 24
+                for row_index, value in enumerate((minimum, avg, maximum)):
+                    sy = stats_top + row_index * 20
+                    parts.append(f'<text x="{x + track.width/2:.2f}" y="{sy:.2f}" text-anchor="middle" class="stats-value">{value:.4g}</text>')
             x += track.width
+
+        # Interval cards are rendered inside the depth column so they remain readable
+        # and never cover engineering curves.
+        for interval in spec.intervals:
+            top = max(depth_start, min(depth_stop, float(interval.top)))
+            bottom = max(depth_start, min(depth_stop, float(interval.bottom)))
+            if bottom <= top:
+                continue
+            y1, y2 = y_for_depth(top), y_for_depth(bottom)
+            fill, stroke = self._fluid_style(interval.fluid)
+            card_h = min(86.0, max(58.0, y2 - y1 - 8.0))
+            card_y = max(plot_top + 4.0, min(plot_bottom - card_h - 4.0, (y1 + y2 - card_h) / 2.0))
+            card_x = spec.left_padding + 8.0
+            card_w = depth_width - 16.0
+            parts.append(f'<rect x="{card_x:.2f}" y="{card_y:.2f}" width="{card_w:.2f}" height="{card_h:.2f}" rx="4" fill="#ffffff" fill-opacity="0.96" stroke="{stroke}" stroke-width="1.2"/>')
+            parts.append(f'<text x="{card_x + card_w/2:.2f}" y="{card_y + 19:.2f}" text-anchor="middle" class="interval-id">{html.escape(interval.label)}</text>')
+            parts.append(f'<text x="{card_x + card_w/2:.2f}" y="{card_y + 38:.2f}" text-anchor="middle" class="small">{top:g}–{bottom:g} м</text>')
+            fluid_text = str(interval.fluid or "Интервал")
+            parts.append(f'<text x="{card_x + card_w/2:.2f}" y="{card_y + 58:.2f}" text-anchor="middle" class="interval-fluid" fill="{stroke}">{html.escape(fluid_text)}</text>')
+            if interval.confidence is not None and card_h >= 78:
+                parts.append(f'<text x="{card_x + card_w/2:.2f}" y="{card_y + 76:.2f}" text-anchor="middle" class="interval-fluid" fill="{stroke}">{interval.confidence:.0f}%</text>')
+
+        # Footer labels for the shared statistics table.
+        stats_top = plot_bottom + 24
+        for row_index, label in enumerate(("min", "avg", "max")):
+            sy = stats_top + row_index * 20
+            parts.append(f'<text x="{spec.left_padding + depth_width/2:.2f}" y="{sy:.2f}" text-anchor="middle" class="stats-label">{label}</text>')
+        parts.append(f'<line x1="{spec.left_padding}" y1="{plot_bottom + 6:.2f}" x2="{width-spec.right_padding}" y2="{plot_bottom + 6:.2f}" stroke="{spec.border}" stroke-width="1"/>')
 
         parts.append('</svg>')
         return CompositeLogResult(

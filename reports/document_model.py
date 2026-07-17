@@ -272,7 +272,7 @@ def build_engineering_document(
         def _plot_meta(figure: object) -> dict[str, object]:
             if hasattr(figure, "svg"):
                 return {
-                    "report_title": getattr(figure, "report_title", "") or "Инженерный Composite Log v4",
+                    "report_title": getattr(figure, "report_title", "") or "Инженерный планшет",
                     "report_kind": getattr(figure, "report_kind", "overview"),
                     "intervals": list(getattr(figure, "report_intervals", ()) or ()),
                     "depth_range": {
