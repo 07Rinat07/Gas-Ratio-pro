@@ -1,3 +1,12 @@
+# v223.1 - Composite Log v4 Unified Rendering
+
+- Added canonical Composite Log v4 for screen, PDF, DOCX and SVG.
+- Added TGAS, C1-C5, iC4/nC4, iC5/nC5, Wh/Bh/Ch, Pixler ratios, Oil Index and Bar-2 when present.
+- Added adaptive track widths, independent engineering scales and shared major/minor depth grid.
+- Replaced legacy report plots with the same vector composite used in the application.
+- PDF embeds SVG as vector graphics; DOCX uses high-resolution rendering from the same SVG source.
+- Detail interval pages now use Composite Log v4 instead of separate legacy Plotly track groups.
+
 # v223.0 — Engineering Visualization v3 Foundation
 
 - Added renderer-independent `app.visualization_v3` package.

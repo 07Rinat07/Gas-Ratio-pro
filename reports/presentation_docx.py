@@ -301,8 +301,20 @@ def _add_statistics_table(doc: Document, entries: Sequence[dict[str, object]]) -
 
 
 def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
-    """Embed the shared Plotly figure into DOCX; never expose renderer placeholders."""
+    """Embed the canonical vector composite or a legacy Plotly figure into DOCX."""
     _add_paragraph(doc, block.title or "Планшет", style="Heading 2")
+    if hasattr(block.figure, "svg"):
+        from cairosvg import svg2png
+        figure = block.figure
+        _add_paragraph(doc, f"Диапазон глубин: {figure.depth_start:g}–{figure.depth_stop:g} м. Единый Composite Log v4 используется в приложении и отчёте.")
+        png = svg2png(bytestring=figure.svg.encode("utf-8"), output_width=max(3200, int(figure.width * 2.0)))
+        stream = BytesIO(png)
+        paragraph = doc.add_paragraph()
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = paragraph.add_run()
+        run.add_picture(stream, width=Inches(10.6 if len(doc.sections) and doc.sections[0].page_width > Inches(10) else 7.1))
+        doc.add_paragraph()
+        return
     figure = apply_report_plot_theme(block.figure)
     legend = _figure_report_legend(figure)
     depth_range = legend.get("depth_range", {}) if isinstance(legend.get("depth_range", {}), dict) else {}

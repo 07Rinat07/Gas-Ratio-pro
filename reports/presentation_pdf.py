@@ -18,6 +18,7 @@ try:
     from reportlab.platypus import (
         BaseDocTemplate,
         Frame,
+        Flowable,
         Image,
         PageBreak,
         PageTemplate,
@@ -36,7 +37,7 @@ except ModuleNotFoundError:  # pragma: no cover - depends on user environment
     ParagraphStyle = getSampleStyleSheet = None
     mm = 1
     pdfmetrics = TTFont = None
-    BaseDocTemplate = Frame = Image = PageBreak = PageTemplate = Paragraph = SimpleDocTemplate = Spacer = Table = TableStyle = None
+    BaseDocTemplate = Frame = Flowable = Image = PageBreak = PageTemplate = Paragraph = SimpleDocTemplate = Spacer = Table = TableStyle = None
     TableOfContents = None
     REPORTLAB_AVAILABLE = False
 
@@ -575,6 +576,32 @@ def _statistics_table_pdf(entries: Sequence[dict[str, object]], styles: dict[str
     return [_paragraph("Статистика кривых", styles["h2"]), table, Spacer(1, 7)]
 
 
+class _AutoScaleSvgDrawing(Flowable):
+    """Scale an SVG drawing to the actual report frame instead of fixed millimetres."""
+
+    def __init__(self, drawing: object, *, max_height: float = 235 * mm) -> None:
+        super().__init__()
+        self.drawing = drawing
+        self.source_width = float(getattr(drawing, "width", 1) or 1)
+        self.source_height = float(getattr(drawing, "height", 1) or 1)
+        self.max_height = max_height
+        self.scale_factor = 1.0
+
+    def wrap(self, avail_width: float, avail_height: float) -> tuple[float, float]:
+        usable_height = min(max(40 * mm, avail_height), self.max_height)
+        self.scale_factor = min(avail_width / self.source_width, usable_height / self.source_height)
+        self.width = self.source_width * self.scale_factor
+        self.height = self.source_height * self.scale_factor
+        return self.width, self.height
+
+    def draw(self) -> None:
+        from reportlab.graphics import renderPDF
+        self.canv.saveState()
+        self.canv.scale(self.scale_factor, self.scale_factor)
+        renderPDF.draw(self.drawing, self.canv, 0, 0)
+        self.canv.restoreState()
+
+
 def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> list[object]:
     """Render a Plotly-compatible engineering figure into the PDF.
 
@@ -582,6 +609,24 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
     rest of the report remains downloadable, but the user receives an explicit
     dependency message instead of a silent placeholder.
     """
+
+    if hasattr(block.figure, "svg"):
+        from io import BytesIO as _BytesIO
+        from svglib.svglib import svg2rlg
+        from reportlab.graphics import renderPDF
+        figure = block.figure
+        title = block.title or getattr(figure, "report_title", "Инженерный Composite Log v4")
+        items: list[object] = [_paragraph(title, styles["h2"])]
+        items.extend([_paragraph(
+            f"Диапазон глубин: {figure.depth_start:g}–{figure.depth_stop:g} м. "
+            "Шкалы, сетка, интервалы и кривые сформированы единым векторным движком Composite Log v4.",
+            styles["small"],
+        ), Spacer(1, 5)])
+        drawing = svg2rlg(_BytesIO(figure.svg.encode("utf-8")))
+        if drawing is None:
+            return items + [_paragraph("Не удалось преобразовать SVG-планшет.", styles["small"])]
+        items.append(_AutoScaleSvgDrawing(drawing))
+        return items
 
     title = block.title or "Профессиональный планшет интерпретации"
     items: list[object] = [_paragraph(title, styles["h2"])]

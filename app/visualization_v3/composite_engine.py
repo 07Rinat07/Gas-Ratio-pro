@@ -20,6 +20,14 @@ class CompositeLogResult:
     depth_stop: float
     rendered_tracks: tuple[str, ...]
     issues: tuple[str, ...] = ()
+    report_title: str = ""
+    report_kind: str = "overview"
+    report_intervals: tuple[dict[str, object], ...] = ()
+
+    @property
+    def figure(self) -> "CompositeLogResult":
+        """Compatibility with the legacy presentation model plot wrapper."""
+        return self
 
 
 class CompositeLogEngine:

@@ -9,6 +9,8 @@ from core.hydrocarbon_intervals import HydrocarbonInterval, HydrocarbonIntervalR
 from reports.executive_summary import ExecutiveSummary
 from reports.export_html import HtmlReportTable
 from reports.interval_cards import IntervalReportCard
+from app.visualization_v3.composite_v4 import build_composite_log_v4
+from app.visualization_v3.composite_engine import CompositeLogResult
 from reports.well_log_plot import (
     WellLogPlotConfig, WellLogPlotResult, build_professional_well_log_plot,
     group_intervals_for_report, adaptive_detail_padding, FLUID_PLOT_LABELS,
@@ -60,8 +62,8 @@ class PresentationModel:
     interval_cards: tuple[IntervalReportCard, ...]
     engineering_tables: tuple[HtmlReportTable, ...] = ()
     technical_tables: tuple[HtmlReportTable, ...] = ()
-    well_log_plot: WellLogPlotResult | None = None
-    detail_well_log_plots: tuple[WellLogPlotResult, ...] = ()
+    well_log_plot: object | None = None
+    detail_well_log_plots: tuple[object, ...] = ()
     visualization_payloads: tuple[Mapping[str, Any], ...] = ()
     metadata: PresentationMetadata = PresentationMetadata()
     schema: str = "gas-ratio-pro/presentation/model/v1"
@@ -74,8 +76,8 @@ class PresentationModel:
     def figures(self) -> tuple[object, ...]:
         figures: list[object] = []
         if self.well_log_plot is not None:
-            figures.append(self.well_log_plot.figure)
-        figures.extend(item.figure for item in self.detail_well_log_plots)
+            figures.append(getattr(self.well_log_plot, "figure", self.well_log_plot))
+        figures.extend(getattr(item, "figure", item) for item in self.detail_well_log_plots)
         return tuple(figures)
 
     @property
@@ -136,41 +138,34 @@ def build_presentation_model(
     clean_engineering_tables = tuple(table for table in engineering_tables if table is not None)
     clean_technical_tables = tuple(table for table in technical_tables if table is not None)
 
-    plot_result: WellLogPlotResult | None = None
-    detail_results: list[WellLogPlotResult] = []
+    plot_result: object | None = None
+    detail_results: list[object] = []
     if include_plot and source_df is not None and not source_df.empty:
         cfg = plot_config or WellLogPlotConfig(depth_column=depth_column)
-        overview_cfg = WellLogPlotConfig(
-            depth_column=cfg.depth_column, track_columns=tuple(cfg.track_columns[:6]),
-            max_points_per_track=cfg.max_points_per_track, height=cfg.height,
-            title=cfg.title, show_interval_track=cfg.show_interval_track,
-            auto_crop_to_active_data=cfg.auto_crop_to_active_data,
-            max_interval_overlays=cfg.max_interval_overlays,
-            report_kind="overview", report_title="Обзорный планшет скважины",
+        plot_result = build_composite_log_v4(
+            source_df, intervals=result.intervals,
+            title="Обзорный инженерный Composite Log v4",
+            report_title="Обзорный планшет скважины", report_kind="overview",
+            height=max(1180, cfg.height), target_width=2380,
         )
-        plot_result = build_professional_well_log_plot(source_df, result.intervals, config=overview_cfg)
 
         profile = str((metadata or PresentationMetadata()).report_profile or "engineering").lower()
         max_groups = 5 if profile in {"client", "customer"} else (30 if profile == "expert" else 15)
         groups = group_intervals_for_report(result.intervals, max_groups=max_groups) if len(result.intervals) > 1 else ()
+        depth_name = next((str(c) for c in source_df.columns if str(c).strip().lower() in {str(cfg.depth_column).lower(), "depth", "dept", "md"}), None)
+        numeric_depth = pd.to_numeric(source_df[depth_name], errors="coerce") if depth_name else None
         for group in groups:
             fluids = ", ".join(dict.fromkeys(FLUID_PLOT_LABELS.get(str(i.fluid_type), str(i.fluid_type)) for i in group.intervals))
-            chunks = _track_chunks(cfg.track_columns, 4)
-            for part_index, track_chunk in enumerate(chunks, start=1):
-                part_suffix = f" · часть {part_index}/{len(chunks)}" if len(chunks) > 1 else ""
-                detail_cfg = WellLogPlotConfig(
-                    depth_column=cfg.depth_column, track_columns=track_chunk,
-                    max_points_per_track=min(cfg.max_points_per_track, 1400), height=max(cfg.height, 1100),
-                    title=f"Детальный планшет {group.index}{part_suffix}: {group.top:g}–{group.base:g} м",
-                    show_interval_track=True, auto_crop_to_active_data=False,
-                    max_interval_overlays=max(4, len(group.intervals) + 1),
-                    crop_top=group.top, crop_base=group.base,
-                    crop_padding_m=adaptive_detail_padding(group.top, group.base),
-                    report_kind="detail",
-                    report_title=f"Интервал {group.index}: {group.top:g}–{group.base:g} м · {fluids}{part_suffix}",
-                    report_group_index=group.index, layout_profile="print", show_curve_legend=False,
-                )
-                detail_results.append(build_professional_well_log_plot(source_df, group.intervals, config=detail_cfg))
+            padding = adaptive_detail_padding(group.top, group.base)
+            detail_df = source_df
+            if numeric_depth is not None:
+                detail_df = source_df.loc[numeric_depth.between(group.top-padding, group.base+padding)].copy()
+            detail_results.append(build_composite_log_v4(
+                detail_df, intervals=group.intervals,
+                title=f"Composite Log v4 · {group.top:g}–{group.base:g} м",
+                report_title=f"Интервал {group.index}: {group.top:g}–{group.base:g} м · {fluids}",
+                report_kind="detail", height=max(1180, cfg.height), target_width=2380,
+            ))
 
     return PresentationModel(
         result=result,

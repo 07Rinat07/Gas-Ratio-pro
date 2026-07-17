@@ -270,6 +270,16 @@ def build_engineering_document(
     # the end of the PDF, making the report look like a raw table dump.
     if include_figures:
         def _plot_meta(figure: object) -> dict[str, object]:
+            if hasattr(figure, "svg"):
+                return {
+                    "report_title": getattr(figure, "report_title", "") or "Инженерный Composite Log v4",
+                    "report_kind": getattr(figure, "report_kind", "overview"),
+                    "intervals": list(getattr(figure, "report_intervals", ()) or ()),
+                    "depth_range": {
+                        "top": getattr(figure, "depth_start", 0),
+                        "base": getattr(figure, "depth_stop", 0),
+                    },
+                }
             try:
                 meta = dict(getattr(getattr(figure, "layout", None), "meta", {}) or {})
                 return dict(meta.get("gas_ratio_report_legend", {}) or {})
