@@ -337,9 +337,9 @@ def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
                 for run in cells[idx].paragraphs[0].runs:
                     run.font.size = Pt(8)
         doc.add_paragraph()
-    _add_report_legend_table(doc, "Кривые", list(legend.get("curves", []) or []))
-    _add_report_legend_table(doc, "Интервалы и типы флюида", list(legend.get("fluids", []) or []))
-    _add_report_legend_table(doc, "Маркеры интервалов", list(legend.get("markers", []) or []))
+    # Curve names, interval colours and marker meanings are rendered directly
+    # in the plot.  Repeated Unicode symbol tables caused black-square glyphs
+    # in some Word/PDF font stacks and unnecessarily reduced plot scale.
     try:
         if hasattr(figure, "to_image"):
             png = figure.to_image(format="png", width=3200, height=2200, scale=1)
@@ -351,8 +351,9 @@ def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
             raise TypeError("Figure backend does not support raster export")
         paragraph = doc.add_paragraph()
         paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        paragraph.add_run().add_picture(BytesIO(png), width=Inches(7.35))
-        _add_statistics_table(doc, list(legend.get("statistics", []) or []))
+        paragraph.add_run().add_picture(BytesIO(png), width=Inches(7.45))
+        if str(legend.get("report_kind", "")) != "detail":
+            _add_statistics_table(doc, list(legend.get("statistics", []) or []))
     except Exception as exc:
         paragraph = doc.add_paragraph()
         paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER

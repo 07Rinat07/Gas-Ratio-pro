@@ -405,7 +405,29 @@ def build_professional_well_log_plot(
         max_points=cfg.max_points_per_track,
     )
 
-    column_titles = (["Интервалы"] if cfg.show_interval_track else []) + [CURVE_PRINT_SPECS.get(c, {}).get("label", c) for c in plotted_columns]
+    statistics_rows = _track_statistics(prepared, plotted_columns)
+    statistics_by_key = {str(item.get("key")): item for item in statistics_rows}
+    profile = str(cfg.layout_profile or "print").strip().lower()
+    is_screen = profile == "screen"
+
+    curve_titles: list[str] = []
+    for column in plotted_columns:
+        label = CURVE_PRINT_SPECS.get(column, {}).get("label", column)
+        if is_screen:
+            curve_titles.append(str(label))
+            continue
+        stats = statistics_by_key.get(column, {})
+        if stats:
+            curve_titles.append(
+                f"<b>{label}</b><br>"
+                f"<span style='font-size:20px'>"
+                f"min {float(stats.get('minimum', 0)):.3g} · "
+                f"avg {float(stats.get('mean', 0)):.3g} · "
+                f"max {float(stats.get('maximum', 0)):.3g}</span>"
+            )
+        else:
+            curve_titles.append(str(label))
+    column_titles = (["Интервалы"] if cfg.show_interval_track else []) + curve_titles
     if not column_titles:
         fig = go.Figure()
         fig.update_layout(title=cfg.title, height=cfg.height, annotations=[{"text": "Нет числовых треков для планшета", "showarrow": False}])
@@ -470,8 +492,6 @@ def build_professional_well_log_plot(
     bottom_depth = float(prepared[cfg.depth_column].max())
     apply_depth_axis(fig, top_depth, bottom_depth, title=DEPTH_AXIS_TITLE, showgrid=True)
 
-    profile = str(cfg.layout_profile or "print").strip().lower()
-    is_screen = profile == "screen"
     shapes: list[dict[str, object]] = []
     annotations = list(fig.layout.annotations or ())
     visible_intervals = [
@@ -543,11 +563,11 @@ def build_professional_well_log_plot(
                     "y": (interval_top + interval_base) / 2,
                     "text": _interval_label(interval, index),
                     "showarrow": False,
-                    "font": {"size": 24 if not is_screen else 15, "color": "#101827"},
+                    "font": {"size": 42 if not is_screen else 16, "color": "#101827"},
                     "bgcolor": "rgba(255,255,255,0.98)",
                     "bordercolor": color,
                     "borderwidth": 1.5,
-                    "borderpad": 4,
+                    "borderpad": 7,
                 }
             )
 
@@ -605,7 +625,7 @@ def build_professional_well_log_plot(
             {"symbol": "*", "label": "Приоритет", "description": "Наиболее перспективный интервал"},
         ],
         "depth_range": {"top": top_depth, "base": bottom_depth},
-        "statistics": _track_statistics(prepared, plotted_columns),
+        "statistics": statistics_rows,
         "report_kind": cfg.report_kind,
         "report_title": cfg.report_title or cfg.title,
         "group_index": int(cfg.report_group_index or 0),
@@ -624,9 +644,11 @@ def build_professional_well_log_plot(
     }
 
     title_size = track_title_font_size(len(column_titles), profile=profile)
+    if not is_screen:
+        title_size = max(title_size, 30)
     apply_engineering_layout(
-        fig, title={"text": cfg.title, "x": 0.0, "xanchor": "left", "font": {"size": 18 if is_screen else 28}}, height=max(cfg.height, 620 if is_screen else 1100),
-        margin={"l": 76 if is_screen else 104, "r": 24 if is_screen else 42, "t": 96 if is_screen else 132, "b": 68 if is_screen else 96}, showlegend=bool(cfg.show_curve_legend),
+        fig, title={"text": cfg.title, "x": 0.0, "xanchor": "left", "font": {"size": 18 if is_screen else 28}}, height=max(cfg.height, 620 if is_screen else 1450),
+        margin={"l": 76 if is_screen else 118, "r": 24 if is_screen else 48, "t": 104 if is_screen else 205, "b": 72 if is_screen else 118}, showlegend=bool(cfg.show_curve_legend),
     )
     fig.update_layout(
         shapes=shapes,
@@ -654,8 +676,8 @@ def build_professional_well_log_plot(
     for subplot_col in range(1, len(column_titles) + 1):
         fig.update_yaxes(title_text="", row=1, col=subplot_col)
     fig.update_yaxes(title_text=DEPTH_AXIS_TITLE, row=1, col=1)
-    axis_tick_size = 12 if is_screen else 22
-    axis_title_size = 15 if is_screen else 24
+    axis_tick_size = 12 if is_screen else 30
+    axis_title_size = 15 if is_screen else 34
     fig.update_yaxes(showgrid=True, gridcolor="rgba(70,90,100,0.18)", tickfont={"size": axis_tick_size}, title_font={"size": axis_title_size}, automargin=True, minor={"showgrid": True, "gridcolor": "rgba(70,90,100,0.08)", "griddash": "dot"})
     fig.update_xaxes(showgrid=True, gridcolor="rgba(70,90,100,0.12)", tickfont={"size": axis_tick_size}, title_font={"size": axis_title_size}, automargin=True, tickangle=0)
     normalize_trace_style(fig)

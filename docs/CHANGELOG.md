@@ -1,3 +1,13 @@
+
+## v222.69 - Plot selection and print readability completion
+
+- Persisted Plotly point selections are redrawn after every rerun and exported with the report.
+- Interactive engineering tablets are split into groups of at most eight analytical tracks.
+- Printed detailed tablets are split into groups of at most four tracks.
+- Print track headers include min/average/max values directly above each curve.
+- Interval labels, axes and print margins were enlarged.
+- Repeated DOCX symbol legends were removed to prevent black-square glyphs.
+- Detailed plot pages no longer repeat a second statistics table below the image.
 # Changelog
 
 ## v222.68 — Export panel state-controller hotfix

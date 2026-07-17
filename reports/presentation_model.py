@@ -155,7 +155,7 @@ def build_presentation_model(
         groups = group_intervals_for_report(result.intervals, max_groups=max_groups) if len(result.intervals) > 1 else ()
         for group in groups:
             fluids = ", ".join(dict.fromkeys(FLUID_PLOT_LABELS.get(str(i.fluid_type), str(i.fluid_type)) for i in group.intervals))
-            chunks = _track_chunks(cfg.track_columns, 5)
+            chunks = _track_chunks(cfg.track_columns, 4)
             for part_index, track_chunk in enumerate(chunks, start=1):
                 part_suffix = f" · часть {part_index}/{len(chunks)}" if len(chunks) > 1 else ""
                 detail_cfg = WellLogPlotConfig(

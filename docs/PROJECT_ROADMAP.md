@@ -2203,3 +2203,5 @@ Next:
 - подготовка к адаптивному Track Layout Engine.
 
 - [x] v222.64: ReportDesign schema compatibility and Print Center crash regression.
+
+- v222.69: завершено фиксирование выбранной точки, группировка экранных/печатных треков и увеличение читаемости печатных планшетов.

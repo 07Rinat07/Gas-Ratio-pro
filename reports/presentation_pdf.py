@@ -628,10 +628,10 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
         items.extend([card, Spacer(1, 6)])
     try:
         if hasattr(figure, "to_image"):
-            png = figure.to_image(format="png", width=2800, height=2400, scale=1)
+            png = figure.to_image(format="png", width=2800, height=3000, scale=1)
         elif hasattr(figure, "write_image"):
             buffer = BytesIO()
-            figure.write_image(buffer, format="png", width=2800, height=2400)
+            figure.write_image(buffer, format="png", width=2800, height=3000)
             png = buffer.getvalue()
         else:
             raise TypeError("Figure backend does not support raster export")
@@ -642,7 +642,8 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
         image.drawWidth = image.imageWidth * ratio
         image.drawHeight = image.imageHeight * ratio
         items.extend([image, Spacer(1, 8)])
-        items.extend(_statistics_table_pdf(list(legend.get("statistics", []) or []), styles))
+        if str(legend.get("report_kind", "")) != "detail":
+            items.extend(_statistics_table_pdf(list(legend.get("statistics", []) or []), styles))
     except Exception as exc:
         items.extend([
             _paragraph(

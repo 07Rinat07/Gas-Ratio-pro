@@ -9545,6 +9545,36 @@ def _selected_numeric_point_from_plotly_event(event: object) -> dict[str, object
     }
 
 
+
+
+def _apply_persisted_plot_selection(render_value: object, selection: object) -> object:
+    """Return a render payload with a persistent selected-depth marker.
+
+    Streamlit selection events are transient.  The stored report selection is
+    therefore reapplied on every rerun so the user can see exactly which point
+    will be exported.
+    """
+    if not isinstance(selection, dict) or not selection:
+        return render_value
+    try:
+        depth = float(selection.get("depth"))
+        value = float(selection.get("x"))
+    except (TypeError, ValueError):
+        return render_value
+    try:
+        figure = go.Figure(render_value)
+    except Exception:
+        return render_value
+    figure.add_hline(
+        y=depth, line_width=2.5, line_dash="dash", line_color="#06b6d4",
+        annotation_text=f"Зафиксировано: {depth:.2f} м · {value:.5g}",
+        annotation_position="top right",
+        annotation_font={"size": 14, "color": "#67e8f9"},
+        annotation_bgcolor="rgba(8,47,73,0.92)",
+        annotation_bordercolor="#06b6d4",
+        annotation_borderwidth=1,
+    )
+    return figure
 def _render_professional_export_panel(
     logger,
     active_project: ProjectRecord,
@@ -11861,27 +11891,49 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 ),
             ))
         if TABLET_TRACK_OPTION in selected_tracks and tablet_columns:
-            tablet_tracks = normalize_track_configs(
-                tablet_columns,
-                x_ranges=tablet_x_ranges,
-                units=tablet_units_from_dataframe(screen_filtered_df),
-                colors=tablet_colors,
-                fill=tablet_fill,
-                fill_modes=tablet_fill_modes,
-            )
-            render_tasks.append(RenderTask(
-                "engineering-tablet",
-                lambda: build_well_log_tablet(
-                    tablet_screen_df,
-                    tablet_tracks,
-                    depth_range=tablet_depth_range,
-                    markers=tablet_markers,
-                    zones=tablet_zones,
-                    reservoir_intervals=visible_reservoir_overlays,
-                    selected_depth=selected_tablet_depth,
-                    height=max(int(height), 760),
-                ),
-            ))
+            # A single tablet with 12-16 tracks becomes unreadable even on a
+            # wide monitor.  Render semantic groups of at most eight curves.
+            tablet_column_groups = [
+                tuple(tablet_columns[index:index + 8])
+                for index in range(0, len(tablet_columns), 8)
+            ]
+            for group_index, tablet_column_group in enumerate(tablet_column_groups, start=1):
+                tablet_tracks = normalize_track_configs(
+                    tablet_column_group,
+                    x_ranges=tablet_x_ranges,
+                    units=tablet_units_from_dataframe(screen_filtered_df),
+                    colors=tablet_colors,
+                    fill=tablet_fill,
+                    fill_modes=tablet_fill_modes,
+                )
+                task_id = f"engineering-tablet-{group_index}"
+
+                def _build_tablet_group(
+                    tracks=tablet_tracks,
+                    index=group_index,
+                    count=len(tablet_column_groups),
+                ):
+                    figure = build_well_log_tablet(
+                        tablet_screen_df,
+                        tracks,
+                        depth_range=tablet_depth_range,
+                        markers=tablet_markers,
+                        zones=tablet_zones,
+                        reservoir_intervals=visible_reservoir_overlays,
+                        selected_depth=selected_tablet_depth,
+                        height=max(int(height), 760),
+                    )
+                    if count > 1:
+                        figure.update_layout(
+                            title={
+                                "text": f"Интерпретационный планшет · группа {index}/{count}",
+                                "x": 0.0,
+                                "xanchor": "left",
+                            }
+                        )
+                    return figure
+
+                render_tasks.append(RenderTask(task_id, _build_tablet_group))
 
         render_batch = render_queue.execute_resilient(render_tasks)
         task_results = render_batch.completed
@@ -11916,7 +11968,10 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 "Не удалось построить отдельные графики: " + failed_labels
                 + ". Остальные результаты остаются доступными."
             )
-        tablet_result = next((result for result in task_results if result.task_id == "engineering-tablet"), None)
+        tablet_result = next(
+            (result for result in task_results if result.task_id.startswith("engineering-tablet-")),
+            None,
+        )
         tablet_figure = tablet_result.value if tablet_result is not None else None
         cached_bundle = presentation_service.put_plot_bundle(figure_cache_key, figures, tablet_figure=tablet_figure)
         screen_plot_payloads = list(cached_bundle.screen_payloads)
@@ -11964,6 +12019,10 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         )
         frontend_dispatch_started = perf_counter()
         plot_key = f"interpretation_plot_{stable_plot_token}_{fingerprint}"
+        persisted_plot_selection = state_controller.get_value(
+            f"report_plot_selection_{active_project.id}"
+        )
+        render_value = _apply_persisted_plot_selection(render_value, persisted_plot_selection)
         try:
             plot_event = st.plotly_chart(
                 render_value,

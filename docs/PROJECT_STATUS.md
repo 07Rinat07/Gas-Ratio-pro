@@ -263,3 +263,5 @@ Print Center снова открывается: устранён schema-drift м
 ### v222.67 status
 
 The report export constructor regression is fixed in the actual full project tree. Quantitative plot statistics, C1–C5 total, Wh/Bh/Ch coverage, persisted Plotly point selection, and print-scale hardening are implemented and covered by targeted regression tests.
+
+- v222.69: завершено фиксирование выбранной точки, группировка экранных/печатных треков и увеличение читаемости печатных планшетов.
