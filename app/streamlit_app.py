@@ -9565,6 +9565,7 @@ def _render_professional_export_panel(
     versions that support fragments, so the surrounding Plotly charts are not
     serialized and sent to the browser again.
     """
+    state_controller = _application_state_controller()
     selected_plot_point = state_controller.get_value(f"report_plot_selection_{active_project.id}")
     if isinstance(selected_plot_point, dict) and selected_plot_point:
         calculated_df.attrs["report_plot_selection"] = dict(selected_plot_point)
@@ -9601,7 +9602,6 @@ def _render_professional_export_panel(
         default_print_bottom = (
             float(selected_interval.base) if selected_interval is not None else float(depth_range[1])
         )
-        state_controller = _application_state_controller()
         export_state = state_controller.state
         cache_metrics_registry = state_controller.ensure_runtime_service(
             "cache_metrics_registry",

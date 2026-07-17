@@ -1,3 +1,11 @@
+# Changelog
+
+## v222.68 — Export panel state-controller hotfix
+
+- Fixed `UnboundLocalError` in the Interpretation Print & Export panel by initializing the application state controller before reading the selected plot point.
+- Removed the duplicate late state-controller initialization.
+- Added a regression test that enforces initialization-before-use and a single export-state binding.
+
 
 ## v222.63 — Plot Header Separation & Export Cache Invalidation
 

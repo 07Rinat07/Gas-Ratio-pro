@@ -38,3 +38,14 @@ def test_export_form_contains_submit_button() -> None:
     submit = source.index("st.form_submit_button(", form_start)
 
     assert submit > form_start
+
+
+def test_state_controller_is_initialized_before_plot_selection_read() -> None:
+    source = _professional_export_source()
+
+    initialization = source.index("state_controller = _application_state_controller()")
+    selection_read = source.index("selected_plot_point = state_controller.get_value(")
+
+    assert initialization < selection_read
+    assert source.count("state_controller = _application_state_controller()") == 1
+    assert source.count("export_state = state_controller.state") == 1
