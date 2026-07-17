@@ -1,3 +1,7 @@
-# Current implementation status - v223.1
+# Текущее состояние — v225.1
 
-Composite Log v4 is the canonical engineering visualization for the interpretation workspace and professional reports. The same track specification, depth grid, interval overlays, scales and curve identities are used for browser SVG, PDF and DOCX output. Legacy Plotly report pages remain only as compatibility code and are no longer selected by the presentation model.
+Professional Print Center использует renderer-neutral модель отчёта и сохраняет только компактные проектные метаданные фактического состава. Snapshot schema-v1 автоматически мигрирует в schema-v2 с rollback-копией; повреждённые данные восстанавливаются из резервной копии или изолируются, а snapshot будущей версии остаётся неизменным.
+
+Канонический план проекта: [`project/PROJECT_PLAN.md`](project/PROJECT_PLAN.md).
+
+Следующий разрешённый инкремент: отдельные физические профили A4/A3 с минимальными размерами типографики и page-aware разбиением инженерных треков.

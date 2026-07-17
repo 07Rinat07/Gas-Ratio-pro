@@ -13,7 +13,11 @@ from pathlib import Path
 import re
 from typing import Any, Mapping
 
-from reports.report_designer import resolve_report_document_counts_snapshot
+from reports.report_designer import (
+    REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA,
+    migrate_report_document_counts_snapshot,
+    resolve_report_document_counts_snapshot,
+)
 
 _SAFE_ID = re.compile(r"[^A-Za-z0-9._-]+")
 _FILE_NAME = "report_preview_counts.json"
@@ -35,6 +39,10 @@ class ReportPreviewCountsStorageHealth:
     quarantine_count: int = 0
     quarantine_bytes: int = 0
     total_bytes: int = 0
+    current_schema: int = REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA
+    primary_schema: int | None = None
+    backup_schema: int | None = None
+    migration_required: bool = False
     message: str = ""
 
 
@@ -54,7 +62,28 @@ class ReportPreviewCountsLoadResult:
     source: str
     recovered: bool = False
     quarantined: tuple[str, ...] = ()
+    migrated: bool = False
+    migration_persisted: bool = False
+    source_schema: int | None = None
+    target_schema: int = REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA
     message: str = ""
+
+
+@dataclass(frozen=True)
+class _ValidatedSnapshot:
+    payload: dict[str, Any]
+    original_payload: dict[str, Any]
+    source_schema: int | None
+    target_schema: int
+    migrated: bool
+
+
+class _UnsupportedSnapshotSchemaError(ValueError):
+    """Raised when an older build encounters a snapshot from a newer build."""
+
+    def __init__(self, message: str, *, source_schema: int | None = None) -> None:
+        super().__init__(message)
+        self.source_schema = source_schema
 
 
 class ReportPreviewCountsRepository:
@@ -84,10 +113,19 @@ class ReportPreviewCountsRepository:
         return self.path_for(project_id).with_suffix(_BACKUP_SUFFIX)
 
     @staticmethod
-    def _validated_payload(payload: object) -> dict[str, Any]:
+    def _validated_snapshot(payload: object) -> _ValidatedSnapshot:
         if not isinstance(payload, Mapping):
             raise ValueError("report preview snapshot must be a mapping")
-        normalized = dict(payload)
+        original = dict(payload)
+        migration = migrate_report_document_counts_snapshot(original)
+        if migration.payload is None:
+            if migration.state == "unsupported":
+                raise _UnsupportedSnapshotSchemaError(
+                    migration.message,
+                    source_schema=migration.source_schema,
+                )
+            raise ValueError(f"invalid report preview snapshot: {migration.state}")
+        normalized = dict(migration.payload)
         signature = str(normalized.get("signature") or "").strip()
         resolution = resolve_report_document_counts_snapshot(
             normalized,
@@ -95,12 +133,26 @@ class ReportPreviewCountsRepository:
         )
         if resolution.state != "current" or resolution.counts is None:
             raise ValueError(f"invalid report preview snapshot: {resolution.state}")
-        return normalized
+        return _ValidatedSnapshot(
+            payload=normalized,
+            original_payload=original,
+            source_schema=migration.source_schema,
+            target_schema=migration.target_schema,
+            migrated=migration.migrated,
+        )
+
+    @classmethod
+    def _validated_payload(cls, payload: object) -> dict[str, Any]:
+        return cls._validated_snapshot(payload).payload
+
+    @classmethod
+    def _read_validated_snapshot(cls, path: Path) -> _ValidatedSnapshot:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return cls._validated_snapshot(payload)
 
     @classmethod
     def _read_validated_file(cls, path: Path) -> dict[str, Any]:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        return cls._validated_payload(payload)
+        return cls._read_validated_snapshot(path).payload
 
     @staticmethod
     def _write_atomic(path: Path, payload: Mapping[str, Any]) -> None:
@@ -124,6 +176,10 @@ class ReportPreviewCountsRepository:
         if target.exists():
             try:
                 previous = self._read_validated_file(target)
+            except _UnsupportedSnapshotSchemaError:
+                raise ValueError(
+                    "cannot overwrite a report preview snapshot created by a newer application version"
+                ) from None
             except (OSError, ValueError, TypeError, json.JSONDecodeError):
                 previous = None
             if previous is not None:
@@ -143,28 +199,78 @@ class ReportPreviewCountsRepository:
         primary_error: Exception | None = None
         if target.exists():
             try:
-                payload = self._read_validated_file(target)
+                validated = self._read_validated_snapshot(target)
+                migration_persisted = False
+                message = "Снимок загружен из проектного хранилища."
+                if validated.migrated:
+                    try:
+                        # Keep the exact pre-migration payload as the rollback
+                        # copy, then atomically replace the primary with the
+                        # canonical current-schema representation.
+                        self._write_atomic(backup, validated.original_payload)
+                        self._write_atomic(target, validated.payload)
+                        migration_persisted = True
+                        message = (
+                            f"Снимок автоматически мигрирован со схемы v{validated.source_schema} "
+                            f"на v{validated.target_schema}."
+                        )
+                    except OSError:
+                        message = (
+                            f"Снимок мигрирован в памяти со схемы v{validated.source_schema} "
+                            f"на v{validated.target_schema}, но обновить файл не удалось."
+                        )
                 self.maintain_quarantine(project_id)
                 return ReportPreviewCountsLoadResult(
-                    payload,
+                    validated.payload,
                     "primary",
-                    message="Снимок загружен из проектного хранилища.",
+                    migrated=validated.migrated,
+                    migration_persisted=migration_persisted,
+                    source_schema=validated.source_schema,
+                    target_schema=validated.target_schema,
+                    message=message,
+                )
+            except _UnsupportedSnapshotSchemaError as exc:
+                return ReportPreviewCountsLoadResult(
+                    None,
+                    "unsupported",
+                    source_schema=exc.source_schema,
+                    message=str(exc),
                 )
             except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
                 primary_error = exc
 
         if backup.exists():
             try:
-                payload = self._read_validated_file(backup)
+                validated = self._read_validated_snapshot(backup)
                 quarantined = self._quarantine_existing((target,))
-                self._write_atomic(target, payload)
+                self._write_atomic(target, validated.payload)
                 self.maintain_quarantine(project_id)
+                migration_note = (
+                    f" Резервная копия мигрирована со схемы v{validated.source_schema} "
+                    f"на v{validated.target_schema}."
+                    if validated.migrated
+                    else ""
+                )
                 return ReportPreviewCountsLoadResult(
-                    payload,
+                    validated.payload,
                     "backup",
                     recovered=True,
                     quarantined=quarantined,
-                    message="Повреждённый основной снимок восстановлен из резервной копии.",
+                    migrated=validated.migrated,
+                    migration_persisted=validated.migrated,
+                    source_schema=validated.source_schema,
+                    target_schema=validated.target_schema,
+                    message=(
+                        "Повреждённый основной снимок восстановлен из резервной копии."
+                        + migration_note
+                    ),
+                )
+            except _UnsupportedSnapshotSchemaError as exc:
+                return ReportPreviewCountsLoadResult(
+                    None,
+                    "unsupported",
+                    source_schema=exc.source_schema,
+                    message=str(exc),
                 )
             except (OSError, ValueError, TypeError, json.JSONDecodeError):
                 pass
@@ -189,21 +295,44 @@ class ReportPreviewCountsRepository:
         backup = self.backup_path_for(project_id)
         quarantined = self.quarantine_paths(project_id)
 
-        def inspect(path: Path) -> tuple[bool, bool, int]:
+        def inspect(path: Path) -> tuple[bool, bool, int, int | None, bool, bool]:
             if not path.exists():
-                return False, False, 0
+                return False, False, 0, None, False, False
             try:
                 size = path.stat().st_size
             except OSError:
                 size = 0
             try:
-                self._read_validated_file(path)
+                validated = self._read_validated_snapshot(path)
+            except _UnsupportedSnapshotSchemaError as exc:
+                return True, False, size, exc.source_schema, False, True
             except (OSError, ValueError, TypeError, json.JSONDecodeError):
-                return True, False, size
-            return True, True, size
+                return True, False, size, None, False, False
+            return (
+                True,
+                True,
+                size,
+                validated.source_schema,
+                validated.migrated,
+                False,
+            )
 
-        primary_exists, primary_valid, primary_bytes = inspect(target)
-        backup_exists, backup_valid, backup_bytes = inspect(backup)
+        (
+            primary_exists,
+            primary_valid,
+            primary_bytes,
+            primary_schema,
+            primary_migration,
+            primary_unsupported,
+        ) = inspect(target)
+        (
+            backup_exists,
+            backup_valid,
+            backup_bytes,
+            backup_schema,
+            backup_migration,
+            backup_unsupported,
+        ) = inspect(backup)
         quarantine_bytes = 0
         for path in quarantined:
             try:
@@ -211,12 +340,18 @@ class ReportPreviewCountsRepository:
             except OSError:
                 continue
 
-        if primary_valid:
+        if primary_unsupported or (not primary_valid and backup_unsupported):
+            status = "unsupported"
+            message = "Снимок создан более новой версией приложения и оставлен без изменений."
+        elif primary_valid and primary_migration:
+            status = "migration_available"
+            message = "Основной снимок корректен и будет автоматически обновлён до текущей схемы."
+        elif primary_valid:
             status = "healthy"
             message = "Основной снимок корректен."
-        elif primary_exists and backup_valid:
+        elif backup_valid:
             status = "recoverable"
-            message = "Основной снимок повреждён, доступна корректная резервная копия."
+            message = "Основной снимок отсутствует или повреждён; доступна корректная резервная копия."
         elif primary_exists or backup_exists:
             status = "degraded"
             message = "Метаданные предпросмотра повреждены и требуют восстановления или очистки."
@@ -236,6 +371,9 @@ class ReportPreviewCountsRepository:
             quarantine_count=len(quarantined),
             quarantine_bytes=quarantine_bytes,
             total_bytes=primary_bytes + backup_bytes + quarantine_bytes,
+            primary_schema=primary_schema,
+            backup_schema=backup_schema,
+            migration_required=primary_migration or backup_migration,
             message=message,
         )
 

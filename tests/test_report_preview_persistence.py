@@ -4,7 +4,12 @@ import json
 
 import pytest
 
-from reports.report_designer import ReportDocumentCounts, build_report_document_counts_snapshot
+from reports.report_designer import (
+    REPORT_DOCUMENT_COUNTS_SNAPSHOT_KIND,
+    REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA,
+    ReportDocumentCounts,
+    build_report_document_counts_snapshot,
+)
 from reports.report_preview_persistence import ReportPreviewCountsRepository
 
 
@@ -14,6 +19,14 @@ def _snapshot(signature: str = "abc") -> dict[str, object]:
         signature=signature,
         generated_at="2026-07-14T00:00:00+00:00",
     )
+
+
+def _legacy_snapshot(signature: str = "abc") -> dict[str, object]:
+    payload = _snapshot(signature)
+    payload["schema"] = 1
+    payload.pop("kind")
+    payload.pop("renderer_neutral")
+    return payload
 
 
 def test_repository_round_trip_is_project_scoped(tmp_path):
@@ -228,6 +241,99 @@ def test_repository_storage_health_includes_quarantine_usage(tmp_path):
     assert health.quarantine_count == 2
     assert health.quarantine_bytes == sum(path.stat().st_size for path in paths)
     assert health.total_bytes == health.quarantine_bytes
+
+
+def test_repository_migrates_v1_primary_atomically_and_keeps_rollback_copy(tmp_path):
+    repository = ReportPreviewCountsRepository(tmp_path)
+    primary = repository.path_for("project-1")
+    primary.parent.mkdir(parents=True)
+    primary.write_text(json.dumps(_legacy_snapshot("legacy")), encoding="utf-8")
+
+    result = repository.load_with_recovery("project-1")
+
+    assert result.source == "primary"
+    assert result.migrated is True
+    assert result.migration_persisted is True
+    assert result.source_schema == 1
+    assert result.target_schema == REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA
+    assert result.payload is not None
+    assert result.payload["kind"] == REPORT_DOCUMENT_COUNTS_SNAPSHOT_KIND
+    persisted = json.loads(primary.read_text(encoding="utf-8"))
+    rollback = json.loads(repository.backup_path_for("project-1").read_text(encoding="utf-8"))
+    assert persisted["schema"] == REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA
+    assert rollback["schema"] == 1
+
+
+def test_repository_migrates_legacy_backup_during_recovery(tmp_path):
+    repository = ReportPreviewCountsRepository(tmp_path)
+    primary = repository.path_for("project-1")
+    backup = repository.backup_path_for("project-1")
+    primary.parent.mkdir(parents=True)
+    primary.write_text("broken", encoding="utf-8")
+    backup.write_text(json.dumps(_legacy_snapshot("legacy")), encoding="utf-8")
+
+    result = repository.load_with_recovery("project-1")
+
+    assert result.source == "backup"
+    assert result.recovered is True
+    assert result.migrated is True
+    assert result.migration_persisted is True
+    assert json.loads(primary.read_text(encoding="utf-8"))["schema"] == REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA
+
+
+def test_repository_leaves_future_schema_untouched(tmp_path):
+    repository = ReportPreviewCountsRepository(tmp_path)
+    primary = repository.path_for("project-1")
+    primary.parent.mkdir(parents=True)
+    future_payload = {"schema": 999, "signature": "future", "counts": {}}
+    primary.write_text(json.dumps(future_payload), encoding="utf-8")
+
+    result = repository.load_with_recovery("project-1")
+
+    assert result.source == "unsupported"
+    assert result.payload is None
+    assert result.source_schema == 999
+    assert json.loads(primary.read_text(encoding="utf-8")) == future_payload
+    assert repository.quarantine_paths("project-1") == ()
+
+    with pytest.raises(ValueError, match="newer application version"):
+        repository.save("project-1", _snapshot("current"))
+    assert json.loads(primary.read_text(encoding="utf-8")) == future_payload
+
+
+def test_repository_storage_health_reports_migration_and_backup_only_recovery(tmp_path):
+    repository = ReportPreviewCountsRepository(tmp_path)
+    primary = repository.path_for("legacy")
+    primary.parent.mkdir(parents=True)
+    primary.write_text(json.dumps(_legacy_snapshot()), encoding="utf-8")
+
+    legacy_health = repository.storage_health("legacy")
+    assert legacy_health.status == "migration_available"
+    assert legacy_health.primary_schema == 1
+    assert legacy_health.current_schema == REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA
+    assert legacy_health.migration_required is True
+
+    repository.save("backup-only", _snapshot("first"))
+    repository.save("backup-only", _snapshot("second"))
+    repository.path_for("backup-only").unlink()
+
+    backup_health = repository.storage_health("backup-only")
+    assert backup_health.status == "recoverable"
+    assert backup_health.primary_exists is False
+    assert backup_health.backup_valid is True
+
+
+def test_repository_storage_health_reports_future_schema_without_modifying_it(tmp_path):
+    repository = ReportPreviewCountsRepository(tmp_path)
+    primary = repository.path_for("project-1")
+    primary.parent.mkdir(parents=True)
+    primary.write_text(json.dumps({"schema": 7, "signature": "future", "counts": {}}), encoding="utf-8")
+
+    health = repository.storage_health("project-1")
+
+    assert health.status == "unsupported"
+    assert health.primary_schema == 7
+    assert health.primary_valid is False
 
 
 def test_streamlit_shows_report_preview_storage_health():

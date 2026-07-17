@@ -1,3 +1,12 @@
+# v225.1 — Forward-Compatible Report Preview Snapshots
+
+- Схема компактного snapshot состава отчёта обновлена до v2 и получила стабильный тип payload и renderer-neutral маркер.
+- Snapshot schema-v1 автоматически мигрирует с атомарной записью и точной rollback-копией исходного файла.
+- Snapshot, созданный более новой версией приложения, не понижается, не считается повреждённым и не перезаписывается.
+- Диагностика хранилища показывает версии основной и резервной схем, необходимость миграции и возможность восстановления только из backup.
+- Интерфейс центра печати сообщает о миграции и несовместимой будущей схеме через application-service boundary.
+- `DEPLOYMENT_BUILD.txt` синхронизирован с runtime-сборкой v225.1.
+
 # v223.5 - SVG Export Dependency Repair
 
 - Added explicit `svglib` and `CairoSVG` runtime dependencies.

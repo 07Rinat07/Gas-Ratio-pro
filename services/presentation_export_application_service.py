@@ -78,6 +78,9 @@ class PresentationExportApplicationService:
             "project_id": self._project_id,
             "root": str(self._root.resolve()),
             "preview_storage_status": preview.status,
+            "preview_storage_schema": preview.current_schema,
+            "preview_storage_migration_required": preview.migration_required,
+            "preview_storage_quarantine_count": preview.quarantine_count,
         }
 
     def _require_project(self, project_id: str) -> None:

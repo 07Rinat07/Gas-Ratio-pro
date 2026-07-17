@@ -9866,13 +9866,22 @@ def _render_professional_export_panel(
                 preview_counts_load = export_application.load_preview_counts()
                 if preview_counts_load.payload is not None:
                     export_state[report_preview_counts_key] = preview_counts_load.payload
-                if preview_counts_load.recovered or preview_counts_load.source == "quarantined":
+                if (
+                    preview_counts_load.recovered
+                    or preview_counts_load.migrated
+                    or preview_counts_load.source in {"quarantined", "unsupported"}
+                ):
                     export_state[preview_counts_recovery_notice_key] = preview_counts_load.message
                     logger.warning(
-                        "report_preview_counts_recovery project_id=%s source=%s quarantined=%s",
+                        "report_preview_counts_restore_notice project_id=%s source=%s "
+                        "quarantined=%s migrated=%s migration_persisted=%s source_schema=%s target_schema=%s",
                         safe_log_value(active_project.id),
                         safe_log_value(preview_counts_load.source),
                         safe_log_value(len(preview_counts_load.quarantined)),
+                        safe_log_value(preview_counts_load.migrated),
+                        safe_log_value(preview_counts_load.migration_persisted),
+                        safe_log_value(preview_counts_load.source_schema),
+                        safe_log_value(preview_counts_load.target_schema),
                     )
             except (OSError, ValueError, TypeError, json.JSONDecodeError):
                 logger.exception(
@@ -10194,18 +10203,33 @@ def _render_professional_export_panel(
                 if preview_storage_health is not None:
                     health_icon = {
                         "healthy": "✅",
+                        "migration_available": "🔄",
                         "recoverable": "⚠️",
                         "degraded": "❌",
                         "quarantined": "⚠️",
+                        "unsupported": "⛔",
                         "empty": "ℹ️",
                     }.get(preview_storage_health.status, "ℹ️")
                     with st.expander("Состояние хранилища предпросмотра", expanded=False):
                         st.markdown(f"{health_icon} **{preview_storage_health.message}**")
+                        primary_schema_label = (
+                            f"v{preview_storage_health.primary_schema}"
+                            if preview_storage_health.primary_schema is not None
+                            else "—"
+                        )
+                        backup_schema_label = (
+                            f"v{preview_storage_health.backup_schema}"
+                            if preview_storage_health.backup_schema is not None
+                            else "—"
+                        )
                         st.caption(
                             "Основной файл: "
                             + ("корректен" if preview_storage_health.primary_valid else "отсутствует или повреждён")
+                            + f" (схема {primary_schema_label})"
                             + " · Резервная копия: "
                             + ("корректна" if preview_storage_health.backup_valid else "отсутствует или повреждена")
+                            + f" (схема {backup_schema_label})"
+                            + f" · Текущая схема: v{preview_storage_health.current_schema}"
                             + f" · Карантин: {preview_storage_health.quarantine_count}"
                             + f" · Объём: {preview_storage_health.total_bytes} Б"
                         )

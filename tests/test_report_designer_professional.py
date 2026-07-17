@@ -242,6 +242,8 @@ def test_document_counts_signature_changes_with_render_context():
 
 def test_document_counts_snapshot_round_trip_and_state_diagnostics():
     from reports.report_designer import (
+        REPORT_DOCUMENT_COUNTS_SNAPSHOT_KIND,
+        REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA,
         ReportDocumentCounts,
         build_report_document_counts_snapshot,
         resolve_report_document_counts_snapshot,
@@ -253,10 +255,14 @@ def test_document_counts_snapshot_round_trip_and_state_diagnostics():
         signature="sig-a",
         generated_at="2026-07-13T18:00:00+00:00",
     )
+    assert payload["schema"] == REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA
+    assert payload["kind"] == REPORT_DOCUMENT_COUNTS_SNAPSHOT_KIND
+    assert payload["renderer_neutral"] is True
 
     current = resolve_report_document_counts_snapshot(payload, expected_signature="sig-a")
     assert current.state == "current"
     assert current.counts == counts
+    assert current.migrated is False
     assert "2026-07-13" in current.message
 
     stale = resolve_report_document_counts_snapshot(payload, expected_signature="sig-b")
@@ -284,6 +290,44 @@ def test_document_counts_snapshot_rejects_invalid_legacy_and_unsupported_payload
         {"schema": 1, "signature": "sig", "counts": "broken"}, expected_signature="sig"
     )
     assert invalid.state == "invalid"
+
+
+def test_document_counts_snapshot_migrates_v1_and_never_downcasts_future_schema():
+    from reports.report_designer import (
+        REPORT_DOCUMENT_COUNTS_SNAPSHOT_KIND,
+        REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA,
+        migrate_report_document_counts_snapshot,
+        resolve_report_document_counts_snapshot,
+    )
+
+    legacy = {
+        "schema": 1,
+        "signature": "sig",
+        "generated_at": "2026-07-14T00:00:00+00:00",
+        "counts": {"sections": 2, "tables": 1},
+    }
+    migration = migrate_report_document_counts_snapshot(legacy)
+
+    assert migration.state == "migrated"
+    assert migration.source_schema == 1
+    assert migration.target_schema == REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA
+    assert migration.migrated is True
+    assert migration.payload is not None
+    assert migration.payload["kind"] == REPORT_DOCUMENT_COUNTS_SNAPSHOT_KIND
+    assert migration.payload["renderer_neutral"] is True
+    assert legacy["schema"] == 1
+    assert "kind" not in legacy
+
+    resolved = resolve_report_document_counts_snapshot(legacy, expected_signature="sig")
+    assert resolved.state == "current"
+    assert resolved.migrated is True
+    assert resolved.source_schema == 1
+
+    future = {"schema": 999, "signature": "sig", "counts": {}}
+    unsupported = migrate_report_document_counts_snapshot(future)
+    assert unsupported.state == "unsupported"
+    assert unsupported.payload is None
+    assert future["schema"] == 999
 
 
 def test_document_counts_snapshot_normalizes_non_negative_integer_values():

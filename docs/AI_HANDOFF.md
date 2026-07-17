@@ -1,3 +1,22 @@
+# Latest implementation — Forward-Compatible Report Preview Snapshot Migration
+
+Status: COMPLETED
+
+Implemented:
+- report document-count snapshots now use schema v2 with a stable payload kind and explicit renderer-neutral marker;
+- schema-v1 snapshots are upgraded without mutating the supplied mapping;
+- durable loads preserve the exact pre-migration payload as a rollback backup and atomically replace the primary file;
+- snapshots from a newer application schema are never downcast, quarantined as corruption or overwritten by an older build;
+- storage health reports active/backup schema versions, migration requirements and backup-only recovery;
+- Streamlit exposes migration and unsupported-schema diagnostics through the existing application-service boundary.
+
+Validation:
+- syntax compilation passed for all modified Python modules;
+- 31 focused snapshot, persistence and application-service checks passed through a lightweight harness;
+- the supplied runtime does not contain `pytest`, `plotly` or `streamlit`, so the complete project suite was not executable in this container.
+
+Next priority: separate physical A4/A3 print profiles with minimum readable typography and page-aware track splitting.
+
 # Latest implementation — Bounded Report Preview Quarantine Maintenance
 
 Status: COMPLETED

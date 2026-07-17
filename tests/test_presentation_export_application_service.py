@@ -54,3 +54,6 @@ def test_service_reports_project_scoped_health(tmp_path: Path) -> None:
 
     assert health["project_id"] == "demo"
     assert health["preview_storage_status"] == "empty"
+    assert health["preview_storage_schema"] == 2
+    assert health["preview_storage_migration_required"] is False
+    assert health["preview_storage_quarantine_count"] == 0

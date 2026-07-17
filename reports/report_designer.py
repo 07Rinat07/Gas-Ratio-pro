@@ -162,7 +162,25 @@ def build_report_document_counts_signature(
 
 
 
-REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA = 1
+REPORT_DOCUMENT_COUNTS_SNAPSHOT_KIND = "gas-ratio-pro/report-document-counts"
+REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA = 2
+_REPORT_DOCUMENT_COUNTS_SNAPSHOT_OLDEST_SCHEMA = 1
+
+
+@dataclass(frozen=True)
+class ReportDocumentCountsSnapshotMigration:
+    """Result of upgrading persisted count metadata to the current schema.
+
+    Migration is intentionally one-way.  Snapshots created by a newer build
+    are reported as unsupported and are never rewritten by an older build.
+    """
+
+    payload: dict[str, object] | None
+    state: str
+    source_schema: int | None
+    target_schema: int
+    migrated: bool = False
+    message: str = ""
 
 
 @dataclass(frozen=True)
@@ -172,6 +190,109 @@ class ReportDocumentCountsSnapshotResolution:
     state: str
     counts: ReportDocumentCounts | None
     message: str
+    source_schema: int | None = None
+    target_schema: int = REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA
+    migrated: bool = False
+
+
+def migrate_report_document_counts_snapshot(
+    payload: object,
+) -> ReportDocumentCountsSnapshotMigration:
+    """Upgrade a supported snapshot without mutating the supplied mapping.
+
+    Schema v1 contained only the signature, timestamp and counters.  Schema v2
+    adds a stable payload discriminator and an explicit renderer-neutral flag,
+    allowing later persistence layers to distinguish this compact metadata from
+    rendered artifacts or other report snapshots.
+    """
+    if not isinstance(payload, Mapping):
+        return ReportDocumentCountsSnapshotMigration(
+            None,
+            "invalid",
+            None,
+            REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA,
+            message="Сохранённый снимок состава повреждён и не может быть мигрирован.",
+        )
+
+    raw_schema = payload.get("schema", _REPORT_DOCUMENT_COUNTS_SNAPSHOT_OLDEST_SCHEMA)
+    try:
+        source_schema = int(raw_schema)
+    except (TypeError, ValueError, OverflowError):
+        return ReportDocumentCountsSnapshotMigration(
+            None,
+            "invalid",
+            None,
+            REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA,
+            message="Версия сохранённого снимка состава указана некорректно.",
+        )
+
+    if source_schema < _REPORT_DOCUMENT_COUNTS_SNAPSHOT_OLDEST_SCHEMA:
+        return ReportDocumentCountsSnapshotMigration(
+            None,
+            "unsupported",
+            source_schema,
+            REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA,
+            message="Версия сохранённого снимка состава больше не поддерживается.",
+        )
+    if source_schema > REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA:
+        return ReportDocumentCountsSnapshotMigration(
+            None,
+            "unsupported",
+            source_schema,
+            REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA,
+            message="Снимок создан более новой версией приложения и не был изменён.",
+        )
+
+    migrated_payload: dict[str, object] = dict(payload)
+    schema = source_schema
+    migrated = False
+    while schema < REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA:
+        if schema == 1:
+            migrated_payload["schema"] = 2
+            migrated_payload["kind"] = REPORT_DOCUMENT_COUNTS_SNAPSHOT_KIND
+            migrated_payload["renderer_neutral"] = True
+            schema = 2
+            migrated = True
+            continue
+        return ReportDocumentCountsSnapshotMigration(
+            None,
+            "unsupported",
+            source_schema,
+            REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA,
+            message="Для версии сохранённого снимка отсутствует безопасный путь миграции.",
+        )
+
+    if migrated_payload.get("kind") != REPORT_DOCUMENT_COUNTS_SNAPSHOT_KIND:
+        return ReportDocumentCountsSnapshotMigration(
+            None,
+            "invalid",
+            source_schema,
+            REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA,
+            message="Тип сохранённого снимка состава не распознан.",
+        )
+    if migrated_payload.get("renderer_neutral") is not True:
+        return ReportDocumentCountsSnapshotMigration(
+            None,
+            "invalid",
+            source_schema,
+            REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA,
+            message="Снимок состава не подтверждает renderer-neutral контракт.",
+        )
+
+    message = (
+        f"Снимок состава мигрирован со схемы v{source_schema} "
+        f"на v{REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA}."
+        if migrated
+        else "Схема снимка состава актуальна."
+    )
+    return ReportDocumentCountsSnapshotMigration(
+        migrated_payload,
+        "migrated" if migrated else "current",
+        source_schema,
+        REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA,
+        migrated=migrated,
+        message=message,
+    )
 
 
 def build_report_document_counts_snapshot(
@@ -184,6 +305,8 @@ def build_report_document_counts_snapshot(
     timestamp = generated_at or datetime.now(timezone.utc).isoformat()
     return {
         "schema": REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA,
+        "kind": REPORT_DOCUMENT_COUNTS_SNAPSHOT_KIND,
+        "renderer_neutral": True,
         "signature": str(signature or "").strip(),
         "generated_at": str(timestamp).strip(),
         "counts": asdict(counts),
@@ -204,28 +327,44 @@ def resolve_report_document_counts_snapshot(
         return ReportDocumentCountsSnapshotResolution(
             "invalid", None, "Сохранённый снимок состава повреждён и был проигнорирован."
         )
-    schema = payload.get("schema", REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA)
-    try:
-        schema_value = int(schema)
-    except (TypeError, ValueError):
-        schema_value = -1
-    if schema_value != REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA:
+    migration = migrate_report_document_counts_snapshot(payload)
+    if migration.payload is None:
         return ReportDocumentCountsSnapshotResolution(
-            "unsupported", None, "Версия сохранённого снимка состава не поддерживается."
+            migration.state,
+            None,
+            migration.message,
+            source_schema=migration.source_schema,
+            target_schema=migration.target_schema,
         )
-    signature = str(payload.get("signature") or "").strip()
+    normalized_payload = migration.payload
+    signature = str(normalized_payload.get("signature") or "").strip()
     if not signature:
         return ReportDocumentCountsSnapshotResolution(
-            "legacy", None, "Старый снимок без контекстной сигнатуры безопасно проигнорирован."
+            "legacy",
+            None,
+            "Старый снимок без контекстной сигнатуры безопасно проигнорирован.",
+            source_schema=migration.source_schema,
+            target_schema=migration.target_schema,
+            migrated=migration.migrated,
         )
     if signature != str(expected_signature or "").strip():
         return ReportDocumentCountsSnapshotResolution(
-            "stale", None, "Параметры отчёта изменились; фактический состав будет обновлён после нового экспорта."
+            "stale",
+            None,
+            "Параметры отчёта изменились; фактический состав будет обновлён после нового экспорта.",
+            source_schema=migration.source_schema,
+            target_schema=migration.target_schema,
+            migrated=migration.migrated,
         )
-    raw_counts = payload.get("counts")
+    raw_counts = normalized_payload.get("counts")
     if not isinstance(raw_counts, Mapping):
         return ReportDocumentCountsSnapshotResolution(
-            "invalid", None, "В сохранённом снимке отсутствуют корректные числовые показатели."
+            "invalid",
+            None,
+            "В сохранённом снимке отсутствуют корректные числовые показатели.",
+            source_schema=migration.source_schema,
+            target_schema=migration.target_schema,
+            migrated=migration.migrated,
         )
     try:
         normalized = {
@@ -235,12 +374,23 @@ def resolve_report_document_counts_snapshot(
         counts = ReportDocumentCounts(**normalized)
     except (TypeError, ValueError, OverflowError):
         return ReportDocumentCountsSnapshotResolution(
-            "invalid", None, "Числовые показатели сохранённого снимка некорректны."
+            "invalid",
+            None,
+            "Числовые показатели сохранённого снимка некорректны.",
+            source_schema=migration.source_schema,
+            target_schema=migration.target_schema,
+            migrated=migration.migrated,
         )
-    generated_at = str(payload.get("generated_at") or "").strip()
+    generated_at = str(normalized_payload.get("generated_at") or "").strip()
     suffix = f" Снимок: {generated_at}." if generated_at else ""
+    migration_prefix = migration.message + " " if migration.migrated else ""
     return ReportDocumentCountsSnapshotResolution(
-        "current", counts, "Используется фактический состав последней подготовленной модели." + suffix
+        "current",
+        counts,
+        migration_prefix + "Используется фактический состав последней подготовленной модели." + suffix,
+        source_schema=migration.source_schema,
+        target_schema=migration.target_schema,
+        migrated=migration.migrated,
     )
 
 
@@ -846,9 +996,12 @@ __all__ = [
     "ReportPreviewItem",
     "ReportPageEstimate",
     "ReportDocumentCounts",
+    "ReportDocumentCountsSnapshotMigration",
     "ReportDocumentCountsSnapshotResolution",
+    "REPORT_DOCUMENT_COUNTS_SNAPSHOT_KIND",
     "REPORT_DOCUMENT_COUNTS_SNAPSHOT_SCHEMA",
     "build_report_document_counts_snapshot",
+    "migrate_report_document_counts_snapshot",
     "resolve_report_document_counts_snapshot",
     "report_document_counts",
     "build_report_document_counts_signature",
