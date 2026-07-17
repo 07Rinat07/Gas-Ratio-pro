@@ -72,7 +72,7 @@ def test_a4_landscape_paginates_tracks_without_changing_order_or_coverage():
     pages = print_layout["pages"]
 
     assert pipeline["validation"]["render_validation_ok"] is True
-    assert print_layout["version"] == "2.0"
+    assert print_layout["version"] == "2.1"
     assert print_layout["profile_id"] == "a4_landscape"
     assert len(pages) == 2
     assert [track_id for page in pages for track_id in page["track_ids"]] == [

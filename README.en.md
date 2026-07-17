@@ -9,8 +9,8 @@ A professional trilingual engineering platform for importing, quality-controllin
 - [User guide](docs/user/en/index.md)
 - [Developer documentation](docs/developer/en/index.md)
 - [Supported formats](docs/user/en/supported_formats_and_legal_sources.md)
-- [Project roadmap](docs/PROJECT_ROADMAP.md)
-- [Current status](docs/PROJECT_STATUS.md)
+- [Project plan](docs/project/PROJECT_PLAN.en.md)
+- [Current status](docs/PROJECT_STATUS.en.md)
 
 ## Supported and planned formats
 
@@ -30,6 +30,14 @@ A professional trilingual engineering platform for importing, quality-controllin
 - gas-geochemistry calculations and interval interpretation;
 - well correlation and preparation for multi-well log panels;
 - Russian, Kazakh, and English interface and documentation.
+
+## Print and export v225.3
+
+- one page-aware SVG/PDF/PNG package;
+- exact A4/A3 profile, orientation, DPI, and page count;
+- physical page chrome, numbering, and repeated legend;
+- [user instructions](docs/user/en/print_center_page_aware.md);
+- [developer architecture](docs/developer/en/page_aware_print_architecture.md).
 
 ## Installation and launch
 

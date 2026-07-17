@@ -100,6 +100,26 @@
         "kk": "developer/kk/index.md",
         "en": "developer/en/index.md"
       }
+    },
+    {
+      "id": "print_center_page_aware",
+      "revision": 1,
+      "audience": "user",
+      "languages": {
+        "ru": "user/ru/print_center_page_aware.md",
+        "kk": "user/kk/print_center_page_aware.md",
+        "en": "user/en/print_center_page_aware.md"
+      }
+    },
+    {
+      "id": "page_aware_print_architecture",
+      "revision": 1,
+      "audience": "developer",
+      "languages": {
+        "ru": "developer/ru/page_aware_print_architecture.md",
+        "kk": "developer/kk/page_aware_print_architecture.md",
+        "en": "developer/en/page_aware_print_architecture.md"
+      }
     }
   ]
 }

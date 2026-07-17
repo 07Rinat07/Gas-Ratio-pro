@@ -211,6 +211,21 @@ class VisualizationPdfRenderModelRenderer:
                     minimum_line_width_pt=minimum_line_width_pt,
                 )
                 pdf.restoreState()
+            for primitive in _mapping_list(page.get("chrome_primitives")):
+                if not _enabled(primitive):
+                    continue
+                pdf.saveState()
+                _draw_primitive(
+                    pdf,
+                    primitive,
+                    (1.0, 0.0, 0.0),
+                    page_height,
+                    font_name,
+                    issues,
+                    minimum_font_pt=minimum_font_pt,
+                    minimum_line_width_pt=minimum_line_width_pt,
+                )
+                pdf.restoreState()
             pdf.showPage()
 
         pdf.save()

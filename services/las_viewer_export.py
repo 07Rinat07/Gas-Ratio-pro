@@ -14,7 +14,9 @@ from typing import Any, Mapping
 from services.las_viewer_navigation import LasViewerNavigationController
 from services.las_viewer_shared_interaction import LasViewerSharedInteractionResult
 from services.visualization_export_qa import VisualizationExportQaValidator
+from services.visualization_page_aware_package import VisualizationPageAwarePackageBuilder
 from services.visualization_pdf_render_model_renderer import VisualizationPdfRenderModelRenderer
+from services.visualization_print_center_contract import VisualizationPrintCenterService
 from services.visualization_render_validation import VisualizationRenderValidationPipeline
 from services.visualization_svg_scene_renderer import VisualizationSvgSceneRenderer
 
@@ -67,17 +69,22 @@ class LasViewerExportBundle:
     pdf: LasViewerExportResult
     geometry_signature_match: bool
     qa: Mapping[str, Any]
+    png: LasViewerExportResult | None = None
+    print_center_summary: Mapping[str, Any] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
-        return self.svg.ok and self.pdf.ok and self.geometry_signature_match and bool(self.qa.get("ok"))
+        png_ok = self.png is None or self.png.ok
+        return self.svg.ok and self.pdf.ok and png_ok and self.geometry_signature_match and bool(self.qa.get("ok"))
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "schema": "las.viewer.export.bundle",
-            "version": "1.0",
+            "version": "1.1",
             "svg": self.svg.to_dict(),
             "pdf": self.pdf.to_dict(),
+            "png": self.png.to_dict() if self.png is not None else None,
+            "print_center_summary": dict(self.print_center_summary),
             "geometry_signature_match": self.geometry_signature_match,
             "qa": dict(self.qa),
             "ok": self.ok,
@@ -96,9 +103,12 @@ class LasViewerExportService:
         pdf_renderer: VisualizationPdfRenderModelRenderer | None = None,
         qa_validator: VisualizationExportQaValidator | None = None,
     ) -> None:
-        self._svg = svg_renderer or VisualizationSvgSceneRenderer()
-        self._pdf = pdf_renderer or VisualizationPdfRenderModelRenderer()
-        self._qa = qa_validator or VisualizationExportQaValidator()
+        builder = VisualizationPageAwarePackageBuilder(
+            svg_renderer=svg_renderer or VisualizationSvgSceneRenderer(),
+            pdf_renderer=pdf_renderer or VisualizationPdfRenderModelRenderer(),
+            qa_validator=qa_validator or VisualizationExportQaValidator(),
+        )
+        self._print_center = VisualizationPrintCenterService(builder)
 
     def export_current_view(
         self,
@@ -111,42 +121,61 @@ class LasViewerExportService:
         stop = float(viewport.get("domain_stop"))
 
         validation = VisualizationRenderValidationPipeline().validate(pipeline).to_dict()
-        svg_artifact = self._svg.render(pipeline)
-        pdf_artifact = self._pdf.render(pipeline)
-        qa = self._qa.validate(pipeline, svg_artifact, pdf_artifact).to_dict()
+        print_layout = pipeline.get("print_layout") if isinstance(pipeline.get("print_layout"), Mapping) else {}
+        page_chrome = print_layout.get("page_chrome") if isinstance(print_layout.get("page_chrome"), Mapping) else {}
+        locale = str(page_chrome.get("locale") or "ru")
+        prepared = self._print_center.prepare(pipeline, locale=locale)
+        package = prepared.package
+        qa = dict(package.qa)
 
-        svg_issues = tuple(dict.fromkeys(svg_artifact.issues))
-        pdf_issues = tuple(dict.fromkeys(pdf_artifact.issues))
+        svg_pages = tuple(page.svg.encode("utf-8") for page in package.pages)
+        png_pages = tuple(page.png_bytes for page in package.pages)
         svg = LasViewerExportResult(
             format="svg",
             viewport_start=start,
             viewport_stop=stop,
-            geometry_signature=svg_artifact.geometry_signature,
-            export_ready=svg_artifact.export_ready,
-            content=svg_artifact.svg.encode("utf-8") if svg_artifact.svg else b"",
-            page_contents=tuple(item.encode("utf-8") for item in svg_artifact.page_svgs),
-            page_count=svg_artifact.page_count,
+            geometry_signature=package.geometry_signature,
+            export_ready=package.export_ready,
+            content=svg_pages[0] if svg_pages else b"",
+            page_contents=svg_pages,
+            page_count=package.page_count,
             validation=validation,
             qa=qa,
-            issues=svg_issues,
+            issues=package.issues,
         )
         pdf = LasViewerExportResult(
             format="pdf",
             viewport_start=start,
             viewport_stop=stop,
-            geometry_signature=pdf_artifact.geometry_signature,
-            export_ready=pdf_artifact.export_ready,
-            content=pdf_artifact.pdf_bytes,
-            page_count=pdf_artifact.page_count,
+            geometry_signature=package.geometry_signature,
+            export_ready=package.export_ready,
+            content=package.pdf_bytes,
+            page_count=package.page_count,
             validation=validation,
             qa=qa,
-            issues=pdf_issues,
+            issues=package.issues,
+        )
+        png = LasViewerExportResult(
+            format="png",
+            viewport_start=start,
+            viewport_stop=stop,
+            geometry_signature=package.geometry_signature,
+            export_ready=package.export_ready,
+            content=png_pages[0] if png_pages else b"",
+            page_contents=png_pages,
+            page_count=package.page_count,
+            validation=validation,
+            qa=qa,
+            issues=package.issues,
         )
         return LasViewerExportBundle(
             svg=svg,
             pdf=pdf,
+            png=png,
+            print_center_summary=prepared.summary.to_dict(),
             geometry_signature_match=bool(
-                svg.geometry_signature and svg.geometry_signature == pdf.geometry_signature
+                svg.geometry_signature
+                and svg.geometry_signature == pdf.geometry_signature == png.geometry_signature
             ),
             qa=qa,
         )

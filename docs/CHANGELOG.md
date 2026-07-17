@@ -1,3 +1,15 @@
+# v225.3 — Page Chrome & Print Center Contract
+
+- `VisualizationPrintLayout` обновлён до v2.1 и получил физические header/footer/legend области.
+- Добавлены общие `chrome_primitives` в координатах `page_pt`: заголовок, подзаголовок, классификация, код документа, footer, page number и повторяемая легенда.
+- SVG и PDF рисуют одинаковые page-space primitives; PNG по-прежнему растеризуется из тех же SVG-страниц.
+- Geometry signature обновлена до v3 и учитывает page chrome.
+- `VisualizationPageAwarePackage` обновлён до v1.1 и передаёт page chrome contract.
+- Добавлен локализованный `VisualizationPrintCenterService` для ru/kk/en с точным профилем, DPI и page count.
+- LAS Viewer export переведён на один page-aware пакет SVG/PDF/PNG.
+- QA и документация ru/kk/en синхронизированы.
+- Исправлен `BackgroundExportManager`: `submit()` снова запускает работу через `ThreadPoolExecutor`, поэтому прогресс наблюдаем, а кооперативная отмена выполняется до завершения задачи.
+
 # v225.2 — Unified Page-Aware Export Package
 
 - Добавлен `VisualizationPageAwarePackageBuilder` как единая граница между Visualization Engine и Print Center.

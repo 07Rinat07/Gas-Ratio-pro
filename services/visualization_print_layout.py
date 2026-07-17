@@ -6,6 +6,10 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping
 
 from core.physical_print_profiles import PAGE_SIZES_MM, resolve_physical_print_profile
+from services.visualization_page_chrome import (
+    build_page_chrome_primitives,
+    resolve_page_chrome_options,
+)
 
 
 MM_TO_PT = 72.0 / 25.4
@@ -30,8 +34,11 @@ class VisualizationPrintPage:
     content_bounds: PrintRect
     source_bounds: PrintRect
     content_scale: float
+    header_bounds: PrintRect | None = None
+    footer_bounds: PrintRect | None = None
     legend_bounds: PrintRect | None = None
     track_ids: tuple[str, ...] = field(default_factory=tuple)
+    chrome_primitives: tuple[dict[str, Any], ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -41,15 +48,18 @@ class VisualizationPrintPage:
             "content_bounds": self.content_bounds.to_dict(),
             "source_bounds": self.source_bounds.to_dict(),
             "content_scale": self.content_scale,
+            "header_bounds": self.header_bounds.to_dict() if self.header_bounds else None,
+            "footer_bounds": self.footer_bounds.to_dict() if self.footer_bounds else None,
             "legend_bounds": self.legend_bounds.to_dict() if self.legend_bounds else None,
             "track_ids": list(self.track_ids),
+            "chrome_primitives": [dict(item) for item in self.chrome_primitives],
         }
 
 
 @dataclass(frozen=True, slots=True)
 class VisualizationPrintLayout:
     schema: str = "visualization.print.layout"
-    version: str = "2.0"
+    version: str = "2.1"
     profile_id: str = "a4_landscape"
     page_size: str = "A4"
     orientation: str = "landscape"
@@ -63,6 +73,7 @@ class VisualizationPrintLayout:
     minimum_line_width_pt: float = 0.5
     minimum_track_width_mm: float = 28.0
     max_tracks_per_page: int = 6
+    page_chrome: dict[str, Any] = field(default_factory=dict)
     pages: tuple[VisualizationPrintPage, ...] = field(default_factory=tuple)
     issues: tuple[str, ...] = field(default_factory=tuple)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -88,6 +99,7 @@ class VisualizationPrintLayout:
             "minimum_line_width_pt": self.minimum_line_width_pt,
             "minimum_track_width_mm": self.minimum_track_width_mm,
             "max_tracks_per_page": self.max_tracks_per_page,
+            "page_chrome": dict(self.page_chrome),
             "pages": [page.to_dict() for page in self.pages],
             "issues": list(self.issues),
             "metadata": dict(self.metadata),
@@ -106,6 +118,7 @@ class VisualizationPrintLayoutEngine:
         "scale_mode": "fit_page",
         "margin_mm": 12.0,
         "legend_position": "bottom",
+        "page_chrome": {"enabled": False},
     }
     LEGEND_BOTTOM_PT = 46.0
     LEGEND_RIGHT_PT = 120.0
@@ -183,17 +196,45 @@ class VisualizationPrintLayoutEngine:
             source_height_px = max(1.0, source_height_px)
 
         legend_items = _mapping_list((label_legend or {}).get("legend_items"))
+        page_chrome = resolve_page_chrome_options(cfg.get("page_chrome"))
+        chrome_enabled = bool(page_chrome.get("enabled"))
+        header_height = min(
+            _non_negative_float(page_chrome.get("header_height_pt"), 0.0),
+            max(0.0, printable_height * 0.20),
+        ) if chrome_enabled else 0.0
+        footer_height = min(
+            _non_negative_float(page_chrome.get("footer_height_pt"), 0.0),
+            max(0.0, printable_height * 0.12),
+        ) if chrome_enabled else 0.0
+        header_bounds = (
+            PrintRect(margin_pt, margin_pt, printable_width, header_height)
+            if header_height > 0
+            else None
+        )
+        footer_bounds = (
+            PrintRect(
+                margin_pt,
+                margin_pt + printable_height - footer_height,
+                printable_width,
+                footer_height,
+            )
+            if footer_height > 0
+            else None
+        )
+        body_top = margin_pt + header_height
+        body_height = max(1.0, printable_height - header_height - footer_height)
+
         legend_reserved = bool(legend_items) and legend_position != "none"
-        content_area = PrintRect(margin_pt, margin_pt, printable_width, printable_height)
+        content_area = PrintRect(margin_pt, body_top, printable_width, body_height)
         legend_bounds: PrintRect | None = None
         if legend_reserved and legend_position == "bottom":
-            reserved = min(self.LEGEND_BOTTOM_PT, max(0.0, printable_height * 0.25))
-            content_area = PrintRect(margin_pt, margin_pt, printable_width, max(1.0, printable_height - reserved))
-            legend_bounds = PrintRect(margin_pt, margin_pt + content_area.height, printable_width, reserved)
+            reserved = min(self.LEGEND_BOTTOM_PT, max(0.0, body_height * 0.25))
+            content_area = PrintRect(margin_pt, body_top, printable_width, max(1.0, body_height - reserved))
+            legend_bounds = PrintRect(margin_pt, body_top + content_area.height, printable_width, reserved)
         elif legend_reserved and legend_position == "right":
             reserved = min(self.LEGEND_RIGHT_PT, max(0.0, printable_width * 0.30))
-            content_area = PrintRect(margin_pt, margin_pt, max(1.0, printable_width - reserved), printable_height)
-            legend_bounds = PrintRect(margin_pt + content_area.width, margin_pt, reserved, printable_height)
+            content_area = PrintRect(margin_pt, body_top, max(1.0, printable_width - reserved), body_height)
+            legend_bounds = PrintRect(margin_pt + content_area.width, body_top, reserved, body_height)
 
         px_to_pt = 72.0 / float(dpi)
         tracks = _print_tracks(layout)
@@ -210,6 +251,7 @@ class VisualizationPrintLayoutEngine:
             track_groups = [([], PrintRect(0.0, 0.0, source_width_px, source_height_px))]
 
         pages: list[VisualizationPrintPage] = []
+        page_count = len(track_groups)
         for page_index, (group, source_bounds) in enumerate(track_groups, start=1):
             scale = _content_scale(
                 source_bounds.width * px_to_pt,
@@ -222,6 +264,17 @@ class VisualizationPrintLayoutEngine:
             origin_x = content_area.x + max(0.0, (content_area.width - scaled_width) / 2.0)
             origin_y = content_area.y + max(0.0, (content_area.height - scaled_height) / 2.0)
             track_ids = tuple(str(item.get("id") or "") for item in group if str(item.get("id") or ""))
+            chrome_primitives = build_page_chrome_primitives(
+                page_index=page_index,
+                page_count=page_count,
+                header_bounds=header_bounds.to_dict() if header_bounds else None,
+                footer_bounds=footer_bounds.to_dict() if footer_bounds else None,
+                legend_bounds=legend_bounds.to_dict() if legend_bounds else None,
+                legend_items=legend_items,
+                options=page_chrome,
+                minimum_font_pt=minimum_font_pt,
+                minimum_line_width_pt=minimum_line_width_pt,
+            )
             pages.append(
                 VisualizationPrintPage(
                     index=page_index,
@@ -230,8 +283,11 @@ class VisualizationPrintLayoutEngine:
                     content_bounds=PrintRect(origin_x, origin_y, scaled_width, scaled_height),
                     source_bounds=source_bounds,
                     content_scale=scale,
+                    header_bounds=header_bounds,
+                    footer_bounds=footer_bounds,
                     legend_bounds=legend_bounds,
                     track_ids=track_ids,
+                    chrome_primitives=chrome_primitives,
                 )
             )
 
@@ -251,12 +307,17 @@ class VisualizationPrintLayoutEngine:
             minimum_line_width_pt=minimum_line_width_pt,
             minimum_track_width_mm=minimum_track_width_mm,
             max_tracks_per_page=max_tracks_per_page,
+            page_chrome=page_chrome,
             pages=tuple(pages),
             issues=tuple(issues),
             metadata={
                 "page_count": len(pages),
                 "legend_item_count": len(legend_items),
                 "legend_reserved": legend_reserved,
+                "page_chrome_enabled": chrome_enabled,
+                "page_chrome_primitive_count": sum(len(page.chrome_primitives) for page in pages),
+                "header_height_pt": header_height,
+                "footer_height_pt": footer_height,
                 "source_width_px": source_width_px,
                 "source_height_px": source_height_px,
                 "source_width_pt": source_width_pt,

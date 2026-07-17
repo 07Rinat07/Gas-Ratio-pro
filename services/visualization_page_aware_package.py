@@ -25,6 +25,7 @@ class VisualizationPageAsset:
     track_ids: tuple[str, ...]
     width_pt: float
     height_pt: float
+    chrome_primitive_count: int
     svg: str
     png_bytes: bytes
 
@@ -38,6 +39,7 @@ class VisualizationPageAsset:
             "track_ids": list(self.track_ids),
             "width_pt": self.width_pt,
             "height_pt": self.height_pt,
+            "chrome_primitive_count": self.chrome_primitive_count,
             "svg_size_bytes": len(self.svg.encode("utf-8")),
             "svg_sha256": sha256(self.svg.encode("utf-8")).hexdigest() if self.svg else "",
             "png_size_bytes": len(self.png_bytes),
@@ -53,12 +55,13 @@ class VisualizationPageAsset:
 @dataclass(frozen=True, slots=True)
 class VisualizationPageAwarePackage:
     schema: str = "visualization.page-aware.package"
-    version: str = "1.0"
+    version: str = "1.1"
     profile_id: str = ""
     page_size: str = ""
     orientation: str = ""
     dpi: int = 0
     geometry_signature: str = ""
+    page_chrome: Mapping[str, Any] = field(default_factory=dict)
     pages: tuple[VisualizationPageAsset, ...] = field(default_factory=tuple)
     pdf_bytes: bytes = b""
     qa: Mapping[str, Any] = field(default_factory=dict)
@@ -95,6 +98,9 @@ class VisualizationPageAwarePackage:
             "orientation": self.orientation,
             "dpi": self.dpi,
             "geometry_signature": self.geometry_signature,
+            "page_chrome": dict(self.page_chrome),
+            "page_chrome_enabled": bool(self.page_chrome.get("enabled")),
+            "page_chrome_primitive_counts": [page.chrome_primitive_count for page in self.pages],
             "export_ready": self.export_ready,
             "contains_raw_dataframe": False,
             "single_page_fallback": False,
@@ -109,6 +115,8 @@ class VisualizationPageAwarePackage:
             "orientation": self.orientation,
             "dpi": self.dpi,
             "geometry_signature": self.geometry_signature,
+            "page_chrome": dict(self.page_chrome),
+            "page_chrome_enabled": bool(self.page_chrome.get("enabled")),
             "page_count": self.page_count,
             "pages": [page.to_dict(include_payloads=include_payloads) for page in self.pages],
             "pdf_size_bytes": len(self.pdf_bytes),
@@ -181,6 +189,7 @@ class VisualizationPageAwarePackageBuilder:
                     track_ids=tuple(str(item) for item in page.get("track_ids", ()) if str(item)),
                     width_pt=_positive_float(page_bounds.get("width")),
                     height_pt=_positive_float(page_bounds.get("height")),
+                    chrome_primitive_count=len(_mapping_list(page.get("chrome_primitives"))),
                     svg=svg.page_svgs[offset] if offset < len(svg.page_svgs) else "",
                     png_bytes=png.page_pngs[offset] if offset < len(png.page_pngs) else b"",
                 )
@@ -195,6 +204,7 @@ class VisualizationPageAwarePackageBuilder:
             orientation=str(print_layout.get("orientation") or ""),
             dpi=int(print_layout.get("dpi") or 0),
             geometry_signature=signature,
+            page_chrome=_mapping(print_layout.get("page_chrome")),
             pages=tuple(page_assets),
             pdf_bytes=pdf.pdf_bytes,
             qa=qa,

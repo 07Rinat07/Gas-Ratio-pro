@@ -272,10 +272,23 @@ class BackgroundExportManager:
             self._cancel_events[snapshot.id] = cancel_event
             self._write(snapshot)
 
-        # Run outside the manager lock: _run() updates progress and terminal state
-        # under the same lock. Running it while submit() still owns the lock would
-        # deadlock immediately at the first progress update.
-        self._run(snapshot.id, work, cancel_event)
+        # Dispatch the worker to the executor instead of calling _run()
+        # synchronously.  A synchronous call makes submit() wait for the entire
+        # export and therefore leaves no interval in which the UI can request
+        # cooperative cancellation or observe progress.
+        future = self._executor.submit(self._run, snapshot.id, work, cancel_event)
+        with self._lock:
+            self._futures[snapshot.id] = future
+
+        # Keep process-local runtime bookkeeping bounded.  The persisted job
+        # snapshot remains available after completion, while the Future itself
+        # is needed only while cancellation can still affect execution.
+        def discard_finished_future(_future: Future[Any]) -> None:
+            with self._lock:
+                if self._futures.get(snapshot.id) is _future:
+                    self._futures.pop(snapshot.id, None)
+
+        future.add_done_callback(discard_finished_future)
         with self._lock:
             return self._read(snapshot.id)
 

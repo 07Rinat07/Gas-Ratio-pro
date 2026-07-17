@@ -71,6 +71,18 @@ class VisualizationExportQaValidator:
             item for item in _mapping_list(render_model.get("primitives"))
             if bool(item.get("visible", True)) and bool(item.get("printable", True))
         ]
+        print_layout = _mapping(pipeline.get("print_layout"))
+        expected_page_primitives = [
+            primitive
+            for page in _mapping_list(print_layout.get("pages"))
+            for primitive in _mapping_list(page.get("chrome_primitives"))
+            if bool(primitive.get("visible", True)) and bool(primitive.get("printable", True))
+        ]
+        expected_primitive_ids = {
+            str(item.get("id") or "")
+            for item in [*expected_primitives, *expected_page_primitives]
+            if str(item.get("id") or "")
+        }
         expected_clips = _mapping_list(render_model.get("clip_regions"))
         issues: list[str] = []
 
@@ -93,7 +105,7 @@ class VisualizationExportQaValidator:
         svg_ok, svg_primitive_count, svg_clip_count, svg_issues = self._validate_svg(
             svg_pages,
             svg_meta,
-            expected_primitive_ids={str(item.get("id") or "") for item in expected_primitives},
+            expected_primitive_ids=expected_primitive_ids,
             expected_clip_ids={str(item.get("id") or "") for item in expected_clips},
         )
         issues.extend(svg_issues)
@@ -114,7 +126,7 @@ class VisualizationExportQaValidator:
             renderer_parity_ok=renderer_parity_ok,
             geometry_signature_match=geometry_signature_match,
             print_quality_ok=print_quality.ok,
-            expected_primitive_count=len(expected_primitives),
+            expected_primitive_count=len(expected_primitive_ids),
             svg_primitive_count=svg_primitive_count,
             expected_clip_count=len(expected_clips),
             svg_clip_count=svg_clip_count,

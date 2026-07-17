@@ -7,7 +7,8 @@ Current instructions for using the application. Documents are synchronized acros
 - [LAS Quality Control](las_qc.md) — revision 1
 - [Supported Formats and Legal Sources](supported_formats_and_legal_sources.md) — revision 1
 - [Import Profiles](import_profiles.md) — revision 1
-- [Import Wizard](import_wizard.md) — revision 1
+- [Import Wizard](import_wizard.md) — revision 5
+- [Print Center and physical pages](print_center_page_aware.md) — revision 1
 
 ---
 

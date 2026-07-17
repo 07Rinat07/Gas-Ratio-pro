@@ -1,3 +1,24 @@
+# Latest implementation — Page Chrome & Print Center Contract v225.3
+
+Status: COMPLETED
+
+Implemented:
+- `VisualizationPrintLayout` v2.1 reserves physical header, footer and repeated-legend regions;
+- page title, subtitle, classification, document code, footer, page number and legend are serialized once as `page_pt` chrome primitives;
+- SVG and PDF consume the same page primitives, while PNG is rasterized from the same SVG page set;
+- geometry signature v3 includes physical page regions and page chrome;
+- `VisualizationPageAwarePackage` v1.1 exposes chrome metadata and primitive counts;
+- `VisualizationPrintCenterService` provides exact profile, orientation, DPI and page count in ru/kk/en;
+- LAS Viewer export now consumes one page-aware SVG/PDF/PNG package rather than coordinating renderers independently;
+- user and developer documentation, implementation plans, status, changelog and README files are synchronized in Russian, Kazakh and English.
+
+Validation:
+- focused visualization, renderer, package, Print Center and LAS Viewer checks pass;
+- Python syntax compilation passes for all changed modules;
+- the complete regression suite must still be run before deleting remaining legacy static-export branches.
+
+Next priority: surface the localized physical-package summary in the visible Professional Print Center and pass the existing page-aware preview contract directly into DOCX/HTML.
+
 # Latest implementation — Physical A4/A3 Page-Aware Rendering
 
 Status: COMPLETED

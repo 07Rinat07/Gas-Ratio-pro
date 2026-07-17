@@ -147,7 +147,7 @@ def visualization_geometry_signature(pipeline: Mapping[str, Any]) -> str:
     print_layout = _mapping(pipeline.get("print_layout"))
     pages = _mapping_list(print_layout.get("pages"))
     payload = {
-        "schema": "visualization.geometry.signature/v2",
+        "schema": "visualization.geometry.signature/v3",
         "render_model_size": [_number(render_model.get("width")), _number(render_model.get("height"))],
         "primitives": primitives,
         "clip_regions": clips,
@@ -162,10 +162,19 @@ def visualization_geometry_signature(pipeline: Mapping[str, Any]) -> str:
                 {
                     "index": int(page.get("index") or 0),
                     "page_bounds": _canonical_mapping(_mapping(page.get("page_bounds"))),
+                    "printable_bounds": _canonical_mapping(_mapping(page.get("printable_bounds"))),
+                    "header_bounds": _canonical_mapping(_mapping(page.get("header_bounds"))),
+                    "footer_bounds": _canonical_mapping(_mapping(page.get("footer_bounds"))),
+                    "legend_bounds": _canonical_mapping(_mapping(page.get("legend_bounds"))),
                     "content_bounds": _canonical_mapping(_mapping(page.get("content_bounds"))),
                     "source_bounds": _canonical_mapping(_mapping(page.get("source_bounds"))),
                     "content_scale": _number(page.get("content_scale")),
                     "track_ids": [str(item) for item in page.get("track_ids", [])],
+                    "chrome_primitives": [
+                        _canonical_primitive(item)
+                        for item in _mapping_list(page.get("chrome_primitives"))
+                        if _enabled(item)
+                    ],
                 }
                 for page in pages
             ],

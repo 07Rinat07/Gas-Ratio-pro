@@ -23,7 +23,7 @@ class SvgSceneRenderResult:
     """Serializable output of the scene-to-SVG adapter."""
 
     schema: str = "visualization.renderer.svg.result"
-    version: str = "1.1"
+    version: str = "1.2"
     renderer: str = "visualization_svg_scene_renderer"
     source_schema: str = ""
     width: int = 0
@@ -343,8 +343,63 @@ class VisualizationSvgSceneRenderer:
         parts.append("</g>")
         if content:
             parts.append("</g>")
+        self._append_page_space_primitives(
+            parts,
+            _mapping_list(selected_page.get("chrome_primitives")),
+            issues=issues,
+            minimum_font_pt=minimum_font_pt,
+            minimum_line_width_pt=minimum_line_width_pt,
+        )
         parts.append("</svg>")
         return "".join(parts)
+
+    def _append_page_space_primitives(
+        self,
+        parts: list[str],
+        primitives: list[dict[str, Any]],
+        *,
+        issues: list[str],
+        minimum_font_pt: float,
+        minimum_line_width_pt: float,
+    ) -> None:
+        if not primitives:
+            return
+        parts.append('<g data-layer="page-chrome" font-family="Arial, DejaVu Sans, sans-serif">')
+        for primitive in primitives:
+            if not bool(primitive.get("visible", True)) or not bool(primitive.get("printable", True)):
+                continue
+            payload = _mapping(primitive.get("payload"))
+            kind = str(primitive.get("kind") or "")
+            primitive_id = escape(str(primitive.get("id") or ""), quote=True)
+            data_kind = escape(str(payload.get("data_kind") or "page_chrome"), quote=True)
+            attrs = f' data-primitive="{primitive_id}" data-kind="{data_kind}" data-coordinate-space="page_pt"'
+            if kind == "line":
+                stroke_width = max(minimum_line_width_pt, _positive_float(payload.get("stroke_width"), 1.0))
+                parts.append(
+                    f'<line{attrs} x1="{_number(payload.get("x1"))}" y1="{_number(payload.get("y1"))}" '
+                    f'x2="{_number(payload.get("x2"))}" y2="{_number(payload.get("y2"))}" '
+                    f'stroke="{_safe_color_or_none(payload.get("stroke"), "#607d8b")}" stroke-width="{stroke_width:g}"/>'
+                )
+            elif kind == "text":
+                text = escape(str(payload.get("text") or ""))
+                anchor = escape(str(payload.get("text_anchor") or "start"), quote=True)
+                font_size = max(minimum_font_pt, _positive_float(payload.get("font_size"), minimum_font_pt))
+                parts.append(
+                    f'<text{attrs} x="{_number(payload.get("x"))}" y="{_number(payload.get("y"))}" '
+                    f'font-size="{font_size:g}" font-weight="{_number(payload.get("font_weight"), 400)}" '
+                    f'text-anchor="{anchor}" fill="{_safe_color_or_none(payload.get("fill"), "#263238")}">{text}</text>'
+                )
+            elif kind == "rectangle":
+                stroke_width = max(minimum_line_width_pt, _positive_float(payload.get("stroke_width"), 1.0))
+                parts.append(
+                    f'<rect{attrs} x="{_number(payload.get("x"))}" y="{_number(payload.get("y"))}" '
+                    f'width="{_number(payload.get("width"))}" height="{_number(payload.get("height"))}" '
+                    f'fill="{_safe_color_or_none(payload.get("fill"), "none")}" '
+                    f'stroke="{_safe_color_or_none(payload.get("stroke"), "none")}" stroke-width="{stroke_width:g}"/>'
+                )
+            else:
+                issues.append(f"svg_renderer_unsupported_page_primitive:{kind or 'unknown'}")
+        parts.append("</g>")
 
     def _print_transform(
         self,
