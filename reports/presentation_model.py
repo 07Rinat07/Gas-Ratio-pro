@@ -142,11 +142,12 @@ def build_presentation_model(
     detail_results: list[object] = []
     if include_plot and source_df is not None and not source_df.empty:
         cfg = plot_config or WellLogPlotConfig(depth_column=depth_column)
+        report_tracks = ("tgas", "c1", "c2", "c3", "wh", "bh", "ch", "inverse_oil_indicator")
         plot_result = build_composite_log_v4(
             source_df, intervals=result.intervals,
             title="Обзорный инженерный планшет",
             report_title="Обзорный планшет скважины", report_kind="overview",
-            height=max(3600, cfg.height), target_width=7600,
+            height=max(4200, cfg.height), target_width=6200, include_keys=report_tracks,
         )
 
         profile = str((metadata or PresentationMetadata()).report_profile or "engineering").lower()
@@ -164,7 +165,8 @@ def build_presentation_model(
                 detail_df, intervals=group.intervals,
                 title=f"Инженерный планшет · {group.top:g}–{group.base:g} м",
                 report_title=f"Интервал {group.index}: {group.top:g}–{group.base:g} м · {fluids}",
-                report_kind="detail", height=max(3600, cfg.height), target_width=7600,
+                report_kind="detail", height=max(4200, cfg.height), target_width=6200,
+                include_keys=report_tracks,
             ))
 
     return PresentationModel(

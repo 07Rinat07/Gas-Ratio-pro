@@ -10523,6 +10523,9 @@ def _render_professional_export_panel(
                         safe_log_value(selected_format.id),
                         len(frame_snapshot),
                     )
+                    st.toast("Отчёт принят в работу. Повторно нажимать не нужно.", icon="🖨")
+                    _request_ui_refresh_and_rerun("background_export_submitted")
+                    return
                 except RuntimeError as exc:
                     st.warning(str(exc))
 

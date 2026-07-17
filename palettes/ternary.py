@@ -174,11 +174,26 @@ def _add_regions(fig: go.Figure, regions: tuple[TernaryRegion, ...]) -> None:
                 mode="lines",
                 fill="toself",
                 fillcolor=region.color,
-                line={"color": "rgba(80, 80, 80, 0.45)", "width": 1.2},
+                line={"color": "rgba(80, 80, 80, 0.55)", "width": 1.6},
                 name=region.name,
                 hovertemplate=region.name + "<extra>Методическая область</extra>",
             )
         )
+        # Label each interpretation field inside the triangle. This mirrors the
+        # readable field labels used by commercial mud-gas ternary templates.
+        if region.a and region.b and region.c:
+            fig.add_trace(
+                go.Scatterternary(
+                    a=[sum(region.a) / len(region.a)],
+                    b=[sum(region.b) / len(region.b)],
+                    c=[sum(region.c) / len(region.c)],
+                    mode="text",
+                    text=[region.name],
+                    textfont={"size": 14, "color": "#e2e8f0"},
+                    hoverinfo="skip",
+                    showlegend=False,
+                )
+            )
 
 
 def build_ternary_palette(
@@ -258,58 +273,84 @@ def build_ternary_palette(
             )
         )
 
+    conclusion = summary.conclusion
+    if len(conclusion) > 150:
+        split_at = conclusion.rfind(" ", 0, 145)
+        if split_at > 60:
+            conclusion = conclusion[:split_at] + "<br>" + conclusion[split_at + 1:]
+
     fig.update_layout(
         title={
             "text": (
-                f"Ternary — {interval_label}<br>"
+                f"Треугольная диаграмма состава газа — {interval_label}<br>"
                 f"<sup>валидных точек: {summary.valid_measurements}/{summary.total_measurements}; "
                 f"ведущая область: {summary.dominant_region} ({summary.region_support_percent:.0f}%)</sup>"
             ),
             "x": 0.02,
             "xanchor": "left",
+            "font": {"size": 19},
         },
-        height=500,
-        margin={"l": 20, "r": 20, "t": 85, "b": 60},
+        height=720,
+        margin={"l": 36, "r": 235, "t": 105, "b": 118},
         ternary={
             "sum": 1,
             "bgcolor": THEME.plot_color,
-            "aaxis": {"title": "C2/ΣC", "min": 0.0, "ticksuffix": "", "color": THEME.axis_color, "gridcolor": THEME.grid_color, "linecolor": THEME.axis_color},
-            "baxis": {"title": "C3/ΣC", "min": 0.0, "ticksuffix": "", "color": THEME.axis_color, "gridcolor": THEME.grid_color, "linecolor": THEME.axis_color},
-            "caxis": {"title": "nC4/ΣC", "min": 0.0, "ticksuffix": "", "color": THEME.axis_color, "gridcolor": THEME.grid_color, "linecolor": THEME.axis_color},
+            "domain": {"x": [0.02, 0.79], "y": [0.15, 0.94]},
+            "aaxis": {
+                "title": {"text": "C2 / ΣC", "font": {"size": 17}},
+                "tickfont": {"size": 12}, "min": 0.0, "color": THEME.axis_color,
+                "gridcolor": THEME.grid_color, "linecolor": THEME.axis_color,
+            },
+            "baxis": {
+                "title": {"text": "C3 / ΣC", "font": {"size": 17}},
+                "tickfont": {"size": 12}, "min": 0.0, "color": THEME.axis_color,
+                "gridcolor": THEME.grid_color, "linecolor": THEME.axis_color,
+            },
+            "caxis": {
+                "title": {"text": "nC4 / ΣC", "font": {"size": 17}},
+                "tickfont": {"size": 12}, "min": 0.0, "color": THEME.axis_color,
+                "gridcolor": THEME.grid_color, "linecolor": THEME.axis_color,
+            },
         },
         showlegend=True,
-        legend={"orientation": "h", "y": -0.13, "x": 0.0},
+        legend={
+            "orientation": "v", "x": 0.82, "xanchor": "left",
+            "y": 0.92, "yanchor": "top", "font": {"size": 13},
+            "bgcolor": "rgba(15,23,42,0.76)",
+            "bordercolor": "rgba(148,163,184,0.35)", "borderwidth": 1,
+        },
         annotations=(
             ([{
                 "text": "Недостаточно совместно валидных C2, C3 и nC4",
-                "xref": "paper",
-                "yref": "paper",
-                "x": 0.5,
-                "y": 0.5,
-                "showarrow": False,
-                "font": {"size": 13},
+                "xref": "paper", "yref": "paper", "x": 0.40, "y": 0.52,
+                "showarrow": False, "font": {"size": 15},
             }] if summary.valid_measurements == 0 else [])
             + [{
-                "text": summary.conclusion,
-                "xref": "paper",
-                "yref": "paper",
-                "x": 0.0,
-                "y": -0.27,
-                "xanchor": "left",
-                "showarrow": False,
-                "align": "left",
-                "font": {"size": 11},
+                "text": conclusion,
+                "xref": "paper", "yref": "paper",
+                "x": 0.02, "y": 0.035, "xanchor": "left", "yanchor": "bottom",
+                "showarrow": False, "align": "left",
+                "font": {"size": 13, "color": "#cbd5e1"},
+                "bgcolor": "rgba(15,23,42,0.72)",
+                "bordercolor": "rgba(148,163,184,0.28)", "borderwidth": 1, "borderpad": 7,
             }]
         ),
     )
-    apply_engineering_layout(fig, height=500, legend={**dict(LEGEND_HORIZONTAL), "y": -0.18, "yanchor": "top"}, margin={"l": 20, "r": 20, "t": 72, "b": 104})
+    apply_engineering_layout(
+        fig, height=720,
+        legend={
+            "orientation": "v", "x": 0.82, "xanchor": "left",
+            "y": 0.92, "yanchor": "top", "font": {"size": 13},
+        },
+        margin={"l": 36, "r": 235, "t": 105, "b": 118},
+    )
     normalize_trace_style(fig)
     if fluid_label:
         fig.add_annotation(
-            x=0.98, y=0.98, xref="paper", yref="paper",
+            x=0.98, y=0.12, xref="paper", yref="paper",
             text=f"<b>Вероятный флюид: {fluid_label}</b>",
             showarrow=False, xanchor="right",
-            bgcolor="rgba(15,23,42,0.82)", bordercolor="rgba(255,255,255,0.25)",
-            font={"size": 13},
+            bgcolor="rgba(15,23,42,0.88)", bordercolor="rgba(255,255,255,0.25)",
+            font={"size": 14},
         )
     return fig
