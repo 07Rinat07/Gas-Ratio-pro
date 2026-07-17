@@ -1,49 +1,47 @@
-# Visualization Print Layout Engine v86
+# Visualization Print Layout Engine — physical profiles and pagination
 
 ## Purpose
 
-`VisualizationPrintLayoutEngine` prepares physical page geometry before a PDF,
-SVG or other export renderer runs. The engine does not draw content and does not
-read LAS data. It converts the existing visualization layout into a stable,
-renderer-neutral page contract.
+`VisualizationPrintLayoutEngine` converts the existing renderer-neutral visualization layout into physical pages. It does not read LAS rows or recalculate curves, axes, intervals or engineering scales.
 
-## Supported page settings
+## Shared profiles
 
-- Page sizes: A4, A3, A2 and A1.
-- Orientation: portrait and landscape.
-- Scale modes: fit page, fit width and actual size.
-- Configurable margins in millimetres.
-- Legend placement: bottom, right or none.
-- Configurable source DPI.
+Canonical profiles live in `core/physical_print_profiles.py`:
 
-## Output contract
+| Profile | Font floor | Line floor | Track floor | Max tracks/page |
+|---|---:|---:|---:|---:|
+| A4 portrait | 7.5 pt | 0.50 pt | 28 mm | 4 |
+| A4 landscape | 7.5 pt | 0.50 pt | 28 mm | 6 |
+| A3 portrait | 8.0 pt | 0.55 pt | 30 mm | 6 |
+| A3 landscape | 8.0 pt | 0.55 pt | 30 mm | 9 |
 
-The `visualization.print.layout` contract includes:
+A2/A1 remain supported with compatible larger-sheet profiles. Explicit overrides may increase readability floors or reduce page capacity, but cannot lower the canonical floor.
 
-- physical page dimensions in millimetres;
-- page and printable bounds in points;
-- source visualization bounds;
-- calculated content scale and centred content placement;
-- reserved legend region;
-- page count and QA metadata.
+## Pagination contract
 
-The current increment intentionally produces one deterministic page. Multi-page
-pagination remains a later Print Layout increment.
+`visualization.print.layout` version 2 contains:
+
+- `profile_id` and physical readability floors;
+- physical page and printable bounds in points;
+- per-page content and source bounds;
+- ordered `track_ids` for every page;
+- reserved legend region and page count metadata.
+
+The paginator groups contiguous tracks greedily. It starts a new page before a group would exceed profile capacity or reduce a track below its physical width floor. Each track is covered once, in source order. The depth domain, curve scales and overlays are never recomputed.
+
+## Renderer behavior
+
+- PDF iterates the shared page list and emits the same physical number of pages.
+- SVG exposes `page_svgs`; every page uses point dimensions and the same page transform.
+- PNG rasterizes `page_svgs` at explicit DPI and publishes the same geometry signature.
+- HTML/PDF/DOCX report renderers embed all prepared pages.
+- Font and stroke floors are applied after the page transform, not only in source-pixel space.
 
 ## Pipeline position
 
 ```text
-Domain Model
-Scene
-Layout
-Axis and Grid
-Track Model
-Label and Legend
-Print Layout
-Render Model
-Renderer
+Domain Model → Scene → Layout → Axis/Grid → Track Model
+             → Label/Legend → Print Layout → Render Model → PDF/SVG/PNG
 ```
 
-`VisualizationRenderModel` carries the prepared print layout in metadata so
-export renderers can consume the same page contract without recalculating page
-sizes, margins or scale.
+The next increment should make Professional Print Center consume one page-aware asset package and add shared page headers, numbering and repeated legend primitives.

@@ -702,15 +702,51 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
 
 def _document_visualization_preview(block: DocumentVisualizationPreview, styles: dict[str, ParagraphStyle]) -> list[object]:
     preview = dict(block.preview or {})
-    return [
+    declared_pages = preview.get("page_svgs")
+    pages = [str(item).strip() for item in declared_pages] if isinstance(declared_pages, (list, tuple)) else []
+    if not pages:
+        pages = [str(preview.get("svg") or "").strip()]
+    pages = [item for item in pages if item.startswith("<svg")]
+    items: list[object] = [
         _paragraph(block.title or "LAS visualization preview", styles["h2"]),
         _paragraph(
-            f"SVG preview prepared by Visualization Engine: "
-            f"tracks={preview.get('track_count', 0)}, curves={preview.get('curve_count', 0)}, overlays={preview.get('overlay_count', 0)}.",
+            f"Visualization Engine: tracks={preview.get('track_count', 0)}, "
+            f"curves={preview.get('curve_count', 0)}, overlays={preview.get('overlay_count', 0)}, "
+            f"pages={len(pages)}.",
             styles["small"],
         ),
-        Spacer(1, 8),
+        Spacer(1, 6),
     ]
+    if not pages:
+        return items + [_paragraph("SVG-планшет недоступен.", styles["small"]), Spacer(1, 8)]
+    try:
+        import fitz  # type: ignore
+        for page_index, svg in enumerate(pages, start=1):
+            if page_index > 1:
+                items.append(PageBreak())
+            if len(pages) > 1:
+                items.append(_paragraph(f"Планшет — страница {page_index} из {len(pages)}", styles["small"]))
+            document = fitz.open(stream=svg.encode("utf-8"), filetype="svg")
+            try:
+                if document.page_count < 1:
+                    raise ValueError("SVG document has no pages")
+                page = document.load_page(0)
+                pixmap = page.get_pixmap(matrix=fitz.Matrix(150.0 / 72.0, 150.0 / 72.0), alpha=False)
+                png = pixmap.tobytes("png")
+            finally:
+                document.close()
+            image = Image(BytesIO(png))
+            ratio = min((185 * mm) / image.imageWidth, (235 * mm) / image.imageHeight)
+            image.drawWidth = image.imageWidth * ratio
+            image.drawHeight = image.imageHeight * ratio
+            items.append(image)
+            items.append(Spacer(1, 8))
+    except Exception as exc:
+        items.extend([
+            _paragraph(f"Не удалось встроить SVG-планшет ({type(exc).__name__}).", styles["small"]),
+            Spacer(1, 8),
+        ])
+    return items
 
 
 def ensure_reportlab_available() -> None:

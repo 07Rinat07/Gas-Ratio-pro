@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from services.visualization_pdf_render_model_renderer import VisualizationPdfRenderModelRenderer
+from services.visualization_png_scene_renderer import VisualizationPngSceneRenderer
 from services.visualization_renderer_parity import (
     VisualizationRendererParityValidator,
     visualization_geometry_signature,
@@ -32,6 +33,8 @@ class VisualizationAssetEntry:
     renderer: str = ""
     geometry_signature: str = ""
     export_ready: bool = False
+    page_index: int = 0
+    page_count: int = 1
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -44,6 +47,8 @@ class VisualizationAssetEntry:
             "renderer": self.renderer,
             "geometry_signature": self.geometry_signature,
             "export_ready": self.export_ready,
+            "page_index": self.page_index,
+            "page_count": self.page_count,
         }
 
 
@@ -103,6 +108,7 @@ class VisualizationAssetRegistry:
 
         svg_result = VisualizationSvgSceneRenderer().render(pipeline)
         pdf_result = VisualizationPdfRenderModelRenderer().render(pipeline)
+        png_result = VisualizationPngSceneRenderer().render(pipeline)
         validator = VisualizationRendererParityValidator()
         svg_parity = validator.validate(pipeline, svg_result.to_dict()).to_dict()
         pdf_parity = validator.validate(pipeline, pdf_result.to_dict()).to_dict()
@@ -111,7 +117,11 @@ class VisualizationAssetRegistry:
         if not pdf_parity["ok"]:
             issues.append("visualization_asset_registry_pdf_parity_failed")
 
-        payloads: list[tuple[str, str, str, bytes, str, bool]] = [
+        svg_pages = tuple(svg_result.page_svgs or ((svg_result.svg,) if svg_result.svg else ()))
+        svg_page_count = max(1, len(svg_pages))
+        png_pages = tuple(png_result.page_pngs or ((png_result.png_bytes,) if png_result.png_bytes else ()))
+        png_page_count = max(1, len(png_pages))
+        payloads: list[tuple[str, str, str, bytes, str, bool, int, int]] = [
             (
                 "preview_svg",
                 "visualization_preview",
@@ -119,6 +129,18 @@ class VisualizationAssetRegistry:
                 svg_result.svg.encode("utf-8"),
                 svg_result.renderer,
                 svg_result.export_ready,
+                1 if svg_result.svg else 0,
+                svg_page_count,
+            ),
+            (
+                "preview_png",
+                "visualization_preview",
+                "png",
+                png_result.png_bytes,
+                png_result.renderer,
+                png_result.export_ready,
+                1 if png_result.png_bytes else 0,
+                png_page_count,
             ),
             (
                 "preview_pdf",
@@ -127,6 +149,8 @@ class VisualizationAssetRegistry:
                 pdf_result.pdf_bytes,
                 pdf_result.renderer,
                 pdf_result.export_ready,
+                0,
+                pdf_result.page_count,
             ),
             (
                 "render_model",
@@ -135,6 +159,8 @@ class VisualizationAssetRegistry:
                 _json_bytes(render_model),
                 "",
                 bool(render_model),
+                0,
+                1,
             ),
             (
                 "geometry",
@@ -149,15 +175,45 @@ class VisualizationAssetRegistry:
                         "render_model_height": render_model.get("height"),
                         "primitive_count": len(_mapping_list(render_model.get("primitives"))),
                         "clip_count": len(_mapping_list(render_model.get("clip_regions"))),
+                        "print_profile_id": _mapping(pipeline.get("print_layout")).get("profile_id"),
+                        "page_count": len(_mapping_list(_mapping(pipeline.get("print_layout")).get("pages"))),
                     }
                 ),
                 "",
                 bool(geometry_signature),
+                0,
+                1,
             ),
         ]
+        for page_index, svg_page in enumerate(svg_pages[1:], start=2):
+            payloads.append(
+                (
+                    f"preview_svg_page_{page_index}",
+                    "visualization_preview_page",
+                    "svg",
+                    svg_page.encode("utf-8"),
+                    svg_result.renderer,
+                    svg_result.export_ready,
+                    page_index,
+                    svg_page_count,
+                )
+            )
+        for page_index, png_page in enumerate(png_pages[1:], start=2):
+            payloads.append(
+                (
+                    f"preview_png_page_{page_index}",
+                    "visualization_preview_page",
+                    "png",
+                    png_page,
+                    png_result.renderer,
+                    png_result.export_ready,
+                    page_index,
+                    png_page_count,
+                )
+            )
 
         entries: list[VisualizationAssetEntry] = []
-        for asset_id, role, format_name, content, renderer, export_ready in payloads:
+        for asset_id, role, format_name, content, renderer, export_ready, page_index, page_count in payloads:
             extension = format_name
             relative = f"assets/{safe_name}-{asset_id}.{extension}"
             path = output / relative
@@ -176,6 +232,8 @@ class VisualizationAssetRegistry:
                     renderer=renderer,
                     geometry_signature=geometry_signature,
                     export_ready=bool(export_ready and content),
+                    page_index=page_index,
+                    page_count=page_count,
                 )
             )
 

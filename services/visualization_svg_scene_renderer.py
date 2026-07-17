@@ -23,7 +23,7 @@ class SvgSceneRenderResult:
     """Serializable output of the scene-to-SVG adapter."""
 
     schema: str = "visualization.renderer.svg.result"
-    version: str = "1.0"
+    version: str = "1.1"
     renderer: str = "visualization_svg_scene_renderer"
     source_schema: str = ""
     width: int = 0
@@ -36,10 +36,12 @@ class SvgSceneRenderResult:
     clip_count: int = 0
     print_layout_applied: bool = False
     page_size: str = ""
+    page_count: int = 0
     geometry_signature: str = ""
     export_ready: bool = False
     issues: tuple[str, ...] = field(default_factory=tuple)
     svg: str = ""
+    page_svgs: tuple[str, ...] = field(default_factory=tuple)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -58,11 +60,13 @@ class SvgSceneRenderResult:
             "clip_count": self.clip_count,
             "print_layout_applied": self.print_layout_applied,
             "page_size": self.page_size,
+            "page_count": self.page_count,
             "geometry_signature": self.geometry_signature,
             "export_ready": self.export_ready,
             "contains_raw_dataframe": False,
             "issues": list(self.issues),
             "svg": self.svg,
+            "page_svgs": list(self.page_svgs),
         }
 
 
@@ -144,6 +148,8 @@ class VisualizationSvgSceneRenderer:
         clip_count = 0
         print_layout_applied = False
         page_size = ""
+        page_count = 0
+        page_svgs: tuple[str, ...] = ()
         if render_model.get("schema") == "visualization.render.model" and _mapping_list(render_model.get("primitives")):
             width = int(_positive_float(render_model.get("width"), width))
             height = int(_positive_float(render_model.get("height"), height))
@@ -156,9 +162,36 @@ class VisualizationSvgSceneRenderer:
                 height = int(round(_positive_float(page_bounds.get("height"), height)))
                 print_layout_applied = True
                 page_size = str(print_layout.get("page_size") or "")
-            svg = self._render_from_render_model(
-                render_model, width=width, height=height, issues=issues, print_layout=print_layout
-            )
+            pages = _mapping_list(print_layout.get("pages")) if print_layout_applied else []
+            if pages:
+                rendered_pages: list[str] = []
+                for page in pages:
+                    bounds = _mapping(page.get("page_bounds"))
+                    page_width = int(round(_positive_float(bounds.get("width"), width)))
+                    page_height = int(round(_positive_float(bounds.get("height"), height)))
+                    rendered_pages.append(
+                        self._render_from_render_model(
+                            render_model,
+                            width=page_width,
+                            height=page_height,
+                            issues=issues,
+                            print_layout=print_layout,
+                            page=page,
+                        )
+                    )
+                page_svgs = tuple(rendered_pages)
+            else:
+                page_svgs = (
+                    self._render_from_render_model(
+                        render_model,
+                        width=width,
+                        height=height,
+                        issues=issues,
+                        print_layout=print_layout,
+                    ),
+                )
+            page_count = len(page_svgs)
+            svg = page_svgs[0]
         else:
             issues.append("svg_renderer_render_model_unavailable")
             svg = self._render_svg(
@@ -173,6 +206,8 @@ class VisualizationSvgSceneRenderer:
                 height=height,
                 issues=issues,
             )
+            page_svgs = (svg,)
+            page_count = 1
         curve_count = sum(1 for layer in layers if str(layer.get("kind")) == "curve")
         overlay_count = sum(1 for layer in layers if str(layer.get("kind")) == "interval_overlay")
         export_ready = bool(tracks and curve_count and depth_start is not None and depth_stop is not None and depth_stop > depth_start)
@@ -189,10 +224,12 @@ class VisualizationSvgSceneRenderer:
             clip_count=clip_count,
             print_layout_applied=print_layout_applied,
             page_size=page_size,
+            page_count=page_count,
             geometry_signature=geometry_signature,
             export_ready=export_ready,
             issues=tuple(dict.fromkeys(issues)),
             svg=svg,
+            page_svgs=page_svgs,
         )
 
 
@@ -204,11 +241,12 @@ class VisualizationSvgSceneRenderer:
         height: int,
         issues: list[str],
         print_layout: Mapping[str, Any] | None = None,
+        page: Mapping[str, Any] | None = None,
     ) -> str:
         clips = _mapping_list(render_model.get("clip_regions"))
         primitives = _mapping_list(render_model.get("primitives"))
         parts = [
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-label="LAS visualization">',
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}pt" height="{height}pt" viewBox="0 0 {width} {height}" role="img" aria-label="LAS visualization">',
             '<defs>',
         ]
         for clip in clips:
@@ -220,11 +258,29 @@ class VisualizationSvgSceneRenderer:
                 f'y="{_finite_float(clip.get("y")) or 0:g}" width="{_positive_float(clip.get("width"), 0):g}" '
                 f'height="{_positive_float(clip.get("height"), 0):g}"/></clipPath>'
             )
+        selected_page = dict(page or {})
+        content = _mapping(selected_page.get("content_bounds"))
+        page_clip_id = "print-page-content"
+        if content:
+            parts.append(
+                f'<clipPath id="{page_clip_id}" clipPathUnits="userSpaceOnUse"><rect '
+                f'x="{_number(content.get("x"))}" y="{_number(content.get("y"))}" '
+                f'width="{_number(content.get("width"))}" height="{_number(content.get("height"))}"/></clipPath>'
+            )
         parts.append('</defs>')
-        transform = self._print_transform(print_layout or {}, render_model)
+        if content:
+            parts.append(f'<g clip-path="url(#{page_clip_id})">')
+        transform, physical_scale = self._print_transform(print_layout or {}, render_model, selected_page)
+        minimum_font_pt = _positive_float((print_layout or {}).get("minimum_font_pt"), 1.0)
+        minimum_line_width_pt = _positive_float((print_layout or {}).get("minimum_line_width_pt"), 0.1)
+        page_track_ids = _string_set(selected_page.get("track_ids"))
         parts.append(f'<g font-family="Arial, DejaVu Sans, sans-serif"{transform}>')
         for primitive in primitives:
-            if not bool(primitive.get("visible", True)) or not bool(primitive.get("printable", True)):
+            if (
+                not bool(primitive.get("visible", True))
+                or not bool(primitive.get("printable", True))
+                or not _primitive_on_page(primitive, page_track_ids)
+            ):
                 continue
             payload = _mapping(primitive.get("payload"))
             kind = str(primitive.get("kind") or "")
@@ -240,25 +296,31 @@ class VisualizationSvgSceneRenderer:
             if clip_id:
                 attrs += f' clip-path="url(#{clip_id})"'
             if kind == "rectangle":
+                stroke_width = max(minimum_line_width_pt, _positive_float(payload.get("stroke_width"), 1.0))
                 parts.append(
                     f'<rect{attrs} x="{_number(payload.get("x"))}" y="{_number(payload.get("y"))}" '
                     f'width="{_number(payload.get("width"))}" height="{_number(payload.get("height"))}" '
                     f'fill="{_safe_color_or_none(payload.get("fill"), "none")}" stroke="{_safe_color_or_none(payload.get("stroke"), "none")}" '
-                    f'stroke-width="{_number(payload.get("stroke_width"), 1)}" fill-opacity="{_number(payload.get("fill_opacity"), 1)}" '
+                    f'stroke-width="{stroke_width:g}" vector-effect="non-scaling-stroke" fill-opacity="{_number(payload.get("fill_opacity"), 1)}" '
                     f'stroke-opacity="{_number(payload.get("stroke_opacity"), 1)}" rx="{_number(payload.get("corner_radius"), 0)}"/>'
                 )
             elif kind == "line":
+                stroke_width = max(minimum_line_width_pt, _positive_float(payload.get("stroke_width"), 1.0))
                 parts.append(
                     f'<line{attrs} x1="{_number(payload.get("x1"))}" y1="{_number(payload.get("y1"))}" '
                     f'x2="{_number(payload.get("x2"))}" y2="{_number(payload.get("y2"))}" '
-                    f'stroke="{_safe_color_or_none(payload.get("stroke"), "#607d8b")}" stroke-width="{_number(payload.get("stroke_width"), 1)}"/>'
+                    f'stroke="{_safe_color_or_none(payload.get("stroke"), "#607d8b")}" stroke-width="{stroke_width:g}" vector-effect="non-scaling-stroke"/>'
                 )
             elif kind == "text":
                 text = escape(str(payload.get("text") or ""))
                 anchor = escape(str(payload.get("text_anchor") or "start"), quote=True)
+                font_size = max(
+                    _positive_float(payload.get("font_size"), 10.0),
+                    minimum_font_pt / max(physical_scale, 0.01),
+                )
                 parts.append(
                     f'<text{attrs} x="{_number(payload.get("x"))}" y="{_number(payload.get("y"))}" '
-                    f'font-size="{_number(payload.get("font_size"), 10)}" font-weight="{_number(payload.get("font_weight"), 400)}" '
+                    f'font-size="{font_size:g}" font-weight="{_number(payload.get("font_weight"), 400)}" '
                     f'text-anchor="{anchor}" fill="{_safe_color_or_none(payload.get("fill"), "#263238")}">{text}</text>'
                 )
             elif kind == "polyline":
@@ -267,9 +329,10 @@ class VisualizationSvgSceneRenderer:
                 if len(points) < 2:
                     issues.append(f"svg_renderer_invalid_polyline:{primitive_id}")
                     continue
+                stroke_width = max(minimum_line_width_pt, _positive_float(payload.get("stroke_width"), 1.3))
                 parts.append(
                     f'<polyline{attrs} points="{point_text}" fill="{_safe_color_or_none(payload.get("fill"), "none")}" '
-                    f'stroke="{_safe_color_or_none(payload.get("stroke"), "#455a64")}" stroke-width="{_number(payload.get("stroke_width"), 1.3)}" '
+                    f'stroke="{_safe_color_or_none(payload.get("stroke"), "#455a64")}" stroke-width="{stroke_width:g}" '
                     f'vector-effect="non-scaling-stroke"/>'
                 )
                 title = escape(str(payload.get("title") or ""))
@@ -277,27 +340,35 @@ class VisualizationSvgSceneRenderer:
                     parts.append(f'<title>{title}</title>')
             else:
                 issues.append(f"svg_renderer_unsupported_primitive:{kind}")
-        parts.append("</g></svg>")
+        parts.append("</g>")
+        if content:
+            parts.append("</g>")
+        parts.append("</svg>")
         return "".join(parts)
 
-    def _print_transform(self, print_layout: Mapping[str, Any], render_model: Mapping[str, Any]) -> str:
+    def _print_transform(
+        self,
+        print_layout: Mapping[str, Any],
+        render_model: Mapping[str, Any],
+        page: Mapping[str, Any] | None = None,
+    ) -> tuple[str, float]:
         pages = _mapping_list(print_layout.get("pages"))
         if not bool(print_layout.get("ok")) or not pages:
-            return ""
-        page = _mapping(pages[0])
-        content = _mapping(page.get("content_bounds"))
-        source = _mapping(page.get("source_bounds"))
+            return "", 1.0
+        selected_page = dict(page or pages[0])
+        content = _mapping(selected_page.get("content_bounds"))
+        source = _mapping(selected_page.get("source_bounds"))
         dpi = _positive_float(print_layout.get("dpi"), 96.0)
-        content_scale = _positive_float(page.get("content_scale"), 1.0)
+        content_scale = _positive_float(selected_page.get("content_scale"), 1.0)
         source_width = _positive_float(source.get("width"), _positive_float(render_model.get("width"), 1.0))
         source_height = _positive_float(source.get("height"), _positive_float(render_model.get("height"), 1.0))
         if source_width <= 0 or source_height <= 0:
-            return ""
+            return "", 1.0
         px_to_pt = 72.0 / dpi
         scale = px_to_pt * content_scale
-        tx = _finite_float(content.get("x")) or 0.0
-        ty = _finite_float(content.get("y")) or 0.0
-        return f' transform="translate({tx:g} {ty:g}) scale({scale:g})"'
+        tx = (_finite_float(content.get("x")) or 0.0) - (_finite_float(source.get("x")) or 0.0) * scale
+        ty = (_finite_float(content.get("y")) or 0.0) - (_finite_float(source.get("y")) or 0.0) * scale
+        return f' transform="translate({tx:g} {ty:g}) scale({scale:g})"', scale
 
     def _extract_scene(self, source: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any], str, list[str]]:
         source_schema = str(source.get("schema") or "")
@@ -512,6 +583,15 @@ def _sequence(value: Any) -> list[Any]:
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return list(value)
     return []
+
+
+def _string_set(value: Any) -> set[str]:
+    return {str(item) for item in _sequence(value) if str(item)}
+
+
+def _primitive_on_page(primitive: Mapping[str, Any], track_ids: set[str]) -> bool:
+    primitive_track_id = str(primitive.get("track_id") or "")
+    return not track_ids or not primitive_track_id or primitive_track_id in track_ids
 
 
 def _finite_float(value: Any) -> float | None:

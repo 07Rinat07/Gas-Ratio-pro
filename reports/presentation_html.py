@@ -71,6 +71,8 @@ def _print_css(opts: PresentationHtmlOptions) -> str:
             ".report-table{font-size:" + table_font + ";}",
             ".report-table th,.report-table td{padding:4px 6px;}",
             ".report-plot{page-break-before:always;}",
+            ".visualization-preview-page-next{page-break-before:always;break-before:page;}",
+            ".visualization-preview-page svg{max-width:100%;height:auto;}",
             "@media print{body{margin:0;} .modebar{display:none!important;} a{text-decoration:none;color:inherit;}}",
         )
     )
@@ -193,23 +195,31 @@ def _render_document_plot(plot: DocumentPlot, *, include_plotlyjs: bool) -> str:
 
 def _render_visualization_preview(block: DocumentVisualizationPreview) -> str:
     preview = dict(block.preview or {})
-    svg = str(preview.get("svg") or "").strip()
-    if not svg.startswith("<svg"):
+    declared_pages = preview.get("page_svgs")
+    pages = [str(item).strip() for item in declared_pages] if isinstance(declared_pages, (list, tuple)) else []
+    if not pages:
+        pages = [str(preview.get("svg") or "").strip()]
+    pages = [item for item in pages if item.startswith("<svg")]
+    if not pages:
         return ""
     meta = (
         f"Tracks: {escape(_clean_text(preview.get('track_count')))} · "
         f"Curves: {escape(_clean_text(preview.get('curve_count')))} · "
         f"Overlays: {escape(_clean_text(preview.get('overlay_count')))}"
     )
-    return "\n".join(
-        (
-            "<section class='report-section visualization-preview avoid-break'>",
-            f"<h2>{escape(_clean_text(block.title) or 'LAS visualization preview')}</h2>",
-            svg,
-            f"<p class='visualization-preview-meta'>{meta}</p>",
-            "</section>",
+    rendered_pages = []
+    for index, svg in enumerate(pages, start=1):
+        page_class = " visualization-preview-page-next" if index > 1 else ""
+        rendered_pages.append(
+            f"<div class='visualization-preview-page{page_class}' data-page='{index}'>{svg}</div>"
         )
-    )
+    return "\n".join((
+        "<section class='report-section visualization-preview'>",
+        f"<h2>{escape(_clean_text(block.title) or 'LAS visualization preview')}</h2>",
+        *rendered_pages,
+        f"<p class='visualization-preview-meta'>{meta} · Pages: {len(pages)}</p>",
+        "</section>",
+    ))
 
 def _render_document_sections(document: EngineeringDocument) -> str:
     parts: list[str] = []

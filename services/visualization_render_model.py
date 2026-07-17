@@ -288,6 +288,13 @@ class VisualizationRenderModelBuilder:
         primitives.extend(layer_primitives)
         diagnostics.extend(layer_diagnostics)
         print_layout_payload = dict(print_layout or {})
+        primitives.extend(
+            self._paginated_depth_label_primitives(
+                axis_grid_payload,
+                layout_tracks,
+                print_layout_payload,
+            )
+        )
         label_legend_payload = (
             self.label_legend_engine.build(scene, layout, track_model_payload).to_dict()
             if label_legend is None
@@ -368,6 +375,56 @@ class VisualizationRenderModelBuilder:
                     },
                 )
             )
+        return primitives
+
+    def _paginated_depth_label_primitives(
+        self,
+        axis_grid: Mapping[str, Any],
+        layout_tracks: list[dict[str, Any]],
+        print_layout: Mapping[str, Any],
+    ) -> list[RenderPrimitive]:
+        """Repeat the shared depth labels on the first track of later pages."""
+
+        pages = _mapping_list(print_layout.get("pages"))
+        if len(pages) <= 1:
+            return []
+        layout_by_id = {str(item.get("id") or ""): item for item in layout_tracks}
+        depth_axis = next(
+            (item for item in _mapping_list(axis_grid.get("axes")) if str(item.get("kind") or "") == "depth"),
+            {},
+        )
+        ticks = [
+            item
+            for item in _mapping_list(depth_axis.get("ticks"))
+            if bool(item.get("major")) and str(item.get("label") or "")
+        ]
+        primitives: list[RenderPrimitive] = []
+        for page in pages[1:]:
+            track_ids = [str(item) for item in _sequence(page.get("track_ids")) if str(item)]
+            if not track_ids:
+                continue
+            track_id = track_ids[0]
+            plot = _mapping(_mapping(layout_by_id.get(track_id)).get("plot_bounds"))
+            if not plot:
+                continue
+            page_index = int(_positive_float(page.get("index"), 1.0))
+            for tick_index, tick in enumerate(ticks):
+                primitives.append(
+                    RenderPrimitive(
+                        id=f"axis.depth.page.{page_index}.label.{tick_index}",
+                        kind="text",
+                        z_index=self.AXIS_TEXT_Z,
+                        track_id=track_id,
+                        payload={
+                            "x": _float(plot.get("x")) + 4.0,
+                            "y": _float(tick.get("position")) + 10.0,
+                            "text": str(tick.get("label") or ""),
+                            "font_size": 8.0,
+                            "fill": "#607d8b",
+                            "data_kind": "depth_label",
+                        },
+                    )
+                )
         return primitives
 
     def _source_layer_primitives(

@@ -86,11 +86,15 @@ class VisualizationExportQaValidator:
         if not pdf_parity.ok:
             issues.extend(f"export_qa_pdf_parity:{item}" for item in pdf_parity.issues)
 
+        svg_pages = [svg_text]
+        declared_svg_pages = svg_meta.get("page_svgs")
+        if isinstance(declared_svg_pages, (list, tuple)):
+            svg_pages.extend(str(item) for item in declared_svg_pages[1:])
         svg_ok, svg_primitive_count, svg_clip_count, svg_issues = self._validate_svg(
-            svg_text,
+            svg_pages,
             svg_meta,
-            expected_primitives=len(expected_primitives),
-            expected_clips=len(expected_clips),
+            expected_primitive_ids={str(item.get("id") or "") for item in expected_primitives},
+            expected_clip_ids={str(item.get("id") or "") for item in expected_clips},
         )
         issues.extend(svg_issues)
 
@@ -122,41 +126,68 @@ class VisualizationExportQaValidator:
 
     def _validate_svg(
         self,
-        svg: str,
+        svg_pages: list[str],
         metadata: Mapping[str, Any],
         *,
-        expected_primitives: int,
-        expected_clips: int,
+        expected_primitive_ids: set[str],
+        expected_clip_ids: set[str],
     ) -> tuple[bool, int, int, list[str]]:
         issues: list[str] = []
-        if not svg.strip():
+        if not svg_pages or not svg_pages[0].strip():
             return False, 0, 0, ["export_qa_svg_missing"]
-        try:
-            root = ElementTree.fromstring(svg)
-        except ElementTree.ParseError:
-            return False, 0, 0, ["export_qa_svg_invalid_xml"]
-        if root.tag != f"{self._SVG_NS}svg":
-            issues.append("export_qa_svg_root_invalid")
+        roots: list[Any] = []
+        for page_index, svg in enumerate(svg_pages, start=1):
+            if not svg.strip():
+                issues.append(f"export_qa_svg_page_missing:{page_index}")
+                continue
+            try:
+                root = ElementTree.fromstring(svg)
+            except ElementTree.ParseError:
+                issues.append("export_qa_svg_invalid_xml" if page_index == 1 else f"export_qa_svg_page_invalid_xml:{page_index}")
+                continue
+            roots.append(root)
+            if root.tag != f"{self._SVG_NS}svg":
+                issues.append(f"export_qa_svg_root_invalid:{page_index}")
+            page_primitive_ids = [
+                node.attrib.get("data-primitive", "")
+                for node in root.iter()
+                if "data-primitive" in node.attrib
+            ]
+            if len(set(page_primitive_ids)) != len(page_primitive_ids):
+                issues.append(f"export_qa_svg_duplicate_primitive_ids:{page_index}")
 
-        primitive_nodes = [node for node in root.iter() if "data-primitive" in node.attrib]
-        primitive_ids = [node.attrib.get("data-primitive", "") for node in primitive_nodes]
-        clip_nodes = list(root.iter(f"{self._SVG_NS}clipPath"))
-        if len(primitive_nodes) != expected_primitives:
-            issues.append(f"export_qa_svg_primitive_count_mismatch:{expected_primitives}:{len(primitive_nodes)}")
-        if len(set(primitive_ids)) != len(primitive_ids):
-            issues.append("export_qa_svg_duplicate_primitive_ids")
-        if len(clip_nodes) != expected_clips:
-            issues.append(f"export_qa_svg_clip_count_mismatch:{expected_clips}:{len(clip_nodes)}")
+        primitive_ids = {
+            node.attrib.get("data-primitive", "")
+            for root in roots
+            for node in root.iter()
+            if "data-primitive" in node.attrib
+        }
+        clip_ids = {
+            node.attrib.get("id", "")
+            for root in roots
+            for node in root.iter(f"{self._SVG_NS}clipPath")
+            if node.attrib.get("id") != "print-page-content"
+        }
+        if primitive_ids != expected_primitive_ids:
+            issues.append(
+                f"export_qa_svg_primitive_count_mismatch:{len(expected_primitive_ids)}:{len(primitive_ids)}"
+            )
+        if clip_ids != expected_clip_ids:
+            issues.append(f"export_qa_svg_clip_count_mismatch:{len(expected_clip_ids)}:{len(clip_ids)}")
 
-        width = _positive_float(root.attrib.get("width"))
-        height = _positive_float(root.attrib.get("height"))
+        expected_pages = int(metadata.get("page_count") or 0)
+        if len(svg_pages) != expected_pages:
+            issues.append(f"export_qa_svg_page_count_mismatch:{expected_pages}:{len(svg_pages)}")
+        root = roots[0] if roots else None
+        width = _positive_float(root.attrib.get("width")) if root is not None else 0.0
+        height = _positive_float(root.attrib.get("height")) if root is not None else 0.0
         if not _close(width, _positive_float(metadata.get("width"))):
             issues.append("export_qa_svg_width_mismatch")
         if not _close(height, _positive_float(metadata.get("height"))):
             issues.append("export_qa_svg_height_mismatch")
         if not bool(metadata.get("export_ready")):
             issues.append("export_qa_svg_not_export_ready")
-        return not issues, len(primitive_nodes), len(clip_nodes), issues
+        return not issues, len(primitive_ids), len(clip_ids), issues
 
     def _validate_pdf(
         self,
@@ -220,7 +251,10 @@ def _mapping_list(value: Any) -> list[dict[str, Any]]:
 
 def _positive_float(value: Any) -> float:
     try:
-        number = float(value)
+        text = str(value or "").strip().lower()
+        if text.endswith("pt"):
+            text = text[:-2]
+        number = float(text)
     except (TypeError, ValueError):
         return 0.0
     return number if math.isfinite(number) and number > 0 else 0.0

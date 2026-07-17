@@ -211,16 +211,53 @@ def _add_notice(doc: Document, block: DocumentNotice) -> None:
     doc.add_paragraph()
 
 
-def _add_visualization_preview_placeholder(doc: Document, block: DocumentVisualizationPreview) -> None:
+def _add_visualization_preview(doc: Document, block: DocumentVisualizationPreview) -> None:
     _add_paragraph(doc, block.title or "LAS visualization preview", style="Heading 2")
     preview = dict(block.preview or {})
-    paragraph = doc.add_paragraph()
-    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = paragraph.add_run(
-        f"SVG preview prepared by Visualization Engine: "
-        f"tracks={preview.get('track_count', 0)}, curves={preview.get('curve_count', 0)}, overlays={preview.get('overlay_count', 0)}."
+    declared_pages = preview.get("page_svgs")
+    pages = [str(item).strip() for item in declared_pages] if isinstance(declared_pages, (list, tuple)) else []
+    if not pages:
+        pages = [str(preview.get("svg") or "").strip()]
+    pages = [item for item in pages if item.startswith("<svg")]
+    _add_paragraph(
+        doc,
+        f"Visualization Engine: tracks={preview.get('track_count', 0)}, "
+        f"curves={preview.get('curve_count', 0)}, overlays={preview.get('overlay_count', 0)}, "
+        f"pages={len(pages)}.",
     )
-    run.italic = True
+    if not pages:
+        _add_paragraph(doc, "SVG-планшет недоступен.")
+        return
+
+    try:
+        import fitz  # type: ignore
+
+        for page_index, svg in enumerate(pages, start=1):
+            if page_index > 1:
+                doc.add_page_break()
+            if len(pages) > 1:
+                _add_paragraph(doc, f"Планшет — страница {page_index} из {len(pages)}", bold=True)
+            svg_document = fitz.open(stream=svg.encode("utf-8"), filetype="svg")
+            try:
+                if svg_document.page_count < 1:
+                    raise RuntimeError("SVG-планшет не содержит страниц")
+                page = svg_document.load_page(0)
+                dpi_scale = 300.0 / 72.0
+                width_scale = 5600.0 / max(1.0, float(page.rect.width))
+                scale = min(dpi_scale, width_scale)
+                pixmap = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+                png = pixmap.tobytes("png")
+            finally:
+                svg_document.close()
+            paragraph = doc.add_paragraph()
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            section = doc.sections[-1]
+            usable_width = section.page_width - section.left_margin - section.right_margin
+            paragraph.add_run().add_picture(BytesIO(png), width=usable_width)
+    except Exception as exc:
+        paragraph = doc.add_paragraph()
+        run = paragraph.add_run(f"Не удалось встроить SVG-планшет ({type(exc).__name__}).")
+        run.italic = True
     doc.add_paragraph()
 
 
@@ -450,7 +487,7 @@ def render_engineering_document_docx(
             elif isinstance(block, DocumentPlot):
                 _add_plot_placeholder(doc, block, locale=locale)
             elif isinstance(block, DocumentVisualizationPreview):
-                _add_visualization_preview_placeholder(doc, block)
+                _add_visualization_preview(doc, block)
 
     _progress(84, "Сохранение DOCX")
     buffer = BytesIO()

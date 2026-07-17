@@ -195,7 +195,16 @@ def _visualization_manifest(model: PresentationModel) -> dict[str, object]:
         "total_tracks": sum(int(preview.get("track_count") or 0) for preview in previews),
         "total_curves": sum(int(preview.get("curve_count") or 0) for preview in previews),
         "total_overlays": sum(int(preview.get("overlay_count") or 0) for preview in previews),
+        "total_pages": sum(len(_visualization_svg_pages(preview)) for preview in previews),
     }
+
+
+def _visualization_svg_pages(preview: dict[str, object]) -> list[str]:
+    declared = preview.get("page_svgs")
+    pages = [str(item).strip() for item in declared] if isinstance(declared, (list, tuple)) else []
+    if not pages:
+        pages = [str(preview.get("svg") or "").strip()]
+    return [item for item in pages if item.startswith("<svg")]
 
 
 
@@ -214,11 +223,10 @@ def _visualization_preview_assets(model: PresentationModel, *, base_name: str) -
         data = dict(preview or {})
         if str(data.get("format") or "").lower() != "svg":
             continue
-        svg = str(data.get("svg") or "").strip()
-        if not svg.startswith("<svg"):
-            continue
-        key = f"visualization_preview_{index}"
-        assets[key] = f"assets/{base_name}-{key}.svg"
+        pages = _visualization_svg_pages(data)
+        for page_index, _svg in enumerate(pages, start=1):
+            key = f"visualization_preview_{index}" if page_index == 1 else f"visualization_preview_{index}_page_{page_index}"
+            assets[key] = f"assets/{base_name}-{key}.svg"
     return assets
 
 
@@ -232,12 +240,12 @@ def _write_visualization_preview_assets(model: PresentationModel, *, output_dir:
     assets_dir.mkdir(parents=True, exist_ok=True)
     previews = tuple(getattr(model, "visualization_previews", ()) or ())
     for index, preview in enumerate(previews, start=1):
-        key = f"visualization_preview_{index}"
-        relative_name = asset_paths.get(key)
-        if not relative_name:
-            continue
-        svg = str(dict(preview or {}).get("svg") or "").strip()
-        _write_bytes(output_dir / relative_name, svg.encode("utf-8"), overwrite=overwrite)
+        pages = _visualization_svg_pages(dict(preview or {}))
+        for page_index, svg in enumerate(pages, start=1):
+            key = f"visualization_preview_{index}" if page_index == 1 else f"visualization_preview_{index}_page_{page_index}"
+            relative_name = asset_paths.get(key)
+            if relative_name:
+                _write_bytes(output_dir / relative_name, svg.encode("utf-8"), overwrite=overwrite)
     return asset_paths
 
 
@@ -268,29 +276,33 @@ def _build_visualization_asset_index(
     entries: list[dict[str, object]] = []
     total_size = 0
     for index, preview in enumerate(previews, start=1):
-        key = f"visualization_preview_{index}"
-        relative_name = assets.get(key)
-        if not relative_name:
-            continue
-        path = output_dir / relative_name
         data = dict(preview or {})
-        size = path.stat().st_size if path.exists() else 0
-        total_size += size
-        entries.append(
-            {
-                "id": key,
-                "role": "visualization_preview",
-                "format": str(data.get("format") or "svg"),
-                "path": relative_name,
-                "size_bytes": size,
-                "sha256": _asset_digest(path) if path.exists() else "",
-                "export_ready": bool(data.get("export_ready")),
-                "track_count": int(data.get("track_count") or 0),
-                "curve_count": int(data.get("curve_count") or 0),
-                "overlay_count": int(data.get("overlay_count") or 0),
-                "contains_raw_dataframe": bool(data.get("contains_raw_dataframe")),
-            }
-        )
+        pages = _visualization_svg_pages(data)
+        for page_index, _svg in enumerate(pages, start=1):
+            key = f"visualization_preview_{index}" if page_index == 1 else f"visualization_preview_{index}_page_{page_index}"
+            relative_name = assets.get(key)
+            if not relative_name:
+                continue
+            path = output_dir / relative_name
+            size = path.stat().st_size if path.exists() else 0
+            total_size += size
+            entries.append(
+                {
+                    "id": key,
+                    "role": "visualization_preview" if page_index == 1 else "visualization_preview_page",
+                    "format": str(data.get("format") or "svg"),
+                    "path": relative_name,
+                    "page_index": page_index,
+                    "page_count": len(pages),
+                    "size_bytes": size,
+                    "sha256": _asset_digest(path) if path.exists() else "",
+                    "export_ready": bool(data.get("export_ready")),
+                    "track_count": int(data.get("track_count") or 0),
+                    "curve_count": int(data.get("curve_count") or 0),
+                    "overlay_count": int(data.get("overlay_count") or 0),
+                    "contains_raw_dataframe": bool(data.get("contains_raw_dataframe")),
+                }
+            )
 
     return {
         "schema": "gas-ratio-pro/presentation/visualization-assets/v1",
@@ -584,7 +596,9 @@ def export_presentation_bundle_package(
     if len(figure_set) != 1:
         raise ValueError("Presentation export figure count diverged between formats")
 
-    visualization_preview_count = int(_visualization_manifest(model)["preview_count"])
+    visualization_summary = _visualization_manifest(model)
+    visualization_preview_count = int(visualization_summary["preview_count"])
+    visualization_page_count = int(visualization_summary["total_pages"])
     visualization_assets = _write_visualization_preview_assets(
         model,
         output_dir=output_dir,
@@ -622,7 +636,7 @@ def export_presentation_bundle_package(
             "same_table_titles": True,
             "same_figure_count": True,
             "same_visualization_preview_count": True,
-            "same_visualization_asset_count": len(visualization_assets) == visualization_preview_count,
+            "same_visualization_asset_count": len(visualization_assets) == visualization_page_count,
             "single_visualization_asset_source": True,
             "visualization_asset_index_ready": bool(visualization_assets) == bool(visualization_asset_index),
             "single_source_model": True,

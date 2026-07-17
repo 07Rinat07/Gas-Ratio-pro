@@ -40,10 +40,10 @@ def test_asset_registry_writes_svg_pdf_and_contract_assets(tmp_path: Path):
     data = result.to_dict()
 
     assert data["ok"] is True
-    assert data["asset_count"] == 4
+    assert data["asset_count"] == 5
     assert len(data["geometry_signature"]) == 64
     assert data["single_pipeline_source"] is True
-    assert {item["format"] for item in data["assets"]} == {"svg", "pdf", "json"}
+    assert {item["format"] for item in data["assets"]} == {"svg", "png", "pdf", "json"}
 
     for asset in data["assets"]:
         path = tmp_path / asset["path"]
@@ -54,10 +54,11 @@ def test_asset_registry_writes_svg_pdf_and_contract_assets(tmp_path: Path):
 
     assert (tmp_path / "assets/well-a-preview_svg.svg").read_text(encoding="utf-8").startswith("<svg")
     assert (tmp_path / "assets/well-a-preview_pdf.pdf").read_bytes().startswith(b"%PDF-")
+    assert (tmp_path / "assets/well-a-preview_png.png").read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
 
     registry = json.loads((tmp_path / "well-a.visualization-assets.json").read_text(encoding="utf-8"))
     assert registry["geometry_signature"] == data["geometry_signature"]
-    assert registry["asset_count"] == 4
+    assert registry["asset_count"] == 5
 
 
 def test_asset_registry_rejects_invalid_pipeline(tmp_path: Path):

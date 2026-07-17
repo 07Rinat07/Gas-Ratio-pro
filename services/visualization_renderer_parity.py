@@ -134,8 +134,8 @@ def _non_negative_int(value: Any) -> int:
 def visualization_geometry_signature(pipeline: Mapping[str, Any]) -> str:
     """Return a stable SHA-256 signature for renderer-neutral geometry.
 
-    The signature covers only printable primitive geometry, clip regions and the
-    first-page print transform. Renderer-specific bytes, colorspaces and font
+    The signature covers only printable primitive geometry, clip regions and all
+    physical page transforms. Renderer-specific bytes, colorspaces and font
     embedding are intentionally excluded so SVG and PDF can be compared fairly.
     """
 
@@ -146,9 +146,8 @@ def visualization_geometry_signature(pipeline: Mapping[str, Any]) -> str:
     clips = [_canonical_clip(item) for item in _mapping_list(render_model.get("clip_regions"))]
     print_layout = _mapping(pipeline.get("print_layout"))
     pages = _mapping_list(print_layout.get("pages"))
-    first_page = pages[0] if pages else {}
     payload = {
-        "schema": "visualization.geometry.signature/v1",
+        "schema": "visualization.geometry.signature/v2",
         "render_model_size": [_number(render_model.get("width")), _number(render_model.get("height"))],
         "primitives": primitives,
         "clip_regions": clips,
@@ -156,10 +155,20 @@ def visualization_geometry_signature(pipeline: Mapping[str, Any]) -> str:
             "page_size": str(print_layout.get("page_size") or ""),
             "orientation": str(print_layout.get("orientation") or ""),
             "dpi": _number(print_layout.get("dpi")),
-            "page_bounds": _canonical_mapping(_mapping(first_page.get("page_bounds"))),
-            "content_bounds": _canonical_mapping(_mapping(first_page.get("content_bounds"))),
-            "source_bounds": _canonical_mapping(_mapping(first_page.get("source_bounds"))),
-            "content_scale": _number(first_page.get("content_scale")),
+            "profile_id": str(print_layout.get("profile_id") or ""),
+            "minimum_font_pt": _number(print_layout.get("minimum_font_pt")),
+            "minimum_line_width_pt": _number(print_layout.get("minimum_line_width_pt")),
+            "pages": [
+                {
+                    "index": int(page.get("index") or 0),
+                    "page_bounds": _canonical_mapping(_mapping(page.get("page_bounds"))),
+                    "content_bounds": _canonical_mapping(_mapping(page.get("content_bounds"))),
+                    "source_bounds": _canonical_mapping(_mapping(page.get("source_bounds"))),
+                    "content_scale": _number(page.get("content_scale")),
+                    "track_ids": [str(item) for item in page.get("track_ids", [])],
+                }
+                for page in pages
+            ],
         },
     }
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")

@@ -1,4 +1,25 @@
-# Latest implementation — Forward-Compatible Report Preview Snapshot Migration
+# Latest implementation — Physical A4/A3 Page-Aware Rendering
+
+Status: COMPLETED
+
+Implemented:
+- `core/physical_print_profiles.py` defines explicit A4/A3 portrait/landscape readability floors;
+- `visualization.print.layout` v2 paginates ordered track slices and records per-page `track_ids` and source bounds;
+- later pages repeat depth labels while retaining the same curves, scales, overlays and renderer-neutral primitives;
+- PDF and SVG consume every physical page, clamp final font/stroke sizes, and apply source-offset transforms and page clips;
+- PNG pages are rasterized from the same SVG page set at explicit DPI;
+- report HTML/PDF/DOCX render every visualization page; asset registries and bundle manifests retain every page;
+- renderer parity signature v2 covers the full page list, and export QA aggregates primitive/clip coverage across SVG pages.
+
+Validation:
+- syntax compilation passed for all changed modules;
+- 34 focused automated checks passed through the lightweight harness;
+- 3 multi-format embedding smoke checks passed for HTML, PDF flowables and DOCX images;
+- the supplied runtime still lacks `pytest`, `plotly` and `streamlit`, so the complete suite cannot run here.
+
+Next priority: wire the page-aware asset registry into the one-click Print Center, add shared page chrome/legend primitives and retire single-page fallbacks only after parity verification.
+
+# Previous implementation — Forward-Compatible Report Preview Snapshot Migration
 
 Status: COMPLETED
 

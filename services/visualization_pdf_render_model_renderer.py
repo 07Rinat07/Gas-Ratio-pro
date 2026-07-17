@@ -25,7 +25,7 @@ class PdfRenderModelResult:
     """Binary PDF artifact plus machine-readable renderer metadata."""
 
     schema: str = "visualization.renderer.pdf.result"
-    version: str = "1.0"
+    version: str = "1.1"
     renderer: str = "visualization_pdf_render_model_renderer"
     source_schema: str = ""
     primitive_count: int = 0
@@ -66,7 +66,7 @@ class PdfRenderModelResult:
 
 
 class VisualizationPdfRenderModelRenderer:
-    """Render a one-page PDF from pipeline ``render_model`` primitives."""
+    """Render every physical print-layout page from shared primitives."""
 
     def render(self, source: Mapping[str, Any]) -> PdfRenderModelResult:
         source_schema = str(source.get("schema") or "")
@@ -136,13 +136,14 @@ class VisualizationPdfRenderModelRenderer:
 
         export_ready = bool(pdf_bytes.startswith(b"%PDF-") and primitives and not any(i.startswith("pdf_renderer_error:") for i in issues))
         geometry_signature = visualization_geometry_signature(source) if source_schema == "visualization.scene.pipeline.result" else ""
+        rendered_page_count = len(_mapping_list(print_layout.get("pages"))) if print_layout_applied else 1
         return PdfRenderModelResult(
             source_schema=source_schema,
             primitive_count=len(primitives),
             clip_count=len(clips),
             print_layout_applied=print_layout_applied,
             page_size=str(print_layout.get("page_size") or ""),
-            page_count=1 if pdf_bytes else 0,
+            page_count=rendered_page_count if pdf_bytes else 0,
             width_pt=width_pt,
             height_pt=height_pt,
             geometry_signature=geometry_signature,
@@ -167,24 +168,66 @@ class VisualizationPdfRenderModelRenderer:
         issues: list[str] = []
         font_name = _register_unicode_font(issues)
         clips = {str(item.get("id") or ""): item for item in _mapping_list(render_model.get("clip_regions"))}
-        transform = _print_transform(print_layout, render_model)
+        pages = _mapping_list(print_layout.get("pages")) if bool(print_layout.get("ok")) else []
+        if not pages:
+            pages = [{
+                "index": 1,
+                "page_bounds": {"x": 0.0, "y": 0.0, "width": width_pt, "height": height_pt},
+                "content_bounds": {"x": 0.0, "y": 0.0, "width": width_pt, "height": height_pt},
+                "source_bounds": {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "width": _positive_float(render_model.get("width"), width_pt),
+                    "height": _positive_float(render_model.get("height"), height_pt),
+                },
+                "track_ids": [],
+            }]
+        minimum_font_pt = _positive_float(print_layout.get("minimum_font_pt"), 1.0)
+        minimum_line_width_pt = _positive_float(print_layout.get("minimum_line_width_pt"), 0.1)
 
-        for primitive in _mapping_list(render_model.get("primitives")):
-            if not _enabled(primitive):
-                continue
-            pdf.saveState()
-            clip_id = str(primitive.get("clip_id") or "")
-            if clip_id and clip_id in clips:
-                _apply_clip(pdf, clips[clip_id], transform, height_pt)
-            _draw_primitive(pdf, primitive, transform, height_pt, font_name, issues)
-            pdf.restoreState()
+        for page in pages:
+            page_bounds = _mapping(page.get("page_bounds"))
+            page_width = _positive_float(page_bounds.get("width"), width_pt)
+            page_height = _positive_float(page_bounds.get("height"), height_pt)
+            pdf.setPageSize((page_width, page_height))
+            transform = _print_transform(page, render_model)
+            page_track_ids = _string_set(page.get("track_ids"))
+            for primitive in _mapping_list(render_model.get("primitives")):
+                if not _enabled(primitive) or not _primitive_on_page(primitive, page_track_ids):
+                    continue
+                pdf.saveState()
+                _apply_page_clip(pdf, page, page_height)
+                clip_id = str(primitive.get("clip_id") or "")
+                if clip_id and clip_id in clips:
+                    _apply_clip(pdf, clips[clip_id], transform, page_height)
+                _draw_primitive(
+                    pdf,
+                    primitive,
+                    transform,
+                    page_height,
+                    font_name,
+                    issues,
+                    minimum_font_pt=minimum_font_pt,
+                    minimum_line_width_pt=minimum_line_width_pt,
+                )
+                pdf.restoreState()
+            pdf.showPage()
 
-        pdf.showPage()
         pdf.save()
         return buffer.getvalue(), font_name, issues
 
 
-def _draw_primitive(pdf: Any, primitive: Mapping[str, Any], transform: tuple[float, float, float], page_height: float, font_name: str, issues: list[str]) -> None:
+def _draw_primitive(
+    pdf: Any,
+    primitive: Mapping[str, Any],
+    transform: tuple[float, float, float],
+    page_height: float,
+    font_name: str,
+    issues: list[str],
+    *,
+    minimum_font_pt: float,
+    minimum_line_width_pt: float,
+) -> None:
     payload = _mapping(primitive.get("payload"))
     kind = str(primitive.get("kind") or "")
     scale, tx, ty = transform
@@ -196,7 +239,12 @@ def _draw_primitive(pdf: Any, primitive: Mapping[str, Any], transform: tuple[flo
         height = _non_negative_float(payload.get("height")) * scale
         y = page_height - y_top - height
         _set_fill(pdf, payload.get("fill"), _float(payload.get("fill_opacity"), 1.0))
-        _set_stroke(pdf, payload.get("stroke"), _float(payload.get("stroke_opacity"), 1.0), _positive_float(payload.get("stroke_width"), 1.0) * scale)
+        _set_stroke(
+            pdf,
+            payload.get("stroke"),
+            _float(payload.get("stroke_opacity"), 1.0),
+            max(minimum_line_width_pt, _positive_float(payload.get("stroke_width"), 1.0) * scale),
+        )
         radius = _non_negative_float(payload.get("corner_radius")) * scale
         if radius > 0:
             pdf.roundRect(x, y, width, height, radius, stroke=_has_color(payload.get("stroke")), fill=_has_color(payload.get("fill")))
@@ -209,7 +257,7 @@ def _draw_primitive(pdf: Any, primitive: Mapping[str, Any], transform: tuple[flo
         y1 = page_height - (ty + _float(payload.get("y1")) * scale)
         x2 = tx + _float(payload.get("x2")) * scale
         y2 = page_height - (ty + _float(payload.get("y2")) * scale)
-        _set_stroke(pdf, payload.get("stroke"), 1.0, _positive_float(payload.get("stroke_width"), 1.0) * scale)
+        _set_stroke(pdf, payload.get("stroke"), 1.0, max(minimum_line_width_pt, _positive_float(payload.get("stroke_width"), 1.0) * scale))
         pdf.line(x1, y1, x2, y2)
         return
 
@@ -217,7 +265,7 @@ def _draw_primitive(pdf: Any, primitive: Mapping[str, Any], transform: tuple[flo
         points = _point_list(payload.get("points"))
         if len(points) < 2:
             return
-        _set_stroke(pdf, payload.get("stroke"), 1.0, _positive_float(payload.get("stroke_width"), 1.0) * scale)
+        _set_stroke(pdf, payload.get("stroke"), 1.0, max(minimum_line_width_pt, _positive_float(payload.get("stroke_width"), 1.0) * scale))
         path = pdf.beginPath()
         first_x, first_y = points[0]
         path.moveTo(tx + first_x * scale, page_height - (ty + first_y * scale))
@@ -232,7 +280,7 @@ def _draw_primitive(pdf: Any, primitive: Mapping[str, Any], transform: tuple[flo
             return
         x = tx + _float(payload.get("x")) * scale
         y = page_height - (ty + _float(payload.get("y")) * scale)
-        size = max(1.0, _positive_float(payload.get("font_size"), 9.0) * scale)
+        size = max(minimum_font_pt, _positive_float(payload.get("font_size"), 9.0) * scale)
         _set_fill(pdf, payload.get("fill"), 1.0)
         pdf.setFont(font_name, size)
         anchor = str(payload.get("text_anchor") or "start")
@@ -264,14 +312,26 @@ def _apply_clip(pdf: Any, clip: Mapping[str, Any], transform: tuple[float, float
     pdf.clipPath(path, stroke=0, fill=0)
 
 
-def _print_transform(print_layout: Mapping[str, Any], render_model: Mapping[str, Any]) -> tuple[float, float, float]:
-    page = _first_mapping(print_layout.get("pages"))
+def _apply_page_clip(pdf: Any, page: Mapping[str, Any], page_height: float) -> None:
+    content = _mapping(page.get("content_bounds"))
+    x = _float(content.get("x"))
+    y_top = _float(content.get("y"))
+    width = _non_negative_float(content.get("width"))
+    height = _non_negative_float(content.get("height"))
+    path = pdf.beginPath()
+    path.rect(x, page_height - y_top - height, width, height)
+    pdf.clipPath(path, stroke=0, fill=0)
+
+
+def _print_transform(page: Mapping[str, Any], render_model: Mapping[str, Any]) -> tuple[float, float, float]:
     content = _mapping(page.get("content_bounds"))
     source = _mapping(page.get("source_bounds"))
-    if bool(print_layout.get("ok")) and content and source:
+    if content and source:
         source_width = _positive_float(source.get("width"), _positive_float(render_model.get("width"), 1.0))
         scale = _positive_float(content.get("width"), source_width) / source_width
-        return scale, _float(content.get("x")), _float(content.get("y"))
+        tx = _float(content.get("x")) - _float(source.get("x")) * scale
+        ty = _float(content.get("y")) - _float(source.get("y")) * scale
+        return scale, tx, ty
     return 1.0, 0.0, 0.0
 
 
@@ -378,6 +438,17 @@ def _first_mapping(value: Any) -> dict[str, Any]:
 
 def _enabled(item: Mapping[str, Any]) -> bool:
     return bool(item.get("visible", True)) and bool(item.get("printable", True))
+
+
+def _string_set(value: Any) -> set[str]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)):
+        return set()
+    return {str(item) for item in value if str(item)}
+
+
+def _primitive_on_page(primitive: Mapping[str, Any], track_ids: set[str]) -> bool:
+    primitive_track_id = str(primitive.get("track_id") or "")
+    return not track_ids or not primitive_track_id or primitive_track_id in track_ids
 
 
 def _finite_float(value: Any) -> float | None:

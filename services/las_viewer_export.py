@@ -27,13 +27,17 @@ class LasViewerExportResult:
     geometry_signature: str = ""
     export_ready: bool = False
     content: bytes = b""
+    page_contents: tuple[bytes, ...] = field(default_factory=tuple)
+    page_count: int = 0
     validation: Mapping[str, Any] = field(default_factory=dict)
     qa: Mapping[str, Any] = field(default_factory=dict)
     issues: tuple[str, ...] = field(default_factory=tuple)
 
     @property
     def ok(self) -> bool:
-        return self.export_ready and bool(self.content) and not self.issues
+        return self.export_ready and bool(self.content) and not self.issues and (
+            not self.page_contents or all(bool(item) for item in self.page_contents)
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -45,6 +49,9 @@ class LasViewerExportResult:
             "export_ready": self.export_ready,
             "ok": self.ok,
             "byte_size": len(self.content),
+            "page_count": self.page_count or (len(self.page_contents) if self.page_contents else (1 if self.content else 0)),
+            "page_byte_sizes": [len(item) for item in self.page_contents],
+            "page_sha256": [sha256(item).hexdigest() for item in self.page_contents],
             "sha256": sha256(self.content).hexdigest() if self.content else "",
             "validation": dict(self.validation),
             "qa": dict(self.qa),
@@ -117,6 +124,8 @@ class LasViewerExportService:
             geometry_signature=svg_artifact.geometry_signature,
             export_ready=svg_artifact.export_ready,
             content=svg_artifact.svg.encode("utf-8") if svg_artifact.svg else b"",
+            page_contents=tuple(item.encode("utf-8") for item in svg_artifact.page_svgs),
+            page_count=svg_artifact.page_count,
             validation=validation,
             qa=qa,
             issues=svg_issues,
@@ -128,6 +137,7 @@ class LasViewerExportService:
             geometry_signature=pdf_artifact.geometry_signature,
             export_ready=pdf_artifact.export_ready,
             content=pdf_artifact.pdf_bytes,
+            page_count=pdf_artifact.page_count,
             validation=validation,
             qa=qa,
             issues=pdf_issues,

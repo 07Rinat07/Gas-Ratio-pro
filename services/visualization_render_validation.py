@@ -210,6 +210,7 @@ class VisualizationRenderValidationPipeline:
         pages = _mapping_list(print_layout.get("pages"))
         if not pages:
             return ["render_validation_print_pages_missing"]
+        seen_track_ids: set[str] = set()
         for page in pages:
             index = int(page.get("index") or 0)
             page_bounds = _rect_bounds(_mapping(page.get("page_bounds")))
@@ -223,8 +224,18 @@ class VisualizationRenderValidationPipeline:
                 issues.append(f"render_validation_printable_outside_page:{index}")
             if not _contains(printable, content, self.TOLERANCE):
                 issues.append(f"render_validation_content_outside_printable:{index}")
-            if not _close(source[2] - source[0], width) or not _close(source[3] - source[1], height):
+            canvas = (0.0, 0.0, width, height)
+            if not _contains(canvas, source, self.TOLERANCE) or not _close(source[3] - source[1], height):
                 issues.append(f"render_validation_source_canvas_mismatch:{index}")
+            track_ids = [str(item) for item in _sequence(page.get("track_ids")) if str(item)]
+            if len(pages) > 1 and not track_ids:
+                issues.append(f"render_validation_print_page_tracks_missing:{index}")
+            duplicate_ids = seen_track_ids.intersection(track_ids)
+            if duplicate_ids:
+                issues.append(
+                    f"render_validation_print_track_repeated:{index}:{','.join(sorted(duplicate_ids))}"
+                )
+            seen_track_ids.update(track_ids)
         return issues
 
 
@@ -236,6 +247,12 @@ def _mapping_list(value: Any) -> list[dict[str, Any]]:
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)):
         return []
     return [dict(item) for item in value if isinstance(item, Mapping)]
+
+
+def _sequence(value: Any) -> list[Any]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)):
+        return []
+    return list(value)
 
 
 def _enabled(item: Mapping[str, Any]) -> bool:
