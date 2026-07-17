@@ -1,3 +1,12 @@
+# v223.0 — Engineering Visualization v3 Foundation
+
+- Added renderer-independent `app.visualization_v3` package.
+- Added vector SVG `CompositeLogEngine` with a shared depth axis.
+- Added independent C1/C2/C3/Wh/Bh/Ch tracks with individual scales.
+- Added major/minor depth grid, interval bands and per-track statistics.
+- Added opt-in preview to the Interpretation workspace while retaining the legacy renderer as fallback.
+- Added regression tests for depth ticks and vector composite rendering.
+
 ## v222.70 - Engineering plot value & annotation hardening
 
 - Added multi-point pinned measurements for interactive plots.

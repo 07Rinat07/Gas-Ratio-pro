@@ -1,3 +1,19 @@
+# P0 — Engineering Visualization v3
+
+## Completed in v223.0
+- Composite Log SVG reference renderer.
+- Shared Depth Track with major/minor grid.
+- Independent curve scales for C1/C2/C3/Wh/Bh/Ch.
+- Interval overlays and per-track min/avg/max.
+- Controlled Interpretation workspace integration.
+
+## Next increment
+- TGAS and grouped C4/C5 tracks.
+- Dedicated Fluid Interpretation track.
+- Collision-aware pinned measurements.
+- Print page layout profiles for A4/A3.
+- Report drawer migration and removal of print controls from the workspace body.
+
 
 ### M3-S01.5 — Plot Header Separation & Cache Invalidation — завершено
 

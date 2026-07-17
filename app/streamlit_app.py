@@ -11530,6 +11530,36 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     height = _adaptive_tablet_height(depth_range, view_mode, int(manual_height)) if adaptive_height and depth_range is not None else int(manual_height)
     st.caption(f"Рабочая высота планшета: {height}px.")
 
+    # Engineering Visualization v3 is introduced beside the legacy renderer.
+    # It is vector-based, track-oriented and uses one shared depth scale.
+    v3_enabled = st.toggle(
+        "Инженерный планшет v3",
+        value=True,
+        key="interpretation_composite_v3_enabled",
+        help="Новый многотрековый SVG-планшет с независимыми шкалами и общей глубиной.",
+    )
+    if v3_enabled:
+        try:
+            from app.visualization_v3.streamlit_panel import render_composite_log_v3
+
+            v3_intervals = (
+                list(detected_interval_result.intervals)
+                if detected_interval_result is not None
+                else []
+            )
+            render_composite_log_v3(
+                filtered_df,
+                intervals=v3_intervals,
+                height=max(720, int(height)),
+            )
+        except Exception as exc:
+            logger.exception(
+                "engineering_composite_v3_render_failed project_id=%s error=%s",
+                safe_log_value(active_project.id),
+                safe_log_value(exc),
+            )
+            st.error("Не удалось построить новый инженерный планшет v3. Подробности записаны в logs/app.log.")
+
     # Export is intentionally placed before the heavy graph controls and figures.
     # Users must see the print action immediately instead of searching at the
     # bottom of a long interpretation page.

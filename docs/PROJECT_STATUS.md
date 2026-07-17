@@ -1,3 +1,7 @@
+# Current implementation status — v223.0
+
+Engineering Visualization v3 has entered implementation. The first working increment contains a vector Composite Log foundation, Depth Track, independent curve tracks and Interpretation workspace integration. The legacy Plotly renderer remains available during controlled migration.
+
 
 ### v222.63 — Plot header separation
 
