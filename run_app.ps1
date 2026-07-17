@@ -51,7 +51,24 @@ if ($null -ne $owner) {
     }
 }
 
-Write-Host "Starting Gas Ratio Pro v223.4" -ForegroundColor Green
+# Report export requires SVG conversion libraries. Existing project folders may
+# retain an older virtual environment, so verify these dependencies before start.
+$MissingReportDependencies = @()
+foreach ($ModuleName in @("svglib", "cairosvg")) {
+    & $Python -c "import $ModuleName" 2>$null
+    if ($LASTEXITCODE -ne 0) { $MissingReportDependencies += $ModuleName }
+}
+if ($MissingReportDependencies.Count -gt 0) {
+    Write-Host "Installing missing report export dependencies: $($MissingReportDependencies -join ', ')" -ForegroundColor Yellow
+    & $Python -m pip install --disable-pip-version-check -r (Join-Path $ProjectRoot "requirements.txt")
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Dependency installation failed. Run manually:" -ForegroundColor Red
+        Write-Host "  .\.venv\Scripts\python.exe -m pip install -r requirements.txt" -ForegroundColor Cyan
+        exit $LASTEXITCODE
+    }
+}
+
+Write-Host "Starting Gas Ratio Pro v223.5" -ForegroundColor Green
 Write-Host "Source: $ProjectRoot" -ForegroundColor Cyan
 Write-Host "URL: http://localhost:$Port" -ForegroundColor Cyan
 

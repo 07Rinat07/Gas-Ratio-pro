@@ -1,3 +1,9 @@
+# v223.5 - SVG Export Dependency Repair
+
+- Added explicit `svglib` and `CairoSVG` runtime dependencies.
+- `run_app.ps1` now detects missing SVG export modules in the active virtual environment and installs project requirements once before startup.
+- Prevents `ExportControllerError: No module named 'svglib'` during PDF report generation.
+
 # v223.4 - Deterministic One-Click Report Export
 
 - Replaced the fragile threaded report export path with deterministic inline execution.
