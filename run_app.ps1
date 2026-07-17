@@ -11,6 +11,25 @@ $ProjectRoot = (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $ProjectRoot
 $EntryPoint = Join-Path $ProjectRoot "app\streamlit_app.py"
 
+
+# Deployment integrity guard: fail fast when files from different builds are mixed.
+$StreamlitSource = Get-Content -LiteralPath $EntryPoint -Raw -Encoding UTF8
+$ReportDesignerPath = Join-Path $ProjectRoot "reports\report_designer.py"
+if (-not (Test-Path -LiteralPath $ReportDesignerPath)) {
+    throw "Deployment integrity error: reports\report_designer.py is missing."
+}
+$ReportDesignerSource = Get-Content -LiteralPath $ReportDesignerPath -Raw -Encoding UTF8
+if (-not $StreamlitSource.Contains("build_report_design(")) {
+    throw "Deployment integrity error: app\streamlit_app.py is from an older build (build_report_design is missing). Replace the entire project folder."
+}
+if (-not $ReportDesignerSource.Contains("document_locale: str")) {
+    throw "Deployment integrity error: reports\report_designer.py is from an older build (document_locale is missing). Replace the entire project folder."
+}
+$StreamlitHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $EntryPoint).Hash.Substring(0, 12)
+$DesignerHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $ReportDesignerPath).Hash.Substring(0, 12)
+Write-Host "Entry point: $EntryPoint [$StreamlitHash]" -ForegroundColor DarkCyan
+Write-Host "Report schema: $ReportDesignerPath [$DesignerHash]" -ForegroundColor DarkCyan
+
 $VenvPython = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
 if (Test-Path -LiteralPath $VenvPython) {
     $Python = $VenvPython
@@ -51,7 +70,7 @@ if ($null -ne $owner) {
     }
 }
 
-Write-Host "Starting Gas Ratio Pro v222.64" -ForegroundColor Green
+Write-Host "Starting Gas Ratio Pro v222.66" -ForegroundColor Green
 Write-Host "Source: $ProjectRoot" -ForegroundColor Cyan
 Write-Host "URL: http://localhost:$Port" -ForegroundColor Cyan
 
