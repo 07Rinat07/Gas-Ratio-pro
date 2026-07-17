@@ -28,6 +28,7 @@ from reports.document_model import (
 )
 from reports.presentation_model import PresentationModel
 from reports.plot_theme import apply_report_plot_theme
+from reports.report_i18n import tr
 
 
 @dataclass(frozen=True)
@@ -242,7 +243,7 @@ def _hex_rgb(value: object) -> tuple[int, int, int]:
         return (100, 116, 139)
 
 
-def _add_report_legend_table(doc: Document, title: str, entries: Sequence[dict[str, object]]) -> None:
+def _add_report_legend_table(doc: Document, title: str, entries: Sequence[dict[str, object]], *, locale: str = "ru") -> None:
     if not entries:
         return
     paragraph = doc.add_paragraph()
@@ -252,7 +253,7 @@ def _add_report_legend_table(doc: Document, title: str, entries: Sequence[dict[s
     table = doc.add_table(rows=1, cols=3)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.style = "Table Grid"
-    headers = ("Знак", "Обозначение", "Инженерное значение")
+    headers = (tr(locale, "report.legend.sign"), tr(locale, "report.legend.label"), tr(locale, "report.legend.meaning"))
     for index, header in enumerate(headers):
         cell = table.rows[0].cells[index]
         cell.text = header
@@ -278,17 +279,17 @@ def _add_report_legend_table(doc: Document, title: str, entries: Sequence[dict[s
     doc.add_paragraph()
 
 
-def _add_statistics_table(doc: Document, entries: Sequence[dict[str, object]]) -> None:
+def _add_statistics_table(doc: Document, entries: Sequence[dict[str, object]], *, locale: str = "ru") -> None:
     if not entries:
         return
     paragraph = doc.add_paragraph()
-    run = paragraph.add_run("Статистика кривых")
+    run = paragraph.add_run(tr(locale, "report.curve_statistics"))
     run.bold = True
     run.font.size = Pt(11)
     table = doc.add_table(rows=1, cols=5)
     table.style = "Table Grid"
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    for index, header in enumerate(("Кривая", "Мин.", "Макс.", "Среднее", "Сумма")):
+    for index, header in enumerate((tr(locale, "report.curve"), tr(locale, "report.minimum"), tr(locale, "report.maximum"), tr(locale, "report.mean"), tr(locale, "report.sum"))):
         table.rows[0].cells[index].text = header
     for entry in entries:
         cells = table.add_row().cells
@@ -300,12 +301,12 @@ def _add_statistics_table(doc: Document, entries: Sequence[dict[str, object]]) -
     doc.add_paragraph()
 
 
-def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
+def _add_plot_placeholder(doc: Document, block: DocumentPlot, *, locale: str = "ru") -> None:
     """Embed the canonical vector composite or a legacy Plotly figure into DOCX."""
-    _add_paragraph(doc, block.title or "Планшет", style="Heading 2")
+    _add_paragraph(doc, block.title or tr(locale, "report.plot"), style="Heading 2")
     if hasattr(block.figure, "svg"):
         figure = block.figure
-        _add_paragraph(doc, f"Диапазон глубин: {figure.depth_start:g}–{figure.depth_stop:g} м.")
+        _add_paragraph(doc, tr(locale, "report.depth_range", top=f"{figure.depth_start:g}", base=f"{figure.depth_stop:g}"))
 
         # PyMuPDF rasterizes SVG without Cairo / renderPM system libraries.
         # This is deliberately the primary DOCX path on Windows because both
@@ -345,15 +346,14 @@ def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
     if depth_range:
         _add_paragraph(
             doc,
-            f"Показан инженерно значимый диапазон глубин: "
-            f"{float(depth_range.get('top', 0)):g}–{float(depth_range.get('base', 0)):g} м. "
-            "Цветные зоны обозначают вероятный тип флюида; маркеры показывают кровлю, подошву и приоритетный интервал.",
+            tr(locale, "report.active_depth_range", top=f"{float(depth_range.get('top', 0)):g}", base=f"{float(depth_range.get('base', 0)):g}")
+            + " " + tr(locale, "report.zone_note"),
         )
     intervals = list(legend.get("intervals", []) or [])
     if str(legend.get("report_kind", "")) == "detail" and intervals:
         table = doc.add_table(rows=1, cols=5)
         table.style = "Table Grid"
-        headers = ("Интервал", "Глубина, м", "Мощность, м", "Флюид", "Достоверность")
+        headers = (tr(locale, "report.interval_id"), tr(locale, "report.depth_m"), tr(locale, "report.thickness_m"), tr(locale, "report.fluid"), tr(locale, "report.confidence"))
         for idx, value in enumerate(headers):
             table.rows[0].cells[idx].text = value
             for run in table.rows[0].cells[idx].paragraphs[0].runs:
@@ -389,7 +389,7 @@ def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
         paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
         paragraph.add_run().add_picture(BytesIO(png), width=Inches(7.45))
         if str(legend.get("report_kind", "")) != "detail":
-            _add_statistics_table(doc, list(legend.get("statistics", []) or []))
+            _add_statistics_table(doc, list(legend.get("statistics", []) or []), locale=locale)
     except Exception as exc:
         paragraph = doc.add_paragraph()
         paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -425,6 +425,7 @@ def render_engineering_document_docx(
     doc = Document()
     _configure_document(doc, opts)
 
+    locale = getattr(document.metadata, "locale", "ru")
     title = document.metadata.title or opts.title
     _add_paragraph(doc, title, style="Title")
     if document.metadata.subtitle:
@@ -447,7 +448,7 @@ def render_engineering_document_docx(
             elif isinstance(block, DocumentNotice):
                 _add_notice(doc, block)
             elif isinstance(block, DocumentPlot):
-                _add_plot_placeholder(doc, block)
+                _add_plot_placeholder(doc, block, locale=locale)
             elif isinstance(block, DocumentVisualizationPreview):
                 _add_visualization_preview_placeholder(doc, block)
 

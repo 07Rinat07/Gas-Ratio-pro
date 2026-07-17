@@ -22,6 +22,7 @@ class DocumentMetadata:
     rows: tuple[tuple[str, str], ...] = ()
     notes: tuple[str, ...] = ()
     profile: str = "engineering"
+    locale: str = "ru"
 
 
 @dataclass(frozen=True)
@@ -232,9 +233,17 @@ def select_document_tables(
         return _client_tables(model)
     source_tables = model.expert_tables if include_technical else model.engineer_first_tables
     engineering_ids = {id(table) for table in model.engineer_first_tables}
-    return tuple(
+    printable = tuple(
         _printable_table(table, technical=include_technical and id(table) not in engineering_ids)
         for table in source_tables
+    )
+    return tuple(
+        DocumentTable(
+            title=localize_text(table.title, locale),
+            headers=tuple(localize_text(value, locale) for value in table.headers),
+            rows=tuple(tuple(localize_text(value, locale) for value in row) for row in table.rows),
+        )
+        for table in printable
     )
 
 
@@ -273,7 +282,7 @@ def build_engineering_document(
         def _plot_meta(figure: object) -> dict[str, object]:
             if hasattr(figure, "svg"):
                 return {
-                    "report_title": getattr(figure, "report_title", "") or "Инженерный Composite Log v4",
+                    "report_title": getattr(figure, "report_title", "") or tr(locale, "report.plot"),
                     "report_kind": getattr(figure, "report_kind", "overview"),
                     "intervals": list(getattr(figure, "report_intervals", ()) or ()),
                     "depth_range": {
@@ -289,7 +298,7 @@ def build_engineering_document(
 
         for figure_index, figure in enumerate(model.figures):
             meta = _plot_meta(figure)
-            title = str(meta.get("report_title") or "Профессиональный планшет интерпретации")
+            title = str(meta.get("report_title") or tr(locale, "report.plot"))
             kind = str(meta.get("report_kind") or "overview")
             sections.append(
                 DocumentSection(
@@ -331,5 +340,6 @@ def build_engineering_document(
             tr(locale, "report.hypothesis_note"),
         ),
         profile="client" if client_mode else "engineering",
+        locale=locale,
     )
     return EngineeringDocument(metadata=metadata, sections=tuple(sections))
