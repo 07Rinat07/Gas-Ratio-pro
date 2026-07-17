@@ -252,7 +252,7 @@ class BackgroundExportManager:
                     snapshot.request_signature == request_signature
                     and snapshot.status in {ExportJobStatus.PENDING, ExportJobStatus.RUNNING, ExportJobStatus.CANCELLING}
                 ):
-                    raise RuntimeError("Этот экспорт уже выполняется в фоновом режиме.")
+                    raise RuntimeError("Этот экспорт уже выполняется.")
 
             now = time()
             snapshot = ExportJobSnapshot(
@@ -261,7 +261,7 @@ class BackgroundExportManager:
                 request_signature=request_signature,
                 status=ExportJobStatus.PENDING,
                 progress=0,
-                message="Экспорт поставлен в очередь.",
+                message="Подготовка отчёта запущена.",
                 created_at=now,
                 updated_at=now,
                 retry_of_job_id=str(retry_of_job_id),
@@ -271,9 +271,13 @@ class BackgroundExportManager:
             cancel_event = Event()
             self._cancel_events[snapshot.id] = cancel_event
             self._write(snapshot)
-            future = self._executor.submit(self._run, snapshot.id, work, cancel_event)
-            self._futures[snapshot.id] = future
-            return snapshot
+
+        # Run outside the manager lock: _run() updates progress and terminal state
+        # under the same lock. Running it while submit() still owns the lock would
+        # deadlock immediately at the first progress update.
+        self._run(snapshot.id, work, cancel_event)
+        with self._lock:
+            return self._read(snapshot.id)
 
     def _run(self, job_id: str, work: ExportWork, cancel_event: Event) -> None:
         def check_cancelled() -> None:

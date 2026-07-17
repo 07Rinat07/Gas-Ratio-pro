@@ -1,3 +1,10 @@
+# v223.4 - Deterministic One-Click Report Export
+
+- Replaced the fragile threaded report export path with deterministic inline execution.
+- One click now completes PDF/DOCX generation or returns a terminal error in the same request.
+- Prevented jobs from remaining indefinitely at "PDF initialization" after Streamlit reruns.
+- Preserved the existing export cache, history, download button and cancellation/error model.
+
 # v223.3 - Export API Hotfix and Legacy Plot Removal
 
 - Fixed the background export call: `BackgroundExportApplicationService` already owns the project context, so `project_id` is no longer passed to `submit()`.
