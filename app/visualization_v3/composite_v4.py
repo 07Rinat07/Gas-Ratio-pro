@@ -29,6 +29,59 @@ TRACK_LIBRARY: tuple[tuple[str, str, str, str, str], ...] = (
     ("bar2", "Bar-2", "", "#6e9b35", "linear"),
 )
 
+TRACK_DESCRIPTIONS: dict[str, dict[str, str]] = {
+    "ru": {
+        "tgas": "Суммарный газ", "c1": "Метан", "c2": "Этан", "c3": "Пропан",
+        "ic4": "Изобутан", "nc4": "Н-бутан", "ic5": "Изопентан", "nc5": "Н-пентан",
+        "wh": "Влажность газа", "bh": "Баланс компонентов", "ch": "Характер газа",
+        "c1_c2": "Метан / этан", "c1_c3": "Метан / пропан",
+        "c1_c4": "Метан / бутаны", "c1_c5": "Метан / пентаны",
+        "inverse_oil_indicator": "Нефтяной индекс", "bar2": "Коэффициент Bar-2",
+    },
+    "kk": {
+        "tgas": "Жалпы газ", "c1": "Метан", "c2": "Этан", "c3": "Пропан",
+        "ic4": "Изобутан", "nc4": "Н-бутан", "ic5": "Изопентан", "nc5": "Н-пентан",
+        "wh": "Газ ылғалдылығы", "bh": "Компоненттер теңгерімі", "ch": "Газ сипаты",
+        "c1_c2": "Метан / этан", "c1_c3": "Метан / пропан",
+        "c1_c4": "Метан / бутандар", "c1_c5": "Метан / пентандар",
+        "inverse_oil_indicator": "Мұнай индексі", "bar2": "Bar-2 коэффициенті",
+    },
+    "en": {
+        "tgas": "Total gas", "c1": "Methane", "c2": "Ethane", "c3": "Propane",
+        "ic4": "Isobutane", "nc4": "n-Butane", "ic5": "Isopentane", "nc5": "n-Pentane",
+        "wh": "Gas wetness", "bh": "Component balance", "ch": "Gas character",
+        "c1_c2": "Methane / ethane", "c1_c3": "Methane / propane",
+        "c1_c4": "Methane / butanes", "c1_c5": "Methane / pentanes",
+        "inverse_oil_indicator": "Oil index", "bar2": "Bar-2 ratio",
+    },
+}
+
+COMPOSITE_TEXT: dict[str, dict[str, str]] = {
+    "ru": {
+        "depth": "Глубина", "metre": "м",
+        "working_range": "Рабочий диапазон: {top:g}–{base:g} м · автоматически по значимым газовым данным и УВ-интервалам",
+        "gas": "Газ", "condensate": "Газоконденсат", "oil": "Нефть", "other": "Переходная/прочее",
+    },
+    "kk": {
+        "depth": "Тереңдік", "metre": "м",
+        "working_range": "Жұмыс аралығы: {top:g}–{base:g} м · маңызды газ деректері мен КС аралықтары бойынша автоматты түрде",
+        "gas": "Газ", "condensate": "Газконденсат", "oil": "Мұнай", "other": "Өтпелі/басқа",
+    },
+    "en": {
+        "depth": "Depth", "metre": "m",
+        "working_range": "Working range: {top:g}–{base:g} m · automatically derived from significant gas data and HC intervals",
+        "gas": "Gas", "condensate": "Gas condensate", "oil": "Oil", "other": "Transition/other",
+    },
+}
+
+def _locale(value: str) -> str:
+    normalized = str(value or "ru").strip().lower()
+    if normalized.startswith("kk") or normalized in {"kz", "қаз"}:
+        return "kk"
+    if normalized.startswith("en"):
+        return "en"
+    return "ru"
+
 ALIASES: dict[str, tuple[str, ...]] = {
     "depth": ("depth", "dept", "md"),
     "tgas": ("tgas", "total_gas", "gas_total"),
@@ -142,6 +195,7 @@ def build_composite_log_v4(
     include_keys: Iterable[str] | None = None,
     report_kind: str = "overview",
     report_title: str | None = None,
+    locale: str = "ru",
 ) -> CompositeLogResult:
     """Build the single canonical composite used by UI, PDF, DOCX and SVG export."""
     mapping = _column_map(dataframe)
@@ -150,14 +204,14 @@ def build_composite_log_v4(
         raise ValueError("Depth column not found")
 
     allow = {str(item).lower() for item in include_keys} if include_keys else None
-    selected: list[tuple[str, str, str, str, str]] = []
+    selected: list[tuple[str, str, str, str, str, str]] = []
     for item in TRACK_LIBRARY:
         key = item[0]
         if allow is not None and key not in allow:
             continue
         column = _resolve(mapping, key)
         if column:
-            selected.append((column, item[1], item[2], item[3], item[4]))
+            selected.append((column, key, item[1], item[2], item[3], item[4]))
 
     if not selected:
         raise ValueError("No supported engineering curves found")
@@ -171,13 +225,14 @@ def build_composite_log_v4(
         CurveTrackSpec(
             key=column,
             title=title_text,
+            description=TRACK_DESCRIPTIONS[_locale(locale)].get(canonical_key, ""),
             unit=unit,
             width=base_width,
             scale=scale,
             stroke=stroke,
             stroke_width=5.0,
         )
-        for column, title_text, unit, stroke, scale in selected
+        for column, canonical_key, title_text, unit, stroke, scale in selected
     )
     interval_bands = _bands(intervals)
     depth_min = depth_max = None
@@ -189,10 +244,12 @@ def build_composite_log_v4(
             intervals=interval_bands,
         )
 
+    locale_key = _locale(locale)
+    text = COMPOSITE_TEXT[locale_key]
     spec = CompositeLogSpec(
         depth_key=depth_key,
         title=title,
-        depth_track=DepthTrackSpec(title="Глубина", unit="м", width=depth_width, minor_divisions=5),
+        depth_track=DepthTrackSpec(title=text["depth"], unit=text["metre"], width=depth_width, minor_divisions=5),
         tracks=tracks,
         intervals=interval_bands,
         height=max(980, int(height)),
@@ -203,6 +260,7 @@ def build_composite_log_v4(
         depth_min=depth_min,
         depth_max=depth_max,
         report_kind=report_kind,
+        locale=locale_key,
     )
     rendered = CompositeLogEngine().render(dataframe, spec)
     interval_rows = tuple({

@@ -17,6 +17,7 @@ class DepthTrackSpec:
 class CurveTrackSpec:
     key: str
     title: str
+    description: str = ""
     unit: str = ""
     width: int = 150
     scale: str = "linear"
@@ -56,6 +57,7 @@ class CompositeLogSpec:
     depth_min: float | None = None
     depth_max: float | None = None
     report_kind: str = "overview"
+    locale: str = "ru"
 
     @classmethod
     def with_tracks(

@@ -156,6 +156,7 @@ def build_presentation_model(
             title=tr((metadata or PresentationMetadata()).locale, "report.overview.engineering"),
             report_title=tr((metadata or PresentationMetadata()).locale, "report.overview"), report_kind="overview",
             height=max(4200, cfg.height), target_width=6200, include_keys=report_tracks,
+            locale=(metadata or PresentationMetadata()).locale,
         )
 
         profile = str((metadata or PresentationMetadata()).report_profile or "engineering").lower()
@@ -175,7 +176,7 @@ def build_presentation_model(
                 title=tr(locale, "report.detail", top=f"{group.top:g}", base=f"{group.base:g}"),
                 report_title=tr(locale, "report.interval", index=group.index, top=f"{group.top:g}", base=f"{group.base:g}", fluids=fluids),
                 report_kind="detail", height=max(4200, cfg.height), target_width=6200,
-                include_keys=report_tracks,
+                include_keys=report_tracks, locale=locale,
             ))
 
     return PresentationModel(

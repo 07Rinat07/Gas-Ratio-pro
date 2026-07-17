@@ -91,6 +91,17 @@ class LayoutMetrics:
         )
 
 
+
+_COMPOSITE_RENDER_TEXT = {
+    "ru": {"working_range": "Рабочий диапазон: {top:g}–{base:g} м · автоматически по значимым газовым данным и УВ-интервалам", "gas": "Газ", "condensate": "Газоконденсат", "oil": "Нефть", "other": "Переходная/прочее"},
+    "kk": {"working_range": "Жұмыс аралығы: {top:g}–{base:g} м · маңызды газ деректері мен КС аралықтары бойынша автоматты түрде", "gas": "Газ", "condensate": "Газконденсат", "oil": "Мұнай", "other": "Өтпелі/басқа"},
+    "en": {"working_range": "Working range: {top:g}–{base:g} m · automatically derived from significant gas data and HC intervals", "gas": "Gas", "condensate": "Gas condensate", "oil": "Oil", "other": "Transition/other"},
+}
+
+def _render_locale(value: str) -> str:
+    normalized = str(value or "ru").strip().lower()
+    return "kk" if normalized.startswith("kk") or normalized in {"kz", "қаз"} else "en" if normalized.startswith("en") else "ru"
+
 class CompositeLogEngine:
     """Deterministic page-aware vector renderer for engineering composite logs."""
 
@@ -141,8 +152,11 @@ class CompositeLogEngine:
             f'<text x="{metrics.left}" y="{int(metrics.title_height*0.66)}" font-family="{font}" font-size="{metrics.title_font}" font-weight="700" fill="#0f172a">{html.escape(spec.title)}</text>',
         ]
         if str(spec.report_kind).lower() == "overview":
-            parts.append(f'<text x="{metrics.left}" y="{int(metrics.title_height*0.94)}" font-family="{font}" font-size="{metrics.scale_font}" font-weight="700" fill="#475569">Рабочий диапазон: {depth_start:g}–{depth_stop:g} м · автоматически по значимым газовым данным и УВ-интервалам</text>')
-            legend_items = (("Газ", "#ef4444"), ("Газоконденсат", "#f59e0b"), ("Нефть", "#22c55e"), ("Переходная/прочее", "#94a3b8"))
+            locale_key = _render_locale(spec.locale)
+            text = _COMPOSITE_RENDER_TEXT[locale_key]
+            working_range = text["working_range"].format(top=depth_start, base=depth_stop)
+            parts.append(f'<text x="{metrics.left}" y="{int(metrics.title_height*0.94)}" font-family="{font}" font-size="{metrics.scale_font}" font-weight="700" fill="#475569">{html.escape(working_range)}</text>')
+            legend_items = ((text["gas"], "#ef4444"), (text["condensate"], "#f59e0b"), (text["oil"], "#22c55e"), (text["other"], "#94a3b8"))
             legend_x = max(metrics.left + 1550, width - metrics.right - 1450)
             legend_y = int(metrics.title_height * 0.64)
             for legend_label, legend_color in legend_items:
@@ -295,9 +309,13 @@ class CompositeLogEngine:
                 gx = x + track.width*ratio
                 parts.append(f'<line x1="{gx:.2f}" y1="{metrics.plot_top}" x2="{gx:.2f}" y2="{metrics.plot_bottom}" stroke="{spec.minor_grid}" stroke-width="1"/>')
 
-            parts.append(f'<text x="{x+track.width/2:.2f}" y="{header_y+metrics.header_height*0.38:.2f}" text-anchor="middle" font-family="{font}" font-size="{metrics.track_font}" font-weight="700" fill="#0f172a">{html.escape(track.title)}</text>')
+            title_y = header_y + metrics.header_height * (0.28 if track.description else 0.38)
+            parts.append(f'<text x="{x+track.width/2:.2f}" y="{title_y:.2f}" text-anchor="middle" font-family="{font}" font-size="{metrics.track_font}" font-weight="700" fill="#0f172a">{html.escape(track.title)}</text>')
+            if track.description:
+                description_size = max(22, int(metrics.scale_font * 0.82))
+                parts.append(f'<text x="{x+track.width/2:.2f}" y="{header_y+metrics.header_height*0.52:.2f}" text-anchor="middle" font-family="{font}" font-size="{description_size}" font-weight="600" fill="#475569">{html.escape(track.description)}</text>')
             scale_text = f"{minimum:.3g} — {maximum:.3g}" + (f" {track.unit}" if track.unit else "")
-            parts.append(f'<text x="{x+track.width/2:.2f}" y="{header_y+metrics.header_height*0.70:.2f}" text-anchor="middle" font-family="{font}" font-size="{metrics.scale_font}" font-weight="600" fill="#334155">{html.escape(scale_text)}</text>')
+            parts.append(f'<text x="{x+track.width/2:.2f}" y="{header_y+metrics.header_height*0.78:.2f}" text-anchor="middle" font-family="{font}" font-size="{metrics.scale_font}" font-weight="600" fill="#334155">{html.escape(scale_text)}</text>')
 
             points: list[str] = []
             if not finite.empty:
