@@ -53,6 +53,9 @@ class CompositeLogSpec:
     minor_grid: str = "#d9e1ea"
     border: str = "#475569"
     font_family: str = "Arial, Helvetica, sans-serif"
+    depth_min: float | None = None
+    depth_max: float | None = None
+    report_kind: str = "overview"
 
     @classmethod
     def with_tracks(

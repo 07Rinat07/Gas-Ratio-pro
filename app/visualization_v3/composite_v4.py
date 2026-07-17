@@ -72,6 +72,66 @@ def _bands(intervals: Iterable[Any]) -> tuple[IntervalBand, ...]:
     return tuple(result)
 
 
+def _meaningful_overview_depth_range(
+    dataframe: pd.DataFrame,
+    *,
+    depth_column: str,
+    selected_columns: Iterable[str],
+    intervals: tuple[IntervalBand, ...],
+) -> tuple[float, float]:
+    """Return an engineering-useful overview range instead of the raw LAS range.
+
+    Long leading/trailing sections containing only zeros or recorder noise make
+    the productive interval unreadable.  The crop is driven by robust gas-curve
+    activity and by interpreted interval bounds, with a conservative context
+    margin.
+    """
+    depth = pd.to_numeric(dataframe[depth_column], errors="coerce")
+    valid_depth = depth.dropna()
+    if valid_depth.empty:
+        raise ValueError("No numeric depth values available")
+    raw_min, raw_max = float(valid_depth.min()), float(valid_depth.max())
+
+    activity = pd.Series(0.0, index=dataframe.index, dtype="float64")
+    component_names = {"tgas", "c1", "c2", "c3", "ic4", "nc4", "ic5", "nc5"}
+    for column in selected_columns:
+        normalized = str(column).strip().lower()
+        if normalized not in component_names and not any(normalized == alias for key in component_names for alias in ALIASES.get(key, ())):
+            continue
+        values = pd.to_numeric(dataframe[column], errors="coerce").abs().fillna(0.0)
+        activity = activity.add(values, fill_value=0.0)
+
+    positive = activity[activity > 0]
+    active_depths = pd.Series(dtype="float64")
+    if not positive.empty:
+        q95 = float(positive.quantile(0.95))
+        threshold = max(1e-8, q95 * 0.0025)
+        active_depths = depth[(activity >= threshold) & depth.notna()]
+
+    candidates: list[float] = []
+    if not active_depths.empty:
+        candidates.extend((float(active_depths.min()), float(active_depths.max())))
+    if intervals:
+        candidates.extend(float(item.top) for item in intervals)
+        candidates.extend(float(item.bottom) for item in intervals)
+
+    if len(candidates) < 2:
+        return raw_min, raw_max
+
+    active_min, active_max = min(candidates), max(candidates)
+    active_span = max(1.0, active_max - active_min)
+    context = max(20.0, min(80.0, active_span * 0.045))
+    crop_min = max(raw_min, active_min - context)
+    crop_max = min(raw_max, active_max + context)
+
+    # Do not crop when the gain is negligible; this avoids surprising zooms on
+    # already compact datasets.
+    raw_span = max(1.0, raw_max - raw_min)
+    if (crop_max - crop_min) >= raw_span * 0.88:
+        return raw_min, raw_max
+    return crop_min, crop_max
+
+
 def build_composite_log_v4(
     dataframe: pd.DataFrame,
     *,
@@ -119,17 +179,30 @@ def build_composite_log_v4(
         )
         for column, title_text, unit, stroke, scale in selected
     )
+    interval_bands = _bands(intervals)
+    depth_min = depth_max = None
+    if str(report_kind).lower() == "overview":
+        depth_min, depth_max = _meaningful_overview_depth_range(
+            dataframe,
+            depth_column=depth_key,
+            selected_columns=(column for column, *_ in selected),
+            intervals=interval_bands,
+        )
+
     spec = CompositeLogSpec(
         depth_key=depth_key,
         title=title,
         depth_track=DepthTrackSpec(title="Глубина", unit="м", width=depth_width, minor_divisions=5),
         tracks=tracks,
-        intervals=_bands(intervals),
+        intervals=interval_bands,
         height=max(980, int(height)),
         header_height=420,
         footer_height=360,
         left_padding=14,
         right_padding=14,
+        depth_min=depth_min,
+        depth_max=depth_max,
+        report_kind=report_kind,
     )
     rendered = CompositeLogEngine().render(dataframe, spec)
     interval_rows = tuple({

@@ -106,10 +106,17 @@ class CompositeLogEngine:
         if frame.empty:
             raise ValueError("No numeric depth values available")
 
-        depth_start = float(frame[depth_key].min())
-        depth_stop = float(frame[depth_key].max())
+        raw_depth_start = float(frame[depth_key].min())
+        raw_depth_stop = float(frame[depth_key].max())
+        depth_start = float(spec.depth_min) if spec.depth_min is not None else raw_depth_start
+        depth_stop = float(spec.depth_max) if spec.depth_max is not None else raw_depth_stop
+        depth_start = max(raw_depth_start, depth_start)
+        depth_stop = min(raw_depth_stop, depth_stop)
         if depth_stop <= depth_start:
             raise ValueError("Depth range must be greater than zero")
+        frame = frame.loc[frame[depth_key].between(depth_start, depth_stop)].copy()
+        if frame.empty:
+            raise ValueError("No data inside selected depth range")
 
         active_tracks: list[tuple[CurveTrackSpec, str]] = []
         for track in spec.tracks:
@@ -129,33 +136,22 @@ class CompositeLogEngine:
 
         font = html.escape(spec.font_family)
         parts: list[str] = [
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}"><!-- Depth -->',
             f'<rect width="{width}" height="{height}" fill="{spec.background}"/>',
-            f'<text x="{metrics.left}" y="{int(metrics.title_height*0.72)}" font-family="{font}" font-size="{metrics.title_font}" font-weight="700" fill="#0f172a">{html.escape(spec.title)}</text>',
+            f'<text x="{metrics.left}" y="{int(metrics.title_height*0.66)}" font-family="{font}" font-size="{metrics.title_font}" font-weight="700" fill="#0f172a">{html.escape(spec.title)}</text>',
         ]
+        if str(spec.report_kind).lower() == "overview":
+            parts.append(f'<text x="{metrics.left}" y="{int(metrics.title_height*0.94)}" font-family="{font}" font-size="{metrics.scale_font}" font-weight="700" fill="#475569">Рабочий диапазон: {depth_start:g}–{depth_stop:g} м · автоматически по значимым газовым данным и УВ-интервалам</text>')
+            legend_items = (("Газ", "#ef4444"), ("Газоконденсат", "#f59e0b"), ("Нефть", "#22c55e"), ("Переходная/прочее", "#94a3b8"))
+            legend_x = max(metrics.left + 1550, width - metrics.right - 1450)
+            legend_y = int(metrics.title_height * 0.64)
+            for legend_label, legend_color in legend_items:
+                parts.append(f'<rect x="{legend_x}" y="{legend_y-30}" width="34" height="34" rx="4" fill="{legend_color}" fill-opacity="0.34" stroke="{legend_color}" stroke-width="3"/>')
+                parts.append(f'<text x="{legend_x+48}" y="{legend_y}" font-family="{font}" font-size="{metrics.scale_font}" font-weight="700" fill="#1e293b">{html.escape(legend_label)}</text>')
+                legend_x += 235 if legend_label == "Газ" else (430 if legend_label == "Газоконденсат" else (245 if legend_label == "Нефть" else 0))
 
         data_x = metrics.left + metrics.depth_width
         data_width = max(0, width - data_x - metrics.right)
-
-        # Interval fill is shown everywhere.  Labels are deliberately limited on
-        # an overview page so hundreds of HC labels cannot obscure the log.
-        label_intervals = len(spec.intervals) <= 18
-        for interval in spec.intervals:
-            top = max(depth_start, min(depth_stop, float(interval.top)))
-            bottom = max(depth_start, min(depth_stop, float(interval.bottom)))
-            if bottom <= top:
-                continue
-            y1, y2 = y_for_depth(top), y_for_depth(bottom)
-            fill, stroke = self._fluid_style(interval.fluid)
-            parts.append(f'<rect x="{data_x}" y="{y1:.2f}" width="{data_width}" height="{max(1.0,y2-y1):.2f}" fill="{fill}" fill-opacity="0.10" stroke="{stroke}" stroke-width="1.4"/>')
-            if label_intervals:
-                label = interval.label
-                if interval.fluid:
-                    label += f" · {interval.fluid}"
-                if interval.confidence is not None:
-                    label += f" · {interval.confidence:.0f}%"
-                label_y = max(metrics.plot_top + metrics.interval_font, min(metrics.plot_bottom - 8, y1 + metrics.interval_font + 5))
-                parts.append(f'<text x="{data_x+10}" y="{label_y:.2f}" font-family="{font}" font-size="{metrics.interval_font}" font-weight="700" fill="{stroke}" paint-order="stroke" stroke="#ffffff" stroke-width="5">{html.escape(label)}</text>')
 
         header_y = metrics.title_height
         parts.extend([
@@ -164,6 +160,70 @@ class CompositeLogEngine:
             f'<text x="{metrics.left+metrics.depth_width/2}" y="{header_y+metrics.header_height*0.42}" text-anchor="middle" font-family="{font}" font-size="{metrics.track_font}" font-weight="700" fill="#0f172a">{html.escape(spec.depth_track.title)}</text>',
             f'<text x="{metrics.left+metrics.depth_width/2}" y="{header_y+metrics.header_height*0.70}" text-anchor="middle" font-family="{font}" font-size="{metrics.scale_font}" font-weight="600" fill="#334155">{html.escape(spec.depth_track.unit)}</text>',
         ])
+
+        # Interpreted hydrocarbon zones are rendered as real bands, not hairline
+        # separators.  On the overview page a dedicated marker lane in the depth
+        # column keeps labels readable while the bands remain visible across all
+        # tracks.
+        visible_intervals: list[tuple[object, float, float, str, str]] = []
+        minimum_band_px = 5.0 if str(spec.report_kind).lower() == "overview" else 3.0
+        for interval in spec.intervals:
+            top = max(depth_start, min(depth_stop, float(interval.top)))
+            bottom = max(depth_start, min(depth_stop, float(interval.bottom)))
+            if bottom <= top:
+                continue
+            y1, y2 = y_for_depth(top), y_for_depth(bottom)
+            fill, stroke = self._fluid_style(interval.fluid)
+            visual_height = max(minimum_band_px, y2-y1)
+            center_y = (y1+y2)/2
+            draw_y = max(metrics.plot_top, min(metrics.plot_bottom-visual_height, center_y-visual_height/2))
+            opacity = 0.18 if str(spec.report_kind).lower() == "overview" else 0.11
+            parts.append(f'<rect x="{data_x}" y="{draw_y:.2f}" width="{data_width}" height="{visual_height:.2f}" fill="{fill}" fill-opacity="{opacity}" stroke="{stroke}" stroke-opacity="0.78" stroke-width="2.2"/>')
+            visible_intervals.append((interval, draw_y, visual_height, fill, stroke))
+
+        if str(spec.report_kind).lower() == "overview" and visible_intervals:
+            lane_x = metrics.left + 14
+            lane_w = metrics.depth_width - 118
+            min_gap = max(42.0, metrics.interval_font * 1.45)
+            candidates = sorted(visible_intervals, key=lambda row: row[1] + row[2]/2)
+            # Label the thickest/most representative zones when there are many
+            # micro-intervals; all zones still remain visible as coloured bands.
+            max_labels = max(8, min(22, int(plot_height / min_gap)))
+            if len(candidates) > max_labels:
+                ranked = sorted(candidates, key=lambda row: row[2], reverse=True)[:max_labels]
+                candidates = sorted(ranked, key=lambda row: row[1] + row[2]/2)
+            placed: list[tuple[object, float, float, str, str, float]] = []
+            previous_y = metrics.plot_top - min_gap
+            for interval, band_y, band_h, fill, stroke in candidates:
+                desired = band_y + band_h/2
+                label_y = max(desired, previous_y + min_gap)
+                placed.append((interval, band_y, band_h, fill, stroke, label_y))
+                previous_y = label_y
+            overflow = previous_y - (metrics.plot_bottom - min_gap/2)
+            if overflow > 0:
+                placed = [(a,b,c,d,e,max(metrics.plot_top+min_gap/2,f-overflow)) for a,b,c,d,e,f in placed]
+            for interval, band_y, band_h, fill, stroke, label_y in placed:
+                band_center = band_y + band_h/2
+                card_h = max(52, metrics.interval_font * 2.15)
+                card_y = label_y - card_h/2
+                fluid_text = str(interval.fluid or "Интервал")
+                confidence_text = f" · {interval.confidence:.0f}%" if interval.confidence is not None else ""
+                parts.append(f'<line x1="{data_x}" y1="{band_center:.2f}" x2="{metrics.left+metrics.depth_width-86}" y2="{label_y:.2f}" stroke="{stroke}" stroke-width="2.4"/>')
+                parts.append(f'<rect x="{lane_x}" y="{card_y:.2f}" width="{lane_w}" height="{card_h:.2f}" rx="8" fill="#ffffff" fill-opacity="0.96" stroke="{stroke}" stroke-width="3"/>')
+                parts.append(f'<rect x="{lane_x}" y="{card_y:.2f}" width="14" height="{card_h:.2f}" rx="5" fill="{fill}"/>')
+                parts.append(f'<text x="{lane_x+25}" y="{card_y+metrics.interval_font*0.92:.2f}" font-family="{font}" font-size="{metrics.interval_font}" font-weight="800" fill="#0f172a">{html.escape(str(interval.label))}</text>')
+                parts.append(f'<text x="{lane_x+25}" y="{card_y+metrics.interval_font*1.78:.2f}" font-family="{font}" font-size="{max(22,metrics.interval_font-4)}" font-weight="700" fill="{stroke}">{html.escape(fluid_text+confidence_text)}</text>')
+        elif visible_intervals:
+            for interval, band_y, band_h, fill, stroke in visible_intervals:
+                label = str(interval.label)
+                if interval.fluid:
+                    label += f" · {interval.fluid}"
+                if interval.confidence is not None:
+                    label += f" · {interval.confidence:.0f}%"
+                label_y = max(metrics.plot_top + metrics.interval_font, min(metrics.plot_bottom - 8, band_y + metrics.interval_font + 5))
+                parts.append(f'<text x="{data_x+10}" y="{label_y:.2f}" font-family="{font}" font-size="{metrics.interval_font}" font-weight="700" fill="{stroke}" paint-order="stroke" stroke="#ffffff" stroke-width="5">{html.escape(label)}</text>')
+
+
 
         ticks = build_depth_ticks(depth_start, depth_stop, major_step=spec.depth_track.major_step, minor_divisions=spec.depth_track.minor_divisions)
         for tick in ticks:
