@@ -10469,7 +10469,6 @@ def _render_professional_export_panel(
                     if not isinstance(retry_context, dict):
                         retry_context = {}
                     created_job = background_manager.submit(
-                        project_id=str(active_project.id),
                         request_signature=current_export_request.selection_signature,
                         work=_background_work,
                         retry_of_job_id=str(retry_context.get("job_id", "")),
@@ -11597,6 +11596,9 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             revision_snapshot=revision_snapshot,
             height=int(height),
         )
+
+    st.caption("Устаревшие отдельные графики по глубине удалены. Анализ выполняется в Composite Log v4, таблицах интервалов, Crossplots и QC.")
+    return
 
     st.markdown("### Настройка экранных графиков")
     selected_tracks = st.multiselect(

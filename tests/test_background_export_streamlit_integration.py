@@ -80,3 +80,20 @@ def test_background_export_history_shows_runtime_performance_summary():
     assert '"Успешность"' in source
     assert '"Среднее время"' in source
     assert '"Средний файл"' in source
+
+
+def test_project_scoped_export_service_is_called_without_project_id() -> None:
+    body = _professional_export_body()
+    submit_start = body.index("created_job = background_manager.submit(")
+    submit_end = body.index(")", submit_start)
+    submit_call = body[submit_start:submit_end]
+    assert "project_id=" not in submit_call
+
+
+def test_legacy_interpretation_plots_are_not_rendered() -> None:
+    source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
+    start = source.index("def _render_interpretation_graphs_tab(")
+    body = source[start:]
+    return_pos = body.index("Устаревшие отдельные графики по глубине удалены")
+    settings_pos = body.index('st.markdown("### Настройка экранных графиков")')
+    assert return_pos < settings_pos

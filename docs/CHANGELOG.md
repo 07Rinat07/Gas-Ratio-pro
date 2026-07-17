@@ -1,3 +1,10 @@
+# v223.3 - Export API Hotfix and Legacy Plot Removal
+
+- Fixed the background export call: `BackgroundExportApplicationService` already owns the project context, so `project_id` is no longer passed to `submit()`.
+- Restored one-click PDF/DOCX generation.
+- Removed legacy depth plots from the interpretation workspace.
+- Composite Log v4 is now the single primary depth visualization.
+
 # v223.2 - One-click Export and Clean Engineering Curves
 
 - Removed point markers from depth component, ratio and Pixler curves; traces render as clean engineering lines.
