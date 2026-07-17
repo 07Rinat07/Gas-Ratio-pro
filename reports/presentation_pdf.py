@@ -552,6 +552,29 @@ def _legend_table_pdf(
     return [_paragraph(title, styles["h2"]), table, Spacer(1, 7)]
 
 
+def _statistics_table_pdf(entries: Sequence[dict[str, object]], styles: dict[str, ParagraphStyle]) -> list[object]:
+    if not entries:
+        return []
+    rows = [[_paragraph(name, styles["table_header"]) for name in ("Кривая", "Мин.", "Макс.", "Среднее", "Сумма")]]
+    for entry in entries:
+        rows.append([
+            _paragraph(str(entry.get("label", "")), styles["table_cell"]),
+            _paragraph(f"{float(entry.get('minimum', 0)):.4g}", styles["table_cell"]),
+            _paragraph(f"{float(entry.get('maximum', 0)):.4g}", styles["table_cell"]),
+            _paragraph(f"{float(entry.get('mean', 0)):.4g}", styles["table_cell"]),
+            _paragraph(f"{float(entry.get('sum', 0)):.5g}", styles["table_cell"]),
+        ])
+    table = Table(rows, colWidths=[35*mm, 27*mm, 27*mm, 32*mm, 38*mm], hAlign="LEFT", repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#eaf0f7")),
+        ("GRID", (0,0), (-1,-1), 0.4, colors.HexColor("#cbd5e1")),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ("LEFTPADDING", (0,0), (-1,-1), 4), ("RIGHTPADDING", (0,0), (-1,-1), 4),
+        ("TOPPADDING", (0,0), (-1,-1), 3), ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+    ]))
+    return [_paragraph("Статистика кривых", styles["h2"]), table, Spacer(1, 7)]
+
+
 def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> list[object]:
     """Render a Plotly-compatible engineering figure into the PDF.
 
@@ -603,25 +626,23 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
             ("BOTTOMPADDING", (0,0), (-1,-1), 3),
         ]))
         items.extend([card, Spacer(1, 6)])
-    items.extend(_legend_table_pdf("Кривые", list(legend.get("curves", []) or []), styles))
-    items.extend(_legend_table_pdf("Интервалы", list(legend.get("fluids", []) or []), styles))
-    items.extend(_legend_table_pdf("Маркеры", list(legend.get("markers", []) or []), styles, marker_mode=True))
     try:
         if hasattr(figure, "to_image"):
-            png = figure.to_image(format="png", width=3200, height=2200, scale=1)
+            png = figure.to_image(format="png", width=2800, height=2400, scale=1)
         elif hasattr(figure, "write_image"):
             buffer = BytesIO()
-            figure.write_image(buffer, format="png", width=3200, height=2200)
+            figure.write_image(buffer, format="png", width=2800, height=2400)
             png = buffer.getvalue()
         else:
             raise TypeError("Figure backend does not support raster export")
         image = Image(BytesIO(png))
         max_width = 185 * mm
-        max_height = 156 * mm
+        max_height = 205 * mm
         ratio = min(max_width / image.imageWidth, max_height / image.imageHeight)
         image.drawWidth = image.imageWidth * ratio
         image.drawHeight = image.imageHeight * ratio
         items.extend([image, Spacer(1, 8)])
+        items.extend(_statistics_table_pdf(list(legend.get("statistics", []) or []), styles))
     except Exception as exc:
         items.extend([
             _paragraph(

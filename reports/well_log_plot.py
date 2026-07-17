@@ -310,6 +310,35 @@ def _curve_range(values: pd.Series) -> tuple[float, float] | None:
     return low - pad, high + pad
 
 
+def _track_statistics(frame: pd.DataFrame, columns: Sequence[str]) -> list[dict[str, object]]:
+    """Return print-safe statistics for visible engineering curves."""
+    rows: list[dict[str, object]] = []
+    for column in columns:
+        values = pd.to_numeric(frame.get(column), errors="coerce").dropna()
+        if values.empty:
+            continue
+        rows.append({
+            "key": column,
+            "label": CURVE_PRINT_SPECS.get(column, {}).get("label", column),
+            "minimum": float(values.min()),
+            "maximum": float(values.max()),
+            "mean": float(values.mean()),
+            "sum": float(values.sum()),
+            "count": int(values.count()),
+        })
+    gas_columns = [name for name in ("c1", "c2", "c3", "ic4", "nc4", "ic5", "nc5") if name in frame.columns]
+    if gas_columns:
+        gas_values = frame[gas_columns].apply(pd.to_numeric, errors="coerce").sum(axis=1, min_count=1).dropna()
+        if not gas_values.empty:
+            rows.append({
+                "key": "c1_c5_total", "label": "Σ C1–C5",
+                "minimum": float(gas_values.min()), "maximum": float(gas_values.max()),
+                "mean": float(gas_values.mean()), "sum": float(gas_values.sum()),
+                "count": int(gas_values.count()),
+            })
+    return rows
+
+
 def build_professional_well_log_plot(
     df: pd.DataFrame,
     intervals: Sequence[HydrocarbonInterval] = (),
@@ -324,6 +353,7 @@ def build_professional_well_log_plot(
     """
 
     cfg = config or WellLogPlotConfig()
+    selected_plot_point = dict(getattr(df, "attrs", {}).get("report_plot_selection", {}) or {})
     prepared = _numeric_depth_frame(df, cfg.depth_column)
     if prepared.empty:
         fig = go.Figure()
@@ -440,6 +470,8 @@ def build_professional_well_log_plot(
     bottom_depth = float(prepared[cfg.depth_column].max())
     apply_depth_axis(fig, top_depth, bottom_depth, title=DEPTH_AXIS_TITLE, showgrid=True)
 
+    profile = str(cfg.layout_profile or "print").strip().lower()
+    is_screen = profile == "screen"
     shapes: list[dict[str, object]] = []
     annotations = list(fig.layout.annotations or ())
     visible_intervals = [
@@ -511,13 +543,34 @@ def build_professional_well_log_plot(
                     "y": (interval_top + interval_base) / 2,
                     "text": _interval_label(interval, index),
                     "showarrow": False,
-                    "font": {"size": 13, "color": "#101827"},
+                    "font": {"size": 24 if not is_screen else 15, "color": "#101827"},
                     "bgcolor": "rgba(255,255,255,0.98)",
                     "bordercolor": color,
                     "borderwidth": 1.5,
                     "borderpad": 4,
                 }
             )
+
+    try:
+        selected_depth = float(selected_plot_point.get("depth"))
+        selected_value = float(selected_plot_point.get("x"))
+    except (TypeError, ValueError):
+        selected_depth = selected_value = None
+    if selected_depth is not None and top_depth <= selected_depth <= bottom_depth:
+        shapes.append({
+            "type": "line", "xref": "paper", "x0": 0, "x1": 1,
+            "yref": "y", "y0": selected_depth, "y1": selected_depth,
+            "line": {"color": "#0891b2", "width": 3, "dash": "dash"},
+            "layer": "above",
+        })
+        annotations.append({
+            "xref": "paper", "x": 0.995, "xanchor": "right",
+            "yref": "y", "y": selected_depth,
+            "text": f"Выбрано: {selected_depth:.2f} м · {selected_value:.5g}",
+            "showarrow": False, "font": {"size": 20 if not is_screen else 13, "color": "#0e7490"},
+            "bgcolor": "rgba(236,254,255,0.96)", "bordercolor": "#0891b2",
+            "borderwidth": 1.5, "borderpad": 5,
+        })
 
     visible_curve_specs = [
         {
@@ -547,11 +600,12 @@ def build_professional_well_log_plot(
         "curves": visible_curve_specs,
         "fluids": visible_fluid_specs,
         "markers": [
-            {"symbol": "▼", "label": "Кровля", "description": "Верхняя граница интервала"},
-            {"symbol": "▲", "label": "Подошва", "description": "Нижняя граница интервала"},
-            {"symbol": "★", "label": "Приоритет", "description": "Наиболее перспективный интервал"},
+            {"symbol": "T", "label": "Кровля", "description": "Верхняя граница интервала"},
+            {"symbol": "B", "label": "Подошва", "description": "Нижняя граница интервала"},
+            {"symbol": "*", "label": "Приоритет", "description": "Наиболее перспективный интервал"},
         ],
         "depth_range": {"top": top_depth, "base": bottom_depth},
+        "statistics": _track_statistics(prepared, plotted_columns),
         "report_kind": cfg.report_kind,
         "report_title": cfg.report_title or cfg.title,
         "group_index": int(cfg.report_group_index or 0),
@@ -569,8 +623,6 @@ def build_professional_well_log_plot(
         ],
     }
 
-    profile = str(cfg.layout_profile or "print").strip().lower()
-    is_screen = profile == "screen"
     title_size = track_title_font_size(len(column_titles), profile=profile)
     apply_engineering_layout(
         fig, title={"text": cfg.title, "x": 0.0, "xanchor": "left", "font": {"size": 18 if is_screen else 28}}, height=max(cfg.height, 620 if is_screen else 1100),

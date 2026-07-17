@@ -3169,3 +3169,13 @@ The Streamlit UI must not duplicate presentation/export rules. It should pass no
 - Исправлен аварийный запуск Print Center при несовпадении схемы `ReportDesign` и UI.
 - Добавлен совместимый конструктор, сохраняющий `document_locale` даже для соседней legacy-схемы.
 - Добавлена регрессия для точной ошибки `unexpected keyword argument document_locale`.
+
+## v222.67 — Report export hotfix and quantitative plot diagnostics
+
+- Removed `document_locale` from direct `ReportDesign` constructor calls; locale is attached compatibly after construction.
+- Preserved the Streamlit report form submit action by preventing preview construction from aborting the form.
+- Added clickable Plotly point selection with a persisted depth/value snapshot for the next PDF/DOCX export.
+- Added min/max/mean/sum/count statistics for printed curves and a total `Σ C1–C5` series/statistic.
+- Ensured Wh, Bh and Ch are present in professional report plots and statistics.
+- Increased printed interval-label typography and replaced unsupported marker glyphs with print-safe symbols.
+- Removed repeated per-plot legend tables from plot pages and increased the usable PDF plot area.

@@ -9519,6 +9519,32 @@ def _print_center_container(streamlit_module):
     return streamlit_module.expander("🖨 Печать и экспорт", expanded=False)
 
 @_streamlit_fragment(run_every="2s")
+def _selected_numeric_point_from_plotly_event(event: object) -> dict[str, object]:
+    """Extract one selected engineering point from Streamlit Plotly selection."""
+    if event is None:
+        return {}
+    selection = getattr(event, "selection", None)
+    if selection is None and isinstance(event, dict):
+        selection = event.get("selection", event)
+    points = getattr(selection, "points", None) if selection is not None else None
+    if points is None and isinstance(selection, dict):
+        points = selection.get("points", ())
+    if not points:
+        return {}
+    point = points[-1]
+    getter = point.get if isinstance(point, dict) else lambda name, default=None: getattr(point, name, default)
+    try:
+        x_value = float(getter("x"))
+        depth = float(getter("y"))
+    except (TypeError, ValueError):
+        return {}
+    return {
+        "x": x_value, "depth": depth,
+        "curve_number": int(getter("curve_number", getter("curveNumber", -1)) or -1),
+        "point_index": int(getter("point_index", getter("pointIndex", -1)) or -1),
+    }
+
+
 def _render_professional_export_panel(
     logger,
     active_project: ProjectRecord,
@@ -9539,8 +9565,16 @@ def _render_professional_export_panel(
     versions that support fragments, so the surrounding Plotly charts are not
     serialized and sent to the browser again.
     """
+    selected_plot_point = state_controller.get_value(f"report_plot_selection_{active_project.id}")
+    if isinstance(selected_plot_point, dict) and selected_plot_point:
+        calculated_df.attrs["report_plot_selection"] = dict(selected_plot_point)
     with _print_center_container(st):
         st.markdown("### Центр печати и экспорта")
+        if isinstance(selected_plot_point, dict) and selected_plot_point:
+            st.caption(
+                f"Зафиксированная точка для печати: глубина {float(selected_plot_point.get('depth', 0)):.2f} м; "
+                f"значение {float(selected_plot_point.get('x', 0)):.5g}."
+            )
         st.caption(
             "Выберите формат и область данных, затем нажмите основную кнопку формирования. "
             "После подготовки файла появятся отдельные действия «Скачать» и «Печать»."
@@ -9993,7 +10027,6 @@ def _render_professional_export_panel(
                 subtitle=localized_copy["subtitle"],
                 classification=localized_copy["classification"],
                 footer_text=localized_copy["footer"],
-                document_locale=selected_document_locale,
                 sections=tuple(
                     section_id_by_label_preview[label]
                     for label in selected_section_labels
@@ -10005,6 +10038,7 @@ def _render_professional_export_panel(
                 (option.id for option in format_options if option.label == selected_format_label),
                 format_options[0].id,
             )
+            object.__setattr__(preview_design, "document_locale", selected_document_locale)
             preview_counts_signature = build_report_document_counts_signature(
                 preview_design,
                 target_format=preview_target_format,
@@ -10196,11 +10230,11 @@ def _render_professional_export_panel(
             subtitle=localized_copy["subtitle"],
             classification=localized_copy["classification"],
             footer_text=localized_copy["footer"],
-            document_locale=selected_document_locale,
             sections=tuple(section_id_by_label[label] for label in selected_section_labels),
             include_technical_appendix=bool(include_technical_design),
             show_page_chrome=bool(show_page_chrome_design),
         )
+        object.__setattr__(report_design, "document_locale", selected_document_locale)
         current_print_depth_range = (
             min(float(print_top), float(print_bottom)),
             max(float(print_top), float(print_bottom)),
@@ -11948,6 +11982,16 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 key=plot_key,
             )
             plot_event = None
+        selected_numeric_point = _selected_numeric_point_from_plotly_event(plot_event)
+        if selected_numeric_point:
+            selected_numeric_point["figure_index"] = figure_index
+            state_controller.set_value(
+                f"report_plot_selection_{active_project.id}", selected_numeric_point
+            )
+            st.caption(
+                f"Выбрано для отчёта: глубина {float(selected_numeric_point['depth']):.2f} м; "
+                f"значение {float(selected_numeric_point['x']):.5g}."
+            )
         chart_selected_manual_id = selected_interval_id_from_plotly_event(
             plot_event,
             valid_interval_ids=[item.id for item in manual_intervals],

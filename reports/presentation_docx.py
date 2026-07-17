@@ -278,6 +278,28 @@ def _add_report_legend_table(doc: Document, title: str, entries: Sequence[dict[s
     doc.add_paragraph()
 
 
+def _add_statistics_table(doc: Document, entries: Sequence[dict[str, object]]) -> None:
+    if not entries:
+        return
+    paragraph = doc.add_paragraph()
+    run = paragraph.add_run("Статистика кривых")
+    run.bold = True
+    run.font.size = Pt(11)
+    table = doc.add_table(rows=1, cols=5)
+    table.style = "Table Grid"
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    for index, header in enumerate(("Кривая", "Мин.", "Макс.", "Среднее", "Сумма")):
+        table.rows[0].cells[index].text = header
+    for entry in entries:
+        cells = table.add_row().cells
+        values = (str(entry.get("label", "")), f"{float(entry.get('minimum',0)):.4g}",
+                  f"{float(entry.get('maximum',0)):.4g}", f"{float(entry.get('mean',0)):.4g}",
+                  f"{float(entry.get('sum',0)):.5g}")
+        for index, value in enumerate(values):
+            cells[index].text = value
+    doc.add_paragraph()
+
+
 def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
     """Embed the shared Plotly figure into DOCX; never expose renderer placeholders."""
     _add_paragraph(doc, block.title or "Планшет", style="Heading 2")
@@ -330,6 +352,7 @@ def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
         paragraph = doc.add_paragraph()
         paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
         paragraph.add_run().add_picture(BytesIO(png), width=Inches(7.35))
+        _add_statistics_table(doc, list(legend.get("statistics", []) or []))
     except Exception as exc:
         paragraph = doc.add_paragraph()
         paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER

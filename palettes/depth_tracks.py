@@ -24,13 +24,13 @@ ENGINEERING_LEGEND = {
 CURVE_LABELS = {
     "c1": "C1", "c2": "C2", "c3": "C3", "ic4": "iC4", "nc4": "nC4",
     "ic5": "iC5", "nc5": "nC5", "wh": "Wh", "bh": "Bh", "ch": "Ch",
-    "bar2": "Bar-2", "c1_c2": "C1/C2", "c1_c3": "C1/C3",
+    "bar2": "Bar-2", "c1_c5_total": "Σ C1–C5", "c1_c2": "C1/C2", "c1_c3": "C1/C3",
     "c1_c4": "C1/C4", "c1_c5": "C1/C5",
 }
 CURVE_COLORS = {
     "c1": "#ff5a47", "c2": "#10c997", "c3": "#9b5cff", "ic4": "#ff9f43",
     "nc4": "#16c7e8", "ic5": "#ff5c93", "nc5": "#f4c430", "wh": "#f3a58f",
-    "bh": "#26c6da", "ch": "#ff5c93", "bar2": "#b8e986", "c1_c2": "#9ee35d",
+    "bh": "#26c6da", "ch": "#ff5c93", "bar2": "#b8e986", "c1_c5_total": "#ffffff", "c1_c2": "#9ee35d",
     "c1_c3": "#f36df0", "c1_c4": "#f5a623", "c1_c5": "#29b6f6",
 }
 FLUID_STYLES = {
@@ -195,12 +195,26 @@ def _build_depth_tracks(df, columns, title, x_title, *, depth_range=None, x_rang
         fig.update_xaxes(range=list(x_range))
     top_depth, bottom_depth = (float(depth.min()), float(depth.max())) if depth_range is None else depth_range
     apply_depth_axis(fig, top_depth, bottom_depth)
+    statistics = []
+    for column in active_columns:
+        values = pd.to_numeric(plot_df[column], errors="coerce").dropna()
+        if not values.empty:
+            statistics.append({"key": column, "label": CURVE_LABELS.get(column, column),
+                               "minimum": float(values.min()), "maximum": float(values.max()),
+                               "mean": float(values.mean()), "sum": float(values.sum()),
+                               "count": int(values.count())})
+    fig.update_layout(meta={"gas_ratio_statistics": statistics}, clickmode="event+select", uirevision="gas-ratio-depth-v2")
     normalize_trace_style(fig)
     return fig
 
 
 def build_depth_gas_tracks(df, *, depth_range=None, x_range=None, height=420, reservoir_intervals=(), selected_interval_id=""):
-    return _build_depth_tracks(df, ("c1", "c2", "c3", "ic4", "nc4", "ic5", "nc5"),
+    frame = df.copy() if isinstance(df, pd.DataFrame) else df
+    if isinstance(frame, pd.DataFrame):
+        available = [name for name in ("c1", "c2", "c3", "ic4", "nc4", "ic5", "nc5") if name in frame.columns]
+        if available:
+            frame["c1_c5_total"] = frame[available].apply(pd.to_numeric, errors="coerce").sum(axis=1, min_count=1)
+    return _build_depth_tracks(frame, ("c1", "c2", "c3", "ic4", "nc4", "ic5", "nc5", "c1_c5_total"),
         "Компоненты газа по глубине", "Содержание компонента", depth_range=depth_range,
         x_range=x_range, height=height, reservoir_intervals=reservoir_intervals,
         selected_interval_id=selected_interval_id)

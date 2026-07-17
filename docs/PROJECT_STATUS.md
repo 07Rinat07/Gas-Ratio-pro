@@ -259,3 +259,7 @@ The report panel no longer occupies most of the page by default. Printed PDF and
 
 ### Hotfix v222.64
 Print Center снова открывается: устранён schema-drift между `streamlit_app.py` и `ReportDesign`.
+
+### v222.67 status
+
+The report export constructor regression is fixed in the actual full project tree. Quantitative plot statistics, C1–C5 total, Wh/Bh/Ch coverage, persisted Plotly point selection, and print-scale hardening are implemented and covered by targeted regression tests.
