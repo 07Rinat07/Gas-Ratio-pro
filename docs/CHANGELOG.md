@@ -1,3 +1,13 @@
+# v223.2 - One-click Export and Clean Engineering Curves
+
+- Removed point markers from depth component, ratio and Pixler curves; traces render as clean engineering lines.
+- Replaced the categorical connected "worm" interpretation plot with a continuous fluid-class depth track.
+- Moved legacy standalone charts into a collapsed diagnostics panel; Composite Log v4 is the primary workspace.
+- Fixed background export lifetime across Streamlit reruns by sharing executor, futures and results per session.
+- Added strict duplicate-job protection and the missing project identifier when submitting an export.
+- Report generation now starts from one click on «Сформировать отчёт» and preserves the result until download.
+- Replaced deprecated Streamlit HTML component usage with `st.html`.
+
 # v223.1 - Composite Log v4 Unified Rendering
 
 - Added canonical Composite Log v4 for screen, PDF, DOCX and SVG.

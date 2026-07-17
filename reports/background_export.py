@@ -87,6 +87,21 @@ class ExportJobSnapshot:
         )
 
 
+
+
+@dataclass
+class _SharedRuntime:
+    executor: ThreadPoolExecutor
+    lock: RLock
+    futures: dict[str, Future[Any]]
+    cancel_events: dict[str, Event]
+    results: dict[str, Any]
+
+
+_SHARED_RUNTIMES: dict[str, _SharedRuntime] = {}
+_SHARED_RUNTIMES_LOCK = RLock()
+
+
 class ExportCancelled(RuntimeError):
     """Raised cooperatively when an export job cancellation was requested."""
 
@@ -144,11 +159,24 @@ class BackgroundExportManager:
         max_workers: int = 1,
     ) -> None:
         self._state = state
-        self._executor = ThreadPoolExecutor(max_workers=max(1, int(max_workers)), thread_name_prefix="gas-export")
-        self._lock = RLock()
-        self._futures: dict[str, Future[Any]] = {}
-        self._cancel_events: dict[str, Event] = {}
-        self._results: dict[str, Any] = {}
+        runtime_key = str(state.get("background_export_runtime_id_v2") or uuid4().hex)
+        state["background_export_runtime_id_v2"] = runtime_key
+        with _SHARED_RUNTIMES_LOCK:
+            runtime = _SHARED_RUNTIMES.get(runtime_key)
+            if runtime is None:
+                runtime = _SharedRuntime(
+                    executor=ThreadPoolExecutor(max_workers=max(1, int(max_workers)), thread_name_prefix="gas-export"),
+                    lock=RLock(),
+                    futures={},
+                    cancel_events={},
+                    results={},
+                )
+                _SHARED_RUNTIMES[runtime_key] = runtime
+        self._executor = runtime.executor
+        self._lock = runtime.lock
+        self._futures = runtime.futures
+        self._cancel_events = runtime.cancel_events
+        self._results = runtime.results
         self._recover_snapshots()
 
     def _store(self) -> dict[str, dict[str, Any]]:
@@ -171,7 +199,7 @@ class BackgroundExportManager:
                 ExportJobStatus.PENDING,
                 ExportJobStatus.RUNNING,
                 ExportJobStatus.CANCELLING,
-            }:
+            } and snapshot.id not in self._futures:
                 now = time()
                 snapshot = replace(
                     snapshot,

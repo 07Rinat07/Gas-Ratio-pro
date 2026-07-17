@@ -8529,15 +8529,17 @@ def _render_workspace(logger, active_project: ProjectRecord) -> None:
         f"Показан инженерно значимый диапазон: {workspace_focus_range[0]:.1f}–{workspace_focus_range[1]:.1f} м. "
         "Пустые участки без интерпретированных флюидов скрыты."
     )
-    tab_gas, tab_ratios, tab_pixler = st.tabs(["C1–C5", "Wh / Bh / Ch", "Pixler"])
     common_depth_kwargs = {
         "depth_range": workspace_focus_range,
         "reservoir_intervals": workspace_visible_overlays,
         "selected_interval_id": selected_workspace_interval_id,
     }
-    tab_gas.plotly_chart(build_depth_gas_tracks(screen_plot_df, **common_depth_kwargs), width="stretch", config=PLOTLY_SCREEN_CONFIG)
-    tab_ratios.plotly_chart(build_depth_ratio_tracks(screen_plot_df, **common_depth_kwargs), width="stretch", config=PLOTLY_SCREEN_CONFIG)
-    tab_pixler.plotly_chart(build_depth_pixler_tracks(screen_plot_df, **common_depth_kwargs), width="stretch", config=PLOTLY_SCREEN_CONFIG)
+    with st.expander("Дополнительные диагностические графики", expanded=False):
+        st.caption("Основной рабочий вид — Composite Log v4. Диагностические графики показаны без точечных маркеров.")
+        tab_gas, tab_ratios, tab_pixler = st.tabs(["C1–C5", "Wh / Bh / Ch", "Pixler"])
+        tab_gas.plotly_chart(build_depth_gas_tracks(screen_plot_df, **common_depth_kwargs), width="stretch", config=PLOTLY_SCREEN_CONFIG)
+        tab_ratios.plotly_chart(build_depth_ratio_tracks(screen_plot_df, **common_depth_kwargs), width="stretch", config=PLOTLY_SCREEN_CONFIG)
+        tab_pixler.plotly_chart(build_depth_pixler_tracks(screen_plot_df, **common_depth_kwargs), width="stretch", config=PLOTLY_SCREEN_CONFIG)
 
     st.subheader("Расчетная таблица")
     _render_dataframe_panel(
@@ -10261,7 +10263,7 @@ def _render_professional_export_panel(
                 st.error(wizard_issue.message) if wizard_issue.blocking else st.warning(wizard_issue.message)
 
             prepare_export = st.form_submit_button(
-                "🖨️ ПОДГОТОВИТЬ ФАЙЛ ДЛЯ ПЕЧАТИ И СКАЧИВАНИЯ",
+                "🖨️ СФОРМИРОВАТЬ ОТЧЁТ",
                 width="stretch",
                 type="primary",
                 disabled=not wizard_review.ready,
@@ -10467,6 +10469,7 @@ def _render_professional_export_panel(
                     if not isinstance(retry_context, dict):
                         retry_context = {}
                     created_job = background_manager.submit(
+                        project_id=str(active_project.id),
                         request_signature=current_export_request.selection_signature,
                         work=_background_work,
                         retry_of_job_id=str(retry_context.get("job_id", "")),
@@ -11137,7 +11140,7 @@ def _render_professional_export_panel(
                 "профилю, формату или диапазону глубин. Подготовьте файл заново."
             )
         else:
-            st.info("Файл ещё не подготовлен. Выберите настройки выше и нажмите большую синюю кнопку подготовки.")
+            st.info("Файл ещё не сформирован. Нажмите кнопку «Сформировать отчёт» один раз и дождитесь завершения.")
 
         cached_error = _application_state_controller().state.get(export_error_key)
         if isinstance(cached_error, dict):
@@ -11533,7 +11536,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     # Engineering Visualization v3 is introduced beside the legacy renderer.
     # It is vector-based, track-oriented and uses one shared depth scale.
     v3_enabled = st.toggle(
-        "Инженерный планшет v3",
+        "Composite Log v4",
         value=True,
         key="interpretation_composite_v3_enabled",
         help="Новый многотрековый SVG-планшет с независимыми шкалами и общей глубиной.",
@@ -11558,7 +11561,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
                 safe_log_value(active_project.id),
                 safe_log_value(exc),
             )
-            st.error("Не удалось построить новый инженерный планшет v3. Подробности записаны в logs/app.log.")
+            st.error("Не удалось построить Composite Log v4. Подробности записаны в logs/app.log.")
 
     # Export is intentionally placed before the heavy graph controls and figures.
     # Users must see the print action immediately instead of searching at the

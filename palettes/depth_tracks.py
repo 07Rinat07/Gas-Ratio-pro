@@ -76,9 +76,8 @@ def _prepare_depth_frame(df: pd.DataFrame) -> pd.DataFrame:
 def _add_curve_legend(fig: go.Figure, columns: Sequence[str]) -> None:
     for column in columns:
         fig.add_trace(go.Scatter(
-            x=[None], y=[None], mode="lines+markers", name=CURVE_LABELS.get(column, column),
+            x=[None], y=[None], mode="lines", name=CURVE_LABELS.get(column, column),
             line={"color": CURVE_COLORS.get(column, "#e2e8f0"), "width": 3},
-            marker={"color": CURVE_COLORS.get(column, "#e2e8f0"), "size": 8, "symbol": "circle"},
             hoverinfo="skip", showlegend=True,
         ))
 
@@ -174,9 +173,9 @@ def _build_depth_tracks(df, columns, title, x_title, *, depth_range=None, x_rang
             continue
         active_columns.append(column)
         fig.add_trace(go.Scattergl(
-            x=pd.to_numeric(plot_df[column], errors="coerce"), y=depth, mode="lines+markers", showlegend=False,
+            x=pd.to_numeric(plot_df[column], errors="coerce"), y=depth, mode="lines", showlegend=False,
             name=CURVE_LABELS.get(column, column),
-            line={"width": 2.4, "color": CURVE_COLORS.get(column)}, marker={"size": 3, "opacity": 0.38, "color": CURVE_COLORS.get(column)}, connectgaps=False,
+            line={"width": 2.0, "color": CURVE_COLORS.get(column)}, connectgaps=False,
             hovertemplate=engineering_hover(CURVE_LABELS.get(column, column)),
         ))
     _add_interval_overlays(fig, reservoir_intervals, selected_interval_id)
@@ -233,34 +232,42 @@ def build_depth_pixler_tracks(df, *, depth_range=None, x_range=None, height=420,
 
 
 def build_depth_interpretation_track(df, *, depth_range=None, height=420, reservoir_intervals=(), selected_interval_id=""):
+    """Render interpretation as a continuous fluid-class track, not a connected categorical scatter."""
     fig = go.Figure()
     plot_df = _prepare_depth_frame(df)
     if plot_df.empty or "interpretation" not in plot_df.columns:
         fig.add_annotation(x=.5, y=.5, xref="paper", yref="paper", text="Нет интерпретации для графика", showarrow=False)
         return fig
+
     interpretations = plot_df["interpretation"].fillna("Недостаточно данных").astype(str)
     categories = list(dict.fromkeys(interpretations.tolist()))
     category_index = {name: index for index, name in enumerate(categories)}
-    colors = [INTERPRETATION_COLORS.get(name, "#4ea1ff") for name in interpretations]
+    palette = [INTERPRETATION_COLORS.get(name, "#64748b") for name in categories]
+    z = [[category_index[name]] for name in interpretations]
+    scale = []
+    denominator = max(1, len(palette) - 1)
+    for index, color in enumerate(palette):
+        position = index / denominator if len(palette) > 1 else 0.0
+        scale.extend([[position, color], [min(1.0, position + 1e-6), color]])
+
     counts = interpretations.value_counts()
-    fig.add_trace(go.Scatter(
-        x=[category_index[name] for name in interpretations], y=plot_df["_plot_depth"],
-        mode="lines+markers", line={"width": 1.2, "color": "rgba(148,163,184,0.55)", "shape": "hv"},
-        marker={"size": 10, "color": colors, "symbol": "diamond", "line": {"width": 1.2, "color": "#f8fafc"}},
-        text=interpretations, customdata=[[int(counts.get(name, 0))] for name in interpretations],
-        hovertemplate="<b>%{text}</b><br>Глубина: %{y:.2f} м<br>Точек класса: %{customdata[0]}<extra></extra>",
-        name="Интерпретация"))
-    summary = " · ".join(f"{name}: {int(counts.get(name, 0))}" for name in categories[:5])
-    fig.add_annotation(xref="paper", yref="paper", x=0.0, y=1.03, xanchor="left", yanchor="bottom",
-                       text=summary, showarrow=False, font={"size": 12, "color": "#cbd5e1"},
-                       bgcolor="rgba(15,23,42,0.85)", bordercolor="#475569", borderwidth=1, borderpad=5)
+    hover = [f"{name}<br>Глубина: {depth:.2f} м<br>Точек класса: {int(counts.get(name, 0))}"
+             for name, depth in zip(interpretations, plot_df["_plot_depth"])]
+    fig.add_trace(go.Heatmap(
+        x=["Флюид"], y=plot_df["_plot_depth"], z=z, zmin=0, zmax=max(1, len(categories)-1),
+        colorscale=scale, showscale=False, text=[[item] for item in hover],
+        hovertemplate="%{text}<extra></extra>", xgap=1, ygap=0,
+    ))
+    for name, color in zip(categories, palette):
+        fig.add_trace(go.Scatter(x=[None], y=[None], mode="markers", name=name,
+                                 marker={"size": 10, "symbol": "square", "color": color},
+                                 hoverinfo="skip", showlegend=True))
     _add_interval_overlays(fig, reservoir_intervals, selected_interval_id)
-    apply_engineering_layout(fig, title="Индикаторы флюидов по глубине", height=height,
+    apply_engineering_layout(fig, title="Интерпретация флюидов по глубине", height=height,
                              margin=ENGINEERING_GRAPH_MARGIN, legend=ENGINEERING_LEGEND)
-    short_labels = [name.replace(" / ", "<br>").replace(" ", "<br>", 1) if len(name) > 18 else name for name in categories]
-    fig.update_xaxes(title="Класс флюида", tickmode="array", tickvals=list(category_index.values()), ticktext=short_labels, tickangle=0, automargin=True, showgrid=True, gridcolor="rgba(148,163,184,0.14)")
-    fig.update_layout(clickmode="event+select", hovermode="closest", uirevision="gas-ratio-interpretation-v3")
+    fig.update_xaxes(title="Класс флюида", showgrid=False, fixedrange=True)
+    fig.update_layout(clickmode="event+select", hovermode="closest", uirevision="gas-ratio-interpretation-v4")
     top_depth, bottom_depth = (float(plot_df["_plot_depth"].min()), float(plot_df["_plot_depth"].max())) if depth_range is None else depth_range
     apply_depth_axis(fig, top_depth, bottom_depth)
-    normalize_trace_style(fig)
     return fig
+

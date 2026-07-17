@@ -20,6 +20,6 @@ def render_composite_log_v3(dataframe: pd.DataFrame, *, intervals: Iterable[Any]
     except ValueError as exc:
         st.info(str(exc))
         return
-    st.components.v1.html(result.svg, height=result.height + 8, scrolling=True)
+    st.html(f'<div style="overflow:auto;max-height:{result.height + 16}px">{result.svg}</div>')
     if result.issues:
         st.caption("v4 diagnostics: " + ", ".join(result.issues))
