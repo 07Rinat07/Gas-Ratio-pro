@@ -141,7 +141,7 @@ def track_title_font_size(track_count: int, *, profile: str = "print") -> int:
     normalized = str(profile or "print").strip().lower()
     if normalized == "screen":
         return 14 if count <= 8 else 12 if count <= 12 else 11
-    return 22 if count <= 8 else 19 if count <= 12 else 17
+    return 28 if count <= 8 else 24 if count <= 12 else 21
 
 
 @dataclass(frozen=True)
@@ -424,7 +424,7 @@ def build_professional_well_log_plot(
         if stats:
             curve_titles.append(
                 f"<b>{label}</b><br>"
-                f"<span style='font-size:20px'>"
+                f"<span style='font-size:26px'>"
                 f"min {float(stats.get('minimum', 0)):.3g} · "
                 f"avg {float(stats.get('mean', 0)):.3g} · "
                 f"max {float(stats.get('maximum', 0)):.3g}</span>"
@@ -664,10 +664,10 @@ def build_professional_well_log_plot(
 
     title_size = track_title_font_size(len(column_titles), profile=profile)
     if not is_screen:
-        title_size = max(title_size, 30)
+        title_size = max(title_size, 34)
     apply_engineering_layout(
-        fig, title={"text": cfg.title, "x": 0.0, "xanchor": "left", "font": {"size": 18 if is_screen else 28}}, height=max(cfg.height, 620 if is_screen else 1450),
-        margin={"l": 76 if is_screen else 118, "r": 24 if is_screen else 48, "t": 104 if is_screen else 205, "b": 72 if is_screen else 118}, showlegend=bool(cfg.show_curve_legend),
+        fig, title={"text": cfg.title, "x": 0.0, "xanchor": "left", "font": {"size": 18 if is_screen else 36}}, height=max(cfg.height, 620 if is_screen else 1800),
+        margin={"l": 76 if is_screen else 118, "r": 24 if is_screen else 48, "t": 104 if is_screen else 250, "b": 72 if is_screen else 150}, showlegend=bool(cfg.show_curve_legend),
     )
     fig.update_layout(
         shapes=shapes,
@@ -679,7 +679,7 @@ def build_professional_well_log_plot(
             "bgcolor": "rgba(255,255,255,1)", "bordercolor": "#cbd5e1", "borderwidth": 1,
             "itemsizing": "constant", "itemwidth": 42,
         },
-        font={"size": 20, "color": "#0f172a"},
+        font={"size": 24, "color": "#0f172a"},
         plot_bgcolor="#ffffff",
         paper_bgcolor="#ffffff",
         hovermode="y unified",
@@ -695,8 +695,8 @@ def build_professional_well_log_plot(
     for subplot_col in range(1, len(column_titles) + 1):
         fig.update_yaxes(title_text="", row=1, col=subplot_col)
     fig.update_yaxes(title_text=DEPTH_AXIS_TITLE, row=1, col=1)
-    axis_tick_size = 12 if is_screen else 30
-    axis_title_size = 15 if is_screen else 34
+    axis_tick_size = 12 if is_screen else 34
+    axis_title_size = 15 if is_screen else 38
     depth_span=max(bottom_depth-top_depth, 1.0)
     major_step = 5.0 if depth_span <= 80 else 10.0 if depth_span <= 180 else 20.0
     fig.update_yaxes(showgrid=True, gridcolor="rgba(51,65,85,0.30)", gridwidth=1.1, dtick=major_step, tick0=float(top_depth), ticks="outside", ticklen=8, tickwidth=1.4, tickcolor="#334155", tickfont={"size": axis_tick_size}, title_font={"size": axis_title_size}, automargin=True, minor={"showgrid": True, "dtick": major_step/5.0, "gridcolor": "rgba(100,116,139,0.16)", "griddash": "dot"})

@@ -170,11 +170,21 @@ def _render_document_notice(notice: DocumentNotice) -> str:
 
 
 def _render_document_plot(plot: DocumentPlot, *, include_plotlyjs: bool) -> str:
+    figure = plot.figure
+    native_svg = str(getattr(figure, "svg", "") or "").strip()
+    if native_svg.startswith("<svg"):
+        rendered_figure = f"<div class='visualization-preview'>{native_svg}</div>"
+    else:
+        rendered_figure = pio.to_html(
+            figure,
+            include_plotlyjs=include_plotlyjs,
+            full_html=False,
+        )
     return "\n".join(
         (
             "<section class='report-section report-plot avoid-break'>",
             f"<h2>{escape(_clean_text(plot.title) or 'Профессиональный планшет интерпретации')}</h2>",
-            pio.to_html(plot.figure, include_plotlyjs=include_plotlyjs, full_html=False),
+            rendered_figure,
             "</section>",
         )
     )

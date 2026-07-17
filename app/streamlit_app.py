@@ -9540,8 +9540,8 @@ def _print_center_container(streamlit_module):
     )
     popover = getattr(streamlit_module, "popover", None)
     if callable(popover):
-        return popover("🖨 ОТЧЁТ И ПЕЧАТЬ", help="Открыть настройки, предпросмотр и экспорт отчёта")
-    return streamlit_module.expander("🖨 ОТЧЁТ И ПЕЧАТЬ", expanded=False)
+        return popover("🖨 Печать и экспорт", help="Открыть компактный центр печати и экспорта")
+    return streamlit_module.expander("🖨 Печать и экспорт", expanded=False)
 
 @_streamlit_fragment(run_every="2s")
 def _selected_numeric_point_from_plotly_event(event: object) -> dict[str, object]:
@@ -9650,14 +9650,22 @@ def _render_professional_export_panel(
         calculated_df.attrs["report_plot_selection"] = list(selected_plot_points)
     with _print_center_container(st):
         st.markdown("### Центр печати и экспорта")
+        st.markdown(
+            """<style>
+            div[data-testid="stPopoverBody"] {max-width: 760px;}
+            div[data-testid="stRadio"] > label, div[data-testid="stSelectbox"] > label {font-weight: 750;}
+            div[data-testid="stForm"] {border: 0; padding: 0;}
+            .grp-print-summary {padding: 10px 14px; border: 1px solid rgba(96,165,250,.35); border-radius: 10px; background: rgba(30,64,175,.08); margin: 4px 0 10px;}
+            </style>""",
+            unsafe_allow_html=True,
+        )
         if selected_plot_points:
             st.caption(
                 f"Зафиксированная точка для печати: глубина {float(selected_plot_points[-1].get('depth', 0)):.2f} м; "
                 f"значение {float(selected_plot_points[-1].get('x', 0)):.5g}."
             )
         st.caption(
-            "Выберите формат и область данных, затем нажмите основную кнопку формирования. "
-            "После подготовки файла появятся отдельные действия «Скачать» и «Печать»."
+            "Выберите язык, формат и область печати. Остальные параметры уже настроены автоматически."
         )
         profile_options = report_profile_options()
         format_options = export_format_options()
@@ -9708,6 +9716,11 @@ def _render_professional_export_panel(
             project_id=str(active_project.id),
             root=LAS_CORRELATION_PROJECTS_ROOT,
             max_workers=1,
+        )
+        existing_export_jobs = background_manager.list()
+        active_export_job = next(
+            (item for item in reversed(existing_export_jobs) if not item.terminal),
+            None,
         )
         normalized_form = normalize_export_form_state(
             export_state,
@@ -9948,120 +9961,121 @@ def _render_professional_export_panel(
             selected_document_locale = normalize_document_locale(locale_by_label[selected_locale_label])
             localized_copy = default_report_copy(selected_document_locale)
 
-            profile_widget_kwargs = {"index": 0} if form_keys["profile"] not in export_state else {}
-            selected_profile_label = st.selectbox(
-                "Профиль отчета",
-                options=[option.label for option in profile_options],
-                key=form_keys["profile"],
-                help=tooltip("report.profile"),
-                **profile_widget_kwargs,
-            )
-            format_widget_kwargs = {"index": 0} if form_keys["format"] not in export_state else {}
-            selected_format_label = st.selectbox(
-                "Формат экспорта",
-                options=[option.label for option in format_options],
-                key=form_keys["format"],
-                help=tooltip("report.format"),
-                **format_widget_kwargs,
-            )
-            mode_widget_key = f"report_designer_mode_{active_project.id}"
-            mode_widget_kwargs = {"index": 2} if mode_widget_key not in export_state else {}
-            selected_mode_label = st.selectbox(
-                "Режим отчёта",
-                options=tuple(mode_by_label),
-                key=mode_widget_key,
-                help="Краткий — только ключевые результаты; стандартный — основные графики и выводы; полный инженерный — весь комплект разделов и приложений.",
-                **mode_widget_kwargs,
-            )
-            selected_mode = mode_by_label[selected_mode_label]
-            template_widget_key = f"report_designer_template_{active_project.id}"
-            template_widget_kwargs = {"index": 0} if template_widget_key not in export_state else {}
-            selected_template_label = st.selectbox(
-                "Шаблон оформления",
-                options=tuple(template_by_label),
-                key=template_widget_key,
-                help=tooltip("report.template"),
-                **template_widget_kwargs,
-            )
-            selected_template = template_by_label[selected_template_label]
+            with st.expander("Дополнительные настройки отчёта", expanded=False):
+                profile_widget_kwargs = {"index": 0} if form_keys["profile"] not in export_state else {}
+                selected_profile_label = st.selectbox(
+                    "Профиль отчета",
+                    options=[option.label for option in profile_options],
+                    key=form_keys["profile"],
+                    help=tooltip("report.profile"),
+                    **profile_widget_kwargs,
+                )
+                format_widget_kwargs = {"index": 0} if form_keys["format"] not in export_state else {}
+                selected_format_label = st.selectbox(
+                    "Формат экспорта",
+                    options=[option.label for option in format_options],
+                    key=form_keys["format"],
+                    help=tooltip("report.format"),
+                    **format_widget_kwargs,
+                )
+                mode_widget_key = f"report_designer_mode_{active_project.id}"
+                mode_widget_kwargs = {"index": 2} if mode_widget_key not in export_state else {}
+                selected_mode_label = st.selectbox(
+                    "Режим отчёта",
+                    options=tuple(mode_by_label),
+                    key=mode_widget_key,
+                    help="Краткий — только ключевые результаты; стандартный — основные графики и выводы; полный инженерный — весь комплект разделов и приложений.",
+                    **mode_widget_kwargs,
+                )
+                selected_mode = mode_by_label[selected_mode_label]
+                template_widget_key = f"report_designer_template_{active_project.id}"
+                template_widget_kwargs = {"index": 0} if template_widget_key not in export_state else {}
+                selected_template_label = st.selectbox(
+                    "Шаблон оформления",
+                    options=tuple(template_by_label),
+                    key=template_widget_key,
+                    help=tooltip("report.template"),
+                    **template_widget_kwargs,
+                )
+                selected_template = template_by_label[selected_template_label]
 
-            st.markdown("#### Параметры страницы")
-            page_left, page_right = st.columns([2, 1])
-            orientation_key = f"report_designer_orientation_{active_project.id}"
-            orientation_labels = ("Авто", "Книжная", "Альбомная")
-            orientation_label = page_left.radio(
-                "Ориентация",
-                options=orientation_labels,
-                horizontal=True,
-                key=orientation_key,
-                help="Авто: планшеты печатаются альбомно, текстовые страницы — книжно.",
-            )
-            orientation_value = {"Авто": "auto", "Книжная": "portrait", "Альбомная": "landscape"}[orientation_label]
+                st.markdown("#### Параметры страницы")
+                page_left, page_right = st.columns([2, 1])
+                orientation_key = f"report_designer_orientation_{active_project.id}"
+                orientation_labels = ("Авто", "Книжная", "Альбомная")
+                orientation_label = page_left.radio(
+                    "Ориентация",
+                    options=orientation_labels,
+                    horizontal=True,
+                    key=orientation_key,
+                    help="Авто рекомендуется: текст — книжно, широкие планшеты — альбомно.",
+                )
+                orientation_value = {"Авто": "auto", "Книжная": "portrait", "Альбомная": "landscape"}[orientation_label]
 
-            paper_key = f"report_designer_paper_{active_project.id}"
-            paper_label = page_right.radio(
-                "Формат",
-                options=("Авто", "A4", "A3"),
-                horizontal=True,
-                key=paper_key,
-                help="Авто выбирает A3 для широких инженерных планшетов и A4 для текстовых страниц.",
-            )
-            paper_value = "AUTO" if paper_label == "Авто" else paper_label
+                paper_key = f"report_designer_paper_{active_project.id}"
+                paper_label = page_right.radio(
+                    "Формат",
+                    options=("Авто", "A4", "A3"),
+                    horizontal=True,
+                    key=paper_key,
+                    help="Авто рекомендуется: A4 для текста, A3 для широких планшетов.",
+                )
+                paper_value = "AUTO" if paper_label == "Авто" else paper_label
 
-            title_widget_key = f"report_designer_title_{active_project.id}"
-            title_widget_kwargs = (
-                {"value": localized_copy["title"]}
-                if title_widget_key not in export_state
-                else {}
-            )
-            report_title = st.text_input(
-                "Заголовок отчёта",
-                key=title_widget_key,
-                **title_widget_kwargs,
-            )
-            section_labels = {
-                "plots": "Инженерные графики",
-                "visualizations": "Планшеты и визуализации",
-                "results": "Расчётные результаты",
-                "conclusion": "Заключение и ограничения",
-            }
-            sections_widget_key = f"report_designer_sections_{active_project.id}_{selected_template.id}"
-            sections_widget_kwargs = (
-                {"default": tuple(section_labels[item] for item in selected_template.default_sections)}
-                if sections_widget_key not in export_state
-                else {}
-            )
-            selected_section_labels = st.multiselect(
-                "Разделы отчёта",
-                options=tuple(section_labels.values()),
-                key=sections_widget_key,
-                help=tooltip("report.sections"),
-                **sections_widget_kwargs,
-            )
-            technical_widget_key = f"report_designer_technical_{active_project.id}"
-            technical_widget_kwargs = (
-                {"value": selected_template.include_technical_appendix}
-                if technical_widget_key not in export_state
-                else {}
-            )
-            include_technical_design = st.checkbox(
-                "Техническое приложение",
-                key=technical_widget_key,
-                help=tooltip("report.technical_appendix"),
-                **technical_widget_kwargs,
-            )
-            chrome_widget_key = f"report_designer_chrome_{active_project.id}"
-            chrome_widget_kwargs = (
-                {"value": selected_template.show_page_chrome}
-                if chrome_widget_key not in export_state
-                else {}
-            )
-            show_page_chrome_design = st.checkbox(
-                "Служебные колонтитулы и нумерация",
-                key=chrome_widget_key,
-                help=tooltip("report.page_chrome"),
-                **chrome_widget_kwargs,
-            )
+                title_widget_key = f"report_designer_title_{active_project.id}"
+                title_widget_kwargs = (
+                    {"value": localized_copy["title"]}
+                    if title_widget_key not in export_state
+                    else {}
+                )
+                report_title = st.text_input(
+                    "Заголовок отчёта",
+                    key=title_widget_key,
+                    **title_widget_kwargs,
+                )
+                section_labels = {
+                    "plots": "Инженерные графики",
+                    "visualizations": "Планшеты и визуализации",
+                    "results": "Расчётные результаты",
+                    "conclusion": "Заключение и ограничения",
+                }
+                sections_widget_key = f"report_designer_sections_{active_project.id}_{selected_template.id}"
+                sections_widget_kwargs = (
+                    {"default": tuple(section_labels[item] for item in selected_template.default_sections)}
+                    if sections_widget_key not in export_state
+                    else {}
+                )
+                selected_section_labels = st.multiselect(
+                    "Разделы отчёта",
+                    options=tuple(section_labels.values()),
+                    key=sections_widget_key,
+                    help=tooltip("report.sections"),
+                    **sections_widget_kwargs,
+                )
+                technical_widget_key = f"report_designer_technical_{active_project.id}"
+                technical_widget_kwargs = (
+                    {"value": selected_template.include_technical_appendix}
+                    if technical_widget_key not in export_state
+                    else {}
+                )
+                include_technical_design = st.checkbox(
+                    "Техническое приложение",
+                    key=technical_widget_key,
+                    help=tooltip("report.technical_appendix"),
+                    **technical_widget_kwargs,
+                )
+                chrome_widget_key = f"report_designer_chrome_{active_project.id}"
+                chrome_widget_kwargs = (
+                    {"value": selected_template.show_page_chrome}
+                    if chrome_widget_key not in export_state
+                    else {}
+                )
+                show_page_chrome_design = st.checkbox(
+                    "Служебные колонтитулы и нумерация",
+                    key=chrome_widget_key,
+                    help=tooltip("report.page_chrome"),
+                    **chrome_widget_kwargs,
+                )
 
             print_mode = st.radio(
                 "Интервал печати",
@@ -10289,27 +10303,33 @@ def _render_professional_export_panel(
                 wizard_state,
                 capabilities=wizard_capabilities,
             )
-            st.markdown("#### Проверка перед формированием")
-            wizard_columns = st.columns(len(wizard_review.steps))
-            for wizard_column, wizard_step in zip(wizard_columns, wizard_review.steps):
-                marker = "✅" if wizard_step.completed else ("➡️" if wizard_step.active else "○")
-                wizard_column.markdown(f"**{marker} {wizard_step.number}. {wizard_step.label}**")
-                wizard_column.caption(wizard_step.description)
-            st.progress(1.0 if wizard_review.ready else 0.8)
-            review_left, review_right = st.columns(2)
-            review_left.markdown(
-                f"**Источник:** {wizard_review.source_label}  \n"
-                f"**Проект:** {wizard_review.project_label}  \n"
-                f"**Профиль:** {wizard_review.profile_label}"
-            )
-            review_right.markdown(
-                f"**Формат:** {wizard_review.format_label}  \n"
-                f"**Файл:** `{wizard_review.file_name}`  \n"
-                f"**Диапазон:** {min(float(print_top), float(print_bottom)):g}–"
-                f"{max(float(print_top), float(print_bottom)):g} м"
-            )
-            for wizard_issue in wizard_review.issues:
-                st.error(wizard_issue.message) if wizard_issue.blocking else st.warning(wizard_issue.message)
+            with st.expander("Состав и проверка отчёта", expanded=False):
+                wizard_columns = st.columns(len(wizard_review.steps))
+                for wizard_column, wizard_step in zip(wizard_columns, wizard_review.steps):
+                    marker = "✅" if wizard_step.completed else ("➡️" if wizard_step.active else "○")
+                    wizard_column.markdown(f"**{marker} {wizard_step.number}. {wizard_step.label}**")
+                    wizard_column.caption(wizard_step.description)
+                st.progress(1.0 if wizard_review.ready else 0.8)
+                review_left, review_right = st.columns(2)
+                review_left.markdown(
+                    f"**Источник:** {wizard_review.source_label}  \n"
+                    f"**Проект:** {wizard_review.project_label}  \n"
+                    f"**Профиль:** {wizard_review.profile_label}"
+                )
+                review_right.markdown(
+                    f"**Формат:** {wizard_review.format_label}  \n"
+                    f"**Файл:** `{wizard_review.file_name}`  \n"
+                    f"**Диапазон:** {min(float(print_top), float(print_bottom)):g}–"
+                    f"{max(float(print_top), float(print_bottom)):g} м"
+                )
+                for wizard_issue in wizard_review.issues:
+                    st.error(wizard_issue.message) if wizard_issue.blocking else st.warning(wizard_issue.message)
+
+            if active_export_job is not None:
+                st.info(
+                    "Отчёт уже принят в работу. Кнопка заблокирована до завершения; "
+                    "страницу и кнопку повторно нажимать не нужно."
+                )
 
             st.markdown(
                 """<style>
@@ -10327,12 +10347,21 @@ def _render_professional_export_panel(
                 </style>""",
                 unsafe_allow_html=True,
             )
+            submit_label = (
+                "⏳  ОТЧЁТ ФОРМИРУЕТСЯ — ПОВТОРНО НЕ НАЖИМАТЬ"
+                if active_export_job is not None
+                else "🖨️  СФОРМИРОВАТЬ ОТЧЁТ"
+            )
             prepare_export = st.form_submit_button(
-                "🖨️  СФОРМИРОВАТЬ И СКАЧАТЬ ОТЧЁТ",
+                submit_label,
                 width="stretch",
                 type="primary",
-                disabled=not wizard_review.ready,
-                help=tooltip("report.prepare"),
+                disabled=(not wizard_review.ready or active_export_job is not None),
+                help=(
+                    "Текущий отчёт уже формируется."
+                    if active_export_job is not None
+                    else tooltip("report.prepare")
+                ),
             )
 
         selected_profile = next((option for option in profile_options if option.label == selected_profile_label), profile_options[0])
