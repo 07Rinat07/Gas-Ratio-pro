@@ -14,6 +14,7 @@ from core.hydrocarbon_intervals import (
     summarize_hydrocarbon_interval_result,
 )
 from reports.export_html import HtmlReportTable
+from reports.report_i18n import fluid_label, generated, localize_text
 
 
 PRODUCTIVE_FLUIDS = {"gas", "oil", "condensate", "mixed", "gas_oil", "oil_gas"}
@@ -59,12 +60,13 @@ def _format_depth_range(interval: HydrocarbonInterval) -> str:
     return f"{interval.top:g}–{interval.base:g} м"
 
 
-def _fluid_label(fluid_type: str) -> str:
-    return FLUID_TYPE_LABELS.get(fluid_type, fluid_type)
+def _fluid_label(fluid_type: str, locale: str = "ru") -> str:
+    return fluid_label(fluid_type, locale)
 
 
-def _decision_label(level: str) -> str:
-    return DECISION_LEVEL_LABELS.get(level, level or "неопределенная")
+def _decision_label(level: str, locale: str = "ru") -> str:
+    key = str(level or "unknown").strip().lower()
+    return generated(locale, f"decision.{key}" if key in DECISION_LEVEL_LABELS else "decision.unknown")
 
 
 def _confidence_label(interval: HydrocarbonInterval) -> str:
@@ -122,22 +124,22 @@ def _collect_limitations(intervals: Sequence[HydrocarbonInterval]) -> tuple[str,
     return tuple(unique[:5])
 
 
-def _overall_assessment(result: HydrocarbonIntervalResult) -> str:
+def _overall_assessment(result: HydrocarbonIntervalResult, locale: str = "ru") -> str:
     summary = summarize_hydrocarbon_interval_result(result)
     productive = int(summary.get("productive_intervals", 0) or 0)
     total = int(summary.get("total_intervals", 0) or 0)
     review = int(summary.get("review_required", 0) or 0)
 
     if productive > 0 and review == 0:
-        return "Выявлены вероятные продуктивные интервалы, пригодные для детальной инженерной проверки."
+        return generated(locale, "summary.overall.productive")
     if productive > 0:
-        return "Выявлены вероятные продуктивные интервалы, часть выводов требует дополнительной проверки."
+        return generated(locale, "summary.overall.review")
     if total > 0:
-        return "Выявлены интервалы предварительного интереса, но продуктивность требует подтверждения."
-    return "По текущему набору данных уверенные продуктивные интервалы не выделены."
+        return generated(locale, "summary.overall.interest")
+    return generated(locale, "summary.overall.none")
 
 
-def build_executive_summary(result: HydrocarbonIntervalResult) -> ExecutiveSummary:
+def build_executive_summary(result: HydrocarbonIntervalResult, *, locale: str = "ru") -> ExecutiveSummary:
     """Build a decision-oriented first-page summary for geoscience teams."""
 
     summary = summarize_hydrocarbon_interval_result(result)
@@ -150,9 +152,9 @@ def build_executive_summary(result: HydrocarbonIntervalResult) -> ExecutiveSumma
         base = max(float(item.base) for item in productive)
         total_thickness = sum(float(item.thickness or 0.0) for item in productive)
         items.append(ExecutiveSummaryItem(
-            title="Диапазон вероятного УВ-насыщения",
+            title=generated(locale, "summary.hc_range"),
             value=f"{top:g}–{base:g} м",
-            note=f"Суммарная мощность выделенных интервалов: {total_thickness:.1f} м.",
+            note=generated(locale, "summary.total_thickness", value=f"{total_thickness:.1f}"),
         ))
 
     for fluid_type in ("oil", "gas", "condensate", "gas_oil", "oil_gas", "mixed"):
@@ -162,58 +164,57 @@ def build_executive_summary(result: HydrocarbonIntervalResult) -> ExecutiveSumma
         best = sorted(intervals, key=lambda item: (-int(item.confidence_score or 0), -float(item.thickness or 0)))[0]
         total = sum(float(item.thickness or 0.0) for item in intervals)
         items.append(ExecutiveSummaryItem(
-            title=_fluid_label(fluid_type),
+            title=_fluid_label(fluid_type, locale),
             value=f"{best.top:g}–{best.base:g} м",
             note=(
-                f"Лучший интервал: {best.thickness:g} м, достоверность {_confidence_label(best)}; "
-                f"суммарная выделенная мощность {total:.1f} м."
+                generated(locale, "summary.best_note", thickness=f"{best.thickness:g}", confidence=_confidence_label(best), total=f"{total:.1f}")
             ),
         ))
 
     review_required = int(summary.get("review_required", 0) or 0)
     if review_required:
         items.append(ExecutiveSummaryItem(
-            title="Приоритет ручной проверки",
-            value=f"{review_required} интервалов",
-            note="Низкая достоверность, недостаток данных, одиночные точки или противоречие методов.",
+            title=generated(locale, "summary.manual_review"),
+            value=generated(locale, "summary.interval_count", count=review_required),
+            note=generated(locale, "summary.review_note"),
         ))
 
     if main_intervals:
         best = main_intervals[0]
         items.append(ExecutiveSummaryItem(
-            title="Наиболее перспективный интервал",
+            title=generated(locale, "summary.best_interval"),
             value=_format_depth_range(best),
-            note=f"{_fluid_label(best.fluid_type)}, мощность {best.thickness:g} м, достоверность {_confidence_label(best)}.",
+            note=generated(locale, "summary.best_interval_note", fluid=_fluid_label(best.fluid_type, locale), thickness=f"{best.thickness:g}", confidence=_confidence_label(best)),
         ))
 
     return ExecutiveSummary(
-        title="Инженерная сводка перспективных интервалов",
-        overall_assessment=_overall_assessment(result),
+        title=generated(locale, "summary.title"),
+        overall_assessment=_overall_assessment(result, locale),
         items=tuple(items),
         main_intervals=main_intervals,
-        recommendations=_collect_recommendations(main_intervals),
-        limitations=_collect_limitations(main_intervals),
+        recommendations=tuple(localize_text(x, locale) for x in _collect_recommendations(main_intervals)),
+        limitations=tuple(localize_text(x, locale) for x in _collect_limitations(main_intervals)),
     )
 
 
-def build_executive_summary_from_dataframe(df: pd.DataFrame, *, depth_column: str = "depth") -> ExecutiveSummary:
+def build_executive_summary_from_dataframe(df: pd.DataFrame, *, depth_column: str = "depth", locale: str = "ru") -> ExecutiveSummary:
     """Convenience wrapper for report builders that start from calculated rows."""
 
-    return build_executive_summary(detect_hydrocarbon_intervals(df, depth_column=depth_column))
+    return build_executive_summary(detect_hydrocarbon_intervals(df, depth_column=depth_column), locale=locale)
 
 
-def executive_summary_table(summary: ExecutiveSummary) -> HtmlReportTable:
+def executive_summary_table(summary: ExecutiveSummary, *, locale: str = "ru") -> HtmlReportTable:
     """Render summary items as a compact first-page table."""
 
     rows = tuple((item.title, item.value, item.note) for item in summary.items)
     return HtmlReportTable(
         title=summary.title,
-        headers=("Показатель", "Значение", "Комментарий"),
+        headers=(generated(locale, "table.metric"), generated(locale, "table.value"), generated(locale, "table.comment")),
         rows=rows,
     )
 
 
-def main_intervals_table(summary: ExecutiveSummary) -> HtmlReportTable | None:
+def main_intervals_table(summary: ExecutiveSummary, *, locale: str = "ru") -> HtmlReportTable | None:
     """Render the most important intervals for the first report pages."""
 
     if not summary.main_intervals:
@@ -227,20 +228,20 @@ def main_intervals_table(summary: ExecutiveSummary) -> HtmlReportTable | None:
                 f"{interval.top:g}",
                 f"{interval.base:g}",
                 f"{interval.thickness:g}",
-                _fluid_label(interval.fluid_type),
-                _decision_label(interval.decision_level),
+                _fluid_label(interval.fluid_type, locale),
+                _decision_label(interval.decision_level, locale),
                 _confidence_label(interval),
                 str(explanation_summary or "").strip(),
             )
         )
     return HtmlReportTable(
-        title="Приоритетные интервалы нефти, газа и конденсата",
+        title=generated(locale, "table.priority_intervals"),
         headers=("№", "Кровля, м", "Подошва, м", "Мощность, м", "Флюид", "Решение", "Достоверность", "Инженерный вывод"),
         rows=tuple(rows),
     )
 
 
-def executive_recommendations_table(summary: ExecutiveSummary) -> HtmlReportTable | None:
+def executive_recommendations_table(summary: ExecutiveSummary, *, locale: str = "ru") -> HtmlReportTable | None:
     """Render recommendations and limitations without exposing debug details."""
 
     rows: list[tuple[str, str]] = []
@@ -249,7 +250,7 @@ def executive_recommendations_table(summary: ExecutiveSummary) -> HtmlReportTabl
     if not rows:
         return None
     return HtmlReportTable(
-        title="Рекомендации и ограничения интерпретации",
-        headers=("Тип", "Описание"),
+        title=generated(locale, "table.recommendations"),
+        headers=(localize_text("Тип", locale), generated(locale, "table.description")),
         rows=tuple(rows),
     )

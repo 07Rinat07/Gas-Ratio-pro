@@ -266,7 +266,7 @@ def build_hydrocarbon_report_payload(
     """
 
     result = detect_hydrocarbon_intervals(df, depth_column=depth_column)
-    executive_summary = build_executive_summary(result)
+    executive_summary = build_executive_summary(result, locale=locale)
     interval_df = hydrocarbon_interval_dataframe(result.intervals)
     marker_df = hydrocarbon_interval_marker_dataframe(result.intervals)
     barrier_df = lithology_barrier_dataframe(result.barriers)
@@ -327,9 +327,9 @@ def build_hydrocarbon_report_payload(
             reverse=True,
         )[:15]
     )
-    executive_summary_report_table = executive_summary_table(executive_summary)
-    main_intervals_report_table = main_intervals_table(executive_summary)
-    executive_recommendations_report_table = executive_recommendations_table(executive_summary)
+    executive_summary_report_table = executive_summary_table(executive_summary, locale=locale)
+    main_intervals_report_table = main_intervals_table(executive_summary, locale=locale)
+    executive_recommendations_report_table = executive_recommendations_table(executive_summary, locale=locale)
     interval_cards_report_table = interval_cards_overview_table(compact_cards)
     interval_card_reasoning_report_table = interval_cards_reasoning_table(interval_cards)
 

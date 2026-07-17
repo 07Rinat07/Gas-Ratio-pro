@@ -146,6 +146,87 @@ _PHRASES: dict[str, tuple[tuple[str, str], ...]] = {
 }
 
 
+
+# Generated engineering prose that previously remained Russian after table
+# localisation.  Keep full-sentence templates per locale instead of piecemeal
+# word replacement so grammar and word order remain correct.
+_GENERATED: dict[str, dict[str, str]] = {
+    "ru": {
+        "summary.title": "Инженерная сводка перспективных интервалов",
+        "summary.overall.productive": "Выявлены вероятные продуктивные интервалы, пригодные для детальной инженерной проверки.",
+        "summary.overall.review": "Выявлены вероятные продуктивные интервалы, часть выводов требует дополнительной проверки.",
+        "summary.overall.interest": "Выявлены интервалы предварительного интереса, но продуктивность требует подтверждения.",
+        "summary.overall.none": "По текущему набору данных уверенные продуктивные интервалы не выделены.",
+        "summary.hc_range": "Диапазон вероятного УВ-насыщения",
+        "summary.total_thickness": "Суммарная мощность выделенных интервалов: {value} м.",
+        "summary.best_note": "Лучший интервал: {thickness} м, достоверность {confidence}; суммарная выделенная мощность {total} м.",
+        "summary.manual_review": "Приоритет ручной проверки",
+        "summary.interval_count": "{count} интервалов",
+        "summary.review_note": "Низкая достоверность, недостаток данных, одиночные точки или противоречие методов.",
+        "summary.best_interval": "Наиболее перспективный интервал",
+        "summary.best_interval_note": "{fluid}, мощность {thickness} м, достоверность {confidence}.",
+        "table.metric": "Показатель", "table.value": "Значение", "table.comment": "Комментарий",
+        "table.priority_intervals": "Приоритетные интервалы нефти, газа и конденсата",
+        "table.recommendations": "Рекомендации и ограничения интерпретации",
+        "table.description": "Описание",
+        "decision.very_high": "очень высокая", "decision.high": "высокая",
+        "decision.medium": "средняя", "decision.low": "низкая",
+        "decision.review": "требует проверки", "decision.unknown": "неопределенная",
+    },
+    "kk": {
+        "summary.title": "Перспективалы аралықтардың инженерлік жиынтығы",
+        "summary.overall.productive": "Егжей-тегжейлі инженерлік тексеруге жарамды ықтимал өнімді аралықтар анықталды.",
+        "summary.overall.review": "Ықтимал өнімді аралықтар анықталды, қорытындылардың бір бөлігі қосымша тексеруді қажет етеді.",
+        "summary.overall.interest": "Алдын ала қызығушылық тудыратын аралықтар анықталды, бірақ өнімділік расталуы тиіс.",
+        "summary.overall.none": "Ағымдағы деректер жиынтығында сенімді өнімді аралықтар анықталған жоқ.",
+        "summary.hc_range": "Ықтимал көмірсутек қанығу аралығы",
+        "summary.total_thickness": "Белгіленген аралықтардың жиынтық қалыңдығы: {value} м.",
+        "summary.best_note": "Үздік аралық: {thickness} м, сенімділік {confidence}; жиынтық белгіленген қалыңдық {total} м.",
+        "summary.manual_review": "Қолмен тексеру басымдығы",
+        "summary.interval_count": "{count} аралық",
+        "summary.review_note": "Сенімділік төмен, деректер жеткіліксіз, жалғыз нүктелер немесе әдістер қайшылығы бар.",
+        "summary.best_interval": "Ең перспективалы аралық",
+        "summary.best_interval_note": "{fluid}, қалыңдығы {thickness} м, сенімділігі {confidence}.",
+        "table.metric": "Көрсеткіш", "table.value": "Мәні", "table.comment": "Түсіндірме",
+        "table.priority_intervals": "Мұнай, газ және конденсаттың басым аралықтары",
+        "table.recommendations": "Интерпретация бойынша ұсынымдар мен шектеулер",
+        "table.description": "Сипаттама",
+        "decision.very_high": "өте жоғары", "decision.high": "жоғары",
+        "decision.medium": "орташа", "decision.low": "төмен",
+        "decision.review": "тексеру қажет", "decision.unknown": "анықталмаған",
+    },
+    "en": {
+        "summary.title": "Engineering summary of prospective intervals",
+        "summary.overall.productive": "Probable productive intervals suitable for detailed engineering review were identified.",
+        "summary.overall.review": "Probable productive intervals were identified; some conclusions require additional review.",
+        "summary.overall.interest": "Intervals of preliminary interest were identified, but productivity requires confirmation.",
+        "summary.overall.none": "No confidently productive intervals were identified in the current dataset.",
+        "summary.hc_range": "Probable hydrocarbon saturation range",
+        "summary.total_thickness": "Total interpreted interval thickness: {value} m.",
+        "summary.best_note": "Best interval: {thickness} m, confidence {confidence}; total interpreted thickness {total} m.",
+        "summary.manual_review": "Manual review priority",
+        "summary.interval_count": "{count} intervals",
+        "summary.review_note": "Low confidence, insufficient data, isolated points, or disagreement between methods.",
+        "summary.best_interval": "Most prospective interval",
+        "summary.best_interval_note": "{fluid}, thickness {thickness} m, confidence {confidence}.",
+        "table.metric": "Metric", "table.value": "Value", "table.comment": "Comment",
+        "table.priority_intervals": "Priority oil, gas, and condensate intervals",
+        "table.recommendations": "Interpretation recommendations and limitations",
+        "table.description": "Description",
+        "decision.very_high": "very high", "decision.high": "high",
+        "decision.medium": "medium", "decision.low": "low",
+        "decision.review": "review required", "decision.unknown": "undetermined",
+    },
+}
+
+def generated(locale: str, key: str, **values: object) -> str:
+    code = normalize_language(locale)
+    template = _GENERATED.get(code, _GENERATED["ru"]).get(key, _GENERATED["ru"].get(key, key))
+    try:
+        return template.format(**values)
+    except (KeyError, ValueError):
+        return template
+
 def tr(locale: str, key: str, **values: object) -> str:
     code = normalize_language(locale)
     template = _TEXT.get(code, _TEXT["ru"]).get(key, _TEXT["ru"].get(key, key))
