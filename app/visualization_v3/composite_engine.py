@@ -78,8 +78,8 @@ class CompositeLogEngine:
         parts: list[str] = [
             f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
             f'<rect x="0" y="0" width="{width}" height="{height}" fill="{spec.background}"/>',
-            f'<style>text{{font-family:{html.escape(spec.font_family)};fill:#0f172a}} .small{{font-size:18px;font-weight:600}} .axis{{font-size:21px;font-weight:700}} .title{{font-size:25px;font-weight:800}} .stat{{font-size:17px;font-weight:700}}</style>',
-            f'<text x="{spec.left_padding}" y="30" class="title">{html.escape(spec.title)}</text>',
+            f'<style>text{{font-family:{html.escape(spec.font_family)};fill:#0f172a}} .small{{font-size:30px;font-weight:700}} .axis{{font-size:36px;font-weight:800}} .title{{font-size:42px;font-weight:800}} .stat{{font-size:27px;font-weight:700}}</style>',
+            f'<text x="{spec.left_padding}" y="36" class="title">{html.escape(spec.title)}</text>',
         ]
 
         # Interval bands span all curve tracks and remain subordinate to curves.
@@ -131,8 +131,8 @@ class CompositeLogEngine:
         parts.extend([
             f'<rect x="{spec.left_padding}" y="{plot_top}" width="{depth_width}" height="{plot_height}" fill="none" stroke="{spec.border}" stroke-width="1.2"/>',
             f'<rect x="{spec.left_padding}" y="40" width="{depth_width}" height="{spec.header_height-40}" fill="#f8fafc" stroke="{spec.border}" stroke-width="1"/>',
-            f'<text x="{spec.left_padding + depth_width/2}" y="72" text-anchor="middle" class="axis">{html.escape(spec.depth_track.title)}</text>',
-            f'<text x="{spec.left_padding + depth_width/2}" y="102" text-anchor="middle" class="small">{html.escape(spec.depth_track.unit)}</text>',
+            f'<text x="{spec.left_padding + depth_width/2}" y="88" text-anchor="middle" class="axis">{html.escape(spec.depth_track.title)}</text>',
+            f'<text x="{spec.left_padding + depth_width/2}" y="132" text-anchor="middle" class="small">{html.escape(spec.depth_track.unit)}</text>',
         ])
 
         x = data_x
@@ -168,11 +168,11 @@ class CompositeLogEngine:
 
             # Header and explicit independent scale.
             parts.append(f'<rect x="{x}" y="40" width="{track.width}" height="{spec.header_height-40}" fill="#f8fafc" stroke="{spec.border}" stroke-width="1"/>')
-            parts.append(f'<text x="{x + track.width/2:.2f}" y="70" text-anchor="middle" class="axis">{html.escape(track.title)}</text>')
+            parts.append(f'<text x="{x + track.width/2:.2f}" y="88" text-anchor="middle" class="axis">{html.escape(track.title)}</text>')
             scale_text = f"{minimum:.3g} — {maximum:.3g}"
             if track.unit:
                 scale_text += f" {track.unit}"
-            parts.append(f'<text x="{x + track.width/2:.2f}" y="104" text-anchor="middle" class="small">{html.escape(scale_text)}</text>')
+            parts.append(f'<text x="{x + track.width/2:.2f}" y="132" text-anchor="middle" class="small" textLength="{max(40, track.width-12):.2f}" lengthAdjust="spacingAndGlyphs">{html.escape(scale_text)}</text>')
 
             points: list[str] = []
             for depth, value in zip(frame[depth_key], values):

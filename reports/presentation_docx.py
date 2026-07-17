@@ -304,14 +304,32 @@ def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
     """Embed the canonical vector composite or a legacy Plotly figure into DOCX."""
     _add_paragraph(doc, block.title or "Планшет", style="Heading 2")
     if hasattr(block.figure, "svg"):
-        from svglib.svglib import svg2rlg
-        from reportlab.graphics import renderPM
         figure = block.figure
         _add_paragraph(doc, f"Диапазон глубин: {figure.depth_start:g}–{figure.depth_stop:g} м.")
-        drawing = svg2rlg(BytesIO(figure.svg.encode("utf-8")))
-        if drawing is None:
-            raise RuntimeError("Не удалось преобразовать SVG-планшет для DOCX")
-        png = renderPM.drawToString(drawing, fmt="PNG", dpi=220)
+
+        # PyMuPDF rasterizes SVG without Cairo / renderPM system libraries.
+        # This is deliberately the primary DOCX path on Windows because both
+        # CairoSVG and ReportLab renderPM may require native DLLs.
+        try:
+            import fitz  # type: ignore
+
+            svg_document = fitz.open(stream=figure.svg.encode("utf-8"), filetype="svg")
+            if svg_document.page_count < 1:
+                raise RuntimeError("SVG-планшет не содержит страниц")
+            page = svg_document.load_page(0)
+            # Keep the raster sharp in Word while bounding memory usage.
+            dpi_scale = 300.0 / 72.0
+            width_scale = 5600.0 / max(1.0, float(page.rect.width))
+            scale = min(dpi_scale, width_scale)
+            pixmap = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+            png = pixmap.tobytes("png")
+            svg_document.close()
+        except Exception as exc:
+            raise RuntimeError(
+                "Не удалось подготовить планшет для DOCX через PyMuPDF. "
+                "Проверьте установку зависимости PyMuPDF."
+            ) from exc
+
         stream = BytesIO(png)
         paragraph = doc.add_paragraph()
         paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER

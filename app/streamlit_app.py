@@ -9514,11 +9514,34 @@ def _streamlit_fragment(function=None, *, run_every: str | None = None):
 
 
 def _print_center_container(streamlit_module):
-    """Return a compact Print Center container without occupying the workspace."""
+    """Return a prominent Print Center control that is easy to find."""
+    streamlit_module.markdown(
+        """
+        <style>
+        div[data-testid="stPopover"] > button,
+        div[data-testid="stPopover"] button[kind="secondary"] {
+            min-height: 52px !important;
+            padding: 0 22px !important;
+            border-radius: 10px !important;
+            border: 1px solid #60a5fa !important;
+            background: #2563eb !important;
+            color: #ffffff !important;
+            font-size: 16px !important;
+            font-weight: 800 !important;
+            box-shadow: 0 6px 18px rgba(37, 99, 235, .28) !important;
+        }
+        div[data-testid="stPopover"] > button:hover {
+            background: #1d4ed8 !important;
+            border-color: #93c5fd !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     popover = getattr(streamlit_module, "popover", None)
     if callable(popover):
-        return popover("🖨 Печать и экспорт", help="Шаблоны, язык документа, предпросмотр, печать и экспорт")
-    return streamlit_module.expander("🖨 Печать и экспорт", expanded=False)
+        return popover("🖨 ОТЧЁТ И ПЕЧАТЬ", help="Открыть настройки, предпросмотр и экспорт отчёта")
+    return streamlit_module.expander("🖨 ОТЧЁТ И ПЕЧАТЬ", expanded=False)
 
 @_streamlit_fragment(run_every="2s")
 def _selected_numeric_point_from_plotly_event(event: object) -> dict[str, object]:

@@ -12,3 +12,5 @@ python-docx>=1.1
 svglib>=1.5.1
 
 CairoSVG>=2.7.1
+
+PyMuPDF>=1.24
