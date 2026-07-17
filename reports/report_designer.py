@@ -448,6 +448,30 @@ def _clean_text(value: str, fallback: str) -> str:
     return text or fallback
 
 
+
+
+def resolve_page_layout(design: ReportDesign, template: ReportTemplate, selected_sections: tuple[ReportSectionId, ...]) -> tuple[str, str]:
+    """Resolve user page settings, including the automatic engineering mode.
+
+    Auto keeps text-only reports in A4 portrait and switches reports containing
+    plots/visualizations to landscape. Engineering reports with visualization
+    tracks use A3 to preserve readable fonts and minimum track widths.
+    """
+    requested_orientation = str(design.orientation or template.orientation).strip().lower()
+    requested_paper = str(design.paper_size or template.paper_size).strip().upper()
+    has_wide_content = any(section in {"plots", "visualizations"} for section in selected_sections)
+
+    if requested_orientation == "auto":
+        orientation = "landscape" if has_wide_content else "portrait"
+    else:
+        orientation = requested_orientation if requested_orientation in {"portrait", "landscape"} else template.orientation
+
+    if requested_paper == "AUTO":
+        paper_size = "A3" if has_wide_content and orientation == "landscape" else "A4"
+    else:
+        paper_size = requested_paper if requested_paper in {"A4", "A3", "LETTER"} else template.paper_size
+    return paper_size, orientation
+
 def validate_report_design(design: ReportDesign) -> tuple[ReportDesignIssue, ...]:
     design = resolve_report_design(design)
     issues: list[ReportDesignIssue] = []
@@ -465,6 +489,10 @@ def validate_report_design(design: ReportDesign) -> tuple[ReportDesignIssue, ...
         issues.append(ReportDesignIssue("sections.unknown", f"Неизвестные разделы: {', '.join(unknown)}.", "sections"))
     if design.margin_mm is not None and not 8 <= int(design.margin_mm) <= 40:
         issues.append(ReportDesignIssue("margin.invalid", "Поля должны быть от 8 до 40 мм.", "margin_mm"))
+    if design.orientation and str(design.orientation).strip().lower() not in {"auto", "portrait", "landscape"}:
+        issues.append(ReportDesignIssue("orientation.invalid", "Ориентация должна быть auto, portrait или landscape.", "orientation"))
+    if design.paper_size and str(design.paper_size).strip().upper() not in {"AUTO", "A4", "A3", "LETTER"}:
+        issues.append(ReportDesignIssue("paper.invalid", "Формат страницы должен быть AUTO, A4, A3 или LETTER.", "paper_size"))
     return tuple(issues)
 
 
@@ -507,8 +535,7 @@ def build_designed_report(model: PresentationModel, design: ReportDesign | None 
         schema="gas-ratio-pro/document/designed/v1",
     )
 
-    paper_size = str(design.paper_size or template.paper_size).strip().upper()
-    orientation = str(design.orientation or template.orientation).strip().lower()
+    paper_size, orientation = resolve_page_layout(design, template, selected_sections)
     margin_mm = template.margin_mm if design.margin_mm is None else int(design.margin_mm)
     page_chrome = template.show_page_chrome if design.show_page_chrome is None else bool(design.show_page_chrome)
     include_toc = (
@@ -790,8 +817,8 @@ def build_report_structure_preview(
         show_page_chrome=page_chrome,
         include_table_of_contents=include_toc,
         include_pdf_bookmarks=include_bookmarks,
-        paper_size=str(resolved.paper_size or template.paper_size).strip().upper(),
-        orientation=str(resolved.orientation or template.orientation).strip().lower(),
+        paper_size=resolve_page_layout(resolved, template, tuple(resolved.sections or template.default_sections))[0],
+        orientation=resolve_page_layout(resolved, template, tuple(resolved.sections or template.default_sections))[1],
         margin_mm=template.margin_mm if resolved.margin_mm is None else int(resolved.margin_mm),
         page_estimates=tuple(page_estimates),
         estimated_min_pages=estimated_min_pages,

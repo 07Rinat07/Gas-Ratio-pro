@@ -9984,6 +9984,30 @@ def _render_professional_export_panel(
                 **template_widget_kwargs,
             )
             selected_template = template_by_label[selected_template_label]
+
+            st.markdown("#### Параметры страницы")
+            page_left, page_right = st.columns([2, 1])
+            orientation_key = f"report_designer_orientation_{active_project.id}"
+            orientation_labels = ("Авто", "Книжная", "Альбомная")
+            orientation_label = page_left.radio(
+                "Ориентация",
+                options=orientation_labels,
+                horizontal=True,
+                key=orientation_key,
+                help="Авто: планшеты печатаются альбомно, текстовые страницы — книжно.",
+            )
+            orientation_value = {"Авто": "auto", "Книжная": "portrait", "Альбомная": "landscape"}[orientation_label]
+
+            paper_key = f"report_designer_paper_{active_project.id}"
+            paper_label = page_right.radio(
+                "Формат",
+                options=("Авто", "A4", "A3"),
+                horizontal=True,
+                key=paper_key,
+                help="Авто выбирает A3 для широких инженерных планшетов и A4 для текстовых страниц.",
+            )
+            paper_value = "AUTO" if paper_label == "Авто" else paper_label
+
             title_widget_key = f"report_designer_title_{active_project.id}"
             title_widget_kwargs = (
                 {"value": localized_copy["title"]}
@@ -10112,6 +10136,8 @@ def _render_professional_export_panel(
                 ),
                 include_technical_appendix=bool(include_technical_design),
                 show_page_chrome=bool(show_page_chrome_design),
+                orientation=orientation_value,
+                paper_size=paper_value,
             )
             preview_target_format = next(
                 (option.id for option in format_options if option.label == selected_format_label),
@@ -10328,6 +10354,8 @@ def _render_professional_export_panel(
             sections=tuple(section_id_by_label[label] for label in selected_section_labels),
             include_technical_appendix=bool(include_technical_design),
             show_page_chrome=bool(show_page_chrome_design),
+            orientation=orientation_value,
+            paper_size=paper_value,
         )
         object.__setattr__(report_design, "document_locale", selected_document_locale)
         current_print_depth_range = (
@@ -10374,7 +10402,7 @@ def _render_professional_export_panel(
                     f"interval={selected_interval_id or ''}|scope={print_mode}|"
                     f"mode={report_design.mode_id}|template={report_design.template_id}|title={report_design.title}|locale={report_design.document_locale}|"
                     f"sections={','.join(report_design.sections)}|technical={report_design.include_technical_appendix}|"
-                    f"chrome={report_design.show_page_chrome}|build={BUILD_VERSION}"
+                    f"chrome={report_design.show_page_chrome}|orientation={report_design.orientation}|paper={report_design.paper_size}|build={BUILD_VERSION}"
                 ).encode("utf-8")
             ).hexdigest(),
         )
