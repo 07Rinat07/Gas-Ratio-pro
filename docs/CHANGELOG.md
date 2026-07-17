@@ -1,3 +1,12 @@
+# v225.2 — Unified Page-Aware Export Package
+
+- Добавлен `VisualizationPageAwarePackageBuilder` как единая граница между Visualization Engine и Print Center.
+- SVG, PNG и PDF теперь формируются и аудируются как один физический пакет страниц A4/A3.
+- Добавлен renderer-neutral preview-контракт для DOCX/HTML с полным набором `page_svgs`.
+- `VisualizationAssetRegistry` переведён на пакет v225.2 и больше не управляет форматами независимо.
+- Добавлены проверки page count, track partition, geometry signature и запрет single-page fallback.
+- Runtime/build metadata синхронизированы с v225.2.
+
 # v225.1 — Physical A4/A3 Page-Aware Rendering
 
 - Добавлены общие физические профили A4/A3 для книжной и альбомной ориентации.

@@ -1,4 +1,13 @@
-# Текущее состояние — v225.1
+# Текущее состояние — v225.2
+
+Завершён единый page-aware пакет v225.2:
+
+- добавлен `VisualizationPageAwarePackageBuilder`;
+- физическое разбиение A4/A3, SVG-страницы, PNG-страницы и многостраничный PDF объединены одним контрактом;
+- добавлен общий preview-контракт для DOCX/HTML без перестроения геометрии;
+- `VisualizationAssetRegistry` переведён на единый пакет вместо независимой координации renderer-ов;
+- одностраничный fallback явно запрещён полем `single_page_fallback=false`;
+- геометрическая подпись, порядок треков и количество страниц проверяются между форматами.
 
 Professional Print Center и Visualization Engine используют renderer-neutral модель отчёта и компактный snapshot schema-v2 с безопасной миграцией schema-v1 и защитой будущих схем.
 

@@ -13,13 +13,8 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from services.visualization_pdf_render_model_renderer import VisualizationPdfRenderModelRenderer
-from services.visualization_png_scene_renderer import VisualizationPngSceneRenderer
-from services.visualization_renderer_parity import (
-    VisualizationRendererParityValidator,
-    visualization_geometry_signature,
-)
-from services.visualization_svg_scene_renderer import VisualizationSvgSceneRenderer
+from services.visualization_renderer_parity import visualization_geometry_signature
+from services.visualization_page_aware_package import VisualizationPageAwarePackageBuilder
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,51 +101,46 @@ class VisualizationAssetRegistry:
         if not geometry_signature:
             issues.append("visualization_asset_registry_geometry_signature_missing")
 
-        svg_result = VisualizationSvgSceneRenderer().render(pipeline)
-        pdf_result = VisualizationPdfRenderModelRenderer().render(pipeline)
-        png_result = VisualizationPngSceneRenderer().render(pipeline)
-        validator = VisualizationRendererParityValidator()
-        svg_parity = validator.validate(pipeline, svg_result.to_dict()).to_dict()
-        pdf_parity = validator.validate(pipeline, pdf_result.to_dict()).to_dict()
-        if not svg_parity["ok"]:
-            issues.append("visualization_asset_registry_svg_parity_failed")
-        if not pdf_parity["ok"]:
-            issues.append("visualization_asset_registry_pdf_parity_failed")
+        package = VisualizationPageAwarePackageBuilder().build(pipeline)
+        if not package.export_ready:
+            issues.extend(package.issues)
 
-        svg_pages = tuple(svg_result.page_svgs or ((svg_result.svg,) if svg_result.svg else ()))
+        svg_pages = tuple(page.svg for page in package.pages)
         svg_page_count = max(1, len(svg_pages))
-        png_pages = tuple(png_result.page_pngs or ((png_result.png_bytes,) if png_result.png_bytes else ()))
+        png_pages = tuple(page.png_bytes for page in package.pages)
         png_page_count = max(1, len(png_pages))
+        primary_svg = svg_pages[0] if svg_pages else ""
+        primary_png = png_pages[0] if png_pages else b""
         payloads: list[tuple[str, str, str, bytes, str, bool, int, int]] = [
             (
                 "preview_svg",
                 "visualization_preview",
                 "svg",
-                svg_result.svg.encode("utf-8"),
-                svg_result.renderer,
-                svg_result.export_ready,
-                1 if svg_result.svg else 0,
+                primary_svg.encode("utf-8"),
+                "visualization_page_aware_package",
+                package.export_ready,
+                1 if primary_svg else 0,
                 svg_page_count,
             ),
             (
                 "preview_png",
                 "visualization_preview",
                 "png",
-                png_result.png_bytes,
-                png_result.renderer,
-                png_result.export_ready,
-                1 if png_result.png_bytes else 0,
+                primary_png,
+                "visualization_page_aware_package",
+                package.export_ready,
+                1 if primary_png else 0,
                 png_page_count,
             ),
             (
                 "preview_pdf",
                 "visualization_preview",
                 "pdf",
-                pdf_result.pdf_bytes,
-                pdf_result.renderer,
-                pdf_result.export_ready,
+                package.pdf_bytes,
+                "visualization_page_aware_package",
+                package.export_ready,
                 0,
-                pdf_result.page_count,
+                package.page_count,
             ),
             (
                 "render_model",
@@ -192,8 +182,8 @@ class VisualizationAssetRegistry:
                     "visualization_preview_page",
                     "svg",
                     svg_page.encode("utf-8"),
-                    svg_result.renderer,
-                    svg_result.export_ready,
+                    "visualization_page_aware_package",
+                    package.export_ready,
                     page_index,
                     svg_page_count,
                 )
@@ -205,8 +195,8 @@ class VisualizationAssetRegistry:
                     "visualization_preview_page",
                     "png",
                     png_page,
-                    png_result.renderer,
-                    png_result.export_ready,
+                    "visualization_page_aware_package",
+                    package.export_ready,
                     page_index,
                     png_page_count,
                 )
