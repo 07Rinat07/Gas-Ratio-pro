@@ -102,10 +102,10 @@ def build_composite_log_v4(
     if not selected:
         raise ValueError("No supported engineering curves found")
 
-    depth_width = 320
+    depth_width = 420
     available_width = max(900, int(target_width) - depth_width - 28)
     # Adaptive widths: preserve readable tracks and allow a wide vector canvas when many curves exist.
-    base_width = max(250, min(340, available_width // len(selected)))
+    base_width = max(310, min(420, available_width // len(selected)))
     actual_target = depth_width + base_width * len(selected) + 28
     tracks = tuple(
         CurveTrackSpec(
@@ -115,7 +115,7 @@ def build_composite_log_v4(
             width=base_width,
             scale=scale,
             stroke=stroke,
-            stroke_width=4.2,
+            stroke_width=5.0,
         )
         for column, title_text, unit, stroke, scale in selected
     )
@@ -126,8 +126,8 @@ def build_composite_log_v4(
         tracks=tracks,
         intervals=_bands(intervals),
         height=max(980, int(height)),
-        header_height=380,
-        footer_height=300,
+        header_height=420,
+        footer_height=360,
         left_padding=14,
         right_padding=14,
     )

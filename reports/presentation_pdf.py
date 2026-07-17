@@ -579,7 +579,7 @@ def _statistics_table_pdf(entries: Sequence[dict[str, object]], styles: dict[str
 class _AutoScaleSvgDrawing(Flowable):
     """Scale an SVG drawing to the actual report frame instead of fixed millimetres."""
 
-    def __init__(self, drawing: object, *, max_height: float = 255 * mm) -> None:
+    def __init__(self, drawing: object, *, max_height: float = 180 * mm) -> None:
         super().__init__()
         self.drawing = drawing
         self.source_width = float(getattr(drawing, "width", 1) or 1)
@@ -624,7 +624,7 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
         drawing = svg2rlg(_BytesIO(figure.svg.encode("utf-8")))
         if drawing is None:
             return items + [_paragraph("Не удалось преобразовать SVG-планшет.", styles["small"])]
-        items.append(_AutoScaleSvgDrawing(drawing))
+        items.append(_AutoScaleSvgDrawing(drawing, max_height=180 * mm))
         return items
 
     title = block.title or "Профессиональный планшет интерпретации"

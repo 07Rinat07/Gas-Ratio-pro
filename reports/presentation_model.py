@@ -146,7 +146,7 @@ def build_presentation_model(
             source_df, intervals=result.intervals,
             title="Обзорный инженерный планшет",
             report_title="Обзорный планшет скважины", report_kind="overview",
-            height=max(2400, cfg.height), target_width=5200,
+            height=max(3600, cfg.height), target_width=7600,
         )
 
         profile = str((metadata or PresentationMetadata()).report_profile or "engineering").lower()
@@ -164,7 +164,7 @@ def build_presentation_model(
                 detail_df, intervals=group.intervals,
                 title=f"Инженерный планшет · {group.top:g}–{group.base:g} м",
                 report_title=f"Интервал {group.index}: {group.top:g}–{group.base:g} м · {fluids}",
-                report_kind="detail", height=max(2400, cfg.height), target_width=5200,
+                report_kind="detail", height=max(3600, cfg.height), target_width=7600,
             ))
 
     return PresentationModel(
