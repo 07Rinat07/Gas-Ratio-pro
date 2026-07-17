@@ -10418,6 +10418,7 @@ def _render_professional_export_panel(
                             report_profile=export_request.profile_id,
                             include_plot=True,
                             ranking_profile=ranking_profile_snapshot,
+                            locale=report_design.document_locale,
                         )
                         if payload.presentation_model is None:
                             raise RuntimeError("PresentationModel не был сформирован.")

@@ -30,6 +30,7 @@ from reports.interval_cards import (
     interval_cards_reasoning_table,
 )
 from reports.presentation_model import PresentationMetadata, PresentationModel, build_presentation_model
+from reports.report_i18n import localize_table, tr
 
 
 @dataclass(frozen=True)
@@ -255,6 +256,7 @@ def build_hydrocarbon_report_payload(
     report_profile: str = "engineering",
     include_plot: bool = False,
     ranking_profile: ReservoirRankingProfile | None = None,
+    locale: str = "ru",
 ) -> HydrocarbonReportPayload:
     """Build the single source of truth for hydrocarbon report exports.
 
@@ -331,6 +333,20 @@ def build_hydrocarbon_report_payload(
     interval_cards_report_table = interval_cards_overview_table(compact_cards)
     interval_card_reasoning_report_table = interval_cards_reasoning_table(interval_cards)
 
+    summary_table = localize_table(summary_table, locale)
+    marker_table = localize_table(marker_table, locale)
+    barrier_table = localize_table(barrier_table, locale)
+    interpretation_table = localize_table(interpretation_table, locale)
+    diagnostics_table = localize_table(diagnostics_table, locale)
+    executive_summary_report_table = localize_table(executive_summary_report_table, locale)
+    main_intervals_report_table = localize_table(main_intervals_report_table, locale)
+    executive_recommendations_report_table = localize_table(executive_recommendations_report_table, locale)
+    interval_cards_report_table = localize_table(interval_cards_report_table, locale)
+    interval_card_reasoning_report_table = localize_table(interval_card_reasoning_report_table, locale)
+    reservoir_passports_table = localize_table(reservoir_passports_table, locale)
+    reservoir_passport_methods_table = localize_table(reservoir_passport_methods_table, locale)
+    reservoir_ranking_table = localize_table(reservoir_ranking_table, locale)
+
     engineering_tables = (
         executive_summary_report_table,
         main_intervals_report_table,
@@ -360,6 +376,8 @@ def build_hydrocarbon_report_payload(
             project_label=project_label,
             depth_label=depth_label,
             report_profile=report_profile if report_profile in {"client", "engineering", "expert"} else "engineering",
+            subtitle=tr(locale, "report.subtitle"),
+            locale=locale,
         ),
         depth_column=depth_column,
         include_plot=include_plot,

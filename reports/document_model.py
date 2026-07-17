@@ -5,6 +5,7 @@ from typing import Any, Mapping, Sequence
 
 from reports.export_html import HtmlReportTable
 from reports.presentation_model import PresentationModel
+from reports.report_i18n import localize_text, tr
 
 
 @dataclass(frozen=True)
@@ -129,18 +130,16 @@ class EngineeringDocument:
         )
 
 
-def _report_scope_notice(*, engineering: bool) -> DocumentNotice:
+def _report_scope_notice(*, engineering: bool, locale: str = "ru") -> DocumentNotice:
     if engineering:
         return DocumentNotice(
-            title="Область применения",
-            text=("Результаты предназначены для инженерной интерпретации и должны рассматриваться совместно "
-                  "с материалами ГИС, литологией, керном, испытаниями и данными разработки."),
+            title=tr(locale, "report.scope.title"),
+            text=tr(locale, "report.scope.text"),
             role="engineering-scope",
         )
     return DocumentNotice(
-        title="Ограничения интерпретации",
-        text=("Выводы отражают интерпретацию доступных данных газового каротажа. Окончательные решения "
-              "принимаются после сопоставления с материалами ГИС, испытаниями и геологической моделью."),
+        title=tr(locale, "report.limitations.title"),
+        text=tr(locale, "report.limitations.text"),
         role="client-limitations",
     )
 
@@ -225,6 +224,7 @@ def select_document_tables(
 ) -> tuple[DocumentTable, ...]:
     """Select client, engineering or technical tables without rebuilding data."""
     profile = str(model.metadata.report_profile or "engineering").strip().lower()
+    locale = getattr(model.metadata, "locale", "ru")
     if include_technical_appendix is False:
         return _client_tables(model)
     include_technical = bool(include_technical_appendix) or profile == "expert"
@@ -252,6 +252,7 @@ def build_engineering_document(
     """
 
     profile = str(model.metadata.report_profile or "engineering").strip().lower()
+    locale = getattr(model.metadata, "locale", "ru")
     client_mode = include_technical_appendix is False or (
         include_technical_appendix is None and profile in {"client", "customer"}
     )
@@ -308,7 +309,7 @@ def build_engineering_document(
     if tables:
         sections.append(
             DocumentSection(
-                title="Ключевые результаты" if not include_technical else "Инженерные результаты и расчетные приложения",
+                title=tr(locale, "report.key_results") if not include_technical else tr(locale, "report.engineering_appendix"),
                 blocks=tables,
                 page_break_before=bool(sections),
             )
@@ -316,8 +317,8 @@ def build_engineering_document(
 
     sections.append(
         DocumentSection(
-            title="Заключение и ограничения",
-            blocks=(_report_scope_notice(engineering=include_technical),),
+            title=tr(locale, "report.conclusion"),
+            blocks=(_report_scope_notice(engineering=include_technical, locale=locale),),
             page_break_before=False,
         )
     )
@@ -327,7 +328,7 @@ def build_engineering_document(
         subtitle=model.metadata.subtitle,
         rows=_clean_metadata_rows(model.metadata.as_report_rows(), engineering=include_technical),
         notes=(
-            "Каждая интерпретация является инженерной гипотезой и должна оцениваться совместно с ГИС, литологией, керном и испытаниями.",
+            tr(locale, "report.hypothesis_note"),
         ),
         profile="client" if client_mode else "engineering",
     )

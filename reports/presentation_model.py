@@ -11,6 +11,7 @@ from reports.export_html import HtmlReportTable
 from reports.interval_cards import IntervalReportCard
 from app.visualization_v3.composite_v4 import build_composite_log_v4
 from app.visualization_v3.composite_engine import CompositeLogResult
+from reports.report_i18n import fluid_label, tr
 from reports.well_log_plot import (
     WellLogPlotConfig, WellLogPlotResult, build_professional_well_log_plot,
     group_intervals_for_report, adaptive_detail_padding, FLUID_PLOT_LABELS,
@@ -33,15 +34,18 @@ class PresentationMetadata:
     report_profile: str = "engineering"
     title: str = "Gas Ratio Professional Report"
     subtitle: str = "Инженерное заключение по вероятным УВ-интервалам"
+    locale: str = "ru"
 
     def as_report_rows(self) -> tuple[tuple[str, str], ...]:
-        profile_map = {"client": "Для заказчика", "engineering": "Инженерный", "expert": "Экспертный"}
-        profile = profile_map.get(str(self.report_profile).strip().lower(), "Инженерный")
+        profile_key = str(self.report_profile).strip().lower()
+        if profile_key not in {"client", "engineering", "expert"}:
+            profile_key = "engineering"
+        profile = tr(self.locale, f"report.profile.{profile_key}")
         rows = (
-            ("Источник данных", self.source_label),
-            ("Проект", self.project_label),
-            ("Интервал анализа", self.depth_label),
-            ("Профиль отчета", profile),
+            (tr(self.locale, "report.source"), self.source_label),
+            (tr(self.locale, "report.project"), self.project_label),
+            (tr(self.locale, "report.analysis_interval"), self.depth_label),
+            (tr(self.locale, "report.profile"), profile),
         )
         return tuple((label, value) for label, value in rows if str(value).strip())
 
@@ -149,8 +153,8 @@ def build_presentation_model(
         )
         plot_result = build_composite_log_v4(
             source_df, intervals=result.intervals,
-            title="Обзорный инженерный планшет",
-            report_title="Обзорный планшет скважины", report_kind="overview",
+            title=tr((metadata or PresentationMetadata()).locale, "report.overview.engineering"),
+            report_title=tr((metadata or PresentationMetadata()).locale, "report.overview"), report_kind="overview",
             height=max(4200, cfg.height), target_width=6200, include_keys=report_tracks,
         )
 
@@ -160,15 +164,16 @@ def build_presentation_model(
         depth_name = next((str(c) for c in source_df.columns if str(c).strip().lower() in {str(cfg.depth_column).lower(), "depth", "dept", "md"}), None)
         numeric_depth = pd.to_numeric(source_df[depth_name], errors="coerce") if depth_name else None
         for group in groups:
-            fluids = ", ".join(dict.fromkeys(FLUID_PLOT_LABELS.get(str(i.fluid_type), str(i.fluid_type)) for i in group.intervals))
+            locale = (metadata or PresentationMetadata()).locale
+            fluids = ", ".join(dict.fromkeys(fluid_label(i.fluid_type, locale) for i in group.intervals))
             padding = adaptive_detail_padding(group.top, group.base)
             detail_df = source_df
             if numeric_depth is not None:
                 detail_df = source_df.loc[numeric_depth.between(group.top-padding, group.base+padding)].copy()
             detail_results.append(build_composite_log_v4(
                 detail_df, intervals=group.intervals,
-                title=f"Инженерный планшет · {group.top:g}–{group.base:g} м",
-                report_title=f"Интервал {group.index}: {group.top:g}–{group.base:g} м · {fluids}",
+                title=tr(locale, "report.detail", top=f"{group.top:g}", base=f"{group.base:g}"),
+                report_title=tr(locale, "report.interval", index=group.index, top=f"{group.top:g}", base=f"{group.base:g}", fluids=fluids),
                 report_kind="detail", height=max(4200, cfg.height), target_width=6200,
                 include_keys=report_tracks,
             ))
