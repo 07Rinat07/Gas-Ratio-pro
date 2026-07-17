@@ -242,10 +242,43 @@ class CompositeLogEngine:
             rendered_tracks.append(track.key)
             values = pd.to_numeric(frame[column], errors="coerce")
             finite = values[values.map(lambda v: pd.notna(v) and math.isfinite(float(v)))]
-            minimum = float(track.minimum) if track.minimum is not None else (float(finite.min()) if not finite.empty else 0.0)
-            maximum = float(track.maximum) if track.maximum is not None else (float(finite.max()) if not finite.empty else 1.0)
-            if math.isclose(minimum, maximum):
-                pad = max(abs(minimum) * 0.05, 1.0)
+
+            # Keep engineering statistics based on the complete finite series,
+            # but choose the visual track scale robustly. A single recorder spike
+            # must not compress the entire gas curve against the left border.
+            actual_min = float(finite.min()) if not finite.empty else 0.0
+            actual_max = float(finite.max()) if not finite.empty else 1.0
+            actual_avg = float(finite.mean()) if not finite.empty else 0.0
+
+            if track.minimum is not None:
+                minimum = float(track.minimum)
+            elif not finite.empty:
+                lower_key = str(track.key).strip().lower()
+                if lower_key in {"tgas", "c1", "c2", "c3", "ic4", "nc4", "ic5", "nc5", "wh", "bh", "ch", "inverse_oil_indicator", "bar2"}:
+                    minimum = 0.0 if actual_min >= 0 else float(finite.quantile(0.005))
+                else:
+                    minimum = float(finite.quantile(0.005))
+            else:
+                minimum = 0.0
+
+            if track.maximum is not None:
+                maximum = float(track.maximum)
+            elif not finite.empty:
+                positive = finite[finite > 0]
+                if not positive.empty:
+                    # Use a high robust percentile. For sparse curves, include all
+                    # positive values so real gas peaks are not discarded.
+                    quantile = 0.995 if len(positive) >= 200 else 1.0
+                    maximum = float(positive.quantile(quantile))
+                else:
+                    maximum = float(finite.quantile(0.995))
+                if not math.isfinite(maximum) or maximum <= minimum:
+                    maximum = actual_max
+            else:
+                maximum = 1.0
+
+            if math.isclose(minimum, maximum) or maximum <= minimum:
+                pad = max(abs(minimum) * 0.05, abs(actual_max-minimum) * 0.05, 1e-6)
                 minimum -= pad
                 maximum += pad
 
@@ -279,10 +312,10 @@ class CompositeLogEngine:
 
             # Three stacked rows are legible after PDF scaling and never collide
             # horizontally with neighbouring tracks.
-            avg = float(finite.mean()) if not finite.empty else 0.0
+            avg = actual_avg
             footer_top = metrics.plot_bottom + 18
             parts.append(f'<rect x="{x}" y="{metrics.plot_bottom}" width="{track.width}" height="{metrics.footer_height}" fill="#ffffff" stroke="{spec.border}" stroke-width="2"/>')
-            stats = (("min", minimum), ("avg", avg), ("max", maximum))
+            stats = (("min", actual_min), ("avg", avg), ("max", actual_max))
             row_h = max(46, int((metrics.footer_height-28)/3))
             for idx, (label, value) in enumerate(stats):
                 cy = footer_top + idx*row_h + row_h*0.62

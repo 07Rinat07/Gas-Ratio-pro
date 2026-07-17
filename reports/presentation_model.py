@@ -142,7 +142,11 @@ def build_presentation_model(
     detail_results: list[object] = []
     if include_plot and source_df is not None and not source_df.empty:
         cfg = plot_config or WellLogPlotConfig(depth_column=depth_column)
-        report_tracks = ("tgas", "c1", "c2", "c3", "wh", "bh", "ch", "inverse_oil_indicator")
+        report_tracks = (
+            "tgas", "c1", "c2", "c3", "ic4", "nc4", "ic5", "nc5",
+            "wh", "bh", "ch", "c1_c2", "c1_c3", "c1_c4", "c1_c5",
+            "inverse_oil_indicator", "bar2",
+        )
         plot_result = build_composite_log_v4(
             source_df, intervals=result.intervals,
             title="Обзорный инженерный планшет",
