@@ -316,7 +316,9 @@ _TEMPLATES: tuple[ReportTemplate, ...] = (
         default_sections=("plots", "visualizations", "results", "conclusion"),
         include_technical_appendix=True,
         include_figures=True,
-        margin_mm=12,
+        paper_size="A3",
+        orientation="landscape",
+        margin_mm=10,
     ),
     ReportTemplate(
         id="corporate",

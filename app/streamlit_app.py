@@ -10262,8 +10262,24 @@ def _render_professional_export_panel(
             for wizard_issue in wizard_review.issues:
                 st.error(wizard_issue.message) if wizard_issue.blocking else st.warning(wizard_issue.message)
 
+            st.markdown(
+                """<style>
+                div[data-testid="stFormSubmitButton"] button[kind="primary"] {
+                    min-height: 64px !important;
+                    font-size: 20px !important;
+                    font-weight: 800 !important;
+                    border-radius: 12px !important;
+                    box-shadow: 0 8px 24px rgba(255, 75, 75, 0.28) !important;
+                }
+                div[data-testid="stFormSubmitButton"] button[kind="primary"] p {
+                    font-size: 20px !important;
+                    font-weight: 800 !important;
+                }
+                </style>""",
+                unsafe_allow_html=True,
+            )
             prepare_export = st.form_submit_button(
-                "🖨️ СФОРМИРОВАТЬ ОТЧЁТ",
+                "🖨️  СФОРМИРОВАТЬ И СКАЧАТЬ ОТЧЁТ",
                 width="stretch",
                 type="primary",
                 disabled=not wizard_review.ready,

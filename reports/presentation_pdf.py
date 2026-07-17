@@ -579,7 +579,7 @@ def _statistics_table_pdf(entries: Sequence[dict[str, object]], styles: dict[str
 class _AutoScaleSvgDrawing(Flowable):
     """Scale an SVG drawing to the actual report frame instead of fixed millimetres."""
 
-    def __init__(self, drawing: object, *, max_height: float = 235 * mm) -> None:
+    def __init__(self, drawing: object, *, max_height: float = 255 * mm) -> None:
         super().__init__()
         self.drawing = drawing
         self.source_width = float(getattr(drawing, "width", 1) or 1)
@@ -615,11 +615,11 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
         from svglib.svglib import svg2rlg
         from reportlab.graphics import renderPDF
         figure = block.figure
-        title = block.title or getattr(figure, "report_title", "Инженерный планшет")
+        title = block.title or getattr(figure, "report_title", "Инженерный Composite Log v4")
         items: list[object] = [_paragraph(title, styles["h2"])]
         items.extend([_paragraph(
             f"Диапазон глубин: {figure.depth_start:g}–{figure.depth_stop:g} м.",
-            styles["small"],
+            styles["body"],
         ), Spacer(1, 5)])
         drawing = svg2rlg(_BytesIO(figure.svg.encode("utf-8")))
         if drawing is None:

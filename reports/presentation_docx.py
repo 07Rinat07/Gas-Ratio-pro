@@ -304,15 +304,21 @@ def _add_plot_placeholder(doc: Document, block: DocumentPlot) -> None:
     """Embed the canonical vector composite or a legacy Plotly figure into DOCX."""
     _add_paragraph(doc, block.title or "Планшет", style="Heading 2")
     if hasattr(block.figure, "svg"):
-        from cairosvg import svg2png
+        from svglib.svglib import svg2rlg
+        from reportlab.graphics import renderPM
         figure = block.figure
         _add_paragraph(doc, f"Диапазон глубин: {figure.depth_start:g}–{figure.depth_stop:g} м.")
-        png = svg2png(bytestring=figure.svg.encode("utf-8"), output_width=max(3200, int(figure.width * 2.0)))
+        drawing = svg2rlg(BytesIO(figure.svg.encode("utf-8")))
+        if drawing is None:
+            raise RuntimeError("Не удалось преобразовать SVG-планшет для DOCX")
+        png = renderPM.drawToString(drawing, fmt="PNG", dpi=220)
         stream = BytesIO(png)
         paragraph = doc.add_paragraph()
         paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = paragraph.add_run()
-        run.add_picture(stream, width=Inches(10.6 if len(doc.sections) and doc.sections[0].page_width > Inches(10) else 7.1))
+        section = doc.sections[-1]
+        usable_width = section.page_width - section.left_margin - section.right_margin
+        run.add_picture(stream, width=usable_width)
         doc.add_paragraph()
         return
     figure = apply_report_plot_theme(block.figure)
