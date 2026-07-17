@@ -50,3 +50,32 @@ def test_export_plotly_static_bytes_passes_normalized_options():
         "height": 320,
         "scale": 0.5,
     }
+
+
+def test_export_native_composite_svg_png_pdf():
+    from app.visualization_v3.composite_engine import CompositeLogResult
+
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" '
+        'viewBox="0 0 400 300"><rect width="400" height="300" fill="white"/>'
+        '<text x="20" y="40" font-size="24">TGAS</text></svg>'
+    )
+    result = CompositeLogResult(
+        svg=svg,
+        width=400,
+        height=300,
+        depth_start=1000,
+        depth_stop=1100,
+        rendered_tracks=("tgas",),
+    )
+
+    svg_bytes = export_plotly_static_bytes(result, StaticExportOptions(format="svg"))
+    assert svg_bytes.startswith(b"<svg")
+
+    png_bytes = export_plotly_static_bytes(
+        result, StaticExportOptions(format="png", width=1200, height=900, scale=1)
+    )
+    assert png_bytes.startswith(b"\x89PNG\r\n\x1a\n")
+
+    pdf_bytes = export_plotly_static_bytes(result, StaticExportOptions(format="pdf"))
+    assert pdf_bytes.startswith(b"%PDF")

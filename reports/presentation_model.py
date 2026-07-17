@@ -144,9 +144,9 @@ def build_presentation_model(
         cfg = plot_config or WellLogPlotConfig(depth_column=depth_column)
         plot_result = build_composite_log_v4(
             source_df, intervals=result.intervals,
-            title="Обзорный инженерный Composite Log v4",
+            title="Обзорный инженерный планшет",
             report_title="Обзорный планшет скважины", report_kind="overview",
-            height=max(1560, cfg.height), target_width=2860,
+            height=max(2400, cfg.height), target_width=5200,
         )
 
         profile = str((metadata or PresentationMetadata()).report_profile or "engineering").lower()
@@ -162,9 +162,9 @@ def build_presentation_model(
                 detail_df = source_df.loc[numeric_depth.between(group.top-padding, group.base+padding)].copy()
             detail_results.append(build_composite_log_v4(
                 detail_df, intervals=group.intervals,
-                title=f"Composite Log v4 · {group.top:g}–{group.base:g} м",
+                title=f"Инженерный планшет · {group.top:g}–{group.base:g} м",
                 report_title=f"Интервал {group.index}: {group.top:g}–{group.base:g} м · {fluids}",
-                report_kind="detail", height=max(1560, cfg.height), target_width=2860,
+                report_kind="detail", height=max(2400, cfg.height), target_width=5200,
             ))
 
     return PresentationModel(
