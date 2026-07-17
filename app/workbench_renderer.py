@@ -61,13 +61,52 @@ def _localization_context(registry: WorkbenchCommandRegistry, st_module: Any):
     localization = container.localization(catalogs_dir=_I18N_DIR, language=language)
     localization.set_language(language)
 
-    # Real Streamlit pages use a persistent website-style RU / ҚАЗ / EN switcher.
-    # Small test doubles that do not expose columns/button keep the selectbox fallback.
+    # Prefer one compact segmented language control instead of three detached buttons.
+    # Compatibility fallbacks keep old Streamlit releases and test doubles operational.
+    labels = {"ru": "RU", "kk": "ҚАЗ", "en": "EN"}
+    segmented_control = getattr(st_module, "segmented_control", None)
     columns = getattr(st_module, "columns", None)
     button = getattr(st_module, "button", None)
-    if callable(columns) and callable(button):
-        labels = {"ru": "RU", "kk": "ҚАЗ", "en": "EN"}
-        st_module.markdown("<div class='workbench-language-switcher-label'>" + localization("language.label") + "</div>", unsafe_allow_html=True)
+    if callable(segmented_control):
+        st_module.markdown(
+            "<div class='workbench-language-switcher-label'>"
+            + localization("language.label")
+            + "</div>",
+            unsafe_allow_html=True,
+        )
+        codes = tuple(SUPPORTED_LANGUAGES)
+        segmented_kwargs = {
+            "options": codes,
+            "default": language,
+            "format_func": lambda code: labels[code],
+            "key": "workbench_language_segmented_control",
+            "help": localization("language.preference.help"),
+            "label_visibility": "collapsed",
+        }
+        try:
+            selected = segmented_control(
+                localization("language.label"),
+                selection_mode="single",
+                **segmented_kwargs,
+            )
+        except TypeError:
+            # Older Streamlit builds expose segmented_control without selection_mode.
+            selected = segmented_control(localization("language.label"), **segmented_kwargs)
+        selected = normalize_language(selected or language)
+        if selected != language:
+            language = preferences.save(selected)
+            registry.state[WORKBENCH_LANGUAGE_KEY] = language
+            localization.set_language(language)
+            rerun = getattr(st_module, "rerun", None)
+            if callable(rerun):
+                rerun()
+    elif callable(columns) and callable(button):
+        st_module.markdown(
+            "<div class='workbench-language-switcher-label'>"
+            + localization("language.label")
+            + "</div>",
+            unsafe_allow_html=True,
+        )
         language_columns = columns([1, 1, 1, 6], gap="small")[:3]
         selected = language
         ui = StreamlitUIAdapter(st_module)
@@ -186,6 +225,12 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] { backgro
 .workbench-titlebar h1 { font-size:1.28rem; line-height:1.2; margin:0; letter-spacing:.01em; }
 .workbench-subtitle { color:var(--wb-muted); font-size:.75rem; }
 .workbench-build { color:var(--wb-muted); font-size:.72rem; text-align:right; }
+.workbench-language-switcher-label { margin:.15rem 0 .35rem; color:var(--wb-muted); font-size:.72rem; font-weight:700; letter-spacing:.02em; }
+[data-testid="stSegmentedControl"] { width:fit-content; max-width:100%; margin:0 0 .45rem; }
+[data-testid="stSegmentedControl"] > div { gap:0 !important; padding:2px !important; border:1px solid #344760 !important; border-radius:9px !important; background:#0f1722 !important; box-shadow:0 4px 14px rgba(0,0,0,.16); overflow:hidden; }
+[data-testid="stSegmentedControl"] button { min-width:78px !important; min-height:38px !important; margin:0 !important; border:0 !important; border-radius:6px !important; background:transparent !important; color:#cbd7e7 !important; font-size:.78rem !important; font-weight:700 !important; box-shadow:none !important; }
+[data-testid="stSegmentedControl"] button:hover { background:#17263a !important; color:#fff !important; }
+[data-testid="stSegmentedControl"] button[aria-pressed="true"] { background:linear-gradient(180deg,#ff5a63,#ff454f) !important; color:#fff !important; box-shadow:0 2px 8px rgba(255,72,82,.28) !important; }
 .workbench-menu { display:flex; align-items:center; gap:.15rem; min-height:38px; padding:0 .4rem; border-bottom:1px solid var(--wb-line); background:#0f1722; overflow-x:auto; }
 .workbench-menu-item { padding:.55rem .82rem; border-bottom:2px solid transparent; color:#c9d5e5; font-weight:600; font-size:.82rem; white-space:nowrap; }
 .workbench-menu-item.active { color:white; border-bottom-color:var(--wb-accent); background:rgba(63,140,255,.08); }

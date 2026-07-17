@@ -12,11 +12,12 @@ def test_documentation_center_uses_interface_locale_and_manifest_documents():
     assert "DOCUMENTATION_TAB_DOCS" not in source[source.index("def _render_documentation_tab"):source.index("def _render_las_qc_panel")]
 
 
-def test_global_language_switcher_has_three_site_style_buttons():
+def test_global_language_switcher_prefers_one_segmented_control():
     source = Path(workbench_renderer.__file__).read_text(encoding="utf-8")
     assert 'labels = {"ru": "RU", "kk": "ҚАЗ", "en": "EN"}' in source
-    assert 'key=f"workbench_language_button_{code}"' in source
-    assert 'type="primary" if code == language else "secondary"' in source
+    assert 'key": "workbench_language_segmented_control"' in source
+    assert 'segmented_control = getattr(st_module, "segmented_control", None)' in source
+    assert 'key=f"workbench_language_button_{code}"' in source  # compatibility fallback
 
 
 def test_manifest_resolves_kazakh_and_english_documents():
