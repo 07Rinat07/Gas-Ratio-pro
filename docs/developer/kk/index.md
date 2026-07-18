@@ -8,7 +8,9 @@
 - [Сыртқы стандарттарды біріктіру](external_standard_integration.md) — revision 1
 - [Формат плагиндерінің тізілімі](plugin_registry.md) — revision 1
 - [Импорт конвейері](import_pipeline.md) — revision 1
-- [Page-aware басып шығару архитектурасы](page_aware_print_architecture.md) — revision 5
+- [Page-aware басып шығару архитектурасы](page_aware_print_architecture.md) — revision 6
+
+- [Live Workbench Acceptance архитектурасы](live_workbench_acceptance_architecture.md) — revision 1
 
 ---
 

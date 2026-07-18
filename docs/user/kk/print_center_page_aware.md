@@ -1,6 +1,6 @@
 # Басып шығару орталығы, физикалық беттер және visual baseline бақылауы
 
-Revision: 5 · GAS RATIO PRO v225.7
+Revision: 6 · GAS RATIO PRO v225.8 stable
 
 ## Негізгі пайдаланушы үрдісі
 

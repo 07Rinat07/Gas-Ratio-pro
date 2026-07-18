@@ -1,0 +1,27 @@
+{
+  "schema": "gas-ratio-pro/live-workbench-acceptance-contract/v1",
+  "version": "v225.8",
+  "required_channel": "stable",
+  "checks": [
+    "server.health",
+    "runtime.no_traceback",
+    "runtime.identity",
+    "workbench.toolbar",
+    "workbench.project_explorer",
+    "workbench.workspace_host",
+    "workbench.properties",
+    "workbench.status_bar",
+    "i18n.ru",
+    "i18n.kk",
+    "i18n.en",
+    "command.las",
+    "las_viewer.runtime",
+    "las_viewer.open_action"
+  ],
+  "promotion_policy": {
+    "all_checks_required": true,
+    "silent_skip_forbidden": true,
+    "absolute_source_identity_required": true,
+    "temporary_server_must_be_stopped": true
+  }
+}

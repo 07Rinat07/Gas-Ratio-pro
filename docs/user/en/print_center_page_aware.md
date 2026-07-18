@@ -1,6 +1,6 @@
 # Print Center, physical pages, and visual-baseline control
 
-Revision: 5 · GAS RATIO PRO v225.7
+Revision: 6 · GAS RATIO PRO v225.8 stable
 
 ## Main user workflow
 

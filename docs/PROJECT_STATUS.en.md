@@ -1,44 +1,34 @@
-# Current Status — v225.7
+# Current status — v225.8 Stable
 
 Updated: July 18, 2026.
 
 ## Active stage
 
-**Stage 4 — Workbench UI Completion / Stabilization & Release Audit.** The build remains **release candidate v225.7**.
+**Stage 4 — Workbench UI Completion is complete.** Build `v225.8` was promoted to the **stable** channel after automated Live Workbench Acceptance.
 
-## Implemented
+## Stable promotion
 
-- all nine confirmed architecture-boundary violations were removed without weakening the audit policy;
-- temporary-file destruction now belongs to an application lifecycle service and uses `DeleteEngine`;
-- cache telemetry is created once by the application container and injected through service boundaries;
-- route lifecycle, startup diagnostics, and cache coherence belong to the application service;
-- direct `st.rerun()` is allowed only inside the unified rerun gate;
-- 26 brittle source assertions were replaced with executable behavior contracts (18 from the legacy registry, one Print Center contract, and seven PDF preview contracts);
-- 13 visual legacy checks were migrated to approved semantic snapshots;
-- `visual_rebaseline_contracts_v225_7.json` and SHA-256 validation were added;
-- six historical version pins were replaced with current-build identity contracts;
-- five obsolete Workbench compatibility assertions were replaced with runtime/view-model checks;
-- all 51 legacy regression contracts now contain `resolved_in`, evidence, and a replacement contract;
-- the root `BUILD_VERSION` file is the single build-version source;
-- the user release archive excludes `.github/workflows`.
+- a real temporary Streamlit server returns `ok` from `/_stcore/health`;
+- the build badge, `BUILD_VERSION`, `BUILD_CHANNEL`, absolute runtime source path, and entry point agree;
+- Toolbar, Project Explorer, Workspace Host, Properties, and Status Bar render without a traceback;
+- the command-backed LAS action selects `nav.las_workspace`;
+- LAS Viewer and the LAS Workspace open action complete without a traceback;
+- acceptance result: **14/14 passed**;
+- acceptance contract: `config/live_workbench_acceptance_contract_v225_8.json`;
+- machine-readable evidence: `artifacts/acceptance/live_workbench_acceptance_v225_8.json`.
 
-## Legacy regression state
+## Stabilization & Release Audit
 
-- registered contracts: **51**;
-- resolved in v225.7: **51**;
-- active legacy contracts: **0**;
-- silent `xfail` and test deletion without a replacement contract remain prohibited.
+Architecture boundaries, the 51 resolved legacy contracts, controlled visual semantic snapshots, and the live acceptance contract remain mandatory stable-release gates. Silent `xfail`, hidden failures, and test deletion without a replacement contract are prohibited.
 
-## Release verification
+## Regression state
 
-- extended architecture/renderer/export/documentation set: **480 passed**;
-- complete regression suite: **2855 passed, 0 failed**;
-- all 51 legacy nodeids are included in the full suite and pass their replacement contracts;
-- new v225.7 regression failures: **0**;
-- Python compileall: **passed**; 92 relative Markdown links and 36 manifest paths: **valid**.
-
-The automated release gate has passed. Stable promotion remains blocked only by live Workbench acceptance.
+- full v225.8 regression suite: **2858 passed, 0 failed**;
+- acceptance and stable-promotion tests extend that baseline;
+- architecture-boundary debt: **0**;
+- active legacy regression contracts: **0**;
+- controlled visual semantic snapshots remain mandatory.
 
 ## Next stage
 
-Run the full regression audit, start the application through `run_app.ps1 -ForceRestart`, inspect all five Workbench regions, and only then decide whether v225.7 may move from release candidate to stable.
+**Stage 5 — Petrophysical Engine Validation Foundation.** Only the method registry, formula provenance, reference datasets, numerical tolerances, and the application-service validation gate are authorized. Approved formulas, Interpretation 2.0, and visual baselines may not change without validation evidence.

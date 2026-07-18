@@ -8,7 +8,9 @@ Architecture and integration guidance for developers.
 - [External Standard Integration](external_standard_integration.md) — revision 1
 - [Format Plugin Registry](plugin_registry.md) — revision 1
 - [Import Pipeline](import_pipeline.md) — revision 1
-- [Page-aware print architecture](page_aware_print_architecture.md) — revision 5
+- [Page-aware print architecture](page_aware_print_architecture.md) — revision 6
+
+- [Live Workbench Acceptance architecture](live_workbench_acceptance_architecture.md) — revision 1
 
 ---
 

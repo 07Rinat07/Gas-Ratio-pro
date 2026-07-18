@@ -23,7 +23,7 @@ def _load_build_version() -> str:
 
 
 BUILD_VERSION = _load_build_version()
-BUILD_CHANNEL = "release-candidate"
+BUILD_CHANNEL = "stable"
 
 
 @dataclass(frozen=True, slots=True)

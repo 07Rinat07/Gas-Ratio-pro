@@ -1,6 +1,6 @@
 # Архитектура page-aware печати, границ и visual regression
 
-Revision: 5 · GAS RATIO PRO v225.7
+Revision: 6 · GAS RATIO PRO v225.8 stable
 
 ## Page-aware pipeline
 

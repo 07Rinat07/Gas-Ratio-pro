@@ -1,32 +1,33 @@
 # Gas Ratio Pro жоба жоспары
 
-Жаңартылған күні: 2026 жылғы 18 шілде. Белсенді құрастыру: `v225.7`.
+Жаңартылған күні: 2026 жылғы 18 шілде. Белсенді құрастыру: `v225.8 stable`.
 
-## Аяқталған инкремент — v225.7
+## Аяқталған инкремент — Stable Promotion & Live Workbench Acceptance
 
-- 9 architecture-boundary бұзушылығы жойылды;
-- lifecycle, cache telemetry, route/startup/cache coherence және rerun иелігі дұрыс қабаттарға ауыстырылды;
-- 26 source assertion behavior contract-пен ауыстырылды (18 legacy, бір Print Center contract және 7 PDF preview contract);
-- 13 visual contract semantic snapshot manifest-ке көшірілді;
-- obsolete version pin current-build identity contract-пен ауыстырылды;
-- 51 legacy contract evidence және replacement test-пен жабылды;
-- `BUILD_VERSION` нұсқаның бірыңғай көзі болды;
-- орыс, қазақ және ағылшын тіліндегі құжаттама мен нұсқаулық синхрондалды;
-- толық regression suite аяқталды: **2855 passed, 0 failed**.
+- кроссплатформалық acceptance runner қосылды;
+- уақытша Streamlit server health gate-тен өтеді;
+- ресми AppTest нақты Workbench session орындайды;
+- build version, stable channel, абсолютті source path және entry-point SHA-256 расталды;
+- Toolbar, Project Explorer, Workspace Host, Properties және Status Bar тексерілді;
+- LAS command және LAS Workspace traceback-сіз орындалады;
+- нәтиже: **14/14 acceptance checks passed**;
+- Windows launcher `run_app.ps1 -Acceptance` режимін қолдайды;
+- құжаттама мен нұсқаулық орыс, қазақ және ағылшын тілдерінде синхрондалды.
 
-## Келесі рұқсат етілген инкремент — Stable Promotion & Live Workbench Acceptance
+## Келесі рұқсат етілген инкремент — Petrophysical Engine Validation Foundation
 
-1. Қолданбаны `run_app.ps1 -ForceRestart` арқылы іске қосу.
-2. Build және абсолютті runtime source path растау.
-3. Toolbar, Project Explorer, Workspace Host, Properties және Status Bar тексеру.
-4. Command-backed әрекеттер мен LAS Viewer-ді traceback-сіз тексеру.
-5. Release-blocking failure болмаған жағдайда ғана v225.7 stable күйіне ауыстыру.
+1. Ағымдағы Method Registry және formula inventory бекіту.
+2. Әр method ID-ді source, license, units және applicability domain-пен байланыстыру.
+3. Reference dataset және expected result дайындау.
+4. Numerical tolerance және uncertainty metadata анықтау.
+5. Application-service validation gate және regression test іске асыру.
+6. Бөлек бекітілген evidence болмаса Interpretation 2.0 немесе visual baseline өзгертпеу.
 
 ## Definition of Done
 
-- 51 legacy contract-тың барлығы resolved;
-- белсенді architecture-boundary debt нөлге тең;
-- semantic visual snapshot SHA-256 validation-нан өтеді;
-- толық suite жаңа failure көрсетпейді;
-- live Workbench acceptance расталды;
-- version, README, instructions, status, roadmap, changelog, release notes және manifest `ru/kk/en` тілдерінде синхрондалды.
+- build channel `stable` болып қалады;
+- live acceptance жергілікті қайталанып, 14/14 өтеді;
+- әр petrophysical method machine-readable provenance иеленеді;
+- validation dataset тексерілмеген немесе заңсыз алынған деректерді қамтымайды;
+- нәтиже бекітілген tolerance ішінде қайталанады;
+- README, instructions, status, roadmap, changelog, release notes және manifest `ru/kk/en` тілдерінде синхрондалды.

@@ -103,7 +103,7 @@
     },
     {
       "id": "print_center_page_aware",
-      "revision": 5,
+      "revision": 6,
       "audience": "user",
       "languages": {
         "ru": "user/ru/print_center_page_aware.md",
@@ -113,12 +113,32 @@
     },
     {
       "id": "page_aware_print_architecture",
-      "revision": 5,
+      "revision": 6,
       "audience": "developer",
       "languages": {
         "ru": "developer/ru/page_aware_print_architecture.md",
         "kk": "developer/kk/page_aware_print_architecture.md",
         "en": "developer/en/page_aware_print_architecture.md"
+      }
+    },
+    {
+      "id": "stable_release_and_acceptance",
+      "revision": 1,
+      "audience": "user",
+      "languages": {
+        "ru": "user/ru/stable_release_and_acceptance.md",
+        "kk": "user/kk/stable_release_and_acceptance.md",
+        "en": "user/en/stable_release_and_acceptance.md"
+      }
+    },
+    {
+      "id": "live_workbench_acceptance_architecture",
+      "revision": 1,
+      "audience": "developer",
+      "languages": {
+        "ru": "developer/ru/live_workbench_acceptance_architecture.md",
+        "kk": "developer/kk/live_workbench_acceptance_architecture.md",
+        "en": "developer/en/live_workbench_acceptance_architecture.md"
       }
     }
   ]

@@ -1,6 +1,6 @@
 # Page-aware print, boundary, and visual-regression architecture
 
-Revision: 5 · GAS RATIO PRO v225.7
+Revision: 6 · GAS RATIO PRO v225.8 stable
 
 ## Page-aware pipeline
 

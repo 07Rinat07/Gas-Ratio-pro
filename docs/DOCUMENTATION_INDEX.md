@@ -6,6 +6,7 @@
 2. [`PROJECT_STATUS.md`](PROJECT_STATUS.md) — фактический статус и один следующий разрешённый шаг.
 3. [`ARCHITECTURE.md`](ARCHITECTURE.md) — активная архитектурная схема и runtime boundary.
 4. [`DOCUMENTATION_INDEX.md`](DOCUMENTATION_INDEX.md) — эта карта документации.
+5. [`16_Acceptance/LIVE_WORKBENCH_ACCEPTANCE_V225_8.ru.md`](16_Acceptance/LIVE_WORKBENCH_ACCEPTANCE_V225_8.ru.md) — stable-promotion evidence.
 
 История изменений хранится в [`CHANGELOG.md`](CHANGELOG.md), но changelog не является планом или статусом.
 

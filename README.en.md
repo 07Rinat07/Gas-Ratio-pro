@@ -31,17 +31,16 @@ A professional trilingual engineering platform for importing, quality-controllin
 - well correlation and preparation for multi-well log panels;
 - Russian, Kazakh, and English interface and documentation.
 
-## Architecture and test stabilization v225.7
+## Stable release v225.8
 
-- resolved all nine architecture-boundary violations: UI no longer deletes files directly, cache telemetry is container-owned, and lifecycle/rerun operations pass through application services;
-- replaced 26 brittle source assertions with executable behavioural tests (18 from the legacy registry, one Print Center contract, and seven PDF preview contracts);
-- moved 13 visual contracts to an approved semantic rebaseline with a SHA-256 manifest;
-- replaced historical version pins and outdated Workbench assertions with current-runtime contracts;
-- resolved all 51 inherited regression contracts without `xfail` or nodeid deletion;
-- PDF and DOCX consume one renderer-neutral print-readability contract;
-- complete regression suite: **2855 passed, 0 failed**; extended release set: **480 passed**;
-- [user guide](docs/user/en/print_center_page_aware.md);
-- [developer architecture](docs/developer/en/page_aware_print_architecture.md).
+- promoted Stage 4 to the **stable** channel;
+- Live Workbench Acceptance verifies real server health and an executable Streamlit session;
+- verified build/source identity and all five Workbench regions;
+- the LAS command and LAS Workspace complete without a traceback;
+- stable-promotion result: **14/14 passed**;
+- full regression suite: **2858 passed, 0 failed**;
+- run the gate with `.\run_app.ps1 -ForceRestart -Acceptance`;
+- [user guide](docs/user/en/stable_release_and_acceptance.md) · [architecture](docs/developer/en/live_workbench_acceptance_architecture.md).
 
 ## Installation and launch
 

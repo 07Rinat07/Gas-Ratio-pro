@@ -1,32 +1,33 @@
 # Gas Ratio Pro Project Plan
 
-Updated: July 18, 2026. Active build: `v225.7`.
+Updated: July 18, 2026. Active build: `v225.8 stable`.
 
-## Completed increment — v225.7
+## Completed increment — Stable Promotion & Live Workbench Acceptance
 
-- removed all 9 architecture-boundary violations;
-- moved lifecycle, cache telemetry, route/startup/cache coherence, and rerun ownership to the correct layers;
-- replaced 26 source assertions with behavior contracts (18 legacy, one Print Center contract, and seven PDF preview contracts);
-- migrated 13 visual contracts to a semantic snapshot manifest;
-- replaced obsolete version pins with current-build identity contracts;
-- resolved all 51 legacy contracts with evidence and replacement tests;
-- made `BUILD_VERSION` the single version source;
-- synchronized documentation and instructions in Russian, Kazakh, and English;
-- completed the regression suite: **2855 passed, 0 failed**.
+- added a cross-platform acceptance runner;
+- a temporary Streamlit server passes the health gate;
+- official AppTest executes a real Workbench session;
+- verified build version, stable channel, absolute source path, and entry-point SHA-256;
+- verified Toolbar, Project Explorer, Workspace Host, Properties, and Status Bar;
+- the LAS command and LAS Workspace complete without a traceback;
+- result: **14/14 acceptance checks passed**;
+- the Windows launcher supports `run_app.ps1 -Acceptance`;
+- documentation and instructions are synchronized in Russian, Kazakh, and English.
 
-## Next authorized increment — Stable Promotion & Live Workbench Acceptance
+## Next authorized increment — Petrophysical Engine Validation Foundation
 
-1. Start the application through `run_app.ps1 -ForceRestart`.
-2. Confirm the build and absolute runtime source path.
-3. Inspect the toolbar, Project Explorer, Workspace Host, Properties, and Status Bar.
-4. Exercise command-backed actions and LAS Viewer without a traceback.
-5. Promote v225.7 to stable only when no release-blocking failures remain.
+1. Freeze the current Method Registry and formula inventory.
+2. Link every method ID to its source, license, units, and applicability domain.
+3. Prepare reference datasets and expected results.
+4. Define numerical tolerances and uncertainty metadata.
+5. Implement an application-service validation gate and regression tests.
+6. Do not modify Interpretation 2.0 or visual baselines without separately approved evidence.
 
 ## Definition of Done
 
-- all 51 legacy contracts are resolved;
-- active architecture-boundary debt is zero;
-- semantic visual snapshots pass SHA-256 validation;
-- the full suite has no new failures;
-- live Workbench acceptance is confirmed;
-- version, README, instructions, status, roadmap, changelog, release notes, and manifest are synchronized in `ru/kk/en`.
+- the build channel remains `stable`;
+- live acceptance is locally reproducible and passes 14/14;
+- every petrophysical method has machine-readable provenance;
+- validation datasets contain no unverified or unlawfully obtained data;
+- results are reproducible within the approved tolerance;
+- README, instructions, status, roadmap, changelog, release notes, and manifest are synchronized in `ru/kk/en`.

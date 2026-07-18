@@ -31,17 +31,16 @@
 - корреляция скважин и подготовка к многоскважинным планшетам;
 - интерфейс и документация на русском, казахском и английском языках.
 
-## Стабилизация архитектуры и тестов v225.7
+## Stable-релиз v225.8
 
-- устранены все 9 нарушений architecture boundary: UI больше не удаляет файлы напрямую, cache telemetry создаётся контейнером, lifecycle и rerun проходят через application services;
-- 26 хрупких source assertions заменены исполняемыми поведенческими тестами (18 из legacy registry, Print Center contract и 7 PDF preview contracts);
-- 13 визуальных контрактов переведены на утверждённый semantic rebaseline с SHA-256 manifest;
-- исторические version pins и устаревшие Workbench assertions заменены current-runtime контрактами;
-- все 51 унаследованный regression contract закрыты без `xfail` и без удаления nodeid;
-- PDF/DOCX используют общий renderer-neutral print-readability contract;
-- полный regression suite завершён: **2855 passed, 0 failed**; расширенный release-контур: **480 passed**;
-- [инструкция пользователя](docs/user/ru/print_center_page_aware.md);
-- [архитектура для разработчика](docs/developer/ru/page_aware_print_architecture.md).
+- Stage 4 переведён в канал **stable**;
+- Live Workbench Acceptance проверяет реальный server health и исполняемую Streamlit-сессию;
+- build/source identity и пять областей Workbench подтверждены;
+- LAS command и LAS Workspace проходят без traceback;
+- результат stable promotion: **14/14 passed**;
+- полный regression suite: **2858 passed, 0 failed**;
+- запуск проверки: `.\run_app.ps1 -ForceRestart -Acceptance`;
+- [инструкция](docs/user/ru/stable_release_and_acceptance.md) · [архитектура](docs/developer/ru/live_workbench_acceptance_architecture.md).
 
 ## Установка и запуск
 

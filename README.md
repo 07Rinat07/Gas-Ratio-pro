@@ -52,17 +52,17 @@
 - сторонний код и спецификации используются только после лицензионной проверки;
 - preview и диагностика больших файлов выполняются с ограничением памяти.
 
-## Стабилизация архитектуры и тестов v225.7
+## Stable-релиз v225.8
 
-- устранены все 9 нарушений architecture boundary: UI больше не удаляет файлы напрямую, cache telemetry создаётся контейнером, lifecycle и rerun проходят через application services;
-- 26 хрупких source assertions заменены исполняемыми поведенческими тестами (18 из legacy registry, Print Center contract и 7 PDF preview contracts);
-- 13 визуальных контрактов переведены на утверждённый semantic rebaseline с SHA-256 manifest;
-- исторические version pins и устаревшие Workbench assertions заменены current-runtime контрактами;
-- все 51 унаследованный regression contract закрыты без `xfail` и без удаления nodeid;
-- PDF/DOCX используют общий renderer-neutral print-readability contract;
-- полный regression suite завершён: **2855 passed, 0 failed**; расширенный release-контур: **480 passed**;
-- [инструкция пользователя](docs/user/ru/print_center_page_aware.md);
-- [архитектура для разработчика](docs/developer/ru/page_aware_print_architecture.md).
+- Stage 4 Workbench UI Completion переведён в канал **stable**;
+- добавлен автоматический Live Workbench Acceptance с реальным Streamlit server health и executable AppTest session;
+- подтверждены build/source identity, Toolbar, Project Explorer, Workspace Host, Properties и Status Bar;
+- команда LAS и LAS Workspace выполняются без traceback;
+- stable promotion gate: **14/14 passed**;
+- full regression suite: **2858 passed, 0 failed**;
+- Windows-проверка: `.\run_app.ps1 -ForceRestart -Acceptance`;
+- [пользовательская инструкция](docs/user/ru/stable_release_and_acceptance.md);
+- [архитектура acceptance](docs/developer/ru/live_workbench_acceptance_architecture.md).
 
 ## Установка
 

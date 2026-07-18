@@ -1,4 +1,12 @@
 # GAS RATIO PRO өзгерістер журналы
+## v225.8 — Stable Promotion & Live Workbench Acceptance — 2026-07-18
+
+- 14/14 live acceptance check өткеннен кейін build channel `stable` күйіне ауыстырылды;
+- real Streamlit server health gate және executable AppTest session қосылды;
+- build/source identity және Workbench-тің бес аймағы тексерілді;
+- LAS command және LAS Workspace traceback-сіз расталды;
+- CLI, `run_app.ps1 -Acceptance`, machine-readable contract және JSON evidence қосылды;
+- Petrophysical Engine Validation Foundation кезеңі ашылды.
 
 ## v225.7 — Architecture Boundaries, Behavioral Contracts & Controlled Rebaseline
 

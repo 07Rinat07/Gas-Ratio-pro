@@ -1,7 +1,8 @@
 param(
     [int]$Port = 8501,
     [switch]$ForceRestart,
-    [switch]$Diagnostics
+    [switch]$Diagnostics,
+    [switch]$Acceptance
 )
 
 Set-StrictMode -Version Latest
@@ -68,6 +69,14 @@ if ($MissingReportDependencies.Count -gt 0) {
         Write-Host "  .\.venv\Scripts\python.exe -m pip install -r requirements.txt" -ForegroundColor Cyan
         exit $LASTEXITCODE
     }
+}
+
+if ($Acceptance) {
+    $AcceptanceScript = Join-Path $ProjectRoot "scripts\run_live_workbench_acceptance.py"
+    $AcceptanceReport = Join-Path $ProjectRoot "artifacts\acceptance\live_workbench_acceptance.json"
+    Write-Host "Running Gas Ratio Pro $BuildVersion live Workbench acceptance..." -ForegroundColor Green
+    & $Python $AcceptanceScript --port $Port --output $AcceptanceReport
+    exit $LASTEXITCODE
 }
 
 Write-Host "Starting Gas Ratio Pro $BuildVersion" -ForegroundColor Green

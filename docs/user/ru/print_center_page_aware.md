@@ -1,6 +1,6 @@
 # Центр печати, физические страницы и контроль visual baseline
 
-Revision: 5 · GAS RATIO PRO v225.7
+Revision: 6 · GAS RATIO PRO v225.8 stable
 
 ## Основной пользовательский процесс
 
