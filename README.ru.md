@@ -31,7 +31,21 @@
 - корреляция скважин и подготовка к многоскважинным планшетам;
 - интерфейс и документация на русском, казахском и английском языках.
 
-## Stable-релиз v225.9
+## Stable-релиз v225.10
+
+- завершён Stage 5.1 Field Calibration & Report Authorization Integration;
+- добавлен project-owned synthetic field-surrogate calibration dataset для 10 методов;
+- calibration gate: **10/10**, final-report authorized: **9/10**;
+- добавлены RMSE/MAE/bias, sensitivity и uncertainty envelopes;
+- final export выполняет authorization до PresentationModel и renderer;
+- Professional Print Center показывает read-only diagnostics на русском, казахском и английском;
+- foundation Dual Water остаётся `blocked_final_report`;
+- запуск: `python scripts/run_petrophysical_stage_5_1_gate.py`;
+- [инструкция](docs/user/ru/field_calibration_and_report_authorization.md) · [архитектура](docs/developer/ru/field_calibration_authorization_architecture.md).
+
+- Итоговая проверка v225.10: **2896 passed, 0 failed**; Live Workbench Acceptance: **14/14**; numerical validation: **10/10**; field calibration: **10/10**; final-report authorization: **9/10**.
+
+## Предыдущий stable-релиз v225.9
 
 - завершён Stage 5 Petrophysical Engine Validation Foundation;
 - зарегистрированы 10 петрофизических методов с provenance, units, applicability, limitations и report policy;

@@ -68,6 +68,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from core.calculations import CH_WARNING, METHODOLOGY_WARNING, calculate_gas_ratios
+from core.petrophysical_report_context import petrophysical_method_ids_from_frame
 from core.calculation_diagnostics import (
     build_calculation_diagnostics_report,
     column_quality_dataframe,
@@ -428,6 +429,7 @@ from reports.print_center import (
 )
 from services.report_page_aware_preview import ReportPageAwarePreviewService
 from services.page_aware_static_export import build_page_aware_static_artifact
+from services.petrophysical_validation_diagnostics import build_petrophysical_diagnostics_view
 from core.physical_print_profiles import (
     PHYSICAL_PRINT_PROFILES,
     UserPhysicalPrintProfileStore,
@@ -9688,6 +9690,24 @@ def _render_professional_export_panel(
     serialized and sent to the browser again.
     """
     state_controller = _application_state_controller()
+    petrophysical_method_ids = petrophysical_method_ids_from_frame(calculated_df)
+    petrophysical_validation_report = None
+    petrophysical_calibration_report = None
+    petrophysical_authorization = None
+    petrophysical_authorization_ready = True
+    try:
+        petrophysical_services = application_service_container(state_controller.state)
+        petrophysical_validation_report = petrophysical_services.petrophysical_validation(root=ROOT_DIR).run_gate()
+        petrophysical_calibration_report = petrophysical_services.petrophysical_calibration(root=ROOT_DIR).run_gate()
+        if petrophysical_method_ids:
+            petrophysical_authorization = petrophysical_services.petrophysical_report_authorization(root=ROOT_DIR).authorize(
+                petrophysical_method_ids,
+                final_report=True,
+            )
+            petrophysical_authorization_ready = petrophysical_authorization.passed
+    except (OSError, ValueError, KeyError, RuntimeError, PermissionError):
+        logger.exception("petrophysical_export_diagnostics_failed project_id=%s", safe_log_value(active_project.id))
+        petrophysical_authorization_ready = not bool(petrophysical_method_ids)
     selected_plot_point = state_controller.get_value(f"report_plot_selection_{active_project.id}")
     selected_plot_points = _normalize_plot_selections(selected_plot_point)
     if selected_plot_points:
@@ -10540,6 +10560,50 @@ def _render_professional_export_panel(
                 for wizard_issue in wizard_review.issues:
                     st.error(wizard_issue.message) if wizard_issue.blocking else st.warning(wizard_issue.message)
 
+            if petrophysical_validation_report is not None and petrophysical_calibration_report is not None:
+                diagnostics_view = build_petrophysical_diagnostics_view(
+                    petrophysical_validation_report,
+                    petrophysical_calibration_report,
+                    locale=selected_document_locale,
+                )
+                with st.expander(diagnostics_view.title, expanded=bool(petrophysical_method_ids)):
+                    if diagnostics_view.validation_passed and diagnostics_view.calibration_passed:
+                        st.success(diagnostics_view.summary)
+                    else:
+                        st.error(diagnostics_view.summary)
+                    st.caption(
+                        f"Validation gate: `{diagnostics_view.validation_gate_id}` · "
+                        f"Calibration gate: `{diagnostics_view.calibration_gate_id}`"
+                    )
+                    labels = diagnostics_view.labels
+                    st.dataframe(
+                        [
+                            {
+                                labels["method"]: row.method_id,
+                                labels["validation"]: row.validation_status,
+                                labels["calibration"]: row.calibration_status,
+                                labels["policy"]: row.report_policy,
+                                labels["rmse"]: None if row.rmse is None else round(row.rmse, 6),
+                                labels["uncertainty"]: None if row.uncertainty_width is None else round(row.uncertainty_width, 6),
+                                labels["final"]: row.final_report_status,
+                            }
+                            for row in diagnostics_view.rows
+                        ],
+                        hide_index=True,
+                        width="stretch",
+                    )
+                    if petrophysical_method_ids:
+                        selected_label = ", ".join(petrophysical_method_ids)
+                        if petrophysical_authorization_ready and petrophysical_authorization is not None:
+                            st.success(
+                                f"Final-report authorization: `{petrophysical_authorization.authorization_id}` · {selected_label}"
+                            )
+                        else:
+                            st.error(f"Final-report authorization blocked: {selected_label}")
+                    else:
+                        st.info("Текущий набор данных не содержит machine-readable петрофизического method context; authorization не требуется.")
+                    st.caption(diagnostics_view.disclaimer)
+
             if active_export_job is not None:
                 st.info(
                     "Отчёт уже принят в работу. Кнопка заблокирована до завершения; "
@@ -10579,11 +10643,19 @@ def _render_professional_export_panel(
                     submit_label,
                     width="stretch",
                     type="primary",
-                    disabled=(not wizard_review.ready or active_export_job is not None),
+                    disabled=(
+                        not wizard_review.ready
+                        or active_export_job is not None
+                        or not petrophysical_authorization_ready
+                    ),
                     help=(
                         "Текущий отчёт уже формируется."
                         if active_export_job is not None
-                        else tooltip("report.prepare")
+                        else (
+                            "Петрофизические методы не прошли обязательную авторизацию финального отчёта."
+                            if not petrophysical_authorization_ready
+                            else tooltip("report.prepare")
+                        )
                     ),
                 )
 
@@ -10677,6 +10749,8 @@ def _render_professional_export_panel(
                     f"chrome={report_design.show_page_chrome}|orientation={report_design.orientation}|paper={report_design.paper_size}|build={BUILD_VERSION}"
                 ).encode("utf-8")
             ).hexdigest(),
+            petrophysical_method_ids=petrophysical_method_ids,
+            require_final_report_authorization=bool(petrophysical_method_ids),
         )
         current_data_revision = build_export_data_revision(
             project_id=str(active_project.id),
@@ -11268,6 +11342,8 @@ def _render_professional_export_panel(
                     "request_signature": export_artifact.request_signature,
                     "depth_top": current_print_depth_range[0],
                     "depth_bottom": current_print_depth_range[1],
+                    "authorization_id": export_artifact.authorization_id,
+                    "authorization_gate_ids": list(export_artifact.authorization_gate_ids),
                 }
                 export_state.pop(export_error_key, None)
                 try:
@@ -11292,6 +11368,9 @@ def _render_professional_export_panel(
                             print_mode=str(print_mode),
                             data_revision=current_data_revision,
                             project_updated_at=str(active_project.updated_at or ""),
+                            authorization_id=export_artifact.authorization_id,
+                            authorization_gate_ids=export_artifact.authorization_gate_ids,
+                            petrophysical_method_ids=current_export_request.petrophysical_method_ids,
                         )
                     )
                 except (OSError, ValueError, TypeError):
@@ -11328,6 +11407,11 @@ def _render_professional_export_panel(
                 f"Подготовлен формат: {cached_export.get('format_label', '—')}; "
                 f"диапазон {cached_export.get('depth_top', '—')}–{cached_export.get('depth_bottom', '—')} м."
             )
+            if cached_export.get("authorization_id"):
+                st.caption(
+                    f"Petrophysical authorization: `{cached_export.get('authorization_id')}` · "
+                    f"gates: {', '.join(cached_export.get('authorization_gate_ids', ())) or '—'}"
+                )
 
             if str(cached_export.get("format_id", "")).lower() == "pdf":
                 with st.expander(PDF_PREVIEW_BEHAVIOR.expander_label, expanded=False):

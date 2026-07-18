@@ -12,6 +12,8 @@ Architecture and integration guidance for developers.
 - [Petrophysical Engine Validation architecture](petrophysical_validation_architecture.md) — revision 1
 - [Adaptive report layout architecture](adaptive_report_layout_architecture.md) — revision 1
 
+- [Field Calibration and Report Authorization architecture](field_calibration_authorization_architecture.md) — revision 1
+
 ---
 
 Other languages: [Русский](../ru/index.md) · [Қазақша](../kk/index.md)

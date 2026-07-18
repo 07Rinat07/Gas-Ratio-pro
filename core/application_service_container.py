@@ -252,6 +252,42 @@ class ApplicationServiceContainer:
             expected_type=PetrophysicalValidationApplicationService,
         )
 
+    def petrophysical_calibration(self, *, root: Path | str):
+        """Return the workspace-scoped Stage 5.1 field-calibration boundary."""
+        from services.petrophysical_calibration_application_service import (
+            PetrophysicalCalibrationApplicationService,
+        )
+
+        validation = self.petrophysical_validation(root=root)
+        return self.ensure_workspace_service(
+            service_name="petrophysical_calibration",
+            root=root,
+            factory=lambda: PetrophysicalCalibrationApplicationService(
+                root=root,
+                validation_service=validation,
+            ),
+            expected_type=PetrophysicalCalibrationApplicationService,
+        )
+
+    def petrophysical_report_authorization(self, *, root: Path | str):
+        """Return the final-report authorization boundary."""
+        from services.petrophysical_report_authorization_application_service import (
+            PetrophysicalReportAuthorizationApplicationService,
+        )
+
+        validation = self.petrophysical_validation(root=root)
+        calibration = self.petrophysical_calibration(root=root)
+        return self.ensure_workspace_service(
+            service_name="petrophysical_report_authorization",
+            root=root,
+            factory=lambda: PetrophysicalReportAuthorizationApplicationService(
+                root=root,
+                validation_service=validation,
+                calibration_service=calibration,
+            ),
+            expected_type=PetrophysicalReportAuthorizationApplicationService,
+        )
+
     def runtime_diagnostics(self, *, root: Path | str):
         # Local import keeps diagnostics infrastructure behind a lazy boundary.
         from services.runtime_diagnostics_application_service import (
@@ -371,7 +407,12 @@ class ApplicationServiceContainer:
             project_id=project_id,
             root=root,
             factory=lambda: PresentationExportRuntimeApplicationService(
-                root=root, project_id=project_id
+                root=root,
+                project_id=project_id,
+                application_root=Path(__file__).resolve().parents[1],
+                report_authorization_service=self.petrophysical_report_authorization(
+                    root=Path(__file__).resolve().parents[1]
+                ),
             ),
             expected_type=PresentationExportRuntimeApplicationService,
         )

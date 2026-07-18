@@ -14,10 +14,11 @@ from pathlib import Path
 import re
 from typing import Any, Iterable, Mapping, Sequence
 
-EXPORT_HISTORY_SCHEMA = "gas-ratio-pro/export-history/v3"
+EXPORT_HISTORY_SCHEMA = "gas-ratio-pro/export-history/v4"
 LEGACY_EXPORT_HISTORY_SCHEMAS = frozenset({
     "gas-ratio-pro/export-history/v1",
     "gas-ratio-pro/export-history/v2",
+    "gas-ratio-pro/export-history/v3",
 })
 _ALLOWED_SECTIONS = frozenset({"plots", "visualizations", "results", "conclusion"})
 _SAFE_ID = re.compile(r"[^A-Za-z0-9._-]+")
@@ -44,6 +45,9 @@ class ExportHistoryEntry:
     print_mode: str = "Выбрать отдельно"
     data_revision: str = ""
     project_updated_at: str = ""
+    authorization_id: str = ""
+    authorization_gate_ids: tuple[str, ...] = ()
+    petrophysical_method_ids: tuple[str, ...] = ()
     created_at: str = ""
 
     def normalized(self) -> "ExportHistoryEntry":
@@ -80,6 +84,9 @@ class ExportHistoryEntry:
             print_mode=str(self.print_mode or "Выбрать отдельно").strip(),
             data_revision=str(self.data_revision or "").strip(),
             project_updated_at=str(self.project_updated_at or "").strip(),
+            authorization_id=str(self.authorization_id or "").strip(),
+            authorization_gate_ids=tuple(dict.fromkeys(str(item).strip() for item in self.authorization_gate_ids if str(item).strip())),
+            petrophysical_method_ids=tuple(dict.fromkeys(str(item).strip() for item in self.petrophysical_method_ids if str(item).strip())),
             created_at=self.created_at or datetime.now(timezone.utc).isoformat(),
         )
 
@@ -107,6 +114,11 @@ class ExportHistoryEntry:
             "print_mode": value.print_mode,
             "data_revision": value.data_revision,
             "project_updated_at": value.project_updated_at,
+            "authorization": {
+                "authorization_id": value.authorization_id,
+                "gate_ids": list(value.authorization_gate_ids),
+                "method_ids": list(value.petrophysical_method_ids),
+            },
             "created_at": value.created_at,
         }
 
@@ -115,6 +127,9 @@ class ExportHistoryEntry:
         report = payload.get("report", {})
         if not isinstance(report, Mapping):
             report = {}
+        authorization = payload.get("authorization", {})
+        if not isinstance(authorization, Mapping):
+            authorization = {}
         return cls(
             project_id=str(payload.get("project_id", "")),
             file_name=str(payload.get("file_name", "")),
@@ -135,6 +150,9 @@ class ExportHistoryEntry:
             print_mode=str(payload.get("print_mode", "Выбрать отдельно")),
             data_revision=str(payload.get("data_revision", "")),
             project_updated_at=str(payload.get("project_updated_at", "")),
+            authorization_id=str(authorization.get("authorization_id", "")),
+            authorization_gate_ids=tuple(str(item) for item in authorization.get("gate_ids", ())),
+            petrophysical_method_ids=tuple(str(item) for item in authorization.get("method_ids", ())),
             created_at=str(payload.get("created_at", "")),
         ).normalized()
 
@@ -155,6 +173,7 @@ class ExportHistoryEntry:
             "include_technical_appendix": value.include_technical_appendix,
             "show_page_chrome": value.show_page_chrome,
             "print_mode": value.print_mode,
+            "petrophysical_method_ids": list(value.petrophysical_method_ids),
         }
 
 

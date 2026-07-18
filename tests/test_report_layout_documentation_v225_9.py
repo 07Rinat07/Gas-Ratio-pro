@@ -29,15 +29,12 @@ def test_language_indexes_and_readmes_link_adaptive_layout_contract() -> None:
         assert f"docs/developer/{language}/adaptive_report_layout_architecture.md" in readme
 
 
-def test_release_governance_records_full_frame_landscape_policy() -> None:
+def test_v225_9_release_evidence_records_full_frame_landscape_policy() -> None:
     required_terms = ("v225.9", "A3 landscape", "frame")
     for language in ("ru", "kk", "en"):
         paths = (
-            DOCS / f"PROJECT_STATUS.{language}.md",
-            DOCS / f"PROJECT_ROADMAP.{language}.md",
-            DOCS / "project" / f"PROJECT_PLAN.{language}.md",
-            DOCS / f"CHANGELOG.{language}.md",
             DOCS / "archive" / "releases" / f"v225.9.{language}.md",
+            DOCS / "15_Implementation_Plan" / f"PETROPHYSICAL_ENGINE_VALIDATION_FOUNDATION_V225_9.{language}.md",
         )
         for path in paths:
             text = path.read_text(encoding="utf-8")

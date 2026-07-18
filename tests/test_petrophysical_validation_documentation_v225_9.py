@@ -7,18 +7,13 @@ ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 
 
-def test_v225_9_build_and_stage_documents_are_synchronized() -> None:
-    assert (ROOT / "BUILD_VERSION").read_text(encoding="utf-8").strip() == "v225.9"
-    assert (ROOT / "DEPLOYMENT_BUILD.txt").read_text(encoding="utf-8").strip() == "Gas Ratio Pro v225.9"
-    for suffix in ("ru", "kk", "en"):
-        status = (DOCS / f"PROJECT_STATUS.{suffix}.md").read_text(encoding="utf-8")
-        roadmap = (DOCS / f"PROJECT_ROADMAP.{suffix}.md").read_text(encoding="utf-8")
-        plan = (DOCS / "project" / f"PROJECT_PLAN.{suffix}.md").read_text(encoding="utf-8")
-        changelog = (DOCS / f"CHANGELOG.{suffix}.md").read_text(encoding="utf-8")
-        assert "v225.9" in status
-        assert "Petrophysical Engine Validation Foundation" in roadmap
-        assert "v225.9" in plan
-        assert "v225.9" in changelog
+def test_v225_9_release_evidence_remains_available_after_later_releases() -> None:
+    release = (DOCS / "archive" / "releases" / "v225.9.ru.md").read_text(encoding="utf-8")
+    implementation = (DOCS / "15_Implementation_Plan" / "PETROPHYSICAL_ENGINE_VALIDATION_FOUNDATION_V225_9.ru.md").read_text(encoding="utf-8")
+    acceptance = (DOCS / "16_Acceptance" / "PETROPHYSICAL_VALIDATION_GATE_V225_9.ru.md").read_text(encoding="utf-8")
+    for text in (release, implementation, acceptance):
+        assert "v225.9" in text
+        assert "Dual Water" in text
 
 
 def test_manifest_registers_trilingual_user_and_developer_instructions() -> None:

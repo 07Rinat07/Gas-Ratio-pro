@@ -1,34 +1,39 @@
-# Ағымдағы күй — v225.9 Stable
+# Ағымдағы күй — v225.10 Stable
 
 Жаңартылған күні: 2026 жылғы 18 шілде.
 
 ## Белсенді кезең
 
-**Stage 5 — Petrophysical Engine Validation Foundation аяқталды.** Формулалар өзгертілмеді; міндетті machine-readable validation gate құрылды.
+**Stage 5.1 — Field Calibration & Report Authorization Integration аяқталды.** Production-формулалар өзгертілмеді.
 
-## Validation foundation
+## Field Calibration
 
-- 10 әдіс `config/petrophysical_method_registry_v225_9.json` ішінде тіркелген;
-- 10 synthetic reference case `data/validation/petrophysics/petrophysical_validation_cases_v225_9.json` ішінде;
-- әр әдісте provenance, units, applicability, limitations, absolute/relative tolerance және uncertainty metadata бар;
-- application service нақты production-функцияларды орындайды;
-- gate: **10/10 passed**, final-report eligible: **9/10**;
-- `petrophysics.sw_dual_water_foundation` сандық түрде қайталанады, бірақ policy `blocked_final_report`;
-- evidence: `artifacts/validation/petrophysical_validation_v225_9.json`.
+- 10 әдіс project-owned synthetic field-surrogate dataset пайдаланады;
+- registry және dataset ownership/legal clearance, units, acceptance thresholds және fingerprints қамтиды;
+- gate RMSE, MAE, bias, max error, sensitivity және uncertainty envelopes есептейді;
+- field-calibration gate: **10/10 passed**;
+- final-report calibrated/authorized: **9/10**;
+- evidence: `artifacts/validation/petrophysical_calibration_v225_10.json`.
 
-## Есептердің бейімделетін макеті
+## Report Authorization
 
-- A3 landscape PDF нақты ReportLab frame ені мен биіктігін пайдаланады;
-- metadata, legend, statistics және мәтіндік кестелер толық жұмыс frame-ын алады;
-- DOCX ағымдағы section енін, HTML responsive 100% width қолданады;
-- `print-readability/v1.1` және v225.9 visual baseline тар сол жақ бағанға қайта оралуды блоктайды.
+- numerical validation, calibration және report policy application service ішінде біріктірілген;
+- method IDs machine-readable DataFrame context арқылы тасымалданады;
+- export authorization PresentationModel және renderer-ден бұрын орындалады;
+- authorization IDs және gate IDs artifact және export history ішінде сақталады;
+- Professional Print Center ru/kk/en read-only diagnostics көрсетеді;
+- foundation Dual Water `blocked_final_report` күйінде қалады.
+
+## Тұрақты контракттар
+
+Live Workbench Acceptance, full-frame A3 landscape layout, architecture boundaries, controlled visual baselines және Open Standards and Legal Research Governance міндетті болып қалады. Pixler rehabilitation, Ternary rehabilitation, Depth engineering panel және Reservoir Intelligence / Interpretation 2.0 evidence-сіз өзгертілмейді.
+
+v225.10 қорытынды тексеруі: **2896 passed, 0 failed**; Live Workbench Acceptance: **14/14**; numerical validation: **10/10**; field calibration: **10/10**; final-report authorization: **9/10**.
 
 ## Stabilization & Release Audit
 
-Stage 4 Live Workbench Acceptance (**14/14 passed**), architecture boundaries, controlled visual semantic snapshots және жабылған legacy contracts міндетті болып қалады. Silent `xfail`, failures жасыру және evidence-сіз формуланы өзгертуге тыйым салынады.
-
-v225.9 қорытынды тексеруі: **2881 passed, 0 failed**; кеңейтілген report/export контуры: **338 passed**; Live Workbench Acceptance: **14/14**; petrophysical validation: **10/10**.
+Stable v225.8 Live Workbench Acceptance міндетті болып қалады және **14/14** тексеруден өтеді. Architecture boundaries, controlled visual baselines, full-frame report layout және numerical/calibration/authorization gates блоктаушы болып қалады.
 
 ## Келесі кезең
 
-**Stage 5.1 — Field Calibration & Report Authorization Integration.** Field-owned calibration datasets, parameter uncertainty/sensitivity, read-only diagnostics және `authorize_methods(..., final_report=True)` функциясын final export boundary-ге қосуға рұқсат.
+**Stage 5.2 — Operator Dataset Import & Calibration Comparison.** Operator-owned calibration packages импортына, data rights тексеруіне, project-scoped comparison және versioned authorization packages жасауға рұқсат. Validation/calibration evidence жоқ формула өзгерісі тыйым салынған.

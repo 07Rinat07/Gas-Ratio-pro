@@ -12,6 +12,8 @@
 - [Petrophysical Engine Validation архитектурасы](petrophysical_validation_architecture.md) — revision 1
 - [Есептердің бейімделетін макет архитектурасы](adaptive_report_layout_architecture.md) — revision 1
 
+- [Field Calibration және Report Authorization архитектурасы](field_calibration_authorization_architecture.md) — revision 1
+
 ---
 
 Басқа тілдер: [Русский](../ru/index.md) · [English](../en/index.md)

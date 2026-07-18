@@ -25,6 +25,8 @@ class ExportRequest:
     presentation_revision: int
     figure_height: int
     context_signature: str = ""
+    petrophysical_method_ids: tuple[str, ...] = ()
+    require_final_report_authorization: bool = False
 
     @property
     def normalized_depth_range(self) -> tuple[float, float]:
@@ -53,6 +55,8 @@ class ExportRequest:
                 f"{bottom:.6f}",
                 str(self.figure_height),
                 self.context_signature,
+                ",".join(sorted(dict.fromkeys(self.petrophysical_method_ids))),
+                "final-report-auth" if self.require_final_report_authorization else "no-report-auth",
             )
         )
         return sha256(payload.encode("utf-8")).hexdigest()
@@ -75,6 +79,8 @@ class ExportRequest:
             raise ValueError("Высота экспортируемого графика должна быть в диапазоне 400–12000 px.")
         if self.calculation_revision < 0 or self.presentation_revision < 0:
             raise ValueError("Ревизии расчёта и представления не могут быть отрицательными.")
+        if self.require_final_report_authorization and not self.petrophysical_method_ids:
+            raise ValueError("Для финальной авторизации не указаны петрофизические методы.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +93,8 @@ class ExportArtifact:
     profile_id: str
     request_signature: str = ""
     cache_hit: bool = False
+    authorization_id: str = ""
+    authorization_gate_ids: tuple[str, ...] = ()
 
     def validate(self) -> None:
         if not isinstance(self.content, (bytes, bytearray)) or not self.content:
@@ -331,6 +339,8 @@ class ExportController:
             profile_id=artifact.profile_id,
             request_signature=request.selection_signature,
             cache_hit=artifact.cache_hit,
+            authorization_id=artifact.authorization_id,
+            authorization_gate_ids=artifact.authorization_gate_ids,
         )
 
     def prepare(
@@ -382,6 +392,8 @@ class ExportController:
                         profile_id=cached_artifact.profile_id,
                         request_signature=cached_artifact.request_signature,
                         cache_hit=True,
+                        authorization_id=cached_artifact.authorization_id,
+                        authorization_gate_ids=cached_artifact.authorization_gate_ids,
                     ),
                     {"model_cache_hit": True, "artifact_cache_hit": True, "duration_ms": 0.0},
                 )

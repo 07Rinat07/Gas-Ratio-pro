@@ -1,0 +1,502 @@
+{
+  "schema": "gas-ratio-pro/petrophysical-field-calibration-registry/v1",
+  "version": "v225.10",
+  "description": "Stage 5.1 field-calibration and sensitivity policies. No production formulas are stored here.",
+  "methods": [
+    {
+      "method_id": "petrophysics.vsh_gr_linear",
+      "calibration_policy": "required_final_report",
+      "case_ids": [
+        "field_vsh_linear_clastic"
+      ],
+      "parameter_distributions": [
+        {
+          "name": "gr_clean",
+          "unit": "gAPI",
+          "distribution": "triangular",
+          "low": 28.0,
+          "mode": 32.0,
+          "high": 36.0
+        },
+        {
+          "name": "gr_shale",
+          "unit": "gAPI",
+          "distribution": "triangular",
+          "low": 112.0,
+          "mode": 118.0,
+          "high": 124.0
+        }
+      ],
+      "uncertainty": {
+        "strategy": "one_at_a_time_envelope",
+        "quantiles": [
+          0.1,
+          0.5,
+          0.9
+        ],
+        "note": "Read-only deterministic envelope; not a probabilistic reserve estimate."
+      },
+      "acceptance": {
+        "max_rmse": 0.018,
+        "max_mae": 0.015,
+        "max_abs_error": 0.03,
+        "max_abs_bias": 0.012
+      }
+    },
+    {
+      "method_id": "petrophysics.vsh_gr_larionov_tertiary",
+      "calibration_policy": "required_final_report",
+      "case_ids": [
+        "field_vsh_larionov_tertiary_clastic"
+      ],
+      "parameter_distributions": [
+        {
+          "name": "gr_clean",
+          "unit": "gAPI",
+          "distribution": "triangular",
+          "low": 28.0,
+          "mode": 32.0,
+          "high": 36.0
+        },
+        {
+          "name": "gr_shale",
+          "unit": "gAPI",
+          "distribution": "triangular",
+          "low": 112.0,
+          "mode": 118.0,
+          "high": 124.0
+        }
+      ],
+      "uncertainty": {
+        "strategy": "one_at_a_time_envelope",
+        "quantiles": [
+          0.1,
+          0.5,
+          0.9
+        ],
+        "note": "Read-only deterministic envelope; not a probabilistic reserve estimate."
+      },
+      "acceptance": {
+        "max_rmse": 0.018,
+        "max_mae": 0.015,
+        "max_abs_error": 0.03,
+        "max_abs_bias": 0.012
+      }
+    },
+    {
+      "method_id": "petrophysics.vsh_gr_larionov_old_rocks",
+      "calibration_policy": "required_final_report",
+      "case_ids": [
+        "field_vsh_larionov_old_clastic"
+      ],
+      "parameter_distributions": [
+        {
+          "name": "gr_clean",
+          "unit": "gAPI",
+          "distribution": "triangular",
+          "low": 28.0,
+          "mode": 32.0,
+          "high": 36.0
+        },
+        {
+          "name": "gr_shale",
+          "unit": "gAPI",
+          "distribution": "triangular",
+          "low": 112.0,
+          "mode": 118.0,
+          "high": 124.0
+        }
+      ],
+      "uncertainty": {
+        "strategy": "one_at_a_time_envelope",
+        "quantiles": [
+          0.1,
+          0.5,
+          0.9
+        ],
+        "note": "Read-only deterministic envelope; not a probabilistic reserve estimate."
+      },
+      "acceptance": {
+        "max_rmse": 0.018,
+        "max_mae": 0.015,
+        "max_abs_error": 0.03,
+        "max_abs_bias": 0.012
+      }
+    },
+    {
+      "method_id": "petrophysics.vsh_gr_clavier",
+      "calibration_policy": "required_final_report",
+      "case_ids": [
+        "field_vsh_clavier_clastic"
+      ],
+      "parameter_distributions": [
+        {
+          "name": "gr_clean",
+          "unit": "gAPI",
+          "distribution": "triangular",
+          "low": 28.0,
+          "mode": 32.0,
+          "high": 36.0
+        },
+        {
+          "name": "gr_shale",
+          "unit": "gAPI",
+          "distribution": "triangular",
+          "low": 112.0,
+          "mode": 118.0,
+          "high": 124.0
+        }
+      ],
+      "uncertainty": {
+        "strategy": "one_at_a_time_envelope",
+        "quantiles": [
+          0.1,
+          0.5,
+          0.9
+        ],
+        "note": "Read-only deterministic envelope; not a probabilistic reserve estimate."
+      },
+      "acceptance": {
+        "max_rmse": 0.018,
+        "max_mae": 0.015,
+        "max_abs_error": 0.03,
+        "max_abs_bias": 0.012
+      }
+    },
+    {
+      "method_id": "petrophysics.phie_shale_correction",
+      "calibration_policy": "required_final_report",
+      "case_ids": [
+        "field_phie_shale_correction_clastic"
+      ],
+      "parameter_distributions": [],
+      "uncertainty": {
+        "strategy": "one_at_a_time_envelope",
+        "quantiles": [
+          0.1,
+          0.5,
+          0.9
+        ],
+        "note": "Read-only deterministic envelope; not a probabilistic reserve estimate."
+      },
+      "acceptance": {
+        "max_rmse": 0.018,
+        "max_mae": 0.015,
+        "max_abs_error": 0.03,
+        "max_abs_bias": 0.012
+      }
+    },
+    {
+      "method_id": "petrophysics.sw_archie",
+      "calibration_policy": "required_final_report",
+      "case_ids": [
+        "field_sw_archie_clastic"
+      ],
+      "parameter_distributions": [
+        {
+          "name": "a",
+          "unit": "1",
+          "distribution": "triangular",
+          "low": 0.9,
+          "mode": 1.0,
+          "high": 1.1
+        },
+        {
+          "name": "m",
+          "unit": "1",
+          "distribution": "triangular",
+          "low": 1.8,
+          "mode": 2.0,
+          "high": 2.2
+        },
+        {
+          "name": "n",
+          "unit": "1",
+          "distribution": "triangular",
+          "low": 1.8,
+          "mode": 2.0,
+          "high": 2.2
+        },
+        {
+          "name": "rw",
+          "unit": "ohm.m",
+          "distribution": "triangular",
+          "low": 0.075,
+          "mode": 0.09,
+          "high": 0.11
+        }
+      ],
+      "uncertainty": {
+        "strategy": "one_at_a_time_envelope",
+        "quantiles": [
+          0.1,
+          0.5,
+          0.9
+        ],
+        "note": "Read-only deterministic envelope; not a probabilistic reserve estimate."
+      },
+      "acceptance": {
+        "max_rmse": 0.018,
+        "max_mae": 0.015,
+        "max_abs_error": 0.03,
+        "max_abs_bias": 0.012
+      }
+    },
+    {
+      "method_id": "petrophysics.sw_simandoux",
+      "calibration_policy": "required_final_report",
+      "case_ids": [
+        "field_sw_simandoux_clastic"
+      ],
+      "parameter_distributions": [
+        {
+          "name": "a",
+          "unit": "1",
+          "distribution": "triangular",
+          "low": 0.9,
+          "mode": 1.0,
+          "high": 1.1
+        },
+        {
+          "name": "m",
+          "unit": "1",
+          "distribution": "triangular",
+          "low": 1.8,
+          "mode": 2.0,
+          "high": 2.2
+        },
+        {
+          "name": "n",
+          "unit": "1",
+          "distribution": "triangular",
+          "low": 1.8,
+          "mode": 2.0,
+          "high": 2.2
+        },
+        {
+          "name": "rw",
+          "unit": "ohm.m",
+          "distribution": "triangular",
+          "low": 0.075,
+          "mode": 0.09,
+          "high": 0.11
+        },
+        {
+          "name": "rsh",
+          "unit": "ohm.m",
+          "distribution": "triangular",
+          "low": 1.6,
+          "mode": 2.2,
+          "high": 3.0
+        }
+      ],
+      "uncertainty": {
+        "strategy": "one_at_a_time_envelope",
+        "quantiles": [
+          0.1,
+          0.5,
+          0.9
+        ],
+        "note": "Read-only deterministic envelope; not a probabilistic reserve estimate."
+      },
+      "acceptance": {
+        "max_rmse": 0.018,
+        "max_mae": 0.015,
+        "max_abs_error": 0.03,
+        "max_abs_bias": 0.012
+      }
+    },
+    {
+      "method_id": "petrophysics.sw_indonesia",
+      "calibration_policy": "required_final_report",
+      "case_ids": [
+        "field_sw_indonesia_clastic"
+      ],
+      "parameter_distributions": [
+        {
+          "name": "a",
+          "unit": "1",
+          "distribution": "triangular",
+          "low": 0.9,
+          "mode": 1.0,
+          "high": 1.1
+        },
+        {
+          "name": "m",
+          "unit": "1",
+          "distribution": "triangular",
+          "low": 1.8,
+          "mode": 2.0,
+          "high": 2.2
+        },
+        {
+          "name": "n",
+          "unit": "1",
+          "distribution": "triangular",
+          "low": 1.8,
+          "mode": 2.0,
+          "high": 2.2
+        },
+        {
+          "name": "rw",
+          "unit": "ohm.m",
+          "distribution": "triangular",
+          "low": 0.075,
+          "mode": 0.09,
+          "high": 0.11
+        },
+        {
+          "name": "rsh",
+          "unit": "ohm.m",
+          "distribution": "triangular",
+          "low": 1.6,
+          "mode": 2.2,
+          "high": 3.0
+        }
+      ],
+      "uncertainty": {
+        "strategy": "one_at_a_time_envelope",
+        "quantiles": [
+          0.1,
+          0.5,
+          0.9
+        ],
+        "note": "Read-only deterministic envelope; not a probabilistic reserve estimate."
+      },
+      "acceptance": {
+        "max_rmse": 0.018,
+        "max_mae": 0.015,
+        "max_abs_error": 0.03,
+        "max_abs_bias": 0.012
+      }
+    },
+    {
+      "method_id": "petrophysics.sw_dual_water_foundation",
+      "calibration_policy": "diagnostic_only",
+      "case_ids": [
+        "field_sw_dual_water_diagnostic"
+      ],
+      "parameter_distributions": [
+        {
+          "name": "a",
+          "unit": "1",
+          "distribution": "triangular",
+          "low": 0.9,
+          "mode": 1.0,
+          "high": 1.1
+        },
+        {
+          "name": "m",
+          "unit": "1",
+          "distribution": "triangular",
+          "low": 1.8,
+          "mode": 2.0,
+          "high": 2.2
+        },
+        {
+          "name": "n",
+          "unit": "1",
+          "distribution": "triangular",
+          "low": 1.8,
+          "mode": 2.0,
+          "high": 2.2
+        },
+        {
+          "name": "rw_free",
+          "unit": "ohm.m",
+          "distribution": "triangular",
+          "low": 0.075,
+          "mode": 0.09,
+          "high": 0.11
+        },
+        {
+          "name": "bound_water_saturation",
+          "unit": "fraction",
+          "distribution": "triangular",
+          "low": 0.55,
+          "mode": 0.65,
+          "high": 0.75
+        },
+        {
+          "name": "bound_water_weight",
+          "unit": "fraction",
+          "distribution": "triangular",
+          "low": 0.2,
+          "mode": 0.35,
+          "high": 0.5
+        }
+      ],
+      "uncertainty": {
+        "strategy": "one_at_a_time_envelope",
+        "quantiles": [
+          0.1,
+          0.5,
+          0.9
+        ],
+        "note": "Read-only deterministic envelope; not a probabilistic reserve estimate."
+      },
+      "acceptance": {
+        "max_rmse": 0.018,
+        "max_mae": 0.015,
+        "max_abs_error": 0.03,
+        "max_abs_bias": 0.012
+      }
+    },
+    {
+      "method_id": "petrophysics.net_pay_cutoff_flags",
+      "calibration_policy": "required_final_report",
+      "case_ids": [
+        "field_net_pay_cutoff_clastic"
+      ],
+      "parameter_distributions": [
+        {
+          "name": "shale_volume_max",
+          "unit": "fraction",
+          "distribution": "triangular",
+          "low": 0.35,
+          "mode": 0.4,
+          "high": 0.45
+        },
+        {
+          "name": "effective_porosity_min",
+          "unit": "fraction",
+          "distribution": "triangular",
+          "low": 0.1,
+          "mode": 0.12,
+          "high": 0.14
+        },
+        {
+          "name": "water_saturation_max",
+          "unit": "fraction",
+          "distribution": "triangular",
+          "low": 0.55,
+          "mode": 0.6,
+          "high": 0.65
+        },
+        {
+          "name": "resistivity_min",
+          "unit": "ohm.m",
+          "distribution": "triangular",
+          "low": 3.0,
+          "mode": 4.0,
+          "high": 5.0
+        }
+      ],
+      "uncertainty": {
+        "strategy": "one_at_a_time_envelope",
+        "quantiles": [
+          0.1,
+          0.5,
+          0.9
+        ],
+        "note": "Read-only deterministic envelope; not a probabilistic reserve estimate."
+      },
+      "acceptance": {
+        "max_rmse": 0.0,
+        "max_mae": 0.0,
+        "max_abs_error": 0.0,
+        "max_abs_bias": 0.0
+      }
+    }
+  ]
+}

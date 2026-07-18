@@ -31,7 +31,21 @@ A professional trilingual engineering platform for importing, quality-controllin
 - well correlation and preparation for multi-well log panels;
 - Russian, Kazakh, and English interface and documentation.
 
-## Stable release v225.9
+## Stable release v225.10
+
+- completed Stage 5.1 Field Calibration & Report Authorization Integration;
+- added a project-owned synthetic field-surrogate calibration dataset for 10 methods;
+- calibration gate: **10/10**, final-report authorised: **9/10**;
+- added RMSE/MAE/bias, sensitivity, and uncertainty envelopes;
+- final export runs authorization before PresentationModel and renderer construction;
+- Professional Print Center exposes read-only diagnostics in Russian, Kazakh, and English;
+- foundation Dual Water remains `blocked_final_report`;
+- run: `python scripts/run_petrophysical_stage_5_1_gate.py`;
+- [user guide](docs/user/en/field_calibration_and_report_authorization.md) · [architecture](docs/developer/en/field_calibration_authorization_architecture.md).
+
+- Final v225.10 verification: **2896 passed, 0 failed**; Live Workbench Acceptance: **14/14**; numerical validation: **10/10**; field calibration: **10/10**; final-report authorization: **9/10**.
+
+## Previous stable release v225.9
 
 - completed Stage 5 Petrophysical Engine Validation Foundation;
 - registered 10 petrophysical methods with provenance, units, applicability, limitations, and report policy;

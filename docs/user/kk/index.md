@@ -12,6 +12,8 @@
 - [Петрофизикалық validation gate](petrophysical_validation_gate.md) — revision 1
 - [Инженерлік есептердің бейімделетін макеті](adaptive_report_layout.md) — revision 1
 
+- [Далалық калибрлеу және қорытынды есепті авторизациялау](field_calibration_and_report_authorization.md) — revision 1
+
 ---
 
 Басқа тілдер: [Русский](../ru/index.md) · [English](../en/index.md)

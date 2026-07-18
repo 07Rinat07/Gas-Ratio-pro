@@ -12,6 +12,8 @@ Current instructions for using the application. Documents are synchronized acros
 - [Petrophysical validation gate](petrophysical_validation_gate.md) — revision 1
 - [Adaptive engineering report layout](adaptive_report_layout.md) — revision 1
 
+- [Field calibration and final-report authorization](field_calibration_and_report_authorization.md) — revision 1
+
 ---
 
 Other languages: [Русский](../ru/index.md) · [Қазақша](../kk/index.md)

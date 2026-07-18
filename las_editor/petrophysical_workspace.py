@@ -8,6 +8,8 @@ import math
 import pandas as pd
 
 from core.petrophysical_validation_contract import manifest_method_rows, validation_contract_summary
+from core.petrophysical_calibration_contract import field_calibration_contract_summary, manifest_calibration_rows
+from core.petrophysical_report_context import attach_petrophysical_method_context
 from las_editor.las_creator import DEFAULT_NULL_VALUE, normalize_las_mnemonic
 
 PETROPHYSICAL_WORKSPACE_SCHEMA = "gas-ratio-pro/petrophysical-workspace/v1"
@@ -296,6 +298,11 @@ def run_petrophysical_workspace(
     for mnemonic, values in output_map.items():
         result[_output_name(plan.output_prefix, mnemonic)] = values
 
+    attach_petrophysical_method_context(
+        result,
+        _petrophysical_method_ids_for_plan(plan),
+        source="petrophysical_workspace",
+    )
     interval_summaries = summarize_petrophysical_intervals(result, plan=plan, intervals=intervals or ())
     return PetrophysicalResult(
         schema=PETROPHYSICAL_WORKSPACE_SCHEMA,
@@ -398,8 +405,8 @@ def petrophysical_interval_table_rows(intervals: Iterable[PetrophysicalIntervalS
     return [asdict(interval) for interval in intervals]
 
 
-def _petrophysical_method_ids(result: PetrophysicalResult) -> tuple[str, ...]:
-    shale_method = str(result.plan.shale_volume.method or "linear").lower()
+def _petrophysical_method_ids_for_plan(plan: PetrophysicalPlan) -> tuple[str, ...]:
+    shale_method = str(plan.shale_volume.method or "linear").lower()
     shale_method_ids = {
         "linear": "petrophysics.vsh_gr_linear",
         "larionov_tertiary": "petrophysics.vsh_gr_larionov_tertiary",
@@ -412,6 +419,10 @@ def _petrophysical_method_ids(result: PetrophysicalResult) -> tuple[str, ...]:
         "petrophysics.sw_archie",
         "petrophysics.net_pay_cutoff_flags",
     )
+
+
+def _petrophysical_method_ids(result: PetrophysicalResult) -> tuple[str, ...]:
+    return _petrophysical_method_ids_for_plan(result.plan)
 
 
 def build_petrophysical_manifest(result: PetrophysicalResult) -> dict[str, Any]:
@@ -436,6 +447,8 @@ def build_petrophysical_manifest(result: PetrophysicalResult) -> dict[str, Any]:
         "method_ids": list(method_ids),
         "method_provenance": manifest_method_rows(method_ids),
         "validation_contract": validation_contract_summary(method_ids),
+        "field_calibration": manifest_calibration_rows(method_ids),
+        "field_calibration_contract": field_calibration_contract_summary(method_ids),
     }
 
 
@@ -463,6 +476,12 @@ def render_petrophysical_markdown_report(result: PetrophysicalResult) -> str:
             f"policy `{method['report_policy']}`; validation datasets: {', '.join(method['dataset_ids'])}."
         )
     lines.append(f"- Validation contract: `{manifest['validation_contract']['contract_fingerprint']}`")
+    lines.append(f"- Field calibration contract: `{manifest['field_calibration_contract']['contract_fingerprint']}`")
+    for calibration in manifest["field_calibration"]:
+        lines.append(
+            f"- Calibration `{calibration['method_id']}`: policy `{calibration['calibration_policy']}`; "
+            f"sets: {', '.join(calibration['calibration_ids'])}."
+        )
     if result.intervals:
         lines.extend([
             "",

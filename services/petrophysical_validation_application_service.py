@@ -10,8 +10,7 @@ import math
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-import pandas as pd
-
+from core.petrophysical_method_executor import execute_petrophysical_method
 from core.petrophysical_validation_contract import (
     PETROPHYSICAL_VALIDATION_GATE_SCHEMA,
     contract_fingerprint,
@@ -19,22 +18,7 @@ from core.petrophysical_validation_contract import (
     load_petrophysical_validation_dataset,
     validate_registry_contract,
 )
-from las_editor.advanced_saturation_models import (
-    DualWaterParameters,
-    ShalySandParameters,
-    calculate_dual_water_saturation,
-    calculate_indonesia_water_saturation,
-    calculate_simandoux_water_saturation,
-)
-from las_editor.petrophysical_workspace import (
-    ArchieParameters,
-    PetrophysicalCutoffSet,
-    ShaleVolumeParameters,
-    calculate_archie_water_saturation,
-    calculate_effective_porosity,
-    calculate_net_pay_flags,
-    calculate_shale_volume,
-)
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,7 +162,11 @@ class PetrophysicalValidationApplicationService:
         validation = method["validation"]
         abs_tol = float(validation["absolute_tolerance"])
         rel_tol = float(validation["relative_tolerance"])
-        actual = self._execute(str(method["method_id"]), case)
+        actual = execute_petrophysical_method(
+            str(method["method_id"]),
+            inputs=case.get("inputs", {}),
+            parameters=case.get("parameters", {}),
+        )
         expected = case["expected"]
         mismatches = tuple(self._compare(expected, actual, abs_tol, rel_tol))
         report_policy = str(method["report_policy"])
@@ -192,66 +180,6 @@ class PetrophysicalValidationApplicationService:
             relative_tolerance=rel_tol,
             mismatches=mismatches,
         )
-
-    @staticmethod
-    def _series(values: Sequence[Any]) -> pd.Series:
-        return pd.Series(list(values), dtype="float64")
-
-    def _execute(self, method_id: str, case: Mapping[str, Any]) -> dict[str, Any]:
-        inputs = case.get("inputs", {})
-        parameters = dict(case.get("parameters", {}))
-        if method_id.startswith("petrophysics.vsh_gr_"):
-            result = calculate_shale_volume(self._series(inputs["gr"]), ShaleVolumeParameters(**parameters))
-            return {"values": self._values(result)}
-        if method_id == "petrophysics.phie_shale_correction":
-            result = calculate_effective_porosity(
-                self._series(inputs["total_porosity"]), self._series(inputs["shale_volume"])
-            )
-            return {"values": self._values(result)}
-        if method_id == "petrophysics.sw_archie":
-            result = calculate_archie_water_saturation(
-                self._series(inputs["phie"]), self._series(inputs["rt"]), ArchieParameters(**parameters)
-            )
-            return {"values": self._values(result)}
-        if method_id == "petrophysics.sw_simandoux":
-            result = calculate_simandoux_water_saturation(
-                self._series(inputs["phie"]), self._series(inputs["rt"]), self._series(inputs["vsh"]), ShalySandParameters(**parameters)
-            )
-            return {"values": self._values(result)}
-        if method_id == "petrophysics.sw_indonesia":
-            result = calculate_indonesia_water_saturation(
-                self._series(inputs["phie"]), self._series(inputs["rt"]), self._series(inputs["vsh"]), ShalySandParameters(**parameters)
-            )
-            return {"values": self._values(result)}
-        if method_id == "petrophysics.sw_dual_water_foundation":
-            result = calculate_dual_water_saturation(
-                self._series(inputs["phie"]), self._series(inputs["rt"]), self._series(inputs["vsh"]), DualWaterParameters(**parameters)
-            )
-            return {"values": self._values(result)}
-        if method_id == "petrophysics.net_pay_cutoff_flags":
-            reservoir, net, pay = calculate_net_pay_flags(
-                vsh=self._series(inputs["vsh"]),
-                phie=self._series(inputs["phie"]),
-                sw=self._series(inputs["sw"]),
-                rt=self._series(inputs["rt"]),
-                cutoffs=PetrophysicalCutoffSet(**parameters),
-            )
-            return {
-                "reservoir": [int(value) for value in reservoir],
-                "net": [int(value) for value in net],
-                "pay": [int(value) for value in pay],
-            }
-        raise KeyError(f"No production executor registered for petrophysical method: {method_id}")
-
-    @staticmethod
-    def _values(series: pd.Series) -> list[float | None]:
-        values: list[float | None] = []
-        for value in series.tolist():
-            if pd.isna(value):
-                values.append(None)
-            else:
-                values.append(float(value))
-        return values
 
     def _compare(
         self,

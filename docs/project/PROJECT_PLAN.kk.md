@@ -1,22 +1,22 @@
 # Gas Ratio Pro жоба жоспары
 
-Жаңартылған күні: 2026 жылғы 18 шілде. Белсенді build: `v225.9 stable`.
+Жаңартылған күні: 2026 жылғы 18 шілде. Белсенді build: `v225.10 stable`.
 
-## Аяқталған increment — Petrophysical Engine Validation Foundation
+## Аяқталған increment — Field Calibration & Report Authorization
 
-- 10 әдіс formulas өзгертпей бекітілді;
-- provenance, units, applicability, limitations және report policy machine-readable;
-- 10 synthetic reference case және tolerance contracts;
-- application-service validation gate және JSON evidence;
-- manifests method provenance және fingerprint қамтиды;
-- foundation Dual Water final report үшін blocked.
-- A3 landscape PDF/DOCX/HTML толық қолжетімді frame-ды пайдаланады; text/table layout 160/185 мм-мен шектелмейді.
-- Release acceptance: petrophysical gate 10/10, Live Workbench 14/14, full regression 2881/2881.
+- 10/10 әдіс field calibration-нан өтеді;
+- 9/10 әдіс final report үшін авторизацияланған;
+- sensitivity/uncertainty envelopes және error metrics қосылды;
+- export boundary рұқсат етілмеген әдістерді renderer-ге дейін блоктайды;
+- diagnostics және evidence ru/kk/en тілдерінде қолжетімді;
+- foundation Dual Water blocked күйінде қалады.
 
-## Келесі рұқсат етілген increment — Field Calibration & Report Authorization Integration
+v225.10 қорытынды тексеруі: **2896 passed, 0 failed**; Live Workbench Acceptance: **14/14**; numerical validation: **10/10**; field calibration: **10/10**; final-report authorization: **9/10**.
 
-1. Field-owned calibration datasets және data-rights records.
-2. Parameters үшін sensitivity/uncertainty envelopes.
-3. Export boundary ішінде final-report authorization.
-4. ru/kk/en тілдерінде read-only validation diagnostics.
+## Келесі рұқсат етілген increment — Stage 5.2
+
+1. Operator-owned calibration package import.
+2. Data-rights және source fingerprint validation.
+3. Project-scoped calibration comparison.
+4. Versioned authorization packages.
 5. Full regression және live acceptance.

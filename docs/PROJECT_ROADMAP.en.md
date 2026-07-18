@@ -1,6 +1,6 @@
-# Project Roadmap — v225.9 Stable
+# Project Roadmap — v225.10 Stable
 
-Updated: July 18, 2026. This is the single active development sequence for Gas Ratio Pro.
+Updated: July 18, 2026. This is the single active Gas Ratio Pro development sequence.
 
 ## Stage 4 — Workbench UI Completion
 
@@ -8,49 +8,45 @@ Status: **COMPLETED / Stable v225.8**. Live Workbench Acceptance: 14/14.
 
 ## Stage 5 — Petrophysical Engine Validation Foundation
 
-Status: **COMPLETED / Stable v225.9**.
-
-Completed:
-
-1. froze 10 current production methods without changing formulas;
-2. added machine-readable provenance, source/legal metadata, and report policy;
-3. added unit contracts for inputs, parameters, and outputs;
-4. added 10 synthetic reference datasets with expected results;
-5. defined absolute/relative tolerances and uncertainty metadata;
-6. added an application-service gate, CLI, and JSON evidence;
-7. embedded method provenance and the contract fingerprint in calculation manifests;
-8. blocked foundation Dual Water from final reports;
-9. added adaptive full-frame A3 landscape layout for PDF/DOCX/HTML with the v225.9 visual baseline.
-
-## Stabilization & Release Audit
-
-Stable v225.8 Live Workbench Acceptance remains mandatory: **14/14 passed**. Architecture boundaries, controlled visual baselines, replacement contracts, and the v225.9 petrophysical validation gate may not be bypassed.
+Status: **COMPLETED / Stable v225.9**. Numerical contracts: 10/10; final-report eligible: 9/10.
 
 ## Stage 5.1 — Field Calibration & Report Authorization Integration
 
+Status: **COMPLETED / Stable v225.10**.
+
+- project-owned synthetic field-surrogate calibration dataset for 10 methods;
+- ownership/legal clearance and fingerprints;
+- RMSE, MAE, bias, and maximum error;
+- parameter sensitivity and uncertainty envelopes;
+- blocking authorization before PresentationModel and renderer construction;
+- evidence in method context, artifacts, and export history;
+- ru/kk/en read-only diagnostics;
+- foundation Dual Water remains `blocked_final_report`.
+
+## Stabilization & Release Audit
+
+Stable v225.8 Live Workbench Acceptance, architecture boundaries, controlled visual baselines, full-frame report layout, numerical validation, and field-calibration/report-authorization gates remain mandatory and may not be bypassed.
+
+## Stage 5.2 — Operator Dataset Import & Calibration Comparison
+
 Status: **NEXT AUTHORIZED**.
 
-1. add only field-owned or legally cleared calibration datasets;
-2. define parameter distributions and sensitivity/uncertainty envelopes;
-3. wire final-report authorization into the export application service;
-4. add read-only validation diagnostics without changing formulas;
-5. repeat full regression and Live Workbench Acceptance.
+- import only operator-owned or legally cleared packages;
+- validate data rights and immutable source fingerprints;
+- compare project-scoped calibration versions;
+- create versioned authorization packages;
+- prohibit formula changes without validation/calibration evidence.
 
 ## Reservoir Intelligence / Interpretation 2.0
 
-Status: **FROZEN AFTER ACCEPTANCE**. Pixler, Ternary, the Depth engineering panel, and the shared calculation result may change only with explicit validation evidence.
+Status: **FROZEN AFTER ACCEPTANCE**. Pixler rehabilitation, Ternary rehabilitation, Depth engineering panel, and the unified calculation result require explicit validation evidence before changes.
 
 ## Definition of Done
 
-- Stable v225.8 Workbench acceptance remains reproducible;
-- the petrophysical gate passes every method contract;
-- final reports cannot use `blocked_final_report` methods;
-- the full regression suite has no failures;
-- landscape reports use the actual frame without a fixed narrow column;
-- documentation remains synchronized in Russian, Kazakh, and English.
+Live Workbench Acceptance, the numerical gate, field-calibration gate, authorization before rendering, a failure-free full regression suite, full-frame landscape layout, and synchronized ru/kk/en documentation are mandatory.
 
 ## Open Standards and Legal Research Governance
 
-External methods, standards, and datasets enter only through the source/legal registry and an isolated adapter boundary.
+External methods, standards, and datasets enter only through a source/legal registry and an isolated adapter boundary.
 
 Any third-party component requires a machine-readable license/source record and an isolated adapter boundary.

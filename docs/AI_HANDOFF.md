@@ -1,32 +1,36 @@
-# Latest implementation — Petrophysical Engine Validation Foundation v225.9
+# Latest implementation — Field Calibration & Report Authorization v225.10
 
 ## Release state
 
-- Build: `v225.9`.
+- Build: `v225.10`.
 - Channel: `stable`.
-- Stage 5 foundation is complete.
+- Stage 5.1 implementation is complete.
 - Numerical validation: **10/10 passed**.
-- Final-report eligible: **9/10**.
-- Full regression: **2881/2881 passed**.
+- Field calibration: **10/10 passed**.
+- Final-report authorised: **9/10**.
+- Foundation Dual Water: `blocked_final_report`.
+- Full regression: **2896/2896 passed**.
 - Live Workbench Acceptance: **14/14 passed**.
-- Adaptive A3 landscape report acceptance: **4/4 passed**.
 
 ## Architecture
 
-- `config/petrophysical_method_registry_v225_9.json` is the method/provenance/unit policy.
-- `data/validation/petrophysics/petrophysical_validation_cases_v225_9.json` contains synthetic expected-result cases.
-- `core/petrophysical_validation_contract.py` validates schemas, units, uncertainty metadata, and fingerprints.
-- `services/petrophysical_validation_application_service.py` executes production functions and enforces final-report policy.
-- `scripts/run_petrophysical_validation_gate.py` writes machine-readable evidence.
-- Report renderers use actual available page/section frames; `print-readability/v1.1` and `config/visual_rebaseline_contracts_v225_9.json` protect A3 landscape full-frame layout.
+- `core/petrophysical_method_executor.py` is the shared production execution boundary.
+- `config/petrophysical_field_calibration_registry_v225_10.json` defines calibration policy and data rights.
+- `data/validation/petrophysics/petrophysical_field_calibration_cases_v225_10.json` is a project-owned synthetic field surrogate.
+- `services/petrophysical_calibration_application_service.py` computes error metrics, sensitivity, and uncertainty envelopes.
+- `services/petrophysical_report_authorization_application_service.py` combines validation, calibration, and report policy.
+- `core/petrophysical_report_context.py` propagates method IDs into export.
+- `services/presentation_export_runtime_application_service.py` authorises before model/renderer construction.
+- `services/petrophysical_validation_diagnostics.py` provides the ru/kk/en read-only Print Center view.
+- `scripts/run_petrophysical_stage_5_1_gate.py` writes machine-readable evidence.
 
 ## Critical policy
 
-`petrophysics.sw_dual_water_foundation` is numerically reproducible but `blocked_final_report`. Do not relabel it as the full Dual Water model. Formula changes require method provenance, legal/source review, a reference dataset, units, tolerance, uncertainty metadata, and passing evidence.
+No formula change is permitted without updated provenance, units, reference validation, calibration evidence, uncertainty, and report policy. Operator datasets must be owned or legally cleared. Foundation Dual Water must not be relabelled as a full industrial implementation.
 
-## Next authorized stage
+## Next authorised stage
 
-Stage 5.1 — field-owned calibration datasets, sensitivity/uncertainty envelopes, read-only diagnostics, and final-export authorization integration. Interpretation 2.0 and approved visual baselines remain frozen.
+Stage 5.2 — Operator Dataset Import & Calibration Comparison: data-rights validation, immutable package fingerprints, project-scoped comparisons, and versioned authorization packages.
 
 ## Release governance
 

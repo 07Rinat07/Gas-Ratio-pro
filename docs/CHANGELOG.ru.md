@@ -1,4 +1,16 @@
 # Журнал изменений GAS RATIO PRO
+## v225.10 — Field Calibration, Sensitivity & Report Authorization — 2026-07-18
+
+- добавлен project-owned synthetic field-surrogate dataset для 10 методов;
+- добавлены RMSE/MAE/bias, sensitivity и uncertainty envelopes;
+- final-report authorization подключён до PresentationModel/renderer;
+- method context и authorization evidence сохраняются в artifact/history;
+- Professional Print Center получил read-only diagnostics на ru/kk/en;
+- foundation Dual Water остаётся `blocked_final_report`;
+- production formulas не изменялись.
+
+- Итоговая проверка v225.10: **2896 passed, 0 failed**; Live Workbench Acceptance: **14/14**; numerical validation: **10/10**; field calibration: **10/10**; final-report authorization: **9/10**.
+
 ## v225.9 — Petrophysical Engine Validation Foundation — 2026-07-18
 
 - зарегистрированы 10 петрофизических методов с provenance, units, applicability, limitations и report policy;

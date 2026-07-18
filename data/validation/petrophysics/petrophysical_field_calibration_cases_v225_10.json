@@ -1,0 +1,514 @@
+{
+  "schema": "gas-ratio-pro/petrophysical-field-calibration-dataset/v1",
+  "version": "v225.10",
+  "data_rights": "Project-owned synthetic field surrogate authored for Gas Ratio Pro; no third-party well data.",
+  "calibration_sets": [
+    {
+      "calibration_id": "grp_field_owned_clastic_surrogate_v1",
+      "title": "Gas Ratio Pro project-owned clastic calibration surrogate v1",
+      "owner": "Gas Ratio Pro project",
+      "legal_status": "project_owned",
+      "license_id": "GRP-INTERNAL-DATA-1.0",
+      "redistribution_allowed": true,
+      "source_type": "synthetic_field_surrogate",
+      "source_note": "Authored from synthetic petrophysical ranges solely for reproducible calibration, sensitivity and export authorization tests.",
+      "limitations": "Not a substitute for operator-owned core, SCAL, formation-water, log-environment or production data."
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "field_vsh_linear_clastic",
+      "calibration_id": "grp_field_owned_clastic_surrogate_v1",
+      "method_id": "petrophysics.vsh_gr_linear",
+      "context": {
+        "basin": "synthetic-clastic",
+        "fluid_system": "mixed",
+        "depth_reference": "MD",
+        "purpose": "calibration-regression"
+      },
+      "inputs": {
+        "gr": [
+          42,
+          55,
+          72,
+          88,
+          110
+        ]
+      },
+      "parameters": {
+        "method": "linear",
+        "gr_clean": 32.0,
+        "gr_shale": 118.0
+      },
+      "observed": {
+        "values": [
+          0.11027906976744185,
+          0.27144186046511626,
+          0.46211627906976743,
+          0.6561627906976745,
+          0.9069767441860465
+        ]
+      },
+      "input_units": {
+        "gr": "gAPI"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "field_vsh_larionov_tertiary_clastic",
+      "calibration_id": "grp_field_owned_clastic_surrogate_v1",
+      "method_id": "petrophysics.vsh_gr_larionov_tertiary",
+      "context": {
+        "basin": "synthetic-clastic",
+        "fluid_system": "mixed",
+        "depth_reference": "MD",
+        "purpose": "calibration-regression"
+      },
+      "inputs": {
+        "gr": [
+          42,
+          55,
+          72,
+          88,
+          110
+        ]
+      },
+      "parameters": {
+        "method": "larionov_tertiary",
+        "gr_clean": 32.0,
+        "gr_shale": 118.0
+      },
+      "observed": {
+        "values": [
+          0.02283841344572641,
+          0.08580021507041968,
+          0.1876085804183006,
+          0.3629104183810903,
+          0.7667256971275239
+        ]
+      },
+      "input_units": {
+        "gr": "gAPI"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "field_vsh_larionov_old_clastic",
+      "calibration_id": "grp_field_owned_clastic_surrogate_v1",
+      "method_id": "petrophysics.vsh_gr_larionov_old_rocks",
+      "context": {
+        "basin": "synthetic-clastic",
+        "fluid_system": "mixed",
+        "depth_reference": "MD",
+        "purpose": "calibration-regression"
+      },
+      "inputs": {
+        "gr": [
+          42,
+          55,
+          72,
+          88,
+          110
+        ]
+      },
+      "parameters": {
+        "method": "larionov_old_rocks",
+        "gr_clean": 32.0,
+        "gr_shale": 118.0
+      },
+      "observed": {
+        "values": [
+          0.05172242076490122,
+          0.15211237430545155,
+          0.2958424380656363,
+          0.48886618400625587,
+          0.8302948125876307
+        ]
+      },
+      "input_units": {
+        "gr": "gAPI"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "field_vsh_clavier_clastic",
+      "calibration_id": "grp_field_owned_clastic_surrogate_v1",
+      "method_id": "petrophysics.vsh_gr_clavier",
+      "context": {
+        "basin": "synthetic-clastic",
+        "fluid_system": "mixed",
+        "depth_reference": "MD",
+        "purpose": "calibration-regression"
+      },
+      "inputs": {
+        "gr": [
+          42,
+          55,
+          72,
+          88,
+          110
+        ]
+      },
+      "parameters": {
+        "method": "clavier",
+        "gr_clean": 32.0,
+        "gr_shale": 118.0
+      },
+      "observed": {
+        "values": [
+          0.04667232152810597,
+          0.1406522310695566,
+          0.2748523085675595,
+          0.45826060741064556,
+          0.8069010448750858
+        ]
+      },
+      "input_units": {
+        "gr": "gAPI"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "field_phie_shale_correction_clastic",
+      "calibration_id": "grp_field_owned_clastic_surrogate_v1",
+      "method_id": "petrophysics.phie_shale_correction",
+      "context": {
+        "basin": "synthetic-clastic",
+        "fluid_system": "mixed",
+        "depth_reference": "MD",
+        "purpose": "calibration-regression"
+      },
+      "inputs": {
+        "total_porosity": [
+          0.24,
+          0.21,
+          0.18,
+          0.14,
+          0.1
+        ],
+        "shale_volume": [
+          0.05,
+          0.18,
+          0.32,
+          0.47,
+          0.65
+        ]
+      },
+      "parameters": {},
+      "observed": {
+        "values": [
+          0.22199999999999998,
+          0.17620000000000002,
+          0.11939999999999998,
+          0.07920000000000002,
+          0.034999999999999996
+        ]
+      },
+      "input_units": {
+        "total_porosity": "fraction",
+        "shale_volume": "fraction"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "field_sw_archie_clastic",
+      "calibration_id": "grp_field_owned_clastic_surrogate_v1",
+      "method_id": "petrophysics.sw_archie",
+      "context": {
+        "basin": "synthetic-clastic",
+        "fluid_system": "mixed",
+        "depth_reference": "MD",
+        "purpose": "calibration-regression"
+      },
+      "inputs": {
+        "phie": [
+          0.11,
+          0.16,
+          0.21,
+          0.26,
+          0.3
+        ],
+        "rt": [
+          3.2,
+          7.5,
+          14,
+          28,
+          42
+        ]
+      },
+      "parameters": {
+        "a": 1.0,
+        "m": 2.0,
+        "n": 2.0,
+        "rw": 0.09
+      },
+      "observed": {
+        "values": [
+          0.994,
+          0.6886531968814577,
+          0.3788017741606063,
+          0.2230564267360926,
+          0.1543033499620919
+        ]
+      },
+      "input_units": {
+        "phie": "fraction",
+        "rt": "ohm.m"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "field_sw_simandoux_clastic",
+      "calibration_id": "grp_field_owned_clastic_surrogate_v1",
+      "method_id": "petrophysics.sw_simandoux",
+      "context": {
+        "basin": "synthetic-clastic",
+        "fluid_system": "mixed",
+        "depth_reference": "MD",
+        "purpose": "calibration-regression"
+      },
+      "inputs": {
+        "phie": [
+          0.11,
+          0.16,
+          0.21,
+          0.26,
+          0.3
+        ],
+        "rt": [
+          3.2,
+          7.5,
+          14,
+          28,
+          42
+        ],
+        "vsh": [
+          0.55,
+          0.36,
+          0.22,
+          0.12,
+          0.06
+        ]
+      },
+      "parameters": {
+        "a": 1.0,
+        "m": 2.0,
+        "n": 2.0,
+        "rw": 0.09,
+        "rsh": 2.2
+      },
+      "observed": {
+        "values": [
+          0.849974416225777,
+          0.4589802988856144,
+          0.2901615659395324,
+          0.1897489943472197,
+          0.14126836263997355
+        ]
+      },
+      "input_units": {
+        "phie": "fraction",
+        "rt": "ohm.m",
+        "vsh": "fraction"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "field_sw_indonesia_clastic",
+      "calibration_id": "grp_field_owned_clastic_surrogate_v1",
+      "method_id": "petrophysics.sw_indonesia",
+      "context": {
+        "basin": "synthetic-clastic",
+        "fluid_system": "mixed",
+        "depth_reference": "MD",
+        "purpose": "calibration-regression"
+      },
+      "inputs": {
+        "phie": [
+          0.11,
+          0.16,
+          0.21,
+          0.26,
+          0.3
+        ],
+        "rt": [
+          3.2,
+          7.5,
+          14,
+          28,
+          42
+        ],
+        "vsh": [
+          0.55,
+          0.36,
+          0.22,
+          0.12,
+          0.06
+        ]
+      },
+      "parameters": {
+        "a": 1.0,
+        "m": 2.0,
+        "n": 2.0,
+        "rw": 0.09,
+        "rsh": 2.2
+      },
+      "observed": {
+        "values": [
+          0.32658103367924385,
+          0.14169015487804879,
+          0.1285098681659301,
+          0.11704151951210282,
+          0.11028889052327756
+        ]
+      },
+      "input_units": {
+        "phie": "fraction",
+        "rt": "ohm.m",
+        "vsh": "fraction"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "field_sw_dual_water_diagnostic",
+      "calibration_id": "grp_field_owned_clastic_surrogate_v1",
+      "method_id": "petrophysics.sw_dual_water_foundation",
+      "context": {
+        "basin": "synthetic-clastic",
+        "fluid_system": "mixed",
+        "depth_reference": "MD",
+        "purpose": "calibration-regression"
+      },
+      "inputs": {
+        "phie": [
+          0.11,
+          0.16,
+          0.21,
+          0.26,
+          0.3
+        ],
+        "rt": [
+          3.2,
+          7.5,
+          14,
+          28,
+          42
+        ],
+        "vsh": [
+          0.55,
+          0.36,
+          0.22,
+          0.12,
+          0.06
+        ]
+      },
+      "parameters": {
+        "a": 1.0,
+        "m": 2.0,
+        "n": 2.0,
+        "rw_free": 0.09,
+        "bound_water_saturation": 0.65,
+        "bound_water_weight": 0.35
+      },
+      "observed": {
+        "values": [
+          0.926625,
+          0.6842868940743939,
+          0.3994530375502396,
+          0.2411980568131767,
+          0.16471297961288797
+        ]
+      },
+      "input_units": {
+        "phie": "fraction",
+        "rt": "ohm.m",
+        "vsh": "fraction"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "field_net_pay_cutoff_clastic",
+      "calibration_id": "grp_field_owned_clastic_surrogate_v1",
+      "method_id": "petrophysics.net_pay_cutoff_flags",
+      "context": {
+        "basin": "synthetic-clastic",
+        "fluid_system": "mixed",
+        "depth_reference": "MD",
+        "purpose": "calibration-regression"
+      },
+      "inputs": {
+        "vsh": [
+          0.18,
+          0.32,
+          0.41,
+          0.27,
+          0.12,
+          0.46
+        ],
+        "phie": [
+          0.19,
+          0.16,
+          0.13,
+          0.11,
+          0.23,
+          0.18
+        ],
+        "sw": [
+          0.42,
+          0.55,
+          0.62,
+          0.48,
+          0.31,
+          0.44
+        ],
+        "rt": [
+          8,
+          5,
+          3.5,
+          6,
+          14,
+          2.8
+        ]
+      },
+      "parameters": {
+        "shale_volume_max": 0.4,
+        "effective_porosity_min": 0.12,
+        "water_saturation_max": 0.6,
+        "resistivity_min": 4.0
+      },
+      "observed": {
+        "reservoir": [
+          1,
+          1,
+          0,
+          1,
+          1,
+          0
+        ],
+        "net": [
+          1,
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        "pay": [
+          1,
+          1,
+          0,
+          0,
+          1,
+          0
+        ]
+      },
+      "input_units": {
+        "vsh": "fraction",
+        "phie": "fraction",
+        "sw": "fraction",
+        "rt": "ohm.m"
+      },
+      "output_unit": "binary_flag"
+    }
+  ]
+}

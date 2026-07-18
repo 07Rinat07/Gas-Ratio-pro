@@ -1,34 +1,39 @@
-# Current status — v225.9 Stable
+# Current status — v225.10 Stable
 
 Updated: July 18, 2026.
 
 ## Active stage
 
-**Stage 5 — Petrophysical Engine Validation Foundation is complete.** No formulas were changed; a mandatory machine-readable validation gate now protects the engine.
+**Stage 5.1 — Field Calibration & Report Authorization Integration is complete.** Production formulas were not changed.
 
-## Validation foundation
+## Field Calibration
 
-- 10 methods are registered in `config/petrophysical_method_registry_v225_9.json`;
-- 10 synthetic reference cases live in `data/validation/petrophysics/petrophysical_validation_cases_v225_9.json`;
-- every method defines provenance, units, applicability, limitations, absolute/relative tolerance, and uncertainty metadata;
-- the application service executes the real production functions;
-- gate result: **10/10 passed**, final-report eligible: **9/10**;
-- `petrophysics.sw_dual_water_foundation` is numerically reproducible but remains `blocked_final_report`;
-- evidence: `artifacts/validation/petrophysical_validation_v225_9.json`.
+- 10 methods use a project-owned synthetic field-surrogate dataset;
+- registry and dataset carry ownership/legal clearance, units, acceptance thresholds, and fingerprints;
+- the gate calculates RMSE, MAE, bias, maximum error, sensitivity, and uncertainty envelopes;
+- field-calibration gate: **10/10 passed**;
+- final-report calibrated/authorised: **9/10**;
+- evidence: `artifacts/validation/petrophysical_calibration_v225_10.json`.
 
-## Adaptive report layout
+## Report Authorization
 
-- A3 landscape PDF uses the actual ReportLab frame width and height;
-- metadata, legends, statistics, and narrative tables span the full working frame;
-- DOCX uses the current section width and HTML uses responsive 100% width;
-- `print-readability/v1.1` and the v225.9 visual baseline prevent a regression to a narrow left column.
+- numerical validation, calibration, and report policy are composed in an application service;
+- method IDs propagate through a machine-readable DataFrame context;
+- export authorization runs before PresentationModel and renderer construction;
+- authorization IDs and gate IDs are persisted in artifacts and export history;
+- Professional Print Center exposes read-only diagnostics in ru/kk/en;
+- foundation Dual Water remains `blocked_final_report`.
+
+## Stable contracts
+
+Live Workbench Acceptance, full-frame A3 landscape layout, architecture boundaries, controlled visual baselines, and Open Standards and Legal Research Governance remain mandatory. Pixler rehabilitation, Ternary rehabilitation, Depth engineering panel, and Reservoir Intelligence / Interpretation 2.0 require explicit evidence before changes.
+
+Final v225.10 verification: **2896 passed, 0 failed**; Live Workbench Acceptance: **14/14**; numerical validation: **10/10**; field calibration: **10/10**; final-report authorization: **9/10**.
 
 ## Stabilization & Release Audit
 
-Stage 4 Live Workbench Acceptance (**14/14 passed**), architecture boundaries, controlled visual semantic snapshots, and resolved legacy contracts remain mandatory. Silent `xfail`, hidden failures, and formula changes without evidence are prohibited.
-
-Final v225.9 verification: **2881 passed, 0 failed**; extended report/export contour: **338 passed**; Live Workbench Acceptance: **14/14**; petrophysical validation: **10/10**.
+Stable v225.8 Live Workbench Acceptance remains mandatory and passes **14/14** checks. Architecture boundaries, controlled visual baselines, full-frame report layout, and numerical/calibration/authorization gates remain blocking.
 
 ## Next stage
 
-**Stage 5.1 — Field Calibration & Report Authorization Integration.** Authorized work includes field-owned calibration datasets, parameter uncertainty/sensitivity, read-only diagnostics, and wiring `authorize_methods(..., final_report=True)` into the final export boundary.
+**Stage 5.2 — Operator Dataset Import & Calibration Comparison.** Authorised work includes operator-owned calibration-package import, data-rights validation, project-scoped comparison, and versioned authorization packages. Formula changes without validation/calibration evidence remain prohibited.

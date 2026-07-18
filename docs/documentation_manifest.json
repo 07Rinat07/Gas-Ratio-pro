@@ -180,6 +180,26 @@
         "kk": "developer/kk/adaptive_report_layout_architecture.md",
         "en": "developer/en/adaptive_report_layout_architecture.md"
       }
+    },
+    {
+      "id": "field_calibration_and_report_authorization",
+      "revision": 1,
+      "audience": "user",
+      "languages": {
+        "ru": "user/ru/field_calibration_and_report_authorization.md",
+        "kk": "user/kk/field_calibration_and_report_authorization.md",
+        "en": "user/en/field_calibration_and_report_authorization.md"
+      }
+    },
+    {
+      "id": "field_calibration_authorization_architecture",
+      "revision": 1,
+      "audience": "developer",
+      "languages": {
+        "ru": "developer/ru/field_calibration_authorization_architecture.md",
+        "kk": "developer/kk/field_calibration_authorization_architecture.md",
+        "en": "developer/en/field_calibration_authorization_architecture.md"
+      }
     }
   ]
 }

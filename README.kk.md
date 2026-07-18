@@ -31,7 +31,21 @@
 - ұңғымаларды корреляциялау және көпұңғымалық планшеттерге дайындық;
 - орыс, қазақ және ағылшын тілдеріндегі интерфейс пен құжаттама.
 
-## Stable релиз v225.9
+## Stable релиз v225.10
+
+- Stage 5.1 Field Calibration & Report Authorization Integration аяқталды;
+- 10 әдіске арналған project-owned synthetic field-surrogate calibration dataset қосылды;
+- calibration gate: **10/10**, final-report authorized: **9/10**;
+- RMSE/MAE/bias, sensitivity және uncertainty envelopes қосылды;
+- final export authorization тексеруін PresentationModel және renderer-ден бұрын орындайды;
+- Professional Print Center орыс, қазақ және ағылшын тілдеріндегі read-only diagnostics көрсетеді;
+- foundation Dual Water `blocked_final_report` күйінде қалады;
+- іске қосу: `python scripts/run_petrophysical_stage_5_1_gate.py`;
+- [нұсқаулық](docs/user/kk/field_calibration_and_report_authorization.md) · [архитектура](docs/developer/kk/field_calibration_authorization_architecture.md).
+
+- v225.10 қорытынды тексеруі: **2896 passed, 0 failed**; Live Workbench Acceptance: **14/14**; numerical validation: **10/10**; field calibration: **10/10**; final-report authorization: **9/10**.
+
+## Алдыңғы stable релиз v225.9
 
 - Stage 5 Petrophysical Engine Validation Foundation аяқталды;
 - provenance, units, applicability, limitations және report policy бар 10 петрофизикалық әдіс тіркелді;

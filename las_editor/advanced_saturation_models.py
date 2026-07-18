@@ -8,6 +8,8 @@ import math
 import pandas as pd
 
 from core.petrophysical_validation_contract import manifest_method_rows, validation_contract_summary
+from core.petrophysical_calibration_contract import field_calibration_contract_summary, manifest_calibration_rows
+from core.petrophysical_report_context import attach_petrophysical_method_context
 from las_editor.las_creator import normalize_las_mnemonic
 from las_editor.petrophysical_workspace import ArchieParameters, calculate_archie_water_saturation
 
@@ -394,6 +396,11 @@ def run_advanced_saturation_models(
     result[_out(plan, "SW_INDONESIA")] = sw_indonesia
     result[_out(plan, "SW_DUAL_WATER")] = sw_dual
     result[_out(plan, "SW_MODEL_SPREAD")] = spread
+    attach_petrophysical_method_context(
+        result,
+        _advanced_saturation_method_ids(),
+        source="advanced_saturation_models",
+    )
 
     comparisons = compare_saturation_models(result, plan=plan, intervals=intervals or ())
     return AdvancedSaturationResult(
@@ -469,6 +476,8 @@ def build_advanced_saturation_manifest(result: AdvancedSaturationResult) -> dict
         "method_ids": list(method_ids),
         "method_provenance": manifest_method_rows(method_ids),
         "validation_contract": validation_contract_summary(method_ids),
+        "field_calibration": manifest_calibration_rows(method_ids),
+        "field_calibration_contract": field_calibration_contract_summary(method_ids),
     }
 
 
@@ -499,6 +508,12 @@ def render_advanced_saturation_markdown_report(result: AdvancedSaturationResult)
     if blocked:
         lines.append("- **Final-report block:** " + ", ".join(f"`{item}`" for item in blocked))
     lines.append(f"- Validation contract: `{manifest['validation_contract']['contract_fingerprint']}`")
+    lines.append(f"- Field calibration contract: `{manifest['field_calibration_contract']['contract_fingerprint']}`")
+    for calibration in manifest["field_calibration"]:
+        lines.append(
+            f"- Calibration `{calibration['method_id']}`: policy `{calibration['calibration_policy']}`; "
+            f"sets: {', '.join(calibration['calibration_ids'])}."
+        )
     if result.comparisons:
         lines.extend([
             "",
