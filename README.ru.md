@@ -31,12 +31,13 @@
 - корреляция скважин и подготовка к многоскважинным планшетам;
 - интерфейс и документация на русском, казахском и английском языках.
 
-## Печать и экспорт v225.5
+## Проверка печати и экспорта v225.6
 
-- автоматический cross-format parity gate проверяет SVG, PNG, PDF, DOCX и HTML перед выдачей пакета;
-- пользовательские физические профили A4/A3 сохраняют поля, DPI, ориентацию и безопасные пределы читаемости;
-- многостраничные SVG/PNG выдаются ZIP-пакетом с manifest и никогда не сокращаются до первой страницы;
-- legacy CompositeLog static-export отключён; Professional Print Center использует только page-aware package;
+- добавлены утверждённые golden-artifacts для всех A4/A3 portrait/landscape профилей;
+- manifest фиксирует каждую SVG/PNG-страницу, многостраничный PDF, track partition, physical bounds и контрольные суммы;
+- end-to-end acceptance-тест проходит путь от сохранения пользовательского профиля до HTML/PDF/DOCX и SVG/PNG delivery;
+- PDF preview теперь автоматически вписывается в фактический фрейм отчёта при смешанной ориентации;
+- 51 legacy regression contract системно классифицирован, без скрытого `xfail`;
 - [инструкция пользователя](docs/user/ru/print_center_page_aware.md);
 - [архитектура для разработчика](docs/developer/ru/page_aware_print_architecture.md).
 

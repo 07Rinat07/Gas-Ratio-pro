@@ -1,27 +1,28 @@
-# Latest implementation — Cross-format parity, user profiles, and static-export retirement v225.5
+# Latest implementation — Physical golden baseline and Print Center acceptance v225.6
 
-## Runtime contracts
+## Physical golden contract
 
-- `VisualizationPageAwarePackageBuilder` renders SVG, PNG, and PDF and then runs `VisualizationCrossFormatParityGate`.
-- Package schema version is `1.3`; `export_ready` requires renderer QA and `parity_gate.ok`.
-- The gate verifies layout/package/preview page counts, physical dimensions, actual PDF page count, PNG dimensions, track partition, and geometry signature.
-- DOCX/HTML consume canonical preview `pages` and are represented in the same parity matrix.
+- `VisualizationPhysicalGoldenArtifactService` owns generate/verify for A4/A3 portrait/landscape.
+- Approved artifacts live in `tests/fixtures/physical_golden_artifacts/`.
+- Source fixture: `tests/fixtures/visualization/reference_physical_ten_tracks.json`.
+- Regenerate only after visual review with `python scripts/regenerate_physical_golden_artifacts.py`.
+- The manifest locks SVG/PNG checksums, PDF checksum, dimensions, page count, track partition, chrome count, geometry signature, and parity gate id.
 
-## User profiles
+## Print Center acceptance
 
-- `UserPhysicalPrintProfileStore` persists `gas-ratio-pro.physical-print-profiles` in `data/user_preferences/physical_print_profiles.json`.
-- Only A4/A3 user profiles are accepted.
-- User values may increase readability floors or reduce page capacity, but cannot weaken the built-in baseline.
-- Streamlit Professional Print Center can create, save, select, and apply these profiles.
+- `ProfessionalPrintCenterAcceptanceRunner` executes profile persistence, page-aware preparation, visible view model, bundle export, bundle validation, and SVG/PNG delivery.
+- Evidence is `print-center-acceptance-report.json`.
+- `_AutoScaleRasterImage` in `reports/presentation_pdf.py` scales preview images against the actual ReportLab frame and fixes mixed-orientation overflow.
 
-## Static delivery
+## Legacy regression audit
 
-- `build_page_aware_static_artifact()` is the delivery boundary for professional SVG/PNG/PDF output.
-- Multi-page SVG/PNG is a ZIP with `manifest.json` and one file per physical page.
-- LAS Viewer uses the same delivery adapter.
-- `reports.export_static` now handles genuine Plotly/Kaleido output only; legacy CompositeLog static export is explicitly retired.
+- `config/legacy_regression_contracts_v225_6.json` contains all 51 inherited v225.4/v225.5 failures.
+- Categories: obsolete version identity, brittle UI source assertion, visual rebaseline, architecture boundary, behavioral compatibility.
+- Silent `xfail` and test deletion without replacement are forbidden.
+- Architecture debt remains release-visible.
 
 ## Release governance
 
-- Build: `v225.5`, channel `release-candidate`.
+- Build: `v225.6`, channel `release-candidate`.
+- User release archives must exclude `.github/workflows` unless local build/runtime explicitly requires them.
 - Always update and verify Russian, Kazakh, and English README, user instructions, developer architecture, status, roadmap, project plan, changelog, release notes, and documentation manifest.

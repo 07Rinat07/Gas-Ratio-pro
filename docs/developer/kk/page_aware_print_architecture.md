@@ -1,6 +1,6 @@
 # Page-aware басып шығару және тікелей preview архитектурасы
 
-Revision: 3 · GAS RATIO PRO v225.5
+Revision: 4 · GAS RATIO PRO v225.6
 
 ## Геометрияның бірыңғай көзі
 
@@ -45,3 +45,19 @@ Revision: 3 · GAS RATIO PRO v225.5
 ## Static-export тоқтатылуы
 
 Professional report және LAS Viewer `build_page_aware_static_artifact()` пайдаланады. Бірбетті SVG/PNG тікелей, көпбетті нұсқа manifest бар ZIP ретінде беріледі. `reports.export_static` ішіндегі тәуелсіз CompositeLog SVG/PNG/PDF тармағы жойылып, legacy path-қа нақты тыйым енгізілді. Қалыпты Plotly графиктері Kaleido арқылы қалады және физикалық Print Center құжаты болып саналмайды.
+
+## Physical golden artifacts v225.6
+
+`VisualizationPhysicalGoldenArtifactService` бір он тректі renderer-neutral fixture-ді `a4_portrait`, `a4_landscape`, `a3_portrait` және `a3_landscape` профильдері үшін құрады. Әр физикалық бетке SVG және PNG, әр профильге бір көпбетті PDF сақталады. `manifest.json` SHA-256, point/pixel өлшемдерін, track partition, chrome primitive count, geometry signature және parity gate id бекітеді.
+
+Эталон тек визуалдық review аяқталғаннан кейін `python scripts/regenerate_physical_golden_artifacts.py` командасымен жаңартылады. Қайта генерация тесті structural signature және visual checksum мәндерін салыстырады.
+
+## End-to-end Print Center acceptance
+
+`ProfessionalPrintCenterAcceptanceRunner` raw DataFrame-ді downstream жібермей application-level жолды орындайды: profile store → `ReportPageAwarePreviewService` → visible view model → `PresentationModel` → HTML/PDF/DOCX bundle → SVG/PNG static delivery. Нәтиже `print-center-acceptance-report.json` ретінде сақталады.
+
+PDF үшін `_AutoScaleRasterImage` қосылды. Физикалық preview өлшемі `wrap()` ішінде нақты `avail_width` және `avail_height` арқылы есептеледі, сондықтан portrait/landscape комбинациялары ReportLab `LayoutError` туғызбайды.
+
+## Legacy regression audit
+
+`config/legacy_regression_contracts_v225_6.json` барлық 51 inherited failure-ды қамтиды. Әр contract category, disposition, severity, rationale және replacement contract өрістеріне ие. Policy silent `xfail`, architecture debt жасыру және тестті replacement жоқ жоюға тыйым салады.

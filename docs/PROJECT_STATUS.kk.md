@@ -1,35 +1,31 @@
-# Ағымдағы күй — v225.5
+# Ағымдағы күй — v225.6
 
 Жаңартылған күні: 18 шілде 2026 жыл.
 
 ## Белсенді кезең
 
-**Stage 4 — Workbench UI Completion / Stabilization & Release Audit.** Жинақ мәртебесі: **release candidate v225.5**.
+**Stage 4 — Acceptance, Visual Baseline & Legacy Contract Audit / Stabilization & Release Audit.** Жинақ күйі: **release candidate v225.6**.
 
 ## Іске асырылды
 
-- `VisualizationCrossFormatParityGate` SVG, PNG, PDF, DOCX және HTML сәйкестігін автоматты тексереді;
-- `VisualizationPageAwarePackage` v1.3 parity gate сәтті болғанда ғана дайын болады;
-- Professional Print Center нақты профильді, беттерді, parity status және gate id көрсетеді;
-- сақталатын A4/A3 пайдаланушы физикалық профильдері қосылды;
-- ең кіші қаріп, сызық және трек ені базалық safety floor арқылы қорғалған;
-- professional report export және LAS Viewer page-aware static delivery пайдаланады;
-- көпбетті SVG/PNG `manifest.json` бар ZIP-пакетпен беріледі;
-- legacy CompositeLog static-export өшірілді;
-- құжаттама орыс, қазақ және ағылшын тілдерінде синхрондалды.
+- A4/A3 кітаптық және альбомдық бағдарлары үшін visual golden-artifacts бекітілді;
+- manifest SVG, PNG және PDF файлдарын, физикалық өлшемдерді, беттеуді, track partition, page chrome және SHA-256 мәндерін тексереді;
+- `scripts/regenerate_physical_golden_artifacts.py` қайталанатын скрипті қосылды;
+- end-to-end `ProfessionalPrintCenterAcceptanceRunner` іске асырылды;
+- acceptance-path пайдаланушы профилін сақтау мен таңдауды, visible preview, parity gate, HTML/PDF/DOCX bundle және SVG/PNG delivery жолын қамтиды;
+- portrait physical preview landscape PDF есебіне салынғандағы `LayoutError` түзетілді;
+- 51 legacy regression contract machine-readable audit registry-ге енгізілді;
+- audit silent `xfail` және replacement contract жоқ тестті жоюға тыйым салады;
+- пайдаланушы архивінде `.github/workflows` жоқ.
 
 ## Релизді тексеру
 
-Release gate нәтижесі:
-
-- мақсатты renderer/export/UI жинағы: **123 passed**;
-- толық regression suite: **2843 tests, 2792 passed, 51 failed**;
-- 51 ақаудың барлығы таза v225.4 нұсқасында қайталанды;
-- v225.5 жаңа regression failures: **0**;
-- Python compileall, 108 салыстырмалы Markdown-сілтеме және documentation manifest: сәтті.
-
-Белгілі legacy regression failures бөлек бағаланады және жасырылмайды.
+- мақсатты v225.6 acceptance/golden/audit және renderer/export жинағы: **150 passed**;
+- толық regression suite: **2853 tests, 2802 passed, 51 failed**;
+- 51 failure мұраланған registry-де ашық сақталады;
+- жаңа v225.6 regression failures: **0**;
+- Python compileall, құжаттама сілтемелері, manifest және архив: **сәтті**.
 
 ## Келесі кезең
 
-Stage 4 нақты пайдаланушы acceptance-path арқылы аяқталады: профиль жасау/таңдау, preflight preview, parity status, PDF/DOCX/HTML және multi-page SVG/PNG bundle экспорты.
+9 расталған architecture-boundary debt-ті жабу және brittle source/visual assertions-ты бекітілген behavior/golden contracts-пен ауыстыру. Stable күйіне тек release-blocking debt нөл болғанда өтуге болады.

@@ -1,37 +1,29 @@
 # Gas Ratio Pro Project Plan
 
-Updated: 18 July 2026. Active build: `v225.5`.
+Updated: 18 July 2026. Active build: `v225.6`.
 
-## Mandatory engineering principles
+## Completed stage — v225.6
 
-- one pipeline is the source of physical geometry;
-- `export_ready` requires a successful cross-format parity gate;
-- user A4/A3 profiles cannot weaken readability floors;
-- multi-page SVG/PNG is never collapsed to page one;
-- documentation and instructions are updated synchronously in `ru / kk / en`.
+- four physical golden baselines for A4/A3 portrait/landscape;
+- reproducible golden regeneration and checksum verification;
+- full Professional Print Center acceptance path;
+- raster preview auto-scaling against the actual PDF frame;
+- machine-readable audit of all 51 legacy regressions;
+- replacement policy with no silent `xfail`;
+- trilingual documentation and release governance.
 
-## Completed stage — v225.5
+## Next authorized increment — Legacy Contract Remediation
 
-- SVG/PNG/PDF/DOCX/HTML parity gate;
-- page-aware package v1.3;
-- persistent user profiles;
-- manifest-backed static bundles;
-- retirement of CompositeLog static export;
-- parity status in Professional Print Center;
-- tests and trilingual documentation.
-
-## Next authorized increment — Stage 4 Acceptance & Stable Promotion
-
-1. Run the user acceptance path for profile creation and selection.
-2. Verify A4/A3 portrait/landscape and custom profiles on real data.
-3. Freeze visual golden artifacts.
-4. Resolve remaining legacy test failures.
-5. Promote to stable only after the complete release gate passes.
+1. Fix architecture-boundary violations without weakening audit policy.
+2. Move brittle source assertions to view-model and runtime behavior tests.
+3. Approve visual rebaseline through golden artifacts.
+4. Delete obsolete tests only after replacement tests exist.
+5. Repeat the full regression and stable promotion gate.
 
 ## Definition of Done
 
-- package parity is automatically proven;
-- the physical profile is visible and reproducible;
-- every page is retained in every format;
-- no legacy first-page/static fallback remains;
-- build metadata, README, instructions, status, roadmap, changelog, and manifest are synchronized.
+- all four golden profile manifests pass without checksum drift;
+- E2E acceptance creates valid HTML/PDF/DOCX and SVG/PNG output;
+- every legacy contract has a disposition and replacement;
+- release-blocking architecture debt is zero;
+- version, instructions, status, roadmap, changelog, and manifest are synchronized in `ru/kk/en`.

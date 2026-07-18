@@ -52,14 +52,14 @@
 - сторонний код и спецификации используются только после лицензионной проверки;
 - preview и диагностика больших файлов выполняются с ограничением памяти.
 
-## Печать и экспорт v225.5
+## Проверка печати и экспорта v225.6
 
-- `VisualizationPageAwarePackage` v1.3 содержит блокирующий cross-format parity gate для SVG/PNG/PDF/DOCX/HTML;
-- пользовательские профили A4/A3 сохраняются в `data/user_preferences/physical_print_profiles.json`;
-- профиль не может уменьшить шрифт, толщину линий и ширину трека ниже базового безопасного значения;
-- многостраничные SVG/PNG экспортируются ZIP-пакетом с `manifest.json`, без silent first-page fallback;
-- legacy CompositeLog static-export отключён, а профессиональный отчёт и LAS Viewer используют parity-gated delivery;
-- интерфейс, инструкции, архитектура, статус и план синхронизированы на русском, казахском и английском языках.
+- для `A4 portrait`, `A4 landscape`, `A3 portrait` и `A3 landscape` зафиксированы реальные SVG/PNG/PDF golden-artifacts;
+- golden manifest контролирует физические размеры, число страниц, распределение треков, page chrome, geometry signature и SHA-256 каждого визуального файла;
+- `ProfessionalPrintCenterAcceptanceRunner` выполняет полный путь: сохранение пользовательского профиля, preview, parity gate, HTML/PDF/DOCX bundle и многостраничные SVG/PNG;
+- исправлено встраивание портретных физических страниц в альбомный PDF-отчёт: preview масштабируется по фактическому фрейму ReportLab;
+- все 51 унаследованный legacy regression contract классифицированы в machine-readable registry; silent `xfail` и удаление тестов без replacement contract запрещены;
+- конфигурации `.github/workflows` не включаются в пользовательский релизный архив, поскольку не требуются для локального запуска.
 
 Документация: [RU](docs/user/ru/print_center_page_aware.md) · [KK](docs/user/kk/print_center_page_aware.md) · [EN](docs/user/en/print_center_page_aware.md).
 

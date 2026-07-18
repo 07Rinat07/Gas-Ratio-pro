@@ -1,6 +1,6 @@
 # Print Center and direct multi-page preview
 
-Revision: 3 · GAS RATIO PRO v225.5
+Revision: 4 · GAS RATIO PRO v225.6
 
 ## What changed
 
@@ -39,3 +39,11 @@ Before delivery, the package passes an automated parity gate. It compares page c
 The page settings allow selection of a built-in profile or persistence of a user A4/A3 profile. A profile stores paper, orientation, margins, DPI, minimum font, minimum track width, and maximum tracks per page. Readability values cannot fall below the certified baseline profile.
 
 When SVG or PNG contains multiple pages, the application creates a ZIP bundle with one file per page and a `manifest.json`. Page one is no longer delivered as the complete document.
+
+## Physical profile validation v225.6
+
+The release contains approved visual baselines for four built-in profiles: A4 portrait, A4 landscape, A3 portrait, and A3 landscape. Each profile validates physical page size, page count, track partition, page chrome, SVG, PNG, and the multi-page PDF.
+
+The complete acceptance test repeats the user path: it persists and selects a user profile, prepares the preview, verifies the parity gate, and exports HTML, PDF, DOCX, SVG, and PNG. When physical-page and report orientations differ, the preview is automatically scaled to the available PDF frame.
+
+Golden artifacts are developer-controlled evidence files. Users do not edit them manually. When export is blocked by parity or golden drift, preserve the diagnostic report and do not replace the baseline without reviewing the physical layout.

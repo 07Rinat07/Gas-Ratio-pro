@@ -1,5 +1,14 @@
 # v225.5 — Cross-format Parity Gate, Legacy Static Export Retirement & User A4/A3 Profiles
 
+## v225.6 — Physical Golden Baseline & Print Center Acceptance
+
+- Зафиксированы SVG/PNG/PDF golden-artifacts для A4/A3 portrait/landscape.
+- Добавлен end-to-end Professional Print Center acceptance runner.
+- Исправлен PDF `LayoutError` для mixed-orientation physical preview.
+- Все 51 legacy regression contract классифицированы в machine-readable registry без silent `xfail`.
+- Добавлен current-build identity contract и regeneration script.
+
+
 - Added blocking `VisualizationCrossFormatParityGate` for SVG, PNG, PDF, DOCX, and HTML.
 - `VisualizationPageAwarePackage` upgraded to v1.3; `export_ready` now requires parity success.
 - Added `UserPhysicalPrintProfileStore` with persistent A4/A3 profiles and certified readability floors.

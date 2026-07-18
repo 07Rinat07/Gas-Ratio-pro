@@ -1,35 +1,31 @@
-# Текущее состояние — v225.5
+# Текущее состояние — v225.6
 
 Обновлено: 18 июля 2026 года.
 
 ## Активный этап
 
-**Stage 4 — Workbench UI Completion / Stabilization & Release Audit.** Сборка имеет статус **release candidate v225.5**.
+**Stage 4 — Acceptance, Visual Baseline & Legacy Contract Audit / Stabilization & Release Audit.** Сборка имеет статус **release candidate v225.6**.
 
 ## Реализовано
 
-- `VisualizationCrossFormatParityGate` автоматически сверяет SVG, PNG, PDF, DOCX и HTML;
-- `VisualizationPageAwarePackage` v1.3 считается готовым только при успешном parity gate;
-- UI Professional Print Center показывает точный профиль, страницы, parity status и gate id;
-- добавлены сохраняемые пользовательские физические профили A4/A3;
-- минимальные шрифты, линии и ширина трека защищены базовыми safety floors;
-- профессиональный report export и LAS Viewer используют page-aware static delivery;
-- многостраничные SVG/PNG выдаются ZIP-пакетом с `manifest.json`;
-- legacy CompositeLog static-export отключён;
-- документация синхронизирована на русском, казахском и английском языках.
+- зафиксированы визуальные golden-artifacts для A4/A3 в книжной и альбомной ориентации;
+- manifest проверяет SVG, PNG и PDF, физические размеры, пагинацию, track partition, page chrome и SHA-256;
+- добавлен воспроизводимый скрипт `scripts/regenerate_physical_golden_artifacts.py`;
+- реализован end-to-end `ProfessionalPrintCenterAcceptanceRunner`;
+- acceptance-path охватывает сохранение и выбор пользовательского профиля, visible preview, parity gate, HTML/PDF/DOCX bundle и SVG/PNG static delivery;
+- исправлен `LayoutError` при встраивании портретного physical preview в альбомный PDF-отчёт;
+- все 51 legacy regression contract внесены в machine-readable audit registry;
+- legacy-аудит запрещает silent `xfail` и удаление теста без replacement contract;
+- пользовательский архив не содержит `.github/workflows`.
 
 ## Проверка релиза
 
-Результат release gate:
-
-- целевой renderer/export/UI набор: **123 passed**;
-- полный regression suite: **2843 tests, 2792 passed, 51 failed**;
-- все 51 падение воспроизведены на чистой v225.4;
-- новых regression failures v225.5: **0**;
-- Python compileall, 108 относительных Markdown-ссылок и documentation manifest: успешно.
-
-Известные legacy regression failures оцениваются отдельно и не скрываются.
+- целевой v225.6 acceptance/golden/audit и совместимый renderer/export набор: **150 passed**;
+- полный regression suite: **2853 tests, 2802 passed, 51 failed**;
+- 51 failure относятся к унаследованному registry и остаются видимыми;
+- новых regression failures v225.6: **0**;
+- Python compileall, документационные ссылки, manifest и архив: **успешно**.
 
 ## Следующий этап
 
-Завершение Stage 4 через реальный пользовательский acceptance-path: создание/выбор профиля, preflight preview, parity status, экспорт PDF/DOCX/HTML и multi-page SVG/PNG bundle.
+Закрыть 9 подтверждённых architecture-boundary debts и заменить brittle source/visual assertions утверждёнными behavior/golden contracts. Перевод в stable допускается только после нулевого release-blocking debt.

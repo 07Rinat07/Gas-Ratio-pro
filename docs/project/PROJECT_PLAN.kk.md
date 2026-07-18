@@ -1,37 +1,29 @@
 # Gas Ratio Pro жобасының жоспары
 
-Жаңартылған күні: 18 шілде 2026 жыл. Белсенді жинақ: `v225.5`.
+Жаңартылған күні: 18 шілде 2026 жыл. Белсенді жинақ: `v225.6`.
 
-## Міндетті инженерлік қағидалар
+## Аяқталған кезең — v225.6
 
-- бір pipeline физикалық геометрияның көзі болып табылады;
-- `export_ready` үшін cross-format parity gate сәтті болуы міндетті;
-- A4/A3 пайдаланушы профильдері readability floor талаптарын әлсірете алмайды;
-- multi-page SVG/PNG бірінші бетке қысқартылмайды;
-- құжаттама мен нұсқаулықтар `ru / kk / en` тілдерінде синхронды жаңартылады.
+- төрт physical golden baseline: A4/A3 portrait/landscape;
+- қайталанатын golden regeneration және checksum verification;
+- толық Professional Print Center acceptance-path;
+- нақты PDF frame бойынша raster preview auto-scale;
+- барлық 51 legacy regression machine-readable аудиті;
+- silent `xfail` қолданбайтын replacement policy;
+- үш тілдегі құжаттама және release governance.
 
-## Аяқталған кезең — v225.5
+## Келесі рұқсат етілген инкремент — Legacy Contract Remediation
 
-- SVG/PNG/PDF/DOCX/HTML parity gate;
-- page-aware package v1.3;
-- persistent user profiles;
-- manifest-backed static bundles;
-- CompositeLog static-export тоқтатылды;
-- Professional Print Center parity status көрсетеді;
-- тесттер мен үш тілдегі құжаттама жаңартылды.
-
-## Келесі рұқсат етілген инкремент — Stage 4 Acceptance & Stable Promotion
-
-1. Профиль жасау және таңдау пайдаланушы acceptance-path тексеруін орындау.
-2. Нақты деректерде A4/A3 portrait/landscape және custom profiles тексеру.
-3. Visual golden artifacts бекіту.
-4. Қалған legacy test failures талдау.
-5. Толық release gate өткеннен кейін ғана stable шығару.
+1. Audit policy талаптарын әлсіретпей architecture-boundary бұзушылықтарын түзету.
+2. Brittle source assertions-ты view-model және runtime behavior тесттеріне көшіру.
+3. Visual rebaseline-ды golden artifacts арқылы бекіту.
+4. Obsolete tests тек replacement tests қосылғаннан кейін жойылады.
+5. Full regression және stable promotion gate қайталанады.
 
 ## Definition of Done
 
-- package parity автоматты расталған;
-- физикалық профиль көрінеді және қайталанады;
-- барлық форматта барлық бет сақталады;
-- legacy first-page/static fallback жоқ;
-- build metadata, README, нұсқаулықтар, status, roadmap, changelog және manifest синхрондалған.
+- төрт golden profile manifest checksum өзгермей өтеді;
+- E2E acceptance жарамды HTML/PDF/DOCX және SVG/PNG жасайды;
+- әр legacy contract шешім мен replacement алады;
+- release-blocking architecture debt нөлге тең;
+- версия, нұсқаулықтар, status, roadmap, changelog және manifest `ru/kk/en` тілдерінде синхрондалған.

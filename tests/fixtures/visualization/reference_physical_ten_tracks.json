@@ -1,0 +1,35 @@
+{
+  "source_type": "las",
+  "source_id": "reference-physical-ten-tracks",
+  "depth_curve": "MD",
+  "depth_unit": "m",
+  "depth_range": {"start": 2000.0, "stop": 2005.0, "step": 1.0},
+  "tracks": [
+    {"id": "track.01", "title": "Gamma Ray", "width": 1.0},
+    {"id": "track.02", "title": "C1", "width": 1.0},
+    {"id": "track.03", "title": "C2", "width": 1.0},
+    {"id": "track.04", "title": "C3", "width": 1.0},
+    {"id": "track.05", "title": "iC4", "width": 1.0},
+    {"id": "track.06", "title": "nC4", "width": 1.0},
+    {"id": "track.07", "title": "Total Gas", "width": 1.0},
+    {"id": "track.08", "title": "C1/C2", "width": 1.0},
+    {"id": "track.09", "title": "Wetness", "width": 1.0},
+    {"id": "track.10", "title": "Balance", "width": 1.0}
+  ],
+  "curves": [
+    {"id": "curve.01", "track_id": "track.01", "mnemonic": "GR", "unit": "API", "scale_type": "linear", "range": {"min": 0, "max": 150}, "points": [{"depth": 2000, "value": 25}, {"depth": 2001, "value": 38}, {"depth": 2002, "value": 77}, {"depth": 2003, "value": 92}, {"depth": 2004, "value": 61}, {"depth": 2005, "value": 40}]},
+    {"id": "curve.02", "track_id": "track.02", "mnemonic": "C1", "unit": "%", "scale_type": "linear", "range": {"min": 0, "max": 10}, "points": [{"depth": 2000, "value": 1}, {"depth": 2001, "value": 2}, {"depth": 2002, "value": 5}, {"depth": 2003, "value": 8}, {"depth": 2004, "value": 4}, {"depth": 2005, "value": 2}]},
+    {"id": "curve.03", "track_id": "track.03", "mnemonic": "C2", "unit": "%", "scale_type": "linear", "range": {"min": 0, "max": 5}, "points": [{"depth": 2000, "value": 0.3}, {"depth": 2001, "value": 0.5}, {"depth": 2002, "value": 1.4}, {"depth": 2003, "value": 2.2}, {"depth": 2004, "value": 1.1}, {"depth": 2005, "value": 0.6}]},
+    {"id": "curve.04", "track_id": "track.04", "mnemonic": "C3", "unit": "%", "scale_type": "linear", "range": {"min": 0, "max": 3}, "points": [{"depth": 2000, "value": 0.1}, {"depth": 2001, "value": 0.2}, {"depth": 2002, "value": 0.8}, {"depth": 2003, "value": 1.2}, {"depth": 2004, "value": 0.7}, {"depth": 2005, "value": 0.2}]},
+    {"id": "curve.05", "track_id": "track.05", "mnemonic": "iC4", "unit": "%", "scale_type": "linear", "range": {"min": 0, "max": 2}, "points": [{"depth": 2000, "value": 0.05}, {"depth": 2001, "value": 0.1}, {"depth": 2002, "value": 0.4}, {"depth": 2003, "value": 0.7}, {"depth": 2004, "value": 0.3}, {"depth": 2005, "value": 0.1}]},
+    {"id": "curve.06", "track_id": "track.06", "mnemonic": "nC4", "unit": "%", "scale_type": "linear", "range": {"min": 0, "max": 2}, "points": [{"depth": 2000, "value": 0.04}, {"depth": 2001, "value": 0.08}, {"depth": 2002, "value": 0.3}, {"depth": 2003, "value": 0.55}, {"depth": 2004, "value": 0.25}, {"depth": 2005, "value": 0.08}]},
+    {"id": "curve.07", "track_id": "track.07", "mnemonic": "TG", "unit": "%", "scale_type": "linear", "range": {"min": 0, "max": 15}, "points": [{"depth": 2000, "value": 1.5}, {"depth": 2001, "value": 3}, {"depth": 2002, "value": 8}, {"depth": 2003, "value": 12}, {"depth": 2004, "value": 6}, {"depth": 2005, "value": 2.5}]},
+    {"id": "curve.08", "track_id": "track.08", "mnemonic": "C1/C2", "unit": "ratio", "scale_type": "linear", "range": {"min": 0, "max": 20}, "points": [{"depth": 2000, "value": 3}, {"depth": 2001, "value": 4}, {"depth": 2002, "value": 8}, {"depth": 2003, "value": 13}, {"depth": 2004, "value": 9}, {"depth": 2005, "value": 4}]},
+    {"id": "curve.09", "track_id": "track.09", "mnemonic": "Wh", "unit": "index", "scale_type": "linear", "range": {"min": 0, "max": 100}, "points": [{"depth": 2000, "value": 20}, {"depth": 2001, "value": 25}, {"depth": 2002, "value": 45}, {"depth": 2003, "value": 70}, {"depth": 2004, "value": 50}, {"depth": 2005, "value": 30}]},
+    {"id": "curve.10", "track_id": "track.10", "mnemonic": "Bh", "unit": "index", "scale_type": "linear", "range": {"min": 0, "max": 100}, "points": [{"depth": 2000, "value": 75}, {"depth": 2001, "value": 70}, {"depth": 2002, "value": 55}, {"depth": 2003, "value": 35}, {"depth": 2004, "value": 48}, {"depth": 2005, "value": 65}]}
+  ],
+  "overlays": [
+    {"id": "interval.oil", "top": 2001.2, "base": 2002.2, "label": "Oil indication", "fluid_type": "oil", "track_scope": ["track.01", "track.02", "track.03", "track.04", "track.05", "track.06", "track.07", "track.08", "track.09", "track.10"]},
+    {"id": "interval.gas", "top": 2002.6, "base": 2004.3, "label": "Gas indication", "fluid_type": "gas", "track_scope": ["track.01", "track.02", "track.03", "track.04", "track.05", "track.06", "track.07", "track.08", "track.09", "track.10"]}
+  ]
+}

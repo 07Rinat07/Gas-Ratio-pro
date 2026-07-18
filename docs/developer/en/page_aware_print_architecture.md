@@ -1,6 +1,6 @@
 # Page-aware print and direct-preview architecture
 
-Revision: 3 · GAS RATIO PRO v225.5
+Revision: 4 · GAS RATIO PRO v225.6
 
 ## Single geometry source
 
@@ -45,3 +45,19 @@ The canonical `visualization.preview.page-aware` contract contains a `pages` arr
 ## Static-export retirement
 
 Professional reports and LAS Viewer use `build_page_aware_static_artifact()`. Single-page SVG/PNG is delivered directly; multi-page output is a manifest-backed ZIP. The independent CompositeLog SVG/PNG/PDF branch in `reports.export_static` is removed and replaced with an explicit legacy-path prohibition. Ordinary Plotly charts remain on Kaleido and are not treated as physical Print Center documents.
+
+## Physical golden artifacts v225.6
+
+`VisualizationPhysicalGoldenArtifactService` renders one ten-track renderer-neutral fixture through `a4_portrait`, `a4_landscape`, `a3_portrait`, and `a3_landscape`. Every physical page is stored as SVG and PNG, and each profile has one multi-page PDF. `manifest.json` records SHA-256, point/pixel dimensions, track partition, chrome primitive count, geometry signature, and parity gate id.
+
+The baseline may be updated only with `python scripts/regenerate_physical_golden_artifacts.py` after visual review. The regeneration test compares structural signatures and visual checksums.
+
+## End-to-end Print Center acceptance
+
+`ProfessionalPrintCenterAcceptanceRunner` executes the application-level path without passing raw DataFrames downstream: profile store → `ReportPageAwarePreviewService` → visible view model → `PresentationModel` → HTML/PDF/DOCX bundle → SVG/PNG static delivery. Evidence is written as `print-center-acceptance-report.json`.
+
+PDF embedding now uses `_AutoScaleRasterImage`. The physical preview size is calculated in `wrap()` from the actual `avail_width` and `avail_height`, preventing ReportLab `LayoutError` for portrait/landscape combinations.
+
+## Legacy regression audit
+
+`config/legacy_regression_contracts_v225_6.json` contains all 51 inherited failures. Every contract has a category, disposition, severity, rationale, and replacement contract. Policy forbids silent `xfail`, hidden architecture debt, and deleting tests without replacements.

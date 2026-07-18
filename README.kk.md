@@ -31,12 +31,13 @@
 - ұңғымаларды корреляциялау және көпұңғымалық планшеттерге дайындық;
 - орыс, қазақ және ағылшын тілдеріндегі интерфейс пен құжаттама.
 
-## Басып шығару және экспорт v225.5
+## Басып шығару мен экспортты тексеру v225.6
 
-- автоматты cross-format parity gate SVG, PNG, PDF, DOCX және HTML сәйкестігін пакет берілгенге дейін тексереді;
-- пайдаланушы A4/A3 профильдері жиектерді, DPI, бағдарды және оқылымның қауіпсіз шектерін сақтайды;
-- көпбетті SVG/PNG manifest бар ZIP-пакетпен беріледі және бірінші бетке қысқартылмайды;
-- legacy CompositeLog static-export өшірілді; Professional Print Center тек page-aware package пайдаланады;
+- барлық A4/A3 portrait/landscape профильдері үшін бекітілген golden-artifacts қосылды;
+- manifest әр SVG/PNG бетін, көпбетті PDF-ті, track partition, physical bounds және бақылау сомаларын бекітеді;
+- end-to-end acceptance-тесті пайдаланушы профилін сақтаудан HTML/PDF/DOCX және SVG/PNG беруге дейінгі жолды орындайды;
+- аралас бағдарда PDF preview есептің нақты фрейміне автоматты түрде сыйғызылады;
+- 51 legacy regression contract жасырын `xfail` қолданбай жүйелі түрде жіктелді;
 - [пайдаланушы нұсқаулығы](docs/user/kk/print_center_page_aware.md);
 - [әзірлеуші архитектурасы](docs/developer/kk/page_aware_print_architecture.md).
 

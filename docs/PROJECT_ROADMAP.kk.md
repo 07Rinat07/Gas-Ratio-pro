@@ -1,48 +1,49 @@
-# Project Roadmap — v225.5
+# Project Roadmap — v225.6
 
 Жаңартылған күні: 18 шілде 2026 жыл.
 
-Бұл құжат Gas Ratio Pro әзірлеуінің жалғыз белсенді реті болып табылады.
+Бұл құжат — Gas Ratio Pro дамуының жалғыз белсенді тізбегі.
 
 ## Stage 4 — Workbench UI Completion
 
-Күйі: **ACTIVE / release candidate v225.5**.
+Күйі: **ACTIVE / release candidate v225.6**.
 
 Аяқталды:
 
-1. SVG/PNG/PDF/DOCX/HTML үшін бір page-aware package;
-2. көрінетін көпбетті Professional Print Center;
-3. бұғаттаушы cross-format parity gate;
-4. safety floor бар A4/A3 пайдаланушы физикалық профильдері;
-5. legacy CompositeLog static-export тоқтатылды;
-6. multi-page SVG/PNG үшін manifest-backed ZIP;
-7. `ru/kk/en` құжаттамасы синхрондалды.
+1. бірыңғай page-aware package және cross-format parity gate;
+2. A4/A3 пайдаланушы профильдері және manifest-backed multi-page delivery;
+3. төрт сертификатталған физикалық профиль үшін visual golden-artifacts;
+4. HTML/PDF/DOCX/SVG/PNG үшін end-to-end Print Center acceptance;
+5. mixed-orientation PDF preview scaling түзетуі;
+6. 51 legacy regression contract machine-readable жүйелік аудиті;
+7. `ru/kk/en` синхронды құжаттамасы.
 
 Келесі рұқсат етілген жұмыстар:
 
-1. толық Print Center workflow пайдаланушы acceptance-test;
-2. A4/A3 portrait/landscape және пайдаланушы профильдері үшін visual golden artifacts;
-3. қалған legacy regression contracts аудиті;
-4. Stage 4 аяқтап, release candidate нұсқасын stable күйіне ауыстыру.
+1. audit registry ішіндегі 9 architecture-boundary violation түзету;
+2. 23 source/behavior assertion-ды behavior-level тесттермен ауыстыру;
+3. 13 visual contract үшін golden review арқылы controlled rebaseline орындау;
+4. 6 obsolete version pin-ді тек replacement identity contract-пен бірге жою;
+5. толық suite қайталау және release-blocking debt болмаған кезде ғана Stage 4 stable күйіне өткізу.
 
 ## Stabilization & Release Audit
 
-Әр релиз алдында parity gate, regression прогон, A4/A3 физикалық тексеру, `ru/kk/en` құжаттама, manifest/links/version metadata және архив тұтастығы міндетті.
+Golden artifacts тек айқын regeneration script және visual review арқылы өзгереді. Silent `xfail`, baseline failures жасыру және replacement contract жоқ тестті жоюға тыйым салынады.
 
 ## Reservoir Intelligence / Interpretation 2.0
 
-Күйі: **FROZEN AFTER ACCEPTANCE**. Қабылданған Definition of Done міндетті регрессиялық келісімшарт болып қалады:
+Күйі: **FROZEN AFTER ACCEPTANCE**. Қабылданған Definition of Done міндетті regression contract болып қалады:
 
 - Pixler rehabilitation;
 - Ternary rehabilitation;
 - Depth engineering panel;
-- аралықтардың инженерлік жиынтығы және қайталанатын визуалдық жіктеу;
-- Definition of Done: барлық бекітілген көріністер бір есептеу нәтижесін пайдаланады және print/export кезеңдерінде өзгермейді.
+- интервалдардың инженерлік жиынтығы және қайталанатын визуалдық жіктеу;
+- барлық бекітілген көріністер бір есептеу нәтижесін пайдаланады және print/export инкременттерімен өзгермейді.
 
 ## Open Standards and Legal Research Governance
 
-Сыртқы стандарттар мен third-party components тек policy, machine-readable registry, лицензиялық растау және оқшауланған adapter boundary арқылы қосылады.
+Сыртқы стандарттар мен third-party components тек policy, machine-readable registry, лицензиялық дәлел және оқшауланған adapter boundary арқылы қосылады.
 
 ## Petrophysical Engine
 
-Күйі: Stage 4 аяқталғанша **BLOCKED**. Бекітілген есептеу келісімшартын өзгертпейтін сыни түзетулер ғана рұқсат.
+Күйі: Stage 4 аяқталғанға дейін **BLOCKED**. Бекітілген есептеу келісімшартын өзгертпейтін критикалық түзетулер ғана рұқсат етіледі.

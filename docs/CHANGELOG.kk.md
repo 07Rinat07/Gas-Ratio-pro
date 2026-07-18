@@ -1,5 +1,14 @@
 # GAS RATIO PRO өзгерістер журналы
 
+## v225.6 — Physical Golden Baseline & Print Center Acceptance
+
+- A4/A3 portrait/landscape үшін SVG/PNG/PDF golden-artifacts бекітілді.
+- End-to-end Professional Print Center acceptance runner қосылды.
+- Mixed-orientation physical preview үшін PDF `LayoutError` түзетілді.
+- 51 legacy regression contract silent `xfail` қолданбай machine-readable registry-де жіктелді.
+- Current-build identity contract және regeneration script қосылды.
+
+
 ## v225.4
 
 - Көрінетін Professional Print Center экспортқа дейін нақты физикалық пакетті есептейді.

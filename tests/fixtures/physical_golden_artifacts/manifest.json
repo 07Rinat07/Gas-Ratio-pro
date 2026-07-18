@@ -1,0 +1,244 @@
+{
+  "certified_profiles": [
+    "a4_portrait",
+    "a4_landscape",
+    "a3_portrait",
+    "a3_landscape"
+  ],
+  "ok": true,
+  "physical_page_contract": true,
+  "profiles": [
+    {
+      "dpi": 96,
+      "geometry_signature": "07f792eb7870d02730eb1b5d746e58a62ea76639a601f6be158c9626bbd9fbb5",
+      "issues": [],
+      "ok": true,
+      "orientation": "portrait",
+      "page_count": 3,
+      "page_size": "A4",
+      "pages": [
+        {
+          "chrome_primitive_count": 27,
+          "height_pt": 841.8897637795277,
+          "index": 1,
+          "png_file": "a4_portrait/page-01.png",
+          "png_height": 1123,
+          "png_sha256": "1d53376329179e933a1991e73dcfcac5ca934564868c557202aaf56a93b7c43c",
+          "png_width": 794,
+          "svg_file": "a4_portrait/page-01.svg",
+          "svg_sha256": "1d4ecef02f22dfe61973d3009c212dab4ca22d6107215d98ca4cdd3ec7f87821",
+          "track_ids": [
+            "track.01",
+            "track.02",
+            "track.03",
+            "track.04"
+          ],
+          "width_pt": 595.2755905511812
+        },
+        {
+          "chrome_primitive_count": 27,
+          "height_pt": 841.8897637795277,
+          "index": 2,
+          "png_file": "a4_portrait/page-02.png",
+          "png_height": 1123,
+          "png_sha256": "712ab4adc2e2d8c745fb4191828d5b8a3cc188670f74159acf03dc8aa3ac249b",
+          "png_width": 794,
+          "svg_file": "a4_portrait/page-02.svg",
+          "svg_sha256": "73ef48517ee6e876e382e3818710031a3093056ad35d31ae712ae198e286e2ba",
+          "track_ids": [
+            "track.05",
+            "track.06",
+            "track.07",
+            "track.08"
+          ],
+          "width_pt": 595.2755905511812
+        },
+        {
+          "chrome_primitive_count": 27,
+          "height_pt": 841.8897637795277,
+          "index": 3,
+          "png_file": "a4_portrait/page-03.png",
+          "png_height": 1123,
+          "png_sha256": "b76eb70caba27452d975ecde8195c18fdf3989e548dbde9ee79d2c7b549f1dd8",
+          "png_width": 794,
+          "svg_file": "a4_portrait/page-03.svg",
+          "svg_sha256": "77aefb460d49eef03ddff8e9068a37fcc83e4982c3d696aa042b6320e972e38e",
+          "track_ids": [
+            "track.09",
+            "track.10"
+          ],
+          "width_pt": 595.2755905511812
+        }
+      ],
+      "parity_gate_id": "302292f18673f9b8ba6f5cae49ed4ff0e3225ce95a46524e95a15342c7468497",
+      "pdf_file": "a4_portrait/a4_portrait.pdf",
+      "pdf_sha256": "187a00b2aa4d0dcd060dcc09fbb04c56f66cbf2a36208d730e7244d5ea1b1013",
+      "profile_id": "a4_portrait"
+    },
+    {
+      "dpi": 96,
+      "geometry_signature": "13f315e99c08222408ec58d47d6dcdd2b86682b8d1e557be1020aa02fa200e12",
+      "issues": [],
+      "ok": true,
+      "orientation": "landscape",
+      "page_count": 2,
+      "page_size": "A4",
+      "pages": [
+        {
+          "chrome_primitive_count": 27,
+          "height_pt": 595.2755905511812,
+          "index": 1,
+          "png_file": "a4_landscape/page-01.png",
+          "png_height": 794,
+          "png_sha256": "4079c02467bdab78a59a4b32393363e669c1eb6a6f5e5a87fb3954a5b0ebb8e1",
+          "png_width": 1123,
+          "svg_file": "a4_landscape/page-01.svg",
+          "svg_sha256": "e1e862dda1a59c147f70f1c1ead73ba806bfeebdccd1155aa6c6496251ad84e3",
+          "track_ids": [
+            "track.01",
+            "track.02",
+            "track.03",
+            "track.04",
+            "track.05",
+            "track.06"
+          ],
+          "width_pt": 841.8897637795277
+        },
+        {
+          "chrome_primitive_count": 27,
+          "height_pt": 595.2755905511812,
+          "index": 2,
+          "png_file": "a4_landscape/page-02.png",
+          "png_height": 794,
+          "png_sha256": "9dd1ff2db4716646ddf880f106ceac244f03882e5545112ede9d2a39ac491a1a",
+          "png_width": 1123,
+          "svg_file": "a4_landscape/page-02.svg",
+          "svg_sha256": "5f7a946c71c37666478afb6c298d63bf763d483eb95d90733a63625368af0b91",
+          "track_ids": [
+            "track.07",
+            "track.08",
+            "track.09",
+            "track.10"
+          ],
+          "width_pt": 841.8897637795277
+        }
+      ],
+      "parity_gate_id": "b06bb0a05cd868f2998c01b631be19cdad10c001717912a7b79752d68207daed",
+      "pdf_file": "a4_landscape/a4_landscape.pdf",
+      "pdf_sha256": "f671b9d812025ae561501ada3e7de2dc08127dd2c980bd42c56a8fbcce372de4",
+      "profile_id": "a4_landscape"
+    },
+    {
+      "dpi": 96,
+      "geometry_signature": "a9dfc79c1c3ccef4949db851e090723abb911af3efa5d7373e8b2b077994260c",
+      "issues": [],
+      "ok": true,
+      "orientation": "portrait",
+      "page_count": 2,
+      "page_size": "A3",
+      "pages": [
+        {
+          "chrome_primitive_count": 27,
+          "height_pt": 1190.5511811023623,
+          "index": 1,
+          "png_file": "a3_portrait/page-01.png",
+          "png_height": 1588,
+          "png_sha256": "2bcb3fb45960afdf5e9b1674fac8efbbdeff067c5a2f809c40e3c58ae2a4671b",
+          "png_width": 1123,
+          "svg_file": "a3_portrait/page-01.svg",
+          "svg_sha256": "c552e8b291b69c6fe6d7045f16eda3eafe114994903b3609a617208f59211e08",
+          "track_ids": [
+            "track.01",
+            "track.02",
+            "track.03",
+            "track.04",
+            "track.05",
+            "track.06"
+          ],
+          "width_pt": 841.8897637795277
+        },
+        {
+          "chrome_primitive_count": 27,
+          "height_pt": 1190.5511811023623,
+          "index": 2,
+          "png_file": "a3_portrait/page-02.png",
+          "png_height": 1588,
+          "png_sha256": "548c3faed67fc420f5c99ea5260cc3033b461310f5ddf4122b07c45c2a329845",
+          "png_width": 1123,
+          "svg_file": "a3_portrait/page-02.svg",
+          "svg_sha256": "2793da3f16d70d5a7a2c13053a8ffd14dde1f0766a511aac06ebaac0a2ae88ff",
+          "track_ids": [
+            "track.07",
+            "track.08",
+            "track.09",
+            "track.10"
+          ],
+          "width_pt": 841.8897637795277
+        }
+      ],
+      "parity_gate_id": "56a469eb211277887b19927169c1ec4053bdba35a76f89d447174cf345e88930",
+      "pdf_file": "a3_portrait/a3_portrait.pdf",
+      "pdf_sha256": "2d30cc7102cb2a49351d4737bbd037582d8bd3f345027a82bb2849bd6ba95b74",
+      "profile_id": "a3_portrait"
+    },
+    {
+      "dpi": 96,
+      "geometry_signature": "26d998d4acba99779c7fe5c46f556614a89c485c1c4699fa0467b8aa1c7fc84b",
+      "issues": [],
+      "ok": true,
+      "orientation": "landscape",
+      "page_count": 2,
+      "page_size": "A3",
+      "pages": [
+        {
+          "chrome_primitive_count": 27,
+          "height_pt": 841.8897637795277,
+          "index": 1,
+          "png_file": "a3_landscape/page-01.png",
+          "png_height": 1123,
+          "png_sha256": "ad2a5aec18bb4c6643a9b8856553a4e4052d2940faa92ae514199d845b3af242",
+          "png_width": 1588,
+          "svg_file": "a3_landscape/page-01.svg",
+          "svg_sha256": "a52e10833cd11439dde56135faa8013f4f3c79f2851abfe87b260e3e73604322",
+          "track_ids": [
+            "track.01",
+            "track.02",
+            "track.03",
+            "track.04",
+            "track.05",
+            "track.06",
+            "track.07",
+            "track.08",
+            "track.09"
+          ],
+          "width_pt": 1190.5511811023623
+        },
+        {
+          "chrome_primitive_count": 27,
+          "height_pt": 841.8897637795277,
+          "index": 2,
+          "png_file": "a3_landscape/page-02.png",
+          "png_height": 1123,
+          "png_sha256": "5df92054c1fa2621845227a7834b55ab1fc532f1bda7e560d344a98780847116",
+          "png_width": 1588,
+          "svg_file": "a3_landscape/page-02.svg",
+          "svg_sha256": "aad6ee548ad5072d36f6441bea0b9c2b39e0d114a60287486ef58fa9bcf1a903",
+          "track_ids": [
+            "track.10"
+          ],
+          "width_pt": 1190.5511811023623
+        }
+      ],
+      "parity_gate_id": "68a8a7243ca211cd680757289c8dd4ec7dca3f608f447269b9e740b4879d80cc",
+      "pdf_file": "a3_landscape/a3_landscape.pdf",
+      "pdf_sha256": "ca1d6a7d9485341d0f7a2fc48c92f9cd14c2aaabd75397cdecddcdfbd544ad72",
+      "profile_id": "a3_landscape"
+    }
+  ],
+  "schema": "visualization.physical-golden-artifacts.manifest",
+  "single_pipeline_source": true,
+  "source_file": "reference_physical_ten_tracks.json",
+  "source_sha256": "b8f19e5c7259f227aca70223e443193508a6f453f40ea163405da08aca375d82",
+  "version": "1.0",
+  "visual_regression": true
+}

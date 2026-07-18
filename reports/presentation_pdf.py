@@ -583,6 +583,31 @@ def _statistics_table_pdf(entries: Sequence[dict[str, object]], styles: dict[str
     return [_paragraph("Статистика кривых", styles["h2"]), table, Spacer(1, 7)]
 
 
+class _AutoScaleRasterImage(Image):
+    """Scale a raster preview to the current ReportLab frame.
+
+    Page-aware previews can be portrait while the containing professional report
+    is landscape (and vice versa).  Fixed millimetre limits therefore overflow
+    short frames.  ``wrap`` receives the real remaining frame dimensions and is
+    the only safe place to determine the final size.
+    """
+
+    def __init__(self, source: object, *, max_width: float = 185 * mm, max_height: float = 235 * mm) -> None:
+        super().__init__(source)
+        self._source_width = float(self.imageWidth or 1)
+        self._source_height = float(self.imageHeight or 1)
+        self._max_width = max_width
+        self._max_height = max_height
+
+    def wrap(self, avail_width: float, avail_height: float) -> tuple[float, float]:
+        usable_width = max(1.0, min(float(avail_width), self._max_width))
+        usable_height = max(1.0, min(float(avail_height), self._max_height))
+        ratio = min(usable_width / self._source_width, usable_height / self._source_height)
+        self.drawWidth = self._source_width * ratio
+        self.drawHeight = self._source_height * ratio
+        return self.drawWidth, self.drawHeight
+
+
 class _AutoScaleSvgDrawing(Flowable):
     """Scale an SVG drawing to the actual report frame instead of fixed millimetres."""
 
@@ -744,10 +769,7 @@ def _document_visualization_preview(block: DocumentVisualizationPreview, styles:
                 png = pixmap.tobytes("png")
             finally:
                 document.close()
-            image = Image(BytesIO(png))
-            ratio = min((185 * mm) / image.imageWidth, (235 * mm) / image.imageHeight)
-            image.drawWidth = image.imageWidth * ratio
-            image.drawHeight = image.imageHeight * ratio
+            image = _AutoScaleRasterImage(BytesIO(png))
             items.append(image)
             items.append(Spacer(1, 8))
     except Exception as exc:

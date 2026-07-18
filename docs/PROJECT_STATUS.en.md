@@ -1,35 +1,31 @@
-# Current status — v225.5
+# Current Status — v225.6
 
 Updated: 18 July 2026.
 
 ## Active stage
 
-**Stage 4 — Workbench UI Completion / Stabilization & Release Audit.** Build status: **release candidate v225.5**.
+**Stage 4 — Acceptance, Visual Baseline & Legacy Contract Audit / Stabilization & Release Audit.** The build is **release candidate v225.6**.
 
 ## Implemented
 
-- `VisualizationCrossFormatParityGate` automatically compares SVG, PNG, PDF, DOCX, and HTML;
-- `VisualizationPageAwarePackage` v1.3 is ready only after the parity gate passes;
-- Professional Print Center exposes the exact profile, pages, parity status, and gate id;
-- persistent user A4/A3 physical profiles are available;
-- minimum font, line, and track width are protected by baseline safety floors;
-- professional report export and LAS Viewer use page-aware static delivery;
-- multi-page SVG/PNG is delivered as a ZIP with `manifest.json`;
-- legacy CompositeLog static export is retired;
-- documentation is synchronized in Russian, Kazakh, and English.
+- visual golden artifacts are frozen for A4/A3 portrait and landscape;
+- the manifest verifies SVG, PNG, PDF, physical dimensions, pagination, track partition, page chrome, and SHA-256;
+- reproducible regeneration is provided by `scripts/regenerate_physical_golden_artifacts.py`;
+- an end-to-end `ProfessionalPrintCenterAcceptanceRunner` is implemented;
+- the acceptance path covers persisted profile selection, visible preview, parity gate, HTML/PDF/DOCX bundle, and SVG/PNG delivery;
+- fixed `LayoutError` when a portrait physical preview is embedded in a landscape PDF report;
+- all 51 legacy regression contracts are registered in a machine-readable audit;
+- the audit forbids silent `xfail` and test deletion without a replacement contract;
+- user release archives exclude `.github/workflows`.
 
 ## Release verification
 
-Release-gate result:
-
-- targeted renderer/export/UI set: **123 passed**;
-- full regression suite: **2843 tests, 2792 passed, 51 failed**;
-- all 51 failures reproduce on clean v225.4;
-- new v225.5 regression failures: **0**;
-- Python compileall, 108 relative Markdown links, and the documentation manifest: successful.
-
-Known legacy regression failures are evaluated separately and are not hidden.
+- targeted v225.6 acceptance/golden/audit and compatible renderer/export set: **150 passed**;
+- full regression suite: **2853 tests, 2802 passed, 51 failed**;
+- the 51 failures remain visible in the inherited registry;
+- new v225.6 regression failures: **0**;
+- Python compileall, documentation links, manifest, and archive: **passed**.
 
 ## Next stage
 
-Complete Stage 4 through a real user acceptance path: create/select a profile, preflight preview, parity status, PDF/DOCX/HTML export, and multi-page SVG/PNG bundle delivery.
+Resolve the nine confirmed architecture-boundary debts and replace brittle source/visual assertions with approved behavior/golden contracts. Stable promotion requires zero release-blocking debt.

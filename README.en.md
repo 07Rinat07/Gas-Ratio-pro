@@ -31,13 +31,14 @@ A professional trilingual engineering platform for importing, quality-controllin
 - well correlation and preparation for multi-well log panels;
 - Russian, Kazakh, and English interface and documentation.
 
-## Print and export v225.5
+## Print and export validation v225.6
 
-- an automated cross-format parity gate verifies SVG, PNG, PDF, DOCX, and HTML before delivery;
-- user A4/A3 physical profiles persist margins, DPI, orientation, and certified readability floors;
-- multi-page SVG/PNG is delivered as a manifest-backed ZIP and is never collapsed to page one;
-- legacy CompositeLog static export is retired; Professional Print Center uses only the page-aware package;
-- [user instructions](docs/user/en/print_center_page_aware.md);
+- approved golden artifacts now cover every A4/A3 portrait/landscape profile;
+- the manifest freezes every SVG/PNG page, multi-page PDF, track partition, physical bounds, and checksum;
+- an end-to-end acceptance test runs from persisted user-profile selection through HTML/PDF/DOCX and SVG/PNG delivery;
+- PDF preview images now scale to the actual report frame when page and report orientations differ;
+- all 51 inherited legacy regression contracts are classified without silent `xfail`;
+- [user guide](docs/user/en/print_center_page_aware.md);
 - [developer architecture](docs/developer/en/page_aware_print_architecture.md).
 
 ## Installation and launch

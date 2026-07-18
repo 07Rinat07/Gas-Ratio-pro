@@ -1,37 +1,29 @@
 # План проекта Gas Ratio Pro
 
-Обновлено: 18 июля 2026 года. Активная сборка: `v225.5`.
+Обновлено: 18 июля 2026 года. Активная сборка: `v225.6`.
 
-## Обязательные инженерные принципы
+## Завершённый этап — v225.6
 
-- один pipeline является источником физической геометрии;
-- `export_ready` требует успешный cross-format parity gate;
-- пользовательские A4/A3 профили не могут ослаблять readability floors;
-- multi-page SVG/PNG не сокращается до первой страницы;
-- документация и инструкции обновляются синхронно на `ru / kk / en`.
+- четыре physical golden baselines A4/A3 portrait/landscape;
+- reproducible golden regeneration и checksum verification;
+- полный Professional Print Center acceptance-path;
+- auto-scale raster preview по фактическому PDF frame;
+- machine-readable audit всех 51 legacy regressions;
+- replacement policy без silent `xfail`;
+- трёхъязычная документация и release governance.
 
-## Завершённый этап — v225.5
+## Следующий разрешённый инкремент — Legacy Contract Remediation
 
-- parity gate SVG/PNG/PDF/DOCX/HTML;
-- page-aware package v1.3;
-- persistent user profiles;
-- manifest-backed static bundles;
-- retirement CompositeLog static-export;
-- parity status в Professional Print Center;
-- тесты и документация на трёх языках.
-
-## Следующий разрешённый инкремент — Stage 4 Acceptance & Stable Promotion
-
-1. Выполнить пользовательский acceptance-path создания и выбора профиля.
-2. Проверить A4/A3 portrait/landscape и custom profiles на реальных данных.
-3. Зафиксировать visual golden artifacts.
-4. Разобрать remaining legacy test failures.
-5. Выпустить stable только после полного release gate.
+1. Исправить architecture-boundary нарушения, не ослабляя audit policy.
+2. Перенести brittle source assertions на view-model и runtime behavior.
+3. Согласовать visual rebaseline через golden artifacts.
+4. Удалять obsolete tests только после добавления replacement tests.
+5. Повторить full regression и stable promotion gate.
 
 ## Definition of Done
 
-- package parity подтверждена автоматически;
-- физический профиль видим и воспроизводим;
-- все страницы сохраняются во всех форматах;
-- legacy first-page/static fallback отсутствует;
-- build metadata, README, инструкции, status, roadmap, changelog и manifest синхронизированы.
+- все четыре golden profile manifest проходят без изменения checksum;
+- E2E acceptance создаёт валидные HTML/PDF/DOCX и SVG/PNG;
+- каждый legacy contract имеет решение и replacement;
+- release-blocking architecture debt равен нулю;
+- версия, инструкции, status, roadmap, changelog и manifest синхронизированы на `ru/kk/en`.

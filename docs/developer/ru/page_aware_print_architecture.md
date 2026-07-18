@@ -1,6 +1,6 @@
 # Архитектура page-aware печати и прямого preview
 
-Revision: 3 · GAS RATIO PRO v225.5
+Revision: 4 · GAS RATIO PRO v225.6
 
 ## Единый источник геометрии
 
@@ -45,3 +45,19 @@ Revision: 3 · GAS RATIO PRO v225.5
 ## Retirement static-export
 
 Professional report и LAS Viewer используют `build_page_aware_static_artifact()`. Одностраничный SVG/PNG выдаётся напрямую, многостраничный — ZIP с manifest. Независимая CompositeLog SVG/PNG/PDF ветка в `reports.export_static` удалена и заменена явным запретом legacy path. Обычные Plotly-графики остаются на Kaleido и не считаются физическим Print Center документом.
+
+## Physical golden artifacts v225.6
+
+`VisualizationPhysicalGoldenArtifactService` строит один десятидорожечный renderer-neutral fixture для `a4_portrait`, `a4_landscape`, `a3_portrait` и `a3_landscape`. Для каждой физической страницы сохраняются SVG и PNG, для профиля — один многостраничный PDF. `manifest.json` фиксирует SHA-256, размеры в points/pixels, track partition, chrome primitive count, geometry signature и parity gate id.
+
+Эталон обновляется только командой `python scripts/regenerate_physical_golden_artifacts.py` после визуального review. Тест повторной генерации сравнивает structural signature и визуальные checksums.
+
+## End-to-end Print Center acceptance
+
+`ProfessionalPrintCenterAcceptanceRunner` выполняет application-level путь без raw DataFrame downstream: profile store → `ReportPageAwarePreviewService` → visible view model → `PresentationModel` → HTML/PDF/DOCX bundle → SVG/PNG static delivery. Результат сохраняется как `print-center-acceptance-report.json`.
+
+Для PDF добавлен `_AutoScaleRasterImage`. Размер физического preview определяется в `wrap()` по фактическим `avail_width` и `avail_height`, поэтому portrait/landscape комбинации не вызывают ReportLab `LayoutError`.
+
+## Legacy regression audit
+
+`config/legacy_regression_contracts_v225_6.json` содержит все 51 inherited failure. Каждый contract имеет category, disposition, severity, rationale и replacement contract. Политика запрещает silent `xfail`, скрытие architecture debt и удаление тестов без замены.
