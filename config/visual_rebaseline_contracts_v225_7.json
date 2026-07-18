@@ -1,0 +1,362 @@
+{
+  "baseline_release": "v225.6",
+  "contract_count": 13,
+  "contracts": [
+    {
+      "approved_release": "v225.7",
+      "id": "LR-002",
+      "nodeid": "tests/test_depth_graph_focus_v222_10.py::test_depth_graphs_share_focused_range_and_interval_overlays",
+      "semantic_contract": {
+        "builders": [
+          {
+            "builder": "build_depth_gas_tracks",
+            "curve_names": [
+              "C1",
+              "C2",
+              "C3",
+              "iC4",
+              "nC4",
+              "iC5",
+              "nC5",
+              "Σ C1–C5"
+            ],
+            "depth_range": [
+              1002.0,
+              1000.0
+            ],
+            "interval_marker": "Нефть",
+            "interval_marker_mode": "markers",
+            "legend_y": 1.1,
+            "shape_count": 3
+          },
+          {
+            "builder": "build_depth_ratio_tracks",
+            "curve_names": [
+              "Wh",
+              "Bh",
+              "Ch",
+              "Bar-2"
+            ],
+            "depth_range": [
+              1002.0,
+              1000.0
+            ],
+            "interval_marker": "Нефть",
+            "interval_marker_mode": "markers",
+            "legend_y": 1.1,
+            "shape_count": 3
+          },
+          {
+            "builder": "build_depth_pixler_tracks",
+            "curve_names": [
+              "C1/C2",
+              "C1/C3",
+              "C1/C4",
+              "C1/C5"
+            ],
+            "depth_range": [
+              1002.0,
+              1000.0
+            ],
+            "interval_marker": "Нефть",
+            "interval_marker_mode": "markers",
+            "legend_y": 1.1,
+            "shape_count": 3
+          }
+        ]
+      },
+      "semantic_sha256": "51750688764ba77bcdd764c251fab422ef56f035410be9c41ddd65d095d15964",
+      "status": "approved",
+      "summary": "Depth charts use line curves, a dedicated selected-interval marker, shared depth range and an above-plot legend."
+    },
+    {
+      "approved_release": "v225.7",
+      "id": "LR-011",
+      "nodeid": "tests/test_palette_config.py::test_ternary_regions_are_rendered",
+      "semantic_contract": {
+        "polygon_names": [
+          "Draft gas-prone area",
+          "Draft oil-prone area"
+        ],
+        "region_count": 2,
+        "region_label_trace_count": 2,
+        "selected_marker_mode": "markers+text",
+        "selected_marker_name": "Выбранная глубина"
+      },
+      "semantic_sha256": "77002f08a6efa4982c0fc689665c3f74a949f2d4e12825ea3904548b8138280d",
+      "status": "approved",
+      "summary": "Each ternary region is represented by a polygon and an independent text label; the selected depth remains a dedicated marker."
+    },
+    {
+      "approved_release": "v225.7",
+      "id": "LR-013",
+      "nodeid": "tests/test_plot_cache_v222_rc6.py::test_tablet_engineering_headers_have_separate_boxes",
+      "semantic_contract": {
+        "background": "rgba(11,18,32,0.92)",
+        "border_width": 1,
+        "header_texts": [
+          "Тип<br>пласта",
+          "Достовер-<br>ность",
+          "QC /<br>действия"
+        ],
+        "header_y": 1.035,
+        "top_margin": 118
+      },
+      "semantic_sha256": "7af8cdb1fc5b47797b0666abc18ef50891a03ec9c5b53b9759ef849996767aa6",
+      "status": "approved",
+      "summary": "Engineering tablet headers are boxed, aligned above the plotting area, and separated from the curve title row."
+    },
+    {
+      "approved_release": "v225.7",
+      "id": "LR-014",
+      "nodeid": "tests/test_plot_header_separation_v222_63.py::test_depth_legend_is_below_plot_and_title_has_own_row",
+      "semantic_contract": {
+        "bottom_margin": 72,
+        "legend_position": "above",
+        "legend_y": 1.1,
+        "separated": true,
+        "title_y": 0.995,
+        "top_margin": 142
+      },
+      "semantic_sha256": "a09027edf1c79f33b8dbc2b57f16ae81ee2e3b3508568d7f752edc951759757e",
+      "status": "approved",
+      "summary": "The depth-chart legend is intentionally above the plot and above the title row, with top margin reserved for both."
+    },
+    {
+      "approved_release": "v225.7",
+      "id": "LR-018",
+      "nodeid": "tests/test_presentation_html_report.py::test_engineering_presentation_html_uses_engineer_first_profile",
+      "semantic_contract": {
+        "figure_count": 1,
+        "forbidden_headings": [
+          "Диагностика движка УВ-интервалов",
+          "Technical row"
+        ],
+        "profile": "engineering",
+        "required_headings": [
+          "Обзорный планшет скважины",
+          "Инженерная сводка перспективных интервалов",
+          "Реестр интерпретированных УВ-интервалов"
+        ]
+      },
+      "semantic_sha256": "f15c3c0aa38819f35e31865cbcb930a435c5f42c65727d4f0d22d5bd46158b72",
+      "status": "approved",
+      "summary": "Engineering HTML uses the overview tablet heading and engineer-first sections without the technical appendix."
+    },
+    {
+      "approved_release": "v225.7",
+      "id": "LR-019",
+      "nodeid": "tests/test_report_interval_pages_v222_13.py::test_client_profile_limits_detail_pages",
+      "semantic_contract": {
+        "detail_depth_ranges": [
+          [
+            1245.0,
+            1260.0
+          ],
+          [
+            1295.0,
+            1310.0
+          ],
+          [
+            1345.0,
+            1360.0
+          ],
+          [
+            1395.0,
+            1410.0
+          ],
+          [
+            1445.0,
+            1460.0
+          ]
+        ],
+        "detail_interval_counts": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "detail_page_limit": 5,
+        "detail_report_kinds": [
+          "detail",
+          "detail",
+          "detail",
+          "detail",
+          "detail"
+        ],
+        "figure_count": 6,
+        "overview_report_kind": "overview"
+      },
+      "semantic_sha256": "1bcb986fc2a14c72d0e12733682965598daa27e88cf6bed18be361a0e377683d",
+      "status": "approved",
+      "summary": "The client profile limits interval detail pages to five and stores renderer-neutral detail metadata on CompositeLogResult."
+    },
+    {
+      "approved_release": "v225.7",
+      "id": "LR-020",
+      "nodeid": "tests/test_report_plot_hotfix_v222_67.py::test_print_plot_contains_statistics_and_selected_point",
+      "semantic_contract": {
+        "required_statistics": [
+          "Wh",
+          "Bh",
+          "Ch"
+        ],
+        "selected_annotation": "<b>Параметр</b><br>1001.00 м · 2",
+        "selected_depth": "1001.00 м",
+        "selected_value": "2"
+      },
+      "semantic_sha256": "e2c6465ef0a99dca9abbb73fb5c4b33a8bf281421b0e7fa4867ccb5d36abc38b",
+      "status": "approved",
+      "summary": "Print plots expose Wh/Bh/Ch statistics and a readable selected-depth annotation in the canonical annotation row."
+    },
+    {
+      "approved_release": "v225.7",
+      "id": "LR-021",
+      "nodeid": "tests/test_report_print_ux_v222_57.py::test_report_plot_theme_enforces_print_readability",
+      "semantic_contract": {
+        "axis_tick_font_pt": 22,
+        "axis_title_font_pt": 24,
+        "base_font_pt": 26,
+        "legend_font_pt": 22,
+        "legend_visible": false,
+        "legend_y": 1.02,
+        "marker_size": 8,
+        "scatter_line_width": 2.2,
+        "title_font_pt": 32
+      },
+      "semantic_sha256": "fe7ff9cf88182a85abc3e7e9d81745ff567c1e7267190e24ee03574bac6fb6d3",
+      "status": "approved",
+      "summary": "The corporate print theme uses the approved large-format typography, axes and line weights."
+    },
+    {
+      "approved_release": "v225.7",
+      "id": "LR-023",
+      "nodeid": "tests/test_report_print_ux_v222_57.py::test_print_legends_are_not_micro_text",
+      "semantic_contract": {
+        "docx_legend_font_pt": 10.0,
+        "docx_plot_height_px": 2200,
+        "docx_plot_width_px": 3200,
+        "legend_layout": "one-item-per-row",
+        "minimum_body_font_pt": 9.0,
+        "pdf_legend_font_pt": 9.5,
+        "pdf_plot_height_px": 3000,
+        "pdf_plot_width_px": 2800,
+        "schema": "gas-ratio-pro.report-print-readability",
+        "version": "1.0"
+      },
+      "semantic_sha256": "f3694a2359a04ae063aefa7288a71638baca57dda2bfc5e62d07270137803bdb",
+      "status": "approved",
+      "summary": "PDF and DOCX consume one renderer-neutral print-readability contract rather than source-text constants."
+    },
+    {
+      "approved_release": "v225.7",
+      "id": "LR-032",
+      "nodeid": "tests/test_tablet_commercial_visual_v222_6.py::test_print_tablet_uses_one_depth_title_legend_and_priority_frame",
+      "semantic_contract": {
+        "depth_title_count": 1,
+        "global_legend": false,
+        "legend_orientation": "h",
+        "legend_trace_names": [
+          "C1 — Метан",
+          "C2 — Этан"
+        ],
+        "priority_frame_color": "#f6c344",
+        "priority_interval_label": "1001.5–1002.8 м"
+      },
+      "semantic_sha256": "b98a46d59c81b236da2f154f26941c11b679a910cc319ceb31c540bd277de3a1",
+      "status": "approved",
+      "summary": "The print tablet suppresses Plotly's global legend and uses dedicated legend-only traces while preserving the priority frame and one depth title."
+    },
+    {
+      "approved_release": "v225.7",
+      "id": "LR-033",
+      "nodeid": "tests/test_tablet_commercial_visual_v222_6.py::test_screen_tablet_has_shared_legend_and_priority_interval",
+      "semantic_contract": {
+        "depth_title_count": 1,
+        "global_legend": false,
+        "legend_trace_names": [
+          "C1",
+          "C2",
+          "Газ",
+          "Нефть"
+        ],
+        "priority_frame_color": "#f6c344",
+        "priority_interval_label": "1001.5–1002.8 м"
+      },
+      "semantic_sha256": "d2ca9bc7c0e96ac534627a1287c9a7f11d048ec407295f942b32ba9aa95a7e80",
+      "status": "approved",
+      "summary": "The screen tablet uses dedicated shared-legend traces, one depth title, and the certified priority interval frame."
+    },
+    {
+      "approved_release": "v225.7",
+      "id": "LR-034",
+      "nodeid": "tests/test_ternary_interval_plot_v214.py::test_ternary_figure_contains_regions_cloud_median_and_selected_depth",
+      "semantic_contract": {
+        "measurement_name": "Измерения (2)",
+        "median_name": "Медианный центр",
+        "region_label_trace_count": 2,
+        "region_polygon_names": [
+          "Gas-prone",
+          "Oil-prone"
+        ],
+        "selected_depth_name": "Глубина 1000.5 м",
+        "total_trace_count": 7,
+        "valid_points": "2/2"
+      },
+      "semantic_sha256": "ee7d0487e81abd4b1a737121c7007e08ac5335fa9ce7703a0e4f24c1893d8659",
+      "status": "approved",
+      "summary": "Ternary interval output contains region polygons and labels plus measurement cloud, median centre and selected depth."
+    },
+    {
+      "approved_release": "v225.7",
+      "id": "LR-035",
+      "nodeid": "tests/test_well_log_tablet.py::test_per_track_fill_modes_add_baseline_traces_and_titles",
+      "semantic_contract": {
+        "baseline_values": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            20.0,
+            20.0
+          ]
+        ],
+        "curve_fill": [
+          "tonextx",
+          "tonextx"
+        ],
+        "curve_names": [
+          "GR",
+          "C1"
+        ],
+        "fill_modes": [
+          "to_left",
+          "to_right"
+        ],
+        "global_legend": false,
+        "legend_trace_names": [
+          "GR",
+          "C1"
+        ],
+        "title_annotations": [
+          "GR",
+          "C1"
+        ]
+      },
+      "semantic_sha256": "1176bb44c2b33ceb0a73e39b129f87dd82ba024dd26c56868477a2a5de81ef88",
+      "status": "approved",
+      "summary": "Per-track fill uses explicit baselines and curve fills, while dedicated legend traces remain separate from drawing traces."
+    }
+  ],
+  "policy": {
+    "no_trace_count_only_contract": true,
+    "no_unreviewed_hash_update": true,
+    "review_required": true,
+    "semantic_assertions_required": true
+  },
+  "release": "v225.7",
+  "schema": "gas-ratio-pro.visual-rebaseline",
+  "version": "1.0"
+}

@@ -37,9 +37,10 @@ class FakeStreamlit:
 
 
 def test_current_build_identity_keeps_v200_interaction_contract():
-    assert BUILD_VERSION == "v222.24"
-    assert BUILD_CHANNEL == "stable"
+    from pathlib import Path
 
+    assert BUILD_VERSION.startswith("v225.")
+    assert BUILD_CHANNEL in {"stable", "release-candidate"}
 
 def test_titlebar_is_pushed_below_streamlit_system_header():
     css = build_workbench_responsive_css()

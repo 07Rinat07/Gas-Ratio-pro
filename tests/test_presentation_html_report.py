@@ -4,6 +4,7 @@ import pandas as pd
 
 from reports.hydrocarbon_report import build_hydrocarbon_report_payload
 from reports.presentation_html import PresentationHtmlOptions, build_presentation_html_report, select_presentation_tables
+from tests.visual_rebaseline_helpers import assert_visual_rebaseline
 
 
 def _sample_frame() -> pd.DataFrame:
@@ -33,16 +34,22 @@ def test_engineering_presentation_html_uses_engineer_first_profile() -> None:
 
     rendered = build_presentation_html_report(payload.presentation_model)
     html = rendered.content.decode("utf-8")
-
-    assert rendered.profile == "engineering"
-    assert rendered.figure_count == 1
-    assert "Инженерная сводка перспективных интервалов" in html
-    assert "Реестр интерпретированных УВ-интервалов" in html
-    assert "Профессиональный планшет интерпретации" in html
-    assert "Диагностика движка УВ-интервалов" not in html
-    assert "Technical row" not in html
+    required = (
+        "Обзорный планшет скважины",
+        "Инженерная сводка перспективных интервалов",
+        "Реестр интерпретированных УВ-интервалов",
+    )
+    forbidden = ("Диагностика движка УВ-интервалов", "Technical row")
+    assert_visual_rebaseline(
+        "tests/test_presentation_html_report.py::test_engineering_presentation_html_uses_engineer_first_profile",
+        {
+            "profile": rendered.profile,
+            "figure_count": rendered.figure_count,
+            "required_headings": [item for item in required if item in html],
+            "forbidden_headings": [item for item in forbidden if item not in html],
+        },
+    )
     assert "Строк" not in " ".join(payload.presentation_model.metadata.as_report_rows()[0])
-
 
 def test_expert_presentation_html_can_include_technical_appendix_tables() -> None:
     payload = build_hydrocarbon_report_payload(_sample_frame(), report_profile="expert")

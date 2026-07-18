@@ -31,13 +31,14 @@
 - ұңғымаларды корреляциялау және көпұңғымалық планшеттерге дайындық;
 - орыс, қазақ және ағылшын тілдеріндегі интерфейс пен құжаттама.
 
-## Басып шығару мен экспортты тексеру v225.6
+## Архитектура мен тесттерді тұрақтандыру v225.7
 
-- барлық A4/A3 portrait/landscape профильдері үшін бекітілген golden-artifacts қосылды;
-- manifest әр SVG/PNG бетін, көпбетті PDF-ті, track partition, physical bounds және бақылау сомаларын бекітеді;
-- end-to-end acceptance-тесті пайдаланушы профилін сақтаудан HTML/PDF/DOCX және SVG/PNG беруге дейінгі жолды орындайды;
-- аралас бағдарда PDF preview есептің нақты фрейміне автоматты түрде сыйғызылады;
-- 51 legacy regression contract жасырын `xfail` қолданбай жүйелі түрде жіктелді;
+- architecture boundary бойынша барлық 9 бұзушылық жойылды: UI файлдарды тікелей өшірмейді, cache telemetry контейнерде жасалады, lifecycle және rerun application service арқылы өтеді;
+- 26 осал source assertion орындалатын мінез-құлық тесттерімен ауыстырылды (18 legacy registry, бір Print Center contract және 7 PDF preview contract);
+- 13 визуалдық контракт SHA-256 manifest бар бекітілген semantic rebaseline-ға көшірілді;
+- тарихи version pin және ескірген Workbench assertion current-runtime контракттарымен ауыстырылды;
+- мұраланған 51 regression contract `xfail` қолданбай және nodeid жоймай жабылды;
+- PDF/DOCX ортақ renderer-neutral print-readability contract пайдаланады;
 - [пайдаланушы нұсқаулығы](docs/user/kk/print_center_page_aware.md);
 - [әзірлеуші архитектурасы](docs/developer/kk/page_aware_print_architecture.md).
 

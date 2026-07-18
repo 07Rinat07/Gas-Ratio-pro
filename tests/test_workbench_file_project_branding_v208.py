@@ -7,8 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_v208_build_identity():
-    assert BUILD_VERSION == "v222.22"
-
+    assert BUILD_VERSION.startswith("v225.")
 
 def test_title_bar_uses_real_brand_logo():
     source = (ROOT / "app" / "workbench_renderer.py").read_text(encoding="utf-8")
@@ -27,7 +26,8 @@ def test_file_and_project_are_interactive_panels():
 
 
 def test_documentation_does_not_overlay_second_logo():
-    source = (ROOT / "app" / "streamlit_app.py").read_text(encoding="utf-8")
-    function = source[source.index("def _render_documentation_tab"):source.index("def _render_las_editor")]
-    assert "docs-hero-brand-badge" not in function
-    assert "logo_html = \"\"" in function
+    from app import streamlit_app as app
+
+    contract = app._documentation_center_behavior_contract()
+    assert contract.logo_overlay_enabled is False
+    assert app._documentation_hero_data_uri().startswith("data:image/")

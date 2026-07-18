@@ -8,7 +8,7 @@
 - [Интеграция внешних стандартов](external_standard_integration.md) — revision 1
 - [Реестр плагинов форматов](plugin_registry.md) — revision 1
 - [Конвейер импорта](import_pipeline.md) — revision 1
-- [Архитектура page-aware печати](page_aware_print_architecture.md) — revision 2
+- [Архитектура page-aware печати](page_aware_print_architecture.md) — revision 5
 
 ---
 

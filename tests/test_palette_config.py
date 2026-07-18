@@ -8,6 +8,7 @@ import pytest
 from palettes.config import load_palette_config
 from palettes.depth_tracks import build_depth_gas_tracks, build_depth_interpretation_track
 from palettes.ternary import build_ternary_palette
+from tests.visual_rebaseline_helpers import assert_visual_rebaseline
 
 
 def test_load_palette_config_from_json(tmp_path):
@@ -78,10 +79,21 @@ def test_invalid_pixler_zone_is_rejected(tmp_path):
 def test_ternary_regions_are_rendered():
     config = load_palette_config()
     row = pd.Series({"c2_sumc": 0.5, "c3_sumc": 0.3, "nc4_sumc": 0.2})
-
     fig = build_ternary_palette(row, regions=config.ternary_regions)
 
-    assert len(fig.data) == len(config.ternary_regions) + 1
+    polygons = [trace for trace in fig.data if str(getattr(trace, "mode", "")) == "lines"]
+    labels = [trace for trace in fig.data if str(getattr(trace, "mode", "")) == "text"]
+    selected = next(trace for trace in fig.data if getattr(trace, "name", "") == "Выбранная глубина")
+    assert_visual_rebaseline(
+        "tests/test_palette_config.py::test_ternary_regions_are_rendered",
+        {
+            "region_count": len(config.ternary_regions),
+            "polygon_names": [str(trace.name) for trace in polygons],
+            "region_label_trace_count": len(labels),
+            "selected_marker_name": str(selected.name),
+            "selected_marker_mode": str(selected.mode),
+        },
+    )
 
 def test_depth_tracks_use_interval_midpoint_when_depth_is_missing():
     df = pd.DataFrame(

@@ -1,63 +1,32 @@
-# Page-aware басып шығару және тікелей preview архитектурасы
+# Page-aware басып шығару, шекаралар және visual regression архитектурасы
 
-Revision: 4 · GAS RATIO PRO v225.6
+Revision: 5 · GAS RATIO PRO v225.7
 
-## Геометрияның бірыңғай көзі
+## Page-aware pipeline
 
-`VisualizationScenePipeline` физикалық `VisualizationPrintLayout` v2.1 жасайды. `VisualizationPageAwarePackageBuilder` барлық SVG/PNG беттері, көпбетті PDF, geometry signature v3, page chrome және QA нәтижесі бар v1.2 пакетін құрады.
+`VisualizationScenePipeline` → `VisualizationPageAwarePackageBuilder` → `VisualizationCrossFormatParityGate` SVG/PNG/PDF/DOCX/HTML геометриясының жалғыз көзі болып қалады. `export_ready` тек жарамды пакет пен сәтті parity gate кезінде true болады.
 
-## Application bridge
+## Түзетілген architecture boundaries
 
-`ReportPageAwarePreviewService` ағымдағы есеп `DataFrame`-ынан физикалық пакетке өтетін жалғыз шекара болып табылады. Ол `LasVisualizationPayloadService.build_from_frame()` шақырып, кейін `VisualizationPrintCenterService.prepare()` орындайды және renderer-neutral payload-ты `PresentationModel` моделіне қосады.
+- destructive filesystem операцияларын Streamlit UI емес, `TemporaryFileApplicationService`/`DeleteEngine` орындайды;
+- `ApplicationServiceContainer` бір session-scoped `CacheMetricsRegistry` иеленеді;
+- correlation artifacts application service арқылы жасалады;
+- route lifecycle, startup diagnostics және project cache coherence `RuntimeDiagnosticsApplicationService` ішінде;
+- тікелей `st.rerun()` тек бірыңғай refresh gate ішінде рұқсат;
+- UI infrastructure object жасамайды және raw DataFrame downstream жібермейді.
 
-Шикі `DataFrame` жолдары downstream қабаттарына берілмейді.
+## Print readability
 
-## Preview contract v1.1
+`reports.print_readability_contract.REPORT_PRINT_READABILITY` — PDF/DOCX ортақ контракты. Ол легенда қарпінің ең аз өлшемін, raster dimensions және `one-item-per-row` layout-ты бекітеді. Тесттер source мәтінін емес, public contract пен renderer мінез-құлқын тексереді.
 
-`visualization.preview.page-aware` канондық келісімшарты `pages` массивін қамтиды. Әр бетте `index`, `track_ids`, `width_pt`, `height_pt`, chrome primitives саны және дайын SVG бар. `single_page_fallback=false` және `legacy_svg_fallback_allowed=false` жалаушалары міндетті.
+## Controlled visual rebaseline
 
-`reports.visualization_preview.normalize_visualization_preview()` — HTML, DOCX, PDF және asset export үшін ортақ қатаң нормализатор. Page-aware схема үшін канондық `pages` жоқ болса, ол compatibility `svg` немесе `page_svgs` өрістерін қолданбайды.
+`config/visual_rebaseline_contracts_v225_7.json` 13 бекітілген semantic contract және әр canonical JSON snapshot үшін SHA-256 сақтайды. `VisualRebaselineRegistryService` тіркелмеген өзгерісті қабылдамайды. Бастапқы nodeid сақталды.
 
-## Көрінетін Print Center
+## Legacy remediation
 
-`build_professional_print_center_view()` бір prepared package-ті UI келісімшартына айналдырады: нақты профиль, күй, geometry signature және preview беттерінің толық тізімі. Streamlit нәтижені параметрлер сигнатурасы бойынша сақтайды және экспорт кезінде сол report payload-ты береді.
+`config/legacy_regression_contracts_v225_7.json` мұраланған 51 contract-тың бәрін бақылайды. v225.7-де 51 contract `status=resolved`, `resolved_in=v225.7` және evidence мәніне ие. Silent `xfail`, nodeid жою және review-сыз hash өзгертуге тыйым салынады.
 
-## Инварианттар
+## Build identity
 
-- бір pipeline және бір geometry signature;
-- downstream ішінде layout қайта құрылмайды;
-- DOCX/HTML барлық физикалық беттерді тікелей алады;
-- `bundle` форматы сол пакетті пайдаланады;
-- белгілер мен хабарлар `ru/kk/en` үшін синхрондалған;
-- page count сәйкессіздігі preview дайындық күйін бұғаттайды;
-- legacy static-export жолдары parity аудитінен кейін ғана жойылады.
-
-## Cross-format parity gate v1.0
-
-`VisualizationCrossFormatParityGate` `VisualizationPageAwarePackageBuilder` ішінде орындалады. Ол layout, package pages, SVG root dimensions, PNG IHDR dimensions, PDF беттерінің нақты санын, canonical preview pages, track partition және geometry signature мәндерін салыстырады. `VisualizationPageAwarePackage.export_ready` үшін `parity_gate.ok=true` міндетті.
-
-`VisualizationPageAwarePackage` v1.3 нұсқасына жаңартылды. `VisualizationPrintCenterSummary` және UI view model `parity_gate_id` және `cross_format_parity_passed` өрістерін жариялайды.
-
-## Пайдаланушы физикалық профильдері
-
-`UserPhysicalPrintProfileStore` `gas-ratio-pro.physical-print-profiles` JSON схемасын `data/user_preferences/physical_print_profiles.json` файлында сақтайды. `VisualizationPrintLayoutEngine` сериализацияланған `physical_profile` қабылдайды. A4/A3 пайдаланушы профильдері readability floor талаптарын күшейте алады, бірақ базалық шектеулерді әлсірете алмайды.
-
-## Static-export тоқтатылуы
-
-Professional report және LAS Viewer `build_page_aware_static_artifact()` пайдаланады. Бірбетті SVG/PNG тікелей, көпбетті нұсқа manifest бар ZIP ретінде беріледі. `reports.export_static` ішіндегі тәуелсіз CompositeLog SVG/PNG/PDF тармағы жойылып, legacy path-қа нақты тыйым енгізілді. Қалыпты Plotly графиктері Kaleido арқылы қалады және физикалық Print Center құжаты болып саналмайды.
-
-## Physical golden artifacts v225.6
-
-`VisualizationPhysicalGoldenArtifactService` бір он тректі renderer-neutral fixture-ді `a4_portrait`, `a4_landscape`, `a3_portrait` және `a3_landscape` профильдері үшін құрады. Әр физикалық бетке SVG және PNG, әр профильге бір көпбетті PDF сақталады. `manifest.json` SHA-256, point/pixel өлшемдерін, track partition, chrome primitive count, geometry signature және parity gate id бекітеді.
-
-Эталон тек визуалдық review аяқталғаннан кейін `python scripts/regenerate_physical_golden_artifacts.py` командасымен жаңартылады. Қайта генерация тесті structural signature және visual checksum мәндерін салыстырады.
-
-## End-to-end Print Center acceptance
-
-`ProfessionalPrintCenterAcceptanceRunner` raw DataFrame-ді downstream жібермей application-level жолды орындайды: profile store → `ReportPageAwarePreviewService` → visible view model → `PresentationModel` → HTML/PDF/DOCX bundle → SVG/PNG static delivery. Нәтиже `print-center-acceptance-report.json` ретінде сақталады.
-
-PDF үшін `_AutoScaleRasterImage` қосылды. Физикалық preview өлшемі `wrap()` ішінде нақты `avail_width` және `avail_height` арқылы есептеледі, сондықтан portrait/landscape комбинациялары ReportLab `LayoutError` туғызбайды.
-
-## Legacy regression audit
-
-`config/legacy_regression_contracts_v225_6.json` барлық 51 inherited failure-ды қамтиды. Әр contract category, disposition, severity, rationale және replacement contract өрістеріне ие. Policy silent `xfail`, architecture debt жасыру және тестті replacement жоқ жоюға тыйым салады.
+`BUILD_VERSION` файлы Python runtime және PowerShell launcher үшін жалғыз нұсқа көзі. `core.build_info` оны импорт кезінде оқиды; `DEPLOYMENT_BUILD.txt` сол нұсқаны қамтуы тиіс.

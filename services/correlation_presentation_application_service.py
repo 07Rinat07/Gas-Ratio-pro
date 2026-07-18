@@ -58,6 +58,27 @@ class CorrelationPresentationApplicationService:
             raise TypeError("artifacts must be CorrelationRenderArtifacts")
         self._ensure_cache().put(key, artifacts)
 
+    def put_artifacts(
+        self,
+        key: Hashable,
+        *,
+        studio_panel=None,
+        studio_figure=None,
+        figure=None,
+        figure_title: str = "",
+        figure_file_name: str = "",
+    ) -> CorrelationRenderArtifacts:
+        """Construct and cache correlation artifacts behind the application boundary."""
+        artifacts = CorrelationRenderArtifacts(
+            studio_panel=studio_panel,
+            studio_figure=studio_figure,
+            figure=figure,
+            figure_title=str(figure_title),
+            figure_file_name=str(figure_file_name),
+        )
+        self._ensure_cache().put(key, artifacts)
+        return artifacts
+
     def invalidate(self, key: Hashable | None = None) -> int:
         if self._cache is None:
             return 0

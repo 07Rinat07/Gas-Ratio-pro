@@ -1,31 +1,44 @@
-# Current Status — v225.6
+# Current Status — v225.7
 
-Updated: 18 July 2026.
+Updated: July 18, 2026.
 
 ## Active stage
 
-**Stage 4 — Acceptance, Visual Baseline & Legacy Contract Audit / Stabilization & Release Audit.** The build is **release candidate v225.6**.
+**Stage 4 — Workbench UI Completion / Stabilization & Release Audit.** The build remains **release candidate v225.7**.
 
 ## Implemented
 
-- visual golden artifacts are frozen for A4/A3 portrait and landscape;
-- the manifest verifies SVG, PNG, PDF, physical dimensions, pagination, track partition, page chrome, and SHA-256;
-- reproducible regeneration is provided by `scripts/regenerate_physical_golden_artifacts.py`;
-- an end-to-end `ProfessionalPrintCenterAcceptanceRunner` is implemented;
-- the acceptance path covers persisted profile selection, visible preview, parity gate, HTML/PDF/DOCX bundle, and SVG/PNG delivery;
-- fixed `LayoutError` when a portrait physical preview is embedded in a landscape PDF report;
-- all 51 legacy regression contracts are registered in a machine-readable audit;
-- the audit forbids silent `xfail` and test deletion without a replacement contract;
-- user release archives exclude `.github/workflows`.
+- all nine confirmed architecture-boundary violations were removed without weakening the audit policy;
+- temporary-file destruction now belongs to an application lifecycle service and uses `DeleteEngine`;
+- cache telemetry is created once by the application container and injected through service boundaries;
+- route lifecycle, startup diagnostics, and cache coherence belong to the application service;
+- direct `st.rerun()` is allowed only inside the unified rerun gate;
+- 26 brittle source assertions were replaced with executable behavior contracts (18 from the legacy registry, one Print Center contract, and seven PDF preview contracts);
+- 13 visual legacy checks were migrated to approved semantic snapshots;
+- `visual_rebaseline_contracts_v225_7.json` and SHA-256 validation were added;
+- six historical version pins were replaced with current-build identity contracts;
+- five obsolete Workbench compatibility assertions were replaced with runtime/view-model checks;
+- all 51 legacy regression contracts now contain `resolved_in`, evidence, and a replacement contract;
+- the root `BUILD_VERSION` file is the single build-version source;
+- the user release archive excludes `.github/workflows`.
+
+## Legacy regression state
+
+- registered contracts: **51**;
+- resolved in v225.7: **51**;
+- active legacy contracts: **0**;
+- silent `xfail` and test deletion without a replacement contract remain prohibited.
 
 ## Release verification
 
-- targeted v225.6 acceptance/golden/audit and compatible renderer/export set: **150 passed**;
-- full regression suite: **2853 tests, 2802 passed, 51 failed**;
-- the 51 failures remain visible in the inherited registry;
-- new v225.6 regression failures: **0**;
-- Python compileall, documentation links, manifest, and archive: **passed**.
+- extended architecture/renderer/export/documentation set: **480 passed**;
+- complete regression suite: **2855 passed, 0 failed**;
+- all 51 legacy nodeids are included in the full suite and pass their replacement contracts;
+- new v225.7 regression failures: **0**;
+- Python compileall: **passed**; 92 relative Markdown links and 36 manifest paths: **valid**.
+
+The automated release gate has passed. Stable promotion remains blocked only by live Workbench acceptance.
 
 ## Next stage
 
-Resolve the nine confirmed architecture-boundary debts and replace brittle source/visual assertions with approved behavior/golden contracts. Stable promotion requires zero release-blocking debt.
+Run the full regression audit, start the application through `run_app.ps1 -ForceRestart`, inspect all five Workbench regions, and only then decide whether v225.7 may move from release candidate to stable.

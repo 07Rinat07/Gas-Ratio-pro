@@ -1,49 +1,27 @@
-# Print Center and direct multi-page preview
+# Print Center, physical pages, and visual-baseline control
 
-Revision: 4 · GAS RATIO PRO v225.6
+Revision: 5 · GAS RATIO PRO v225.7
 
-## What changed
+## Main user workflow
 
-Professional Print Center is now connected directly to the physical page-aware package. Before export, the visible interface calculates and shows:
+1. Select A4/A3, orientation, document language, and a built-in or user profile.
+2. Select **Calculate exact physical package**.
+3. Review page count, every SVG page, and the cross-format parity status.
+4. Run PDF, DOCX, HTML, SVG/PNG, or combined export.
+5. If parity fails, do not replace baselines manually; save diagnostics and recalculate after correcting the source settings.
 
-- A4/A3 format and orientation;
-- DPI and the actual page count;
-- package readiness;
-- a selectable preview for every physical SVG page;
-- the same track partition for PDF, SVG, PNG, DOCX, and HTML.
+## One package
 
-## Workflow
+PDF, SVG, PNG, DOCX, and HTML consume one page-aware package. DOCX/HTML receive the canonical `pages` array; repagination and first-page fallback are forbidden. Multi-page SVG/PNG is delivered as a ZIP with `manifest.json`.
 
-1. Select report sections, paper format, orientation, and document language.
-2. Run **“Calculate exact physical package”**.
-3. Verify the profile, page count, and every page in the preview selector.
-4. Start PDF, DOCX, HTML, or combined PDF+DOCX export.
-5. Do not start another export until the current package has finished.
+## Readability
 
-## DOCX and HTML
+In v225.7 PDF and DOCX consume one print-readability contract. Minimum legend fonts, raster dimensions, and the one-item-per-row legend layout are validated automatically. A user profile cannot weaken the safe A4/A3 floors.
 
-DOCX and HTML receive the canonical `pages` array from preview contract version 1.1. Every entry contains the page index, physical size, track list, and completed SVG. These formats do not rebuild layout and never use the first-page field as a fallback.
+## Visual baseline
+
+The four A4/A3 physical golden profiles remain protected by SVG/PNG/PDF checks. In addition, 13 historical visual tests now use a semantic rebaseline: depth range, intervals, legends, headers, priority frame, ternary regions, and fill modes are checked instead of incidental internal trace counts.
 
 ## Languages
 
-Track, curve, overlay, and page summaries, page labels, error messages, and package status are generated in the selected Russian, Kazakh, or English locale.
-
-## Limitations
-
-Single-page fallback is disabled. If the canonical page array is missing or differs from the declared `page_count`, the package is invalid and must not be silently exported as page one.
-
-## Cross-format parity and user profiles
-
-Before delivery, the package passes an automated parity gate. It compares page count, physical dimensions, track partition, and geometry signature across SVG, PNG, PDF, and the direct DOCX/HTML preview. Any mismatch blocks export.
-
-The page settings allow selection of a built-in profile or persistence of a user A4/A3 profile. A profile stores paper, orientation, margins, DPI, minimum font, minimum track width, and maximum tracks per page. Readability values cannot fall below the certified baseline profile.
-
-When SVG or PNG contains multiple pages, the application creates a ZIP bundle with one file per page and a `manifest.json`. Page one is no longer delivered as the complete document.
-
-## Physical profile validation v225.6
-
-The release contains approved visual baselines for four built-in profiles: A4 portrait, A4 landscape, A3 portrait, and A3 landscape. Each profile validates physical page size, page count, track partition, page chrome, SVG, PNG, and the multi-page PDF.
-
-The complete acceptance test repeats the user path: it persists and selects a user profile, prepares the preview, verifies the parity gate, and exports HTML, PDF, DOCX, SVG, and PNG. When physical-page and report orientations differ, the preview is automatically scaled to the available PDF frame.
-
-Golden artifacts are developer-controlled evidence files. Users do not edit them manually. When export is blocked by parity or golden drift, preserve the diagnostic report and do not replace the baseline without reviewing the physical layout.
+The interface, preview messages, instructions, and diagnostics are supported in Russian, Kazakh, and English.

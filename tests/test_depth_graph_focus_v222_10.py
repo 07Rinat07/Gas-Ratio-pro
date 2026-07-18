@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pandas as pd
 
 from palettes.depth_tracks import build_depth_gas_tracks, build_depth_ratio_tracks, build_depth_pixler_tracks
+from tests.visual_rebaseline_helpers import assert_visual_rebaseline
 
 
 def _frame():
@@ -15,11 +16,33 @@ def _frame():
 
 
 def test_depth_graphs_share_focused_range_and_interval_overlays():
-    overlay = SimpleNamespace(interval_id='HC-001', top_depth=1000.4, bottom_depth=1001.6, fluid_type='oil')
+    overlay = SimpleNamespace(interval_id="HC-001", top_depth=1000.4, bottom_depth=1001.6, fluid_type="oil")
+    snapshots = []
     for builder in (build_depth_gas_tracks, build_depth_ratio_tracks, build_depth_pixler_tracks):
-        fig = builder(_frame(), depth_range=(1000.0, 1002.0), reservoir_intervals=(overlay,), selected_interval_id='HC-001')
-        assert tuple(fig.layout.yaxis.range) == (1002.0, 1000.0)
-        assert len(fig.layout.shapes) >= 3
-        assert any(getattr(trace, 'name', '') == 'Нефть' for trace in fig.data)
-        assert any(getattr(trace, 'mode', '') == 'lines+markers' for trace in fig.data)
-        assert fig.layout.legend.y > 1
+        fig = builder(
+            _frame(),
+            depth_range=(1000.0, 1002.0),
+            reservoir_intervals=(overlay,),
+            selected_interval_id="HC-001",
+        )
+        marker = next(trace for trace in fig.data if getattr(trace, "name", "") == "Нефть")
+        curve_names = []
+        for trace in fig.data:
+            name = str(getattr(trace, "name", "") or "")
+            if getattr(trace, "mode", "") == "lines" and name and name not in curve_names:
+                curve_names.append(name)
+        snapshots.append({
+            "builder": builder.__name__,
+            "curve_names": curve_names,
+            "depth_range": list(fig.layout.yaxis.range),
+            "interval_marker": str(marker.name),
+            "interval_marker_mode": str(marker.mode),
+            "shape_count": len(fig.layout.shapes),
+            "legend_y": float(fig.layout.legend.y),
+        })
+
+    assert_visual_rebaseline(
+        "tests/test_depth_graph_focus_v222_10.py::test_depth_graphs_share_focused_range_and_interval_overlays",
+        {"builders": snapshots},
+    )
+

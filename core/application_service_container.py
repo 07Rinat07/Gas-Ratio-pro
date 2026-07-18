@@ -204,6 +204,30 @@ class ApplicationServiceContainer:
             instance_key=str(Path(catalogs_dir).resolve()),
         )
 
+    def cache_metrics_registry(self):
+        """Return the single session-scoped cache telemetry registry."""
+        from core.cache_metrics import CacheMetricsRegistry
+
+        return self._registry.ensure(
+            "cache_metrics_registry",
+            CacheMetricsRegistry,
+            expected_type=CacheMetricsRegistry,
+            scope="session",
+        )
+
+    def temporary_files(self, *, allowed_roots: tuple[Path | str, ...] | None = None):
+        """Return the session-scoped lifecycle boundary for temporary files."""
+        from services.temporary_file_application_service import TemporaryFileApplicationService
+
+        roots = tuple(allowed_roots or ())
+        instance_key = "|".join(str(Path(root).resolve()) for root in roots) or "system-temp"
+        return self.ensure_session_service(
+            service_name="temporary_files",
+            factory=lambda: TemporaryFileApplicationService(allowed_roots=roots or None),
+            expected_type=TemporaryFileApplicationService,
+            instance_key=instance_key,
+        )
+
     def data_platform(self, *, root: Path | str):
         """Return the workspace-scoped industry data-platform boundary."""
         from services.data_platform_application_service import DataPlatformApplicationService
@@ -396,6 +420,7 @@ class ApplicationServiceContainer:
             PdfPreviewApplicationService,
         )
 
+        effective_metrics = metrics_registry or self.cache_metrics_registry()
         return self.ensure_project_service(
             service_name="pdf_preview",
             project_id=project_id,
@@ -403,7 +428,7 @@ class ApplicationServiceContainer:
             factory=lambda: PdfPreviewApplicationService(
                 root=root,
                 project_id=project_id,
-                metrics_registry=metrics_registry,
+                metrics_registry=effective_metrics,
             ),
             expected_type=PdfPreviewApplicationService,
         )
@@ -419,6 +444,7 @@ class ApplicationServiceContainer:
             CorrelationPresentationApplicationService,
         )
 
+        effective_metrics = metrics_registry or self.cache_metrics_registry()
         return self.ensure_project_service(
             service_name="correlation_presentation",
             project_id=project_id,
@@ -426,7 +452,7 @@ class ApplicationServiceContainer:
             factory=lambda: CorrelationPresentationApplicationService(
                 root=root,
                 project_id=project_id,
-                metrics_registry=metrics_registry,
+                metrics_registry=effective_metrics,
             ),
             expected_type=CorrelationPresentationApplicationService,
         )
@@ -442,6 +468,7 @@ class ApplicationServiceContainer:
             InterpretationPresentationApplicationService,
         )
 
+        effective_metrics = metrics_registry or self.cache_metrics_registry()
         return self.ensure_project_service(
             service_name="interpretation_presentation",
             project_id=project_id,
@@ -449,7 +476,7 @@ class ApplicationServiceContainer:
             factory=lambda: InterpretationPresentationApplicationService(
                 root=root,
                 project_id=project_id,
-                metrics_registry=metrics_registry,
+                metrics_registry=effective_metrics,
             ),
             expected_type=InterpretationPresentationApplicationService,
         )

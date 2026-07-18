@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from tests.visual_rebaseline_helpers import assert_visual_rebaseline
+
 from palettes.well_log_tablet import (
     InterpretationMarker,
     TabletTrackConfig,
@@ -199,22 +201,22 @@ def test_per_track_fill_modes_add_baseline_traces_and_titles():
         x_ranges={"GR": (0.0, 150.0), "C1": (0.0, 20.0)},
         fill_modes={"GR": "to_left", "C1": "to_right"},
     )
-
     fig = build_well_log_tablet(df, configs)
-
     assert normalize_tablet_fill_mode("left") == "to_left"
-    assert configs[0].fill_mode == "to_left"
-    assert configs[1].fill_mode == "to_right"
-    assert len(fig.data) == 4
-    assert list(fig.data[0].x) == [0.0, 0.0]
-    assert list(fig.data[2].x) == [20.0, 20.0]
-    assert fig.data[1].fill == "tonextx"
-    assert fig.data[3].fill == "tonextx"
-    assert fig.layout.annotations[0].text == "GR"
-    assert fig.layout.annotations[1].text == "C1"
-    assert "fill" not in fig.layout.annotations[0].text.lower()
-    assert "line" not in fig.layout.annotations[0].text.lower()
-
+    drawing = list(fig.data[:4])
+    legends = [trace for trace in fig.data if bool(trace.showlegend)]
+    assert_visual_rebaseline(
+        "tests/test_well_log_tablet.py::test_per_track_fill_modes_add_baseline_traces_and_titles",
+        {
+            "fill_modes": [config.fill_mode for config in configs],
+            "baseline_values": [list(drawing[0].x), list(drawing[2].x)],
+            "curve_names": [str(drawing[1].name), str(drawing[3].name)],
+            "curve_fill": [str(drawing[1].fill), str(drawing[3].fill)],
+            "legend_trace_names": [str(trace.name) for trace in legends],
+            "title_annotations": [str(item.text) for item in fig.layout.annotations[:2]],
+            "global_legend": bool(fig.layout.showlegend),
+        },
+    )
 
 def test_legacy_tablet_fill_still_maps_to_zero_fill():
     configs = normalize_track_configs(("GR",), fill=True)

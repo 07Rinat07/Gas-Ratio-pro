@@ -5,10 +5,29 @@ from reports.export_progress import EXPORT_PROGRESS_STAGES
 
 
 def test_export_panel_is_prominent_and_expanded() -> None:
-    assert '🖨️ ПЕЧАТЬ И ПРОФЕССИОНАЛЬНЫЙ ЭКСПОРТ' in APP_SOURCE
-    assert 'expanded=True' in APP_SOURCE
-    assert '🖨️ ПОДГОТОВИТЬ ФАЙЛ ДЛЯ ПЕЧАТИ И СКАЧИВАНИЯ' in APP_SOURCE
-    assert '⬇️ СКАЧАТЬ ГОТОВЫЙ' in APP_SOURCE
+    from app import streamlit_app as app
+    from core.ui_behavior_contracts import PROFESSIONAL_EXPORT_BEHAVIOR
+
+    calls = []
+
+    class FakeStreamlit:
+        def markdown(self, *_args, **_kwargs):
+            return None
+
+        def popover(self, label, *, help=None):
+            calls.append(("popover", label, help))
+            return object()
+
+    result = app._print_center_container(FakeStreamlit())
+
+    assert result is not None
+    assert calls == [(
+        "popover",
+        PROFESSIONAL_EXPORT_BEHAVIOR.panel_label,
+        PROFESSIONAL_EXPORT_BEHAVIOR.panel_help,
+    )]
+    assert PROFESSIONAL_EXPORT_BEHAVIOR.primary_action_label
+    assert PROFESSIONAL_EXPORT_BEHAVIOR.download_prefix
 
 
 def test_full_well_atlas_scope_is_available() -> None:

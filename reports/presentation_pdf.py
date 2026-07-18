@@ -41,6 +41,7 @@ except ModuleNotFoundError:  # pragma: no cover - depends on user environment
     TableOfContents = None
     REPORTLAB_AVAILABLE = False
 
+from reports.print_readability_contract import REPORT_PRINT_READABILITY
 from reports.document_model import (
     DocumentNotice,
     DocumentPlot,
@@ -382,7 +383,7 @@ def _styles() -> dict[str, ParagraphStyle]:
             "GasRatioSmall",
             parent=base["BodyText"],
             fontName=regular,
-            fontSize=9.5,
+            fontSize=REPORT_PRINT_READABILITY.pdf_legend_font_pt,
             leading=12,
             textColor=colors.HexColor("#4b5870"),
         ),
@@ -704,10 +705,20 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
         items.extend([card, Spacer(1, 6)])
     try:
         if hasattr(figure, "to_image"):
-            png = figure.to_image(format="png", width=2800, height=3000, scale=1)
+            png = figure.to_image(
+                format="png",
+                width=REPORT_PRINT_READABILITY.pdf_plot_width_px,
+                height=REPORT_PRINT_READABILITY.pdf_plot_height_px,
+                scale=1,
+            )
         elif hasattr(figure, "write_image"):
             buffer = BytesIO()
-            figure.write_image(buffer, format="png", width=2800, height=3000)
+            figure.write_image(
+                buffer,
+                format="png",
+                width=REPORT_PRINT_READABILITY.pdf_plot_width_px,
+                height=REPORT_PRINT_READABILITY.pdf_plot_height_px,
+            )
             png = buffer.getvalue()
         else:
             raise TypeError("Figure backend does not support raster export")

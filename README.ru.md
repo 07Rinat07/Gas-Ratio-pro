@@ -31,13 +31,15 @@
 - корреляция скважин и подготовка к многоскважинным планшетам;
 - интерфейс и документация на русском, казахском и английском языках.
 
-## Проверка печати и экспорта v225.6
+## Стабилизация архитектуры и тестов v225.7
 
-- добавлены утверждённые golden-artifacts для всех A4/A3 portrait/landscape профилей;
-- manifest фиксирует каждую SVG/PNG-страницу, многостраничный PDF, track partition, physical bounds и контрольные суммы;
-- end-to-end acceptance-тест проходит путь от сохранения пользовательского профиля до HTML/PDF/DOCX и SVG/PNG delivery;
-- PDF preview теперь автоматически вписывается в фактический фрейм отчёта при смешанной ориентации;
-- 51 legacy regression contract системно классифицирован, без скрытого `xfail`;
+- устранены все 9 нарушений architecture boundary: UI больше не удаляет файлы напрямую, cache telemetry создаётся контейнером, lifecycle и rerun проходят через application services;
+- 26 хрупких source assertions заменены исполняемыми поведенческими тестами (18 из legacy registry, Print Center contract и 7 PDF preview contracts);
+- 13 визуальных контрактов переведены на утверждённый semantic rebaseline с SHA-256 manifest;
+- исторические version pins и устаревшие Workbench assertions заменены current-runtime контрактами;
+- все 51 унаследованный regression contract закрыты без `xfail` и без удаления nodeid;
+- PDF/DOCX используют общий renderer-neutral print-readability contract;
+- полный regression suite завершён: **2855 passed, 0 failed**; расширенный release-контур: **480 passed**;
 - [инструкция пользователя](docs/user/ru/print_center_page_aware.md);
 - [архитектура для разработчика](docs/developer/ru/page_aware_print_architecture.md).
 

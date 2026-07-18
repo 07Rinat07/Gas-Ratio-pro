@@ -7,6 +7,7 @@ import json
 from tempfile import NamedTemporaryFile
 
 from core.build_info import BUILD_VERSION
+from core.storage_lifecycle import DeleteEngine
 from core.data_platform import (
     ArtifactStore,
     DatasetManifest,
@@ -100,6 +101,7 @@ class LasImportValidationError(ValueError):
 class DataPlatformApplicationService:
     def __init__(self, projects_root: Path | str, *, formats: DataFormatRegistry | None = None, scanners: tuple[MetadataScanner, ...] | None = None) -> None:
         self.projects_root = Path(projects_root)
+        self._delete_engine = DeleteEngine(attempts=2, delay_seconds=0.0)
         self.formats = formats or default_format_registry()
         self.artifacts = ArtifactStore(self.projects_root)
         self.manifests = DatasetManifestRepository(self.projects_root)
@@ -518,7 +520,7 @@ class DataPlatformApplicationService:
                 filename=f"{source_path.stem}-{capability.format_id}-preview.json",
             )
         finally:
-            temp_path.unlink(missing_ok=True)
+            self._delete_engine.delete_path(temp_path, missing_ok=True)
         manifest = DatasetManifest.create(
             project_id=project_id,
             format_id=capability.format_id,

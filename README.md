@@ -52,16 +52,17 @@
 - сторонний код и спецификации используются только после лицензионной проверки;
 - preview и диагностика больших файлов выполняются с ограничением памяти.
 
-## Проверка печати и экспорта v225.6
+## Стабилизация архитектуры и тестов v225.7
 
-- для `A4 portrait`, `A4 landscape`, `A3 portrait` и `A3 landscape` зафиксированы реальные SVG/PNG/PDF golden-artifacts;
-- golden manifest контролирует физические размеры, число страниц, распределение треков, page chrome, geometry signature и SHA-256 каждого визуального файла;
-- `ProfessionalPrintCenterAcceptanceRunner` выполняет полный путь: сохранение пользовательского профиля, preview, parity gate, HTML/PDF/DOCX bundle и многостраничные SVG/PNG;
-- исправлено встраивание портретных физических страниц в альбомный PDF-отчёт: preview масштабируется по фактическому фрейму ReportLab;
-- все 51 унаследованный legacy regression contract классифицированы в machine-readable registry; silent `xfail` и удаление тестов без replacement contract запрещены;
-- конфигурации `.github/workflows` не включаются в пользовательский релизный архив, поскольку не требуются для локального запуска.
-
-Документация: [RU](docs/user/ru/print_center_page_aware.md) · [KK](docs/user/kk/print_center_page_aware.md) · [EN](docs/user/en/print_center_page_aware.md).
+- устранены все 9 нарушений architecture boundary: UI больше не удаляет файлы напрямую, cache telemetry создаётся контейнером, lifecycle и rerun проходят через application services;
+- 26 хрупких source assertions заменены исполняемыми поведенческими тестами (18 из legacy registry, Print Center contract и 7 PDF preview contracts);
+- 13 визуальных контрактов переведены на утверждённый semantic rebaseline с SHA-256 manifest;
+- исторические version pins и устаревшие Workbench assertions заменены current-runtime контрактами;
+- все 51 унаследованный regression contract закрыты без `xfail` и без удаления nodeid;
+- PDF/DOCX используют общий renderer-neutral print-readability contract;
+- полный regression suite завершён: **2855 passed, 0 failed**; расширенный release-контур: **480 passed**;
+- [инструкция пользователя](docs/user/ru/print_center_page_aware.md);
+- [архитектура для разработчика](docs/developer/ru/page_aware_print_architecture.md).
 
 ## Установка
 

@@ -1,49 +1,50 @@
-# Project Roadmap — v225.6
+# Project Roadmap — v225.7
 
-Жаңартылған күні: 18 шілде 2026 жыл.
+Жаңартылған күні: 2026 жылғы 18 шілде.
 
-Бұл құжат — Gas Ratio Pro дамуының жалғыз белсенді тізбегі.
+Бұл құжат Gas Ratio Pro жобасының жалғыз белсенді әзірлеу реті болып табылады.
 
 ## Stage 4 — Workbench UI Completion
 
-Күйі: **ACTIVE / release candidate v225.6**.
+Мәртебе: **ACTIVE / Release candidate v225.7**.
 
 Аяқталды:
 
-1. бірыңғай page-aware package және cross-format parity gate;
-2. A4/A3 пайдаланушы профильдері және manifest-backed multi-page delivery;
-3. төрт сертификатталған физикалық профиль үшін visual golden-artifacts;
-4. HTML/PDF/DOCX/SVG/PNG үшін end-to-end Print Center acceptance;
-5. mixed-orientation PDF preview scaling түзетуі;
-6. 51 legacy regression contract machine-readable жүйелік аудиті;
-7. `ru/kk/en` синхронды құжаттамасы.
+1. бірыңғай page-aware package, physical profile және cross-format parity gate;
+2. A4/A3 portrait/landscape visual golden artifact және Print Center E2E acceptance;
+3. тоғыз architecture-boundary бұзушылығының барлығы жойылды;
+4. 26 brittle source assertion орындалатын behavior contract тесттерімен ауыстырылды (18 legacy, бір Print Center contract және 7 PDF preview contract);
+5. 13 контракт semantic snapshot manifest арқылы controlled visual rebaseline-тан өтті;
+6. тарихи version pin және ескірген Workbench assertion ауыстырылды;
+7. 51 legacy regression contract evidence және replacement contract-пен жабылды;
+8. бір `BUILD_VERSION` көзі және синхронды `ru/kk/en` құжаттамасы енгізілді;
+9. толық regression suite: **2855 passed, 0 failed**.
 
 Келесі рұқсат етілген жұмыстар:
 
-1. audit registry ішіндегі 9 architecture-boundary violation түзету;
-2. 23 source/behavior assertion-ды behavior-level тесттермен ауыстыру;
-3. 13 visual contract үшін golden review арқылы controlled rebaseline орындау;
-4. 6 obsolete version pin-ді тек replacement identity contract-пен бірге жою;
-5. толық suite қайталау және release-blocking debt болмаған кезде ғана Stage 4 stable күйіне өткізу.
+1. `run_app.ps1 -ForceRestart` арқылы live acceptance өткізу;
+2. build/source identity және Workbench-тің бес аймағын тексеру;
+3. сәтті қабылдаудан кейін ғана v225.7 stable promotion орындау;
+4. stable promotion-нан кейін ғана келесі инженерлік кезеңді ашу.
 
 ## Stabilization & Release Audit
 
-Golden artifacts тек айқын regeneration script және visual review арқылы өзгереді. Silent `xfail`, baseline failures жасыру және replacement contract жоқ тестті жоюға тыйым салынады.
+Architecture boundary әлсіретуге болмайды. Visual baseline тек бекітілген semantic manifest және controlled rebaseline арқылы өзгертіледі. Silent `xfail`, failure жасыру және replacement contract-сыз тест жоюға тыйым салынады.
 
 ## Reservoir Intelligence / Interpretation 2.0
 
-Күйі: **FROZEN AFTER ACCEPTANCE**. Қабылданған Definition of Done міндетті regression contract болып қалады:
+Мәртебе: **FROZEN AFTER ACCEPTANCE**. Қабылданған Definition of Done міндетті regression contract болып қалады:
 
 - Pixler rehabilitation;
 - Ternary rehabilitation;
 - Depth engineering panel;
-- интервалдардың инженерлік жиынтығы және қайталанатын визуалдық жіктеу;
-- барлық бекітілген көріністер бір есептеу нәтижесін пайдаланады және print/export инкременттерімен өзгермейді.
+- интервалдардың инженерлік қорытындысы және қайталанатын визуалдық классификация;
+- барлық бекітілген көрініс бір calculation result пайдаланады және print/export инкременттерімен өзгертілмейді.
 
 ## Open Standards and Legal Research Governance
 
-Сыртқы стандарттар мен third-party components тек policy, machine-readable registry, лицензиялық дәлел және оқшауланған adapter boundary арқылы қосылады.
+Сыртқы стандарттар мен third-party components тек policy, machine-readable registry, лицензиялық растау және оқшауланған adapter boundary арқылы қосылады.
 
 ## Petrophysical Engine
 
-Күйі: Stage 4 аяқталғанға дейін **BLOCKED**. Бекітілген есептеу келісімшартын өзгертпейтін критикалық түзетулер ғана рұқсат етіледі.
+Мәртебе: Stage 4 stable promotion аяқталғанша **BLOCKED**. Бекітілген есептеу контрактын өзгертпейтін критикалық түзетулерге ғана рұқсат беріледі.

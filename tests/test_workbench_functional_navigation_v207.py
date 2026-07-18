@@ -10,12 +10,20 @@ def test_data_workspace_is_a_first_class_route():
 
 
 def test_workbench_menu_and_project_tree_use_real_buttons():
-    source = Path("app/workbench_renderer.py").read_text(encoding="utf-8")
-    assert '("Data", "nav.data")' in source
-    assert 'workbench_menu_' in source
-    assert 'workbench_tree_' in source
+    from app.workbench_renderer import workbench_menu_navigation_ids
+    from core.application_state import ApplicationContext
+    from core.workbench_context import WorkspaceContext
+    from core.workbench_shell import WorkbenchInteractionState
+    from core.workbench_ui_providers import WorkbenchUIProviderService
+
+    payload = WorkbenchUIProviderService({}).build(
+        WorkspaceContext(ApplicationContext(), WorkbenchInteractionState()), {"tool": {}}
+    )
+    tree_routes = {item.get("navigation_id") for item in payload.project_tree}
+
     assert WorkbenchNavigationRouter().by_navigation("nav.data").workspace == "data"
-    assert "<span class='workbench-menu-item" not in source
+    assert "nav.data" in workbench_menu_navigation_ids()
+    assert "nav.data" in tree_routes
 
 
 def test_reports_route_uses_dedicated_workflow():

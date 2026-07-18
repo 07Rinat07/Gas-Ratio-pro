@@ -12,25 +12,22 @@ def test_workspace_universal_search_helpers_are_present():
 
 
 def test_workspace_search_covers_all_required_entities():
-    for marker in (
-        "проекты",
-        "скважины",
-        "LAS",
-        "кривые",
-        "расчеты",
-        "отчеты",
-        "документация",
-        "история",
-        "избранное",
-    ):
-        assert marker in SOURCE
+    from core.ui_behavior_contracts import WORKBENCH_SEARCH_BEHAVIOR
+
+    assert set(WORKBENCH_SEARCH_BEHAVIOR.entity_kinds) == {
+        "projects", "wells", "las", "curves", "calculations",
+        "reports", "documentation", "history", "favorites",
+    }
 
 
 def test_workspace_favorites_are_command_palette_backed():
-    assert "def _workspace_favorite_entries" in SOURCE
-    assert "COMMAND_PALETTE_FAVORITES_KEY" in SOURCE
-    assert "Закрепите команды и объекты через Ctrl+K" in SOURCE
-    assert "active_project.name" in SOURCE
+    from app import streamlit_app as app
+    from core.ui_behavior_contracts import WORKBENCH_SEARCH_BEHAVIOR
+
+    contract = app._workspace_search_behavior_contract()
+    assert contract is WORKBENCH_SEARCH_BEHAVIOR
+    assert contract.favorites_backend == "command_palette"
+    assert "Ctrl+K" in contract.empty_hint
 
 
 def test_workspace_search_stage_is_documented():

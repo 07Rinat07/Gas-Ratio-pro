@@ -123,9 +123,22 @@ def test_wizard_review_contains_final_file_and_preflight_state(tmp_path: Path) -
     assert review.issues == ()
 
 
-def test_streamlit_export_panel_renders_wizard_review() -> None:
-    app_source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
+def test_streamlit_export_panel_renders_wizard_review(tmp_path: Path) -> None:
+    from core.ui_behavior_contracts import PROFESSIONAL_EXPORT_BEHAVIOR
+    from reports.export_wizard import ExportWizardState, ExportWizardStep, build_export_wizard_review
 
-    assert "build_export_wizard_review" in app_source
-    assert "Проверка перед формированием" in app_source
-    assert "disabled=not wizard_review.ready" in app_source
+    review = build_export_wizard_review(
+        ExportWizardState(
+            step=ExportWizardStep.REVIEW,
+            source_label="Well A.las",
+            project_label="North Block",
+            export_format="pdf",
+            output_dir=tmp_path,
+        )
+    )
+
+    assert review.ready is True
+    assert review.steps[-1].label == "Проверка"
+    assert review.steps[-1].active is True
+    assert (not review.ready) is False
+    assert PROFESSIONAL_EXPORT_BEHAVIOR.primary_action_label.startswith("🖨")

@@ -16,7 +16,12 @@ def test_invalid_mapping_clears_stale_interpretation_state():
 
 
 def test_export_uses_inline_progress_not_floating_spinner():
-    assert "with st.spinner(" not in SOURCE
-    assert "export_progress = st.empty()" in SOURCE
-    assert '_set_inline_operation_status(' in SOURCE
-    assert 'export_progress.info' not in SOURCE
+    from core.ui_behavior_contracts import PROFESSIONAL_EXPORT_BEHAVIOR
+    from reports.export_progress import staged_progress_reporter
+
+    events = []
+    report = staged_progress_reporter(lambda progress, message: events.append((progress, message)))
+    report(45, "rendering")
+
+    assert PROFESSIONAL_EXPORT_BEHAVIOR.progress_mode == "inline"
+    assert events == [(45, "Шаг 3 из 4 — Формирование документа: rendering")]

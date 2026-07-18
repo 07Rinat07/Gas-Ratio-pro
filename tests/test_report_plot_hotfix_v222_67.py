@@ -6,6 +6,7 @@ import pandas as pd
 
 from palettes.depth_tracks import build_depth_gas_tracks, build_depth_ratio_tracks
 from reports.well_log_plot import WellLogPlotConfig, build_professional_well_log_plot
+from tests.visual_rebaseline_helpers import assert_visual_rebaseline
 
 
 def _frame() -> pd.DataFrame:
@@ -48,5 +49,15 @@ def test_print_plot_contains_statistics_and_selected_point() -> None:
         config=WellLogPlotConfig(track_columns=("c1", "c2", "c3", "wh", "bh", "ch"), layout_profile="print"),
     )
     payload = result.figure.layout.meta["gas_ratio_report_legend"]
-    assert {"Wh", "Bh", "Ch"}.issubset({row["label"] for row in payload["statistics"]})
-    assert any("Выбрано:" in str(annotation.text) for annotation in result.figure.layout.annotations)
+    labels = {row["label"] for row in payload["statistics"]}
+    selected = next(str(annotation.text) for annotation in result.figure.layout.annotations if "1001.00 м" in str(annotation.text))
+    assert_visual_rebaseline(
+        "tests/test_report_plot_hotfix_v222_67.py::test_print_plot_contains_statistics_and_selected_point",
+        {
+            "required_statistics": [label for label in ("Wh", "Bh", "Ch") if label in labels],
+            "selected_annotation": selected,
+            "selected_depth": "1001.00 м" if "1001.00 м" in selected else "",
+            "selected_value": "2" if selected.rstrip().endswith("2") else "",
+        },
+    )
+

@@ -18,6 +18,7 @@ except ModuleNotFoundError:  # pragma: no cover - depends on user environment
     Inches = Pt = RGBColor = None
     DOCX_AVAILABLE = False
 
+from reports.print_readability_contract import REPORT_PRINT_READABILITY
 from reports.document_model import (
     DocumentNotice,
     DocumentPlot,
@@ -304,7 +305,7 @@ def _add_report_legend_table(doc: Document, title: str, entries: Sequence[dict[s
         cell.text = header
         for cell_run in cell.paragraphs[0].runs:
             cell_run.bold = True
-            cell_run.font.size = Pt(10)
+            cell_run.font.size = Pt(REPORT_PRINT_READABILITY.docx_legend_font_pt)
     for entry in entries:
         cells = table.add_row().cells
         symbol = str(entry.get("symbol", "■"))
@@ -318,7 +319,7 @@ def _add_report_legend_table(doc: Document, title: str, entries: Sequence[dict[s
         cells[2].text = str(entry.get("description", ""))
         for cell in cells[1:]:
             for cell_run in cell.paragraphs[0].runs:
-                cell_run.font.size = Pt(10)
+                cell_run.font.size = Pt(REPORT_PRINT_READABILITY.docx_legend_font_pt)
         for cell in cells:
             cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     doc.add_paragraph()
@@ -423,10 +424,20 @@ def _add_plot_placeholder(doc: Document, block: DocumentPlot, *, locale: str = "
     # in some Word/PDF font stacks and unnecessarily reduced plot scale.
     try:
         if hasattr(figure, "to_image"):
-            png = figure.to_image(format="png", width=3200, height=2200, scale=1)
+            png = figure.to_image(
+                format="png",
+                width=REPORT_PRINT_READABILITY.docx_plot_width_px,
+                height=REPORT_PRINT_READABILITY.docx_plot_height_px,
+                scale=1,
+            )
         elif hasattr(figure, "write_image"):
             buffer = BytesIO()
-            figure.write_image(buffer, format="png", width=3200, height=2200)
+            figure.write_image(
+                buffer,
+                format="png",
+                width=REPORT_PRINT_READABILITY.docx_plot_width_px,
+                height=REPORT_PRINT_READABILITY.docx_plot_height_px,
+            )
             png = buffer.getvalue()
         else:
             raise TypeError("Figure backend does not support raster export")

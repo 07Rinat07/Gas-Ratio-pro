@@ -1,63 +1,32 @@
-# Архитектура page-aware печати и прямого preview
+# Архитектура page-aware печати, границ и visual regression
 
-Revision: 4 · GAS RATIO PRO v225.6
+Revision: 5 · GAS RATIO PRO v225.7
 
-## Единый источник геометрии
+## Page-aware pipeline
 
-`VisualizationScenePipeline` создаёт физический `VisualizationPrintLayout` v2.1. `VisualizationPageAwarePackageBuilder` формирует пакет v1.2 со всеми SVG/PNG-страницами, многостраничным PDF, geometry signature v3, page chrome и QA-результатом.
+`VisualizationScenePipeline` → `VisualizationPageAwarePackageBuilder` → `VisualizationCrossFormatParityGate` остаётся единственным источником SVG/PNG/PDF/DOCX/HTML геометрии. `export_ready` требует валидного пакета и успешного parity gate.
 
-## Application bridge
+## Исправленные architecture boundaries
 
-`ReportPageAwarePreviewService` является единственной границей от текущего `DataFrame` отчёта к физическому пакету. Он вызывает `LasVisualizationPayloadService.build_from_frame()`, затем `VisualizationPrintCenterService.prepare()` и прикрепляет renderer-neutral payload к `PresentationModel`.
+- destructive filesystem operations выполняет `TemporaryFileApplicationService`/`DeleteEngine`, а не Streamlit UI;
+- `ApplicationServiceContainer` владеет единственным session-scoped `CacheMetricsRegistry`;
+- correlation artifacts создаются через application service;
+- route lifecycle, startup diagnostics и project cache coherence принадлежат `RuntimeDiagnosticsApplicationService`;
+- прямой `st.rerun()` допускается только внутри единого refresh gate;
+- UI не создаёт инфраструктурные объекты и не передаёт raw DataFrame downstream.
 
-Сырые строки `DataFrame` downstream не передаются.
+## Print readability
 
-## Preview contract v1.1
+`reports.print_readability_contract.REPORT_PRINT_READABILITY` является общим контрактом PDF/DOCX. Он фиксирует минимальные шрифты легенды, raster dimensions и `one-item-per-row` layout. Тесты проверяют публичный контракт и фактическое поведение renderer-ов, а не текст исходных файлов.
 
-Канонический контракт `visualization.preview.page-aware` содержит массив `pages`. Каждая страница включает `index`, `track_ids`, `width_pt`, `height_pt`, число chrome primitives и готовый SVG. Флаги `single_page_fallback=false` и `legacy_svg_fallback_allowed=false` являются обязательными.
+## Controlled visual rebaseline
 
-`reports.visualization_preview.normalize_visualization_preview()` — общий строгий нормализатор для HTML, DOCX, PDF и asset export. Для page-aware схемы он не использует compatibility-поля `svg` или `page_svgs`, если отсутствует канонический `pages`.
+`config/visual_rebaseline_contracts_v225_7.json` содержит 13 утверждённых semantic contracts и SHA-256 каждого канонического JSON-снимка. `VisualRebaselineRegistryService` отклоняет незарегистрированное или неутверждённое изменение. Исходные nodeid сохранены.
 
-## Видимый Print Center
+## Legacy remediation
 
-`build_professional_print_center_view()` преобразует один prepared package в UI-контракт: точный профиль, статус, geometry signature и полный список preview-страниц. Streamlit хранит результат по сигнатуре параметров и передаёт тот же report payload при экспорте.
+`config/legacy_regression_contracts_v225_7.json` отслеживает все 51 унаследованный contract. В v225.7 все 51 имеют `status=resolved`, `resolved_in=v225.7` и evidence. Silent `xfail`, удаление nodeid и изменение hash без review запрещены.
 
-## Инварианты
+## Build identity
 
-- один pipeline и одна geometry signature;
-- layout downstream не перестраивается;
-- DOCX/HTML получают все физические страницы напрямую;
-- формат `bundle` использует тот же пакет;
-- подписи и сообщения синхронизированы для `ru/kk/en`;
-- page count mismatch блокирует корректный статус preview;
-- удаление legacy static-export веток допускается только после parity-аудита.
-
-## Cross-format parity gate v1.0
-
-`VisualizationCrossFormatParityGate` выполняется внутри `VisualizationPageAwarePackageBuilder`. Он сверяет layout, package pages, SVG root dimensions, PNG IHDR dimensions, фактическое число PDF-страниц, canonical preview pages, track partition и geometry signature. `VisualizationPageAwarePackage.export_ready` требует `parity_gate.ok=true`.
-
-`VisualizationPageAwarePackage` обновлён до v1.3. `VisualizationPrintCenterSummary` и UI view model публикуют `parity_gate_id` и `cross_format_parity_passed`.
-
-## Пользовательские физические профили
-
-`UserPhysicalPrintProfileStore` хранит JSON schema `gas-ratio-pro.physical-print-profiles` в `data/user_preferences/physical_print_profiles.json`. `VisualizationPrintLayoutEngine` принимает сериализованный `physical_profile`. Пользовательские A4/A3 профили могут усиливать readability floors и уменьшать page capacity, но не могут ослаблять базовые ограничения.
-
-## Retirement static-export
-
-Professional report и LAS Viewer используют `build_page_aware_static_artifact()`. Одностраничный SVG/PNG выдаётся напрямую, многостраничный — ZIP с manifest. Независимая CompositeLog SVG/PNG/PDF ветка в `reports.export_static` удалена и заменена явным запретом legacy path. Обычные Plotly-графики остаются на Kaleido и не считаются физическим Print Center документом.
-
-## Physical golden artifacts v225.6
-
-`VisualizationPhysicalGoldenArtifactService` строит один десятидорожечный renderer-neutral fixture для `a4_portrait`, `a4_landscape`, `a3_portrait` и `a3_landscape`. Для каждой физической страницы сохраняются SVG и PNG, для профиля — один многостраничный PDF. `manifest.json` фиксирует SHA-256, размеры в points/pixels, track partition, chrome primitive count, geometry signature и parity gate id.
-
-Эталон обновляется только командой `python scripts/regenerate_physical_golden_artifacts.py` после визуального review. Тест повторной генерации сравнивает structural signature и визуальные checksums.
-
-## End-to-end Print Center acceptance
-
-`ProfessionalPrintCenterAcceptanceRunner` выполняет application-level путь без raw DataFrame downstream: profile store → `ReportPageAwarePreviewService` → visible view model → `PresentationModel` → HTML/PDF/DOCX bundle → SVG/PNG static delivery. Результат сохраняется как `print-center-acceptance-report.json`.
-
-Для PDF добавлен `_AutoScaleRasterImage`. Размер физического preview определяется в `wrap()` по фактическим `avail_width` и `avail_height`, поэтому portrait/landscape комбинации не вызывают ReportLab `LayoutError`.
-
-## Legacy regression audit
-
-`config/legacy_regression_contracts_v225_6.json` содержит все 51 inherited failure. Каждый contract имеет category, disposition, severity, rationale и replacement contract. Политика запрещает silent `xfail`, скрытие architecture debt и удаление тестов без замены.
+Файл `BUILD_VERSION` — единый источник версии для Python runtime и PowerShell launcher. `core.build_info` читает его при импорте; `DEPLOYMENT_BUILD.txt` должен содержать ту же версию.

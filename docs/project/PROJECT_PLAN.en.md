@@ -1,29 +1,32 @@
 # Gas Ratio Pro Project Plan
 
-Updated: 18 July 2026. Active build: `v225.6`.
+Updated: July 18, 2026. Active build: `v225.7`.
 
-## Completed stage — v225.6
+## Completed increment — v225.7
 
-- four physical golden baselines for A4/A3 portrait/landscape;
-- reproducible golden regeneration and checksum verification;
-- full Professional Print Center acceptance path;
-- raster preview auto-scaling against the actual PDF frame;
-- machine-readable audit of all 51 legacy regressions;
-- replacement policy with no silent `xfail`;
-- trilingual documentation and release governance.
+- removed all 9 architecture-boundary violations;
+- moved lifecycle, cache telemetry, route/startup/cache coherence, and rerun ownership to the correct layers;
+- replaced 26 source assertions with behavior contracts (18 legacy, one Print Center contract, and seven PDF preview contracts);
+- migrated 13 visual contracts to a semantic snapshot manifest;
+- replaced obsolete version pins with current-build identity contracts;
+- resolved all 51 legacy contracts with evidence and replacement tests;
+- made `BUILD_VERSION` the single version source;
+- synchronized documentation and instructions in Russian, Kazakh, and English;
+- completed the regression suite: **2855 passed, 0 failed**.
 
-## Next authorized increment — Legacy Contract Remediation
+## Next authorized increment — Stable Promotion & Live Workbench Acceptance
 
-1. Fix architecture-boundary violations without weakening audit policy.
-2. Move brittle source assertions to view-model and runtime behavior tests.
-3. Approve visual rebaseline through golden artifacts.
-4. Delete obsolete tests only after replacement tests exist.
-5. Repeat the full regression and stable promotion gate.
+1. Start the application through `run_app.ps1 -ForceRestart`.
+2. Confirm the build and absolute runtime source path.
+3. Inspect the toolbar, Project Explorer, Workspace Host, Properties, and Status Bar.
+4. Exercise command-backed actions and LAS Viewer without a traceback.
+5. Promote v225.7 to stable only when no release-blocking failures remain.
 
 ## Definition of Done
 
-- all four golden profile manifests pass without checksum drift;
-- E2E acceptance creates valid HTML/PDF/DOCX and SVG/PNG output;
-- every legacy contract has a disposition and replacement;
-- release-blocking architecture debt is zero;
-- version, instructions, status, roadmap, changelog, and manifest are synchronized in `ru/kk/en`.
+- all 51 legacy contracts are resolved;
+- active architecture-boundary debt is zero;
+- semantic visual snapshots pass SHA-256 validation;
+- the full suite has no new failures;
+- live Workbench acceptance is confirmed;
+- version, README, instructions, status, roadmap, changelog, release notes, and manifest are synchronized in `ru/kk/en`.

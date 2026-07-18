@@ -44,11 +44,11 @@ def test_native_renderer_uses_real_streamlit_regions_instead_of_cross_call_html_
     assert len(fake.column_calls) >= 2
     assert any(isinstance(spec, list) and len(spec) == 3 for spec in fake.column_calls)
     html = "\n".join(fake.markdown_calls)
-    assert "Gas Ratio Pro — Modern Workbench" in html
-    assert "Project Explorer" in html
-    assert "Properties" in html
-    assert "Status bar" in html
-
+    assert "workbench-titlebar" in html
+    assert "workbench-pane-title" in html
+    assert "workbench-properties" in html
+    assert "workbench-statusbar" in html
+    assert "Активная рабочая область" in html
 
 def test_native_renderer_button_returns_command_execution_result_with_executed_contract():
     fake = NativeFakeStreamlit("workbench_menu_las")

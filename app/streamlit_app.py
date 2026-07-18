@@ -234,8 +234,12 @@ from palettes.config import load_palette_config
 from palettes.plot_engine import PLOTLY_SCREEN_CONFIG, downsample_frame_for_screen, enhance_screen_visibility
 from core.runtime_diagnostics import RuntimeDiagnostics
 from core.rerun_coordinator import begin_rerun_cycle, request_rerun
-from core.cache_metrics import CacheMetricsRegistry
-from core.correlation_runtime_cache import CorrelationRenderArtifacts
+from core.ui_behavior_contracts import (
+    DOCUMENTATION_CENTER_BEHAVIOR,
+    PROFESSIONAL_EXPORT_BEHAVIOR,
+    PDF_PREVIEW_BEHAVIOR,
+    WORKBENCH_SEARCH_BEHAVIOR,
+)
 from core.session_state_audit import audit_session_state
 from core.performance_audit import build_workspace_performance_gate, evaluate_performance
 from core.operation_tracing import OperationTraceRegistry, trace_context
@@ -5290,6 +5294,11 @@ def _project_storage_service(project_id: str):
     )
 
 
+def _temporary_file_service():
+    """Return the lifecycle-managed boundary for temporary file cleanup."""
+    return application_service_container(_application_state_controller().state).temporary_files()
+
+
 def _application_state_controller() -> ApplicationStateController:
     """Return the single UI-facing application state controller.
 
@@ -5902,6 +5911,11 @@ def _workspace_universal_search_results(
     )
 
 
+def _workspace_search_behavior_contract():
+    """Return the renderer-neutral workspace search/favorites contract."""
+    return WORKBENCH_SEARCH_BEHAVIOR
+
+
 def _workspace_favorite_entries(active_project: ProjectRecord, *, limit: int = 5) -> tuple[dict[str, str], ...]:
     """Return pinned workspace entries with safe defaults for a new install."""
     entries = _command_palette_entries(active_project)
@@ -6319,6 +6333,11 @@ def _render_docs_anchor(anchor: str) -> None:
     st.markdown(f'<div id="{_html_escape(anchor)}" class="docs-section-anchor"></div>', unsafe_allow_html=True)
 
 
+def _documentation_center_behavior_contract():
+    """Return the renderer-neutral Documentation Center contract."""
+    return DOCUMENTATION_CENTER_BEHAVIOR
+
+
 def _documentation_quick_link_titles() -> tuple[str, ...]:
     """Expose Documentation Center v2 quick-link titles for tests and command search."""
     return tuple(item["title"] for item in DOCUMENTATION_QUICK_LINKS)
@@ -6656,7 +6675,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
                 registration_payload = {"dataset_id": "", "dataset_version": 0, "messages": [], "validation_codes": [], "import_mode": las_import_mode}
         finally:
             if temp_path is not None:
-                temp_path.unlink(missing_ok=True)
+                _temporary_file_service().delete(temp_path, missing_ok=True)
     for message in registration_payload.get("messages", []):
         st.info(str(message))
 
@@ -7289,7 +7308,7 @@ def _render_las_editor(logger, active_project: ProjectRecord) -> None:
                         st.info(message)
                 finally:
                     if version_temp_path is not None:
-                        version_temp_path.unlink(missing_ok=True)
+                        version__temporary_file_service().delete(temp_path, missing_ok=True)
             except Exception:
                 logger.exception("project_las_prepared_save_failed project_id=%s", safe_log_value(active_project.id))
                 st.error("Не удалось сохранить подготовленный LAS в проект. Подробности записаны в logs/app.log.")
@@ -7475,7 +7494,7 @@ def _render_professional_import_wizard(logger, active_project: ProjectRecord) ->
                         f"import_wizard.active_job.{active_project.id}", str(job["job_id"])
                     )
                     st.success(i18n("import.wizard.submitted", job_id=job["job_id"]))
-                    st.rerun()
+                    _request_ui_refresh_and_rerun("professional_import_job_submitted")
                 except Exception:
                     logger.exception("professional_import_job_submit_failed project_id=%s", active_project.id)
                     st.error(i18n("import.preview.panel.failed"))
@@ -7513,7 +7532,7 @@ def _render_professional_import_wizard(logger, active_project: ProjectRecord) ->
                 try:
                     retry = service.retry_failed_import_job(str(latest["job_id"]), actor="workbench-user")
                     st.success(i18n("import.wizard.retry_submitted", job_id=retry["job_id"]))
-                    st.rerun()
+                    _request_ui_refresh_and_rerun("professional_import_job_retried")
                 except Exception:
                     logger.exception("professional_import_retry_failed job_id=%s", latest.get("job_id"))
                     st.error(i18n("import.preview.panel.failed"))
@@ -7523,7 +7542,7 @@ def _render_professional_import_wizard(logger, active_project: ProjectRecord) ->
                 try:
                     cancelled = service.cancel_import_job(str(latest["job_id"]))
                     st.info(i18n("import.wizard.cancelled", status=cancelled.get("status", "")))
-                    st.rerun()
+                    _request_ui_refresh_and_rerun("professional_import_job_cancelled")
                 except Exception:
                     logger.exception("professional_import_cancel_failed job_id=%s", latest.get("job_id"))
                     st.error(i18n("import.preview.panel.failed"))
@@ -7721,7 +7740,7 @@ def _render_subsurface_import_preview(logger, active_project: ProjectRecord) -> 
         finally:
             if temp_path is not None:
                 try:
-                    temp_path.unlink(missing_ok=True)
+                    _temporary_file_service().delete(temp_path, missing_ok=True)
                 except OSError:
                     logger.warning("subsurface_import_preview_temp_cleanup_failed path=%s", temp_path)
 
@@ -9511,15 +9530,19 @@ def _streamlit_fragment(function=None, *, run_every: str | None = None):
     def decorate(target):
         fragment = getattr(st, "fragment", None)
         if not callable(fragment):
+            setattr(target, "_gas_ratio_fragment_run_every", run_every)
             return target
         if run_every is None:
             decorated = fragment(target)
         else:
             fragment_decorator = fragment(run_every=run_every)
             if not callable(fragment_decorator):
+                setattr(target, "_gas_ratio_fragment_run_every", run_every)
                 return target
             decorated = fragment_decorator(target)
-        return decorated if callable(decorated) else target
+        result = decorated if callable(decorated) else target
+        setattr(result, "_gas_ratio_fragment_run_every", run_every)
+        return result
 
     return decorate(function) if function is not None else decorate
 
@@ -9553,8 +9576,8 @@ def _print_center_container(streamlit_module):
     )
     popover = getattr(streamlit_module, "popover", None)
     if callable(popover):
-        return popover("🖨 Печать и экспорт", help="Открыть компактный центр печати и экспорта")
-    return streamlit_module.expander("🖨 Печать и экспорт", expanded=False)
+        return popover(PROFESSIONAL_EXPORT_BEHAVIOR.panel_label, help=PROFESSIONAL_EXPORT_BEHAVIOR.panel_help)
+    return streamlit_module.expander(PROFESSIONAL_EXPORT_BEHAVIOR.panel_label, expanded=PROFESSIONAL_EXPORT_BEHAVIOR.expanded_default)
 
 @_streamlit_fragment(run_every="2s")
 def _selected_numeric_point_from_plotly_event(event: object) -> dict[str, object]:
@@ -9583,6 +9606,13 @@ def _selected_numeric_point_from_plotly_event(event: object) -> dict[str, object
     }
 
 
+
+
+def _tablet_column_groups(columns: object, *, group_size: int = 8) -> tuple[tuple[object, ...], ...]:
+    """Split tablet columns into readable renderer-neutral groups."""
+    normalized = tuple(columns or ())
+    size = max(1, int(group_size))
+    return tuple(tuple(normalized[index:index + size]) for index in range(0, len(normalized), size))
 
 
 def _normalize_plot_selections(selection: object) -> list[dict[str, object]]:
@@ -9636,6 +9666,7 @@ def _apply_persisted_plot_selection(render_value: object, selection: object, *, 
             bgcolor="rgba(8,30,48,0.94)", bordercolor="#22d3ee", borderwidth=1.2, borderpad=6,
         )
     return figure
+@_streamlit_fragment(run_every=PROFESSIONAL_EXPORT_BEHAVIOR.fragment_run_every)
 def _render_professional_export_panel(
     logger,
     active_project: ProjectRecord,
@@ -9687,13 +9718,11 @@ def _render_professional_export_panel(
         report_preview_counts_key = f"presentation_report_document_counts_{active_project.id}"
         pdf_preview_cache_key = f"presentation_pdf_preview_{active_project.id}"
 
-        print_mode_options = [
-            "Вся скважина и все УВ-интервалы",
-            "Текущий интервал графиков",
-            "Выбрать отдельно",
-        ]
-        if selected_interval is not None:
-            print_mode_options.insert(1, "Выбранный пласт")
+        print_mode_options = list(
+            PROFESSIONAL_EXPORT_BEHAVIOR.scope_options(
+                selected_interval_available=selected_interval is not None
+            )
+        )
         full_print_min = float(valid_depth.min()) if not valid_depth.empty else float(depth_range[0])
         full_print_max = float(valid_depth.max()) if not valid_depth.empty else float(depth_range[1])
         default_print_top = (
@@ -9703,16 +9732,9 @@ def _render_professional_export_panel(
             float(selected_interval.base) if selected_interval is not None else float(depth_range[1])
         )
         export_state = state_controller.state
-        cache_metrics_registry = state_controller.ensure_runtime_service(
-            "cache_metrics_registry",
-            CacheMetricsRegistry,
-            expected_type=CacheMetricsRegistry,
-            scope="session",
-        )
         pdf_preview_runtime_cache = application_service_container(export_state).pdf_preview(
             project_id=str(active_project.id),
             root=LAS_CORRELATION_PROJECTS_ROOT,
-            metrics_registry=cache_metrics_registry,
         )
         # Migrate and immediately remove the legacy Session State payload.
         legacy_pdf_preview_cache = export_state.pop(pdf_preview_cache_key, None)
@@ -10541,9 +10563,9 @@ def _render_professional_export_panel(
                 unsafe_allow_html=True,
             )
             submit_label = (
-                "⏳  ОТЧЁТ ФОРМИРУЕТСЯ — ПОВТОРНО НЕ НАЖИМАТЬ"
+                PROFESSIONAL_EXPORT_BEHAVIOR.busy_action_label
                 if active_export_job is not None
-                else "🖨️  СФОРМИРОВАТЬ ОТЧЁТ"
+                else PROFESSIONAL_EXPORT_BEHAVIOR.primary_action_label
             )
             submit_columns = st.columns([1, 2])
             with submit_columns[0]:
@@ -11291,7 +11313,7 @@ def _render_professional_export_panel(
         )
         if cached_matches_controls:
             st.download_button(
-                f"⬇️ СКАЧАТЬ ГОТОВЫЙ {cached_export.get('format_label', 'ОТЧЁТ')}",
+                f"{PROFESSIONAL_EXPORT_BEHAVIOR.download_prefix} {cached_export.get('format_label', 'ОТЧЁТ')}",
                 data=cached_export.get("content", b""),
                 file_name=str(cached_export.get("file_name", "professional_report.bin")),
                 mime=str(cached_export.get("mime_type", "application/octet-stream")),
@@ -11308,7 +11330,7 @@ def _render_professional_export_panel(
             )
 
             if str(cached_export.get("format_id", "")).lower() == "pdf":
-                with st.expander("Предпросмотр страниц PDF", expanded=False):
+                with st.expander(PDF_PREVIEW_BEHAVIOR.expander_label, expanded=False):
                     preview_start_control, preview_controls, preview_dpi_control, preview_layout_control = st.columns([1, 2, 2, 2])
                     preview_start_key = f"pdf_preview_start_page_{active_project.id}"
                     preview_start_page = preview_start_control.number_input(
@@ -11326,13 +11348,13 @@ def _render_professional_export_panel(
                     )
                     preview_dpi = preview_dpi_control.select_slider(
                         "Качество, DPI",
-                        options=(72, 90, 110, 144, 180),
+                        options=PDF_PREVIEW_BEHAVIOR.dpi_options,
                         value=110,
                         key=f"pdf_preview_dpi_{active_project.id}",
                     )
                     preview_layout = preview_layout_control.selectbox(
                         "Расположение",
-                        options=("Одна колонка", "Две колонки"),
+                        options=PDF_PREVIEW_BEHAVIOR.layout_options,
                         index=1,
                         key=f"pdf_preview_layout_{active_project.id}",
                     )
@@ -11388,8 +11410,8 @@ def _render_professional_export_panel(
                             preview_dpi,
                         )
                     prefetch_next_range = st.checkbox(
-                        "Предзагрузить следующую группу страниц",
-                        value=False,
+                        PDF_PREVIEW_BEHAVIOR.prefetch_label,
+                        value=not PDF_PREVIEW_BEHAVIOR.prefetch_is_opt_in,
                         key=f"pdf_preview_prefetch_next_{active_project.id}",
                         help=(
                             "После построения текущего диапазона приложение заранее создаст "
@@ -11398,7 +11420,7 @@ def _render_professional_export_panel(
                     )
                     cache_budget_mib = st.selectbox(
                         "Лимит памяти кэша",
-                        options=(8, 16, 24, 48),
+                        options=PDF_PREVIEW_BEHAVIOR.memory_budget_mib,
                         index=2,
                         key=f"pdf_preview_cache_budget_mib_{active_project.id}",
                         help=(
@@ -11455,7 +11477,7 @@ def _render_professional_export_panel(
 
                     navigation_previous, navigation_next, preview_action = st.columns([1, 1, 2])
                     if navigation_previous.button(
-                        "← Предыдущие",
+                        PDF_PREVIEW_BEHAVIOR.previous_label,
                         key=f"pdf_preview_previous_{active_project.id}",
                         width="stretch",
                         disabled=effective_preview_start <= 1,
@@ -11468,7 +11490,7 @@ def _render_professional_export_panel(
                         )
                         _refresh_ui("pdf_preview_previous")
                     if navigation_next.button(
-                        "Следующие →",
+                        PDF_PREVIEW_BEHAVIOR.next_label,
                         key=f"pdf_preview_next_{active_project.id}",
                         width="stretch",
                         disabled=(known_total_pages > 0 and effective_preview_start + int(preview_page_limit) > known_total_pages),
@@ -11481,7 +11503,7 @@ def _render_professional_export_panel(
                         )
                         _refresh_ui("pdf_preview_next")
                     if preview_action.button(
-                        "Создать предпросмотр",
+                        PDF_PREVIEW_BEHAVIOR.create_action_label,
                         key=f"build_pdf_preview_{active_project.id}",
                         width="stretch",
                         disabled=expected_preview_signature is None,
@@ -11584,7 +11606,7 @@ def _render_professional_export_panel(
 
                     if pdf_preview_runtime_cache.snapshot().entry_count > 0:
                         if st.button(
-                            "Очистить кэш предпросмотра",
+                            PDF_PREVIEW_BEHAVIOR.clear_cache_label,
                             key=f"clear_pdf_preview_{active_project.id}",
                             width="stretch",
                         ):
@@ -11981,7 +12003,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         )
         if navigator_selected_id and navigator_selected_id != selected_manual_interval_id:
             _application_state_controller().state[navigator_key] = navigator_selected_id
-            st.rerun()
+            _request_ui_refresh_and_rerun("interpretation_interval_selected")
     if detected_interval_result is not None:
         _render_reservoir_ranking(
             calculated_df, list(detected_interval_result.intervals),
@@ -12074,15 +12096,9 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
     # bottom of a long interpretation page.
     state_controller = _application_state_controller()
     revision_snapshot = revision_controller_from_state(state_controller.state).snapshot
-    cache_metrics_registry = state_controller.ensure_runtime_service(
-        "cache_metrics_registry",
-        CacheMetricsRegistry,
-        expected_type=CacheMetricsRegistry,
-    )
     presentation_service = application_service_container(state_controller.state).interpretation_presentation(
         project_id=str(active_project.id),
         root=LAS_CORRELATION_PROJECTS_ROOT,
-        metrics_registry=cache_metrics_registry,
     )
     calculated_signature = presentation_service.dataframe_signature(
         calculated_df,
@@ -12459,10 +12475,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
         if TABLET_TRACK_OPTION in selected_tracks and tablet_columns:
             # A single tablet with 12-16 tracks becomes unreadable even on a
             # wide monitor.  Render semantic groups of at most eight curves.
-            tablet_column_groups = [
-                tuple(tablet_columns[index:index + 8])
-                for index in range(0, len(tablet_columns), 8)
-            ]
+            tablet_column_groups = list(_tablet_column_groups(tablet_columns, group_size=8))
             for group_index, tablet_column_group in enumerate(tablet_column_groups, start=1):
                 tablet_tracks = normalize_track_configs(
                     tablet_column_group,
@@ -12645,7 +12658,7 @@ def _render_interpretation_graphs_tab(logger, active_project: ProjectRecord) -> 
             state_controller.state[
                 f"manual_interval_selected_{active_project.id}_{manual_well_id}"
             ] = chart_selected_manual_id
-            st.rerun()
+            _request_ui_refresh_and_rerun("workspace_interval_selected")
         frontend_dispatch_ms = (perf_counter() - frontend_dispatch_started) * 1000.0
         payload_size = screen_plot_sizes[figure_index] if figure_index < len(screen_plot_sizes) else 0
         runtime_diagnostics.record(
@@ -16250,17 +16263,11 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
         expected_type=RuntimeDiagnostics,
     )
     correlation_cycle_marker = correlation_diagnostics.mark()
-    cache_metrics_registry = correlation_state_controller.ensure_runtime_service(
-        "cache_metrics_registry",
-        CacheMetricsRegistry,
-        expected_type=CacheMetricsRegistry,
-    )
     correlation_presentation_service = application_service_container(
         correlation_state_controller.state
     ).correlation_presentation(
         project_id=active_project.id,
         root=LAS_CORRELATION_PROJECTS_ROOT,
-        metrics_registry=cache_metrics_registry,
     )
     operation_trace_registry = correlation_state_controller.ensure_runtime_service(
         "operation_trace_registry",
@@ -16362,15 +16369,13 @@ def _render_las_correlation_tab(logger, active_project: ProjectRecord) -> None:
                 figure_title = "Gas Ratio Interpreter - LAS correlation"
                 figure_file_name = "las_correlation"
         cache_store_started = perf_counter()
-        correlation_presentation_service.put(
+        correlation_presentation_service.put_artifacts(
             figure_cache_key,
-            CorrelationRenderArtifacts(
-                studio_panel=studio_panel,
-                studio_figure=studio_figure,
-                figure=figure,
-                figure_title=figure_title,
-                figure_file_name=figure_file_name,
-            ),
+            studio_panel=studio_panel,
+            studio_figure=studio_figure,
+            figure=figure,
+            figure_title=figure_title,
+            figure_file_name=figure_file_name,
         )
         correlation_diagnostics.record(
             stage="correlation.cache_store",

@@ -9,13 +9,15 @@ from core.workbench_tools import WorkbenchToolRegistry
 
 
 def test_v202_build_identity() -> None:
-    assert BUILD_VERSION == "v222"
+    from pathlib import Path
 
+    assert BUILD_VERSION.startswith("v225.")
 
 def test_existing_workflows_are_reused_by_modern_workbench(monkeypatch) -> None:
     calls: list[str] = []
     project = SimpleNamespace(id="project_test", name="Test")
-    monkeypatch.setattr(app, "configure_logging", lambda: object())
+    logger = type("Logger", (), {"info": lambda self, *args, **kwargs: None, "exception": lambda self, *args, **kwargs: None})()
+    monkeypatch.setattr(app, "configure_logging", lambda: logger)
     monkeypatch.setattr(app, "_active_project_for_workbench", lambda logger: project)
     monkeypatch.setattr(app, "_render_start_tab", lambda active_project: calls.append("dashboard"))
     monkeypatch.setattr(app, "_render_workspace", lambda logger, active_project: calls.append("data"))

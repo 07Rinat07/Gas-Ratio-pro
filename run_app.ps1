@@ -10,6 +10,8 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $ProjectRoot
 $EntryPoint = Join-Path $ProjectRoot "app\streamlit_app.py"
+$BuildVersionPath = Join-Path $ProjectRoot "BUILD_VERSION"
+$BuildVersion = if (Test-Path -LiteralPath $BuildVersionPath) { (Get-Content -LiteralPath $BuildVersionPath -Raw).Trim() } else { "unknown" }
 
 $VenvPython = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
 if (Test-Path -LiteralPath $VenvPython) {
@@ -68,7 +70,7 @@ if ($MissingReportDependencies.Count -gt 0) {
     }
 }
 
-Write-Host "Starting Gas Ratio Pro v223.5" -ForegroundColor Green
+Write-Host "Starting Gas Ratio Pro $BuildVersion" -ForegroundColor Green
 Write-Host "Source: $ProjectRoot" -ForegroundColor Cyan
 Write-Host "URL: http://localhost:$Port" -ForegroundColor Cyan
 

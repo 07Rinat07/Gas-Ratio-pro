@@ -6,12 +6,15 @@ from reports.document_model import build_engineering_document
 
 
 def test_workbench_exposes_correlation_route_in_production_sources() -> None:
-    renderer = Path('app/workbench_renderer.py').read_text(encoding='utf-8')
-    app = Path('app/streamlit_app.py').read_text(encoding='utf-8')
-    assert '("Correlation", "nav.correlation")' in renderer
-    assert WorkbenchNavigationRouter().by_navigation("nav.correlation").workspace == "correlation"
-    assert '"nav.correlation": WorkspaceRoute("nav.correlation", "las-correlation"' in app
-    assert 'multi-well-uploader' in app
+    from app.workbench_renderer import workbench_menu_navigation_ids
+    from core.workbench_shell import DEFAULT_WORKBENCH_NAVIGATION
+
+    route = WorkbenchNavigationRouter().by_navigation("nav.correlation")
+    navigation_ids = {item.id for item in DEFAULT_WORKBENCH_NAVIGATION}
+
+    assert route.workspace == "correlation"
+    assert "nav.correlation" in workbench_menu_navigation_ids()
+    assert "nav.correlation" in navigation_ids
 
 
 def test_default_project_tree_contains_correlation_entry() -> None:

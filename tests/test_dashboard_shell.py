@@ -256,19 +256,14 @@ def test_page_layout_meta_has_all_workspace_tabs() -> None:
 
 
 def test_documentation_center_v2_has_quick_links_toc_faq_and_shortcuts() -> None:
+    contract = app._documentation_center_behavior_contract()
     titles = app._documentation_quick_link_titles()
-    toc = app._documentation_table_of_contents()
-    source = Path(app.__file__).read_text(encoding="utf-8")
+    anchors = tuple(item["anchor"] for item in app._documentation_table_of_contents())
 
-    assert "Быстрый старт" in titles
-    assert "Диагностика" in titles
-    assert any(item["anchor"] == "docs-shortcuts" for item in toc)
-    assert any(item["anchor"] == "docs-faq" for item in toc)
-    assert "DOCUMENTATION_FAQ" in source
-    assert "DOCUMENTATION_SHORTCUTS" in source
-    assert "docs-v2-grid" in source
-    assert "docs-toc" in source
-    assert "Gas Ratio Pro Documentation Center v2" in source
+    assert contract.validate(titles, anchors) is True
+    assert len(app.DOCUMENTATION_FAQ) >= 3
+    assert len(app.DOCUMENTATION_SHORTCUTS) >= 3
+    assert contract.logo_overlay_enabled is False
 
 
 def test_documentation_center_v2_is_documented_in_project_plan() -> None:

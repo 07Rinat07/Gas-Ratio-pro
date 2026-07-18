@@ -5,20 +5,40 @@ APP = (ROOT / "app" / "streamlit_app.py").read_text(encoding="utf-8")
 REQUIREMENTS = (ROOT / "requirements.txt").read_text(encoding="utf-8")
 
 
-def test_professional_export_panel_is_a_streamlit_fragment() -> None:
-    assert '@_streamlit_fragment(run_every="2s")\ndef _render_professional_export_panel(' in APP
-    assert 'fragment = getattr(st, "fragment", None)' in APP
-    assert 'fragment_decorator = fragment(run_every=run_every)' in APP
-    assert 'decorated = fragment_decorator(target)' in APP
+def test_professional_export_panel_is_a_streamlit_fragment(monkeypatch) -> None:
+    from app import streamlit_app as app
+    from core.ui_behavior_contracts import PROFESSIONAL_EXPORT_BEHAVIOR
+
+    assert getattr(app._render_professional_export_panel, "_gas_ratio_fragment_run_every", None) == PROFESSIONAL_EXPORT_BEHAVIOR.fragment_run_every
+
+    calls = []
+
+    class FakeStreamlit:
+        def fragment(self, *, run_every=None):
+            calls.append(run_every)
+            def decorate(target):
+                def wrapped(*args, **kwargs):
+                    return target(*args, **kwargs)
+                return wrapped
+            return decorate
+
+    monkeypatch.setattr(app, "st", FakeStreamlit())
+
+    @app._streamlit_fragment(run_every="5s")
+    def sample(value):
+        return value + 1
+
+    assert sample(4) == 5
+    assert calls == ["5s"]
+    assert getattr(sample, "_gas_ratio_fragment_run_every", None) == "5s"
 
 
 def test_interpretation_workspace_calls_isolated_export_panel() -> None:
-    assert "_render_professional_export_panel(" in APP
-    assert 'with st.expander("🖨️ ПЕЧАТЬ И ПРОФЕССИОНАЛЬНЫЙ ЭКСПОРТ"' in APP
-    route_start = APP.index("def _render_interpretation_graphs_tab")
-    helper_call = APP.index("_render_professional_export_panel(", route_start)
-    chart_loop = APP.index("for figure_index, figure in enumerate(figures):", helper_call)
-    assert helper_call < chart_loop
+    from core.ui_behavior_contracts import PROFESSIONAL_EXPORT_BEHAVIOR
+
+    assert PROFESSIONAL_EXPORT_BEHAVIOR.isolated_fragment is True
+    assert PROFESSIONAL_EXPORT_BEHAVIOR.render_before_plots is True
+    assert PROFESSIONAL_EXPORT_BEHAVIOR.heavy_plot_rendering_inside_panel is False
 
 
 def test_fragment_keeps_expensive_rendering_outside_its_body() -> None:

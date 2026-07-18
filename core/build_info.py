@@ -11,7 +11,18 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-BUILD_VERSION = "v225.6"
+BUILD_VERSION_FILE = PROJECT_ROOT / "BUILD_VERSION"
+
+
+def _load_build_version() -> str:
+    try:
+        value = BUILD_VERSION_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        return "unknown"
+    return value or "unknown"
+
+
+BUILD_VERSION = _load_build_version()
 BUILD_CHANNEL = "release-candidate"
 
 

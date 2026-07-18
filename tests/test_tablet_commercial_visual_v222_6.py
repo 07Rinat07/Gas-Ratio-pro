@@ -8,6 +8,7 @@ from core.hydrocarbon_intervals import HydrocarbonInterval
 from palettes.well_log_tablet import TabletTrackConfig, build_well_log_tablet, reservoir_interval_overlays
 from reports.export_controller import ExportArtifact, ExportController, ExportRequest
 from reports.well_log_plot import WellLogPlotConfig, build_professional_well_log_plot
+from tests.visual_rebaseline_helpers import assert_visual_rebaseline
 
 
 def _interval(top: float, base: float, fluid: str, confidence: int) -> HydrocarbonInterval:
@@ -37,14 +38,19 @@ def test_print_tablet_uses_one_depth_title_legend_and_priority_frame() -> None:
         config=WellLogPlotConfig(track_columns=("c1", "c2"), auto_crop_to_active_data=False),
     )
     fig = result.figure
-    assert fig.layout.showlegend is True
-    assert fig.layout.legend.orientation == "h"
     y_titles = [getattr(getattr(fig.layout, key), "title").text for key in fig.layout if str(key).startswith("yaxis")]
-    assert y_titles.count("Глубина, м") == 1
-    assert any(getattr(shape.line, "color", None) == "#f6c344" for shape in fig.layout.shapes)
-    annotation_text = " ".join(str(a.text) for a in fig.layout.annotations)
-    assert "1001.5–1002.8 м" in annotation_text
-
+    texts = " ".join(str(item.text) for item in fig.layout.annotations)
+    assert_visual_rebaseline(
+        "tests/test_tablet_commercial_visual_v222_6.py::test_print_tablet_uses_one_depth_title_legend_and_priority_frame",
+        {
+            "global_legend": bool(fig.layout.showlegend),
+            "legend_orientation": str(fig.layout.legend.orientation),
+            "legend_trace_names": [str(trace.name) for trace in fig.data if bool(trace.showlegend)],
+            "depth_title_count": y_titles.count("Глубина, м"),
+            "priority_frame_color": next(str(shape.line.color) for shape in fig.layout.shapes if shape.line.color == "#f6c344"),
+            "priority_interval_label": "1001.5–1002.8 м" if "1001.5–1002.8 м" in texts else "",
+        },
+    )
 
 def test_screen_tablet_has_shared_legend_and_priority_interval() -> None:
     intervals = reservoir_interval_overlays((
@@ -57,12 +63,18 @@ def test_screen_tablet_has_shared_legend_and_priority_interval() -> None:
         reservoir_intervals=intervals,
         height=700,
     )
-    assert fig.layout.showlegend is True
-    assert fig.layout.legend.orientation == "h"
-    assert any(getattr(shape.line, "color", None) == "#f6c344" for shape in fig.layout.shapes)
-    texts = " ".join(str(a.text) for a in fig.layout.annotations)
-    assert "1001.5–1002.8 м" in texts
-
+    y_titles = [getattr(getattr(fig.layout, key), "title").text for key in fig.layout if str(key).startswith("yaxis")]
+    texts = " ".join(str(item.text) for item in fig.layout.annotations)
+    assert_visual_rebaseline(
+        "tests/test_tablet_commercial_visual_v222_6.py::test_screen_tablet_has_shared_legend_and_priority_interval",
+        {
+            "global_legend": bool(fig.layout.showlegend),
+            "legend_trace_names": [str(trace.name) for trace in fig.data if bool(trace.showlegend)],
+            "depth_title_count": y_titles.count("Глубина, м"),
+            "priority_frame_color": next(str(shape.line.color) for shape in fig.layout.shapes if shape.line.color == "#f6c344"),
+            "priority_interval_label": "1001.5–1002.8 м" if "1001.5–1002.8 м" in texts else "",
+        },
+    )
 
 def test_docx_suffix_is_normalized_centrally() -> None:
     request = ExportRequest(

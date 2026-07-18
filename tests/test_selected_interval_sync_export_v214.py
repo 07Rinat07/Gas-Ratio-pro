@@ -26,7 +26,10 @@ def test_data_workspace_pixler_and_ternary_use_shared_interval_contract():
 
 
 def test_professional_export_defaults_to_selected_reservoir():
-    source = Path("app/streamlit_app.py").read_text(encoding="utf-8")
-    assert 'print_mode_options.insert(0, "Выбранный пласт")' in source
-    assert '_selected_interval_print_range(' in source
-    assert 'PDF и DOCX формируются только по его фактическим границам.' in source
+    from core.ui_behavior_contracts import PROFESSIONAL_EXPORT_BEHAVIOR
+
+    options = PROFESSIONAL_EXPORT_BEHAVIOR.scope_options(selected_interval_available=True)
+    interval = SimpleNamespace(top=1496.6, base=1485.6)
+
+    assert options[0] == PROFESSIONAL_EXPORT_BEHAVIOR.selected_interval_scope
+    assert _selected_interval_print_range(interval, (47.0, 2016.2)) == (1485.6, 1496.6)

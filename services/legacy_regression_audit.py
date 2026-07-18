@@ -36,6 +36,8 @@ class LegacyRegressionContract:
     rationale: str
     replacement_contract: str
     status: str
+    resolved_in: str = ""
+    evidence: str = ""
 
     @property
     def valid(self) -> bool:
@@ -46,7 +48,8 @@ class LegacyRegressionContract:
             and self.disposition in _ALLOWED_DISPOSITIONS
             and bool(self.rationale)
             and bool(self.replacement_contract)
-            and self.status == "audited"
+            and self.status in {"open", "resolved"}
+            and (self.status != "resolved" or (bool(self.resolved_in) and bool(self.evidence)))
         )
 
     def to_dict(self) -> dict[str, str]:
@@ -61,6 +64,8 @@ class LegacyRegressionContract:
             "rationale": self.rationale,
             "replacement_contract": self.replacement_contract,
             "status": self.status,
+            "resolved_in": self.resolved_in,
+            "evidence": self.evidence,
         }
 
 
@@ -84,16 +89,24 @@ class LegacyRegressionAuditReport:
         return dict(sorted(Counter(item.disposition for item in self.contracts).items()))
 
     @property
+    def resolved_count(self) -> int:
+        return sum(item.status == "resolved" for item in self.contracts)
+
+    @property
+    def active_count(self) -> int:
+        return sum(item.status == "open" for item in self.contracts)
+
+    @property
     def implementation_debt_count(self) -> int:
-        return sum(item.disposition == "fix_implementation" for item in self.contracts)
+        return sum(item.status == "open" and item.disposition == "fix_implementation" for item in self.contracts)
 
     @property
     def replacement_required_count(self) -> int:
-        return sum(item.disposition in {"replace_with_behavior_test", "rebaseline_after_visual_review"} for item in self.contracts)
+        return sum(item.status == "open" and item.disposition in {"replace_with_behavior_test", "rebaseline_after_visual_review"} for item in self.contracts)
 
     @property
     def retired_count(self) -> int:
-        return sum(item.disposition == "retire" for item in self.contracts)
+        return sum(item.status == "open" and item.disposition == "retire" for item in self.contracts)
 
     @property
     def ok(self) -> bool:
@@ -122,6 +135,8 @@ class LegacyRegressionAuditReport:
             "audited_count": len(self.contracts),
             "category_counts": self.category_counts,
             "disposition_counts": self.disposition_counts,
+            "resolved_count": self.resolved_count,
+            "active_count": self.active_count,
             "implementation_debt_count": self.implementation_debt_count,
             "replacement_required_count": self.replacement_required_count,
             "retired_count": self.retired_count,
@@ -141,7 +156,7 @@ class LegacyRegressionAuditService:
         issues: list[str] = []
         if payload.get("schema") != "gas-ratio-pro.legacy-regression-audit":
             issues.append("unsupported_legacy_regression_audit_schema")
-        if str(payload.get("version") or "") != "1.0":
+        if str(payload.get("version") or "") not in {"1.0", "1.1"}:
             issues.append("unsupported_legacy_regression_audit_version")
         contracts: list[LegacyRegressionContract] = []
         for raw in _mapping_list(payload.get("contracts")):
@@ -156,6 +171,8 @@ class LegacyRegressionAuditService:
                 rationale=str(raw.get("rationale") or ""),
                 replacement_contract=str(raw.get("replacement_contract") or ""),
                 status=str(raw.get("status") or ""),
+                resolved_in=str(raw.get("resolved_in") or ""),
+                evidence=str(raw.get("evidence") or ""),
             )
             if not contract.valid:
                 issues.append(f"invalid_legacy_regression_contract:{contract.id or contract.nodeid}")

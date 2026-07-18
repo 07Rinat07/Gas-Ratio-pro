@@ -1,28 +1,43 @@
-# Latest implementation — Physical golden baseline and Print Center acceptance v225.6
+# Latest implementation — Architecture and contract remediation v225.7
 
-## Physical golden contract
+## Architecture boundaries
 
-- `VisualizationPhysicalGoldenArtifactService` owns generate/verify for A4/A3 portrait/landscape.
-- Approved artifacts live in `tests/fixtures/physical_golden_artifacts/`.
-- Source fixture: `tests/fixtures/visualization/reference_physical_ten_tracks.json`.
-- Regenerate only after visual review with `python scripts/regenerate_physical_golden_artifacts.py`.
-- The manifest locks SVG/PNG checksums, PDF checksum, dimensions, page count, track partition, chrome count, geometry signature, and parity gate id.
+- `TemporaryFileApplicationService` owns validated destruction through `DeleteEngine`.
+- `ApplicationServiceContainer.cache_metrics_registry()` provides one session-scoped telemetry registry.
+- Runtime diagnostics application service owns route lifecycle, startup diagnostics, and cache coherence.
+- Correlation artifacts are passed through application-service APIs.
+- Direct Streamlit rerun is permitted only inside the unified rerun gate.
 
-## Print Center acceptance
+## Behavioral contracts
 
-- `ProfessionalPrintCenterAcceptanceRunner` executes profile persistence, page-aware preparation, visible view model, bundle export, bundle validation, and SVG/PNG delivery.
-- Evidence is `print-center-acceptance-report.json`.
-- `_AutoScaleRasterImage` in `reports/presentation_pdf.py` scales preview images against the actual ReportLab frame and fixes mixed-orientation overflow.
+- `core/ui_behavior_contracts.py` defines executable documentation, export, navigation, launcher, and search behavior.
+- Tests no longer inspect source text to prove UI behavior.
+- Workbench renderer helpers expose current build badge and navigation behavior.
+- Root `BUILD_VERSION` is the single runtime build source; `run_app.ps1` reads it dynamically.
 
-## Legacy regression audit
+## Controlled visual rebaseline
 
-- `config/legacy_regression_contracts_v225_6.json` contains all 51 inherited v225.4/v225.5 failures.
-- Categories: obsolete version identity, brittle UI source assertion, visual rebaseline, architecture boundary, behavioral compatibility.
-- Silent `xfail` and test deletion without replacement are forbidden.
-- Architecture debt remains release-visible.
+- `services/visual_rebaseline_registry.py` builds canonical semantic snapshots and validates SHA-256.
+- Approved contracts live in `config/visual_rebaseline_contracts_v225_7.json`.
+- `tests/visual_rebaseline_helpers.py` extracts renderer behavior without relying on incidental trace counts.
+- All 13 former visual legacy assertions now use approved semantic contracts.
+
+## Legacy regression registry
+
+- `config/legacy_regression_contracts_v225_7.json` contains all 51 inherited contracts.
+- Every entry is resolved in v225.7 and includes evidence plus a replacement contract.
+- Active legacy debt is zero.
+- Silent `xfail` and deletion without replacement remain prohibited.
+
+## Verification
+
+- Extended architecture/renderer/export/documentation set: **480 passed**.
+- Complete regression suite: **2855 passed, 0 failed**.
+- All 51 legacy nodeids pass their replacement contracts.
+- Stable promotion remains blocked only by live Workbench acceptance.
 
 ## Release governance
 
-- Build: `v225.6`, channel `release-candidate`.
-- User release archives must exclude `.github/workflows` unless local build/runtime explicitly requires them.
+- Build: `v225.7`, channel `release-candidate` until live Workbench acceptance completes.
+- User release archives exclude `.github/workflows` unless local runtime explicitly requires it.
 - Always update and verify Russian, Kazakh, and English README, user instructions, developer architecture, status, roadmap, project plan, changelog, release notes, and documentation manifest.

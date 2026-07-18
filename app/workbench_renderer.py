@@ -17,6 +17,7 @@ from typing import Any, MutableMapping, Protocol
 
 from core.command_framework import CommandExecutionResult, WorkbenchCommandRegistry
 from core.build_info import runtime_build_info
+from core.ui_behavior_contracts import WORKBENCH_NAVIGATION_BEHAVIOR
 from core.workbench_controller import WorkbenchController, build_workbench_controller
 from core.application_service_container import application_service_container
 from projects.repository import DEFAULT_PROJECTS_ROOT
@@ -352,6 +353,22 @@ def _dispatch_action(
     return result
 
 
+def workbench_build_badge() -> dict[str, str]:
+    """Return observable build identity shown by the Workbench title bar."""
+    info = runtime_build_info()
+    return {
+        "version": str(info.version),
+        "channel": str(info.channel),
+        "project_root": str(info.project_root),
+        "entry_point": str(info.entry_point),
+    }
+
+
+def workbench_menu_navigation_ids() -> tuple[str, ...]:
+    """Return the navigation destinations exposed by native menu buttons."""
+    return WORKBENCH_NAVIGATION_BEHAVIOR.required_routes
+
+
 def _render_native_streamlit_layout(
     contract: WorkbenchRendererContract,
     registry: WorkbenchCommandRegistry,
@@ -364,7 +381,7 @@ def _render_native_streamlit_layout(
     executed: list[CommandExecutionResult] = []
     i18n = _localization_context(registry, st_module)
     active_workspace = payload.get("interaction", {}).get("active_workspace") or "dashboard"
-    build = runtime_build_info()
+    build = workbench_build_badge()
     logo_uri = _branding_logo_data_uri()
     logo_html = (
         f"<img class='workbench-logo-image' src='{logo_uri}' alt='Gas Ratio Pro logo'>"
@@ -376,7 +393,7 @@ def _render_native_streamlit_layout(
         f"<h1>{_html(i18n('app.workbench.title'))}</h1>"
         f"<div class='workbench-subtitle'>{_html(i18n('app.workbench.subtitle'))}</div>"
         "</div></div>"
-        f"<div class='workbench-build'>{_html(i18n('app.build'))} <b>{_html(build.version)}</b><br>{_html(i18n('app.workspace'))}: <b>{_html(active_workspace)}</b></div>"
+        f"<div class='workbench-build'>{_html(i18n('app.build'))} <b>{_html(build['version'])}</b><br>{_html(i18n('app.workspace'))}: <b>{_html(active_workspace)}</b></div>"
         "</header>", unsafe_allow_html=True,
     )
     menu_items = (

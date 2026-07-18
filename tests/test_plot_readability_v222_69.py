@@ -35,10 +35,17 @@ def test_print_headers_embed_min_average_and_maximum():
 
 
 def test_interactive_tablet_is_rendered_in_groups_and_selection_is_persistent():
-    source = (ROOT / "app" / "streamlit_app.py").read_text(encoding="utf-8")
-    assert "tablet_columns[index:index + 8]" in source
-    assert "_apply_persisted_plot_selection" in source
-    assert "Зафиксировано:" in source
+    from app import streamlit_app as app
+
+    groups = app._tablet_column_groups(tuple(f"curve-{index}" for index in range(17)), group_size=8)
+    selections = app._normalize_plot_selections([
+        {"x": 1.2, "depth": 1000.0, "figure_index": 0},
+        {"x": 2.4, "depth": 1001.0, "figure_index": 1},
+    ])
+
+    assert tuple(len(group) for group in groups) == (8, 8, 1)
+    assert selections[0]["depth"] == 1000.0
+    assert selections[1]["figure_index"] == 1
 
 
 def test_docx_does_not_repeat_unicode_symbol_legends_before_each_plot():

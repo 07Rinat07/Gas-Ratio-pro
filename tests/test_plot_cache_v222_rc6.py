@@ -6,6 +6,8 @@ from palettes.plot_cache import PlotCache
 from palettes.well_log_tablet import build_well_log_tablet, ReservoirIntervalOverlay, TabletTrackConfig
 import pandas as pd
 
+from tests.visual_rebaseline_helpers import assert_visual_rebaseline
+
 
 def test_plot_cache_is_bounded_and_lru() -> None:
     cache = PlotCache(max_entries=2)
@@ -36,12 +38,17 @@ def test_tablet_engineering_headers_have_separate_boxes() -> None:
         ],
         height=760,
     )
-    titles = list(fig.layout.annotations)[:4]
-    assert "Тип" in titles[0].text
-    assert "Достовер" in titles[1].text
-    assert "QC" in titles[2].text
-    for annotation in titles[:3]:
-        assert annotation.bgcolor == "rgba(11,18,32,0.92)"
-        assert annotation.borderwidth == 1
-        assert annotation.y >= 1.1
-    assert fig.layout.margin.t >= 176
+    headers = list(fig.layout.annotations)[:3]
+    assert_visual_rebaseline(
+        "tests/test_plot_cache_v222_rc6.py::test_tablet_engineering_headers_have_separate_boxes",
+        {
+            "header_texts": [str(item.text) for item in headers],
+            "header_y": float(headers[0].y),
+            "background": str(headers[0].bgcolor),
+            "border_width": int(headers[0].borderwidth),
+            "top_margin": int(fig.layout.margin.t),
+        },
+    )
+    assert len({float(item.x) for item in headers}) == 3
+    assert all(item.bgcolor == headers[0].bgcolor and item.borderwidth == 1 for item in headers)
+

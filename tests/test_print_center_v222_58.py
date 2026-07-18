@@ -18,7 +18,33 @@ def test_print_center_session_is_json_safe():
 
 
 def test_workbench_uses_compact_print_center_trigger():
-    source = open("app/streamlit_app.py", encoding="utf-8").read()
-    assert "_print_center_container(st)" in source
-    assert "🖨 Печать и экспорт" in source
-    assert 'with st.expander("Отчёт и печать"' not in source
+    from app.streamlit_app import _print_center_container
+    from core.ui_behavior_contracts import PROFESSIONAL_EXPORT_BEHAVIOR
+
+    class FakeStreamlit:
+        def __init__(self):
+            self.markdown_calls = []
+            self.popover_calls = []
+
+        def markdown(self, body, **kwargs):
+            self.markdown_calls.append((body, kwargs))
+
+        def popover(self, label, **kwargs):
+            self.popover_calls.append((label, kwargs))
+            return {"kind": "popover", "label": label}
+
+    fake = FakeStreamlit()
+    container = _print_center_container(fake)
+
+    assert container == {
+        "kind": "popover",
+        "label": PROFESSIONAL_EXPORT_BEHAVIOR.panel_label,
+    }
+    assert fake.popover_calls == [
+        (
+            PROFESSIONAL_EXPORT_BEHAVIOR.panel_label,
+            {"help": PROFESSIONAL_EXPORT_BEHAVIOR.panel_help},
+        )
+    ]
+    assert PROFESSIONAL_EXPORT_BEHAVIOR.expanded_default is False
+    assert any("stPopover" in body for body, _ in fake.markdown_calls)

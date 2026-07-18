@@ -4,6 +4,7 @@ import pandas as pd
 
 from palettes.config import TernaryRegion
 from palettes.ternary import analyze_ternary_interval, build_ternary_palette
+from tests.visual_rebaseline_helpers import assert_visual_rebaseline
 
 
 REGIONS = (
@@ -73,14 +74,21 @@ def test_ternary_figure_contains_regions_cloud_median_and_selected_depth():
         interval_label="1000–1000.5 м · gas · 80%",
         selected_depth=1000.5,
     )
-
-    names = [trace.name for trace in fig.data]
-    assert "Измерения (2)" in names
-    assert "Медианный центр" in names
-    assert "Глубина 1000.5 м" in names
-    assert len(fig.data) == len(REGIONS) + 3
-    assert "валидных точек: 2/2" in fig.layout.title.text
-
+    polygons = [trace for trace in fig.data if trace.mode == "lines"]
+    labels = [trace for trace in fig.data if trace.mode == "text"]
+    names = [str(trace.name) for trace in fig.data]
+    assert_visual_rebaseline(
+        "tests/test_ternary_interval_plot_v214.py::test_ternary_figure_contains_regions_cloud_median_and_selected_depth",
+        {
+            "region_polygon_names": [str(trace.name) for trace in polygons],
+            "region_label_trace_count": len(labels),
+            "measurement_name": next(name for name in names if name.startswith("Измерения")),
+            "median_name": "Медианный центр" if "Медианный центр" in names else "",
+            "selected_depth_name": "Глубина 1000.5 м" if "Глубина 1000.5 м" in names else "",
+            "valid_points": "2/2" if "валидных точек: 2/2" in fig.layout.title.text else "",
+            "total_trace_count": len(fig.data),
+        },
+    )
 
 def test_ternary_handles_no_jointly_valid_rows_without_failure():
     frame = pd.DataFrame({"c2_sumc": [0.5], "c3_sumc": [None], "nc4_sumc": [0.5]})

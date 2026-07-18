@@ -7,6 +7,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from core.internationalization.language_registry import DEFAULT_LANGUAGE, normalize_language
+from core.storage_lifecycle import DeleteEngine
 
 
 class UserLocalePreferenceService:
@@ -15,6 +16,7 @@ class UserLocalePreferenceService:
 
     def __init__(self, path: Path | str) -> None:
         self.path = Path(path)
+        self._delete_engine = DeleteEngine(attempts=2, delay_seconds=0.0)
 
     def load(self) -> str:
         try:
@@ -47,7 +49,7 @@ class UserLocalePreferenceService:
         try:
             os.replace(temp_path, self.path)
         finally:
-            temp_path.unlink(missing_ok=True)
+            self._delete_engine.delete_path(temp_path, missing_ok=True)
         return normalized
 
     def snapshot(self) -> dict[str, object]:

@@ -8,13 +8,14 @@ health schedulers, and navigation caches directly. Heavy live objects remain in
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from core.project_navigation_runtime_cache import ProjectNavigationRuntimeCache
 from core.repository_health import RepositoryHealthService
 from core.repository_health_scheduler import RepositoryHealthScheduler
 from core.repository_io import RepositoryIOMetrics
 from core.runtime_service_registry import RuntimeServiceRegistry
+from services.workbench_runtime_application_service import WorkbenchRuntimeApplicationService
 
 
 class RuntimeDiagnosticsApplicationService:
@@ -24,6 +25,50 @@ class RuntimeDiagnosticsApplicationService:
         self.root = Path(root).resolve()
         self._registry = registry
         self._active_project_id = ""
+
+    def _workbench_runtime(self) -> WorkbenchRuntimeApplicationService:
+        return self._registry.ensure(
+            "workbench_runtime_application_service",
+            lambda: WorkbenchRuntimeApplicationService(registry=self._registry),
+            expected_type=WorkbenchRuntimeApplicationService,
+            scope="session",
+        )
+
+    def activate_workbench_route(self, route_id: str):
+        """Activate one Workbench route through the application boundary."""
+        return self._workbench_runtime().activate_route(route_id)
+
+    def record_startup_cycle(
+        self,
+        stages_ms: Mapping[str, float],
+        *,
+        route_id: str = "",
+        project_id: str = "",
+    ) -> dict[str, Any]:
+        """Record one startup/rerun cycle without exposing diagnostics objects."""
+        return self._workbench_runtime().record_startup_cycle(
+            stages_ms, route_id=route_id, project_id=project_id
+        )
+
+    def subscribe_project_cache_coherence(
+        self,
+        subscriber_id: str,
+        *,
+        active_project_id: Callable[[], str],
+    ) -> RepositoryIOMetrics:
+        """Keep project navigation and DataFrame caches coherent after mutations."""
+        runtime = self._workbench_runtime()
+
+        def _invalidate(event: dict[str, Any]) -> None:
+            project_id = str(event.get("project_id") or "").strip()
+            operation = str(event.get("operation") or "mutation").strip()
+            runtime.invalidate_project_runtime_caches(
+                project_id,
+                active_project_id=str(active_project_id() or ""),
+                reason=f"repository-{operation}",
+            )
+
+        return self.subscribe_repository_mutations(subscriber_id, _invalidate)
 
     def repository_metrics(self) -> RepositoryIOMetrics:
         """Return the single session-scoped repository telemetry collector."""
@@ -90,4 +135,6 @@ class RuntimeDiagnosticsApplicationService:
             "repository_metrics_ready": self._registry.get("repository_io_metrics") is not None,
             "navigation_cache_ready": self._registry.get("project_navigation_runtime_cache") is not None,
             "project_health_ready": self._registry.get("repository_health_service") is not None,
+            "route_lifecycle_ready": self._workbench_runtime().health_snapshot()["route_lifecycle_ready"],
+            "startup_diagnostics_ready": self._workbench_runtime().health_snapshot()["startup_diagnostics_ready"],
         }

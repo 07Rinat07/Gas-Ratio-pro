@@ -6,6 +6,7 @@ from core.hydrocarbon_intervals import HydrocarbonInterval, HydrocarbonIntervalR
 from reports.executive_summary import ExecutiveSummary
 from reports.presentation_model import PresentationMetadata, build_presentation_model
 from reports.well_log_plot import adaptive_detail_padding, group_intervals_for_report
+from tests.visual_rebaseline_helpers import assert_visual_rebaseline
 
 
 def interval(top: float, base: float, fluid: str, confidence: int) -> HydrocarbonInterval:
@@ -51,12 +52,18 @@ def test_client_profile_limits_detail_pages() -> None:
         metadata=PresentationMetadata(report_profile="client"),
     )
     assert model.well_log_plot is not None
-    assert len(model.detail_well_log_plots) == 5
-    assert len(model.figures) == 6
-    meta = dict(model.detail_well_log_plots[0].figure.layout.meta["gas_ratio_report_legend"])
-    assert meta["report_kind"] == "detail"
-    assert meta["intervals"]
-
+    details = model.detail_well_log_plots
+    assert_visual_rebaseline(
+        "tests/test_report_interval_pages_v222_13.py::test_client_profile_limits_detail_pages",
+        {
+            "detail_page_limit": len(details),
+            "figure_count": len(model.figures),
+            "overview_report_kind": str(model.well_log_plot.report_kind),
+            "detail_report_kinds": [str(item.report_kind) for item in details],
+            "detail_interval_counts": [len(item.report_intervals) for item in details],
+            "detail_depth_ranges": [[float(item.depth_start), float(item.depth_stop)] for item in details],
+        },
+    )
 
 def test_detail_padding_is_adaptive() -> None:
     assert adaptive_detail_padding(1000, 1001) == 2.0
