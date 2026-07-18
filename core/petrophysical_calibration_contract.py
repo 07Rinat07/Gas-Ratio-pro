@@ -22,7 +22,7 @@ _DEFAULT_ROOT = Path(__file__).resolve().parents[1]
 _DEFAULT_REGISTRY = _DEFAULT_ROOT / "config" / "petrophysical_field_calibration_registry_v225_10.json"
 _DEFAULT_DATASET = _DEFAULT_ROOT / "data" / "validation" / "petrophysics" / "petrophysical_field_calibration_cases_v225_10.json"
 
-_ALLOWED_LEGAL_STATUS = {"project_owned", "licensed", "public_domain"}
+_ALLOWED_LEGAL_STATUS = {"project_owned", "operator_owned", "licensed", "public_domain"}
 _ALLOWED_CALIBRATION_POLICY = {"required_final_report", "diagnostic_only", "not_required"}
 _ALLOWED_DISTRIBUTIONS = {"triangular", "uniform", "fixed"}
 
@@ -68,6 +68,7 @@ def validate_field_calibration_contract(
     dataset: Mapping[str, Any],
     *,
     known_method_ids: set[str] | None = None,
+    require_redistribution_allowed: bool = True,
 ) -> tuple[str, ...]:
     errors: list[str] = []
     methods = registry.get("methods")
@@ -102,9 +103,10 @@ def validate_field_calibration_contract(
             errors.append(f"calibration set {set_id} requires owner")
         if not str(record.get("source_note", "")).strip():
             errors.append(f"calibration set {set_id} requires source_note")
-        if not bool(record.get("redistribution_allowed", False)):
+        redistribution_allowed = bool(record.get("redistribution_allowed", False))
+        if require_redistribution_allowed and not redistribution_allowed:
             errors.append(f"calibration set {set_id} is not cleared for release distribution")
-        if legal_status in _ALLOWED_LEGAL_STATUS and bool(record.get("redistribution_allowed", False)):
+        if legal_status in _ALLOWED_LEGAL_STATUS and (redistribution_allowed or not require_redistribution_allowed):
             cleared_set_ids.add(set_id)
 
     case_ids: set[str] = set()

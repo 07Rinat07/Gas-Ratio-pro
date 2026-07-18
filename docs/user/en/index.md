@@ -14,6 +14,8 @@ Current instructions for using the application. Documents are synchronized acros
 
 - [Field calibration and final-report authorization](field_calibration_and_report_authorization.md) — revision 1
 
+- [Operator calibration packages](operator_calibration_packages.md) — revision 1
+
 ---
 
 Other languages: [Русский](../ru/index.md) · [Қазақша](../kk/index.md)

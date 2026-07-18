@@ -1,0 +1,3 @@
+# v225.11 Acceptance — Operator Dataset Import & Calibration Comparison
+
+Қабылдау шарттары: ZIP тек үш root-файлдан тұрады; project scope және data-rights дұрыс; method-registry fingerprint production contract-пен сәйкес; package/version immutable; tampering есептеу алдында анықталады; 10 әдіс салыстырылады; 9 final-report eligible әдіс project authorization алады; Dual Water бұғатталған күйде қалады; белсенді пакет өзгерсе cache тазарады; artifact/history authorization package ID және operator fingerprint сақтайды; пакет жоқ болса Stage 5.1 baseline жұмыс істейді; CLI evidence, Live Workbench және full regression өтеді.

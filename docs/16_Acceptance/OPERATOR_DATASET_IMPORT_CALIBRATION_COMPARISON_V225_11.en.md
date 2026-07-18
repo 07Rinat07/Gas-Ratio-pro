@@ -1,0 +1,3 @@
+# v225.11 Acceptance — Operator Dataset Import & Calibration Comparison
+
+Acceptance requires: exactly three ZIP root files; valid project scope and data rights; a method-registry fingerprint matching the production contract; immutable package/version content; tamper detection before calculation/export; comparison coverage for all 10 registered methods; project authorization for the 9 final-report-eligible methods; foundation Dual Water remaining blocked; export-cache invalidation when the active package changes; artifact/history authorization package ID and operator fingerprint; Stage 5.1 baseline fallback when no package is active; passing CLI evidence, Live Workbench, and full regression.

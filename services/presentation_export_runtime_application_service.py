@@ -15,6 +15,9 @@ from reports.export_controller import ExportArtifact, ExportController, ExportRe
 from services.petrophysical_report_authorization_application_service import (
     PetrophysicalReportAuthorizationApplicationService,
 )
+from services.operator_calibration_package_application_service import (
+    OperatorCalibrationPackageApplicationService,
+)
 
 
 class PresentationExportRuntimeApplicationService:
@@ -27,6 +30,7 @@ class PresentationExportRuntimeApplicationService:
         project_id: str,
         application_root: Path | str | None = None,
         report_authorization_service: PetrophysicalReportAuthorizationApplicationService | None = None,
+        operator_calibration_service: OperatorCalibrationPackageApplicationService | None = None,
     ) -> None:
         clean_project_id = str(project_id or "").strip()
         if not clean_project_id:
@@ -37,6 +41,7 @@ class PresentationExportRuntimeApplicationService:
         self._runtime_state: dict[str, Any] = {}
         self._controller: ExportController | None = None
         self._report_authorization = report_authorization_service
+        self._operator_calibration = operator_calibration_service
 
     @property
     def project_id(self) -> str:
@@ -47,10 +52,15 @@ class PresentationExportRuntimeApplicationService:
             self._controller = ExportController(self._runtime_state)
         return self._controller
 
-    def _authorization_service(self) -> PetrophysicalReportAuthorizationApplicationService:
-        if self._report_authorization is None:
-            self._report_authorization = PetrophysicalReportAuthorizationApplicationService(root=self._application_root)
-        return self._report_authorization
+    def _authorization_service(self) -> OperatorCalibrationPackageApplicationService:
+        if self._operator_calibration is None:
+            self._operator_calibration = OperatorCalibrationPackageApplicationService(
+                projects_root=self._root,
+                application_root=self._application_root,
+                project_id=self._project_id,
+                baseline_authorization_service=self._report_authorization,
+            )
+        return self._operator_calibration
 
     def prepare(
         self,
@@ -69,11 +79,23 @@ class PresentationExportRuntimeApplicationService:
         if request.require_final_report_authorization:
             if on_progress is not None:
                 on_progress(1, "Проверка допуска петрофизических методов к финальному отчёту.")
-            authorization = self._authorization_service().authorize(
+            authorization = self._authorization_service().authorize_methods_for_export(
                 request.petrophysical_method_ids,
                 final_report=True,
             )
             authorization.assert_authorized()
+            authorization_cache_context = "|".join(
+                (
+                    str(authorization.authorization_id),
+                    str(getattr(authorization, "authorization_package_id", "")),
+                    str(getattr(authorization, "operator_package_fingerprint", "")),
+                    str(getattr(authorization, "rights_fingerprint", "")),
+                )
+            )
+            previous_context = str(self._runtime_state.get("petrophysical_authorization_cache_context", ""))
+            if previous_context and previous_context != authorization_cache_context:
+                self._export_controller().clear_project_cache(self._project_id)
+            self._runtime_state["petrophysical_authorization_cache_context"] = authorization_cache_context
 
         artifact, metrics = self._export_controller().prepare(
             request,
@@ -87,10 +109,17 @@ class PresentationExportRuntimeApplicationService:
         enriched_metrics["petrophysical_authorization_checked"] = authorization is not None
         enriched_metrics["petrophysical_authorized"] = bool(authorization and authorization.passed)
         if authorization is not None:
+            gate_ids = getattr(
+                authorization,
+                "authorization_gate_ids",
+                (authorization.validation_gate_id, authorization.calibration_gate_id),
+            )
             artifact = replace(
                 artifact,
                 authorization_id=authorization.authorization_id,
-                authorization_gate_ids=(authorization.validation_gate_id, authorization.calibration_gate_id),
+                authorization_gate_ids=tuple(gate_ids),
+                authorization_package_id=str(getattr(authorization, "authorization_package_id", "")),
+                operator_calibration_fingerprint=str(getattr(authorization, "operator_package_fingerprint", "")),
             )
         return artifact, enriched_metrics
 
@@ -116,5 +145,6 @@ class PresentationExportRuntimeApplicationService:
             "application_root": str(self._application_root),
             "controller_initialized": self._controller is not None,
             "report_authorization_initialized": self._report_authorization is not None,
+            "operator_calibration_initialized": self._operator_calibration is not None,
             **metrics,
         }

@@ -1,39 +1,55 @@
-# Текущее состояние — v225.10 Stable
+# Текущее состояние — v225.11 Stable
 
 Обновлено: 18 июля 2026 года.
 
 ## Активный этап
 
-**Stage 5.1 — Field Calibration & Report Authorization Integration завершён.** Производственные формулы не изменялись.
+**Stage 5.2 — Operator Dataset Import & Calibration Comparison завершён.** Production formulas не изменялись.
 
-## Field Calibration
+## Operator calibration packages
 
-- 10 методов используют project-owned synthetic field-surrogate dataset;
-- registry и dataset содержат ownership/legal clearance, units, acceptance thresholds и fingerprints;
-- gate рассчитывает RMSE, MAE, bias, max error, sensitivity и uncertainty envelopes;
-- field-calibration gate: **10/10 passed**;
-- final-report calibrated/authorized: **9/10**;
-- evidence: `artifacts/validation/petrophysical_calibration_v225_10.json`.
+- ZIP содержит только `manifest.json`, `calibration_registry.json` и `calibration_dataset.json`;
+- импорт разрешён только для `operator_owned`, `licensed` или `public_domain` данных;
+- project scope, owner, legal basis, processing/derivative permissions и expiration являются блокирующими;
+- package, file и rights fingerprints проверяются при импорте и каждом использовании;
+- `package_id + version` immutable, конфликтующая версия отклоняется;
+- private operator data хранятся только в `data/projects/<project>/petrophysics/operator_calibration` и не попадают в релизный архив.
 
-## Report Authorization
+## Calibration comparison
 
-- numerical validation, calibration и report policy объединены application service;
-- method IDs переносятся через machine-readable DataFrame context;
-- export authorization выполняется до PresentationModel и renderer;
-- authorization IDs и gate IDs сохраняются в artifact и export history;
-- Professional Print Center показывает read-only diagnostics на ru/kk/en;
+- project baseline можно сравнивать с operator package;
+- поддерживается сравнение двух импортированных versions;
+- по каждому методу фиксируются pass/fail, RMSE, max error, uncertainty width и deltas;
+- comparison evidence имеет детерминированный `comparison_id`;
+- comparison не изменяет формулы и не выбирает метод автоматически.
+
+## Project report authorization
+
+- активный operator package применяется до PresentationModel и renderer;
+- методы, покрытые package, используют его calibration и data-rights;
+- остальные методы используют утверждённый Stage 5.1 baseline;
+- создаётся versioned project authorization package;
+- artifact и export history schema v5 содержат authorization package ID и operator fingerprint;
+- смена authorization/rights context очищает project export cache;
 - foundation Dual Water остаётся `blocked_final_report`.
+
+## Evidence
+
+- `artifacts/validation/petrophysical_operator_calibration_v225_11.json`;
+- Stage 5.2 gate: импорт 1/1, comparison 10/10, project authorization 9/9;
+- итоговая проверка: **2915 passed, 0 failed**;
+- Live Workbench Acceptance: **14/14**.
 
 ## Стабильные контракты
 
-Live Workbench Acceptance, full-frame A3 landscape layout, architecture boundaries, controlled visual baselines и Open Standards and Legal Research Governance остаются обязательными. Pixler rehabilitation, Ternary rehabilitation, Depth engineering panel и Reservoir Intelligence / Interpretation 2.0 не изменяются без evidence.
+Stable v225.8 Live Workbench Acceptance, full-frame A3 landscape layout, architecture boundaries, controlled visual baselines, numerical validation, field calibration и authorization до renderer остаются обязательными.
 
-Итоговая проверка v225.10: **2896 passed, 0 failed**; Live Workbench Acceptance: **14/14**; numerical validation: **10/10**; field calibration: **10/10**; final-report authorization: **9/10**.
+Reservoir Intelligence / Interpretation 2.0, Pixler rehabilitation, Ternary rehabilitation и Depth engineering panel не изменяются без explicit validation evidence.
 
 ## Stabilization & Release Audit
 
-Stable v225.8 Live Workbench Acceptance remains mandatory and currently passes **14/14** checks. Architecture boundaries, controlled visual baselines, full-frame report layout, and all numerical/calibration/authorization gates remain blocking.
+Package import не может обходить Stage 5/5.1 gates. Private data не распространяются. `.github/workflows` не включается в пользовательский архив.
 
 ## Следующий этап
 
-**Stage 5.2 — Operator Dataset Import & Calibration Comparison.** Разрешены импорт operator-owned calibration packages, проверка data rights, project-scoped comparison и versioned authorization packages. Изменение формул без validation/calibration evidence запрещено.
+**Stage 5.3 — Calibration Package Trust & Review Workflow.** Возможные работы: detached signatures, trust registry, reviewer approval, package revocation и controlled promotion между проектами. Изменение production formulas без нового validation/calibration evidence запрещено.

@@ -14,11 +14,12 @@ from pathlib import Path
 import re
 from typing import Any, Iterable, Mapping, Sequence
 
-EXPORT_HISTORY_SCHEMA = "gas-ratio-pro/export-history/v4"
+EXPORT_HISTORY_SCHEMA = "gas-ratio-pro/export-history/v5"
 LEGACY_EXPORT_HISTORY_SCHEMAS = frozenset({
     "gas-ratio-pro/export-history/v1",
     "gas-ratio-pro/export-history/v2",
     "gas-ratio-pro/export-history/v3",
+    "gas-ratio-pro/export-history/v4",
 })
 _ALLOWED_SECTIONS = frozenset({"plots", "visualizations", "results", "conclusion"})
 _SAFE_ID = re.compile(r"[^A-Za-z0-9._-]+")
@@ -47,6 +48,8 @@ class ExportHistoryEntry:
     project_updated_at: str = ""
     authorization_id: str = ""
     authorization_gate_ids: tuple[str, ...] = ()
+    authorization_package_id: str = ""
+    operator_calibration_fingerprint: str = ""
     petrophysical_method_ids: tuple[str, ...] = ()
     created_at: str = ""
 
@@ -86,6 +89,8 @@ class ExportHistoryEntry:
             project_updated_at=str(self.project_updated_at or "").strip(),
             authorization_id=str(self.authorization_id or "").strip(),
             authorization_gate_ids=tuple(dict.fromkeys(str(item).strip() for item in self.authorization_gate_ids if str(item).strip())),
+            authorization_package_id=str(self.authorization_package_id or "").strip(),
+            operator_calibration_fingerprint=str(self.operator_calibration_fingerprint or "").strip(),
             petrophysical_method_ids=tuple(dict.fromkeys(str(item).strip() for item in self.petrophysical_method_ids if str(item).strip())),
             created_at=self.created_at or datetime.now(timezone.utc).isoformat(),
         )
@@ -117,6 +122,8 @@ class ExportHistoryEntry:
             "authorization": {
                 "authorization_id": value.authorization_id,
                 "gate_ids": list(value.authorization_gate_ids),
+                "authorization_package_id": value.authorization_package_id,
+                "operator_calibration_fingerprint": value.operator_calibration_fingerprint,
                 "method_ids": list(value.petrophysical_method_ids),
             },
             "created_at": value.created_at,
@@ -152,6 +159,8 @@ class ExportHistoryEntry:
             project_updated_at=str(payload.get("project_updated_at", "")),
             authorization_id=str(authorization.get("authorization_id", "")),
             authorization_gate_ids=tuple(str(item) for item in authorization.get("gate_ids", ())),
+            authorization_package_id=str(authorization.get("authorization_package_id", "")),
+            operator_calibration_fingerprint=str(authorization.get("operator_calibration_fingerprint", "")),
             petrophysical_method_ids=tuple(str(item) for item in authorization.get("method_ids", ())),
             created_at=str(payload.get("created_at", "")),
         ).normalized()

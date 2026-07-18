@@ -14,6 +14,8 @@
 
 - [Архитектура Field Calibration и Report Authorization](field_calibration_authorization_architecture.md) — revision 1
 
+- [Архитектура операторских калибровочных пакетов](operator_calibration_package_architecture.md) — revision 1
+
 ---
 
 Другие языки: [Қазақша](../kk/index.md) · [English](../en/index.md)

@@ -1,39 +1,31 @@
-# Ағымдағы күй — v225.10 Stable
+# Ағымдағы күй — v225.11 Stable
 
-Жаңартылған күні: 2026 жылғы 18 шілде.
+Жаңартылды: 18 шілде 2026 жыл.
 
 ## Белсенді кезең
 
-**Stage 5.1 — Field Calibration & Report Authorization Integration аяқталды.** Production-формулалар өзгертілмеді.
+**Stage 5.2 — Operator Dataset Import & Calibration Comparison аяқталды.** Production формулалар өзгермеді.
 
-## Field Calibration
-
-- 10 әдіс project-owned synthetic field-surrogate dataset пайдаланады;
-- registry және dataset ownership/legal clearance, units, acceptance thresholds және fingerprints қамтиды;
-- gate RMSE, MAE, bias, max error, sensitivity және uncertainty envelopes есептейді;
-- field-calibration gate: **10/10 passed**;
-- final-report calibrated/authorized: **9/10**;
-- evidence: `artifacts/validation/petrophysical_calibration_v225_10.json`.
-
-## Report Authorization
-
-- numerical validation, calibration және report policy application service ішінде біріктірілген;
-- method IDs machine-readable DataFrame context арқылы тасымалданады;
-- export authorization PresentationModel және renderer-ден бұрын орындалады;
-- authorization IDs және gate IDs artifact және export history ішінде сақталады;
-- Professional Print Center ru/kk/en read-only diagnostics көрсетеді;
+- ZIP тек `manifest.json`, `calibration_registry.json`, `calibration_dataset.json` файлдарын қамтиды;
+- тек `operator_owned`, `licensed`, `public_domain` деректері қабылданады;
+- project scope, owner, legal basis, processing/derivative permissions және expiration блоктаушы;
+- package/file/rights fingerprints импортта және әр пайдалануда тексеріледі;
+- `package_id + version` immutable;
+- private operator data тек жоба repository ішінде қалады және релиз архивіне кірмейді;
+- baseline және package versions 10 әдіс бойынша салыстырылады;
+- versioned project authorization package renderer алдында жасалады;
+- export history v5 authorization package ID және operator fingerprint сақтайды;
+- active context өзгерсе export cache тазарады;
 - foundation Dual Water `blocked_final_report` күйінде қалады.
 
-## Тұрақты контракттар
-
-Live Workbench Acceptance, full-frame A3 landscape layout, architecture boundaries, controlled visual baselines және Open Standards and Legal Research Governance міндетті болып қалады. Pixler rehabilitation, Ternary rehabilitation, Depth engineering panel және Reservoir Intelligence / Interpretation 2.0 evidence-сіз өзгертілмейді.
-
-v225.10 қорытынды тексеруі: **2896 passed, 0 failed**; Live Workbench Acceptance: **14/14**; numerical validation: **10/10**; field calibration: **10/10**; final-report authorization: **9/10**.
+Evidence: `artifacts/validation/petrophysical_operator_calibration_v225_11.json`; Stage 5.2 gate — import 1/1, comparison 10/10, authorization 9/9; full regression **2915 passed, 0 failed**; Live Workbench **14/14**.
 
 ## Stabilization & Release Audit
 
-Stable v225.8 Live Workbench Acceptance міндетті болып қалады және **14/14** тексеруден өтеді. Architecture boundaries, controlled visual baselines, full-frame report layout және numerical/calibration/authorization gates блоктаушы болып қалады.
+Stage 5/5.1 gates, architecture boundaries, controlled visual baselines және full-frame report layout міндетті. `.github/workflows` пайдаланушы архивіне кірмейді.
+
+Reservoir Intelligence / Interpretation 2.0, Pixler rehabilitation, Ternary rehabilitation және Depth engineering panel explicit validation evidence болмаса өзгермейді.
 
 ## Келесі кезең
 
-**Stage 5.2 — Operator Dataset Import & Calibration Comparison.** Operator-owned calibration packages импортына, data rights тексеруіне, project-scoped comparison және versioned authorization packages жасауға рұқсат. Validation/calibration evidence жоқ формула өзгерісі тыйым салынған.
+**Stage 5.3 — Calibration Package Trust & Review Workflow:** detached signatures, trust registry, reviewer approval, revocation және controlled project promotion.

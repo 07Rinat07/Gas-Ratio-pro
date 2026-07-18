@@ -1,22 +1,9 @@
 # Gas Ratio Pro жоба жоспары
 
-Жаңартылған күні: 2026 жылғы 18 шілде. Белсенді build: `v225.10 stable`.
+Белсенді build: `v225.11 stable`.
 
-## Аяқталған increment — Field Calibration & Report Authorization
+Stage 5.2 аяқталды: project-scoped ZIP import, data-rights/fingerprint validation, immutable repository, 10-method comparison, versioned project authorization package, export history v5 және үш тілді Print Center panel. Stage 5.1 baseline fallback сақталды.
 
-- 10/10 әдіс field calibration-нан өтеді;
-- 9/10 әдіс final report үшін авторизацияланған;
-- sensitivity/uncertainty envelopes және error metrics қосылды;
-- export boundary рұқсат етілмеген әдістерді renderer-ге дейін блоктайды;
-- diagnostics және evidence ru/kk/en тілдерінде қолжетімді;
-- foundation Dual Water blocked күйінде қалады.
+Тексеру: **2915 passed, 0 failed**; Live Workbench **14/14**; Stage 5.2 import **1/1**, comparison **10/10**, authorization **9/9**.
 
-v225.10 қорытынды тексеруі: **2896 passed, 0 failed**; Live Workbench Acceptance: **14/14**; numerical validation: **10/10**; field calibration: **10/10**; final-report authorization: **9/10**.
-
-## Келесі рұқсат етілген increment — Stage 5.2
-
-1. Operator-owned calibration package import.
-2. Data-rights және source fingerprint validation.
-3. Project-scoped calibration comparison.
-4. Versioned authorization packages.
-5. Full regression және live acceptance.
+Келесі increment — Stage 5.3: detached signatures, trust registry, reviewer approval/revocation, controlled project promotion және audit export.

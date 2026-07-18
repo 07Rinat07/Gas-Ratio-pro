@@ -1,6 +1,6 @@
-# Project Roadmap — v225.10 Stable
+# Дорожная карта проекта — v225.11 Stable
 
-Обновлено: 18 июля 2026 года. Этот документ — единственная активная последовательность разработки Gas Ratio Pro.
+Обновлено: 18 июля 2026 года. Это единственная активная последовательность разработки Gas Ratio Pro.
 
 ## Stage 4 — Workbench UI Completion
 
@@ -8,34 +8,40 @@
 
 ## Stage 5 — Petrophysical Engine Validation Foundation
 
-Статус: **COMPLETED / Stable v225.9**. 10/10 numerical contracts, 9/10 final-report eligible.
+Статус: **COMPLETED / Stable v225.9**. Numerical contracts: 10/10; final-report eligible: 9/10.
 
 ## Stage 5.1 — Field Calibration & Report Authorization Integration
 
-Статус: **COMPLETED / Stable v225.10**.
-
-1. project-owned synthetic field-surrogate calibration dataset для 10 методов;
-2. ownership/legal clearance и contract fingerprints;
-3. RMSE/MAE/bias/max error;
-4. parameter sensitivity и uncertainty envelopes;
-5. blocking final-report authorization до model/renderer;
-6. method context, artifact/history evidence;
-7. read-only diagnostics на ru/kk/en;
-8. foundation Dual Water остаётся `blocked_final_report`.
-
-## Stabilization & Release Audit
-
-Stable v225.8 Live Workbench Acceptance, architecture boundaries, controlled visual baselines, full-frame report layout, numerical validation and field-calibration/report-authorization gates remain mandatory and may not be bypassed.
+Статус: **COMPLETED / Stable v225.10**. Field calibration: 10/10; final-report authorization: 9/10.
 
 ## Stage 5.2 — Operator Dataset Import & Calibration Comparison
 
+Статус: **COMPLETED / Stable v225.11**.
+
+- project-scoped ZIP import;
+- data-rights и expiration gate;
+- immutable package/file/rights fingerprints;
+- version conflict protection и stored tamper detection;
+- baseline/package и package/package comparison;
+- versioned project authorization packages;
+- authorization evidence в artifact/export history;
+- cache isolation при смене package/rights context;
+- private operator data исключены из release archive.
+
+## Stabilization & Release Audit
+
+Stable v225.8 Live Workbench Acceptance, architecture boundaries, controlled visual baselines, full-frame report layout, numerical validation, field calibration, operator rights и authorization до renderer обязательны и не могут быть обойдены.
+
+## Stage 5.3 — Calibration Package Trust & Review Workflow
+
 Статус: **NEXT AUTHORIZED**.
 
-1. импортировать только operator-owned или legally cleared packages;
-2. проверять data rights и immutable source fingerprint;
-3. сравнивать project-scoped calibration versions;
-4. формировать versioned authorization packages;
-5. не изменять formulas без нового validation/calibration evidence.
+- detached signature envelope;
+- operator/reviewer trust registry;
+- reviewer approval и revocation records;
+- controlled promotion между project scopes;
+- audit export без включения private datasets;
+- запрет formula changes без validation/calibration evidence.
 
 ## Reservoir Intelligence / Interpretation 2.0
 
@@ -43,16 +49,8 @@ Stable v225.8 Live Workbench Acceptance, architecture boundaries, controlled vis
 
 ## Definition of Done
 
-- Live Workbench Acceptance воспроизводим;
-- numerical и field-calibration gates проходят;
-- final report не использует `blocked_final_report`;
-- authorization выполняется до renderer;
-- full regression suite не содержит failures;
-- landscape отчёты используют фактический frame;
-- документация синхронизирована на русском, казахском и английском.
+Live Workbench Acceptance, numerical/calibration/operator-rights gates, authorization до renderer, full regression без failures, full-frame landscape layout и синхронная документация ru/kk/en обязательны.
 
 ## Open Standards and Legal Research Governance
 
-Внешние методы, стандарты и datasets подключаются только через source/legal registry и изолированный adapter boundary.
-
-Any third-party component requires a machine-readable license/source record and an isolated adapter boundary.
+Внешние методы, стандарты и datasets подключаются только через source/legal registry и изолированный adapter boundary. Any third-party component requires a machine-readable license/source record and an isolated adapter boundary.

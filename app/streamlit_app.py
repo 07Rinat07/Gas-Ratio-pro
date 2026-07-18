@@ -430,6 +430,7 @@ from reports.print_center import (
 from services.report_page_aware_preview import ReportPageAwarePreviewService
 from services.page_aware_static_export import build_page_aware_static_artifact
 from services.petrophysical_validation_diagnostics import build_petrophysical_diagnostics_view
+from services.operator_calibration_diagnostics import build_operator_calibration_diagnostics_view
 from core.physical_print_profiles import (
     PHYSICAL_PRINT_PROFILES,
     UserPhysicalPrintProfileStore,
@@ -9695,12 +9696,20 @@ def _render_professional_export_panel(
     petrophysical_calibration_report = None
     petrophysical_authorization = None
     petrophysical_authorization_ready = True
+    operator_calibration_service = None
+    operator_calibration_packages = ()
     try:
         petrophysical_services = application_service_container(state_controller.state)
         petrophysical_validation_report = petrophysical_services.petrophysical_validation(root=ROOT_DIR).run_gate()
         petrophysical_calibration_report = petrophysical_services.petrophysical_calibration(root=ROOT_DIR).run_gate()
+        operator_calibration_service = petrophysical_services.operator_calibration_packages(
+            projects_root=ROOT_DIR / "data" / "projects",
+            application_root=ROOT_DIR,
+            project_id=str(active_project.id),
+        )
+        operator_calibration_packages = operator_calibration_service.list_packages()
         if petrophysical_method_ids:
-            petrophysical_authorization = petrophysical_services.petrophysical_report_authorization(root=ROOT_DIR).authorize(
+            petrophysical_authorization = operator_calibration_service.authorize_methods_for_export(
                 petrophysical_method_ids,
                 final_report=True,
             )
@@ -9731,6 +9740,150 @@ def _render_professional_export_panel(
         st.caption(
             "Выберите язык, формат и область печати. Остальные параметры уже настроены автоматически."
         )
+
+        interface_locale = str(state_controller.get_value("user_settings.interface_language", "ru") or "ru").lower().split("-")[0]
+        operator_copy = {
+            "ru": {
+                "title": "Операторская калибровка проекта",
+                "upload": "ZIP-пакет калибровки оператора",
+                "import": "Импортировать и проверить",
+                "activate": "Сделать активным",
+                "deactivate": "Отключить активный пакет",
+                "compare": "Сравнить с базовой калибровкой",
+                "select": "Импортированный пакет",
+                "empty": "Для проекта ещё не импортированы операторские калибровочные пакеты.",
+                "success": "Пакет импортирован и проверен",
+                "active": "Активный пакет",
+                "error": "Пакет отклонён",
+                "help": "Допускаются только project-scoped ZIP-пакеты с manifest.json, data-rights, SHA-256 fingerprints и неизменённым production method registry.",
+            },
+            "kk": {
+                "title": "Жобаның операторлық калибрлеуі",
+                "upload": "Оператордың ZIP калибрлеу пакеті",
+                "import": "Импорттау және тексеру",
+                "activate": "Белсенді ету",
+                "deactivate": "Белсенді пакетті өшіру",
+                "compare": "Базалық калибрлеумен салыстыру",
+                "select": "Импортталған пакет",
+                "empty": "Жобаға операторлық калибрлеу пакеттері әлі импортталмаған.",
+                "success": "Пакет импортталып, тексерілді",
+                "active": "Белсенді пакет",
+                "error": "Пакет қабылданбады",
+                "help": "Тек manifest.json, data-rights, SHA-256 fingerprints және өзгермеген production method registry бар project-scoped ZIP пакеттері қабылданады.",
+            },
+            "en": {
+                "title": "Project operator calibration",
+                "upload": "Operator calibration ZIP package",
+                "import": "Import and validate",
+                "activate": "Set active",
+                "deactivate": "Disable active package",
+                "compare": "Compare with baseline calibration",
+                "select": "Imported package",
+                "empty": "No operator calibration package has been imported for this project.",
+                "success": "Package imported and validated",
+                "active": "Active package",
+                "error": "Package rejected",
+                "help": "Only project-scoped ZIP packages with manifest.json, data-rights declarations, SHA-256 fingerprints, and the unchanged production method registry are accepted.",
+            },
+        }.get(interface_locale, {}) or {}
+        if not operator_copy:
+            operator_copy = {
+                "title": "Project operator calibration", "upload": "Operator calibration ZIP package",
+                "import": "Import and validate", "activate": "Set active", "deactivate": "Disable active package",
+                "compare": "Compare with baseline calibration", "select": "Imported package",
+                "empty": "No operator calibration package has been imported for this project.",
+                "success": "Package imported and validated", "active": "Active package", "error": "Package rejected",
+                "help": "Only project-scoped ZIP packages with manifest.json, data-rights declarations and SHA-256 fingerprints are accepted.",
+            }
+        if operator_calibration_service is not None:
+            with st.expander(operator_copy["title"], expanded=False):
+                st.caption(operator_copy["help"])
+                uploaded_operator_package = st.file_uploader(
+                    operator_copy["upload"],
+                    type=("zip",),
+                    key=f"operator_calibration_upload_{active_project.id}",
+                )
+                import_operator_package = st.button(
+                    operator_copy["import"],
+                    key=f"operator_calibration_import_{active_project.id}",
+                    disabled=uploaded_operator_package is None,
+                    width="stretch",
+                )
+                if import_operator_package and uploaded_operator_package is not None:
+                    try:
+                        imported_operator_package = operator_calibration_service.import_package(uploaded_operator_package.getvalue())
+                        state_controller.set_value(
+                            f"operator_calibration_notice_{active_project.id}",
+                            f"{operator_copy['success']}: {imported_operator_package.package_id} {imported_operator_package.version}",
+                        )
+                        _request_ui_refresh_and_rerun("operator_calibration_package_imported")
+                        return
+                    except (OSError, ValueError, KeyError, RuntimeError, PermissionError):
+                        logger.exception("operator_calibration_import_failed project_id=%s", safe_log_value(active_project.id))
+                        st.error(operator_copy["error"])
+                operator_notice = state_controller.remove_value(f"operator_calibration_notice_{active_project.id}", "")
+                if operator_notice:
+                    st.success(str(operator_notice))
+                operator_calibration_packages = operator_calibration_service.list_packages()
+                if operator_calibration_packages:
+                    package_by_fingerprint = {item.package_fingerprint: item for item in operator_calibration_packages}
+                    selected_operator_fingerprint = st.selectbox(
+                        operator_copy["select"],
+                        options=tuple(package_by_fingerprint),
+                        format_func=lambda value: (
+                            f"{package_by_fingerprint[value].package_id} {package_by_fingerprint[value].version} · "
+                            f"{value[:12]}…"
+                        ),
+                        key=f"operator_calibration_selection_{active_project.id}",
+                    )
+                    action_left, action_middle, action_right = st.columns(3)
+                    if action_left.button(operator_copy["activate"], key=f"operator_calibration_activate_{active_project.id}", width="stretch"):
+                        operator_calibration_service.activate_package(selected_operator_fingerprint)
+                        _request_ui_refresh_and_rerun("operator_calibration_package_activated")
+                        return
+                    if action_middle.button(operator_copy["compare"], key=f"operator_calibration_compare_{active_project.id}", width="stretch"):
+                        comparison = operator_calibration_service.compare(selected_operator_fingerprint)
+                        state_controller.set_value(f"operator_calibration_comparison_{active_project.id}", comparison.to_dict())
+                    if action_right.button(operator_copy["deactivate"], key=f"operator_calibration_deactivate_{active_project.id}", width="stretch"):
+                        operator_calibration_service.deactivate_package()
+                        _request_ui_refresh_and_rerun("operator_calibration_package_deactivated")
+                        return
+                    diagnostics_view = build_operator_calibration_diagnostics_view(
+                        operator_calibration_service.list_packages(),
+                        locale=interface_locale,
+                    )
+                    st.info(diagnostics_view.summary)
+                    labels = diagnostics_view.labels
+                    st.dataframe(
+                        [
+                            {
+                                labels["package"]: row.package_id,
+                                labels["version"]: row.version,
+                                labels["operator"]: row.operator_name,
+                                labels["legal"]: row.legal_status,
+                                labels["methods"]: row.method_count,
+                                labels["report"]: row.final_report_rights,
+                                labels["status"]: row.active_status,
+                                labels["fingerprint"]: row.fingerprint[:16] + "…",
+                            }
+                            for row in diagnostics_view.rows
+                        ],
+                        hide_index=True,
+                        width="stretch",
+                    )
+                    comparison_payload = state_controller.get_value(f"operator_calibration_comparison_{active_project.id}")
+                    if isinstance(comparison_payload, dict):
+                        comparison_rows = comparison_payload.get("methods", [])
+                        improved = sum(item.get("status") == "improved" for item in comparison_rows if isinstance(item, dict))
+                        degraded = sum(item.get("status") == "degraded" for item in comparison_rows if isinstance(item, dict))
+                        equivalent = sum(item.get("status") == "equivalent" for item in comparison_rows if isinstance(item, dict))
+                        st.caption(
+                            f"Comparison `{comparison_payload.get('comparison_id', '')}` · improved {improved} · degraded {degraded} · equivalent {equivalent}"
+                        )
+                    st.caption(diagnostics_view.disclaimer)
+                else:
+                    st.info(operator_copy["empty"])
+
         profile_options = report_profile_options()
         format_options = export_format_options()
         export_cache_key = f"presentation_export_artifact_{active_project.id}"
@@ -11344,6 +11497,8 @@ def _render_professional_export_panel(
                     "depth_bottom": current_print_depth_range[1],
                     "authorization_id": export_artifact.authorization_id,
                     "authorization_gate_ids": list(export_artifact.authorization_gate_ids),
+                    "authorization_package_id": export_artifact.authorization_package_id,
+                    "operator_calibration_fingerprint": export_artifact.operator_calibration_fingerprint,
                 }
                 export_state.pop(export_error_key, None)
                 try:
@@ -11370,6 +11525,8 @@ def _render_professional_export_panel(
                             project_updated_at=str(active_project.updated_at or ""),
                             authorization_id=export_artifact.authorization_id,
                             authorization_gate_ids=export_artifact.authorization_gate_ids,
+                            authorization_package_id=export_artifact.authorization_package_id,
+                            operator_calibration_fingerprint=export_artifact.operator_calibration_fingerprint,
                             petrophysical_method_ids=current_export_request.petrophysical_method_ids,
                         )
                     )

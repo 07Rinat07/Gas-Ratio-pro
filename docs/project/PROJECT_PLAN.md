@@ -1,22 +1,24 @@
 # План проекта Gas Ratio Pro
 
-Обновлено: 18 июля 2026 года. Активная сборка: `v225.10 stable`.
+Обновлено: 18 июля 2026 года. Активная сборка: `v225.11 stable`.
 
-## Завершённый инкремент — Field Calibration & Report Authorization
+## Завершённый инкремент — Operator Dataset Import & Calibration Comparison
 
-- 10/10 методов проходят field calibration;
-- 9/10 методов авторизованы для final report;
-- добавлены sensitivity/uncertainty envelopes и error metrics;
-- export boundary блокирует неразрешённые методы до renderer;
-- diagnostics и evidence доступны на ru/kk/en;
-- foundation Dual Water остаётся blocked.
+1. Project-scoped operator calibration ZIP import.
+2. Data-rights, project scope, expiration и source fingerprint validation.
+3. Immutable package/version repository и tamper detection.
+4. Baseline/package и package/package comparison для 10 методов.
+5. Versioned project authorization package до renderer.
+6. Authorization evidence в artifact и export history v5.
+7. Трёхъязычная панель Professional Print Center.
+8. Stage 5.1 baseline fallback без активного пакета.
 
-Итоговая проверка v225.10: **2896 passed, 0 failed**; Live Workbench Acceptance: **14/14**; numerical validation: **10/10**; field calibration: **10/10**; final-report authorization: **9/10**.
+Итоговая проверка v225.11: **2915 passed, 0 failed**; Live Workbench: **14/14**; Stage 5.2 gate: import **1/1**, comparison **10/10**, authorization **9/9**.
 
-## Следующий разрешённый инкремент — Stage 5.2
+## Следующий разрешённый инкремент — Stage 5.3
 
-1. Operator-owned calibration package import.
-2. Data-rights и source fingerprint validation.
-3. Project-scoped calibration comparison.
-4. Versioned authorization packages.
-5. Full regression и live acceptance.
+1. Detached signatures и trust registry.
+2. Reviewer approval/revocation workflow.
+3. Controlled promotion между project scopes.
+4. Audit export без private dataset payload.
+5. Full regression и Live Workbench Acceptance.

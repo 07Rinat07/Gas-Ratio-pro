@@ -288,6 +288,37 @@ class ApplicationServiceContainer:
             expected_type=PetrophysicalReportAuthorizationApplicationService,
         )
 
+
+    def operator_calibration_packages(
+        self,
+        *,
+        projects_root: Path | str,
+        application_root: Path | str,
+        project_id: str,
+    ):
+        """Return the project-scoped Stage 5.2 operator calibration boundary."""
+        from services.operator_calibration_package_application_service import (
+            OperatorCalibrationPackageApplicationService,
+        )
+
+        validation = self.petrophysical_validation(root=application_root)
+        baseline_calibration = self.petrophysical_calibration(root=application_root)
+        baseline_authorization = self.petrophysical_report_authorization(root=application_root)
+        return self.ensure_project_service(
+            service_name="operator_calibration_packages",
+            project_id=project_id,
+            root=projects_root,
+            factory=lambda: OperatorCalibrationPackageApplicationService(
+                projects_root=projects_root,
+                application_root=application_root,
+                project_id=project_id,
+                validation_service=validation,
+                baseline_calibration_service=baseline_calibration,
+                baseline_authorization_service=baseline_authorization,
+            ),
+            expected_type=OperatorCalibrationPackageApplicationService,
+        )
+
     def runtime_diagnostics(self, *, root: Path | str):
         # Local import keeps diagnostics infrastructure behind a lazy boundary.
         from services.runtime_diagnostics_application_service import (
@@ -412,6 +443,11 @@ class ApplicationServiceContainer:
                 application_root=Path(__file__).resolve().parents[1],
                 report_authorization_service=self.petrophysical_report_authorization(
                     root=Path(__file__).resolve().parents[1]
+                ),
+                operator_calibration_service=self.operator_calibration_packages(
+                    projects_root=root,
+                    application_root=Path(__file__).resolve().parents[1],
+                    project_id=project_id,
                 ),
             ),
             expected_type=PresentationExportRuntimeApplicationService,

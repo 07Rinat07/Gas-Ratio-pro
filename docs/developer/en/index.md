@@ -14,6 +14,8 @@ Architecture and integration guidance for developers.
 
 - [Field Calibration and Report Authorization architecture](field_calibration_authorization_architecture.md) — revision 1
 
+- [Operator calibration package architecture](operator_calibration_package_architecture.md) — revision 1
+
 ---
 
 Other languages: [Русский](../ru/index.md) · [Қазақша](../kk/index.md)

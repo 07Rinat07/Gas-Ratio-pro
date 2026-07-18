@@ -31,7 +31,23 @@
 - ұңғымаларды корреляциялау және көпұңғымалық планшеттерге дайындық;
 - орыс, қазақ және ағылшын тілдеріндегі интерфейс пен құжаттама.
 
-## Stable релиз v225.10
+## Stable релиз v225.11
+
+- Stage 5.2 Operator Dataset Import & Calibration Comparison аяқталды;
+- data rights, project scope, checksum және method-registry fingerprint міндетті тексеруі бар project-scoped операторлық ZIP import қосылды;
+- бастапқы ZIP, manifest, registry және dataset SHA-256 fingerprints арқылы өзгермейтін түрде сақталады;
+- 10 әдіс бойынша baseline/operator және operator/operator comparison қосылды;
+- белсенді операторлық пакет final export жасалғанға дейін authorization gate ішінде қолданылады;
+- export artifact және history v5 authorization package ID мен operator calibration fingerprint сақтайды;
+- Professional Print Center импорт, activation, comparison және diagnostics үшін үш тілді панель алды;
+- production formulas өзгермеді, foundation Dual Water `blocked_final_report` күйінде қалады;
+- жеке оператор деректері пайдаланушы релиз архивіне кірмейді;
+- gate іске қосу: `python scripts/run_petrophysical_stage_5_2_gate.py`;
+- [нұсқаулық](docs/user/kk/operator_calibration_packages.md) · [архитектура](docs/developer/kk/operator_calibration_package_architecture.md).
+
+- v225.11 қорытынды тексеруі: **2915 passed, 0 failed**; Live Workbench Acceptance: **14/14**; import **1/1**; comparison **10/10**; project authorization **9/9**.
+
+## Алдыңғы stable релиз v225.10
 
 - Stage 5.1 Field Calibration & Report Authorization Integration аяқталды;
 - 10 әдіске арналған project-owned synthetic field-surrogate calibration dataset қосылды;

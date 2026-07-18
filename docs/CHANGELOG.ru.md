@@ -1,4 +1,19 @@
 # Журнал изменений GAS RATIO PRO
+## v225.11 — Operator Dataset Import & Calibration Comparison — 2026-07-18
+
+- добавлен project-scoped импорт операторских calibration ZIP-пакетов;
+- data-rights gate проверяет owner, legal basis, processing, derivative analysis, final-report use, redistribution и expiration;
+- package scope, SHA-256 checksums, sizes, method-registry fingerprint и formula-change prohibition являются блокирующими;
+- исходный ZIP и три JSON-контракта хранятся неизменяемо с source/rights fingerprints;
+- добавлены baseline/operator и operator/operator comparison по 10 методам;
+- versioned project authorization package применяется непосредственно перед финальным экспортом;
+- ExportArtifact и Export History v5 сохраняют authorization package ID и operator calibration fingerprint;
+- Professional Print Center получил ru/kk/en управление импортом, активацией, сравнением и диагностикой;
+- production formulas не изменялись; foundation Dual Water остаётся `blocked_final_report`;
+- private operator data исключаются из релизного архива.
+
+- Итоговая проверка v225.11: **2915 passed, 0 failed**; Live Workbench Acceptance: **14/14**; Stage 5.2 gate: import **1/1**, comparison **10/10**, authorization **9/9**.
+
 ## v225.10 — Field Calibration, Sensitivity & Report Authorization — 2026-07-18
 
 - добавлен project-owned synthetic field-surrogate dataset для 10 методов;

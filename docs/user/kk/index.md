@@ -14,6 +14,8 @@
 
 - [Далалық калибрлеу және қорытынды есепті авторизациялау](field_calibration_and_report_authorization.md) — revision 1
 
+- [Операторлық калибрлеу пакеттері](operator_calibration_packages.md) — revision 1
+
 ---
 
 Басқа тілдер: [Русский](../ru/index.md) · [English](../en/index.md)

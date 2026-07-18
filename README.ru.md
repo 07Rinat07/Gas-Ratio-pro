@@ -31,7 +31,23 @@
 - корреляция скважин и подготовка к многоскважинным планшетам;
 - интерфейс и документация на русском, казахском и английском языках.
 
-## Stable-релиз v225.10
+## Stable-релиз v225.11
+
+- завершён Stage 5.2 Operator Dataset Import & Calibration Comparison;
+- добавлен project-scoped импорт операторских ZIP-пакетов с проверкой прав на данные, project scope, checksum и method-registry fingerprint;
+- исходный пакет и его manifest/registry/dataset сохраняются неизменяемо с SHA-256 fingerprints;
+- доступны сравнения baseline/operator и operator/operator по 10 методам;
+- активный пакет участвует в авторизации до создания финального отчёта;
+- export artifact и история v5 сохраняют authorization package ID и operator calibration fingerprint;
+- Professional Print Center получил трёхъязычную панель импорта, активации, сравнения и диагностики;
+- production formulas не изменялись, foundation Dual Water остаётся `blocked_final_report`;
+- частные операторские данные не входят в релизный архив;
+- запуск gate: `python scripts/run_petrophysical_stage_5_2_gate.py`;
+- [инструкция](docs/user/ru/operator_calibration_packages.md) · [архитектура](docs/developer/ru/operator_calibration_package_architecture.md).
+
+- Итоговая проверка v225.11: **2915 passed, 0 failed**; Live Workbench Acceptance: **14/14**; импорт **1/1**; comparison **10/10**; project authorization **9/9**.
+
+## Предыдущий stable-релиз v225.10
 
 - завершён Stage 5.1 Field Calibration & Report Authorization Integration;
 - добавлен project-owned synthetic field-surrogate calibration dataset для 10 методов;

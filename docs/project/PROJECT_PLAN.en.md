@@ -1,22 +1,9 @@
 # Gas Ratio Pro Project Plan
 
-Updated: July 18, 2026. Active build: `v225.10 stable`.
+Active build: `v225.11 stable`.
 
-## Completed increment — Field Calibration & Report Authorization
+Stage 5.2 is complete: project-scoped ZIP import, data-rights/fingerprint validation, immutable repository, 10-method comparison, versioned project authorization packages, export-history v5, and a trilingual Print Center panel. Stage 5.1 baseline fallback remains available.
 
-- 10/10 methods pass field calibration;
-- 9/10 methods are authorised for final reports;
-- sensitivity/uncertainty envelopes and error metrics were added;
-- the export boundary blocks unauthorised methods before rendering;
-- diagnostics and evidence are available in ru/kk/en;
-- foundation Dual Water remains blocked.
+Verification: **2915 passed, 0 failed**; Live Workbench **14/14**; Stage 5.2 import **1/1**, comparison **10/10**, authorization **9/9**.
 
-Final v225.10 verification: **2896 passed, 0 failed**; Live Workbench Acceptance: **14/14**; numerical validation: **10/10**; field calibration: **10/10**; final-report authorization: **9/10**.
-
-## Next authorised increment — Stage 5.2
-
-1. Operator-owned calibration-package import.
-2. Data-rights and source-fingerprint validation.
-3. Project-scoped calibration comparison.
-4. Versioned authorization packages.
-5. Full regression and live acceptance.
+Next increment — Stage 5.3: detached signatures, trust registry, reviewer approval/revocation, controlled project promotion, and audit export.

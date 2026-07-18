@@ -87,11 +87,11 @@ class PetrophysicalCalibrationReport:
 
     @property
     def calibrated_method_count(self) -> int:
-        return sum(item.passed for item in self.methods)
+        return len({item.method_id for item in self.methods if item.passed})
 
     @property
     def final_report_calibrated_count(self) -> int:
-        return sum(item.passed and item.final_report_calibrated for item in self.methods)
+        return len({item.method_id for item in self.methods if item.passed and item.final_report_calibrated})
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -115,11 +115,13 @@ class PetrophysicalCalibrationApplicationService:
         registry_path: Path | str | None = None,
         dataset_path: Path | str | None = None,
         validation_service: PetrophysicalValidationApplicationService | None = None,
+        require_redistribution_allowed: bool = True,
     ) -> None:
         self.root = Path(root).resolve()
         self.registry_path = Path(registry_path).resolve() if registry_path else self.root / "config" / "petrophysical_field_calibration_registry_v225_10.json"
         self.dataset_path = Path(dataset_path).resolve() if dataset_path else self.root / "data" / "validation" / "petrophysics" / "petrophysical_field_calibration_cases_v225_10.json"
         self.validation_service = validation_service or PetrophysicalValidationApplicationService(root=self.root)
+        self.require_redistribution_allowed = bool(require_redistribution_allowed)
 
     def run_gate(self) -> PetrophysicalCalibrationReport:
         validation_report = self.validation_service.run_gate()
@@ -128,7 +130,12 @@ class PetrophysicalCalibrationApplicationService:
         registry = load_field_calibration_registry(self.registry_path)
         dataset = load_field_calibration_dataset(self.dataset_path)
         known_ids = {str(item["method_id"]) for item in method_registry.get("methods", [])}
-        structural_errors = validate_field_calibration_contract(registry, dataset, known_method_ids=known_ids)
+        structural_errors = validate_field_calibration_contract(
+            registry,
+            dataset,
+            known_method_ids=known_ids,
+            require_redistribution_allowed=self.require_redistribution_allowed,
+        )
         cases_by_id = {str(item["case_id"]): item for item in dataset.get("cases", [])}
         results: list[MethodCalibrationResult] = []
         if not structural_errors:
@@ -164,16 +171,19 @@ class PetrophysicalCalibrationApplicationService:
         requested = tuple(dict.fromkeys(str(item) for item in method_ids))
         report = self.run_gate()
         report.assert_passed()
-        by_id = {item.method_id: item for item in report.methods}
+        by_id: dict[str, list[MethodCalibrationResult]] = {}
+        for result in report.methods:
+            by_id.setdefault(result.method_id, []).append(result)
         missing = [item for item in requested if item not in by_id]
         if missing:
             raise KeyError("Methods are not covered by field calibration: " + ", ".join(missing))
-        failed = [item for item in requested if not by_id[item].passed]
+        failed = [item for item in requested if not all(result.passed for result in by_id[item])]
         if failed:
             raise RuntimeError("Methods failed field calibration: " + ", ".join(failed))
         required_not_calibrated = [
             item for item in requested
-            if by_id[item].calibration_policy == "required_final_report" and not by_id[item].final_report_calibrated
+            if any(result.calibration_policy == "required_final_report" for result in by_id[item])
+            and not all(result.final_report_calibrated for result in by_id[item])
         ]
         if required_not_calibrated:
             raise PermissionError("Methods are not calibrated for final reports: " + ", ".join(required_not_calibrated))

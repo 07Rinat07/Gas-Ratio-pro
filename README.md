@@ -52,7 +52,23 @@
 - сторонний код и спецификации используются только после лицензионной проверки;
 - preview и диагностика больших файлов выполняются с ограничением памяти.
 
-## Stable-релиз v225.10
+## Stable-релиз v225.11
+
+- завершён Stage 5.2 Operator Dataset Import & Calibration Comparison;
+- добавлен project-scoped импорт операторских ZIP-пакетов с обязательной проверкой data rights, project scope, checksum и method-registry fingerprint;
+- исходный ZIP, manifest, registry и dataset сохраняются неизменяемо с SHA-256 fingerprints;
+- добавлено сравнение baseline/operator и operator/operator по 10 методам, RMSE, max error и uncertainty envelope;
+- активный операторский пакет участвует в авторизации непосредственно перед финальным экспортом;
+- экспортные артефакты и история v5 сохраняют authorization package ID и operator calibration fingerprint;
+- Professional Print Center получил трёхъязычную панель импорта, активации, сравнения и диагностики;
+- production formulas не изменялись, foundation Dual Water остаётся `blocked_final_report`;
+- private operator data не включаются в пользовательский релизный архив;
+- инструменты: `python scripts/build_operator_calibration_package.py` и `python scripts/run_petrophysical_stage_5_2_gate.py`;
+- [инструкция](docs/user/ru/operator_calibration_packages.md) · [архитектура](docs/developer/ru/operator_calibration_package_architecture.md).
+
+- Итоговая проверка v225.11: **2915 passed, 0 failed**; Live Workbench Acceptance: **14/14**; Stage 5.2 gate: импорт **1/1**, comparison **10/10**, project authorization **9/9**.
+
+## Предыдущий stable-релиз v225.10
 
 - завершён Stage 5.1 Field Calibration & Report Authorization Integration;
 - добавлен project-owned synthetic field-surrogate calibration dataset для 10 методов;

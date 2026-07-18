@@ -200,6 +200,26 @@
         "kk": "developer/kk/field_calibration_authorization_architecture.md",
         "en": "developer/en/field_calibration_authorization_architecture.md"
       }
+    },
+    {
+      "id": "operator_calibration_packages",
+      "revision": 1,
+      "audience": "user",
+      "languages": {
+        "ru": "user/ru/operator_calibration_packages.md",
+        "kk": "user/kk/operator_calibration_packages.md",
+        "en": "user/en/operator_calibration_packages.md"
+      }
+    },
+    {
+      "id": "operator_calibration_package_architecture",
+      "revision": 1,
+      "audience": "developer",
+      "languages": {
+        "ru": "developer/ru/operator_calibration_package_architecture.md",
+        "kk": "developer/kk/operator_calibration_package_architecture.md",
+        "en": "developer/en/operator_calibration_package_architecture.md"
+      }
     }
   ]
 }

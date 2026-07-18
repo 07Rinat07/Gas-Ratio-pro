@@ -7,19 +7,19 @@ ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 
 
-def test_v225_10_build_metadata_and_trilingual_release_governance() -> None:
-    assert (ROOT / "BUILD_VERSION").read_text(encoding="utf-8").strip() == "v225.10"
-    assert (ROOT / "DEPLOYMENT_BUILD.txt").read_text(encoding="utf-8").strip() == "Gas Ratio Pro v225.10"
+def test_v225_10_trilingual_release_evidence_remains_available() -> None:
     for language in ("ru", "kk", "en"):
-        status = (DOCS / f"PROJECT_STATUS.{language}.md").read_text(encoding="utf-8")
-        roadmap = (DOCS / f"PROJECT_ROADMAP.{language}.md").read_text(encoding="utf-8")
-        plan = (DOCS / "project" / f"PROJECT_PLAN.{language}.md").read_text(encoding="utf-8")
         changelog = (DOCS / f"CHANGELOG.{language}.md").read_text(encoding="utf-8")
         release = (DOCS / "archive" / "releases" / f"v225.10.{language}.md").read_text(encoding="utf-8")
-        for text in (status, roadmap, plan, changelog, release):
+        implementation = (
+            DOCS / "15_Implementation_Plan" / f"FIELD_CALIBRATION_REPORT_AUTHORIZATION_V225_10.{language}.md"
+        ).read_text(encoding="utf-8")
+        acceptance = (
+            DOCS / "16_Acceptance" / f"FIELD_CALIBRATION_REPORT_AUTHORIZATION_V225_10.{language}.md"
+        ).read_text(encoding="utf-8")
+        for text in (changelog, release, implementation, acceptance):
             assert "v225.10" in text
-        assert "Stage 5.1" in status
-        assert "Stage 5.2" in roadmap
+            assert "Stage 5.1" in text or "Field Calibration" in text
 
 
 def test_manifest_registers_field_calibration_docs_in_three_languages() -> None:

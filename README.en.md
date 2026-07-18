@@ -31,7 +31,23 @@ A professional trilingual engineering platform for importing, quality-controllin
 - well correlation and preparation for multi-well log panels;
 - Russian, Kazakh, and English interface and documentation.
 
-## Stable release v225.10
+## Stable release v225.11
+
+- completed Stage 5.2 Operator Dataset Import & Calibration Comparison;
+- added project-scoped operator ZIP import with mandatory data-rights, project-scope, checksum, and method-registry fingerprint validation;
+- the original ZIP, manifest, registry, and dataset are stored immutably with SHA-256 fingerprints;
+- added baseline/operator and operator/operator comparisons across 10 methods;
+- the active operator package participates in authorization before final export construction;
+- export artifacts and history v5 persist the authorization package ID and operator calibration fingerprint;
+- Professional Print Center now provides a trilingual import, activation, comparison, and diagnostics panel;
+- production formulas are unchanged and foundation Dual Water remains `blocked_final_report`;
+- private operator data is excluded from the user release archive;
+- run the gate with `python scripts/run_petrophysical_stage_5_2_gate.py`;
+- [user guide](docs/user/en/operator_calibration_packages.md) · [architecture](docs/developer/en/operator_calibration_package_architecture.md).
+
+- Final v225.11 verification: **2915 passed, 0 failed**; Live Workbench Acceptance: **14/14**; import **1/1**; comparison **10/10**; project authorization **9/9**.
+
+## Previous stable release v225.10
 
 - completed Stage 5.1 Field Calibration & Report Authorization Integration;
 - added a project-owned synthetic field-surrogate calibration dataset for 10 methods;

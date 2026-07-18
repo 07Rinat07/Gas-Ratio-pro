@@ -14,6 +14,8 @@
 
 - [Полевая калибровка и авторизация финального отчёта](field_calibration_and_report_authorization.md) — revision 1
 
+- [Операторские калибровочные пакеты](operator_calibration_packages.md) — revision 1
+
 ---
 
 Другие языки: [Қазақша](../kk/index.md) · [English](../en/index.md)

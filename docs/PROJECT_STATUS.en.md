@@ -1,39 +1,31 @@
-# Current status — v225.10 Stable
+# Current status — v225.11 Stable
 
 Updated: July 18, 2026.
 
 ## Active stage
 
-**Stage 5.1 — Field Calibration & Report Authorization Integration is complete.** Production formulas were not changed.
+**Stage 5.2 — Operator Dataset Import & Calibration Comparison is complete.** Production formulas were not changed.
 
-## Field Calibration
-
-- 10 methods use a project-owned synthetic field-surrogate dataset;
-- registry and dataset carry ownership/legal clearance, units, acceptance thresholds, and fingerprints;
-- the gate calculates RMSE, MAE, bias, maximum error, sensitivity, and uncertainty envelopes;
-- field-calibration gate: **10/10 passed**;
-- final-report calibrated/authorised: **9/10**;
-- evidence: `artifacts/validation/petrophysical_calibration_v225_10.json`.
-
-## Report Authorization
-
-- numerical validation, calibration, and report policy are composed in an application service;
-- method IDs propagate through a machine-readable DataFrame context;
-- export authorization runs before PresentationModel and renderer construction;
-- authorization IDs and gate IDs are persisted in artifacts and export history;
-- Professional Print Center exposes read-only diagnostics in ru/kk/en;
+- ZIP packages contain only `manifest.json`, `calibration_registry.json`, and `calibration_dataset.json`;
+- only `operator_owned`, `licensed`, or `public_domain` data are accepted;
+- project scope, owner, legal basis, processing/derivative permissions, and expiration are blocking;
+- package, file, and rights fingerprints are verified on import and every later use;
+- `package_id + version` is immutable;
+- private operator data stays in the project repository and is excluded from release archives;
+- baseline and package versions are compared across all 10 methods;
+- a versioned project authorization package is created before rendering;
+- export-history schema v5 records the authorization package ID and operator fingerprint;
+- export caches are cleared when the active authorization/rights context changes;
 - foundation Dual Water remains `blocked_final_report`.
 
-## Stable contracts
-
-Live Workbench Acceptance, full-frame A3 landscape layout, architecture boundaries, controlled visual baselines, and Open Standards and Legal Research Governance remain mandatory. Pixler rehabilitation, Ternary rehabilitation, Depth engineering panel, and Reservoir Intelligence / Interpretation 2.0 require explicit evidence before changes.
-
-Final v225.10 verification: **2896 passed, 0 failed**; Live Workbench Acceptance: **14/14**; numerical validation: **10/10**; field calibration: **10/10**; final-report authorization: **9/10**.
+Evidence: `artifacts/validation/petrophysical_operator_calibration_v225_11.json`; Stage 5.2 gate — import 1/1, comparison 10/10, authorization 9/9; full regression **2915 passed, 0 failed**; Live Workbench **14/14**.
 
 ## Stabilization & Release Audit
 
-Stable v225.8 Live Workbench Acceptance remains mandatory and passes **14/14** checks. Architecture boundaries, controlled visual baselines, full-frame report layout, and numerical/calibration/authorization gates remain blocking.
+Stage 5/5.1 gates, architecture boundaries, controlled visual baselines, and full-frame report layout remain mandatory. `.github/workflows` is excluded from the user archive.
+
+Reservoir Intelligence / Interpretation 2.0, Pixler rehabilitation, Ternary rehabilitation, and the Depth engineering panel cannot change without explicit validation evidence.
 
 ## Next stage
 
-**Stage 5.2 — Operator Dataset Import & Calibration Comparison.** Authorised work includes operator-owned calibration-package import, data-rights validation, project-scoped comparison, and versioned authorization packages. Formula changes without validation/calibration evidence remain prohibited.
+**Stage 5.3 — Calibration Package Trust & Review Workflow:** detached signatures, a trust registry, reviewer approval, package revocation, and controlled promotion between projects.
