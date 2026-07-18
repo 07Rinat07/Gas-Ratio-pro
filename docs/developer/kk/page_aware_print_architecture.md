@@ -1,30 +1,33 @@
-# Page-aware басып шығару архитектурасы
+# Page-aware басып шығару және тікелей preview архитектурасы
 
-Revision: 1 · GAS RATIO PRO v225.3
+Revision: 2 · GAS RATIO PRO v225.4
 
-## Жүйелік шекара
+## Геометрияның бірыңғай көзі
 
-`VisualizationScenePipeline` 2.1 нұсқасындағы физикалық `VisualizationPrintLayout` есептейді. Әр бетте `content_bounds`, `header_bounds`, `footer_bounds`, `legend_bounds`, `track_ids` және `chrome_primitives` бар.
+`VisualizationScenePipeline` физикалық `VisualizationPrintLayout` v2.1 жасайды. `VisualizationPageAwarePackageBuilder` барлық SVG/PNG беттері, көпбетті PDF, geometry signature v3, page chrome және QA нәтижесі бар v1.2 пакетін құрады.
 
-`chrome_primitives` үшін `coordinate_space=page_pt` қолданылады. SVG және PDF оларды қайта масштабтамай және content clip қолданбай салуы тиіс. PNG дайын SVG беттерінен жасалады.
+## Application bridge
 
-## Бірыңғай пакет
+`ReportPageAwarePreviewService` ағымдағы есеп `DataFrame`-ынан физикалық пакетке өтетін жалғыз шекара болып табылады. Ол `LasVisualizationPayloadService.build_from_frame()` шақырып, кейін `VisualizationPrintCenterService.prepare()` орындайды және renderer-neutral payload-ты `PresentationModel` моделіне қосады.
 
-`VisualizationPageAwarePackageBuilder` 1.1 нұсқасындағы бір пакетті құрады:
+Шикі `DataFrame` жолдары downstream қабаттарына берілмейді.
 
-- барлық SVG беттері;
-- барлық PNG беттері;
-- бір көпбетті PDF;
-- geometry signature v3;
-- page chrome келісімшарты;
-- QA нәтижесі.
+## Preview contract v1.1
 
-`VisualizationPrintCenterService` ru/kk/en тілдеріндегі жергіліктендірілген жиынтықты және PDF, SVG, PNG, DOCX/HTML preview үшін бір output contract жасайды. Downstream қабаттарында layout-ты қайта құруға болмайды.
+`visualization.preview.page-aware` канондық келісімшарты `pages` массивін қамтиды. Әр бетте `index`, `track_ids`, `width_pt`, `height_pt`, chrome primitives саны және дайын SVG бар. `single_page_fallback=false` және `legacy_svg_fallback_allowed=false` жалаушалары міндетті.
+
+`reports.visualization_preview.normalize_visualization_preview()` — HTML, DOCX, PDF және asset export үшін ортақ қатаң нормализатор. Page-aware схема үшін канондық `pages` жоқ болса, ол compatibility `svg` немесе `page_svgs` өрістерін қолданбайды.
+
+## Көрінетін Print Center
+
+`build_professional_print_center_view()` бір prepared package-ті UI келісімшартына айналдырады: нақты профиль, күй, geometry signature және preview беттерінің толық тізімі. Streamlit нәтижені параметрлер сигнатурасы бойынша сақтайды және экспорт кезінде сол report payload-ты береді.
 
 ## Инварианттар
 
-- бір pipeline геометрияның жалғыз көзі болып табылады;
-- бет нөмірлері мен шартты белгілер барлық renderer-де бірдей координаттарды пайдаланады;
-- page count және track partition барлық форматтарда сәйкес келеді;
-- single-page fallback мәні `false`;
-- legacy жолы parity тесттерінен кейін ғана жойылады.
+- бір pipeline және бір geometry signature;
+- downstream ішінде layout қайта құрылмайды;
+- DOCX/HTML барлық физикалық беттерді тікелей алады;
+- `bundle` форматы сол пакетті пайдаланады;
+- белгілер мен хабарлар `ru/kk/en` үшін синхрондалған;
+- page count сәйкессіздігі preview дайындық күйін бұғаттайды;
+- legacy static-export жолдары parity аудитінен кейін ғана жойылады.

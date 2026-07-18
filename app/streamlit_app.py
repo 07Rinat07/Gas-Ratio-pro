@@ -10,6 +10,7 @@ import json
 import os
 import random
 import sys
+from dataclasses import replace
 from datetime import datetime
 from time import perf_counter
 from io import BytesIO
@@ -415,7 +416,13 @@ from reports.export_static import (
     export_plotly_static_bytes,
 )
 
-from reports.print_center import default_report_copy, document_locale_options, normalize_document_locale
+from reports.print_center import (
+    build_professional_print_center_view,
+    default_report_copy,
+    document_locale_options,
+    normalize_document_locale,
+)
+from services.report_page_aware_preview import ReportPageAwarePreviewService
 from core.build_info import BUILD_VERSION
 project_calculations = importlib.reload(project_calculations)
 project_exports = importlib.reload(project_exports)
@@ -10465,6 +10472,171 @@ def _render_professional_export_panel(
             calculation_revision=current_export_request.calculation_revision,
         )
 
+        def _prepare_physical_visualization(frame: pd.DataFrame, report_payload):
+            interval_ids: list[str] = []
+            interval_metadata: dict[str, dict[str, object]] = {}
+            for interval_index, interval in enumerate(report_payload.result.intervals, start=1):
+                interval_id = f"HC-{interval_index:03d}-{float(interval.top):g}-{float(interval.base):g}"
+                interval_ids.append(interval_id)
+                interval_metadata[interval_id] = {
+                    "top": float(interval.top),
+                    "base": float(interval.base),
+                    "label": str(interval.interpretation or interval.fluid_type or interval_id),
+                    "fluid_type": str(interval.fluid_type or "unknown"),
+                    "confidence": str(interval.confidence or ""),
+                }
+            return ReportPageAwarePreviewService().prepare(
+                frame,
+                project_id=str(active_project.id),
+                source_id=str(source_label or "current-report-selection"),
+                title=str(report_design.title or localized_copy["title"]),
+                locale=str(report_design.document_locale or "ru"),
+                page_size=str(structure_preview.paper_size or "A4"),
+                orientation=str(structure_preview.orientation or "landscape"),
+                margin_mm=float(structure_preview.margin_mm),
+                show_page_chrome=bool(report_design.show_page_chrome),
+                footer_text=str(report_design.footer_text or localized_copy["footer"]),
+                classification=str(report_design.classification or localized_copy["classification"]),
+                curve_limit=8,
+                sample_limit=1200,
+                interval_ids=tuple(interval_ids),
+                interval_metadata=interval_metadata,
+                raster_dpi=150,
+            )
+
+        physical_preview_copy = {
+            "ru": {
+                "prepare": "📐 Рассчитать точный физический пакет",
+                "help": (
+                    "Формирует тот же page-aware package, который затем напрямую используется "
+                    "PDF, DOCX и HTML без повторного расчёта страниц."
+                ),
+                "no_data": "Для физического предпросмотра нет данных в выбранном интервале.",
+                "error": "Не удалось подготовить физический пакет: {error}.",
+                "selector": "Страница физического предпросмотра",
+                "direct": "DOCX/HTML получают все страницы напрямую.",
+            },
+            "kk": {
+                "prepare": "📐 Нақты физикалық пакетті есептеу",
+                "help": (
+                    "PDF, DOCX және HTML кейін беттерді қайта есептемей тікелей пайдаланатын "
+                    "сол page-aware package пакетін жасайды."
+                ),
+                "no_data": "Таңдалған аралықта физикалық preview үшін дерек жоқ.",
+                "error": "Физикалық пакетті дайындау мүмкін болмады: {error}.",
+                "selector": "Физикалық preview беті",
+                "direct": "DOCX/HTML барлық беттерді тікелей алады.",
+            },
+            "en": {
+                "prepare": "📐 Calculate exact physical package",
+                "help": (
+                    "Builds the same page-aware package that PDF, DOCX, and HTML then consume "
+                    "directly without recalculating pages."
+                ),
+                "no_data": "No data is available in the selected interval for physical preview.",
+                "error": "Unable to prepare the physical package: {error}.",
+                "selector": "Physical preview page",
+                "direct": "DOCX/HTML receive every page directly.",
+            },
+        }[str(report_design.document_locale or "ru")]
+
+        physical_preview_cache_key = f"professional_print_center_physical_package_{active_project.id}"
+        physical_preview_signature = hashlib.sha256(
+            (
+                current_export_request.selection_signature
+                + f"|page={structure_preview.paper_size}|orientation={structure_preview.orientation}"
+                + f"|margin={structure_preview.margin_mm}|locale={report_design.document_locale}"
+            ).encode("utf-8")
+        ).hexdigest()
+        physical_preview_requested = st.button(
+            physical_preview_copy["prepare"],
+            key=f"professional_print_center_prepare_physical_{active_project.id}",
+            width="stretch",
+            help=physical_preview_copy["help"],
+            disabled=("visualizations" not in report_design.sections),
+        )
+        if physical_preview_requested:
+            preview_frame = _filter_by_depth_range(
+                calculated_df,
+                current_print_depth_range[0],
+                current_print_depth_range[1],
+            )
+            if preview_frame.empty:
+                st.error(physical_preview_copy["no_data"])
+            else:
+                try:
+                    preview_report_payload = build_hydrocarbon_report_payload(
+                        preview_frame,
+                        source_label=current_export_request.source_label,
+                        project_label=f"{current_export_request.project_name} ({current_export_request.project_id})",
+                        depth_label=_range_label(current_export_request.normalized_depth_range, unit="м"),
+                        report_profile=current_export_request.profile_id,
+                        include_plot=False,
+                        ranking_profile=export_state.get("active_reservoir_ranking_profile"),
+                        locale=report_design.document_locale,
+                    )
+                    physical_result = _prepare_physical_visualization(preview_frame, preview_report_payload)
+                    physical_view = build_professional_print_center_view(
+                        physical_result.prepared,
+                        project_id=str(active_project.id),
+                        locale=report_design.document_locale,
+                        title=report_design.title,
+                        template_id=report_design.template_id,
+                        output_format=current_export_request.format_id,
+                    )
+                    export_state[physical_preview_cache_key] = {
+                        "signature": physical_preview_signature,
+                        "view": physical_view.to_dict(include_svgs=True),
+                        "report_payload": dict(physical_result.report_payload),
+                    }
+                except Exception as exc:
+                    logger.exception(
+                        "professional_print_center_physical_preview_failed project_id=%s",
+                        safe_log_value(active_project.id),
+                    )
+                    st.error(physical_preview_copy["error"].format(error=type(exc).__name__))
+
+        cached_physical_preview = export_state.get(physical_preview_cache_key)
+        if not isinstance(cached_physical_preview, dict) or cached_physical_preview.get("signature") != physical_preview_signature:
+            cached_physical_preview = {}
+        page_aware_preview_payload_snapshot = (
+            dict(cached_physical_preview.get("report_payload") or {})
+            if cached_physical_preview
+            else {}
+        )
+        physical_view_payload = dict(cached_physical_preview.get("view") or {}) if cached_physical_preview else {}
+        if physical_view_payload:
+            status_message = str(physical_view_payload.get("status_label") or "")
+            exact_profile = str(physical_view_payload.get("exact_profile_label") or "")
+            if bool(physical_view_payload.get("export_ready")):
+                st.success(f"{status_message}: {exact_profile}")
+            else:
+                st.warning(f"{status_message}: {exact_profile}")
+            preview_pages = [
+                dict(item) for item in physical_view_payload.get("pages", ())
+                if isinstance(item, dict) and str(item.get("svg") or "").startswith("<svg")
+            ]
+            if preview_pages:
+                page_labels = [str(item.get("label") or item.get("index")) for item in preview_pages]
+                selected_physical_page_label = st.selectbox(
+                    physical_preview_copy["selector"],
+                    options=page_labels,
+                    key=f"professional_print_center_page_{active_project.id}",
+                )
+                selected_physical_page = preview_pages[page_labels.index(selected_physical_page_label)]
+                st.markdown(
+                    "<div style='max-height:620px;overflow:auto;border:1px solid rgba(96,165,250,.35);"
+                    "padding:8px;border-radius:8px;background:#fff'>"
+                    + str(selected_physical_page.get("svg") or "")
+                    + "</div>",
+                    unsafe_allow_html=True,
+                )
+                st.caption(
+                    f"{physical_view_payload.get('page_count_label', '')} · "
+                    f"geometry `{str(physical_view_payload.get('geometry_signature') or '')[:16]}…` · "
+                    + physical_preview_copy["direct"]
+                )
+
         prepare_export = bool(prepare_export or export_state.pop(repeat_autorun_key, False))
 
         if prepare_export:
@@ -10503,7 +10675,25 @@ def _render_professional_export_panel(
                         )
                         if payload.presentation_model is None:
                             raise RuntimeError("PresentationModel не был сформирован.")
-                        return payload.presentation_model
+                        presentation_model = payload.presentation_model
+                        page_aware_formats = {"pdf", "docx", "html", "bundle", "zip"}
+                        if (
+                            "visualizations" in report_design.sections
+                            and export_request.format_id in page_aware_formats
+                        ):
+                            prepared_report_payload = dict(page_aware_preview_payload_snapshot)
+                            if not prepared_report_payload:
+                                prepared_report_payload = dict(
+                                    _prepare_physical_visualization(frame, payload).report_payload
+                                )
+                            presentation_model = replace(
+                                presentation_model,
+                                visualization_payloads=(
+                                    *presentation_model.visualization_payloads,
+                                    prepared_report_payload,
+                                ),
+                            )
+                        return presentation_model
 
                     def _render_export_artifact(presentation_model, frame, export_request):
                         check_cancelled()

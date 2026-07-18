@@ -1,3 +1,19 @@
+# Latest implementation — Visible Professional Print Center & Direct DOCX/HTML Preview v225.4
+
+Status: COMPLETED
+
+Implemented:
+- visible Professional Print Center prepares one exact physical package and exposes every SVG page;
+- `ReportPageAwarePreviewService` bridges the current report frame to the page-aware renderer without retaining raw data downstream;
+- page-aware package v1.2 and preview contract v1.1 use canonical per-page objects;
+- HTML, DOCX, PDF and export assets share one strict preview normalizer;
+- page-aware contracts never fall back to the first SVG;
+- PDF/DOCX/HTML/bundle export receives the same prepared payload;
+- summaries, page labels and errors are localized for Russian, Kazakh and English;
+- documentation, plans, status, changelog, manifest and build identity are synchronized.
+
+Next priority: implement automated cross-format parity gates, retire remaining legacy static-export branches only after proof, and add validated user-defined physical profiles.
+
 # Latest implementation — Page Chrome & Print Center Contract v225.3
 
 Status: COMPLETED

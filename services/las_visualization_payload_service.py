@@ -635,7 +635,12 @@ def _build_tracks(curves: Iterable[LasCurvePlotPayload]) -> tuple[LasTrackPlotPa
 
 
 class LasVisualizationPayloadService:
-    """Create printable renderer-neutral LAS plot payloads from project storage."""
+    """Create printable renderer-neutral LAS plot payloads.
+
+    Project-backed ``build`` and in-memory ``build_from_frame`` share one
+    implementation so visible Print Center previews and stored LAS workspaces
+    cannot drift into different visualization pipelines.
+    """
 
     def __init__(self, root: Path | str = DEFAULT_PROJECTS_ROOT, manager: LasManagerService | None = None) -> None:
         self.root = Path(root)
@@ -650,12 +655,47 @@ class LasVisualizationPayloadService:
         sample_limit: int = DEFAULT_SAMPLE_LIMIT,
         interval_ids: Sequence[str] | None = None,
         interval_metadata: Mapping[str, Mapping[str, Any]] | None = None,
+        print_options: Mapping[str, Any] | None = None,
     ) -> LasVisualizationPayload:
         clean_project_id = safe_project_id(project_id)
         clean_las_id = str(las_id or "").strip()
         if not clean_las_id:
             raise ValueError("LAS id must not be empty.")
         frame = self.manager.read_dataframe(clean_project_id, clean_las_id)
+        return self.build_from_frame(
+            frame,
+            project_id=clean_project_id,
+            las_id=clean_las_id,
+            curve_limit=curve_limit,
+            sample_limit=sample_limit,
+            interval_ids=interval_ids,
+            interval_metadata=interval_metadata,
+            print_options=print_options,
+        )
+
+    def build_from_frame(
+        self,
+        frame: pd.DataFrame,
+        *,
+        project_id: str = "in-memory",
+        las_id: str = "current-selection",
+        curve_limit: int = DEFAULT_CURVE_LIMIT,
+        sample_limit: int = DEFAULT_SAMPLE_LIMIT,
+        interval_ids: Sequence[str] | None = None,
+        interval_metadata: Mapping[str, Mapping[str, Any]] | None = None,
+        print_options: Mapping[str, Any] | None = None,
+    ) -> LasVisualizationPayload:
+        """Build the same pipeline from an already prepared dataframe.
+
+        This method is the application-layer bridge used by Professional Print
+        Center. It accepts computed report data but returns only renderer-neutral
+        contracts; raw dataframe content never enters the page-aware package.
+        """
+
+        clean_project_id = str(project_id or "in-memory").strip() or "in-memory"
+        clean_las_id = str(las_id or "current-selection").strip() or "current-selection"
+        if not isinstance(frame, pd.DataFrame):
+            raise TypeError("frame must be a pandas DataFrame")
         unit_map = _units(frame)
         depth_curve = _select_depth_curve(frame)
         if not depth_curve or depth_curve not in frame.columns:
@@ -671,7 +711,14 @@ class LasVisualizationPayloadService:
         curve_payloads = tuple(
             payload
             for payload in (
-                _curve_payload(frame, depth_curve=depth_curve, curve=curve, units=unit_map, sample_limit=sample_limit, depth_info=depth_info)
+                _curve_payload(
+                    frame,
+                    depth_curve=depth_curve,
+                    curve=curve,
+                    units=unit_map,
+                    sample_limit=sample_limit,
+                    depth_info=depth_info,
+                )
                 for curve in limited_curves
             )
             if payload is not None
@@ -692,13 +739,15 @@ class LasVisualizationPayloadService:
         if interval_ids and not overlays:
             flags.append("interval_overlays_empty")
         tracks = _build_tracks(curve_payloads)
-        preview = _mini_svg_preview(
+        mini_preview = _mini_svg_preview(
             tracks=tracks,
             curves=curve_payloads,
             overlays=overlays,
             depth_range=depth_info,
         )
         base_payload_for_engine = {
+            "source_type": "las",
+            "source_id": clean_las_id,
             "tracks": [track.to_dict() for track in tracks],
             "curves": [curve.to_dict() for curve in curve_payloads],
             "overlays": [overlay.to_dict() for overlay in overlays],
@@ -716,8 +765,10 @@ class LasVisualizationPayloadService:
                 curves=curve_payloads,
                 overlays=overlays,
             ),
-            "preview": dict(preview),
+            "preview": dict(mini_preview),
         }
+        if isinstance(print_options, Mapping):
+            base_payload_for_engine["print_options"] = dict(print_options)
         pipeline_result = VisualizationScenePipeline().run(base_payload_for_engine).to_dict()
         engine_scene = dict(pipeline_result["scene"])
         svg_scene = VisualizationSvgSceneRenderer().render(pipeline_result).to_dict()
@@ -739,7 +790,7 @@ class LasVisualizationPayloadService:
             legend=tuple(base_payload_for_engine["legend"]),
             visible_tracks=tuple(base_payload_for_engine["visible_tracks"]),
             plot_summary=dict(base_payload_for_engine["plot_summary"]),
-            preview=preview,
+            preview=mini_preview,
             engine_scene=engine_scene,
             scene_pipeline=pipeline_result,
             scene_renderers={"svg": svg_scene},

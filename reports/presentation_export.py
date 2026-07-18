@@ -10,6 +10,7 @@ from typing import Literal
 
 from reports.presentation_html import PresentationHtmlOptions, build_presentation_html_report
 from reports.presentation_model import PresentationModel
+from reports.visualization_preview import visualization_preview_svgs
 
 
 _SAFE_NAME_RE = re.compile(r"[^A-Za-z0-9._-]+")
@@ -200,11 +201,7 @@ def _visualization_manifest(model: PresentationModel) -> dict[str, object]:
 
 
 def _visualization_svg_pages(preview: dict[str, object]) -> list[str]:
-    declared = preview.get("page_svgs")
-    pages = [str(item).strip() for item in declared] if isinstance(declared, (list, tuple)) else []
-    if not pages:
-        pages = [str(preview.get("svg") or "").strip()]
-    return [item for item in pages if item.startswith("<svg")]
+    return list(visualization_preview_svgs(preview))
 
 
 

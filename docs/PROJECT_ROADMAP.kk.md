@@ -1,60 +1,51 @@
-# Project Roadmap — v225.3
+# Project Roadmap — v225.4
 
 Жаңартылған күні: 18 шілде 2026 жыл.
 
-Бұл құжат Gas Ratio Pro әзірлеуінің **жалғыз белсенді реттілігі** болып табылады. Нұсқалық roadmap файлдары, ескі progress/next-step құжаттары және параллель жоспарлар тек `docs/archive/legacy_plans/` ішінде сақталады.
-
-Тілдік нұсқалар: [Русский](PROJECT_ROADMAP.ru.md) · [Қазақша](PROJECT_ROADMAP.kk.md) · [English](PROJECT_ROADMAP.en.md).
+Бұл құжат Gas Ratio Pro дамуының **жалғыз белсенді реттілігі** болып табылады. Нұсқалық roadmap және параллель progress/next-step құжаттары тек `docs/archive/legacy_plans/` ішінде сақталады.
 
 ## Stage 4 — Workbench UI Completion
 
 Күйі: **ACTIVE**.
 
-Мақсат — жұмыс аймағынан Professional Print Center-ге дейінгі пайдаланушы жолын тәуелсіз экспорт тармақтарынсыз аяқтау.
+v225.4 ішінде аяқталды:
 
-v225.3 нұсқасында аяқталды:
-
-- header/footer/legend/content үшін бірыңғай физикалық аймақтар;
-- SVG және PDF үшін page-space chrome;
-- сол SVG беттерінен PNG жасау;
-- geometry signature v3;
-- бірыңғай `VisualizationPageAwarePackage`;
-- UI-дан тәуелсіз `VisualizationPrintCenterService`;
-- LAS Viewer SVG/PDF/PNG үшін бір page-aware pipeline.
+- көрінетін Professional Print Center бір физикалық page-aware package пайдаланады;
+- нақты профиль және барлық preview беттері іске қоспас бұрын қолжетімді;
+- DOCX/HTML канондық көпбетті preview-ды тікелей алады;
+- ортақ strict normalizer бірінші бетке үнсіз fallback жасауды болдырмайды;
+- `bundle` бірыңғай экспорт жолына қосылды;
+- preview үшін `ru/kk/en` локализациясы синхрондалды.
 
 Келесі рұқсат етілген жұмыстар:
 
-1. локализацияланған пакет жиынтығын көрінетін Professional Print Center-ге қосу;
-2. көпбетті page-aware preview-ді DOCX/HTML-ге тікелей беру;
-3. automated parity тексерілгеннен кейін ғана legacy static-export тармақтарын жою;
-4. мәтінді рұқсат етілген минимумнан кішірейтпей, пайдаланушының физикалық профиль шаблондарын қосу.
+1. A4/A3 portrait/landscape үшін UI/PDF/DOCX/HTML/SVG/PNG автоматтандырылған parity матрицасы;
+2. parity gate өткеннен кейін legacy static-export жолдарын жою;
+3. мәтінді бекітілген минимумнан кішірейтпейтін пайдаланушы физикалық профильдері;
+4. нақты пайдаланушы жолын тексергеннен кейін Stage 4 аяқтау.
 
 ## Stabilization & Release Audit
 
-Күйі: **Release candidate v225.3**.
+Күйі: **Release candidate v225.4**.
 
-Әр шығарылым алдында толық regression, форматтар parity-і, A4/A3 физикалық параметрлері, үш тілдегі құжаттама, manifest, сілтемелер, build нұсқасы және release archive тексеріледі.
+Әр шығарылым алдында regression, format parity, A4/A3 физикалық тексеруі, `ru/kk/en` құжаттамасының синхрондалуы, manifest/сілтемелер/version metadata және архив тұтастығы міндетті.
 
 ## Petrophysical Engine
 
 Күйі: **BLOCKED**.
 
-Stage 4 және Stabilization & Release Audit аяқталғанша петрофизикалық қозғалтқышты кеңейтуге тыйым салынады. Тек бекітілген есептеу келісімшартын өзгертпейтін критикалық түзетулерге рұқсат.
+Stage 4 және Stabilization & Release Audit аяқталғанша петрофизикалық қозғалтқышты кеңейтуге тыйым салынады.
 
 ## Release gate
 
-Шығарылым тек бір layout/signature, silent single-page fallback болмауы, қайталанатын эталондар, іске асыруға сәйкес тесттер және үш тілдегі синхронды құжаттама болғанда дайын деп саналады.
+Шығарылым бір layout пен geometry signature, толық multi-page contract, silent fallback жоқтығы, қайталанатын артефактілер, кодқа сәйкес тесттер мен құжаттама және үш тілдің синхрондылығы болғанда ғана дайын.
 
 ## Reservoir Intelligence / Interpretation 2.0
 
-Күйі: **FROZEN AFTER ACCEPTANCE**. Қолданыстағы интерпретация регрессиясы үшін міндетті Definition of Done сақталады:
+Күйі: **FROZEN AFTER ACCEPTANCE**. Қабылданған Definition of Done міндетті регрессиялық келісімшарт болып қалады:
 
 - Pixler rehabilitation;
 - Ternary rehabilitation;
 - Depth engineering panel;
-- интервалдардың инженерлік жиынтығы және қайталанатын визуалды жіктеу;
-- Definition of Done: барлық бекітілген көріністер бір есептеу нәтижесін пайдаланады, регрессиялық тесттерден өтеді және print/export кезеңінде өзгермейді.
-
-## Open Standards and Legal Research Governance
-
-Сыртқы стандарт немесе third-party component тек бекітілген policy құжаттары, machine-readable registry, лицензия дәлелі және оқшауланған adapter boundary арқылы біріктіріледі. Зерттеу прототипі жеке review status алмайынша production dependency болмайды.
+- аралықтардың инженерлік жиынтығы және қайталанатын визуалдық жіктеу;
+- Definition of Done: барлық бекітілген көріністер бір есептеу нәтижесін пайдаланады және print/export кезеңдерінде өзгермейді.

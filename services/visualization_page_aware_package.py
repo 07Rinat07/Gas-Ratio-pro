@@ -55,12 +55,15 @@ class VisualizationPageAsset:
 @dataclass(frozen=True, slots=True)
 class VisualizationPageAwarePackage:
     schema: str = "visualization.page-aware.package"
-    version: str = "1.1"
+    version: str = "1.2"
     profile_id: str = ""
     page_size: str = ""
     orientation: str = ""
     dpi: int = 0
     geometry_signature: str = ""
+    track_count: int = 0
+    curve_count: int = 0
+    overlay_count: int = 0
     page_chrome: Mapping[str, Any] = field(default_factory=dict)
     pages: tuple[VisualizationPageAsset, ...] = field(default_factory=tuple)
     pdf_bytes: bytes = b""
@@ -83,27 +86,51 @@ class VisualizationPageAwarePackage:
         )
 
     def preview_contract(self, *, title: str = "LAS visualization") -> dict[str, Any]:
-        """Return the common lightweight contract consumed by report renderers."""
+        """Return the direct multi-page contract consumed by document renderers.
+
+        ``pages`` is the canonical field. ``page_svgs`` remains a compatibility
+        mirror for existing bundle tooling, but page-aware consumers are not
+        allowed to fall back to the first-page ``svg`` value.
+        """
+        pages = [
+            {
+                "index": page.index,
+                "track_ids": list(page.track_ids),
+                "width_pt": page.width_pt,
+                "height_pt": page.height_pt,
+                "chrome_primitive_count": page.chrome_primitive_count,
+                "svg": page.svg,
+            }
+            for page in self.pages
+        ]
         return {
             "schema": "visualization.preview.page-aware",
-            "version": "1.0",
+            "version": "1.1",
+            "kind": "page_aware_svg_preview",
             "title": title,
             "format": "svg",
             "svg": self.pages[0].svg if self.pages else "",
-            "page_svgs": [page.svg for page in self.pages],
+            "pages": pages,
+            "page_svgs": [page["svg"] for page in pages],
             "page_count": self.page_count,
-            "page_track_ids": [list(page.track_ids) for page in self.pages],
+            "page_track_ids": [page["track_ids"] for page in pages],
+            "track_count": self.track_count,
+            "curve_count": self.curve_count,
+            "overlay_count": self.overlay_count,
             "profile_id": self.profile_id,
             "page_size": self.page_size,
             "orientation": self.orientation,
             "dpi": self.dpi,
             "geometry_signature": self.geometry_signature,
+            "locale": str(self.page_chrome.get("locale") or "ru"),
             "page_chrome": dict(self.page_chrome),
             "page_chrome_enabled": bool(self.page_chrome.get("enabled")),
             "page_chrome_primitive_counts": [page.chrome_primitive_count for page in self.pages],
             "export_ready": self.export_ready,
             "contains_raw_dataframe": False,
             "single_page_fallback": False,
+            "legacy_svg_fallback_allowed": False,
+            "direct_multi_page": True,
         }
 
     def to_dict(self, *, include_payloads: bool = False) -> dict[str, Any]:
@@ -115,6 +142,9 @@ class VisualizationPageAwarePackage:
             "orientation": self.orientation,
             "dpi": self.dpi,
             "geometry_signature": self.geometry_signature,
+            "track_count": self.track_count,
+            "curve_count": self.curve_count,
+            "overlay_count": self.overlay_count,
             "page_chrome": dict(self.page_chrome),
             "page_chrome_enabled": bool(self.page_chrome.get("enabled")),
             "page_count": self.page_count,
@@ -198,12 +228,16 @@ class VisualizationPageAwarePackageBuilder:
         issues.extend(svg.issues if not svg.export_ready else ())
         issues.extend(pdf.issues if not pdf.export_ready else ())
         issues.extend(png.issues if not png.export_ready else ())
+        context = _mapping(pipeline.get("context"))
         return VisualizationPageAwarePackage(
             profile_id=str(print_layout.get("profile_id") or ""),
             page_size=str(print_layout.get("page_size") or ""),
             orientation=str(print_layout.get("orientation") or ""),
             dpi=int(print_layout.get("dpi") or 0),
             geometry_signature=signature,
+            track_count=int(context.get("track_count") or len({track for page in page_assets for track in page.track_ids})),
+            curve_count=int(context.get("curve_count") or 0),
+            overlay_count=int(context.get("overlay_count") or 0),
             page_chrome=_mapping(print_layout.get("page_chrome")),
             pages=tuple(page_assets),
             pdf_bytes=pdf.pdf_bytes,

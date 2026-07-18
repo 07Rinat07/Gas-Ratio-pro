@@ -52,6 +52,13 @@ from reports.document_model import (
 from reports.presentation_model import PresentationModel
 from reports.plot_theme import apply_report_plot_theme
 
+from reports.visualization_preview import (
+    normalize_visualization_preview,
+    visualization_preview_message,
+    visualization_preview_page_label,
+    visualization_preview_summary_text,
+)
+
 
 @dataclass(frozen=True)
 class PresentationPdfOptions:
@@ -701,32 +708,34 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
 
 
 def _document_visualization_preview(block: DocumentVisualizationPreview, styles: dict[str, ParagraphStyle]) -> list[object]:
-    preview = dict(block.preview or {})
-    declared_pages = preview.get("page_svgs")
-    pages = [str(item).strip() for item in declared_pages] if isinstance(declared_pages, (list, tuple)) else []
-    if not pages:
-        pages = [str(preview.get("svg") or "").strip()]
-    pages = [item for item in pages if item.startswith("<svg")]
+    normalized = normalize_visualization_preview(block.preview)
+    pages = normalized.pages
     items: list[object] = [
-        _paragraph(block.title or "LAS visualization preview", styles["h2"]),
         _paragraph(
-            f"Visualization Engine: tracks={preview.get('track_count', 0)}, "
-            f"curves={preview.get('curve_count', 0)}, overlays={preview.get('overlay_count', 0)}, "
-            f"pages={len(pages)}.",
-            styles["small"],
+            block.title or normalized.title or visualization_preview_message("title", normalized.locale),
+            styles["h2"],
         ),
+        _paragraph(visualization_preview_summary_text(normalized), styles["small"]),
         Spacer(1, 6),
     ]
     if not pages:
-        return items + [_paragraph("SVG-планшет недоступен.", styles["small"]), Spacer(1, 8)]
+        return items + [
+            _paragraph(visualization_preview_message("unavailable", normalized.locale), styles["small"]),
+            Spacer(1, 8),
+        ]
     try:
         import fitz  # type: ignore
-        for page_index, svg in enumerate(pages, start=1):
-            if page_index > 1:
+        for page in pages:
+            if page.index > 1:
                 items.append(PageBreak())
-            if len(pages) > 1:
-                items.append(_paragraph(f"Планшет — страница {page_index} из {len(pages)}", styles["small"]))
-            document = fitz.open(stream=svg.encode("utf-8"), filetype="svg")
+            if normalized.page_count > 1:
+                items.append(
+                    _paragraph(
+                        visualization_preview_page_label(page.index, normalized.page_count, normalized.locale),
+                        styles["small"],
+                    )
+                )
+            document = fitz.open(stream=page.svg.encode("utf-8"), filetype="svg")
             try:
                 if document.page_count < 1:
                     raise ValueError("SVG document has no pages")
@@ -743,7 +752,10 @@ def _document_visualization_preview(block: DocumentVisualizationPreview, styles:
             items.append(Spacer(1, 8))
     except Exception as exc:
         items.extend([
-            _paragraph(f"Не удалось встроить SVG-планшет ({type(exc).__name__}).", styles["small"]),
+            _paragraph(
+                visualization_preview_message("embed_error", normalized.locale, error=type(exc).__name__),
+                styles["small"],
+            ),
             Spacer(1, 8),
         ])
     return items

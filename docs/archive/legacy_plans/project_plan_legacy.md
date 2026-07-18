@@ -4,9 +4,9 @@
 
 Актуальный план разработки находится только здесь:
 
-- [`PROJECT_ROADMAP.md`](PROJECT_ROADMAP.md) — последовательность этапов;
-- [`PROJECT_STATUS.md`](PROJECT_STATUS.md) — текущее состояние и следующий шаг;
-- [`README.md`](README.md) — карта документации.
+- [`PROJECT_ROADMAP.md`](../../PROJECT_ROADMAP.md) — последовательность этапов;
+- [`PROJECT_STATUS.md`](../../PROJECT_STATUS.md) — текущее состояние и следующий шаг;
+- [`README.md`](../../README.md) — карта документации.
 
 Старые подробные планы и UI implementation notes перенесены в:
 

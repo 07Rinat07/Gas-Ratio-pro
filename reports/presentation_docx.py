@@ -30,6 +30,13 @@ from reports.presentation_model import PresentationModel
 from reports.plot_theme import apply_report_plot_theme
 from reports.report_i18n import tr
 
+from reports.visualization_preview import (
+    normalize_visualization_preview,
+    visualization_preview_message,
+    visualization_preview_page_label,
+    visualization_preview_summary_text,
+)
+
 
 @dataclass(frozen=True)
 class PresentationDocxOptions:
@@ -212,32 +219,31 @@ def _add_notice(doc: Document, block: DocumentNotice) -> None:
 
 
 def _add_visualization_preview(doc: Document, block: DocumentVisualizationPreview) -> None:
-    _add_paragraph(doc, block.title or "LAS visualization preview", style="Heading 2")
-    preview = dict(block.preview or {})
-    declared_pages = preview.get("page_svgs")
-    pages = [str(item).strip() for item in declared_pages] if isinstance(declared_pages, (list, tuple)) else []
-    if not pages:
-        pages = [str(preview.get("svg") or "").strip()]
-    pages = [item for item in pages if item.startswith("<svg")]
+    normalized = normalize_visualization_preview(block.preview)
     _add_paragraph(
         doc,
-        f"Visualization Engine: tracks={preview.get('track_count', 0)}, "
-        f"curves={preview.get('curve_count', 0)}, overlays={preview.get('overlay_count', 0)}, "
-        f"pages={len(pages)}.",
+        block.title or normalized.title or visualization_preview_message("title", normalized.locale),
+        style="Heading 2",
     )
+    pages = normalized.pages
+    _add_paragraph(doc, visualization_preview_summary_text(normalized))
     if not pages:
-        _add_paragraph(doc, "SVG-планшет недоступен.")
+        _add_paragraph(doc, visualization_preview_message("unavailable", normalized.locale))
         return
 
     try:
         import fitz  # type: ignore
 
-        for page_index, svg in enumerate(pages, start=1):
-            if page_index > 1:
+        for page in pages:
+            if page.index > 1:
                 doc.add_page_break()
-            if len(pages) > 1:
-                _add_paragraph(doc, f"Планшет — страница {page_index} из {len(pages)}", bold=True)
-            svg_document = fitz.open(stream=svg.encode("utf-8"), filetype="svg")
+            if normalized.page_count > 1:
+                _add_paragraph(
+                    doc,
+                    visualization_preview_page_label(page.index, normalized.page_count, normalized.locale),
+                    bold=True,
+                )
+            svg_document = fitz.open(stream=page.svg.encode("utf-8"), filetype="svg")
             try:
                 if svg_document.page_count < 1:
                     raise RuntimeError("SVG-планшет не содержит страниц")
@@ -256,7 +262,9 @@ def _add_visualization_preview(doc: Document, block: DocumentVisualizationPrevie
             paragraph.add_run().add_picture(BytesIO(png), width=usable_width)
     except Exception as exc:
         paragraph = doc.add_paragraph()
-        run = paragraph.add_run(f"Не удалось встроить SVG-планшет ({type(exc).__name__}).")
+        run = paragraph.add_run(
+            visualization_preview_message("embed_error", normalized.locale, error=type(exc).__name__)
+        )
         run.italic = True
     doc.add_paragraph()
 

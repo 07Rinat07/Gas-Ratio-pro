@@ -1,3 +1,14 @@
+# v225.4 — Visible Professional Print Center & Direct DOCX/HTML Preview
+
+- Professional Print Center now prepares and displays the exact physical page-aware package before export.
+- Added selectable preview for every physical SVG page with exact A4/A3 profile, orientation, DPI, page count, and readiness.
+- Added `ReportPageAwarePreviewService` and in-memory visualization payload construction for report data.
+- `VisualizationPageAwarePackage` upgraded to v1.2; strict preview contract upgraded to v1.1 with canonical per-page objects.
+- HTML, DOCX, PDF, and asset export share one strict preview normalizer and never fall back to the first SVG for page-aware payloads.
+- Combined `bundle` export consumes the same package.
+- Preview summaries, page labels, and diagnostics are localized for Russian, Kazakh, and English.
+- README files, user/developer instructions, status, roadmap, project plan, implementation plan, release notes, and documentation manifest were synchronized in all three languages.
+
 # v225.3 — Page Chrome & Print Center Contract
 
 - `VisualizationPrintLayout` обновлён до v2.1 и получил физические header/footer/legend области.
@@ -1325,19 +1336,19 @@ examples/sample_gas_data.las
 
 ## Карта документации
 
-- [Установка и запуск](docs/setup.md)
-- [План проекта](docs/project_plan.md)
-- [Руководство пользователя](docs/user_guide.md)
-- [Формат входных данных](docs/data_format.md)
-- [План LAS-редактора](docs/las_editor_plan.md)
-- [План multi-LAS корреляции](docs/las_correlation_plan.md)
-- [Формулы](docs/formulas.md)
-- [Mud gas analysis: литературный источник](docs/mud_gas_analysis_literature.md)
-- [Конфигурация палеток](docs/palettes.md)
-- [Логирование](docs/logging.md)
-- [Архитектура и разработка](docs/development.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Правила ведения документации](docs/documentation_policy.md)
+- [Установка и запуск](setup.md)
+- [План проекта](project/PROJECT_PLAN.md)
+- [Руководство пользователя](user_guide.md)
+- [Формат входных данных](data_format.md)
+- [План LAS-редактора](las_editor_plan.md)
+- [План multi-LAS корреляции](las_correlation_plan.md)
+- [Формулы](formulas.md)
+- [Mud gas analysis: литературный источник](mud_gas_analysis_literature.md)
+- [Конфигурация палеток](palettes.md)
+- [Логирование](logging.md)
+- [Архитектура и разработка](development.md)
+- [Troubleshooting](troubleshooting.md)
+- [Правила ведения документации](documentation_policy.md)
 - [История изменений](CHANGELOG.md)
 
 ## Основные команды

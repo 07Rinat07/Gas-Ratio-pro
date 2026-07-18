@@ -1,31 +1,38 @@
 # Gas Ratio Pro project plan
 
-Updated: 18 July 2026. Active build: `v225.3`.
+Updated: 18 July 2026. Active build: `v225.4`.
 
 ## Mandatory engineering principles
 
-- engineering data, tracks, and scales are never reduced merely to fit printing;
-- UI, PDF, DOCX, SVG, and PNG use renderer-neutral contracts;
 - one pipeline is the only source of page geometry;
-- A4/A3 use physical parameters and minimum readable typography;
-- export starts with one action and blocks duplicate runs until the whole package is complete;
-- user and developer instructions are updated consistently in Russian, Kazakh, and English.
+- UI, PDF, DOCX, HTML, SVG, and PNG use renderer-neutral contracts;
+- A4/A3 and user profiles preserve minimum readable typography;
+- multi-page preview cannot silently collapse to page one;
+- documentation and instructions remain synchronized in `ru / kk / en`.
 
-## Completed stage — v225.3
+## Completed stage — v225.4
 
-- shared page-space headers, footers, and numbering;
-- repeated legend from the renderer-neutral label/legend model;
-- geometry signature v3;
-- page-aware package v1.1;
-- localized Print Center summary;
-- LAS Viewer SVG/PDF/PNG through one package;
-- QA covers render-model and page-chrome primitives.
+- visible Print Center connected to the physical package;
+- per-page preview and exact preflight summary added;
+- page-aware package v1.2 and preview contract v1.1;
+- direct multi-page preview for DOCX/HTML;
+- shared strict normalizer for HTML/DOCX/PDF/assets;
+- localized labels and messages;
+- `bundle` uses the same payload.
 
-## Next increment — Visible Print Center Integration
+## Next approved increment — Parity Gate & Legacy Export Retirement
 
-1. Show the physical profile and exact page count in Professional Print Center before launch.
-2. Pass the existing page-aware output contract to PDF, DOCX, SVG, and PNG.
-3. Connect `page_svgs` to DOCX/HTML without rebuilding layout.
-4. Keep duplicate-run protection active for the complete package.
-5. Remove independent Plotly/static fallback branches after confirmed parity checks.
-6. Update code, tests, README files, instructions, status, changelog, and plans in `ru / kk / en`.
+1. Build an automated parity matrix for UI, PDF, DOCX, HTML, SVG, and PNG.
+2. Verify A4/A3, both orientations, track partition, page count, geometry signature, and page chrome.
+3. Remove independent static/Plotly fallback branches only after parity passes.
+4. Add validated user-defined physical profiles with minimum-size floors.
+5. Update tests and all documentation in three languages.
+
+## Definition of Done
+
+- the physical package is visible before launch;
+- all formats consume the canonical `pages` contract;
+- no downstream layout rebuild exists;
+- no single-page fallback exists;
+- parity is proven with tests and reference artifacts;
+- version metadata, README, instructions, status, roadmap, changelog, and manifest are synchronized.

@@ -50,7 +50,7 @@ _TEXT = {
 @dataclass(frozen=True, slots=True)
 class VisualizationPrintCenterSummary:
     schema: str = "visualization.print-center.summary"
-    version: str = "1.0"
+    version: str = "1.1"
     locale: str = "ru"
     profile_id: str = ""
     page_size: str = ""
@@ -101,9 +101,10 @@ class VisualizationPrintCenterPreparedPackage:
     def output_contract(self, *, title: str = "LAS visualization") -> dict[str, Any]:
         """Return format-neutral outputs without rebuilding the page layout."""
 
+        preview = self.package.preview_contract(title=title)
         return {
             "schema": "visualization.print-center.output-contract",
-            "version": "1.0",
+            "version": "1.1",
             "summary": self.summary.to_dict(),
             "pdf": {
                 "page_count": self.package.page_count,
@@ -117,7 +118,8 @@ class VisualizationPrintCenterPreparedPackage:
                 "page_count": self.package.page_count,
                 "pages": [page.png_bytes for page in self.package.pages],
             },
-            "docx_html_preview": self.package.preview_contract(title=title),
+            "preview": preview,
+            "docx_html_preview": preview,
             "geometry_signature": self.package.geometry_signature,
             "export_ready": self.export_ready,
             "single_pipeline_source": True,

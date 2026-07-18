@@ -17,6 +17,13 @@ from reports.document_model import (
 from reports.export_html import HtmlReportTable
 from reports.presentation_model import PresentationModel
 
+from reports.visualization_preview import (
+    normalize_visualization_preview,
+    visualization_preview_message,
+    visualization_preview_page_label,
+    visualization_preview_summary_text,
+)
+
 
 @dataclass(frozen=True)
 class PresentationHtmlOptions:
@@ -194,30 +201,29 @@ def _render_document_plot(plot: DocumentPlot, *, include_plotlyjs: bool) -> str:
 
 
 def _render_visualization_preview(block: DocumentVisualizationPreview) -> str:
-    preview = dict(block.preview or {})
-    declared_pages = preview.get("page_svgs")
-    pages = [str(item).strip() for item in declared_pages] if isinstance(declared_pages, (list, tuple)) else []
-    if not pages:
-        pages = [str(preview.get("svg") or "").strip()]
-    pages = [item for item in pages if item.startswith("<svg")]
-    if not pages:
+    normalized = normalize_visualization_preview(block.preview)
+    if not normalized.pages:
         return ""
-    meta = (
-        f"Tracks: {escape(_clean_text(preview.get('track_count')))} · "
-        f"Curves: {escape(_clean_text(preview.get('curve_count')))} · "
-        f"Overlays: {escape(_clean_text(preview.get('overlay_count')))}"
-    )
+    meta = visualization_preview_summary_text(normalized)
+    if normalized.page_size:
+        meta += f" · {escape(normalized.page_size)} {escape(normalized.orientation)}"
     rendered_pages = []
-    for index, svg in enumerate(pages, start=1):
-        page_class = " visualization-preview-page-next" if index > 1 else ""
+    for page in normalized.pages:
+        page_class = " visualization-preview-page-next" if page.index > 1 else ""
+        page_label = visualization_preview_page_label(page.index, normalized.page_count, normalized.locale)
         rendered_pages.append(
-            f"<div class='visualization-preview-page{page_class}' data-page='{index}'>{svg}</div>"
+            "\n".join((
+                f"<div class='visualization-preview-page{page_class}' data-page='{page.index}'>",
+                f"<p class='visualization-preview-page-label'>{escape(page_label)}</p>",
+                page.svg,
+                "</div>",
+            ))
         )
     return "\n".join((
-        "<section class='report-section visualization-preview'>",
-        f"<h2>{escape(_clean_text(block.title) or 'LAS visualization preview')}</h2>",
+        "<section class='report-section visualization-preview' data-preview-schema='" + escape(normalized.schema) + "'>",
+        f"<h2>{escape(_clean_text(block.title) or normalized.title or visualization_preview_message('title', normalized.locale))}</h2>",
         *rendered_pages,
-        f"<p class='visualization-preview-meta'>{meta} · Pages: {len(pages)}</p>",
+        f"<p class='visualization-preview-meta'>{meta}</p>",
         "</section>",
     ))
 
