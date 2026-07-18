@@ -1,55 +1,59 @@
-# Текущее состояние — v225.11 Stable
+# Текущее состояние — v225.12 Stable
 
 Обновлено: 18 июля 2026 года.
 
 ## Активный этап
 
-**Stage 5.2 — Operator Dataset Import & Calibration Comparison завершён.** Production formulas не изменялись.
+**Stage 5.3 — Calibration Package Trust & Review Workflow завершён и подтверждён как Stable v225.12.** Production formulas не изменялись.
 
-## Operator calibration packages
+## Trust boundary
 
-- ZIP содержит только `manifest.json`, `calibration_registry.json` и `calibration_dataset.json`;
-- импорт разрешён только для `operator_owned`, `licensed` или `public_domain` данных;
-- project scope, owner, legal basis, processing/derivative permissions и expiration являются блокирующими;
-- package, file и rights fingerprints проверяются при импорте и каждом использовании;
-- `package_id + version` immutable, конфликтующая версия отклоняется;
-- private operator data хранятся только в `data/projects/<project>/petrophysics/operator_calibration` и не попадают в релизный архив.
+- исходный операторский ZIP Stage 5.2 остаётся byte-for-byte неизменяемым;
+- detached Ed25519 signature связывает точный `package_fingerprint`, project ID, key ID, signer identity, срок действия и lineage;
+- default trust registry намеренно пуст и содержит только утверждённые public-key records;
+- private keys не принимаются и не сохраняются application services.
 
-## Calibration comparison
+## Review, revocation и expiry
 
-- project baseline можно сравнивать с operator package;
-- поддерживается сравнение двух импортированных versions;
-- по каждому методу фиксируются pass/fail, RMSE, max error, uncertainty width и deltas;
-- comparison evidence имеет детерминированный `comparison_id`;
-- comparison не изменяет формулы и не выбирает метод автоматически.
+- validation требует current approval роли `technical_reviewer`;
+- production требует current approvals ролей `technical_reviewer` и `data_governance_reviewer`;
+- review history immutable и связана через `previous_decision_fingerprint`;
+- package, key и signature могут быть отозваны;
+- data-rights, signature и key expiry проверяются перед финальным отчётом.
 
-## Project report authorization
+## Controlled promotion и lineage
 
-- активный operator package применяется до PresentationModel и renderer;
-- методы, покрытые package, используют его calibration и data-rights;
-- остальные методы используют утверждённый Stage 5.1 baseline;
-- создаётся versioned project authorization package;
-- artifact и export history schema v5 содержат authorization package ID и operator fingerprint;
-- смена authorization/rights context очищает project export cache;
-- foundation Dual Water остаётся `blocked_final_report`.
+- разрешена только последовательность `development → validation → production`;
+- environment state сверяется с immutable promotion record;
+- ручное изменение state не предоставляет production trust;
+- lineage поддерживает `root`, `supersedes`, `derived_from`, `recalibrated_from`;
+- parent должен существовать в том же проекте, cycles/self-reference/conflicting parent запрещены.
+
+## Export authorization
+
+- strict production trust проверяется до activation, `PresentationModel` и renderer;
+- trust decision, registry/signature fingerprints и promotion ID входят в project authorization package;
+- ExportArtifact и Export History schema v6 сохраняют trust evidence;
+- изменение trust context очищает project export cache;
+- Foundation Dual Water остаётся `blocked_final_report`.
 
 ## Evidence
 
-- `artifacts/validation/petrophysical_operator_calibration_v225_11.json`;
-- Stage 5.2 gate: импорт 1/1, comparison 10/10, project authorization 9/9;
-- итоговая проверка: **2915 passed, 0 failed**;
-- Live Workbench Acceptance: **14/14**.
+- `artifacts/validation/calibration_package_trust_v225_12.json`;
+- Stage 5.3 gate: signature **1/1**, reviewer approvals **2/2**, promotion transitions **2/2**, production trust **passed**, private keys persisted **0**;
+- Live Workbench Acceptance: **14/14** на `ru/kk/en`;
+- полный regression-suite: **2934 passed, 0 failed**; release verification завершён.
 
 ## Стабильные контракты
 
-Stable v225.8 Live Workbench Acceptance, full-frame A3 landscape layout, architecture boundaries, controlled visual baselines, numerical validation, field calibration и authorization до renderer остаются обязательными.
+Stable Workbench, full-frame A3 landscape layout, architecture boundaries, controlled visual baselines, numerical validation, field calibration, operator rights, immutable package storage и authorization до renderer остаются обязательными.
 
 Reservoir Intelligence / Interpretation 2.0, Pixler rehabilitation, Ternary rehabilitation и Depth engineering panel не изменяются без explicit validation evidence.
 
 ## Stabilization & Release Audit
 
-Package import не может обходить Stage 5/5.1 gates. Private data не распространяются. `.github/workflows` не включается в пользовательский архив.
+Trust workflow не может обходить Stage 5/5.1/5.2 gates. Private keys и private operator datasets не распространяются. `.github/workflows` не включается в пользовательский архив.
 
 ## Следующий этап
 
-**Stage 5.3 — Calibration Package Trust & Review Workflow.** Возможные работы: detached signatures, trust registry, reviewer approval, package revocation и controlled promotion между проектами. Изменение production formulas без нового validation/calibration evidence запрещено.
+**Stage 5.4 — Trust Registry Operations & External Identity Integration.** Следующий разрешённый контур: controlled key rotation, authenticated reviewer identity adapter, audit-bundle export, registry administration и optional external KMS/HSM boundary без изменения production formulas.

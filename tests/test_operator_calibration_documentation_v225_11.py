@@ -7,20 +7,28 @@ ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 
 
-def test_v225_11_build_metadata_and_trilingual_release_governance() -> None:
-    assert (ROOT / "BUILD_VERSION").read_text(encoding="utf-8").strip() == "v225.11"
-    assert (ROOT / "DEPLOYMENT_BUILD.txt").read_text(encoding="utf-8").strip() == "Gas Ratio Pro v225.11"
+def test_v225_11_historical_release_governance_remains_available() -> None:
     for language in ("ru", "kk", "en"):
-        status = (DOCS / f"PROJECT_STATUS.{language}.md").read_text(encoding="utf-8")
-        roadmap = (DOCS / f"PROJECT_ROADMAP.{language}.md").read_text(encoding="utf-8")
-        plan = (DOCS / "project" / f"PROJECT_PLAN.{language}.md").read_text(encoding="utf-8")
+        implementation = (
+            DOCS
+            / "15_Implementation_Plan"
+            / f"OPERATOR_DATASET_IMPORT_CALIBRATION_COMPARISON_V225_11.{language}.md"
+        ).read_text(encoding="utf-8")
+        acceptance = (
+            DOCS
+            / "16_Acceptance"
+            / f"OPERATOR_DATASET_IMPORT_CALIBRATION_COMPARISON_V225_11.{language}.md"
+        ).read_text(encoding="utf-8")
+        release = (
+            DOCS / "archive" / "releases" / f"v225.11.{language}.md"
+        ).read_text(encoding="utf-8")
         changelog = (DOCS / f"CHANGELOG.{language}.md").read_text(encoding="utf-8")
-        release = (DOCS / "archive" / "releases" / f"v225.11.{language}.md").read_text(encoding="utf-8")
-        readme = (ROOT / f"README.{language}.md").read_text(encoding="utf-8")
-        for text in (status, roadmap, plan, changelog, release, readme):
-            assert "v225.11" in text
-            assert "Stage 5.2" in text
-        assert "Stage 5.3" in roadmap
+        for document_text in (implementation, acceptance, release, changelog):
+            assert "v225.11" in document_text
+            assert (
+                "Operator Dataset Import & Calibration Comparison" in document_text
+                or "Stage 5.2" in document_text
+            )
 
 
 def test_manifest_registers_operator_calibration_docs_in_three_languages() -> None:
@@ -37,15 +45,15 @@ def test_manifest_registers_operator_calibration_docs_in_three_languages() -> No
             assert (DOCS / relative_path).is_file()
 
 
-def test_indexes_and_readmes_link_operator_package_contracts() -> None:
+def test_indexes_link_operator_package_contracts_without_turning_readmes_into_release_logs() -> None:
     for language in ("ru", "kk", "en"):
         user_index = (DOCS / "user" / language / "index.md").read_text(encoding="utf-8")
         developer_index = (DOCS / "developer" / language / "index.md").read_text(encoding="utf-8")
         readme = (ROOT / f"README.{language}.md").read_text(encoding="utf-8")
         assert "operator_calibration_packages.md" in user_index
         assert "operator_calibration_package_architecture.md" in developer_index
-        assert f"docs/user/{language}/operator_calibration_packages.md" in readme
-        assert f"docs/developer/{language}/operator_calibration_package_architecture.md" in readme
+        assert "Stage 5.2" not in readme
+        assert "v225.11" not in readme
 
 
 def test_operator_package_docs_preserve_rights_immutability_and_formula_policy() -> None:

@@ -44,6 +44,10 @@ from core.petrophysical_validation_contract import (
     load_petrophysical_method_registry,
 )
 from projects.repository import safe_project_id
+from services.calibration_package_trust_application_service import (
+    CalibrationPackageTrustApplicationService,
+    CalibrationPackageTrustDecision,
+)
 from services.petrophysical_calibration_application_service import (
     MethodCalibrationResult,
     PetrophysicalCalibrationApplicationService,
@@ -178,6 +182,11 @@ class ProjectPetrophysicalAuthorizationPackage:
     rights_fingerprint: str
     validation_contract_fingerprint: str
     calibration_contract_fingerprint: str
+    trust_decision_id: str
+    trust_registry_fingerprint: str
+    trust_signature_fingerprint: str
+    trust_key_id: str
+    trust_promotion_id: str
     methods: tuple[ProjectMethodAuthorization, ...]
     warnings: tuple[str, ...] = ()
 
@@ -190,6 +199,9 @@ class ProjectPetrophysicalAuthorizationPackage:
                 self.baseline_calibration_gate_id,
                 self.calibration_gate_id,
                 self.comparison_id,
+                self.trust_decision_id,
+                self.trust_signature_fingerprint,
+                self.trust_promotion_id,
                 self.authorization_package_id,
             )
             if item
@@ -231,6 +243,8 @@ class OperatorCalibrationPackageApplicationService:
         validation_service: PetrophysicalValidationApplicationService | None = None,
         baseline_calibration_service: PetrophysicalCalibrationApplicationService | None = None,
         baseline_authorization_service: PetrophysicalReportAuthorizationApplicationService | None = None,
+        trust_service: CalibrationPackageTrustApplicationService | None = None,
+        require_production_trust: bool = False,
         delete_engine: DeleteEngine | None = None,
     ) -> None:
         self.projects_root = Path(projects_root).resolve()
@@ -249,6 +263,14 @@ class OperatorCalibrationPackageApplicationService:
             validation_service=self.validation_service,
             calibration_service=self.baseline_calibration_service,
         )
+        self.require_production_trust = bool(require_production_trust)
+        self.trust_service = trust_service
+        if self.trust_service is None and self.require_production_trust:
+            self.trust_service = CalibrationPackageTrustApplicationService(
+                projects_root=self.projects_root,
+                application_root=self.application_root,
+                project_id=self.project_id,
+            )
 
     @property
     def project_root(self) -> Path:
@@ -412,6 +434,11 @@ class OperatorCalibrationPackageApplicationService:
 
     def activate_package(self, package_fingerprint: str) -> OperatorCalibrationPackageRecord:
         record = self.get_package(package_fingerprint)
+        if self.require_production_trust:
+            self._trust_boundary().assert_production_authorized(
+                record.package_fingerprint,
+                final_report=False,
+            )
         payload = {
             "schema": self.ACTIVE_SCHEMA,
             "project_id": self.project_id,
@@ -560,6 +587,12 @@ class OperatorCalibrationPackageApplicationService:
         if not requested:
             raise ValueError("At least one petrophysical method is required")
         record = self.get_package(package_fingerprint or self.active_fingerprint())
+        trust_decision: CalibrationPackageTrustDecision | None = None
+        if final_report and self.require_production_trust:
+            trust_decision = self._trust_boundary().assert_production_authorized(
+                record.package_fingerprint,
+                final_report=True,
+            )
         target_report = self._run_package_gate(record)
         baseline_report = self.baseline_calibration_service.run_gate()
         baseline_report.assert_passed()
@@ -615,6 +648,11 @@ class OperatorCalibrationPackageApplicationService:
             "comparison_id": comparison.comparison_id,
             "operator_package_fingerprint": record.package_fingerprint,
             "rights_fingerprint": record.rights_fingerprint,
+            "trust_decision_id": trust_decision.decision_id if trust_decision else "",
+            "trust_registry_fingerprint": trust_decision.trust_registry_fingerprint if trust_decision else "",
+            "trust_signature_fingerprint": trust_decision.signature_fingerprint if trust_decision else "",
+            "trust_key_id": trust_decision.key_id if trust_decision else "",
+            "trust_promotion_id": trust_decision.promotion_id if trust_decision else "",
             "methods": [asdict(item) for item in methods],
         }
         digest = sha256(canonical_json_bytes(deterministic)).hexdigest()
@@ -639,6 +677,11 @@ class OperatorCalibrationPackageApplicationService:
             rights_fingerprint=record.rights_fingerprint,
             validation_contract_fingerprint=validation.contract_fingerprint,
             calibration_contract_fingerprint=target_report.contract_fingerprint,
+            trust_decision_id=trust_decision.decision_id if trust_decision else "",
+            trust_registry_fingerprint=trust_decision.trust_registry_fingerprint if trust_decision else "",
+            trust_signature_fingerprint=trust_decision.signature_fingerprint if trust_decision else "",
+            trust_key_id=trust_decision.key_id if trust_decision else "",
+            trust_promotion_id=trust_decision.promotion_id if trust_decision else "",
             methods=tuple(methods),
             warnings=tuple(dict.fromkeys(warnings)),
         )
@@ -661,6 +704,15 @@ class OperatorCalibrationPackageApplicationService:
             package_fingerprint=active.package_fingerprint,
             final_report=final_report,
         )
+
+    def _trust_boundary(self) -> CalibrationPackageTrustApplicationService:
+        if self.trust_service is None:
+            self.trust_service = CalibrationPackageTrustApplicationService(
+                projects_root=self.projects_root,
+                application_root=self.application_root,
+                project_id=self.project_id,
+            )
+        return self.trust_service
 
     def _run_package_gate(self, record: OperatorCalibrationPackageRecord) -> PetrophysicalCalibrationReport:
         root = self.project_root / record.storage_path

@@ -1,31 +1,59 @@
-# Current status — v225.11 Stable
+# Current status — v225.12 Stable
 
-Updated: July 18, 2026.
+Updated: 18 July 2026.
 
 ## Active stage
 
-**Stage 5.2 — Operator Dataset Import & Calibration Comparison is complete.** Production formulas were not changed.
+**Stage 5.3 — Calibration Package Trust & Review Workflow is complete and verified as Stable v225.12.** Production formulas are unchanged.
 
-- ZIP packages contain only `manifest.json`, `calibration_registry.json`, and `calibration_dataset.json`;
-- only `operator_owned`, `licensed`, or `public_domain` data are accepted;
-- project scope, owner, legal basis, processing/derivative permissions, and expiration are blocking;
-- package, file, and rights fingerprints are verified on import and every later use;
-- `package_id + version` is immutable;
-- private operator data stays in the project repository and is excluded from release archives;
-- baseline and package versions are compared across all 10 methods;
-- a versioned project authorization package is created before rendering;
-- export-history schema v5 records the authorization package ID and operator fingerprint;
-- export caches are cleared when the active authorization/rights context changes;
-- foundation Dual Water remains `blocked_final_report`.
+## Trust boundary
 
-Evidence: `artifacts/validation/petrophysical_operator_calibration_v225_11.json`; Stage 5.2 gate — import 1/1, comparison 10/10, authorization 9/9; full regression **2915 passed, 0 failed**; Live Workbench **14/14**.
+- the Stage 5.2 source operator ZIP remains byte-for-byte immutable;
+- a detached Ed25519 signature binds the exact `package_fingerprint`, project ID, key ID, signer identity, validity, and lineage;
+- the default trust registry is intentionally empty and accepts only approved public-key records;
+- application services never accept or persist private keys.
+
+## Review, revocation, and expiry
+
+- validation requires a current `technical_reviewer` approval;
+- production requires current `technical_reviewer` and `data_governance_reviewer` approvals;
+- review history is immutable and linked through `previous_decision_fingerprint`;
+- package, key, and signature revocation are supported;
+- data-rights, signature, and key expiry are checked before final reporting.
+
+## Controlled promotion and lineage
+
+- only `development → validation → production` is permitted;
+- environment state is validated against immutable promotion evidence;
+- manually editing state cannot grant production trust;
+- lineage supports `root`, `supersedes`, `derived_from`, and `recalibrated_from`;
+- the parent must exist in the same project; cycles, self-reference, and conflicting parents are rejected.
+
+## Export authorisation
+
+- strict production trust is evaluated before activation, `PresentationModel`, and renderer construction;
+- the trust decision, registry/signature fingerprints, and promotion ID enter the project authorisation package;
+- ExportArtifact and Export History schema v6 retain trust evidence;
+- changing trust context clears the project export cache;
+- Foundation Dual Water remains `blocked_final_report`.
+
+## Evidence
+
+- `artifacts/validation/calibration_package_trust_v225_12.json`;
+- Stage 5.3 gate: signature **1/1**, reviewer approvals **2/2**, promotion transitions **2/2**, production trust **passed**, private keys persisted **0**;
+- Live Workbench Acceptance: **14/14** for `ru/kk/en`;
+- full regression suite: **2934 passed, 0 failed**; release verification is complete.
+
+## Stable contracts
+
+Stable Workbench, full-frame A3 landscape layout, architecture boundaries, controlled visual baselines, numerical validation, field calibration, operator rights, immutable package storage, and pre-render authorisation remain mandatory.
+
+Reservoir Intelligence / Interpretation 2.0, Pixler rehabilitation, Ternary rehabilitation, and Depth engineering panel remain frozen without explicit validation evidence.
 
 ## Stabilization & Release Audit
 
-Stage 5/5.1 gates, architecture boundaries, controlled visual baselines, and full-frame report layout remain mandatory. `.github/workflows` is excluded from the user archive.
-
-Reservoir Intelligence / Interpretation 2.0, Pixler rehabilitation, Ternary rehabilitation, and the Depth engineering panel cannot change without explicit validation evidence.
+The trust workflow cannot bypass Stage 5/5.1/5.2 gates. Private keys and private operator datasets are not distributed. `.github/workflows` remains excluded from the user archive.
 
 ## Next stage
 
-**Stage 5.3 — Calibration Package Trust & Review Workflow:** detached signatures, a trust registry, reviewer approval, package revocation, and controlled promotion between projects.
+**Stage 5.4 — Trust Registry Operations & External Identity Integration.** The next authorised boundary covers controlled key rotation, an authenticated reviewer-identity adapter, audit-bundle export, registry administration, and an optional external KMS/HSM adapter without changing production formulas.

@@ -90,6 +90,10 @@ class PresentationExportRuntimeApplicationService:
                     str(getattr(authorization, "authorization_package_id", "")),
                     str(getattr(authorization, "operator_package_fingerprint", "")),
                     str(getattr(authorization, "rights_fingerprint", "")),
+                    str(getattr(authorization, "trust_decision_id", "")),
+                    str(getattr(authorization, "trust_registry_fingerprint", "")),
+                    str(getattr(authorization, "trust_signature_fingerprint", "")),
+                    str(getattr(authorization, "trust_promotion_id", "")),
                 )
             )
             previous_context = str(self._runtime_state.get("petrophysical_authorization_cache_context", ""))
@@ -120,6 +124,10 @@ class PresentationExportRuntimeApplicationService:
                 authorization_gate_ids=tuple(gate_ids),
                 authorization_package_id=str(getattr(authorization, "authorization_package_id", "")),
                 operator_calibration_fingerprint=str(getattr(authorization, "operator_package_fingerprint", "")),
+                trust_decision_id=str(getattr(authorization, "trust_decision_id", "")),
+                trust_registry_fingerprint=str(getattr(authorization, "trust_registry_fingerprint", "")),
+                trust_signature_fingerprint=str(getattr(authorization, "trust_signature_fingerprint", "")),
+                trust_promotion_id=str(getattr(authorization, "trust_promotion_id", "")),
             )
         return artifact, enriched_metrics
 

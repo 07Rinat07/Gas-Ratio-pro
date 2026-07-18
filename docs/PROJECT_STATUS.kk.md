@@ -1,31 +1,59 @@
-# Ағымдағы күй — v225.11 Stable
+# Ағымдағы күй — v225.12 Stable
 
-Жаңартылды: 18 шілде 2026 жыл.
+Жаңартылды: 2026 жылғы 18 шілде.
 
 ## Белсенді кезең
 
-**Stage 5.2 — Operator Dataset Import & Calibration Comparison аяқталды.** Production формулалар өзгермеді.
+**Stage 5.3 — Calibration Package Trust & Review Workflow аяқталды және Stable v225.12 ретінде расталды.** Production formulas өзгермеді.
 
-- ZIP тек `manifest.json`, `calibration_registry.json`, `calibration_dataset.json` файлдарын қамтиды;
-- тек `operator_owned`, `licensed`, `public_domain` деректері қабылданады;
-- project scope, owner, legal basis, processing/derivative permissions және expiration блоктаушы;
-- package/file/rights fingerprints импортта және әр пайдалануда тексеріледі;
-- `package_id + version` immutable;
-- private operator data тек жоба repository ішінде қалады және релиз архивіне кірмейді;
-- baseline және package versions 10 әдіс бойынша салыстырылады;
-- versioned project authorization package renderer алдында жасалады;
-- export history v5 authorization package ID және operator fingerprint сақтайды;
-- active context өзгерсе export cache тазарады;
-- foundation Dual Water `blocked_final_report` күйінде қалады.
+## Trust boundary
 
-Evidence: `artifacts/validation/petrophysical_operator_calibration_v225_11.json`; Stage 5.2 gate — import 1/1, comparison 10/10, authorization 9/9; full regression **2915 passed, 0 failed**; Live Workbench **14/14**.
+- Stage 5.2 бастапқы operator ZIP byte-for-byte өзгермейді;
+- detached Ed25519 signature нақты `package_fingerprint`, project ID, key ID, signer identity, validity және lineage байланыстырады;
+- default trust registry әдейі бос және тек бекітілген public-key records сақтайды;
+- application services private keys қабылдамайды және сақтамайды.
+
+## Review, revocation және expiry
+
+- validation үшін current `technical_reviewer` approval қажет;
+- production үшін current `technical_reviewer` және `data_governance_reviewer` approvals қажет;
+- review history immutable және `previous_decision_fingerprint` арқылы байланысады;
+- package, key және signature қайтарылуы мүмкін;
+- data-rights, signature және key expiry final report алдында тексеріледі.
+
+## Controlled promotion және lineage
+
+- тек `development → validation → production` реттілігі рұқсат;
+- environment state immutable promotion record-пен салыстырылады;
+- state-ті қолмен өзгерту production trust бермейді;
+- lineage: `root`, `supersedes`, `derived_from`, `recalibrated_from`;
+- parent сол жобада болуы керек, cycles/self-reference/conflicting parent тыйым салынған.
+
+## Export authorization
+
+- strict production trust activation, `PresentationModel` және renderer алдында тексеріледі;
+- trust decision, registry/signature fingerprints және promotion ID project authorization package құрамына кіреді;
+- ExportArtifact және Export History schema v6 trust evidence сақтайды;
+- trust context өзгерсе project export cache тазартылады;
+- Foundation Dual Water `blocked_final_report` күйінде қалады.
+
+## Evidence
+
+- `artifacts/validation/calibration_package_trust_v225_12.json`;
+- Stage 5.3 gate: signature **1/1**, reviewer approvals **2/2**, promotion transitions **2/2**, production trust **passed**, private keys persisted **0**;
+- Live Workbench Acceptance: `ru/kk/en` үшін **14/14**;
+- толық regression-suite: **2934 passed, 0 failed**; release verification аяқталды.
+
+## Тұрақты contracts
+
+Stable Workbench, full-frame A3 landscape layout, architecture boundaries, controlled visual baselines, numerical validation, field calibration, operator rights, immutable package storage және renderer алдындағы authorization міндетті.
+
+Reservoir Intelligence / Interpretation 2.0, Pixler rehabilitation, Ternary rehabilitation және Depth engineering panel explicit validation evidence-сіз өзгермейді.
 
 ## Stabilization & Release Audit
 
-Stage 5/5.1 gates, architecture boundaries, controlled visual baselines және full-frame report layout міндетті. `.github/workflows` пайдаланушы архивіне кірмейді.
-
-Reservoir Intelligence / Interpretation 2.0, Pixler rehabilitation, Ternary rehabilitation және Depth engineering panel explicit validation evidence болмаса өзгермейді.
+Trust workflow Stage 5/5.1/5.2 gates айналып өтпейді. Private keys және private operator datasets таратылмайды. `.github/workflows` user archive құрамына кірмейді.
 
 ## Келесі кезең
 
-**Stage 5.3 — Calibration Package Trust & Review Workflow:** detached signatures, trust registry, reviewer approval, revocation және controlled project promotion.
+**Stage 5.4 — Trust Registry Operations & External Identity Integration.** Controlled key rotation, authenticated reviewer identity adapter, audit-bundle export, registry administration және optional external KMS/HSM boundary; production formulas өзгермейді.

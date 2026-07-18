@@ -14,12 +14,13 @@ from pathlib import Path
 import re
 from typing import Any, Iterable, Mapping, Sequence
 
-EXPORT_HISTORY_SCHEMA = "gas-ratio-pro/export-history/v5"
+EXPORT_HISTORY_SCHEMA = "gas-ratio-pro/export-history/v6"
 LEGACY_EXPORT_HISTORY_SCHEMAS = frozenset({
     "gas-ratio-pro/export-history/v1",
     "gas-ratio-pro/export-history/v2",
     "gas-ratio-pro/export-history/v3",
     "gas-ratio-pro/export-history/v4",
+    "gas-ratio-pro/export-history/v5",
 })
 _ALLOWED_SECTIONS = frozenset({"plots", "visualizations", "results", "conclusion"})
 _SAFE_ID = re.compile(r"[^A-Za-z0-9._-]+")
@@ -50,6 +51,10 @@ class ExportHistoryEntry:
     authorization_gate_ids: tuple[str, ...] = ()
     authorization_package_id: str = ""
     operator_calibration_fingerprint: str = ""
+    trust_decision_id: str = ""
+    trust_registry_fingerprint: str = ""
+    trust_signature_fingerprint: str = ""
+    trust_promotion_id: str = ""
     petrophysical_method_ids: tuple[str, ...] = ()
     created_at: str = ""
 
@@ -91,6 +96,10 @@ class ExportHistoryEntry:
             authorization_gate_ids=tuple(dict.fromkeys(str(item).strip() for item in self.authorization_gate_ids if str(item).strip())),
             authorization_package_id=str(self.authorization_package_id or "").strip(),
             operator_calibration_fingerprint=str(self.operator_calibration_fingerprint or "").strip(),
+            trust_decision_id=str(self.trust_decision_id or "").strip(),
+            trust_registry_fingerprint=str(self.trust_registry_fingerprint or "").strip(),
+            trust_signature_fingerprint=str(self.trust_signature_fingerprint or "").strip(),
+            trust_promotion_id=str(self.trust_promotion_id or "").strip(),
             petrophysical_method_ids=tuple(dict.fromkeys(str(item).strip() for item in self.petrophysical_method_ids if str(item).strip())),
             created_at=self.created_at or datetime.now(timezone.utc).isoformat(),
         )
@@ -124,6 +133,10 @@ class ExportHistoryEntry:
                 "gate_ids": list(value.authorization_gate_ids),
                 "authorization_package_id": value.authorization_package_id,
                 "operator_calibration_fingerprint": value.operator_calibration_fingerprint,
+                "trust_decision_id": value.trust_decision_id,
+                "trust_registry_fingerprint": value.trust_registry_fingerprint,
+                "trust_signature_fingerprint": value.trust_signature_fingerprint,
+                "trust_promotion_id": value.trust_promotion_id,
                 "method_ids": list(value.petrophysical_method_ids),
             },
             "created_at": value.created_at,
@@ -161,6 +174,10 @@ class ExportHistoryEntry:
             authorization_gate_ids=tuple(str(item) for item in authorization.get("gate_ids", ())),
             authorization_package_id=str(authorization.get("authorization_package_id", "")),
             operator_calibration_fingerprint=str(authorization.get("operator_calibration_fingerprint", "")),
+            trust_decision_id=str(authorization.get("trust_decision_id", "")),
+            trust_registry_fingerprint=str(authorization.get("trust_registry_fingerprint", "")),
+            trust_signature_fingerprint=str(authorization.get("trust_signature_fingerprint", "")),
+            trust_promotion_id=str(authorization.get("trust_promotion_id", "")),
             petrophysical_method_ids=tuple(str(item) for item in authorization.get("method_ids", ())),
             created_at=str(payload.get("created_at", "")),
         ).normalized()

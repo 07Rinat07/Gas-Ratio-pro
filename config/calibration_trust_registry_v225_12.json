@@ -1,0 +1,8 @@
+{
+  "schema": "gas-ratio-pro/calibration-trust-registry/v1",
+  "registry_id": "grp-calibration-trust-default",
+  "revision": 1,
+  "generated_at": "2026-07-18T12:20:55+00:00",
+  "keys": [],
+  "registry_fingerprint": "6cfbd1cfd5552aabe090f634f025f39366596b600aa948c4a52d6707848cf626"
+}

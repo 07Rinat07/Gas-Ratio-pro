@@ -97,6 +97,10 @@ class ExportArtifact:
     authorization_gate_ids: tuple[str, ...] = ()
     authorization_package_id: str = ""
     operator_calibration_fingerprint: str = ""
+    trust_decision_id: str = ""
+    trust_registry_fingerprint: str = ""
+    trust_signature_fingerprint: str = ""
+    trust_promotion_id: str = ""
 
     def validate(self) -> None:
         if not isinstance(self.content, (bytes, bytearray)) or not self.content:
@@ -345,6 +349,10 @@ class ExportController:
             authorization_gate_ids=artifact.authorization_gate_ids,
             authorization_package_id=artifact.authorization_package_id,
             operator_calibration_fingerprint=artifact.operator_calibration_fingerprint,
+            trust_decision_id=artifact.trust_decision_id,
+            trust_registry_fingerprint=artifact.trust_registry_fingerprint,
+            trust_signature_fingerprint=artifact.trust_signature_fingerprint,
+            trust_promotion_id=artifact.trust_promotion_id,
         )
 
     def prepare(
@@ -400,6 +408,10 @@ class ExportController:
                         authorization_gate_ids=cached_artifact.authorization_gate_ids,
                         authorization_package_id=cached_artifact.authorization_package_id,
                         operator_calibration_fingerprint=cached_artifact.operator_calibration_fingerprint,
+                        trust_decision_id=cached_artifact.trust_decision_id,
+                        trust_registry_fingerprint=cached_artifact.trust_registry_fingerprint,
+                        trust_signature_fingerprint=cached_artifact.trust_signature_fingerprint,
+                        trust_promotion_id=cached_artifact.trust_promotion_id,
                     ),
                     {"model_cache_hit": True, "artifact_cache_hit": True, "duration_ms": 0.0},
                 )

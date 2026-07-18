@@ -16,6 +16,8 @@
 
 - [Операторлық калибрлеу пакеттерінің архитектурасы](operator_calibration_package_architecture.md) — revision 1
 
+- [Калибрлеу пакеттерінің сенім архитектурасы](calibration_package_trust_architecture.md) — revision 1
+
 ---
 
 Басқа тілдер: [Русский](../ru/index.md) · [English](../en/index.md)

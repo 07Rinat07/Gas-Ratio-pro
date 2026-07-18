@@ -16,6 +16,8 @@
 
 - [Операторские калибровочные пакеты](operator_calibration_packages.md) — revision 1
 
+- [Доверие и проверка операторских калибровочных пакетов](calibration_package_trust_workflow.md) — revision 1
+
 ---
 
 Другие языки: [Қазақша](../kk/index.md) · [English](../en/index.md)

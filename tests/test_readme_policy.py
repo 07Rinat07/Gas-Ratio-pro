@@ -4,8 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_readme_is_project_overview_not_development_diary():
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+def test_root_readmes_are_project_overviews_not_development_diaries_or_release_logs():
     forbidden_fragments = [
         "Roadmap 2.0 status",
         "Текущий завершенный инкремент",
@@ -14,9 +13,17 @@ def test_readme_is_project_overview_not_development_diary():
         "v22 Reporting behavior",
         "Status: frozen public API",
         "Validation Dataset v2 passes",
+        "Stable-релиз v",
+        "Предыдущий stable-релиз",
+        "Stable релиз v",
+        "Алдыңғы stable релиз",
+        "Stable release v",
+        "Previous stable release",
     ]
-    for fragment in forbidden_fragments:
-        assert fragment not in readme
+    for name in ("README.md", "README.ru.md", "README.kk.md", "README.en.md"):
+        readme = (ROOT / name).read_text(encoding="utf-8")
+        for fragment in forbidden_fragments:
+            assert fragment not in readme, (name, fragment)
 
 
 def test_readme_exposes_only_public_multilingual_documentation_entrypoints():
@@ -31,4 +38,4 @@ def test_readme_policy_document_exists():
     policy_path = ROOT / "docs" / "README_POLICY.md"
     assert policy_path.exists()
     policy = policy_path.read_text(encoding="utf-8")
-    assert "README.md must not be used as a development diary" in policy
+    assert "Root README files must not be used as development diaries or version-by-version release logs" in policy

@@ -26,12 +26,15 @@ def test_manifest_registers_trilingual_user_and_developer_instructions() -> None
             assert (DOCS / relative).is_file()
 
 
-def test_readmes_link_validation_instructions_in_all_languages() -> None:
+def test_language_indexes_link_validation_instructions_and_readmes_stay_version_neutral() -> None:
     for suffix in ("ru", "kk", "en"):
+        user_index = (DOCS / "user" / suffix / "index.md").read_text(encoding="utf-8")
+        developer_index = (DOCS / "developer" / suffix / "index.md").read_text(encoding="utf-8")
         readme = (ROOT / f"README.{suffix}.md").read_text(encoding="utf-8")
-        assert "v225.9" in readme
-        assert f"docs/user/{suffix}/petrophysical_validation_gate.md" in readme
-        assert f"docs/developer/{suffix}/petrophysical_validation_architecture.md" in readme
+        assert "petrophysical_validation_gate.md" in user_index
+        assert "petrophysical_validation_architecture.md" in developer_index
+        assert f"docs/user/{suffix}/index.md" in readme
+        assert "v225.9" not in readme
 
 
 def test_formula_audit_keeps_dual_water_blocked() -> None:

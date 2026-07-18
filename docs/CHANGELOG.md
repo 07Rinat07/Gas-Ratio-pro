@@ -1,4 +1,19 @@
 # Журнал изменений GAS RATIO PRO
+## v225.12 — Calibration Package Trust & Review Workflow — 2026-07-18
+
+- добавлены detached Ed25519 signatures для immutable operator package fingerprints;
+- добавлен application-scoped public-key trust registry с project/environment scope и validity periods;
+- добавлены immutable reviewer decisions, package/key/signature revocations и expiry monitoring;
+- реализованы signed lineage и controlled `development → validation → production` promotions;
+- environment state проверяется против immutable promotion record;
+- strict production trust применяется до activation, `PresentationModel` и renderer;
+- project authorization, ExportArtifact и Export History v6 сохраняют trust evidence;
+- Professional Print Center получил трёхъязычный trust/review workflow;
+- private keys запрещены в application/project/release boundaries; default registry пуст;
+- production formulas не изменялись; Foundation Dual Water остаётся `blocked_final_report`.
+
+- Итоговая проверка v225.12: **2934 passed, 0 failed**; Live Workbench Acceptance: **14/14**; Stage 5.3 gate: signature **1/1**, reviewer approvals **2/2**, promotion transitions **2/2**, production trust **passed**, private keys persisted **0**.
+
 ## v225.11 — Operator Dataset Import & Calibration Comparison — 2026-07-18
 
 - добавлен project-scoped импорт операторских calibration ZIP-пакетов;

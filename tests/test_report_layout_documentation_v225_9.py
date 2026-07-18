@@ -18,15 +18,16 @@ def test_manifest_registers_adaptive_layout_documents_in_three_languages() -> No
             assert (DOCS / relative_path).is_file()
 
 
-def test_language_indexes_and_readmes_link_adaptive_layout_contract() -> None:
+def test_language_indexes_link_adaptive_layout_contract_and_readmes_link_only_indexes() -> None:
     for language in ("ru", "kk", "en"):
         user_index = (DOCS / "user" / language / "index.md").read_text(encoding="utf-8")
         developer_index = (DOCS / "developer" / language / "index.md").read_text(encoding="utf-8")
         readme = (ROOT / f"README.{language}.md").read_text(encoding="utf-8")
         assert "adaptive_report_layout.md" in user_index
         assert "adaptive_report_layout_architecture.md" in developer_index
-        assert f"docs/user/{language}/adaptive_report_layout.md" in readme
-        assert f"docs/developer/{language}/adaptive_report_layout_architecture.md" in readme
+        assert f"docs/user/{language}/index.md" in readme
+        assert f"docs/developer/{language}/index.md" in readme
+        assert "v225.9" not in readme
 
 
 def test_v225_9_release_evidence_records_full_frame_landscape_policy() -> None:

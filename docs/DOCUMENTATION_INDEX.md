@@ -27,3 +27,12 @@
 - `ARCHITECTURE.md` обновляется только при изменении активной архитектуры;
 - `CHANGELOG.md` получает запись о версии;
 - новые `NEXT_STEP`, `PROGRESS`, `ROADMAP_vN` и `STATUS_vN` файлы запрещены.
+## Calibration package trust and review
+
+- [Русская пользовательская инструкция](user/ru/calibration_package_trust_workflow.md)
+- [Қазақша пайдаланушы нұсқаулығы](user/kk/calibration_package_trust_workflow.md)
+- [English user guide](user/en/calibration_package_trust_workflow.md)
+- [Русская архитектура](developer/ru/calibration_package_trust_architecture.md)
+- [Қазақша архитектура](developer/kk/calibration_package_trust_architecture.md)
+- [English architecture](developer/en/calibration_package_trust_architecture.md)
+

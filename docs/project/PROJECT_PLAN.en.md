@@ -1,9 +1,28 @@
-# Gas Ratio Pro Project Plan
+# Gas Ratio Pro project plan
 
-Active build: `v225.11 stable`.
+Updated: 18 July 2026. Active build: `v225.12 stable`.
 
-Stage 5.2 is complete: project-scoped ZIP import, data-rights/fingerprint validation, immutable repository, 10-method comparison, versioned project authorization packages, export-history v5, and a trilingual Print Center panel. Stage 5.1 baseline fallback remains available.
+## Current increment — Calibration Package Trust & Review Workflow
 
-Verification: **2915 passed, 0 failed**; Live Workbench **14/14**; Stage 5.2 import **1/1**, comparison **10/10**, authorization **9/9**.
+1. Detached Ed25519 signature for the immutable operator package.
+2. Public-key trust registry with project/environment scope.
+3. Immutable reviewer decisions and revocations.
+4. Rights/signature/key expiry monitoring.
+5. Signed lineage and controlled promotion.
+6. Environment-state integrity and tamper resistance.
+7. Production trust before activation/model/renderer.
+8. Trust evidence in project authorisation, artifacts, and history v6.
+9. Trilingual Professional Print Center workflow.
+10. Private-key exclusion and release hygiene.
 
-Next increment — Stage 5.3: detached signatures, trust registry, reviewer approval/revocation, controlled project promotion, and audit export.
+Release verification is complete: Stage 5.3 gate, Live Workbench Acceptance **14/14**, full regression **2934/2934**, documentation/link/manifest checks, and final ZIP validation.
+
+## Next authorised increment — Stage 5.4
+
+1. Controlled key rotation.
+2. Authenticated reviewer-identity adapter.
+3. Signed trust-registry releases.
+4. Audit-bundle export without private payloads.
+5. Scheduled expiry/revocation monitoring.
+6. Optional KMS/HSM integration boundary.
+7. Full regression and Live Workbench Acceptance.

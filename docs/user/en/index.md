@@ -16,6 +16,8 @@ Current instructions for using the application. Documents are synchronized acros
 
 - [Operator calibration packages](operator_calibration_packages.md) — revision 1
 
+- [Operator calibration package trust and review](calibration_package_trust_workflow.md) — revision 1
+
 ---
 
 Other languages: [Русский](../ru/index.md) · [Қазақша](../kk/index.md)

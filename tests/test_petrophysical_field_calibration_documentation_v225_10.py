@@ -36,15 +36,16 @@ def test_manifest_registers_field_calibration_docs_in_three_languages() -> None:
             assert (DOCS / relative_path).is_file()
 
 
-def test_language_indexes_and_readmes_link_stage_5_1_contracts() -> None:
+def test_language_indexes_link_stage_5_1_contracts_and_readmes_link_only_indexes() -> None:
     for language in ("ru", "kk", "en"):
         user_index = (DOCS / "user" / language / "index.md").read_text(encoding="utf-8")
         developer_index = (DOCS / "developer" / language / "index.md").read_text(encoding="utf-8")
         readme = (ROOT / f"README.{language}.md").read_text(encoding="utf-8")
         assert "field_calibration_and_report_authorization.md" in user_index
         assert "field_calibration_authorization_architecture.md" in developer_index
-        assert f"docs/user/{language}/field_calibration_and_report_authorization.md" in readme
-        assert f"docs/developer/{language}/field_calibration_authorization_architecture.md" in readme
+        assert f"docs/user/{language}/index.md" in readme
+        assert f"docs/developer/{language}/index.md" in readme
+        assert "Stage 5.1" not in readme
 
 
 def test_calibration_docs_preserve_legal_and_report_policy() -> None:

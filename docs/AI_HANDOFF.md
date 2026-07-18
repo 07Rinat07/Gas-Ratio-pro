@@ -1,48 +1,41 @@
-# Latest implementation — Operator Dataset Import & Calibration Comparison v225.11
+# Latest implementation — Calibration Package Trust & Review Workflow v225.12
 
 ## Release state
 
-- Build: `v225.11`.
+- Build: `v225.12`.
 - Channel: `stable`.
-- Stage 5.2 implementation is complete.
-- Operator package import: **1/1 passed**.
-- Calibration comparison: **10/10 methods compared**.
-- Project final-report authorization: **9/9 eligible methods authorised**.
-- Foundation Dual Water: `blocked_final_report`.
-- Full regression: **2915 passed, 0 failed**.
-- Live Workbench Acceptance: **14/14 passed**.
+- Stage 5.3 implementation is complete.
+- Production formulas are unchanged.
+- The default trust registry is intentionally empty.
+- Private keys are never accepted or persisted.
+- Final verification: **2934 passed, 0 failed**; Live Workbench Acceptance **14/14**; Stage 5.3 gate passed.
 
 ## Architecture
 
-- `core/operator_calibration_package_contract.py` defines the immutable three-file ZIP contract, rights policy, scope, checksum, and fingerprint rules.
-- `services/operator_calibration_package_application_service.py` owns import, immutable project storage, activation, comparison, tamper detection, and versioned project authorization packages.
-- `services/operator_calibration_diagnostics.py` supplies the ru/kk/en read-only Print Center model.
-- `core/application_service_container.py` constructs the project-scoped service and injects it into export runtime.
-- `services/presentation_export_runtime_application_service.py` authorises the active operator package before model/renderer construction and invalidates cached export state when the package changes.
-- `reports/export_controller.py` and `reports/export_history.py` persist authorization package IDs and operator calibration fingerprints.
-- `scripts/build_operator_calibration_package.py` builds a documented operator ZIP package.
-- `scripts/run_petrophysical_stage_5_2_gate.py` writes machine-readable Stage 5.2 evidence.
+- `core/calibration_package_trust_contract.py` owns trust schemas, canonical JSON, fingerprints, Ed25519 key/signature encoding, and verification.
+- `services/calibration_package_trust_application_service.py` owns detached-signature import, immutable review chains, revocation, expiry, lineage, promotion, environment integrity, and trust decisions.
+- `services/calibration_package_trust_diagnostics.py` supplies the ru/kk/en Print Center view model.
+- `services/operator_calibration_package_application_service.py` requires production trust before strict activation and final project authorisation.
+- `core/application_service_container.py` injects one project-scoped trust service into operator/export boundaries.
+- `reports/export_controller.py`, `services/presentation_export_runtime_application_service.py`, and `reports/export_history.py` preserve trust evidence; Export History uses schema v6.
+- `scripts/generate_calibration_signing_key.py` creates an Ed25519 key outside the project tree.
+- `scripts/sign_operator_calibration_package.py` creates detached signature JSON.
+- `scripts/run_petrophysical_stage_5_3_gate.py` produces machine-readable Stage 5.3 evidence.
 
-## Package contract
+## Trust policy
 
-Every accepted ZIP contains exactly:
+The immutable operator ZIP is not modified. A final report requires a valid detached signature, an active trusted public key scoped to the project and production environment, current technical and data-governance approvals, sequential development-to-validation-to-production promotion, unexpired rights/signature/key, no effective revocation, and matching immutable promotion evidence.
 
-```text
-manifest.json
-calibration_registry.json
-calibration_dataset.json
-```
+Foundation Dual Water remains `blocked_final_report`. Trust cannot override Stage 5 numerical validation, Stage 5.1 calibration/report policy, or Stage 5.2 data-rights/project authorisation.
 
-The manifest declares project scope, operator identity, legal basis, data classification, processing/derivative/final-report/redistribution rights, expiration, payload checksums and sizes, method-registry fingerprint, and an explicit prohibition on formula changes. The original ZIP and all payloads are stored byte-for-byte under the project repository. Stored content is revalidated before every use.
+## Security policy
 
-## Critical policy
-
-Production formulas are unchanged. Operator packages may calibrate and authorise methods but cannot modify the calculation contract. Private operator data must never be placed in documentation, tests, examples, evidence committed for distribution, or user release archives. Foundation Dual Water remains blocked for final engineering reports.
+Private keys are forbidden in the source tree, tests, documentation, evidence, project repository, and release ZIP. The shipped registry contains no trusted keys. Operator datasets remain project-private and are excluded from release archives. `.github/workflows` is excluded from the user archive.
 
 ## Next authorised stage
 
-Stage 5.3 — Calibration Package Trust & Review Workflow: digital signatures, reviewer approval, revocation, expiry monitoring, package lineage, and controlled promotion between project environments.
+Stage 5.4 — Trust Registry Operations & External Identity Integration: controlled key rotation, authenticated reviewer identity, signed registry releases, audit-bundle export, scheduled expiry/revocation monitoring, and an optional KMS/HSM adapter boundary.
 
-## Release governance
+## README policy
 
-Always update and verify Russian, Kazakh, and English README, user instructions, developer architecture, status, roadmap, project plan, changelog, release notes, and documentation manifest. User archives exclude `.github/workflows` unless local runtime explicitly requires it.
+Root README files contain only the current project overview, capabilities, quick start, documentation links, and a brief status. Detailed release history and test totals belong only in changelogs and release notes.

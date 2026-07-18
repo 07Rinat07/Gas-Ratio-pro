@@ -1,8 +1,8 @@
 # README Policy
 
-README.md is the public entry point of the project. It must describe the product, its purpose, installation, launch process and high-level architecture.
+The root `README.md`, `README.ru.md`, `README.kk.md`, and `README.en.md` files are public entry points. They must describe the product, its purpose, installation, launch process, documentation entry points, and high-level architecture.
 
-README.md must not be used as a development diary.
+Root README files must not be used as development diaries or version-by-version release logs.
 
 ## Allowed in README.md
 
@@ -25,4 +25,4 @@ README.md must not be used as a development diary.
 
 ## Internal documentation rule
 
-Public multilingual documentation entry points may be listed in `README.md`. Internal status, roadmap, audit and changelog files remain excluded unless the project owner explicitly requests otherwise.
+Public multilingual documentation entry points may be listed in root README files. Detailed release notes, historical verification totals, internal status, roadmap, audit, and changelog content remain in their dedicated documents and must not be copied into root README files.

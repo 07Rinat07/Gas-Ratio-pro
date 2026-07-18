@@ -431,6 +431,7 @@ from services.report_page_aware_preview import ReportPageAwarePreviewService
 from services.page_aware_static_export import build_page_aware_static_artifact
 from services.petrophysical_validation_diagnostics import build_petrophysical_diagnostics_view
 from services.operator_calibration_diagnostics import build_operator_calibration_diagnostics_view
+from services.calibration_package_trust_diagnostics import build_calibration_trust_diagnostics_view
 from core.physical_print_profiles import (
     PHYSICAL_PRINT_PROFILES,
     UserPhysicalPrintProfileStore,
@@ -9697,12 +9698,18 @@ def _render_professional_export_panel(
     petrophysical_authorization = None
     petrophysical_authorization_ready = True
     operator_calibration_service = None
+    calibration_trust_service = None
     operator_calibration_packages = ()
     try:
         petrophysical_services = application_service_container(state_controller.state)
         petrophysical_validation_report = petrophysical_services.petrophysical_validation(root=ROOT_DIR).run_gate()
         petrophysical_calibration_report = petrophysical_services.petrophysical_calibration(root=ROOT_DIR).run_gate()
         operator_calibration_service = petrophysical_services.operator_calibration_packages(
+            projects_root=ROOT_DIR / "data" / "projects",
+            application_root=ROOT_DIR,
+            project_id=str(active_project.id),
+        )
+        calibration_trust_service = petrophysical_services.calibration_package_trust(
             projects_root=ROOT_DIR / "data" / "projects",
             application_root=ROOT_DIR,
             project_id=str(active_project.id),
@@ -9795,6 +9802,89 @@ def _render_professional_export_panel(
                 "success": "Package imported and validated", "active": "Active package", "error": "Package rejected",
                 "help": "Only project-scoped ZIP packages with manifest.json, data-rights declarations and SHA-256 fingerprints are accepted.",
             }
+        trust_copy = {
+            "ru": {
+                "title": "Доверие, проверка и продвижение",
+                "help": "Detached Ed25519-подпись, два независимых reviewer approval и последовательное продвижение development → validation → production обязательны до активации пакета.",
+                "signature_upload": "Detached signature JSON",
+                "signature_import": "Проверить и сохранить подпись",
+                "signature_success": "Подпись проверена",
+                "reviewer_id": "ID проверяющего",
+                "reviewer_name": "Имя проверяющего",
+                "reviewer_role": "Роль",
+                "decision": "Решение",
+                "comment": "Обоснование решения",
+                "submit_review": "Сохранить решение",
+                "review_success": "Решение сохранено",
+                "promote": "Продвинуть в {environment}",
+                "promotion_success": "Пакет продвинут в {environment}",
+                "revoke_confirm": "Подтверждаю отзыв выбранного пакета",
+                "revoke": "Отозвать пакет",
+                "revoke_success": "Пакет отозван",
+                "error": "Trust workflow отклонил действие",
+                "technical_reviewer": "Технический проверяющий",
+                "data_governance_reviewer": "Проверяющий прав и управления данными",
+                "approve": "Одобрить",
+                "reject": "Отклонить",
+            },
+            "kk": {
+                "title": "Сенім, тексеру және ортаға өткізу",
+                "help": "Пакетті белсенді ету үшін detached Ed25519 қолтаңбасы, екі тәуелсіз reviewer approval және development → validation → production ретімен өткізу міндетті.",
+                "signature_upload": "Detached signature JSON",
+                "signature_import": "Қолтаңбаны тексеру және сақтау",
+                "signature_success": "Қолтаңба тексерілді",
+                "reviewer_id": "Тексеруші ID",
+                "reviewer_name": "Тексеруші аты",
+                "reviewer_role": "Рөл",
+                "decision": "Шешім",
+                "comment": "Шешім негіздемесі",
+                "submit_review": "Шешімді сақтау",
+                "review_success": "Шешім сақталды",
+                "promote": "{environment} ортасына өткізу",
+                "promotion_success": "Пакет {environment} ортасына өткізілді",
+                "revoke_confirm": "Таңдалған пакетті қайтаруды растаймын",
+                "revoke": "Пакетті қайтару",
+                "revoke_success": "Пакет қайтарылды",
+                "error": "Trust workflow әрекетті қабылдамады",
+                "technical_reviewer": "Техникалық тексеруші",
+                "data_governance_reviewer": "Деректер құқығы мен басқару тексерушісі",
+                "approve": "Мақұлдау",
+                "reject": "Қабылдамау",
+            },
+            "en": {
+                "title": "Trust, review, and promotion",
+                "help": "A detached Ed25519 signature, two independent reviewer approvals, and controlled development → validation → production promotion are required before activation.",
+                "signature_upload": "Detached signature JSON",
+                "signature_import": "Verify and store signature",
+                "signature_success": "Signature verified",
+                "reviewer_id": "Reviewer ID",
+                "reviewer_name": "Reviewer name",
+                "reviewer_role": "Role",
+                "decision": "Decision",
+                "comment": "Decision rationale",
+                "submit_review": "Save review decision",
+                "review_success": "Review decision saved",
+                "promote": "Promote to {environment}",
+                "promotion_success": "Package promoted to {environment}",
+                "revoke_confirm": "I confirm revocation of the selected package",
+                "revoke": "Revoke package",
+                "revoke_success": "Package revoked",
+                "error": "Trust workflow rejected the action",
+                "technical_reviewer": "Technical reviewer",
+                "data_governance_reviewer": "Data-governance reviewer",
+                "approve": "Approve",
+                "reject": "Reject",
+            },
+        }.get(interface_locale, {}) or {}
+        if not trust_copy:
+            trust_copy = {
+                "title": "Trust, review, and promotion", "help": "Detached signature and reviewer approval are required.",
+                "signature_upload": "Detached signature JSON", "signature_import": "Verify and store signature", "signature_success": "Signature verified",
+                "reviewer_id": "Reviewer ID", "reviewer_name": "Reviewer name", "reviewer_role": "Role", "decision": "Decision", "comment": "Decision rationale",
+                "submit_review": "Save review decision", "review_success": "Review decision saved", "promote": "Promote to {environment}", "promotion_success": "Package promoted to {environment}",
+                "revoke_confirm": "I confirm revocation of the selected package", "revoke": "Revoke package", "revoke_success": "Package revoked", "error": "Trust workflow rejected the action",
+                "technical_reviewer": "Technical reviewer", "data_governance_reviewer": "Data-governance reviewer", "approve": "Approve", "reject": "Reject",
+            }
         if operator_calibration_service is not None:
             with st.expander(operator_copy["title"], expanded=False):
                 st.caption(operator_copy["help"])
@@ -9838,9 +9928,13 @@ def _render_professional_export_panel(
                     )
                     action_left, action_middle, action_right = st.columns(3)
                     if action_left.button(operator_copy["activate"], key=f"operator_calibration_activate_{active_project.id}", width="stretch"):
-                        operator_calibration_service.activate_package(selected_operator_fingerprint)
-                        _request_ui_refresh_and_rerun("operator_calibration_package_activated")
-                        return
+                        try:
+                            operator_calibration_service.activate_package(selected_operator_fingerprint)
+                            _request_ui_refresh_and_rerun("operator_calibration_package_activated")
+                            return
+                        except (OSError, ValueError, KeyError, RuntimeError, PermissionError):
+                            logger.exception("operator_calibration_activation_failed project_id=%s", safe_log_value(active_project.id))
+                            st.error(trust_copy["error"])
                     if action_middle.button(operator_copy["compare"], key=f"operator_calibration_compare_{active_project.id}", width="stretch"):
                         comparison = operator_calibration_service.compare(selected_operator_fingerprint)
                         state_controller.set_value(f"operator_calibration_comparison_{active_project.id}", comparison.to_dict())
@@ -9871,6 +9965,141 @@ def _render_professional_export_panel(
                         hide_index=True,
                         width="stretch",
                     )
+                    if calibration_trust_service is not None:
+                        st.markdown(f"#### {trust_copy['title']}")
+                        st.caption(trust_copy["help"])
+                        signature_upload = st.file_uploader(
+                            trust_copy["signature_upload"],
+                            type=("json",),
+                            key=f"calibration_trust_signature_{active_project.id}_{selected_operator_fingerprint[:12]}",
+                        )
+                        if st.button(
+                            trust_copy["signature_import"],
+                            key=f"calibration_trust_signature_import_{active_project.id}_{selected_operator_fingerprint[:12]}",
+                            disabled=signature_upload is None,
+                            width="stretch",
+                        ) and signature_upload is not None:
+                            try:
+                                signature_record = calibration_trust_service.import_detached_signature(signature_upload.getvalue())
+                                st.success(f"{trust_copy['signature_success']}: {signature_record.signature_fingerprint[:16]}…")
+                            except (OSError, ValueError, KeyError, RuntimeError, PermissionError):
+                                logger.exception("calibration_signature_import_failed project_id=%s", safe_log_value(active_project.id))
+                                st.error(trust_copy["error"])
+
+                        reviewer_left, reviewer_right = st.columns(2)
+                        reviewer_id = reviewer_left.text_input(
+                            trust_copy["reviewer_id"],
+                            key=f"calibration_trust_reviewer_id_{active_project.id}",
+                        )
+                        reviewer_name = reviewer_right.text_input(
+                            trust_copy["reviewer_name"],
+                            key=f"calibration_trust_reviewer_name_{active_project.id}",
+                        )
+                        reviewer_role = reviewer_left.selectbox(
+                            trust_copy["reviewer_role"],
+                            options=("technical_reviewer", "data_governance_reviewer"),
+                            format_func=lambda value: trust_copy[value],
+                            key=f"calibration_trust_reviewer_role_{active_project.id}",
+                        )
+                        review_decision = reviewer_right.selectbox(
+                            trust_copy["decision"],
+                            options=("approve", "reject"),
+                            format_func=lambda value: trust_copy[value],
+                            key=f"calibration_trust_review_decision_{active_project.id}",
+                        )
+                        review_comment = st.text_input(
+                            trust_copy["comment"],
+                            key=f"calibration_trust_review_comment_{active_project.id}",
+                        )
+                        if st.button(
+                            trust_copy["submit_review"],
+                            key=f"calibration_trust_submit_review_{active_project.id}_{selected_operator_fingerprint[:12]}",
+                            disabled=not (reviewer_id and reviewer_name and review_comment),
+                            width="stretch",
+                        ):
+                            try:
+                                decision_record = calibration_trust_service.submit_review(
+                                    selected_operator_fingerprint,
+                                    reviewer_id=reviewer_id,
+                                    reviewer_name=reviewer_name,
+                                    reviewer_role=reviewer_role,
+                                    decision=review_decision,
+                                    comment=review_comment,
+                                )
+                                st.success(f"{trust_copy['review_success']}: {decision_record.decision_fingerprint[:16]}…")
+                            except (OSError, ValueError, KeyError, RuntimeError, PermissionError):
+                                logger.exception("calibration_review_failed project_id=%s", safe_log_value(active_project.id))
+                                st.error(trust_copy["error"])
+
+                        current_environment = calibration_trust_service.current_environment(selected_operator_fingerprint)
+                        next_environment = {"development": "validation", "validation": "production", "production": ""}[current_environment]
+                        if next_environment and st.button(
+                            trust_copy["promote"].format(environment=next_environment),
+                            key=f"calibration_trust_promote_{active_project.id}_{next_environment}_{selected_operator_fingerprint[:12]}",
+                            width="stretch",
+                        ):
+                            try:
+                                calibration_trust_service.promote(
+                                    selected_operator_fingerprint,
+                                    target_environment=next_environment,
+                                )
+                                st.success(trust_copy["promotion_success"].format(environment=next_environment))
+                                _request_ui_refresh_and_rerun("calibration_package_promoted")
+                                return
+                            except (OSError, ValueError, KeyError, RuntimeError, PermissionError):
+                                logger.exception("calibration_promotion_failed project_id=%s", safe_log_value(active_project.id))
+                                st.error(trust_copy["error"])
+
+                        revoke_confirmed = st.checkbox(
+                            trust_copy["revoke_confirm"],
+                            key=f"calibration_trust_revoke_confirm_{active_project.id}_{selected_operator_fingerprint[:12]}",
+                        )
+                        if st.button(
+                            trust_copy["revoke"],
+                            key=f"calibration_trust_revoke_{active_project.id}_{selected_operator_fingerprint[:12]}",
+                            disabled=not (revoke_confirmed and reviewer_id and review_comment),
+                            width="stretch",
+                        ):
+                            try:
+                                calibration_trust_service.revoke(
+                                    target_type="package",
+                                    target_id=selected_operator_fingerprint,
+                                    revoked_by=reviewer_id,
+                                    reviewer_role=reviewer_role,
+                                    reason=review_comment,
+                                )
+                                st.success(trust_copy["revoke_success"])
+                            except (OSError, ValueError, KeyError, RuntimeError, PermissionError):
+                                logger.exception("calibration_revocation_failed project_id=%s", safe_log_value(active_project.id))
+                                st.error(trust_copy["error"])
+
+                        trust_view = build_calibration_trust_diagnostics_view(
+                            operator_calibration_service.list_packages(),
+                            trust_service=calibration_trust_service,
+                            locale=interface_locale,
+                        )
+                        st.info(trust_view.summary)
+                        trust_labels = trust_view.labels
+                        st.dataframe(
+                            [
+                                {
+                                    trust_labels["package"]: row.package_id,
+                                    trust_labels["version"]: row.version,
+                                    trust_labels["environment"]: row.environment,
+                                    trust_labels["signature"]: row.signature_status,
+                                    trust_labels["review"]: row.review_status,
+                                    trust_labels["trust"]: row.trust_status,
+                                    trust_labels["next"]: row.next_environment,
+                                    trust_labels["fingerprint"]: row.package_fingerprint[:16] + "…",
+                                }
+                                for row in trust_view.rows
+                            ],
+                            hide_index=True,
+                            width="stretch",
+                        )
+                        st.caption(trust_view.expiry_summary)
+                        st.caption(trust_view.disclaimer)
+
                     comparison_payload = state_controller.get_value(f"operator_calibration_comparison_{active_project.id}")
                     if isinstance(comparison_payload, dict):
                         comparison_rows = comparison_payload.get("methods", [])
@@ -11499,6 +11728,10 @@ def _render_professional_export_panel(
                     "authorization_gate_ids": list(export_artifact.authorization_gate_ids),
                     "authorization_package_id": export_artifact.authorization_package_id,
                     "operator_calibration_fingerprint": export_artifact.operator_calibration_fingerprint,
+                    "trust_decision_id": export_artifact.trust_decision_id,
+                    "trust_registry_fingerprint": export_artifact.trust_registry_fingerprint,
+                    "trust_signature_fingerprint": export_artifact.trust_signature_fingerprint,
+                    "trust_promotion_id": export_artifact.trust_promotion_id,
                 }
                 export_state.pop(export_error_key, None)
                 try:
@@ -11527,6 +11760,10 @@ def _render_professional_export_panel(
                             authorization_gate_ids=export_artifact.authorization_gate_ids,
                             authorization_package_id=export_artifact.authorization_package_id,
                             operator_calibration_fingerprint=export_artifact.operator_calibration_fingerprint,
+                            trust_decision_id=export_artifact.trust_decision_id,
+                            trust_registry_fingerprint=export_artifact.trust_registry_fingerprint,
+                            trust_signature_fingerprint=export_artifact.trust_signature_fingerprint,
+                            trust_promotion_id=export_artifact.trust_promotion_id,
                             petrophysical_method_ids=current_export_request.petrophysical_method_ids,
                         )
                     )

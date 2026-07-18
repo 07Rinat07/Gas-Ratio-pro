@@ -1,24 +1,28 @@
 # План проекта Gas Ratio Pro
 
-Обновлено: 18 июля 2026 года. Активная сборка: `v225.11 stable`.
+Обновлено: 18 июля 2026 года. Активная сборка: `v225.12 stable`.
 
-## Завершённый инкремент — Operator Dataset Import & Calibration Comparison
+## Текущий инкремент — Calibration Package Trust & Review Workflow
 
-1. Project-scoped operator calibration ZIP import.
-2. Data-rights, project scope, expiration и source fingerprint validation.
-3. Immutable package/version repository и tamper detection.
-4. Baseline/package и package/package comparison для 10 методов.
-5. Versioned project authorization package до renderer.
-6. Authorization evidence в artifact и export history v5.
-7. Трёхъязычная панель Professional Print Center.
-8. Stage 5.1 baseline fallback без активного пакета.
+1. Detached Ed25519 signature для immutable operator package.
+2. Public-key trust registry с project/environment scope.
+3. Immutable reviewer decisions и revocations.
+4. Expiry monitoring для rights/signature/key.
+5. Signed lineage и controlled promotion.
+6. Environment-state integrity и tamper resistance.
+7. Production trust до activation/model/renderer.
+8. Trust evidence в project authorization, artifacts и history v6.
+9. Трёхъязычная панель Professional Print Center.
+10. Private-key exclusion и release hygiene.
 
-Итоговая проверка v225.11: **2915 passed, 0 failed**; Live Workbench: **14/14**; Stage 5.2 gate: import **1/1**, comparison **10/10**, authorization **9/9**.
+Release verification завершён: Stage 5.3 gate, Live Workbench Acceptance **14/14**, full regression **2934/2934**, documentation/link/manifest checks и final ZIP validation.
 
-## Следующий разрешённый инкремент — Stage 5.3
+## Следующий разрешённый инкремент — Stage 5.4
 
-1. Detached signatures и trust registry.
-2. Reviewer approval/revocation workflow.
-3. Controlled promotion между project scopes.
-4. Audit export без private dataset payload.
-5. Full regression и Live Workbench Acceptance.
+1. Controlled key rotation.
+2. Authenticated reviewer identity adapter.
+3. Signed trust-registry releases.
+4. Audit-bundle export без private payload.
+5. Scheduled expiry/revocation monitoring.
+6. Optional KMS/HSM integration boundary.
+7. Full regression и Live Workbench Acceptance.

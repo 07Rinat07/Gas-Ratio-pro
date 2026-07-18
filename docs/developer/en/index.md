@@ -16,6 +16,8 @@ Architecture and integration guidance for developers.
 
 - [Operator calibration package architecture](operator_calibration_package_architecture.md) — revision 1
 
+- [Calibration package trust architecture](calibration_package_trust_architecture.md) — revision 1
+
 ---
 
 Other languages: [Русский](../ru/index.md) · [Қазақша](../kk/index.md)

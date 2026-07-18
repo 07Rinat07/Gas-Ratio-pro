@@ -220,6 +220,26 @@
         "kk": "developer/kk/operator_calibration_package_architecture.md",
         "en": "developer/en/operator_calibration_package_architecture.md"
       }
+    },
+    {
+      "id": "calibration_package_trust_workflow",
+      "revision": 1,
+      "audience": "user",
+      "languages": {
+        "ru": "user/ru/calibration_package_trust_workflow.md",
+        "kk": "user/kk/calibration_package_trust_workflow.md",
+        "en": "user/en/calibration_package_trust_workflow.md"
+      }
+    },
+    {
+      "id": "calibration_package_trust_architecture",
+      "revision": 1,
+      "audience": "developer",
+      "languages": {
+        "ru": "developer/ru/calibration_package_trust_architecture.md",
+        "kk": "developer/kk/calibration_package_trust_architecture.md",
+        "en": "developer/en/calibration_package_trust_architecture.md"
+      }
     }
   ]
 }
