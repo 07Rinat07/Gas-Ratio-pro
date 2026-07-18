@@ -1,0 +1,704 @@
+{
+  "schema": "gas-ratio-pro/petrophysical-method-registry/v1",
+  "version": "v225.9",
+  "frozen_at": "2026-07-18",
+  "policy": {
+    "formula_changes_require_validation_evidence": true,
+    "visual_or_ui_requests_may_not_change_formulas": true,
+    "final_report_requires_report_eligible_method": true,
+    "copyright_policy": "Store short equations, bibliographic metadata and original code only; do not reproduce protected charts, tables or long excerpts."
+  },
+  "methods": [
+    {
+      "method_id": "petrophysics.vsh_gr_linear",
+      "name": "Linear gamma-ray shale volume",
+      "category": "shale_volume",
+      "implementation": "las_editor.petrophysical_workspace.calculate_shale_volume",
+      "formula": "I_GR=(GR-GR_clean)/(GR_shale-GR_clean); Vsh=clip(I_GR,0,1)",
+      "status": "project_engineering_hint",
+      "report_policy": "allowed_with_warning",
+      "provenance": {
+        "source_id": "project.vsh.linear",
+        "title": "Project transparent linear gamma-ray normalization",
+        "authors": [
+          "GAS RATIO PRO project"
+        ],
+        "year": "2026",
+        "source_type": "internal_project_engine",
+        "legal_status": "bibliographic_metadata_and_short_equation_only",
+        "citation_note": "Use the bibliographic record and original project implementation; do not reproduce protected figures or tables."
+      },
+      "inputs": [
+        {
+          "name": "GR",
+          "unit": "gAPI",
+          "domain": "finite"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "gr_clean",
+          "unit": "gAPI",
+          "domain": "gr_clean < gr_shale"
+        },
+        {
+          "name": "gr_shale",
+          "unit": "gAPI",
+          "domain": "gr_shale > gr_clean"
+        }
+      ],
+      "output": {
+        "name": "VSH",
+        "unit": "fraction",
+        "domain": "0..1"
+      },
+      "applicability": "First-pass shale-volume normalization between locally selected clean and shale endpoints.",
+      "limitations": "Endpoint selection is field-specific; linear response is not a universal geological model.",
+      "validation": {
+        "dataset_ids": [
+          "vsh_gr_linear_reference"
+        ],
+        "absolute_tolerance": 1e-10,
+        "relative_tolerance": 1e-09,
+        "uncertainty": {
+          "kind": "deterministic_contract_only",
+          "note": "Parameter and input-data uncertainty is not estimated by this deterministic foundation gate."
+        }
+      }
+    },
+    {
+      "method_id": "petrophysics.vsh_gr_larionov_tertiary",
+      "name": "Larionov tertiary-rock shale volume",
+      "category": "shale_volume",
+      "implementation": "las_editor.petrophysical_workspace.calculate_shale_volume",
+      "formula": "Vsh=0.083*(2^(3.7*I_GR)-1)",
+      "status": "verified_public_reference",
+      "report_policy": "allowed_with_warning",
+      "provenance": {
+        "source_id": "larionov.tertiary",
+        "title": "Larionov gamma-ray shale-volume correction for Tertiary rocks",
+        "authors": [
+          "V. V. Larionov"
+        ],
+        "year": "1969",
+        "source_type": "published_petrophysical_correlation",
+        "legal_status": "bibliographic_metadata_and_short_equation_only",
+        "citation_note": "Use the bibliographic record and original project implementation; do not reproduce protected figures or tables."
+      },
+      "inputs": [
+        {
+          "name": "GR",
+          "unit": "gAPI",
+          "domain": "finite"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "gr_clean",
+          "unit": "gAPI",
+          "domain": "gr_clean < gr_shale"
+        },
+        {
+          "name": "gr_shale",
+          "unit": "gAPI",
+          "domain": "gr_shale > gr_clean"
+        }
+      ],
+      "output": {
+        "name": "VSH",
+        "unit": "fraction",
+        "domain": "0..1"
+      },
+      "applicability": "Empirical correction for Tertiary formations after local endpoint calibration.",
+      "limitations": "Empirical age-dependent relationship; must be calibrated and cross-checked with mineralogy/core data.",
+      "validation": {
+        "dataset_ids": [
+          "vsh_gr_larionov_tertiary_reference"
+        ],
+        "absolute_tolerance": 1e-10,
+        "relative_tolerance": 1e-09,
+        "uncertainty": {
+          "kind": "deterministic_contract_only",
+          "note": "Parameter and input-data uncertainty is not estimated by this deterministic foundation gate."
+        }
+      }
+    },
+    {
+      "method_id": "petrophysics.vsh_gr_larionov_old_rocks",
+      "name": "Larionov old-rock shale volume",
+      "category": "shale_volume",
+      "implementation": "las_editor.petrophysical_workspace.calculate_shale_volume",
+      "formula": "Vsh=0.33*(2^(2*I_GR)-1)",
+      "status": "verified_public_reference",
+      "report_policy": "allowed_with_warning",
+      "provenance": {
+        "source_id": "larionov.old_rocks",
+        "title": "Larionov gamma-ray shale-volume correction for older rocks",
+        "authors": [
+          "V. V. Larionov"
+        ],
+        "year": "1969",
+        "source_type": "published_petrophysical_correlation",
+        "legal_status": "bibliographic_metadata_and_short_equation_only",
+        "citation_note": "Use the bibliographic record and original project implementation; do not reproduce protected figures or tables."
+      },
+      "inputs": [
+        {
+          "name": "GR",
+          "unit": "gAPI",
+          "domain": "finite"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "gr_clean",
+          "unit": "gAPI",
+          "domain": "gr_clean < gr_shale"
+        },
+        {
+          "name": "gr_shale",
+          "unit": "gAPI",
+          "domain": "gr_shale > gr_clean"
+        }
+      ],
+      "output": {
+        "name": "VSH",
+        "unit": "fraction",
+        "domain": "0..1"
+      },
+      "applicability": "Empirical correction for older consolidated formations after local endpoint calibration.",
+      "limitations": "Empirical age-dependent relationship; must be calibrated and cross-checked with mineralogy/core data.",
+      "validation": {
+        "dataset_ids": [
+          "vsh_gr_larionov_old_rocks_reference"
+        ],
+        "absolute_tolerance": 1e-10,
+        "relative_tolerance": 1e-09,
+        "uncertainty": {
+          "kind": "deterministic_contract_only",
+          "note": "Parameter and input-data uncertainty is not estimated by this deterministic foundation gate."
+        }
+      }
+    },
+    {
+      "method_id": "petrophysics.vsh_gr_clavier",
+      "name": "Clavier gamma-ray shale volume",
+      "category": "shale_volume",
+      "implementation": "las_editor.petrophysical_workspace.calculate_shale_volume",
+      "formula": "Vsh=1.7-sqrt(3.38-(I_GR+0.7)^2)",
+      "status": "project_engineering_hint",
+      "report_policy": "allowed_with_warning",
+      "provenance": {
+        "source_id": "clavier.vsh",
+        "title": "Clavier gamma-ray shale-volume correction",
+        "authors": [
+          "C. Clavier and collaborators"
+        ],
+        "year": "1970s",
+        "source_type": "published_petrophysical_correlation",
+        "legal_status": "bibliographic_metadata_and_short_equation_only",
+        "citation_note": "Use the bibliographic record and original project implementation; do not reproduce protected figures or tables."
+      },
+      "inputs": [
+        {
+          "name": "GR",
+          "unit": "gAPI",
+          "domain": "finite"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "gr_clean",
+          "unit": "gAPI",
+          "domain": "gr_clean < gr_shale"
+        },
+        {
+          "name": "gr_shale",
+          "unit": "gAPI",
+          "domain": "gr_shale > gr_clean"
+        }
+      ],
+      "output": {
+        "name": "VSH",
+        "unit": "fraction",
+        "domain": "0..1"
+      },
+      "applicability": "Alternative nonlinear gamma-ray shale-volume correction after local endpoint calibration.",
+      "limitations": "Bibliographic source requires further primary-source review before promotion beyond warning-only use.",
+      "validation": {
+        "dataset_ids": [
+          "vsh_gr_clavier_reference"
+        ],
+        "absolute_tolerance": 1e-10,
+        "relative_tolerance": 1e-09,
+        "uncertainty": {
+          "kind": "deterministic_contract_only",
+          "note": "Parameter and input-data uncertainty is not estimated by this deterministic foundation gate."
+        }
+      }
+    },
+    {
+      "method_id": "petrophysics.phie_shale_correction",
+      "name": "Effective porosity shale correction",
+      "category": "porosity",
+      "implementation": "las_editor.petrophysical_workspace.calculate_effective_porosity",
+      "formula": "PHIE=clip(POR*(1-VSH), lower=0)",
+      "status": "project_engineering_hint",
+      "report_policy": "allowed_with_warning",
+      "provenance": {
+        "source_id": "project.phie.shale_correction",
+        "title": "Project transparent effective-porosity correction",
+        "authors": [
+          "GAS RATIO PRO project"
+        ],
+        "year": "2026",
+        "source_type": "internal_project_engine",
+        "legal_status": "bibliographic_metadata_and_short_equation_only",
+        "citation_note": "Use the bibliographic record and original project implementation; do not reproduce protected figures or tables."
+      },
+      "inputs": [
+        {
+          "name": "total_porosity",
+          "unit": "fraction",
+          "domain": "finite"
+        },
+        {
+          "name": "shale_volume",
+          "unit": "fraction",
+          "domain": "0..1"
+        }
+      ],
+      "parameters": [],
+      "output": {
+        "name": "PHIE",
+        "unit": "fraction",
+        "domain": ">=0"
+      },
+      "applicability": "Transparent foundation correction when total porosity and Vsh are available.",
+      "limitations": "Not a mineral-model solution; shale porosity and tool/environment corrections are not represented.",
+      "validation": {
+        "dataset_ids": [
+          "phie_shale_correction_reference"
+        ],
+        "absolute_tolerance": 1e-10,
+        "relative_tolerance": 1e-09,
+        "uncertainty": {
+          "kind": "deterministic_contract_only",
+          "note": "Parameter and input-data uncertainty is not estimated by this deterministic foundation gate."
+        }
+      }
+    },
+    {
+      "method_id": "petrophysics.sw_archie",
+      "name": "Archie water saturation",
+      "category": "water_saturation",
+      "implementation": "las_editor.petrophysical_workspace.calculate_archie_water_saturation",
+      "formula": "Sw=((a*Rw)/(PHIE^m*Rt))^(1/n)",
+      "status": "verified_public_reference",
+      "report_policy": "allowed_with_warning",
+      "provenance": {
+        "source_id": "archie.1942",
+        "title": "The Electrical Resistivity Log as an Aid in Determining Some Reservoir Characteristics",
+        "authors": [
+          "G. E. Archie"
+        ],
+        "year": "1942",
+        "source_type": "published_peer_reviewed_method",
+        "legal_status": "bibliographic_metadata_and_short_equation_only",
+        "citation_note": "Use the bibliographic record and original project implementation; do not reproduce protected figures or tables.",
+        "doi": "10.2118/942054-G",
+        "publication_locator": "Transactions of the AIME 146 (1942), 54–62"
+      },
+      "inputs": [
+        {
+          "name": "PHIE",
+          "unit": "fraction",
+          "domain": ">0"
+        },
+        {
+          "name": "RT",
+          "unit": "ohm.m",
+          "domain": ">0"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "a",
+          "unit": "1",
+          "domain": ">0"
+        },
+        {
+          "name": "m",
+          "unit": "1",
+          "domain": ">0"
+        },
+        {
+          "name": "n",
+          "unit": "1",
+          "domain": ">0"
+        },
+        {
+          "name": "rw",
+          "unit": "ohm.m",
+          "domain": ">0"
+        }
+      ],
+      "output": {
+        "name": "SW",
+        "unit": "fraction",
+        "domain": "0..1"
+      },
+      "applicability": "Clean, water-wet formations after calibration of Rw, a, m and n.",
+      "limitations": "Shaly formations, conductive minerals and uncalibrated parameters can invalidate results.",
+      "validation": {
+        "dataset_ids": [
+          "sw_archie_reference"
+        ],
+        "absolute_tolerance": 1e-10,
+        "relative_tolerance": 1e-09,
+        "uncertainty": {
+          "kind": "deterministic_contract_only",
+          "note": "Parameter and input-data uncertainty is not estimated by this deterministic foundation gate."
+        }
+      }
+    },
+    {
+      "method_id": "petrophysics.sw_simandoux",
+      "name": "Simandoux shaly-sand water saturation",
+      "category": "water_saturation",
+      "implementation": "las_editor.advanced_saturation_models.calculate_simandoux_water_saturation",
+      "formula": "A*Sw^2+B*Sw-C=0; A=PHIE^m/(a*Rw), B=VSH/Rsh, C=1/Rt",
+      "status": "verified_public_reference",
+      "report_policy": "allowed_with_warning",
+      "provenance": {
+        "source_id": "simandoux.1963",
+        "title": "Dielectric Measurements on Porous Media: Application to the Measurement of Water Saturations",
+        "authors": [
+          "P. Simandoux"
+        ],
+        "year": "1963",
+        "source_type": "published_petrophysical_method",
+        "legal_status": "bibliographic_metadata_and_short_equation_only",
+        "citation_note": "Use the bibliographic record and original project implementation; do not reproduce protected figures or tables.",
+        "publication_locator": "Revue de l’Institut Français du Pétrole, supplementary issue (1963), pp. 193–215; later SPWLA English reprint"
+      },
+      "inputs": [
+        {
+          "name": "PHIE",
+          "unit": "fraction",
+          "domain": ">=0"
+        },
+        {
+          "name": "RT",
+          "unit": "ohm.m",
+          "domain": ">0"
+        },
+        {
+          "name": "VSH",
+          "unit": "fraction",
+          "domain": "0..1"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "a",
+          "unit": "1",
+          "domain": ">0"
+        },
+        {
+          "name": "m",
+          "unit": "1",
+          "domain": ">0"
+        },
+        {
+          "name": "n",
+          "unit": "1",
+          "domain": ">0"
+        },
+        {
+          "name": "rw",
+          "unit": "ohm.m",
+          "domain": ">0"
+        },
+        {
+          "name": "rsh",
+          "unit": "ohm.m",
+          "domain": ">0"
+        }
+      ],
+      "output": {
+        "name": "SW",
+        "unit": "fraction",
+        "domain": "0..1"
+      },
+      "applicability": "Shaly-sand comparison model with calibrated Rw, Rsh and porosity parameters.",
+      "limitations": "Current project implementation is a transparent quadratic form and requires field calibration.",
+      "validation": {
+        "dataset_ids": [
+          "sw_simandoux_reference"
+        ],
+        "absolute_tolerance": 1e-10,
+        "relative_tolerance": 1e-09,
+        "uncertainty": {
+          "kind": "deterministic_contract_only",
+          "note": "Parameter and input-data uncertainty is not estimated by this deterministic foundation gate."
+        }
+      }
+    },
+    {
+      "method_id": "petrophysics.sw_indonesia",
+      "name": "Poupon-Leveaux (Indonesia) water saturation",
+      "category": "water_saturation",
+      "implementation": "las_editor.advanced_saturation_models.calculate_indonesia_water_saturation",
+      "formula": "sqrt(1/Rt)=VSH^(1-VSH/2)/sqrt(Rsh)+PHIE^(m/2)*Sw^(n/2)/sqrt(a*Rw)",
+      "status": "verified_public_reference",
+      "report_policy": "allowed_with_warning",
+      "provenance": {
+        "source_id": "poupon_leveaux.1971",
+        "title": "Evaluation of Water Saturation in Shaly Formations",
+        "authors": [
+          "A. Poupon",
+          "J. Leveaux"
+        ],
+        "year": "1971",
+        "source_type": "published_conference_method",
+        "legal_status": "bibliographic_metadata_and_short_equation_only",
+        "citation_note": "Use the bibliographic record and original project implementation; do not reproduce protected figures or tables.",
+        "publication_locator": "SPWLA 12th Annual Logging Symposium (1971), paper O; SPE/OnePetro reference 311-G"
+      },
+      "inputs": [
+        {
+          "name": "PHIE",
+          "unit": "fraction",
+          "domain": ">=0"
+        },
+        {
+          "name": "RT",
+          "unit": "ohm.m",
+          "domain": ">0"
+        },
+        {
+          "name": "VSH",
+          "unit": "fraction",
+          "domain": "0..1"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "a",
+          "unit": "1",
+          "domain": ">0"
+        },
+        {
+          "name": "m",
+          "unit": "1",
+          "domain": ">0"
+        },
+        {
+          "name": "n",
+          "unit": "1",
+          "domain": ">0"
+        },
+        {
+          "name": "rw",
+          "unit": "ohm.m",
+          "domain": ">0"
+        },
+        {
+          "name": "rsh",
+          "unit": "ohm.m",
+          "domain": ">0"
+        }
+      ],
+      "output": {
+        "name": "SW",
+        "unit": "fraction",
+        "domain": "0..1"
+      },
+      "applicability": "Shaly formations after calibration and comparison with independent saturation evidence.",
+      "limitations": "Empirical model; results are sensitive to Vsh, Rsh, Rw and porosity calibration.",
+      "validation": {
+        "dataset_ids": [
+          "sw_indonesia_reference"
+        ],
+        "absolute_tolerance": 1e-10,
+        "relative_tolerance": 1e-09,
+        "uncertainty": {
+          "kind": "deterministic_contract_only",
+          "note": "Parameter and input-data uncertainty is not estimated by this deterministic foundation gate."
+        }
+      }
+    },
+    {
+      "method_id": "petrophysics.sw_dual_water_foundation",
+      "name": "Foundation Dual Water approximation",
+      "category": "water_saturation",
+      "implementation": "las_editor.advanced_saturation_models.calculate_dual_water_saturation",
+      "formula": "SW=Archie_free*(1-VSH*w)+SW_bound*VSH*w",
+      "status": "draft_requires_validation",
+      "report_policy": "blocked_final_report",
+      "provenance": {
+        "source_id": "project.dual_water.foundation",
+        "title": "Transparent project foundation approximation inspired by Dual Water concepts",
+        "authors": [
+          "GAS RATIO PRO project"
+        ],
+        "year": "2026",
+        "source_type": "internal_project_engine",
+        "legal_status": "bibliographic_metadata_and_short_equation_only",
+        "citation_note": "Use the bibliographic record and original project implementation; do not reproduce protected figures or tables.",
+        "related_public_method": "Clavier, Coates, Dumanoir, Theoretical and Experimental Bases for the Dual-Water Model for Interpretation of Shaly Sands, SPE Journal 24(2), 1984",
+        "implementation_note": "The project formula is only a foundation approximation and is not that published model."
+      },
+      "inputs": [
+        {
+          "name": "PHIE",
+          "unit": "fraction",
+          "domain": ">=0"
+        },
+        {
+          "name": "RT",
+          "unit": "ohm.m",
+          "domain": ">0"
+        },
+        {
+          "name": "VSH",
+          "unit": "fraction",
+          "domain": "0..1"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "a",
+          "unit": "1",
+          "domain": ">0"
+        },
+        {
+          "name": "m",
+          "unit": "1",
+          "domain": ">0"
+        },
+        {
+          "name": "n",
+          "unit": "1",
+          "domain": ">0"
+        },
+        {
+          "name": "rw_free",
+          "unit": "ohm.m",
+          "domain": ">0"
+        },
+        {
+          "name": "bound_water_saturation",
+          "unit": "fraction",
+          "domain": "0..1"
+        },
+        {
+          "name": "bound_water_weight",
+          "unit": "fraction",
+          "domain": "0..1"
+        }
+      ],
+      "output": {
+        "name": "SW",
+        "unit": "fraction",
+        "domain": "0..1"
+      },
+      "applicability": "Numerically stable comparison curve only; not a full Dual Water implementation.",
+      "limitations": "Must not be represented as the Clavier-Coates-Dumanoir Dual Water model or used for final reserves/report conclusions.",
+      "validation": {
+        "dataset_ids": [
+          "sw_dual_water_foundation_reference"
+        ],
+        "absolute_tolerance": 1e-10,
+        "relative_tolerance": 1e-09,
+        "uncertainty": {
+          "kind": "deterministic_contract_only",
+          "note": "Parameter and input-data uncertainty is not estimated by this deterministic foundation gate."
+        }
+      }
+    },
+    {
+      "method_id": "petrophysics.net_pay_cutoff_flags",
+      "name": "Reservoir/net/pay cutoff flags",
+      "category": "classification",
+      "implementation": "las_editor.petrophysical_workspace.calculate_net_pay_flags",
+      "formula": "RES=VSH<=VSHmax; NET=RES and PHIE>=PHIEmin; PAY=NET and SW<=SWmax and RT>=RTmin",
+      "status": "project_engineering_hint",
+      "report_policy": "allowed_with_warning",
+      "provenance": {
+        "source_id": "project.net_pay.cutoffs",
+        "title": "Project explicit cutoff classification",
+        "authors": [
+          "GAS RATIO PRO project"
+        ],
+        "year": "2026",
+        "source_type": "internal_project_engine",
+        "legal_status": "bibliographic_metadata_and_short_equation_only",
+        "citation_note": "Use the bibliographic record and original project implementation; do not reproduce protected figures or tables."
+      },
+      "inputs": [
+        {
+          "name": "VSH",
+          "unit": "fraction",
+          "domain": "0..1"
+        },
+        {
+          "name": "PHIE",
+          "unit": "fraction",
+          "domain": ">=0"
+        },
+        {
+          "name": "SW",
+          "unit": "fraction",
+          "domain": "0..1"
+        },
+        {
+          "name": "RT",
+          "unit": "ohm.m",
+          "domain": "finite"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "shale_volume_max",
+          "unit": "fraction",
+          "domain": "0..1"
+        },
+        {
+          "name": "effective_porosity_min",
+          "unit": "fraction",
+          "domain": "0..1"
+        },
+        {
+          "name": "water_saturation_max",
+          "unit": "fraction",
+          "domain": "0..1"
+        },
+        {
+          "name": "resistivity_min",
+          "unit": "ohm.m",
+          "domain": ">=0"
+        }
+      ],
+      "output": {
+        "name": "RES_NET_PAY",
+        "unit": "binary_flag",
+        "domain": "0 or 1"
+      },
+      "applicability": "Explicit project screening cutoffs configured for a field or study.",
+      "limitations": "Cutoff flags do not prove commerciality and require geological, test and economic context.",
+      "validation": {
+        "dataset_ids": [
+          "net_pay_cutoff_reference"
+        ],
+        "absolute_tolerance": 1e-10,
+        "relative_tolerance": 1e-09,
+        "uncertainty": {
+          "kind": "deterministic_contract_only",
+          "note": "Parameter and input-data uncertainty is not estimated by this deterministic foundation gate."
+        }
+      }
+    }
+  ]
+}

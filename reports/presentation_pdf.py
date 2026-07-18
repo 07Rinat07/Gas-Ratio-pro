@@ -412,12 +412,20 @@ def _paragraph(text: object, style: ParagraphStyle) -> Paragraph:
     return Paragraph(escape(_clean_text(text)), style)
 
 
-def _metadata_table(rows: Sequence[tuple[str, str]], styles: dict[str, ParagraphStyle]) -> Table | None:
+def _metadata_table(
+    rows: Sequence[tuple[str, str]],
+    styles: dict[str, ParagraphStyle],
+    *,
+    total_width: float = 160 * mm,
+) -> Table | None:
     clean_rows = [(label, value) for label, value in rows if _clean_text(label) and _clean_text(value)]
     if not clean_rows:
         return None
     data = [[_paragraph(label, styles["table_header"]), _paragraph(value, styles["table_cell"])] for label, value in clean_rows]
-    table = Table(data, colWidths=(45 * mm, 115 * mm), hAlign="LEFT")
+    usable_width = max(80 * mm, float(total_width))
+    label_width = min(max(38 * mm, usable_width * 0.24), 72 * mm)
+    value_width = max(42 * mm, usable_width - label_width)
+    table = Table(data, colWidths=(label_width, value_width), hAlign="LEFT")
     table.setStyle(
         TableStyle(
             [
@@ -437,7 +445,12 @@ def _metadata_table(rows: Sequence[tuple[str, str]], styles: dict[str, Paragraph
 
 
 
-def _adaptive_pdf_column_widths(headers: Sequence[str], rows: Sequence[Sequence[str]], *, total_width_mm: float = 160.0) -> list[float]:
+def _adaptive_pdf_column_widths(
+    headers: Sequence[str],
+    rows: Sequence[Sequence[str]],
+    *,
+    total_width_mm: float = 160.0,
+) -> list[float]:
     """Allocate printable widths from visible content without creating tiny cells."""
     if not headers:
         return []
@@ -456,7 +469,12 @@ def _adaptive_pdf_column_widths(headers: Sequence[str], rows: Sequence[Sequence[
     return [width * scale * mm for width in adjusted]
 
 
-def _document_table(block: DocumentTable, styles: dict[str, ParagraphStyle]) -> list[object]:
+def _document_table(
+    block: DocumentTable,
+    styles: dict[str, ParagraphStyle],
+    *,
+    total_width: float = 160 * mm,
+) -> list[object]:
     if not block.headers or not block.rows:
         return []
     original_cols = len(block.headers)
@@ -479,7 +497,11 @@ def _document_table(block: DocumentTable, styles: dict[str, ParagraphStyle]) -> 
     # which breaks PDF export.  Use deterministic compact widths so expert
     # reports stay printable even when tables are wide.
     compact = max_cols >= 7
-    col_widths = _adaptive_pdf_column_widths(visible_headers, [list(row[:max_cols]) for row in block.rows])
+    col_widths = _adaptive_pdf_column_widths(
+        visible_headers,
+        [list(row[:max_cols]) for row in block.rows],
+        total_width_mm=max(80.0, float(total_width) / mm),
+    )
     table = Table(data, repeatRows=1, hAlign="LEFT", colWidths=col_widths)
     cell_padding = 2 if compact else 4
     table.setStyle(
@@ -524,6 +546,7 @@ def _legend_table_pdf(
     styles: dict[str, ParagraphStyle],
     *,
     marker_mode: bool = False,
+    total_width: float = 168 * mm,
 ) -> list[object]:
     """Render a readable one-item-per-row legend for printed reports."""
 
@@ -556,12 +579,26 @@ def _legend_table_pdf(
             style_commands.append(("TEXTCOLOR", (0, row_index), (0, row_index), colors.HexColor(color)))
         except ValueError:
             pass
-    table = Table(rows, colWidths=[12 * mm, 42 * mm, 114 * mm], hAlign="LEFT", repeatRows=1)
+    usable_width = max(90 * mm, float(total_width))
+    symbol_width = min(16 * mm, max(10 * mm, usable_width * 0.07))
+    label_width = min(78 * mm, max(42 * mm, usable_width * 0.24))
+    meaning_width = max(38 * mm, usable_width - symbol_width - label_width)
+    table = Table(
+        rows,
+        colWidths=[symbol_width, label_width, meaning_width],
+        hAlign="LEFT",
+        repeatRows=1,
+    )
     table.setStyle(TableStyle(style_commands))
     return [_paragraph(title, styles["h2"]), table, Spacer(1, 7)]
 
 
-def _statistics_table_pdf(entries: Sequence[dict[str, object]], styles: dict[str, ParagraphStyle]) -> list[object]:
+def _statistics_table_pdf(
+    entries: Sequence[dict[str, object]],
+    styles: dict[str, ParagraphStyle],
+    *,
+    total_width: float = 159 * mm,
+) -> list[object]:
     if not entries:
         return []
     rows = [[_paragraph(name, styles["table_header"]) for name in ("Кривая", "Мин.", "Макс.", "Среднее", "Сумма")]]
@@ -573,7 +610,14 @@ def _statistics_table_pdf(entries: Sequence[dict[str, object]], styles: dict[str
             _paragraph(f"{float(entry.get('mean', 0)):.4g}", styles["table_cell"]),
             _paragraph(f"{float(entry.get('sum', 0)):.5g}", styles["table_cell"]),
         ])
-    table = Table(rows, colWidths=[35*mm, 27*mm, 27*mm, 32*mm, 38*mm], hAlign="LEFT", repeatRows=1)
+    usable_width = max(100 * mm, float(total_width))
+    weights = (0.28, 0.15, 0.15, 0.18, 0.24)
+    table = Table(
+        rows,
+        colWidths=[usable_width * weight for weight in weights],
+        hAlign="LEFT",
+        repeatRows=1,
+    )
     table.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#eaf0f7")),
         ("GRID", (0,0), (-1,-1), 0.4, colors.HexColor("#cbd5e1")),
@@ -593,7 +637,13 @@ class _AutoScaleRasterImage(Image):
     the only safe place to determine the final size.
     """
 
-    def __init__(self, source: object, *, max_width: float = 185 * mm, max_height: float = 235 * mm) -> None:
+    def __init__(
+        self,
+        source: object,
+        *,
+        max_width: float | None = None,
+        max_height: float | None = None,
+    ) -> None:
         super().__init__(source)
         self._source_width = float(self.imageWidth or 1)
         self._source_height = float(self.imageHeight or 1)
@@ -601,8 +651,10 @@ class _AutoScaleRasterImage(Image):
         self._max_height = max_height
 
     def wrap(self, avail_width: float, avail_height: float) -> tuple[float, float]:
-        usable_width = max(1.0, min(float(avail_width), self._max_width))
-        usable_height = max(1.0, min(float(avail_height), self._max_height))
+        width_limit = float(avail_width) if self._max_width is None else min(float(avail_width), float(self._max_width))
+        height_limit = float(avail_height) if self._max_height is None else min(float(avail_height), float(self._max_height))
+        usable_width = max(1.0, width_limit)
+        usable_height = max(1.0, height_limit)
         ratio = min(usable_width / self._source_width, usable_height / self._source_height)
         self.drawWidth = self._source_width * ratio
         self.drawHeight = self._source_height * ratio
@@ -612,17 +664,27 @@ class _AutoScaleRasterImage(Image):
 class _AutoScaleSvgDrawing(Flowable):
     """Scale an SVG drawing to the actual report frame instead of fixed millimetres."""
 
-    def __init__(self, drawing: object, *, max_height: float = 180 * mm) -> None:
+    def __init__(
+        self,
+        drawing: object,
+        *,
+        max_width: float | None = None,
+        max_height: float | None = None,
+    ) -> None:
         super().__init__()
         self.drawing = drawing
         self.source_width = float(getattr(drawing, "width", 1) or 1)
         self.source_height = float(getattr(drawing, "height", 1) or 1)
+        self.max_width = max_width
         self.max_height = max_height
         self.scale_factor = 1.0
 
     def wrap(self, avail_width: float, avail_height: float) -> tuple[float, float]:
-        usable_height = min(max(40 * mm, avail_height), self.max_height)
-        self.scale_factor = min(avail_width / self.source_width, usable_height / self.source_height)
+        usable_width = float(avail_width) if self.max_width is None else min(float(avail_width), float(self.max_width))
+        usable_height = float(avail_height) if self.max_height is None else min(float(avail_height), float(self.max_height))
+        usable_width = max(1.0, usable_width)
+        usable_height = max(1.0, usable_height)
+        self.scale_factor = min(usable_width / self.source_width, usable_height / self.source_height)
         self.width = self.source_width * self.scale_factor
         self.height = self.source_height * self.scale_factor
         return self.width, self.height
@@ -635,7 +697,13 @@ class _AutoScaleSvgDrawing(Flowable):
         self.canv.restoreState()
 
 
-def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> list[object]:
+def _document_plot(
+    block: DocumentPlot,
+    styles: dict[str, ParagraphStyle],
+    *,
+    content_width: float = 185 * mm,
+    content_height: float = 205 * mm,
+) -> list[object]:
     """Render a Plotly-compatible engineering figure into the PDF.
 
     Kaleido is used when available.  Failure is isolated to this block so the
@@ -657,7 +725,13 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
         drawing = svg2rlg(_BytesIO(figure.svg.encode("utf-8")))
         if drawing is None:
             return items + [_paragraph("Не удалось преобразовать SVG-планшет.", styles["small"])]
-        items.append(_AutoScaleSvgDrawing(drawing, max_height=180 * mm))
+        items.append(
+            _AutoScaleSvgDrawing(
+                drawing,
+                max_width=max(80 * mm, float(content_width)),
+                max_height=max(80 * mm, float(content_height)),
+            )
+        )
         return items
 
     title = block.title or "Профессиональный планшет интерпретации"
@@ -692,7 +766,13 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
                 _paragraph(str(item.get("fluid", "")), styles["table_cell"]),
                 _paragraph(f"{float(item.get('confidence', 0)):g}%", styles["table_cell"]),
             ])
-        card = Table(card_rows, colWidths=[24*mm, 34*mm, 28*mm, 42*mm, 32*mm], hAlign="LEFT")
+        card_width = max(100 * mm, float(content_width))
+        card_weights = (0.15, 0.21, 0.17, 0.27, 0.20)
+        card = Table(
+            card_rows,
+            colWidths=[card_width * weight for weight in card_weights],
+            hAlign="LEFT",
+        )
         card.setStyle(TableStyle([
             ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#eaf0f7")),
             ("GRID", (0,0), (-1,-1), 0.5, colors.HexColor("#cbd5e1")),
@@ -704,11 +784,17 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
         ]))
         items.extend([card, Spacer(1, 6)])
     try:
+        frame_width = max(80 * mm, float(content_width))
+        frame_height = max(80 * mm, float(content_height))
+        frame_aspect = max(0.55, min(2.4, frame_width / frame_height))
+        raster_width = int(REPORT_PRINT_READABILITY.pdf_plot_width_px)
+        raster_height = int(round(raster_width / frame_aspect))
+        raster_height = max(1600, min(raster_height, 4200))
         if hasattr(figure, "to_image"):
             png = figure.to_image(
                 format="png",
-                width=REPORT_PRINT_READABILITY.pdf_plot_width_px,
-                height=REPORT_PRINT_READABILITY.pdf_plot_height_px,
+                width=raster_width,
+                height=raster_height,
                 scale=1,
             )
         elif hasattr(figure, "write_image"):
@@ -716,21 +802,26 @@ def _document_plot(block: DocumentPlot, styles: dict[str, ParagraphStyle]) -> li
             figure.write_image(
                 buffer,
                 format="png",
-                width=REPORT_PRINT_READABILITY.pdf_plot_width_px,
-                height=REPORT_PRINT_READABILITY.pdf_plot_height_px,
+                width=raster_width,
+                height=raster_height,
             )
             png = buffer.getvalue()
         else:
             raise TypeError("Figure backend does not support raster export")
-        image = Image(BytesIO(png))
-        max_width = 185 * mm
-        max_height = 205 * mm
-        ratio = min(max_width / image.imageWidth, max_height / image.imageHeight)
-        image.drawWidth = image.imageWidth * ratio
-        image.drawHeight = image.imageHeight * ratio
+        image = _AutoScaleRasterImage(
+            BytesIO(png),
+            max_width=frame_width,
+            max_height=frame_height,
+        )
         items.extend([image, Spacer(1, 8)])
         if str(legend.get("report_kind", "")) != "detail":
-            items.extend(_statistics_table_pdf(list(legend.get("statistics", []) or []), styles))
+            items.extend(
+                _statistics_table_pdf(
+                    list(legend.get("statistics", []) or []),
+                    styles,
+                    total_width=frame_width,
+                )
+            )
     except Exception as exc:
         items.extend([
             _paragraph(
@@ -866,6 +957,8 @@ def render_engineering_document_pdf(
             regular_font=regular_font,
             bold_font=bold_font,
         )
+    content_width = max(80 * mm, page_size[0] - (2 * margin))
+    content_height = max(80 * mm, page_size[1] - (2 * vertical_margin))
     doc = _EngineeringPdfDocTemplate(
         buffer,
         pagesize=page_size,
@@ -886,7 +979,11 @@ def render_engineering_document_pdf(
     story.append(_paragraph(document.metadata.title or opts.title, styles["title"]))
     if document.metadata.subtitle:
         story.append(_paragraph(document.metadata.subtitle, styles["subtitle"]))
-    metadata_table = _metadata_table(document.metadata.rows, styles)
+    metadata_table = _metadata_table(
+        document.metadata.rows,
+        styles,
+        total_width=content_width,
+    )
     if metadata_table is not None:
         story.extend([metadata_table, Spacer(1, 8)])
     for note in document.metadata.notes:
@@ -913,11 +1010,18 @@ def render_engineering_document_pdf(
         for block in section.blocks:
             _check()
             if isinstance(block, DocumentTable):
-                story.extend(_document_table(block, styles))
+                story.extend(_document_table(block, styles, total_width=content_width))
             elif isinstance(block, DocumentNotice):
                 story.extend(_document_notice(block, styles))
             elif isinstance(block, DocumentPlot):
-                story.extend(_document_plot(block, styles))
+                story.extend(
+                    _document_plot(
+                        block,
+                        styles,
+                        content_width=content_width,
+                        content_height=content_height,
+                    )
+                )
             elif isinstance(block, DocumentVisualizationPreview):
                 story.extend(_document_visualization_preview(block, styles))
 

@@ -1,54 +1,48 @@
-# Method Registry and Provenance Policy
+# Method Registry and Provenance Policy — v225.9
 
 ## Purpose
 
-GAS RATIO PRO must be able to explain every engineering calculation used in hydrocarbon interval detection, reporting and future petrophysical interpretation.
+GAS RATIO PRO must explain every engineering calculation used in interpretation and reporting. No new formula, threshold family, or petrophysical method may enter production logic without a machine-readable method profile and validation evidence.
 
-No new calculation formula, threshold family or interpretation method should be added to production logic without a registered method profile.
+## Registries
 
-## Required registry fields
+- Mud-gas and interval methods remain exposed through `core.method_registry`.
+- The Stage 5 petrophysical registry is `config/petrophysical_method_registry_v225_9.json`.
+- The petrophysical registry is frozen by `gas-ratio-pro/petrophysical-method-registry/v1` and contains 10 methods.
 
-Each method profile must contain:
+## Required fields
 
-- method id;
-- public/project method name;
-- authors or project owner;
-- year or project version;
-- source title;
-- source type;
-- audit status;
-- implementation status;
-- scope of use;
-- limitations;
-- citation / copyright note.
+Every petrophysical method contains:
 
-## Current implemented registry entries
+- method ID, display name, category, and exact production implementation path;
+- short equation or deterministic rule;
+- audit status and final-report policy;
+- source ID, title, authors, year, source type, legal status, and citation note;
+- input, parameter, and output unit contracts;
+- applicability domain and limitations;
+- reference dataset IDs;
+- absolute/relative numerical tolerance;
+- uncertainty metadata.
 
-| Method ID | Method | Authors / owner | Status | Use |
-| --- | --- | --- | --- | --- |
-| `haworth_mud_gas` | Haworth mud-gas ratios | Haworth, Sellens, Whittaker | `verified_public_reference` | Wh, Bh and Ch interval evidence. |
-| `pixler_gas_ratio` | Pixler hydrocarbon gas ratios | B. O. Pixler | `verified_public_reference` | C1/C2 and C1/C3 supporting fluid-character evidence. |
-| `project_oil_indicator` | Project oil/gas indicator | GAS RATIO PRO project | `project_engineering_hint` | Internal supporting oil/gas tendency indicator. |
-| `hydrocarbon_interval_engine` | GAS RATIO PRO Hydrocarbon Interval Engine | GAS RATIO PRO project | `project_engineering_hint` | Rule-based grouping, classification, evidence and confidence packaging. |
+## Registered petrophysical methods
 
-## Provenance rule
+| Method ID | Policy | Validation |
+| --- | --- | --- |
+| `petrophysics.vsh_gr_linear` | warning | synthetic GR endpoints |
+| `petrophysics.vsh_gr_larionov_tertiary` | warning | synthetic IGR vector |
+| `petrophysics.vsh_gr_larionov_old_rocks` | warning | synthetic IGR vector |
+| `petrophysics.vsh_gr_clavier` | warning / source review required | synthetic IGR vector |
+| `petrophysics.phie_shale_correction` | warning | synthetic POR/VSH vector |
+| `petrophysics.sw_archie` | warning | synthetic PHIE/RT vector |
+| `petrophysics.sw_simandoux` | warning | synthetic PHIE/RT/VSH vector |
+| `petrophysics.sw_indonesia` | warning | synthetic PHIE/RT/VSH vector |
+| `petrophysics.sw_dual_water_foundation` | **blocked final report** | numerical foundation only |
+| `petrophysics.net_pay_cutoff_flags` | warning | synthetic cutoff classification |
 
-Every interval evidence item should carry:
+## Validation rule
 
-- `method_id`;
-- `source_id`;
-- method name;
-- parameter;
-- value;
-- status;
-- source title;
-- authors;
-- limitations.
-
-This allows reports, QA tools and future PDF/DOCX exporters to trace each interval conclusion back to its calculation source without copying copyrighted source material.
+`PetrophysicalValidationApplicationService` executes the public production functions against static synthetic reference cases. Structural, unit, provenance, tolerance, and numerical mismatches block the gate. Numerical reproducibility does not automatically grant final-report permission.
 
 ## Copyright and patent handling
 
-The project may store short equations, method names, bibliographic metadata and original implementation code. The project must not copy protected charts, interpretation plates, tables, figures or long text fragments from copyrighted publications unless explicit permission exists.
-
-Published methods must be cited. Internal engineering hints must be clearly labelled as internal and preliminary.
+The project stores short equations, bibliographic metadata, synthetic examples, and original implementation code. It does not reproduce protected charts, tables, interpretation plates, or long source text. Field/corporate datasets require explicit data-rights records before entering validation.

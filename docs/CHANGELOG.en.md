@@ -1,4 +1,16 @@
 # GAS RATIO PRO Changelog
+## v225.9 — Petrophysical Engine Validation Foundation — 2026-07-18
+
+- registered 10 petrophysical methods with provenance, units, applicability, limitations, and report policy;
+- added 10 synthetic reference cases, numerical tolerances, and uncertainty metadata;
+- added an application-service validation gate, CLI, and JSON evidence;
+- calculation manifests include method provenance and the contract fingerprint;
+- foundation Dual Water is blocked for final reports.
+- the A3 landscape renderer now uses the actual page/frame size; plots and narrative tables span the full working frame.
+- PDF/DOCX/HTML are synchronized by `print-readability/v1.1` and the controlled visual baseline v225.9.
+
+- result: petrophysical gate 10/10, Live Workbench 14/14, full regression suite **2881 passed, 0 failed**.
+
 ## v225.8 — Stable Promotion & Live Workbench Acceptance — 2026-07-18
 
 - promoted the build channel to `stable` after 14/14 live acceptance checks;

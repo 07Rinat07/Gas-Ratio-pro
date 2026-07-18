@@ -1,6 +1,6 @@
 {
   "schema": "gas-ratio-pro/live-workbench-acceptance-contract/v1",
-  "version": "v225.8",
+  "version": "v225.9",
   "required_channel": "stable",
   "checks": [
     "server.health",

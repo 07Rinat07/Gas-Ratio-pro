@@ -140,6 +140,46 @@
         "kk": "developer/kk/live_workbench_acceptance_architecture.md",
         "en": "developer/en/live_workbench_acceptance_architecture.md"
       }
+    },
+    {
+      "id": "petrophysical_validation_gate",
+      "revision": 1,
+      "audience": "user",
+      "languages": {
+        "ru": "user/ru/petrophysical_validation_gate.md",
+        "kk": "user/kk/petrophysical_validation_gate.md",
+        "en": "user/en/petrophysical_validation_gate.md"
+      }
+    },
+    {
+      "id": "petrophysical_validation_architecture",
+      "revision": 1,
+      "audience": "developer",
+      "languages": {
+        "ru": "developer/ru/petrophysical_validation_architecture.md",
+        "kk": "developer/kk/petrophysical_validation_architecture.md",
+        "en": "developer/en/petrophysical_validation_architecture.md"
+      }
+    },
+    {
+      "id": "adaptive_report_layout",
+      "revision": 1,
+      "audience": "user",
+      "languages": {
+        "ru": "user/ru/adaptive_report_layout.md",
+        "kk": "user/kk/adaptive_report_layout.md",
+        "en": "user/en/adaptive_report_layout.md"
+      }
+    },
+    {
+      "id": "adaptive_report_layout_architecture",
+      "revision": 1,
+      "audience": "developer",
+      "languages": {
+        "ru": "developer/ru/adaptive_report_layout_architecture.md",
+        "kk": "developer/kk/adaptive_report_layout_architecture.md",
+        "en": "developer/en/adaptive_report_layout_architecture.md"
+      }
     }
   ]
 }

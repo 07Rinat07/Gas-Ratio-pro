@@ -7,6 +7,7 @@ from typing import Any, Iterable, Mapping, Sequence
 import math
 import pandas as pd
 
+from core.petrophysical_validation_contract import manifest_method_rows, validation_contract_summary
 from las_editor.las_creator import normalize_las_mnemonic
 from las_editor.petrophysical_workspace import ArchieParameters, calculate_archie_water_saturation
 
@@ -437,7 +438,17 @@ def saturation_comparison_table_rows(comparisons: Iterable[SaturationModelCompar
     return [asdict(comparison) for comparison in comparisons]
 
 
+def _advanced_saturation_method_ids() -> tuple[str, ...]:
+    return (
+        "petrophysics.sw_archie",
+        "petrophysics.sw_simandoux",
+        "petrophysics.sw_indonesia",
+        "petrophysics.sw_dual_water_foundation",
+    )
+
+
 def build_advanced_saturation_manifest(result: AdvancedSaturationResult) -> dict[str, Any]:
+    method_ids = _advanced_saturation_method_ids()
     return {
         "schema": result.schema,
         "generated_at": result.generated_at,
@@ -455,6 +466,9 @@ def build_advanced_saturation_manifest(result: AdvancedSaturationResult) -> dict
         },
         "outputs": [_out(result.plan, name) for name in ("SW_ARCHIE", "SW_SIMANDOUX", "SW_INDONESIA", "SW_DUAL_WATER", "SW_MODEL_SPREAD")],
         "source_references": list(result.source_references),
+        "method_ids": list(method_ids),
+        "method_provenance": manifest_method_rows(method_ids),
+        "validation_contract": validation_contract_summary(method_ids),
     }
 
 
@@ -475,6 +489,16 @@ def render_advanced_saturation_markdown_report(result: AdvancedSaturationResult)
     ]
     for output in manifest["outputs"]:
         lines.append(f"- `{output}`")
+    lines.extend(["", "## Method provenance and validation policy", ""])
+    for method in manifest["method_provenance"]:
+        lines.append(
+            f"- `{method['method_id']}` — {method['name']}; source `{method['source_id']}`; "
+            f"policy `{method['report_policy']}`; validation datasets: {', '.join(method['dataset_ids'])}."
+        )
+    blocked = [method['method_id'] for method in manifest['method_provenance'] if method['report_policy'] == 'blocked_final_report']
+    if blocked:
+        lines.append("- **Final-report block:** " + ", ".join(f"`{item}`" for item in blocked))
+    lines.append(f"- Validation contract: `{manifest['validation_contract']['contract_fingerprint']}`")
     if result.comparisons:
         lines.extend([
             "",

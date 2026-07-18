@@ -1,33 +1,22 @@
 # Gas Ratio Pro жоба жоспары
 
-Жаңартылған күні: 2026 жылғы 18 шілде. Белсенді құрастыру: `v225.8 stable`.
+Жаңартылған күні: 2026 жылғы 18 шілде. Белсенді build: `v225.9 stable`.
 
-## Аяқталған инкремент — Stable Promotion & Live Workbench Acceptance
+## Аяқталған increment — Petrophysical Engine Validation Foundation
 
-- кроссплатформалық acceptance runner қосылды;
-- уақытша Streamlit server health gate-тен өтеді;
-- ресми AppTest нақты Workbench session орындайды;
-- build version, stable channel, абсолютті source path және entry-point SHA-256 расталды;
-- Toolbar, Project Explorer, Workspace Host, Properties және Status Bar тексерілді;
-- LAS command және LAS Workspace traceback-сіз орындалады;
-- нәтиже: **14/14 acceptance checks passed**;
-- Windows launcher `run_app.ps1 -Acceptance` режимін қолдайды;
-- құжаттама мен нұсқаулық орыс, қазақ және ағылшын тілдерінде синхрондалды.
+- 10 әдіс formulas өзгертпей бекітілді;
+- provenance, units, applicability, limitations және report policy machine-readable;
+- 10 synthetic reference case және tolerance contracts;
+- application-service validation gate және JSON evidence;
+- manifests method provenance және fingerprint қамтиды;
+- foundation Dual Water final report үшін blocked.
+- A3 landscape PDF/DOCX/HTML толық қолжетімді frame-ды пайдаланады; text/table layout 160/185 мм-мен шектелмейді.
+- Release acceptance: petrophysical gate 10/10, Live Workbench 14/14, full regression 2881/2881.
 
-## Келесі рұқсат етілген инкремент — Petrophysical Engine Validation Foundation
+## Келесі рұқсат етілген increment — Field Calibration & Report Authorization Integration
 
-1. Ағымдағы Method Registry және formula inventory бекіту.
-2. Әр method ID-ді source, license, units және applicability domain-пен байланыстыру.
-3. Reference dataset және expected result дайындау.
-4. Numerical tolerance және uncertainty metadata анықтау.
-5. Application-service validation gate және regression test іске асыру.
-6. Бөлек бекітілген evidence болмаса Interpretation 2.0 немесе visual baseline өзгертпеу.
-
-## Definition of Done
-
-- build channel `stable` болып қалады;
-- live acceptance жергілікті қайталанып, 14/14 өтеді;
-- әр petrophysical method machine-readable provenance иеленеді;
-- validation dataset тексерілмеген немесе заңсыз алынған деректерді қамтымайды;
-- нәтиже бекітілген tolerance ішінде қайталанады;
-- README, instructions, status, roadmap, changelog, release notes және manifest `ru/kk/en` тілдерінде синхрондалды.
+1. Field-owned calibration datasets және data-rights records.
+2. Parameters үшін sensitivity/uncertainty envelopes.
+3. Export boundary ішінде final-report authorization.
+4. ru/kk/en тілдерінде read-only validation diagnostics.
+5. Full regression және live acceptance.

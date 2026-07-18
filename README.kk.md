@@ -31,7 +31,22 @@
 - ұңғымаларды корреляциялау және көпұңғымалық планшеттерге дайындық;
 - орыс, қазақ және ағылшын тілдеріндегі интерфейс пен құжаттама.
 
-## Stable релиз v225.8
+## Stable релиз v225.9
+
+- Stage 5 Petrophysical Engine Validation Foundation аяқталды;
+- provenance, units, applicability, limitations және report policy бар 10 петрофизикалық әдіс тіркелді;
+- 10 synthetic reference case, numerical tolerances және uncertainty metadata қосылды;
+- application-service gate production-функцияларды орындайды және JSON evidence жасайды;
+- 10/10 әдіс сандық түрде қайталанады, 9 әдіске соңғы есепте рұқсат;
+- foundation Dual Water `blocked_final_report` күйінде қалады;
+- іске қосу: `python scripts/run_petrophysical_validation_gate.py`;
+- [нұсқаулық](docs/user/kk/petrophysical_validation_gate.md) · [архитектура](docs/developer/kk/petrophysical_validation_architecture.md).
+- A3 landscape графиктері мен мәтіндік бөлімдері парақтың толық пайдалы frame-ын пайдаланады;
+- PDF/DOCX/HTML тұрақты еннен `available-frame` саясатына ауыстырылды;
+- [бейімделетін макет](docs/user/kk/adaptive_report_layout.md) · [layout архитектурасы](docs/developer/kk/adaptive_report_layout_architecture.md).
+- v225.9 қорытынды тексеруі: **2881 passed, 0 failed**; Live Workbench: **14/14**; petrophysical gate: **10/10**.
+
+## Алдыңғы stable релиз v225.8
 
 - Stage 4 **stable** арнасына ауыстырылды;
 - Live Workbench Acceptance нақты server health және орындалатын Streamlit session тексереді;

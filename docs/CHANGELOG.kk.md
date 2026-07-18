@@ -1,4 +1,16 @@
 # GAS RATIO PRO өзгерістер журналы
+## v225.9 — Petrophysical Engine Validation Foundation — 2026-07-18
+
+- provenance, units, applicability, limitations және report policy бар 10 петрофизикалық әдіс тіркелді;
+- 10 synthetic reference case, numerical tolerances және uncertainty metadata қосылды;
+- application-service validation gate, CLI және JSON evidence қосылды;
+- calculation manifests method provenance және contract fingerprint қамтиды;
+- foundation Dual Water final report үшін бұғатталған.
+- A3 landscape renderer нақты page/frame size қолданады; графиктер мен мәтіндік кестелер толық жұмыс frame-ын пайдаланады.
+- PDF/DOCX/HTML `print-readability/v1.1` және controlled visual baseline v225.9 арқылы синхрондалған.
+
+- қорытынды: petrophysical gate 10/10, Live Workbench 14/14, толық regression suite **2881 passed, 0 failed**.
+
 ## v225.8 — Stable Promotion & Live Workbench Acceptance — 2026-07-18
 
 - 14/14 live acceptance check өткеннен кейін build channel `stable` күйіне ауыстырылды;

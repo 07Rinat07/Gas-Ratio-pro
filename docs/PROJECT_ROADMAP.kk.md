@@ -1,63 +1,56 @@
-# Project Roadmap — v225.8 Stable
+# Project Roadmap — v225.9 Stable
 
-Жаңартылған күні: 2026 жылғы 18 шілде.
-
-Бұл құжат Gas Ratio Pro жобасының жалғыз белсенді әзірлеу реті болып табылады.
+Жаңартылған күні: 2026 жылғы 18 шілде. Бұл құжат Gas Ratio Pro дамуының жалғыз белсенді реттілігі.
 
 ## Stage 4 — Workbench UI Completion
 
-Мәртебе: **COMPLETED / Stable v225.8**.
-
-Аяқталды:
-
-1. page-aware package, physical profile және cross-format parity gate;
-2. A4/A3 visual golden artifact және Print Center E2E acceptance;
-3. 9 architecture-boundary бұзушылығы жойылды;
-4. brittle source assertion behavior contract-пен ауыстырылды;
-5. controlled visual rebaseline және 51 legacy regression contract жабылды;
-6. толық v225.8 regression suite: **2858 passed, 0 failed**;
-7. нақты server health және орындалатын Streamlit session бар Live Workbench Acceptance;
-8. build/source identity және Workbench-тің бес аймағы расталды;
-9. LAS командасы және LAS Workspace traceback-сіз орындалды;
-10. stable promotion `v225.8`: **14/14 acceptance checks passed**.
+Күйі: **COMPLETED / Stable v225.8**. Live Workbench Acceptance: 14/14.
 
 ## Stage 5 — Petrophysical Engine Validation Foundation
 
-Мәртебе: **NEXT AUTHORIZED**.
+Күйі: **COMPLETED / Stable v225.9**.
 
-Рұқсат етілген рет:
+Орындалды:
 
-1. ағымдағы Method Registry inventory және freeze;
-2. machine-readable formula/source provenance;
-3. белгілі expected result бар reference validation dataset;
-4. сандық tolerance, unit contract және uncertainty metadata;
-5. бірыңғай application-service validation gate;
-6. жаңа UI view қосылғанға дейін regression evidence.
-
-UI қалауы немесе тіркелмеген дереккөз негізінде формуланы өзгертуге болмайды. Әр жаңа формулаға method ID, legal/source record, units, applicability domain, reference dataset және tolerance қажет.
+1. формулаларды өзгертпей 10 production method freeze;
+2. machine-readable provenance, source/legal metadata және report policy;
+3. inputs, parameters және outputs үшін unit contracts;
+4. expected results бар 10 synthetic reference dataset;
+5. absolute/relative tolerances және uncertainty metadata;
+6. application-service gate, CLI және JSON evidence;
+7. calculation manifests ішінде method provenance және contract fingerprint;
+8. foundation Dual Water үшін final-report block;
+9. PDF/DOCX/HTML үшін A3 landscape adaptive full-frame layout және v225.9 visual baseline.
 
 ## Stabilization & Release Audit
 
-Architecture boundary әлсіретуге болмайды. Visual baseline тек approved semantic manifest арқылы өзгереді. Silent `xfail`, failure жасыру және replacement contract-сыз тест жоюға тыйым салынады. Stable promotion `gas-ratio-pro/live-workbench-acceptance/v1` арқылы дәлелденеді.
+Stable v225.8 Live Workbench Acceptance remains mandatory: **14/14 passed**. Architecture boundaries, controlled visual baselines, replacement contracts, and the v225.9 petrophysical validation gate may not be bypassed.
+
+## Stage 5.1 — Field Calibration & Report Authorization Integration
+
+Күйі: **NEXT AUTHORIZED**.
+
+1. тек field-owned немесе legally cleared calibration datasets қосу;
+2. parameter distributions және sensitivity/uncertainty envelopes сипаттау;
+3. final-report authorization функциясын export application service-ке қосу;
+4. formulas өзгертпейтін read-only validation diagnostics қосу;
+5. full regression және Live Workbench Acceptance қайталау.
 
 ## Reservoir Intelligence / Interpretation 2.0
 
-Мәртебе: **FROZEN AFTER ACCEPTANCE**. Міндетті regression contract:
-
-- Pixler rehabilitation;
-- Ternary rehabilitation;
-- Depth engineering panel;
-- инженерлік interval summary және қайталанатын visual classification;
-- барлық бекітілген view бір calculation result пайдаланады.
+Күйі: **FROZEN AFTER ACCEPTANCE**. Pixler, Ternary, Depth engineering panel және бірыңғай calculation result тек explicit validation evidence арқылы өзгереді.
 
 ## Definition of Done
 
-- Stage 4 stable acceptance remains reproducible and passes all required checks;
-- Stage 5 methods have machine-readable provenance, units, applicability domains, datasets, and tolerances;
-- no approved Interpretation 2.0 or visual contract changes without explicit validation evidence;
-- full regression suite contains no failures;
-- documentation remains synchronized in Russian, Kazakh, and English.
+- Stable v225.8 Workbench acceptance қайталанады;
+- petrophysical gate барлық method contract-тарды өткізеді;
+- final report `blocked_final_report` әдісін қолдана алмайды;
+- full regression suite failures қамтымайды;
+- landscape есептері тұрақты тар бағансыз нақты frame-ды пайдаланады;
+- құжаттама орыс, қазақ және ағылшын тілдерінде синхрондалған.
 
 ## Open Standards and Legal Research Governance
 
-Сыртқы стандарттар мен third-party components тек policy, machine-readable registry, лицензиялық растау және оқшауланған adapter boundary арқылы қосылады.
+Сыртқы әдістер, стандарттар және datasets тек source/legal registry және оқшауланған adapter boundary арқылы қосылады.
+
+Any third-party component requires a machine-readable license/source record and an isolated adapter boundary.

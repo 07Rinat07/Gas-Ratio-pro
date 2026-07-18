@@ -31,7 +31,22 @@
 - корреляция скважин и подготовка к многоскважинным планшетам;
 - интерфейс и документация на русском, казахском и английском языках.
 
-## Stable-релиз v225.8
+## Stable-релиз v225.9
+
+- завершён Stage 5 Petrophysical Engine Validation Foundation;
+- зарегистрированы 10 петрофизических методов с provenance, units, applicability, limitations и report policy;
+- добавлены 10 synthetic reference cases, numerical tolerances и uncertainty metadata;
+- application-service gate выполняет production-функции и формирует JSON evidence;
+- 10/10 методов численно воспроизводимы, 9 разрешены для финального отчёта;
+- foundation Dual Water остаётся `blocked_final_report`;
+- запуск: `python scripts/run_petrophysical_validation_gate.py`;
+- [инструкция](docs/user/ru/petrophysical_validation_gate.md) · [архитектура](docs/developer/ru/petrophysical_validation_architecture.md).
+- A3 landscape графики и текстовые разделы используют полную полезную ширину/высоту страницы;
+- PDF/DOCX/HTML переведены с фиксированных ширин на `available-frame`;
+- [адаптивный макет](docs/user/ru/adaptive_report_layout.md) · [архитектура layout](docs/developer/ru/adaptive_report_layout_architecture.md).
+- итоговая проверка v225.9: **2881 passed, 0 failed**; Live Workbench: **14/14**; petrophysical gate: **10/10**.
+
+## Предыдущий stable-релиз v225.8
 
 - Stage 4 переведён в канал **stable**;
 - Live Workbench Acceptance проверяет реальный server health и исполняемую Streamlit-сессию;

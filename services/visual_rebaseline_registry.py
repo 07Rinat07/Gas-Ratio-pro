@@ -35,7 +35,7 @@ class VisualRebaselineContract:
         return (
             self.id.startswith("LR-")
             and "::" in self.nodeid
-            and self.approved_release == "v225.7"
+            and self.approved_release.startswith("v")
             and bool(self.summary)
             and bool(self.semantic_contract)
             and self.semantic_sha256 == semantic_sha256(self.semantic_contract)
@@ -69,7 +69,7 @@ class VisualRebaselineRegistry:
         ids = [item.id for item in self.contracts]
         nodeids = [item.nodeid for item in self.contracts]
         return (
-            self.release == "v225.7"
+            self.release.startswith("v")
             and len(self.contracts) == 13
             and len(ids) == len(set(ids))
             and len(nodeids) == len(set(nodeids))

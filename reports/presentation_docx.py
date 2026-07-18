@@ -134,6 +134,19 @@ def _configure_document(doc: Document, options: PresentationDocxOptions) -> None
             pass
 
 
+def _usable_width_inches(doc: Document) -> float:
+    """Return the actual writable width of the current Word section."""
+
+    section = doc.sections[-1]
+    usable = section.page_width - section.left_margin - section.right_margin
+    return max(3.0, float(usable) / float(Inches(1)))
+
+
+def _proportional_docx_widths(total_inches: float, weights: Sequence[float]) -> list[float]:
+    total = sum(float(weight) for weight in weights) or 1.0
+    return [max(0.35, total_inches * float(weight) / total) for weight in weights]
+
+
 def _add_paragraph(doc: Document, text: object, *, style: str | None = None, bold: bool = False) -> None:
     paragraph = doc.add_paragraph(style=style) if style else doc.add_paragraph()
     run = paragraph.add_run(_clean_text(text))
@@ -147,8 +160,14 @@ def _add_metadata_table(doc: Document, rows: Sequence[tuple[str, str]]) -> None:
     table = doc.add_table(rows=0, cols=2)
     table.alignment = WD_TABLE_ALIGNMENT.LEFT
     table.style = "Table Grid"
+    table.autofit = False
+    usable_width = _usable_width_inches(doc)
+    label_width = min(max(1.5, usable_width * 0.24), 2.85)
+    value_width = max(1.5, usable_width - label_width)
     for label, value in clean_rows:
         cells = table.add_row().cells
+        cells[0].width = Inches(label_width)
+        cells[1].width = Inches(value_width)
         cells[0].text = _clean_text(label)
         cells[1].text = _clean_text(value)
         for paragraph in cells[0].paragraphs:
@@ -185,7 +204,11 @@ def _add_document_table(doc: Document, block: DocumentTable) -> None:
     table.alignment = WD_TABLE_ALIGNMENT.LEFT
     table.style = "Table Grid"
     table.autofit = False
-    column_widths = _adaptive_docx_column_widths(block.headers, block.rows)
+    column_widths = _adaptive_docx_column_widths(
+        block.headers,
+        block.rows,
+        total_inches=_usable_width_inches(doc),
+    )
     header_cells = table.rows[0].cells
     for index, header in enumerate(block.headers):
         header_cells[index].width = Inches(column_widths[index])
@@ -299,6 +322,10 @@ def _add_report_legend_table(doc: Document, title: str, entries: Sequence[dict[s
     table = doc.add_table(rows=1, cols=3)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.style = "Table Grid"
+    table.autofit = False
+    legend_widths = _proportional_docx_widths(_usable_width_inches(doc), (0.08, 0.25, 0.67))
+    for index, width in enumerate(legend_widths):
+        table.rows[0].cells[index].width = Inches(width)
     headers = (tr(locale, "report.legend.sign"), tr(locale, "report.legend.label"), tr(locale, "report.legend.meaning"))
     for index, header in enumerate(headers):
         cell = table.rows[0].cells[index]
@@ -308,6 +335,8 @@ def _add_report_legend_table(doc: Document, title: str, entries: Sequence[dict[s
             cell_run.font.size = Pt(REPORT_PRINT_READABILITY.docx_legend_font_pt)
     for entry in entries:
         cells = table.add_row().cells
+        for index, width in enumerate(legend_widths):
+            cells[index].width = Inches(width)
         symbol = str(entry.get("symbol", "■"))
         color = _hex_rgb(entry.get("color"))
         cells[0].text = ""
@@ -335,10 +364,16 @@ def _add_statistics_table(doc: Document, entries: Sequence[dict[str, object]], *
     table = doc.add_table(rows=1, cols=5)
     table.style = "Table Grid"
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    table.autofit = False
+    stats_widths = _proportional_docx_widths(_usable_width_inches(doc), (0.28, 0.15, 0.15, 0.18, 0.24))
+    for index, width in enumerate(stats_widths):
+        table.rows[0].cells[index].width = Inches(width)
     for index, header in enumerate((tr(locale, "report.curve"), tr(locale, "report.minimum"), tr(locale, "report.maximum"), tr(locale, "report.mean"), tr(locale, "report.sum"))):
         table.rows[0].cells[index].text = header
     for entry in entries:
         cells = table.add_row().cells
+        for index, width in enumerate(stats_widths):
+            cells[index].width = Inches(width)
         values = (str(entry.get("label", "")), f"{float(entry.get('minimum',0)):.4g}",
                   f"{float(entry.get('maximum',0)):.4g}", f"{float(entry.get('mean',0)):.4g}",
                   f"{float(entry.get('sum',0)):.5g}")
@@ -399,6 +434,10 @@ def _add_plot_placeholder(doc: Document, block: DocumentPlot, *, locale: str = "
     if str(legend.get("report_kind", "")) == "detail" and intervals:
         table = doc.add_table(rows=1, cols=5)
         table.style = "Table Grid"
+        table.autofit = False
+        detail_widths = _proportional_docx_widths(_usable_width_inches(doc), (0.15, 0.21, 0.17, 0.27, 0.20))
+        for idx, width in enumerate(detail_widths):
+            table.rows[0].cells[idx].width = Inches(width)
         headers = (tr(locale, "report.interval_id"), tr(locale, "report.depth_m"), tr(locale, "report.thickness_m"), tr(locale, "report.fluid"), tr(locale, "report.confidence"))
         for idx, value in enumerate(headers):
             table.rows[0].cells[idx].text = value
@@ -407,6 +446,8 @@ def _add_plot_placeholder(doc: Document, block: DocumentPlot, *, locale: str = "
                 run.font.size = Pt(8)
         for item in intervals:
             cells = table.add_row().cells
+            for idx, width in enumerate(detail_widths):
+                cells[idx].width = Inches(width)
             values = (
                 str(item.get("id", "")),
                 f"{float(item.get('top', 0)):g}–{float(item.get('base', 0)):g}",
@@ -443,7 +484,8 @@ def _add_plot_placeholder(doc: Document, block: DocumentPlot, *, locale: str = "
             raise TypeError("Figure backend does not support raster export")
         paragraph = doc.add_paragraph()
         paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        paragraph.add_run().add_picture(BytesIO(png), width=Inches(7.45))
+        usable_width = doc.sections[-1].page_width - doc.sections[-1].left_margin - doc.sections[-1].right_margin
+        paragraph.add_run().add_picture(BytesIO(png), width=usable_width)
         if str(legend.get("report_kind", "")) != "detail":
             _add_statistics_table(doc, list(legend.get("statistics", []) or []), locale=locale)
     except Exception as exc:

@@ -31,7 +31,22 @@ A professional trilingual engineering platform for importing, quality-controllin
 - well correlation and preparation for multi-well log panels;
 - Russian, Kazakh, and English interface and documentation.
 
-## Stable release v225.8
+## Stable release v225.9
+
+- completed Stage 5 Petrophysical Engine Validation Foundation;
+- registered 10 petrophysical methods with provenance, units, applicability, limitations, and report policy;
+- added 10 synthetic reference cases, numerical tolerances, and uncertainty metadata;
+- an application-service gate executes production functions and writes JSON evidence;
+- 10/10 methods are numerically reproducible and 9 are eligible for final reports;
+- foundation Dual Water remains `blocked_final_report`;
+- run: `python scripts/run_petrophysical_validation_gate.py`;
+- [user guide](docs/user/en/petrophysical_validation_gate.md) · [architecture](docs/developer/en/petrophysical_validation_architecture.md).
+- A3 landscape plots and narrative sections now use the full printable frame;
+- PDF/DOCX/HTML moved from fixed widths to the `available-frame` policy;
+- [adaptive layout guide](docs/user/en/adaptive_report_layout.md) · [layout architecture](docs/developer/en/adaptive_report_layout_architecture.md).
+- final v225.9 verification: **2881 passed, 0 failed**; Live Workbench: **14/14**; petrophysical gate: **10/10**.
+
+## Previous stable release v225.8
 
 - promoted Stage 4 to the **stable** channel;
 - Live Workbench Acceptance verifies real server health and an executable Streamlit session;

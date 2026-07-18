@@ -4,7 +4,7 @@ from services.visual_rebaseline_registry import VisualRebaselineRegistryService
 
 
 ROOT = Path(__file__).resolve().parents[1]
-REGISTRY = ROOT / "config" / "visual_rebaseline_contracts_v225_7.json"
+REGISTRY = ROOT / "config" / "visual_rebaseline_contracts_v225_9.json"
 
 
 def test_all_13_visual_contracts_have_approved_semantic_rebaseline() -> None:

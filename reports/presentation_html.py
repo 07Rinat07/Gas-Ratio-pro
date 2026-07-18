@@ -188,6 +188,9 @@ def _render_document_plot(plot: DocumentPlot, *, include_plotlyjs: bool) -> str:
             figure,
             include_plotlyjs=include_plotlyjs,
             full_html=False,
+            config={"responsive": True, "displaylogo": False},
+            default_width="100%",
+            default_height="78vh",
         )
     return "\n".join(
         (
@@ -294,6 +297,10 @@ def build_presentation_html_report(
         f"<title>{escape(document.metadata.title or opts.page_title)}</title>",
         "<style>",
         "body{font-family:Arial,sans-serif;margin:22px;color:#172033;background:#fff;}",
+        "body.layout-landscape{margin:14px 18px;}",
+        ".report-cover,.report-section,.technical-appendix-notice{width:100%;box-sizing:border-box;}",
+        ".plotly-graph-div{width:100%!important;min-height:520px;}",
+        ".js-plotly-plot,.plot-container,.svg-container{width:100%!important;}",
         ".report-cover{border-bottom:2px solid #d7dde8;margin-bottom:22px;padding-bottom:16px;}",
         "h1{font-size:25px;margin:0 0 8px 0;}",
         "h2{font-size:17px;margin:0 0 10px 0;}",
@@ -314,7 +321,7 @@ def build_presentation_html_report(
         ".technical-appendix-notice{border-top:1px solid #d7dde8;margin-top:28px;padding-top:14px;color:#4b5870;font-size:12px;}",
         _print_css(opts),
         "</style>",
-        "</head><body>",
+        f"</head><body class='layout-{escape(_safe_orientation(opts.orientation))}'>",
         "<section class='report-cover'>",
         f"<h1>{escape(document.metadata.title or opts.page_title)}</h1>",
     ]

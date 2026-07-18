@@ -1,0 +1,401 @@
+{
+  "schema": "gas-ratio-pro/petrophysical-validation-dataset/v1",
+  "version": "v225.9",
+  "generated_from": "independent_static_reference_calculations",
+  "data_rights": "Synthetic numeric cases authored for GAS RATIO PRO; no third-party field data included.",
+  "cases": [
+    {
+      "case_id": "vsh_gr_linear_reference",
+      "method_id": "petrophysics.vsh_gr_linear",
+      "inputs": {
+        "gr": [
+          35.0,
+          56.25,
+          77.5,
+          98.75,
+          120.0
+        ]
+      },
+      "parameters": {
+        "method": "linear",
+        "gr_clean": 35.0,
+        "gr_shale": 120.0
+      },
+      "expected": {
+        "values": [
+          0.0,
+          0.25,
+          0.5,
+          0.75,
+          1.0
+        ]
+      },
+      "input_units": {
+        "gr": "gAPI"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "vsh_gr_larionov_tertiary_reference",
+      "method_id": "petrophysics.vsh_gr_larionov_tertiary",
+      "inputs": {
+        "gr": [
+          35.0,
+          56.25,
+          77.5,
+          98.75,
+          120.0
+        ]
+      },
+      "parameters": {
+        "method": "larionov_tertiary",
+        "gr_clean": 35.0,
+        "gr_shale": 120.0
+      },
+      "expected": {
+        "values": [
+          0.0,
+          0.07459079207778621,
+          0.21621515358679566,
+          0.485115097053248,
+          0.9956711823610809
+        ]
+      },
+      "input_units": {
+        "gr": "gAPI"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "vsh_gr_larionov_old_rocks_reference",
+      "method_id": "petrophysics.vsh_gr_larionov_old_rocks",
+      "inputs": {
+        "gr": [
+          35.0,
+          56.25,
+          77.5,
+          98.75,
+          120.0
+        ]
+      },
+      "parameters": {
+        "method": "larionov_old_rocks",
+        "gr_clean": 35.0,
+        "gr_shale": 120.0
+      },
+      "expected": {
+        "values": [
+          0.0,
+          0.13669047558312142,
+          0.33,
+          0.6033809511662428,
+          0.99
+        ]
+      },
+      "input_units": {
+        "gr": "gAPI"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "vsh_gr_clavier_reference",
+      "method_id": "petrophysics.vsh_gr_clavier",
+      "inputs": {
+        "gr": [
+          35.0,
+          56.25,
+          77.5,
+          98.75,
+          120.0
+        ]
+      },
+      "parameters": {
+        "method": "clavier",
+        "gr_clean": 35.0,
+        "gr_shale": 120.0
+      },
+      "expected": {
+        "values": [
+          0.0,
+          0.12599237613028058,
+          0.3071611722815881,
+          0.5697345444542685,
+          0.9999999999999998
+        ]
+      },
+      "input_units": {
+        "gr": "gAPI"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "phie_shale_correction_reference",
+      "method_id": "petrophysics.phie_shale_correction",
+      "inputs": {
+        "total_porosity": [
+          0.2,
+          0.25,
+          0.15,
+          0.05
+        ],
+        "shale_volume": [
+          0.0,
+          0.2,
+          0.6,
+          1.0
+        ]
+      },
+      "parameters": {},
+      "expected": {
+        "values": [
+          0.2,
+          0.2,
+          0.06,
+          0.0
+        ]
+      },
+      "input_units": {
+        "total_porosity": "fraction",
+        "shale_volume": "fraction"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "sw_archie_reference",
+      "method_id": "petrophysics.sw_archie",
+      "inputs": {
+        "phie": [
+          0.2,
+          0.18,
+          0.12,
+          0.3
+        ],
+        "rt": [
+          10.0,
+          8.0,
+          4.0,
+          20.0
+        ]
+      },
+      "parameters": {
+        "a": 1.0,
+        "m": 2.0,
+        "n": 2.0,
+        "rw": 0.1
+      },
+      "expected": {
+        "values": [
+          0.5,
+          0.6211299937499416,
+          1.0,
+          0.23570226039551587
+        ]
+      },
+      "input_units": {
+        "phie": "fraction",
+        "rt": "ohm.m"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "sw_simandoux_reference",
+      "method_id": "petrophysics.sw_simandoux",
+      "inputs": {
+        "phie": [
+          0.2,
+          0.18,
+          0.12,
+          0.3
+        ],
+        "rt": [
+          10.0,
+          8.0,
+          4.0,
+          20.0
+        ],
+        "vsh": [
+          0.0,
+          0.25,
+          0.6,
+          0.1
+        ]
+      },
+      "parameters": {
+        "a": 1.0,
+        "m": 2.0,
+        "n": 2.0,
+        "rw": 0.1,
+        "rsh": 2.0
+      },
+      "expected": {
+        "values": [
+          0.49999999999999994,
+          0.45749353434834933,
+          0.6379703642288646,
+          0.20955565959215366
+        ]
+      },
+      "input_units": {
+        "phie": "fraction",
+        "rt": "ohm.m",
+        "vsh": "fraction"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "sw_indonesia_reference",
+      "method_id": "petrophysics.sw_indonesia",
+      "inputs": {
+        "phie": [
+          0.2,
+          0.18,
+          0.12,
+          0.3
+        ],
+        "rt": [
+          10.0,
+          8.0,
+          4.0,
+          20.0
+        ],
+        "vsh": [
+          0.0,
+          0.25,
+          0.6,
+          0.1
+        ]
+      },
+      "parameters": {
+        "a": 1.0,
+        "m": 2.0,
+        "n": 2.0,
+        "rw": 0.1,
+        "rsh": 2.0
+      },
+      "expected": {
+        "values": [
+          0.5,
+          0.25180388979542856,
+          0.014420012513757274,
+          0.15207194253456813
+        ]
+      },
+      "input_units": {
+        "phie": "fraction",
+        "rt": "ohm.m",
+        "vsh": "fraction"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "sw_dual_water_foundation_reference",
+      "method_id": "petrophysics.sw_dual_water_foundation",
+      "inputs": {
+        "phie": [
+          0.2,
+          0.18,
+          0.12,
+          0.3
+        ],
+        "rt": [
+          10.0,
+          8.0,
+          4.0,
+          20.0
+        ],
+        "vsh": [
+          0.0,
+          0.25,
+          0.6,
+          0.1
+        ]
+      },
+      "parameters": {
+        "a": 1.0,
+        "m": 2.0,
+        "n": 2.0,
+        "rw_free": 0.1,
+        "bound_water_saturation": 0.35,
+        "bound_water_weight": 0.5
+      },
+      "expected": {
+        "values": [
+          0.5,
+          0.5872387445311988,
+          0.8049999999999999,
+          0.24141714737574005
+        ]
+      },
+      "input_units": {
+        "phie": "fraction",
+        "rt": "ohm.m",
+        "vsh": "fraction"
+      },
+      "output_unit": "fraction"
+    },
+    {
+      "case_id": "net_pay_cutoff_reference",
+      "method_id": "petrophysics.net_pay_cutoff_flags",
+      "inputs": {
+        "vsh": [
+          0.2,
+          0.5,
+          0.7,
+          0.1
+        ],
+        "phie": [
+          0.15,
+          0.12,
+          0.2,
+          0.08
+        ],
+        "sw": [
+          0.4,
+          0.65,
+          0.3,
+          0.2
+        ],
+        "rt": [
+          20.0,
+          10.0,
+          30.0,
+          50.0
+        ]
+      },
+      "parameters": {
+        "shale_volume_max": 0.45,
+        "effective_porosity_min": 0.1,
+        "water_saturation_max": 0.6,
+        "resistivity_min": 8.0,
+        "net_to_gross_min": 0.5
+      },
+      "expected": {
+        "reservoir": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "net": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "pay": [
+          1,
+          0,
+          0,
+          0
+        ]
+      },
+      "input_units": {
+        "vsh": "fraction",
+        "phie": "fraction",
+        "sw": "fraction",
+        "rt": "ohm.m"
+      },
+      "output_unit": "binary_flag"
+    }
+  ]
+}

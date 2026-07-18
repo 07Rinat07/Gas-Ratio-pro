@@ -239,6 +239,19 @@ class ApplicationServiceContainer:
             expected_type=DataPlatformApplicationService,
         )
 
+    def petrophysical_validation(self, *, root: Path | str):
+        """Return the workspace-scoped Stage 5 validation-gate boundary."""
+        from services.petrophysical_validation_application_service import (
+            PetrophysicalValidationApplicationService,
+        )
+
+        return self.ensure_workspace_service(
+            service_name="petrophysical_validation",
+            root=root,
+            factory=lambda: PetrophysicalValidationApplicationService(root=root),
+            expected_type=PetrophysicalValidationApplicationService,
+        )
+
     def runtime_diagnostics(self, *, root: Path | str):
         # Local import keeps diagnostics infrastructure behind a lazy boundary.
         from services.runtime_diagnostics_application_service import (

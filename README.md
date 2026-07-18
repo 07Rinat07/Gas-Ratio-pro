@@ -52,7 +52,22 @@
 - сторонний код и спецификации используются только после лицензионной проверки;
 - preview и диагностика больших файлов выполняются с ограничением памяти.
 
-## Stable-релиз v225.8
+## Stable-релиз v225.9
+
+- Stage 5 Petrophysical Engine Validation Foundation завершён;
+- 10 методов связаны с provenance, units, synthetic reference cases, tolerance и uncertainty metadata;
+- application-service validation gate: **10/10 numerical contracts passed**, 9 final-report eligible;
+- foundation Dual Water остаётся `blocked_final_report`;
+- запуск: `python scripts/run_petrophysical_validation_gate.py`;
+- [пользовательская инструкция](docs/user/ru/petrophysical_validation_gate.md);
+- [архитектура](docs/developer/ru/petrophysical_validation_architecture.md).
+- A3 landscape графики, подписи, таблицы и текстовые разделы используют фактический доступный frame;
+- PDF/DOCX/HTML больше не ограничиваются фиксированными ширинами 185/160 мм;
+- [адаптивный макет](docs/user/ru/adaptive_report_layout.md);
+- [архитектура адаптивного layout](docs/developer/ru/adaptive_report_layout_architecture.md).
+- итоговый regression suite v225.9: **2881 passed, 0 failed**; Live Workbench: **14/14**; petrophysical gate: **10/10**.
+
+## Предыдущий stable-релиз v225.8
 
 - Stage 4 Workbench UI Completion переведён в канал **stable**;
 - добавлен автоматический Live Workbench Acceptance с реальным Streamlit server health и executable AppTest session;

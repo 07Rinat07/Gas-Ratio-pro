@@ -7,6 +7,7 @@ from typing import Any, Iterable, Mapping, Sequence
 import math
 import pandas as pd
 
+from core.petrophysical_validation_contract import manifest_method_rows, validation_contract_summary
 from las_editor.las_creator import DEFAULT_NULL_VALUE, normalize_las_mnemonic
 
 PETROPHYSICAL_WORKSPACE_SCHEMA = "gas-ratio-pro/petrophysical-workspace/v1"
@@ -397,7 +398,24 @@ def petrophysical_interval_table_rows(intervals: Iterable[PetrophysicalIntervalS
     return [asdict(interval) for interval in intervals]
 
 
+def _petrophysical_method_ids(result: PetrophysicalResult) -> tuple[str, ...]:
+    shale_method = str(result.plan.shale_volume.method or "linear").lower()
+    shale_method_ids = {
+        "linear": "petrophysics.vsh_gr_linear",
+        "larionov_tertiary": "petrophysics.vsh_gr_larionov_tertiary",
+        "larionov_old_rocks": "petrophysics.vsh_gr_larionov_old_rocks",
+        "clavier": "petrophysics.vsh_gr_clavier",
+    }
+    return (
+        shale_method_ids[shale_method],
+        "petrophysics.phie_shale_correction",
+        "petrophysics.sw_archie",
+        "petrophysics.net_pay_cutoff_flags",
+    )
+
+
 def build_petrophysical_manifest(result: PetrophysicalResult) -> dict[str, Any]:
+    method_ids = _petrophysical_method_ids(result)
     return {
         "schema": result.schema,
         "generated_at": result.generated_at,
@@ -415,6 +433,9 @@ def build_petrophysical_manifest(result: PetrophysicalResult) -> dict[str, Any]:
         },
         "outputs": [_output_name(result.plan.output_prefix, name) for name in ("VSH", "PHIE", "SW_ARCHIE", "SO", "RES", "NET", "PAY", "NG")],
         "source_references": list(result.source_references),
+        "method_ids": list(method_ids),
+        "method_provenance": manifest_method_rows(method_ids),
+        "validation_contract": validation_contract_summary(method_ids),
     }
 
 
@@ -435,6 +456,13 @@ def render_petrophysical_markdown_report(result: PetrophysicalResult) -> str:
     ]
     for output in manifest["outputs"]:
         lines.append(f"- `{output}`")
+    lines.extend(["", "## Method provenance and validation policy", ""])
+    for method in manifest["method_provenance"]:
+        lines.append(
+            f"- `{method['method_id']}` — {method['name']}; source `{method['source_id']}`; "
+            f"policy `{method['report_policy']}`; validation datasets: {', '.join(method['dataset_ids'])}."
+        )
+    lines.append(f"- Validation contract: `{manifest['validation_contract']['contract_fingerprint']}`")
     if result.intervals:
         lines.extend([
             "",

@@ -1,33 +1,22 @@
 # План проекта Gas Ratio Pro
 
-Обновлено: 18 июля 2026 года. Активная сборка: `v225.8 stable`.
+Обновлено: 18 июля 2026 года. Активная сборка: `v225.9 stable`.
 
-## Завершённый инкремент — Stable Promotion & Live Workbench Acceptance
+## Завершённый инкремент — Petrophysical Engine Validation Foundation
 
-- добавлен кроссплатформенный acceptance runner;
-- временный Streamlit server проходит health gate;
-- официальный AppTest исполняет реальную Workbench-сессию;
-- подтверждены build version, stable channel, абсолютный source path и entry-point SHA-256;
-- проверены Toolbar, Project Explorer, Workspace Host, Properties и Status Bar;
-- LAS command и LAS Workspace проходят без traceback;
-- итог: **14/14 acceptance checks passed**;
-- Windows launcher поддерживает `run_app.ps1 -Acceptance`;
-- документация и инструкции синхронизированы на русском, казахском и английском.
+- 10 методов зафиксированы без изменения formulas;
+- provenance, units, applicability, limitations и report policy machine-readable;
+- 10 synthetic reference cases и tolerance contracts;
+- application-service validation gate и JSON evidence;
+- manifests содержат method provenance и fingerprint;
+- foundation Dual Water blocked for final report.
+- A3 landscape PDF/DOCX/HTML используют полный доступный frame; text/table layout больше не ограничен 160/185 мм.
+- Release acceptance: petrophysical gate 10/10, Live Workbench 14/14, full regression 2881/2881.
 
-## Следующий разрешённый инкремент — Petrophysical Engine Validation Foundation
+## Следующий разрешённый инкремент — Field Calibration & Report Authorization Integration
 
-1. Зафиксировать текущий Method Registry и список формул.
-2. Связать каждый method ID с источником, лицензией, единицами и applicability domain.
-3. Подготовить reference datasets и expected results.
-4. Определить numerical tolerance и uncertainty metadata.
-5. Реализовать application-service validation gate и regression tests.
-6. Не изменять Interpretation 2.0 и visual baseline без отдельного утверждённого evidence.
-
-## Definition of Done
-
-- build channel остаётся `stable`;
-- live acceptance воспроизводится локально и проходит 14/14;
-- каждый петрофизический метод имеет machine-readable provenance;
-- validation datasets не содержат непроверенных или нелегально полученных данных;
-- вычислительный результат воспроизводим в пределах утверждённого tolerance;
-- README, instructions, status, roadmap, changelog, release notes и manifest синхронизированы на `ru/kk/en`.
+1. Field-owned calibration datasets и data-rights records.
+2. Sensitivity/uncertainty envelopes для параметров.
+3. Final-report authorization в export boundary.
+4. Read-only validation diagnostics на ru/kk/en.
+5. Full regression и live acceptance.

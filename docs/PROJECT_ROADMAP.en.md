@@ -1,63 +1,56 @@
-# Project Roadmap — v225.8 Stable
+# Project Roadmap — v225.9 Stable
 
-Updated: July 18, 2026.
-
-This document is the only active Gas Ratio Pro development sequence.
+Updated: July 18, 2026. This is the single active development sequence for Gas Ratio Pro.
 
 ## Stage 4 — Workbench UI Completion
 
-Status: **COMPLETED / Stable v225.8**.
-
-Completed:
-
-1. page-aware package, physical profiles, and cross-format parity gate;
-2. A4/A3 visual golden artifacts and Print Center E2E acceptance;
-3. removal of all nine architecture-boundary violations;
-4. replacement of brittle source assertions with behavioral contracts;
-5. controlled visual rebaseline and resolution of all 51 legacy regression contracts;
-6. complete v225.8 regression suite: **2858 passed, 0 failed**;
-7. Live Workbench Acceptance with real server health and an executable Streamlit session;
-8. verified build/source identity and all five Workbench regions;
-9. exercised the LAS command and LAS Workspace without a traceback;
-10. stable promotion `v225.8`: **14/14 acceptance checks passed**.
+Status: **COMPLETED / Stable v225.8**. Live Workbench Acceptance: 14/14.
 
 ## Stage 5 — Petrophysical Engine Validation Foundation
 
-Status: **NEXT AUTHORIZED**.
+Status: **COMPLETED / Stable v225.9**.
 
-Authorized sequence:
+Completed:
 
-1. inventory and freeze the current Method Registry;
-2. machine-readable formula and source provenance;
-3. reference validation datasets with known expected results;
-4. numerical tolerances, unit contracts, and uncertainty metadata;
-5. one application-service validation gate;
-6. regression evidence before new UI views are connected.
-
-A formula may not change because of a UI preference or an unrecorded source. Every new formula requires a method ID, legal/source record, units, applicability domain, reference dataset, and tolerance.
+1. froze 10 current production methods without changing formulas;
+2. added machine-readable provenance, source/legal metadata, and report policy;
+3. added unit contracts for inputs, parameters, and outputs;
+4. added 10 synthetic reference datasets with expected results;
+5. defined absolute/relative tolerances and uncertainty metadata;
+6. added an application-service gate, CLI, and JSON evidence;
+7. embedded method provenance and the contract fingerprint in calculation manifests;
+8. blocked foundation Dual Water from final reports;
+9. added adaptive full-frame A3 landscape layout for PDF/DOCX/HTML with the v225.9 visual baseline.
 
 ## Stabilization & Release Audit
 
-Architecture boundaries must not be weakened. Visual baselines change only through the approved semantic manifest. Silent `xfail`, hidden failures, and test deletion without a replacement contract are prohibited. Stable promotion is proven by `gas-ratio-pro/live-workbench-acceptance/v1`.
+Stable v225.8 Live Workbench Acceptance remains mandatory: **14/14 passed**. Architecture boundaries, controlled visual baselines, replacement contracts, and the v225.9 petrophysical validation gate may not be bypassed.
+
+## Stage 5.1 — Field Calibration & Report Authorization Integration
+
+Status: **NEXT AUTHORIZED**.
+
+1. add only field-owned or legally cleared calibration datasets;
+2. define parameter distributions and sensitivity/uncertainty envelopes;
+3. wire final-report authorization into the export application service;
+4. add read-only validation diagnostics without changing formulas;
+5. repeat full regression and Live Workbench Acceptance.
 
 ## Reservoir Intelligence / Interpretation 2.0
 
-Status: **FROZEN AFTER ACCEPTANCE**. Mandatory regression contract:
-
-- Pixler rehabilitation;
-- Ternary rehabilitation;
-- Depth engineering panel;
-- engineering interval summary and reproducible visual classification;
-- every approved view consumes one calculation result.
+Status: **FROZEN AFTER ACCEPTANCE**. Pixler, Ternary, the Depth engineering panel, and the shared calculation result may change only with explicit validation evidence.
 
 ## Definition of Done
 
-- Stage 4 stable acceptance remains reproducible and passes all required checks;
-- Stage 5 methods have machine-readable provenance, units, applicability domains, datasets, and tolerances;
-- no approved Interpretation 2.0 or visual contract changes without explicit validation evidence;
-- full regression suite contains no failures;
+- Stable v225.8 Workbench acceptance remains reproducible;
+- the petrophysical gate passes every method contract;
+- final reports cannot use `blocked_final_report` methods;
+- the full regression suite has no failures;
+- landscape reports use the actual frame without a fixed narrow column;
 - documentation remains synchronized in Russian, Kazakh, and English.
 
 ## Open Standards and Legal Research Governance
 
-External standards and third-party components are integrated only through policy, a machine-readable registry, license confirmation, and an isolated adapter boundary.
+External methods, standards, and datasets enter only through the source/legal registry and an isolated adapter boundary.
+
+Any third-party component requires a machine-readable license/source record and an isolated adapter boundary.

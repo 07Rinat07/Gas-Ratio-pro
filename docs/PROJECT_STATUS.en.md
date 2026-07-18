@@ -1,34 +1,34 @@
-# Current status — v225.8 Stable
+# Current status — v225.9 Stable
 
 Updated: July 18, 2026.
 
 ## Active stage
 
-**Stage 4 — Workbench UI Completion is complete.** Build `v225.8` was promoted to the **stable** channel after automated Live Workbench Acceptance.
+**Stage 5 — Petrophysical Engine Validation Foundation is complete.** No formulas were changed; a mandatory machine-readable validation gate now protects the engine.
 
-## Stable promotion
+## Validation foundation
 
-- a real temporary Streamlit server returns `ok` from `/_stcore/health`;
-- the build badge, `BUILD_VERSION`, `BUILD_CHANNEL`, absolute runtime source path, and entry point agree;
-- Toolbar, Project Explorer, Workspace Host, Properties, and Status Bar render without a traceback;
-- the command-backed LAS action selects `nav.las_workspace`;
-- LAS Viewer and the LAS Workspace open action complete without a traceback;
-- acceptance result: **14/14 passed**;
-- acceptance contract: `config/live_workbench_acceptance_contract_v225_8.json`;
-- machine-readable evidence: `artifacts/acceptance/live_workbench_acceptance_v225_8.json`.
+- 10 methods are registered in `config/petrophysical_method_registry_v225_9.json`;
+- 10 synthetic reference cases live in `data/validation/petrophysics/petrophysical_validation_cases_v225_9.json`;
+- every method defines provenance, units, applicability, limitations, absolute/relative tolerance, and uncertainty metadata;
+- the application service executes the real production functions;
+- gate result: **10/10 passed**, final-report eligible: **9/10**;
+- `petrophysics.sw_dual_water_foundation` is numerically reproducible but remains `blocked_final_report`;
+- evidence: `artifacts/validation/petrophysical_validation_v225_9.json`.
+
+## Adaptive report layout
+
+- A3 landscape PDF uses the actual ReportLab frame width and height;
+- metadata, legends, statistics, and narrative tables span the full working frame;
+- DOCX uses the current section width and HTML uses responsive 100% width;
+- `print-readability/v1.1` and the v225.9 visual baseline prevent a regression to a narrow left column.
 
 ## Stabilization & Release Audit
 
-Architecture boundaries, the 51 resolved legacy contracts, controlled visual semantic snapshots, and the live acceptance contract remain mandatory stable-release gates. Silent `xfail`, hidden failures, and test deletion without a replacement contract are prohibited.
+Stage 4 Live Workbench Acceptance (**14/14 passed**), architecture boundaries, controlled visual semantic snapshots, and resolved legacy contracts remain mandatory. Silent `xfail`, hidden failures, and formula changes without evidence are prohibited.
 
-## Regression state
-
-- full v225.8 regression suite: **2858 passed, 0 failed**;
-- acceptance and stable-promotion tests extend that baseline;
-- architecture-boundary debt: **0**;
-- active legacy regression contracts: **0**;
-- controlled visual semantic snapshots remain mandatory.
+Final v225.9 verification: **2881 passed, 0 failed**; extended report/export contour: **338 passed**; Live Workbench Acceptance: **14/14**; petrophysical validation: **10/10**.
 
 ## Next stage
 
-**Stage 5 — Petrophysical Engine Validation Foundation.** Only the method registry, formula provenance, reference datasets, numerical tolerances, and the application-service validation gate are authorized. Approved formulas, Interpretation 2.0, and visual baselines may not change without validation evidence.
+**Stage 5.1 — Field Calibration & Report Authorization Integration.** Authorized work includes field-owned calibration datasets, parameter uncertainty/sensitivity, read-only diagnostics, and wiring `authorize_methods(..., final_report=True)` into the final export boundary.
