@@ -1,3 +1,14 @@
+# v225.5 — Cross-format Parity Gate, Legacy Static Export Retirement & User A4/A3 Profiles
+
+- Added blocking `VisualizationCrossFormatParityGate` for SVG, PNG, PDF, DOCX, and HTML.
+- `VisualizationPageAwarePackage` upgraded to v1.3; `export_ready` now requires parity success.
+- Added `UserPhysicalPrintProfileStore` with persistent A4/A3 profiles and certified readability floors.
+- Professional Print Center exposes parity status and gate id.
+- Professional report and LAS Viewer static delivery use `PageAwareStaticArtifact`.
+- Multi-page SVG/PNG is delivered as a manifest-backed ZIP instead of silently returning page one.
+- Retired the independent CompositeLog static SVG/PNG/PDF export path.
+- Updated README, user/developer instructions, status, roadmap, project plan, release notes, AI handoff, build metadata, and documentation manifest in Russian, Kazakh, and English.
+
 # v225.4 — Visible Professional Print Center & Direct DOCX/HTML Preview
 
 - Professional Print Center now prepares and displays the exact physical page-aware package before export.

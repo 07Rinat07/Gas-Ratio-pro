@@ -1,6 +1,6 @@
 # Print Center and direct multi-page preview
 
-Revision: 2 · GAS RATIO PRO v225.4
+Revision: 3 · GAS RATIO PRO v225.5
 
 ## What changed
 
@@ -31,3 +31,11 @@ Track, curve, overlay, and page summaries, page labels, error messages, and pack
 ## Limitations
 
 Single-page fallback is disabled. If the canonical page array is missing or differs from the declared `page_count`, the package is invalid and must not be silently exported as page one.
+
+## Cross-format parity and user profiles
+
+Before delivery, the package passes an automated parity gate. It compares page count, physical dimensions, track partition, and geometry signature across SVG, PNG, PDF, and the direct DOCX/HTML preview. Any mismatch blocks export.
+
+The page settings allow selection of a built-in profile or persistence of a user A4/A3 profile. A profile stores paper, orientation, margins, DPI, minimum font, minimum track width, and maximum tracks per page. Readability values cannot fall below the certified baseline profile.
+
+When SVG or PNG contains multiple pages, the application creates a ZIP bundle with one file per page and a `manifest.json`. Page one is no longer delivered as the complete document.

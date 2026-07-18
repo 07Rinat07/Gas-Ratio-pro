@@ -52,14 +52,14 @@
 - сторонний код и спецификации используются только после лицензионной проверки;
 - preview и диагностика больших файлов выполняются с ограничением памяти.
 
-## Печать и экспорт v225.4
+## Печать и экспорт v225.5
 
-- видимый Professional Print Center рассчитывает точный физический пакет до экспорта;
-- пользователь видит A4/A3, ориентацию, DPI, фактическое число страниц и может просмотреть каждую SVG-страницу;
-- `VisualizationPageAwarePackage` v1.2 передаёт единый строгий preview-контракт v1.1;
-- DOCX и HTML получают все физические страницы напрямую, без повторной пагинации и без fallback на первую страницу;
-- PDF, SVG, PNG, DOCX и HTML используют одну geometry signature и один track partition;
-- подписи, сводка и сообщения preview локализованы на русском, казахском и английском языках.
+- `VisualizationPageAwarePackage` v1.3 содержит блокирующий cross-format parity gate для SVG/PNG/PDF/DOCX/HTML;
+- пользовательские профили A4/A3 сохраняются в `data/user_preferences/physical_print_profiles.json`;
+- профиль не может уменьшить шрифт, толщину линий и ширину трека ниже базового безопасного значения;
+- многостраничные SVG/PNG экспортируются ZIP-пакетом с `manifest.json`, без silent first-page fallback;
+- legacy CompositeLog static-export отключён, а профессиональный отчёт и LAS Viewer используют parity-gated delivery;
+- интерфейс, инструкции, архитектура, статус и план синхронизированы на русском, казахском и английском языках.
 
 Документация: [RU](docs/user/ru/print_center_page_aware.md) · [KK](docs/user/kk/print_center_page_aware.md) · [EN](docs/user/en/print_center_page_aware.md).
 

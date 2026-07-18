@@ -1,6 +1,6 @@
 # Page-aware print and direct-preview architecture
 
-Revision: 2 · GAS RATIO PRO v225.4
+Revision: 3 · GAS RATIO PRO v225.5
 
 ## Single geometry source
 
@@ -31,3 +31,17 @@ The canonical `visualization.preview.page-aware` contract contains a `pages` arr
 - labels and messages remain synchronized for `ru/kk/en`;
 - page-count mismatch invalidates preview readiness;
 - legacy static-export branches may be removed only after parity audit.
+
+## Cross-format parity gate v1.0
+
+`VisualizationCrossFormatParityGate` runs inside `VisualizationPageAwarePackageBuilder`. It compares layout pages, package pages, SVG root dimensions, PNG IHDR dimensions, actual PDF page count, canonical preview pages, track partition, and geometry signature. `VisualizationPageAwarePackage.export_ready` requires `parity_gate.ok=true`.
+
+`VisualizationPageAwarePackage` is upgraded to v1.3. `VisualizationPrintCenterSummary` and the UI view model publish `parity_gate_id` and `cross_format_parity_passed`.
+
+## User physical profiles
+
+`UserPhysicalPrintProfileStore` persists JSON schema `gas-ratio-pro.physical-print-profiles` in `data/user_preferences/physical_print_profiles.json`. `VisualizationPrintLayoutEngine` accepts a serialized `physical_profile`. User A4/A3 profiles may strengthen readability floors and reduce page capacity, but cannot weaken the baseline constraints.
+
+## Static-export retirement
+
+Professional reports and LAS Viewer use `build_page_aware_static_artifact()`. Single-page SVG/PNG is delivered directly; multi-page output is a manifest-backed ZIP. The independent CompositeLog SVG/PNG/PDF branch in `reports.export_static` is removed and replaced with an explicit legacy-path prohibition. Ordinary Plotly charts remain on Kaleido and are not treated as physical Print Center documents.

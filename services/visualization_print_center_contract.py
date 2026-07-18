@@ -62,6 +62,8 @@ class VisualizationPrintCenterSummary:
     exact_profile_label: str = ""
     page_chrome_enabled: bool = False
     repeated_legend_enabled: bool = False
+    cross_format_parity_passed: bool = False
+    parity_gate_id: str = ""
     export_ready: bool = False
     status_label: str = ""
     issues: tuple[str, ...] = field(default_factory=tuple)
@@ -81,6 +83,8 @@ class VisualizationPrintCenterSummary:
             "exact_profile_label": self.exact_profile_label,
             "page_chrome_enabled": self.page_chrome_enabled,
             "repeated_legend_enabled": self.repeated_legend_enabled,
+            "cross_format_parity_passed": self.cross_format_parity_passed,
+            "parity_gate_id": self.parity_gate_id,
             "export_ready": self.export_ready,
             "status_label": self.status_label,
             "issues": list(self.issues),
@@ -121,6 +125,8 @@ class VisualizationPrintCenterPreparedPackage:
             "preview": preview,
             "docx_html_preview": preview,
             "geometry_signature": self.package.geometry_signature,
+            "parity_gate": dict(self.package.parity_gate),
+            "cross_format_parity_passed": bool(self.package.parity_gate.get("ok")),
             "export_ready": self.export_ready,
             "single_pipeline_source": True,
             "single_page_fallback": False,
@@ -159,6 +165,8 @@ class VisualizationPrintCenterService:
             exact_profile_label=_exact_profile_label(package, normalized_locale),
             page_chrome_enabled=bool(chrome.get("enabled")),
             repeated_legend_enabled=bool(chrome.get("enabled") and chrome.get("repeat_legend", True)),
+            cross_format_parity_passed=bool(package.parity_gate.get("ok")),
+            parity_gate_id=str(package.parity_gate.get("gate_id") or ""),
             export_ready=package.export_ready,
             status_label=_TEXT[normalized_locale]["ready" if package.export_ready else "not_ready"],
             issues=tuple(dict.fromkeys(issues)),

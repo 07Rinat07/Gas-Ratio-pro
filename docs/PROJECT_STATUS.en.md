@@ -1,34 +1,35 @@
-# Current status — v225.4
+# Current status — v225.5
 
 Updated: 18 July 2026.
 
-The **Visible Professional Print Center & Direct DOCX/HTML Preview** increment is complete:
+## Active stage
 
-- the visible Professional Print Center directly prepares `VisualizationPageAwarePackage`;
-- exact A4/A3 profile, orientation, DPI, actual page count, and readiness are shown before launch;
-- users can select and inspect every physical SVG page;
-- `VisualizationPageAwarePackage` is v1.2 and the preview contract is v1.1;
-- `ReportPageAwarePreviewService` builds the package from the current report `DataFrame` without passing raw rows downstream;
-- HTML, DOCX, and PDF use one strict normalizer and the canonical `pages` array;
-- downstream layout rebuilding and silent first-page fallback are forbidden;
-- combined `bundle` export uses the same page-aware payload;
-- summaries, page labels, and messages are localized in Russian, Kazakh, and English.
+**Stage 4 — Workbench UI Completion / Stabilization & Release Audit.** Build status: **release candidate v225.5**.
 
-## Release governance
+## Implemented
 
-Current stage: **Stabilization & Release Audit**. **Release candidate v225.4** is being checked for multi-format parity, strict preview-contract behavior, synchronized trilingual documentation, and a reproducible release archive.
+- `VisualizationCrossFormatParityGate` automatically compares SVG, PNG, PDF, DOCX, and HTML;
+- `VisualizationPageAwarePackage` v1.3 is ready only after the parity gate passes;
+- Professional Print Center exposes the exact profile, pages, parity status, and gate id;
+- persistent user A4/A3 physical profiles are available;
+- minimum font, line, and track width are protected by baseline safety floors;
+- professional report export and LAS Viewer use page-aware static delivery;
+- multi-page SVG/PNG is delivered as a ZIP with `manifest.json`;
+- legacy CompositeLog static export is retired;
+- documentation is synchronized in Russian, Kazakh, and English.
 
-## Next approved increment
+## Release verification
 
-1. Prove visible-preview parity with PDF/DOCX/HTML/SVG/PNG automatically for A4/A3.
-2. Remove remaining independent legacy static-export branches only after parity is proven.
-3. Add user-defined physical profiles while preserving minimum approved typography.
-4. Run a separate audit of obsolete legacy-UI test contracts.
-## v225.4 verification
+Release-gate result:
 
-- 166 focused and governance tests pass;
-- the complete 2838-test collection was executed in four balanced shards: 2787 passed, 51 failed;
-- every one of the 51 failures was rerun against the clean v225.3 archive and reproduced unchanged; no new v225.4 regression failure was found;
-- Python compileall passes;
-- every relative Markdown link in README files and `docs/`, including archived plans, resolves correctly;
-- the build remains a release candidate because 51 obsolete legacy contracts require a separate audit, but they do not block the verified v225.4 print/export increment.
+- targeted renderer/export/UI set: **123 passed**;
+- full regression suite: **2843 tests, 2792 passed, 51 failed**;
+- all 51 failures reproduce on clean v225.4;
+- new v225.5 regression failures: **0**;
+- Python compileall, 108 relative Markdown links, and the documentation manifest: successful.
+
+Known legacy regression failures are evaluated separately and are not hidden.
+
+## Next stage
+
+Complete Stage 4 through a real user acceptance path: create/select a profile, preflight preview, parity status, PDF/DOCX/HTML export, and multi-page SVG/PNG bundle delivery.

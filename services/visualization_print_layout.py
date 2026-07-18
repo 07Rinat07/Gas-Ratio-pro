@@ -5,7 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
-from core.physical_print_profiles import PAGE_SIZES_MM, resolve_physical_print_profile
+from core.physical_print_profiles import (
+    PAGE_SIZES_MM,
+    PhysicalPrintProfile,
+    resolve_physical_print_profile,
+)
 from services.visualization_page_chrome import (
     build_page_chrome_primitives,
     resolve_page_chrome_options,
@@ -129,8 +133,9 @@ class VisualizationPrintLayoutEngine:
         label_legend: Mapping[str, Any] | None = None,
         options: Mapping[str, Any] | None = None,
     ) -> VisualizationPrintLayout:
+        provided_options = dict(options or {})
         cfg = dict(self.DEFAULT_OPTIONS)
-        cfg.update(dict(options or {}))
+        cfg.update(provided_options)
         issues: list[str] = []
 
         page_size = str(cfg.get("page_size") or "A4").upper()
@@ -154,17 +159,25 @@ class VisualizationPrintLayoutEngine:
             legend_position = "bottom"
 
         requested_profile_id = str(cfg.get("profile_id") or "").strip().lower()
+        custom_profile = cfg.get("physical_profile")
         try:
-            profile = resolve_physical_print_profile(page_size, orientation, requested_profile_id or None)
-        except KeyError:
+            profile = resolve_physical_print_profile(
+                page_size,
+                orientation,
+                requested_profile_id or None,
+                custom_profile=custom_profile if isinstance(custom_profile, (Mapping, PhysicalPrintProfile)) else None,
+            )
+        except (KeyError, ValueError, TypeError):
             issues.append(f"print_layout_error:unsupported_profile:{requested_profile_id}")
             profile = resolve_physical_print_profile(page_size, orientation)
-        if requested_profile_id:
+        if requested_profile_id or custom_profile is not None:
             page_size = profile.page_size
             orientation = profile.orientation
 
-        dpi = _positive_int(cfg.get("dpi"), profile.dpi)
-        margin_mm = _non_negative_float(cfg.get("margin_mm"), profile.margin_mm)
+        if "legend_position" not in provided_options:
+            legend_position = profile.legend_position
+        dpi = _positive_int(provided_options.get("dpi"), profile.dpi)
+        margin_mm = _non_negative_float(provided_options.get("margin_mm"), profile.margin_mm)
         minimum_font_pt = max(profile.minimum_font_pt, _positive_float(cfg.get("minimum_font_pt"), profile.minimum_font_pt))
         minimum_line_width_pt = max(
             profile.minimum_line_width_pt,
@@ -328,6 +341,7 @@ class VisualizationPrintLayoutEngine:
                 "page_track_counts": [len(page.track_ids) for page in pages],
                 "paginated_track_count": sum(len(page.track_ids) for page in pages),
                 "profile": profile.to_dict(),
+                "user_profile_applied": profile.user_defined,
                 "multi_page_supported": True,
                 "raw_dataframe_included": False,
                 "ui_objects_included": False,

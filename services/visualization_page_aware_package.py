@@ -8,10 +8,11 @@ that DOCX/HTML layers can consume without rebuilding visualization geometry.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from hashlib import sha256
 from typing import Any, Mapping
 
+from services.visualization_cross_format_parity import VisualizationCrossFormatParityGate
 from services.visualization_export_qa import VisualizationExportQaValidator
 from services.visualization_pdf_render_model_renderer import VisualizationPdfRenderModelRenderer
 from services.visualization_png_scene_renderer import VisualizationPngSceneRenderer
@@ -55,7 +56,7 @@ class VisualizationPageAsset:
 @dataclass(frozen=True, slots=True)
 class VisualizationPageAwarePackage:
     schema: str = "visualization.page-aware.package"
-    version: str = "1.2"
+    version: str = "1.3"
     profile_id: str = ""
     page_size: str = ""
     orientation: str = ""
@@ -68,6 +69,7 @@ class VisualizationPageAwarePackage:
     pages: tuple[VisualizationPageAsset, ...] = field(default_factory=tuple)
     pdf_bytes: bytes = b""
     qa: Mapping[str, Any] = field(default_factory=dict)
+    parity_gate: Mapping[str, Any] = field(default_factory=dict)
     issues: tuple[str, ...] = field(default_factory=tuple)
 
     @property
@@ -82,6 +84,7 @@ class VisualizationPageAwarePackage:
             and self.pdf_bytes.startswith(b"%PDF-")
             and bool(self.geometry_signature)
             and bool(self.qa.get("ok"))
+            and bool(self.parity_gate.get("ok"))
             and not self.issues
         )
 
@@ -127,6 +130,8 @@ class VisualizationPageAwarePackage:
             "page_chrome_enabled": bool(self.page_chrome.get("enabled")),
             "page_chrome_primitive_counts": [page.chrome_primitive_count for page in self.pages],
             "export_ready": self.export_ready,
+            "parity_gate": dict(self.parity_gate),
+            "cross_format_parity_passed": bool(self.parity_gate.get("ok")),
             "contains_raw_dataframe": False,
             "single_page_fallback": False,
             "legacy_svg_fallback_allowed": False,
@@ -152,6 +157,8 @@ class VisualizationPageAwarePackage:
             "pdf_size_bytes": len(self.pdf_bytes),
             "pdf_sha256": sha256(self.pdf_bytes).hexdigest() if self.pdf_bytes else "",
             "qa": dict(self.qa),
+            "parity_gate": dict(self.parity_gate),
+            "cross_format_parity_passed": bool(self.parity_gate.get("ok")),
             "issues": list(self.issues),
             "export_ready": self.export_ready,
             "renderer_neutral": True,
@@ -174,11 +181,13 @@ class VisualizationPageAwarePackageBuilder:
         pdf_renderer: VisualizationPdfRenderModelRenderer | None = None,
         png_renderer: VisualizationPngSceneRenderer | None = None,
         qa_validator: VisualizationExportQaValidator | None = None,
+        parity_gate: VisualizationCrossFormatParityGate | None = None,
     ) -> None:
         self._svg = svg_renderer or VisualizationSvgSceneRenderer()
         self._pdf = pdf_renderer or VisualizationPdfRenderModelRenderer()
         self._png = png_renderer or VisualizationPngSceneRenderer(self._svg)
         self._qa = qa_validator or VisualizationExportQaValidator()
+        self._parity_gate = parity_gate or VisualizationCrossFormatParityGate()
 
     def build(self, pipeline: Mapping[str, Any], *, raster_dpi: int = 300) -> VisualizationPageAwarePackage:
         issues: list[str] = []
@@ -229,7 +238,7 @@ class VisualizationPageAwarePackageBuilder:
         issues.extend(pdf.issues if not pdf.export_ready else ())
         issues.extend(png.issues if not png.export_ready else ())
         context = _mapping(pipeline.get("context"))
-        return VisualizationPageAwarePackage(
+        candidate = VisualizationPageAwarePackage(
             profile_id=str(print_layout.get("profile_id") or ""),
             page_size=str(print_layout.get("page_size") or ""),
             orientation=str(print_layout.get("orientation") or ""),
@@ -243,6 +252,24 @@ class VisualizationPageAwarePackageBuilder:
             pdf_bytes=pdf.pdf_bytes,
             qa=qa,
             issues=tuple(dict.fromkeys(issues)),
+        )
+        parity = self._parity_gate.validate(
+            pipeline,
+            svg_result=svg,
+            pdf_result=pdf,
+            png_result=png,
+            package_pages=candidate.pages,
+            preview_contract=candidate.preview_contract(),
+            raster_dpi=raster_dpi,
+        )
+        final_issues = list(candidate.issues)
+        if not parity.ok:
+            final_issues.append("page_aware_package_cross_format_parity_failed")
+            final_issues.extend(parity.issues)
+        return replace(
+            candidate,
+            parity_gate=parity.to_dict(),
+            issues=tuple(dict.fromkeys(final_issues)),
         )
 
 

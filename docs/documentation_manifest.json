@@ -103,7 +103,7 @@
     },
     {
       "id": "print_center_page_aware",
-      "revision": 2,
+      "revision": 3,
       "audience": "user",
       "languages": {
         "ru": "user/ru/print_center_page_aware.md",
@@ -113,7 +113,7 @@
     },
     {
       "id": "page_aware_print_architecture",
-      "revision": 2,
+      "revision": 3,
       "audience": "developer",
       "languages": {
         "ru": "developer/ru/page_aware_print_architecture.md",

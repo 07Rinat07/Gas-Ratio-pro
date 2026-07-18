@@ -1,6 +1,6 @@
 # Page-aware басып шығару және тікелей preview архитектурасы
 
-Revision: 2 · GAS RATIO PRO v225.4
+Revision: 3 · GAS RATIO PRO v225.5
 
 ## Геометрияның бірыңғай көзі
 
@@ -31,3 +31,17 @@ Revision: 2 · GAS RATIO PRO v225.4
 - белгілер мен хабарлар `ru/kk/en` үшін синхрондалған;
 - page count сәйкессіздігі preview дайындық күйін бұғаттайды;
 - legacy static-export жолдары parity аудитінен кейін ғана жойылады.
+
+## Cross-format parity gate v1.0
+
+`VisualizationCrossFormatParityGate` `VisualizationPageAwarePackageBuilder` ішінде орындалады. Ол layout, package pages, SVG root dimensions, PNG IHDR dimensions, PDF беттерінің нақты санын, canonical preview pages, track partition және geometry signature мәндерін салыстырады. `VisualizationPageAwarePackage.export_ready` үшін `parity_gate.ok=true` міндетті.
+
+`VisualizationPageAwarePackage` v1.3 нұсқасына жаңартылды. `VisualizationPrintCenterSummary` және UI view model `parity_gate_id` және `cross_format_parity_passed` өрістерін жариялайды.
+
+## Пайдаланушы физикалық профильдері
+
+`UserPhysicalPrintProfileStore` `gas-ratio-pro.physical-print-profiles` JSON схемасын `data/user_preferences/physical_print_profiles.json` файлында сақтайды. `VisualizationPrintLayoutEngine` сериализацияланған `physical_profile` қабылдайды. A4/A3 пайдаланушы профильдері readability floor талаптарын күшейте алады, бірақ базалық шектеулерді әлсірете алмайды.
+
+## Static-export тоқтатылуы
+
+Professional report және LAS Viewer `build_page_aware_static_artifact()` пайдаланады. Бірбетті SVG/PNG тікелей, көпбетті нұсқа manifest бар ZIP ретінде беріледі. `reports.export_static` ішіндегі тәуелсіз CompositeLog SVG/PNG/PDF тармағы жойылып, legacy path-қа нақты тыйым енгізілді. Қалыпты Plotly графиктері Kaleido арқылы қалады және физикалық Print Center құжаты болып саналмайды.

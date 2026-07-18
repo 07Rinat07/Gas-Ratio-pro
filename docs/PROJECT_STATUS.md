@@ -1,36 +1,35 @@
-# Текущее состояние — v225.4
+# Текущее состояние — v225.5
 
 Обновлено: 18 июля 2026 года.
 
-Завершён инкремент **Visible Professional Print Center & Direct DOCX/HTML Preview**:
+## Активный этап
 
-- видимый Professional Print Center напрямую рассчитывает `VisualizationPageAwarePackage`;
-- до запуска показываются точный A4/A3-профиль, ориентация, DPI, фактическое число страниц и статус готовности;
-- пользователь может выбрать и просмотреть каждую физическую SVG-страницу;
-- `VisualizationPageAwarePackage` обновлён до v1.2, preview contract — до v1.1;
-- добавлен `ReportPageAwarePreviewService`, формирующий пакет из текущего отчётного `DataFrame` без передачи сырых данных downstream;
-- HTML, DOCX и PDF используют общий строгий normalizer и канонический массив `pages`;
-- повторный layout и silent fallback на первую страницу запрещены;
-- комбинированный формат `bundle` подключён к тому же page-aware payload;
-- сводка, подписи страниц и сообщения локализованы на русском, казахском и английском языках.
+**Stage 4 — Workbench UI Completion / Stabilization & Release Audit.** Сборка имеет статус **release candidate v225.5**.
 
-Локализованные статусы: [Русский](PROJECT_STATUS.ru.md) · [Қазақша](PROJECT_STATUS.kk.md) · [English](PROJECT_STATUS.en.md).
+## Реализовано
 
-## Управление выпуском
+- `VisualizationCrossFormatParityGate` автоматически сверяет SVG, PNG, PDF, DOCX и HTML;
+- `VisualizationPageAwarePackage` v1.3 считается готовым только при успешном parity gate;
+- UI Professional Print Center показывает точный профиль, страницы, parity status и gate id;
+- добавлены сохраняемые пользовательские физические профили A4/A3;
+- минимальные шрифты, линии и ширина трека защищены базовыми safety floors;
+- профессиональный report export и LAS Viewer используют page-aware static delivery;
+- многостраничные SVG/PNG выдаются ZIP-пакетом с `manifest.json`;
+- legacy CompositeLog static-export отключён;
+- документация синхронизирована на русском, казахском и английском языках.
 
-Текущая стадия: **Stabilization & Release Audit**. Сборка **release candidate v225.4** проверяется на multi-format parity, строгий preview contract, трёхъязычную документацию и воспроизводимый архив.
+## Проверка релиза
 
-## Следующий разрешённый инкремент
+Результат release gate:
 
-1. Автоматизированно доказать parity видимого preview с PDF/DOCX/HTML/SVG/PNG на A4/A3.
-2. Удалить оставшиеся независимые legacy static-export ветки только после доказанной parity.
-3. Добавить пользовательские физические профили с сохранением минимально допустимой типографики.
-4. Провести отдельный аудит устаревших legacy-UI тестовых контрактов.
-## Проверка v225.4
+- целевой renderer/export/UI набор: **123 passed**;
+- полный regression suite: **2843 tests, 2792 passed, 51 failed**;
+- все 51 падение воспроизведены на чистой v225.4;
+- новых regression failures v225.5: **0**;
+- Python compileall, 108 относительных Markdown-ссылок и documentation manifest: успешно.
 
-- 166 целевых и governance-тестов проходят;
-- полный набор из 2838 тестов выполнен четырьмя сбалансированными частями: 2787 passed, 51 failed;
-- все 51 падение повторно запущены на чистом архиве v225.3 и воспроизвелись без исключения; новых regression failures v225.4 не обнаружено;
-- Python compileall проходит;
-- все относительные Markdown-ссылки в README и `docs/`, включая архивные планы, разрешаются корректно;
-- сборка остаётся release candidate, поскольку 51 устаревший legacy-контракт требует отдельного аудита, но не блокирует проверяемый v225.4 print/export increment.
+Известные legacy regression failures оцениваются отдельно и не скрываются.
+
+## Следующий этап
+
+Завершение Stage 4 через реальный пользовательский acceptance-path: создание/выбор профиля, preflight preview, parity status, экспорт PDF/DOCX/HTML и multi-page SVG/PNG bundle.

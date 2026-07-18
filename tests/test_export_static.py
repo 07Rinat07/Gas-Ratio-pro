@@ -52,16 +52,11 @@ def test_export_plotly_static_bytes_passes_normalized_options():
     }
 
 
-def test_export_native_composite_svg_png_pdf():
+def test_legacy_composite_static_export_is_retired():
     from app.visualization_v3.composite_engine import CompositeLogResult
 
-    svg = (
-        '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" '
-        'viewBox="0 0 400 300"><rect width="400" height="300" fill="white"/>'
-        '<text x="20" y="40" font-size="24">TGAS</text></svg>'
-    )
     result = CompositeLogResult(
-        svg=svg,
+        svg='<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"/>',
         width=400,
         height=300,
         depth_start=1000,
@@ -69,13 +64,5 @@ def test_export_native_composite_svg_png_pdf():
         rendered_tracks=("tgas",),
     )
 
-    svg_bytes = export_plotly_static_bytes(result, StaticExportOptions(format="svg"))
-    assert svg_bytes.startswith(b"<svg")
-
-    png_bytes = export_plotly_static_bytes(
-        result, StaticExportOptions(format="png", width=1200, height=900, scale=1)
-    )
-    assert png_bytes.startswith(b"\x89PNG\r\n\x1a\n")
-
-    pdf_bytes = export_plotly_static_bytes(result, StaticExportOptions(format="pdf"))
-    assert pdf_bytes.startswith(b"%PDF")
+    with pytest.raises(StaticExportUnavailableError, match="page-aware"):
+        export_plotly_static_bytes(result, StaticExportOptions(format="svg"))

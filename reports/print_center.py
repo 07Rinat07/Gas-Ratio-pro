@@ -98,6 +98,8 @@ class ProfessionalPrintCenterViewModel:
     page_count_label: str
     status_label: str
     geometry_signature: str
+    parity_gate_id: str = ""
+    cross_format_parity_passed: bool = False
     pages: tuple[PrintCenterPreviewPage, ...] = ()
     available_formats: tuple[str, ...] = ("pdf", "docx", "html", "svg", "png")
     export_ready: bool = False
@@ -118,6 +120,8 @@ class ProfessionalPrintCenterViewModel:
             "page_count_label": self.page_count_label,
             "status_label": self.status_label,
             "geometry_signature": self.geometry_signature,
+            "parity_gate_id": self.parity_gate_id,
+            "cross_format_parity_passed": self.cross_format_parity_passed,
             "pages": [page.to_dict(include_svg=include_svgs) for page in self.pages],
             "available_formats": list(self.available_formats),
             "export_ready": self.export_ready,
@@ -168,6 +172,8 @@ def build_professional_print_center_view(
         page_count_label=prepared.summary.page_count_label,
         status_label=prepared.summary.status_label,
         geometry_signature=package.geometry_signature,
+        parity_gate_id=str(package.parity_gate.get("gate_id") or ""),
+        cross_format_parity_passed=bool(package.parity_gate.get("ok")),
         pages=pages,
         export_ready=prepared.export_ready,
         issues=tuple(dict.fromkeys((*prepared.summary.issues, *package.issues))),

@@ -1,46 +1,33 @@
-# Project Roadmap — v225.4
+# Project Roadmap — v225.5
 
 Обновлено: 18 июля 2026 года.
 
-Этот документ — **единственная активная последовательность** разработки Gas Ratio Pro. Версионные roadmap-файлы и параллельные progress/next-step документы хранятся только в `docs/archive/legacy_plans/`.
-
-Локализованные версии: [Русский](PROJECT_ROADMAP.ru.md) · [Қазақша](PROJECT_ROADMAP.kk.md) · [English](PROJECT_ROADMAP.en.md).
+Этот документ — единственная активная последовательность разработки Gas Ratio Pro.
 
 ## Stage 4 — Workbench UI Completion
 
-Статус: **ACTIVE**.
+Статус: **ACTIVE / Release candidate v225.5**.
 
-Завершено в v225.4:
+Завершено:
 
-- видимый Professional Print Center использует один физический page-aware package;
-- точный профиль и все preview-страницы доступны до запуска;
-- DOCX/HTML получают канонический multi-page preview напрямую;
-- общий strict normalizer исключает silent first-page fallback;
-- `bundle` включён в единый экспортный путь;
-- `ru/kk/en` локализация preview синхронизирована.
+1. единый page-aware package для SVG/PNG/PDF/DOCX/HTML;
+2. видимый многостраничный Professional Print Center;
+3. блокирующий cross-format parity gate;
+4. пользовательские физические профили A4/A3 с safety floors;
+5. retirement legacy CompositeLog static-export;
+6. manifest-backed ZIP для multi-page SVG/PNG;
+7. синхронная документация `ru/kk/en`.
 
 Следующие разрешённые работы:
 
-1. автоматизированная parity-матрица UI/PDF/DOCX/HTML/SVG/PNG для A4/A3 portrait/landscape;
-2. удаление legacy static-export веток после прохождения parity gate;
-3. пользовательские физические профили без уменьшения текста ниже утверждённого минимума;
-4. завершение Stage 4 после проверки реального пользовательского пути.
+1. пользовательский acceptance-test полного Print Center workflow;
+2. визуальные golden artifacts для A4/A3 portrait/landscape и пользовательских профилей;
+3. аудит оставшихся legacy regression contracts;
+4. финализация Stage 4 и перевод release candidate в stable.
 
 ## Stabilization & Release Audit
 
-Статус: **Release candidate v225.4**.
-
-Перед каждым выпуском обязательны regression-прогон, format parity, физическая проверка A4/A3, синхронизация документации `ru/kk/en`, проверка manifest/ссылок/version metadata и целостности архива.
-
-## Petrophysical Engine
-
-Статус: **BLOCKED**.
-
-Расширение петрофизического движка запрещено до завершения Stage 4 и Stabilization & Release Audit. Допускаются только критические исправления без изменения утверждённого расчётного контракта.
-
-## Release gate
-
-Релиз готов только при одном layout и geometry signature, полном multi-page contract, отсутствии silent fallback, воспроизводимых артефактах, соответствии тестов и документации фактическому коду и синхронности трёх языков.
+Перед каждым выпуском обязательны parity gate, regression-прогон, физическая проверка A4/A3, документация `ru/kk/en`, manifest/links/version metadata и целостность архива.
 
 ## Reservoir Intelligence / Interpretation 2.0
 
@@ -55,3 +42,7 @@
 ## Open Standards and Legal Research Governance
 
 Внешние стандарты и third-party components подключаются только через policy, machine-readable registry, лицензионное подтверждение и изолированный adapter boundary.
+
+## Petrophysical Engine
+
+Статус: **BLOCKED** до завершения Stage 4. Допускаются только критические исправления без изменения утверждённого расчётного контракта.

@@ -31,12 +31,12 @@ A professional trilingual engineering platform for importing, quality-controllin
 - well correlation and preparation for multi-well log panels;
 - Russian, Kazakh, and English interface and documentation.
 
-## Print and export v225.4
+## Print and export v225.5
 
-- the visible Professional Print Center shows the exact A4/A3 profile, DPI, and page count before launch;
-- every physical SVG page can be selected and previewed directly;
-- DOCX/HTML receive the complete page-aware preview without rebuilding layout;
-- the strict preview contract forbids silent first-page fallback;
+- an automated cross-format parity gate verifies SVG, PNG, PDF, DOCX, and HTML before delivery;
+- user A4/A3 physical profiles persist margins, DPI, orientation, and certified readability floors;
+- multi-page SVG/PNG is delivered as a manifest-backed ZIP and is never collapsed to page one;
+- legacy CompositeLog static export is retired; Professional Print Center uses only the page-aware package;
 - [user instructions](docs/user/en/print_center_page_aware.md);
 - [developer architecture](docs/developer/en/page_aware_print_architecture.md).
 

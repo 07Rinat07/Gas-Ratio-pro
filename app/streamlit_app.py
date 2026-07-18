@@ -423,6 +423,12 @@ from reports.print_center import (
     normalize_document_locale,
 )
 from services.report_page_aware_preview import ReportPageAwarePreviewService
+from services.page_aware_static_export import build_page_aware_static_artifact
+from core.physical_print_profiles import (
+    PHYSICAL_PRINT_PROFILES,
+    UserPhysicalPrintProfileStore,
+    build_user_physical_print_profile,
+)
 from core.build_info import BUILD_VERSION
 project_calculations = importlib.reload(project_calculations)
 project_exports = importlib.reload(project_exports)
@@ -9961,6 +9967,15 @@ def _render_professional_export_panel(
         # only after explicit confirmation. Persisted values are normalized
         # before widgets are created so a new LAS cannot leave stale out-of-
         # range depth values in Streamlit session state.
+        physical_profile_store = UserPhysicalPrintProfileStore()
+        saved_physical_profiles = physical_profile_store.load()
+        builtin_physical_profiles = tuple(
+            profile for profile in PHYSICAL_PRINT_PROFILES.values()
+            if profile.page_size in {"A4", "A3"}
+        )
+        selectable_physical_profiles = (*builtin_physical_profiles, *saved_physical_profiles)
+        physical_profile_by_id = {profile.id: profile for profile in selectable_physical_profiles}
+
         with st.form(key=f"presentation_export_form_{active_project.id}", clear_on_submit=False):
             locale_widget_key = f"report_document_locale_{active_project.id}"
             locale_pairs = document_locale_options()
@@ -9976,6 +9991,62 @@ def _render_professional_export_panel(
             )
             selected_document_locale = normalize_document_locale(locale_by_label[selected_locale_label])
             localized_copy = default_report_copy(selected_document_locale)
+            physical_profile_copy = {
+                "ru": {
+                    "label": "Физический профиль A4/A3",
+                    "auto": "Автоматический базовый профиль",
+                    "new": "Создать пользовательский профиль…",
+                    "custom": "пользовательский",
+                    "name": "Название профиля",
+                    "save": "💾 Сохранить физический профиль",
+                    "margin": "Поля, мм",
+                    "dpi": "DPI",
+                    "font": "Минимальный шрифт, pt",
+                    "track": "Минимальная ширина трека, мм",
+                    "tracks": "Максимум треков на странице",
+                    "orientation": "Ориентация",
+                    "help": (
+                        "Профиль фиксирует физические поля, DPI и безопасные пределы читаемости. "
+                        "Пользовательские профили не могут уменьшить шрифт и ширину треков ниже базового стандарта."
+                    ),
+                },
+                "kk": {
+                    "label": "A4/A3 физикалық профилі",
+                    "auto": "Автоматты базалық профиль",
+                    "new": "Пайдаланушы профилін жасау…",
+                    "custom": "пайдаланушы",
+                    "name": "Профиль атауы",
+                    "save": "💾 Физикалық профильді сақтау",
+                    "margin": "Жиектер, мм",
+                    "dpi": "DPI",
+                    "font": "Ең кіші қаріп, pt",
+                    "track": "Тректің ең кіші ені, мм",
+                    "tracks": "Беттегі ең көп трек",
+                    "orientation": "Бағдар",
+                    "help": (
+                        "Профиль физикалық жиектерді, DPI мәнін және оқылымдылықтың қауіпсіз шектерін бекітеді. "
+                        "Пайдаланушы профильдері қаріп пен трек енін базалық стандарттан төмендете алмайды."
+                    ),
+                },
+                "en": {
+                    "label": "A4/A3 physical profile",
+                    "auto": "Automatic baseline profile",
+                    "new": "Create user profile…",
+                    "custom": "user",
+                    "name": "Profile name",
+                    "save": "💾 Save physical profile",
+                    "margin": "Margins, mm",
+                    "dpi": "DPI",
+                    "font": "Minimum font, pt",
+                    "track": "Minimum track width, mm",
+                    "tracks": "Maximum tracks per page",
+                    "orientation": "Orientation",
+                    "help": (
+                        "The profile fixes physical margins, DPI, and safe readability floors. "
+                        "User profiles cannot reduce font or track width below the baseline standard."
+                    ),
+                },
+            }[selected_document_locale]
 
             with st.expander("Дополнительные настройки отчёта", expanded=False):
                 profile_widget_kwargs = {"index": 0} if form_keys["profile"] not in export_state else {}
@@ -10037,6 +10108,97 @@ def _render_professional_export_panel(
                     help="Авто рекомендуется: A4 для текста, A3 для широких планшетов.",
                 )
                 paper_value = "AUTO" if paper_label == "Авто" else paper_label
+
+                orientation_names = {
+                    "ru": {"portrait": "Книжная", "landscape": "Альбомная"},
+                    "kk": {"portrait": "Кітаптық", "landscape": "Альбомдық"},
+                    "en": {"portrait": "Portrait", "landscape": "Landscape"},
+                }[selected_document_locale]
+                physical_profile_labels_by_id = {
+                    profile.id: (
+                        f"{profile.name} · {profile.page_size} · "
+                        f"{orientation_names[profile.orientation]} · {profile.dpi} DPI"
+                        + (f" · {physical_profile_copy['custom']}" if profile.user_defined else "")
+                    )
+                    for profile in selectable_physical_profiles
+                }
+                physical_profile_auto_id = "__auto__"
+                physical_profile_new_id = "__new__"
+                physical_profile_option_ids = (
+                    physical_profile_auto_id,
+                    *physical_profile_labels_by_id.keys(),
+                    physical_profile_new_id,
+                )
+                physical_profile_widget_key = f"report_physical_profile_{active_project.id}"
+                selected_physical_profile_id = st.selectbox(
+                    physical_profile_copy["label"],
+                    options=physical_profile_option_ids,
+                    format_func=lambda value: (
+                        physical_profile_copy["auto"]
+                        if value == physical_profile_auto_id
+                        else physical_profile_copy["new"]
+                        if value == physical_profile_new_id
+                        else physical_profile_labels_by_id.get(value, value)
+                    ),
+                    key=physical_profile_widget_key,
+                    help=physical_profile_copy["help"],
+                )
+                active_physical_profile = physical_profile_by_id.get(selected_physical_profile_id)
+                new_physical_profile_name = ""
+                new_physical_profile_margin = 12.0
+                new_physical_profile_dpi = 150
+                new_physical_profile_font = 8.0
+                new_physical_profile_track = 30.0
+                new_physical_profile_tracks = 4
+                if active_physical_profile is not None:
+                    paper_value = active_physical_profile.page_size
+                    orientation_value = active_physical_profile.orientation
+                elif selected_physical_profile_id == physical_profile_new_id:
+                    custom_left, custom_right = st.columns(2)
+                    new_physical_profile_name = custom_left.text_input(
+                        physical_profile_copy["name"],
+                        key=f"report_physical_profile_name_{active_project.id}",
+                    )
+                    custom_page_size = custom_right.selectbox(
+                        "A4/A3",
+                        options=("A4", "A3"),
+                        key=f"report_physical_profile_page_{active_project.id}",
+                    )
+                    custom_orientation = custom_left.selectbox(
+                        physical_profile_copy["orientation"],
+                        options=("portrait", "landscape"),
+                        format_func=lambda value: orientation_names[value],
+                        key=f"report_physical_profile_orientation_{active_project.id}",
+                    )
+                    new_physical_profile_margin = custom_right.number_input(
+                        physical_profile_copy["margin"], min_value=5.0, max_value=35.0, value=12.0, step=1.0,
+                        key=f"report_physical_profile_margin_{active_project.id}",
+                    )
+                    new_physical_profile_dpi = custom_left.number_input(
+                        physical_profile_copy["dpi"], min_value=96, max_value=600, value=150, step=25,
+                        key=f"report_physical_profile_dpi_{active_project.id}",
+                    )
+                    baseline_profile = PHYSICAL_PRINT_PROFILES[f"{custom_page_size.lower()}_{custom_orientation}"]
+                    new_physical_profile_font = custom_right.number_input(
+                        physical_profile_copy["font"],
+                        min_value=float(baseline_profile.minimum_font_pt), max_value=18.0,
+                        value=float(baseline_profile.minimum_font_pt), step=0.5,
+                        key=f"report_physical_profile_font_{active_project.id}",
+                    )
+                    new_physical_profile_track = custom_left.number_input(
+                        physical_profile_copy["track"],
+                        min_value=float(baseline_profile.minimum_track_width_mm), max_value=80.0,
+                        value=float(baseline_profile.minimum_track_width_mm), step=1.0,
+                        key=f"report_physical_profile_track_{active_project.id}",
+                    )
+                    new_physical_profile_tracks = custom_right.number_input(
+                        physical_profile_copy["tracks"], min_value=1,
+                        max_value=int(baseline_profile.max_tracks_per_page),
+                        value=min(4, int(baseline_profile.max_tracks_per_page)), step=1,
+                        key=f"report_physical_profile_tracks_{active_project.id}",
+                    )
+                    paper_value = custom_page_size
+                    orientation_value = custom_orientation
 
                 title_widget_key = f"report_designer_title_{active_project.id}"
                 title_widget_kwargs = (
@@ -10383,17 +10545,45 @@ def _render_professional_export_panel(
                 if active_export_job is not None
                 else "🖨️  СФОРМИРОВАТЬ ОТЧЁТ"
             )
-            prepare_export = st.form_submit_button(
-                submit_label,
-                width="stretch",
-                type="primary",
-                disabled=(not wizard_review.ready or active_export_job is not None),
-                help=(
-                    "Текущий отчёт уже формируется."
-                    if active_export_job is not None
-                    else tooltip("report.prepare")
-                ),
-            )
+            submit_columns = st.columns([1, 2])
+            with submit_columns[0]:
+                save_physical_profile = st.form_submit_button(
+                    physical_profile_copy["save"],
+                    width="stretch",
+                    disabled=(selected_physical_profile_id != physical_profile_new_id),
+                )
+            with submit_columns[1]:
+                prepare_export = st.form_submit_button(
+                    submit_label,
+                    width="stretch",
+                    type="primary",
+                    disabled=(not wizard_review.ready or active_export_job is not None),
+                    help=(
+                        "Текущий отчёт уже формируется."
+                        if active_export_job is not None
+                        else tooltip("report.prepare")
+                    ),
+                )
+
+        if save_physical_profile:
+            try:
+                saved_profile = build_user_physical_print_profile(
+                    name=str(new_physical_profile_name or "").strip(),
+                    page_size=str(paper_value),
+                    orientation=str(orientation_value),
+                    margin_mm=float(new_physical_profile_margin),
+                    dpi=int(new_physical_profile_dpi),
+                    minimum_font_pt=float(new_physical_profile_font),
+                    minimum_track_width_mm=float(new_physical_profile_track),
+                    max_tracks_per_page=int(new_physical_profile_tracks),
+                )
+                physical_profile_store.upsert(saved_profile)
+                export_state[f"report_physical_profile_{active_project.id}"] = saved_profile.id
+                st.success(f"{physical_profile_copy['label']}: {saved_profile.name}")
+                _request_ui_refresh_and_rerun("physical_print_profile_saved")
+                return
+            except (OSError, ValueError, TypeError) as exc:
+                st.error(str(exc))
 
         selected_profile = next((option for option in profile_options if option.label == selected_profile_label), profile_options[0])
         selected_format = next((option for option in format_options if option.label == selected_format_label), format_options[0])
@@ -10502,6 +10692,7 @@ def _render_professional_export_panel(
                 interval_ids=tuple(interval_ids),
                 interval_metadata=interval_metadata,
                 raster_dpi=150,
+                physical_profile=active_physical_profile,
             )
 
         physical_preview_copy = {
@@ -10515,6 +10706,7 @@ def _render_professional_export_panel(
                 "error": "Не удалось подготовить физический пакет: {error}.",
                 "selector": "Страница физического предпросмотра",
                 "direct": "DOCX/HTML получают все страницы напрямую.",
+                "parity": "Cross-format parity подтверждён",
             },
             "kk": {
                 "prepare": "📐 Нақты физикалық пакетті есептеу",
@@ -10526,6 +10718,7 @@ def _render_professional_export_panel(
                 "error": "Физикалық пакетті дайындау мүмкін болмады: {error}.",
                 "selector": "Физикалық preview беті",
                 "direct": "DOCX/HTML барлық беттерді тікелей алады.",
+                "parity": "Cross-format parity расталды",
             },
             "en": {
                 "prepare": "📐 Calculate exact physical package",
@@ -10537,6 +10730,7 @@ def _render_professional_export_panel(
                 "error": "Unable to prepare the physical package: {error}.",
                 "selector": "Physical preview page",
                 "direct": "DOCX/HTML receive every page directly.",
+                "parity": "Cross-format parity passed",
             },
         }[str(report_design.document_locale or "ru")]
 
@@ -10546,6 +10740,7 @@ def _render_professional_export_panel(
                 current_export_request.selection_signature
                 + f"|page={structure_preview.paper_size}|orientation={structure_preview.orientation}"
                 + f"|margin={structure_preview.margin_mm}|locale={report_design.document_locale}"
+                + f"|physical_profile={active_physical_profile.id if active_physical_profile else 'auto'}"
             ).encode("utf-8")
         ).hexdigest()
         physical_preview_requested = st.button(
@@ -10634,6 +10829,7 @@ def _render_professional_export_panel(
                 st.caption(
                     f"{physical_view_payload.get('page_count_label', '')} · "
                     f"geometry `{str(physical_view_payload.get('geometry_signature') or '')[:16]}…` · "
+                    + (physical_preview_copy["parity"] + " · " if physical_view_payload.get("cross_format_parity_passed") else "")
                     + physical_preview_copy["direct"]
                 )
 
@@ -10697,6 +10893,7 @@ def _render_professional_export_panel(
 
                     def _render_export_artifact(presentation_model, frame, export_request):
                         check_cancelled()
+                        artifact_mime_type = export_request.mime_type
                         presentation_state = build_presentation_export_ui_state(
                             profile=export_request.profile_id,
                             export_format=export_request.format_id,
@@ -10725,19 +10922,15 @@ def _render_professional_export_panel(
                             )
                             file_name = f"{presentation_state.base_name}.xlsx"
                         elif export_request.format_id in {"png", "svg"}:
-                            report_figures = presentation_model.figures
-                            if not report_figures:
-                                raise RuntimeError("Инженерный график не был сформирован для экспорта.")
-                            content = export_plotly_static_bytes(
-                                report_figures[0],
-                                StaticExportOptions(
-                                    format=export_request.format_id,
-                                    width=1800,
-                                    height=export_request.figure_height,
-                                    scale=2.0,
-                                ),
+                            physical_result = _prepare_physical_visualization(frame, presentation_model)
+                            static_artifact = build_page_aware_static_artifact(
+                                physical_result.prepared.package,
+                                format_name=export_request.format_id,
+                                base_name=presentation_state.base_name,
                             )
-                            file_name = f"{presentation_state.base_name}.{export_request.extension}"
+                            content = static_artifact.content
+                            file_name = static_artifact.file_name
+                            artifact_mime_type = static_artifact.mime_type
                         else:
                             rendered = build_designed_report_artifact(
                                 presentation_model,
@@ -10755,7 +10948,7 @@ def _render_professional_export_panel(
                         return ControlledExportArtifact(
                             content=content,
                             file_name=file_name,
-                            mime_type=export_request.mime_type,
+                            mime_type=artifact_mime_type,
                             format_id=export_request.format_id,
                             format_label=export_request.format_label,
                             profile_id=export_request.profile_id,

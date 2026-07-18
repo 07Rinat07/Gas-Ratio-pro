@@ -1,29 +1,37 @@
-# Gas Ratio Pro жоба жоспары
+# Gas Ratio Pro жобасының жоспары
 
-Жаңартылған күні: 18 шілде 2026 жыл. Белсенді жинақ: `v225.4`.
+Жаңартылған күні: 18 шілде 2026 жыл. Белсенді жинақ: `v225.5`.
 
 ## Міндетті инженерлік қағидалар
 
-- бір pipeline page geometry үшін жалғыз дереккөз болады;
-- UI, PDF, DOCX, HTML, SVG және PNG renderer-neutral contracts қолданады;
-- A4/A3 және пайдаланушы профильдері ең төмен оқылатын типографиканы сақтайды;
-- multi-page preview бірінші бетке үнсіз қысқармайды;
+- бір pipeline физикалық геометрияның көзі болып табылады;
+- `export_ready` үшін cross-format parity gate сәтті болуы міндетті;
+- A4/A3 пайдаланушы профильдері readability floor талаптарын әлсірете алмайды;
+- multi-page SVG/PNG бірінші бетке қысқартылмайды;
 - құжаттама мен нұсқаулықтар `ru / kk / en` тілдерінде синхронды жаңартылады.
 
-## Аяқталған кезең — v225.4
+## Аяқталған кезең — v225.5
 
-- көрінетін Print Center физикалық пакетке қосылды;
-- әр бетті қарау және нақты preflight жиынтығы қосылды;
-- page-aware package v1.2 және preview contract v1.1;
-- DOCX/HTML үшін тікелей multi-page preview;
-- HTML/DOCX/PDF/assets үшін ортақ strict normalizer;
-- жергіліктендірілген белгілер мен хабарлар;
-- `bundle` сол payload-ты пайдаланады.
+- SVG/PNG/PDF/DOCX/HTML parity gate;
+- page-aware package v1.3;
+- persistent user profiles;
+- manifest-backed static bundles;
+- CompositeLog static-export тоқтатылды;
+- Professional Print Center parity status көрсетеді;
+- тесттер мен үш тілдегі құжаттама жаңартылды.
 
-## Келесі рұқсат етілген кезең — Parity Gate & Legacy Export Retirement
+## Келесі рұқсат етілген инкремент — Stage 4 Acceptance & Stable Promotion
 
-1. UI, PDF, DOCX, HTML, SVG және PNG үшін автоматты parity матрицасын жасау.
-2. A4/A3, екі бағдар, track partition, page count, geometry signature және page chrome тексеру.
-3. Parity сәтті расталғаннан кейін ғана тәуелсіз static/Plotly fallback жолдарын жою.
-4. Ең төмен өлшемдерді тексеретін пайдаланушы физикалық профильдерін қосу.
-5. Тесттер мен үш тілдегі барлық құжаттаманы жаңарту.
+1. Профиль жасау және таңдау пайдаланушы acceptance-path тексеруін орындау.
+2. Нақты деректерде A4/A3 portrait/landscape және custom profiles тексеру.
+3. Visual golden artifacts бекіту.
+4. Қалған legacy test failures талдау.
+5. Толық release gate өткеннен кейін ғана stable шығару.
+
+## Definition of Done
+
+- package parity автоматты расталған;
+- физикалық профиль көрінеді және қайталанады;
+- барлық форматта барлық бет сақталады;
+- legacy first-page/static fallback жоқ;
+- build metadata, README, нұсқаулықтар, status, roadmap, changelog және manifest синхрондалған.

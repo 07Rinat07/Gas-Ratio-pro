@@ -1,40 +1,37 @@
 # План проекта Gas Ratio Pro
 
-Обновлено: 18 июля 2026 года. Активная сборка: `v225.4`.
-
-Языковые версии: [Русский](PROJECT_PLAN.ru.md) · [Қазақша](PROJECT_PLAN.kk.md) · [English](PROJECT_PLAN.en.md).
+Обновлено: 18 июля 2026 года. Активная сборка: `v225.5`.
 
 ## Обязательные инженерные принципы
 
-- один pipeline является единственным источником page geometry;
-- UI, PDF, DOCX, HTML, SVG и PNG используют renderer-neutral contracts;
-- A4/A3 и пользовательские профили соблюдают минимальную читаемую типографику;
-- multi-page preview не может молча сокращаться до первой страницы;
+- один pipeline является источником физической геометрии;
+- `export_ready` требует успешный cross-format parity gate;
+- пользовательские A4/A3 профили не могут ослаблять readability floors;
+- multi-page SVG/PNG не сокращается до первой страницы;
 - документация и инструкции обновляются синхронно на `ru / kk / en`.
 
-## Завершённый этап — v225.4
+## Завершённый этап — v225.5
 
-- видимый Print Center подключён к физическому пакету;
-- добавлен просмотр каждой страницы и точная preflight-сводка;
-- page-aware package v1.2 и preview contract v1.1;
-- прямой multi-page preview для DOCX/HTML;
-- общий strict normalizer для HTML/DOCX/PDF/assets;
-- локализованные подписи и сообщения;
-- `bundle` использует тот же payload.
+- parity gate SVG/PNG/PDF/DOCX/HTML;
+- page-aware package v1.3;
+- persistent user profiles;
+- manifest-backed static bundles;
+- retirement CompositeLog static-export;
+- parity status в Professional Print Center;
+- тесты и документация на трёх языках.
 
-## Следующий разрешённый инкремент — Parity Gate & Legacy Export Retirement
+## Следующий разрешённый инкремент — Stage 4 Acceptance & Stable Promotion
 
-1. Сформировать автоматическую parity-матрицу для UI, PDF, DOCX, HTML, SVG и PNG.
-2. Проверить A4/A3, обе ориентации, track partition, page count, geometry signature и page chrome.
-3. Удалить независимые static/Plotly fallback-ветки только после успешной parity-проверки.
-4. Добавить пользовательские физические профили с валидацией минимальных размеров.
-5. Обновить тесты и всю документацию на трёх языках.
+1. Выполнить пользовательский acceptance-path создания и выбора профиля.
+2. Проверить A4/A3 portrait/landscape и custom profiles на реальных данных.
+3. Зафиксировать visual golden artifacts.
+4. Разобрать remaining legacy test failures.
+5. Выпустить stable только после полного release gate.
 
 ## Definition of Done
 
-- физический пакет виден до запуска;
-- все форматы используют канонический `pages` contract;
-- повторный layout отсутствует;
-- single-page fallback отсутствует;
-- parity подтверждена тестами и эталонными артефактами;
-- version metadata, README, инструкции, status, roadmap, changelog и manifest синхронизированы.
+- package parity подтверждена автоматически;
+- физический профиль видим и воспроизводим;
+- все страницы сохраняются во всех форматах;
+- legacy first-page/static fallback отсутствует;
+- build metadata, README, инструкции, status, roadmap, changelog и manifest синхронизированы.

@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
+from core.physical_print_profiles import PhysicalPrintProfile, physical_print_profile_from_mapping
+
 import pandas as pd
 
 from services.las_visualization_payload_service import (
@@ -88,6 +90,7 @@ class ReportPageAwarePreviewService:
         interval_ids: Sequence[str] | None = None,
         interval_metadata: Mapping[str, Mapping[str, Any]] | None = None,
         raster_dpi: int = 150,
+        physical_profile: Mapping[str, Any] | PhysicalPrintProfile | None = None,
     ) -> ReportPageAwarePreviewResult:
         normalized_page_size = str(page_size or "A4").strip().upper()
         if normalized_page_size not in {"A4", "A3"}:
@@ -99,10 +102,20 @@ class ReportPageAwarePreviewService:
         if normalized_locale not in {"ru", "kk", "en"}:
             normalized_locale = "ru"
 
+        resolved_profile: PhysicalPrintProfile | None = None
+        if isinstance(physical_profile, PhysicalPrintProfile):
+            resolved_profile = physical_profile
+        elif isinstance(physical_profile, Mapping):
+            resolved_profile = physical_print_profile_from_mapping(physical_profile)
+        if resolved_profile is not None:
+            normalized_page_size = resolved_profile.page_size
+            normalized_orientation = resolved_profile.orientation
+
         print_options = {
             "page_size": normalized_page_size,
             "orientation": normalized_orientation,
-            "margin_mm": max(0.0, float(margin_mm)),
+            "margin_mm": resolved_profile.margin_mm if resolved_profile is not None else max(0.0, float(margin_mm)),
+            "dpi": resolved_profile.dpi if resolved_profile is not None else 96,
             "page_chrome": {
                 "enabled": bool(show_page_chrome),
                 "locale": normalized_locale,
@@ -112,6 +125,10 @@ class ReportPageAwarePreviewService:
                 "repeat_legend": True,
             },
         }
+        if resolved_profile is not None:
+            print_options["profile_id"] = resolved_profile.id
+            print_options["physical_profile"] = resolved_profile.to_dict()
+
         visualization = self._payload_service.build_from_frame(
             frame,
             project_id=project_id,

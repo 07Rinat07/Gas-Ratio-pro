@@ -1,46 +1,33 @@
-# Project Roadmap — v225.4
+# Project Roadmap — v225.5
 
 Updated: 18 July 2026.
 
-This document is the **single active development sequence** for Gas Ratio Pro. Versioned roadmaps and parallel progress/next-step files are retained only under `docs/archive/legacy_plans/`.
-
-Localized versions: [Русский](PROJECT_ROADMAP.ru.md) · [Қазақша](PROJECT_ROADMAP.kk.md) · [English](PROJECT_ROADMAP.en.md).
+This document is the single active development sequence for Gas Ratio Pro.
 
 ## Stage 4 — Workbench UI Completion
 
-Status: **ACTIVE**.
+Status: **ACTIVE / release candidate v225.5**.
 
-Completed in v225.4:
+Completed:
 
-- visible Professional Print Center consumes one physical page-aware package;
-- exact profile and every preview page are available before launch;
-- DOCX/HTML receive canonical multi-page preview directly;
-- the shared strict normalizer prevents silent first-page fallback;
-- `bundle` is included in the unified export path;
-- `ru/kk/en` preview localization is synchronized.
+1. one page-aware package for SVG/PNG/PDF/DOCX/HTML;
+2. visible multi-page Professional Print Center;
+3. blocking cross-format parity gate;
+4. user A4/A3 physical profiles with safety floors;
+5. retirement of legacy CompositeLog static export;
+6. manifest-backed ZIP for multi-page SVG/PNG;
+7. synchronized `ru/kk/en` documentation.
 
-Approved next work:
+Next authorized work:
 
-1. automated UI/PDF/DOCX/HTML/SVG/PNG parity matrix for A4/A3 portrait/landscape;
-2. legacy static-export retirement after the parity gate passes;
-3. user physical profiles without reducing text below the approved minimum;
-4. close Stage 4 after validating the real user path.
+1. user acceptance test of the complete Print Center workflow;
+2. visual golden artifacts for A4/A3 portrait/landscape and user profiles;
+3. audit of remaining legacy regression contracts;
+4. complete Stage 4 and promote the release candidate to stable.
 
 ## Stabilization & Release Audit
 
-Status: **Release candidate v225.4**.
-
-Every release requires regression, format parity, physical A4/A3 checks, synchronized `ru/kk/en` documentation, manifest/link/version-metadata checks, and archive integrity verification.
-
-## Petrophysical Engine
-
-Status: **BLOCKED**.
-
-Petrophysical Engine expansion is prohibited until Stage 4 and Stabilization & Release Audit are complete.
-
-## Release gate
-
-A release is ready only with one layout and geometry signature, a complete multi-page contract, no silent fallback, reproducible artifacts, tests and documentation matching code, and synchronized three-language coverage.
+Every release requires the parity gate, regression run, physical A4/A3 verification, `ru/kk/en` documentation, manifest/links/version metadata, and archive integrity.
 
 ## Reservoir Intelligence / Interpretation 2.0
 
@@ -51,3 +38,11 @@ Status: **FROZEN AFTER ACCEPTANCE**. The accepted Definition of Done remains a m
 - Depth engineering panel;
 - engineering interval summary and reproducible visual classification;
 - Definition of Done: all approved views use one calculation result and remain unchanged by print/export increments.
+
+## Open Standards and Legal Research Governance
+
+External standards and third-party components may be integrated only through policy, a machine-readable registry, license evidence, and an isolated adapter boundary.
+
+## Petrophysical Engine
+
+Status: **BLOCKED** until Stage 4 is complete. Only critical fixes that preserve the approved calculation contract are allowed.

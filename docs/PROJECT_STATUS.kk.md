@@ -1,34 +1,35 @@
-# Ағымдағы күй — v225.4
+# Ағымдағы күй — v225.5
 
 Жаңартылған күні: 18 шілде 2026 жыл.
 
-**Visible Professional Print Center & Direct DOCX/HTML Preview** кезеңі аяқталды:
+## Белсенді кезең
 
-- көрінетін Professional Print Center `VisualizationPageAwarePackage` пакетін тікелей есептейді;
-- іске қоспас бұрын нақты A4/A3 профилі, бағдар, DPI, бет саны және дайындық күйі көрсетіледі;
-- пайдаланушы әр физикалық SVG бетін таңдап, қарай алады;
-- `VisualizationPageAwarePackage` v1.2, preview contract v1.1 нұсқасына жаңартылды;
-- ағымдағы есеп `DataFrame`-ынан пакет жасап, шикі деректерді downstream қабатына бермейтін `ReportPageAwarePreviewService` қосылды;
-- HTML, DOCX және PDF ортақ қатаң normalizer мен канондық `pages` массивін қолданады;
-- layout-ты қайта есептеуге және бірінші бетке үнсіз fallback жасауға тыйым салынған;
-- біріктірілген `bundle` форматы сол page-aware payload-қа қосылған;
-- жиынтық, бет белгілері және хабарлар орыс, қазақ және ағылшын тілдерінде жергіліктендірілген.
+**Stage 4 — Workbench UI Completion / Stabilization & Release Audit.** Жинақ мәртебесі: **release candidate v225.5**.
 
-## Шығарылымды басқару
+## Іске асырылды
 
-Ағымдағы кезең: **Stabilization & Release Audit**. **Release candidate v225.4** multi-format parity, қатаң preview contract, үш тілдегі құжаттама және қайталанатын архив бойынша тексеріледі.
+- `VisualizationCrossFormatParityGate` SVG, PNG, PDF, DOCX және HTML сәйкестігін автоматты тексереді;
+- `VisualizationPageAwarePackage` v1.3 parity gate сәтті болғанда ғана дайын болады;
+- Professional Print Center нақты профильді, беттерді, parity status және gate id көрсетеді;
+- сақталатын A4/A3 пайдаланушы физикалық профильдері қосылды;
+- ең кіші қаріп, сызық және трек ені базалық safety floor арқылы қорғалған;
+- professional report export және LAS Viewer page-aware static delivery пайдаланады;
+- көпбетті SVG/PNG `manifest.json` бар ZIP-пакетпен беріледі;
+- legacy CompositeLog static-export өшірілді;
+- құжаттама орыс, қазақ және ағылшын тілдерінде синхрондалды.
 
-## Келесі рұқсат етілген кезең
+## Релизді тексеру
 
-1. A4/A3 үшін көрінетін preview мен PDF/DOCX/HTML/SVG/PNG parity сәйкестігін автоматтандырылған түрде дәлелдеу.
-2. Дәлелденген parity-ден кейін ғана қалған legacy static-export жолдарын жою.
-3. Ең төмен рұқсат етілген типографиканы сақтайтын пайдаланушы физикалық профильдерін қосу.
-4. Ескірген legacy-UI тест келісімшарттарына жеке аудит жүргізу.
-## v225.4 тексеруі
+Release gate нәтижесі:
 
-- 166 мақсатты және governance тесті өтеді;
-- 2838 тесттен тұратын толық жинақ төрт тең бөлікпен орындалды: 2787 passed, 51 failed;
-- 51 қатенің барлығы таза v225.3 архивінде қайта іске қосылып, толық қайталанды; v225.4 жаңа regression failure енгізбеді;
-- Python compileall өтеді;
-- README және `docs/` ішіндегі барлық салыстырмалы Markdown сілтемелері, соның ішінде архив жоспарлары, дұрыс ашылады;
-- 51 ескірген legacy келісімшарты бөлек аудитті қажет ететіндіктен жинақ release candidate күйінде қалады, бірақ олар тексерілген v225.4 print/export кезеңін бұғаттамайды.
+- мақсатты renderer/export/UI жинағы: **123 passed**;
+- толық regression suite: **2843 tests, 2792 passed, 51 failed**;
+- 51 ақаудың барлығы таза v225.4 нұсқасында қайталанды;
+- v225.5 жаңа regression failures: **0**;
+- Python compileall, 108 салыстырмалы Markdown-сілтеме және documentation manifest: сәтті.
+
+Белгілі legacy regression failures бөлек бағаланады және жасырылмайды.
+
+## Келесі кезең
+
+Stage 4 нақты пайдаланушы acceptance-path арқылы аяқталады: профиль жасау/таңдау, preflight preview, parity status, PDF/DOCX/HTML және multi-page SVG/PNG bundle экспорты.

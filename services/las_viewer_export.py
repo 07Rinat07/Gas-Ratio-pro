@@ -12,6 +12,7 @@ from hashlib import sha256
 from typing import Any, Mapping
 
 from services.las_viewer_navigation import LasViewerNavigationController
+from services.page_aware_static_export import build_page_aware_static_artifact
 from services.las_viewer_shared_interaction import LasViewerSharedInteractionResult
 from services.visualization_export_qa import VisualizationExportQaValidator
 from services.visualization_page_aware_package import VisualizationPageAwarePackageBuilder
@@ -130,13 +131,21 @@ class LasViewerExportService:
 
         svg_pages = tuple(page.svg.encode("utf-8") for page in package.pages)
         png_pages = tuple(page.png_bytes for page in package.pages)
+        svg_delivery = (
+            build_page_aware_static_artifact(package, format_name="svg", base_name="las_viewer")
+            if package.export_ready else None
+        )
+        png_delivery = (
+            build_page_aware_static_artifact(package, format_name="png", base_name="las_viewer")
+            if package.export_ready else None
+        )
         svg = LasViewerExportResult(
             format="svg",
             viewport_start=start,
             viewport_stop=stop,
             geometry_signature=package.geometry_signature,
             export_ready=package.export_ready,
-            content=svg_pages[0] if svg_pages else b"",
+            content=svg_delivery.content if svg_delivery is not None else b"",
             page_contents=svg_pages,
             page_count=package.page_count,
             validation=validation,
@@ -161,7 +170,7 @@ class LasViewerExportService:
             viewport_stop=stop,
             geometry_signature=package.geometry_signature,
             export_ready=package.export_ready,
-            content=png_pages[0] if png_pages else b"",
+            content=png_delivery.content if png_delivery is not None else b"",
             page_contents=png_pages,
             page_count=package.page_count,
             validation=validation,
